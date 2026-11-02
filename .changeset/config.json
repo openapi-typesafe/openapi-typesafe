@@ -1,7 +1,16 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@4.0.1/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "openapi-typesafe/openapi-typesafe" }],
-  "ignore": ["openapi-typesafe-docs", "@example/*"],
+  "changelog": [
+    "@changesets/changelog-github",
+    {
+      "repo": "openapi-typesafe/openapi-typesafe"
+    }
+  ],
+  "ignore": [
+    "openapi-typesafe-docs",
+    "@example/*",
+    "@openapi-typesafe/compat-harness"
+  ],
   "commit": false,
   "fixed": [],
   "linked": [],

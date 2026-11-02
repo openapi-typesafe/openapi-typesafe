@@ -18,7 +18,7 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [002](./002-type-ir-and-string-printer.md) | Own Type IR and string printer instead of the TypeScript compiler API | Accepted |
 | [003](./003-dependency-policy.md) | Dependency policy and initial dependency review | Accepted |
 | 004 | Legacy `ts.Node` callbacks and `stringToAST` | Pending (after research task 3.1) |
-| 005 | Schema loader and `$ref` bundling | Pending (after research task 3.5) |
+| [005](./005-schema-loader.md) | Keep Redocly 1.34.x as the schema loader for 1.0 | Accepted |
 | [006](./006-supported-versions.md) | Supported TypeScript and Node versions, strict compiler flags rollout | Accepted |
 | 007 | Release, provenance and npm name reservation | Pending (Phase 9) |
 | [008](./008-client-source-language.md) | Client source language | Accepted |
