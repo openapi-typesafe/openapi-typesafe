@@ -13,6 +13,7 @@ describe("parseCliArguments", () => {
       isVersion: false,
       generatorFlags: {},
       refLimits: {},
+      unknownFlags: [],
     });
   });
 
@@ -105,6 +106,26 @@ describe("parseCliArguments removed flags", () => {
     ["--redoc", "--redocly"],
   ])("parseCliArguments with %s names the current flag %s", (flag, current) => {
     expect(() => parseCliArguments([flag])).toThrow(`"${current}"`);
+  });
+});
+
+describe("unknown flags", () => {
+  it("parseCliArguments lists unknown flags once each, as written", () => {
+    const args = parseCliArguments(["schema.yaml", "--alphabetise", "--bogus-flag=1", "-x", "--no-thing"]);
+
+    expect(args.unknownFlags).toEqual(["--alphabetise", "--bogus-flag", "-x", "--thing"]);
+  });
+
+  it("parseCliArguments knows every flag of the help text", () => {
+    const args = parseCliArguments([
+      "schema.yaml",
+      ...GENERATOR_FLAGS.map((flag) => `--${kebabCase(flag)}`),
+      ...["--check", "--content-never", "--help", "--version", "--no-alphabetize"],
+      ...["-o", "out.ts", "-c", "redocly.yaml", "-t", "--output", "o.ts", "--redocly", "r.yaml"],
+      ...["--local-ref-root", "api", "--remote-ref-hosts", "a.example", "--exportType"],
+    ]);
+
+    expect(args.unknownFlags).toEqual([]);
   });
 });
 

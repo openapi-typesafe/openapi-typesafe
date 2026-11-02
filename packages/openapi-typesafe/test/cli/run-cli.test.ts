@@ -55,6 +55,15 @@ describe("runCli: help, version and flags", () => {
     expect(cli.console.noticeLines).toEqual(["--root-types-keep-casing has no effect without --root-types flag"]);
   });
 
+  it("runCli with an unknown flag prints a notice and still runs", async () => {
+    const cli = createFakeCli();
+
+    const exitCode = await runCli(["a.yaml", "--alphabetise"], cli.deps);
+
+    expect(exitCode).toBe(0);
+    expect(cli.console.noticeLines).toEqual(["Unknown flag --alphabetise is ignored (see --help)"]);
+  });
+
   it("runCli with a glob input exits with 2", async () => {
     const cli = createFakeCli();
 

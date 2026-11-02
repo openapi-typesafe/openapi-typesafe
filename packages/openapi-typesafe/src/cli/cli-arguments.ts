@@ -61,6 +61,8 @@ export interface CliArguments {
   readonly isVersion: boolean;
   readonly generatorFlags: GeneratorFlags;
   readonly refLimits: CliRefLimits;
+  /** Flags the CLI does not know, as written on the command line (`--bogus`, `-x`). */
+  readonly unknownFlags: readonly string[];
 }
 
 /** Flags of older versions that were removed or renamed, with the message for each. */
@@ -143,13 +145,34 @@ const STRING_FLAGS = [
   ...["localRefRoot", "remoteRefHosts"].flatMap((flag) => [flag, kebabCase(flag)]),
 ];
 
+const ALIASES = { redocly: ["c"], exportType: ["t"], output: ["o"] };
+
+/** Every name yargs-parser can return for a flag this CLI reads. */
+const KNOWN_FLAGS = new Set<string>([
+  ...BOOLEAN_FLAGS,
+  ...STRING_FLAGS,
+  ...Object.values(ALIASES).flat(),
+  "version",
+]);
+
+/**
+ * Flags that no code reads. The original CLI ignored them silently, so a typo such as
+ * `--alphabetise` gave other output with no hint; they still do not fail the run.
+ */
+function unknownFlagsOf(parsed: parser.Arguments): string[] {
+  const names = Object.keys(parsed)
+    .filter((key) => key !== "_" && key !== "--" && !KNOWN_FLAGS.has(key))
+    .map((key) => (key.length === 1 ? `-${key}` : `--${kebabCase(key)}`));
+  return [...new Set(names)];
+}
+
 /** Parse the arguments after `node cli.js`. Fails with `CLI_FLAG_REMOVED` for an old flag. */
 export function parseCliArguments(argv: readonly string[]): CliArguments {
   rejectRemovedFlags(argv);
   const parsed = parser([...argv], {
     boolean: BOOLEAN_FLAGS,
     string: STRING_FLAGS,
-    alias: { redocly: ["c"], exportType: ["t"], output: ["o"] },
+    alias: ALIASES,
   });
   return {
     input: optionalString(parsed._[0]),
@@ -160,5 +183,6 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
     isVersion: "version" in parsed,
     generatorFlags: generatorFlagsOf(parsed),
     refLimits: refLimitsOf(parsed),
+    unknownFlags: unknownFlagsOf(parsed),
   };
 }

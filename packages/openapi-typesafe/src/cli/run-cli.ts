@@ -78,6 +78,9 @@ async function runCommand(argv: readonly string[], deps: CliDependencies): Promi
     deps.console.notice(notice);
   }
   const args = parseCliArguments(argv);
+  for (const flag of args.unknownFlags) {
+    deps.console.notice(`Unknown flag ${flag} is ignored (see --help)`);
+  }
   if (args.isHelp || args.isVersion) {
     deps.console.info(args.isHelp ? HELP_TEXT : `v${deps.version}`);
     return [];
