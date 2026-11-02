@@ -1,5 +1,8 @@
 // settings & const
 const PATH_PARAM_RE = /\{[^{}]+\}/g;
+/** Any JSON media type: `application/json`, `application/problem+json`, with or without parameters. */
+const JSON_MEDIA_TYPE_RE = /json/i;
+const FORM_MEDIA_TYPE = "application/x-www-form-urlencoded";
 
 /**
  * Whether `fetch` is Node.js undici, which takes `requestInitExt` as a second argument. A Node.js
@@ -633,16 +636,20 @@ export function defaultBodySerializer(body, headers) {
   if (body instanceof FormData) {
     return body;
   }
-  if (headers) {
-    const contentType =
-      // `typeof`, not `instanceof Function`: headers from another realm (iframe, `node:vm`) have a
+  const contentType = headers
+    ? // `typeof`, not `instanceof Function`: headers from another realm (iframe, `node:vm`) have a
       // `get` that is not an instance of this realm's Function (upstream #2637).
       typeof headers.get === "function"
-        ? (headers.get("Content-Type") ?? headers.get("content-type"))
-        : (headers["Content-Type"] ?? headers["content-type"]);
-    if (contentType === "application/x-www-form-urlencoded") {
-      return new URLSearchParams(body).toString();
-    }
+      ? (headers.get("Content-Type") ?? headers.get("content-type"))
+      : (headers["Content-Type"] ?? headers["content-type"])
+    : undefined;
+  if (contentType === FORM_MEDIA_TYPE) {
+    return new URLSearchParams(body).toString();
+  }
+  // A string for a non-JSON media type (`text/plain`, ...) is the body itself; JSON-encoding it
+  // added quotes (upstream #2555, #2382). For JSON, a string is a JSON string value (ADR-013).
+  if (typeof body === "string" && contentType && !JSON_MEDIA_TYPE_RE.test(contentType)) {
+    return body;
   }
   return JSON.stringify(body);
 }
