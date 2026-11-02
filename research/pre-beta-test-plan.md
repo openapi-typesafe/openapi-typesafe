@@ -48,12 +48,13 @@ workspace never resolves anything for them.
 | Module system | ESM (`"type": "module"`), CommonJS |
 | `moduleResolution` | `bundler`, `node16`, `nodenext` |
 | Strict flags | `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`, `isolatedDeclarations`, `noPropertyAccessFromIndexSignature` |
-| Runtimes (clients) | Node.js, Bun, Deno, Chromium, Firefox, WebKit (all in CI today); a Workers-like runtime (`workerd`) is new |
+| Runtimes (clients) | Node.js, Bun, Deno, Chromium, Firefox, WebKit (all in CI today); a Workers-like runtime (`workerd`, new, §6.11) |
 | OS | macOS locally; Linux in CI; Windows only after the repository is public |
 
 Not every combination: the full grid would be thousands of runs. Each section names the slice
 it needs: §3 runs every package manager on every Node.js version, `moduleResolution` values are
-covered by §3.5, TypeScript versions and strict flags by §4.2 and §6.8.
+covered by §3.5, TypeScript versions and strict flags by §4.2, §6.8 (client inference) and
+§7.4.
 
 ## 3. Install from the beta tarballs (the tester's first 10 minutes)
 
@@ -63,22 +64,31 @@ Follow `RELEASE_NOTES.md` of `beta-1.0.0-beta.1` word by word, as a tester would
 - [ ] 3.2 Install with npm, pnpm and Yarn, using exactly the `overrides` / `resolutions`
       snippets from the notes. No openapi-typesafe package is looked up on npm. The names now
       exist on npm as deprecated `0.0.0` placeholders, so a missing override fails with "no
-      matching version" instead of "not found": check that the notes explain that error. Bun
-      has no snippet in the notes yet: find the working recipe and add it.
+      matching version" instead of "not found": check that the notes explain that error. The
+      npm snippet uses the `$openapi-typesafe-fetch` reference, which only npm understands;
+      the notes tell Yarn users to use `resolutions` "instead": check what Yarn berry needs
+      and write it out. Bun has no snippet yet: find the working recipe and add it.
 - [ ] 3.3 `openapi-typesafe --version` and `--help` work through each manager's own runner
       (`npx`, `pnpm exec`, `yarn`, `bunx`).
-- [ ] 3.4 Every package imports in ESM and in CJS (`require`) where its `exports` map says so.
+- [ ] 3.4 Every library package (all except `openapi-typesafe-migrate`, which is a CLI with no
+      `exports`) imports in ESM and in CJS (`require`) where its `exports` map says so.
 - [ ] 3.5 Types resolve for every `moduleResolution` value in §2 (the client packages have no
       `types` condition in `exports` and a `./*` wildcard export: check both): run
       [`@arethetypeswrong/cli`](https://github.com/arethetypeswrong/arethetypeswrong.github.io)
       and [`publint`](https://publint.dev) on each tarball (check the latest versions first).
+      CI already runs `attw` (`scripts/check-exports.sh`) and the tarball file check
+      (`scripts/check-tarball-files.mjs`) on the workspace packages; what is new here is
+      running them on the beta tarballs, whose manifests `pack-beta.sh` rewrites, plus
+      `publint`.
 - [ ] 3.6 Tarball contents: no tests, fixtures, source maps to missing files, `.logs`, or
       personal files; `LICENSE` and `README.md` present; `bin` files have a shebang and run.
 - [ ] 3.7 `peerDependencies` ranges: install with the lowest and the highest allowed version;
       no peer warnings. `@tanstack/react-query` `^5.80.0` for the React Query client. The
       generator's optional `typescript` peer says `>=5.0.0`, while ADR-006 supports 5.4+ and
       ADR-004 tests the legacy callbacks with 5.9 and 6.x: test 5.0 and 5.4 with those
-      callbacks, then fix the range or the docs.
+      callbacks, then fix the range or the docs. Also the optional `@typescript/typescript6`
+      `^6.0.0` peer, and the React Query client's peer on `openapi-typesafe-fetch` (pinned
+      exactly in the beta tarballs). Lowest allowed runtime dependencies too: see PB-2.
 - [ ] 3.8 The migration path from the notes: `openapi-typesafe-migrate --write`, then replace
       `^1.0.0-beta.1` with the `file:` paths. Check that the notes are enough on their own.
 
@@ -89,7 +99,8 @@ DigitalOcean and smaller ones), the compat corpus (1,820 documents), and large p
 them, picked by hand: Kubernetes, Cloudflare, Twilio, Slack, Jira, and a 3.1 document with
 webhooks.
 
-- [ ] 4.1 Full compat run, all option sets, locally (from `tools/compat-harness`):
+- [ ] 4.1 Full compat run, all option sets, locally (Node.js ≥ 22.18; first
+      `pnpm --filter openapi-typesafe run build`; then from `tools/compat-harness`):
       `scripts/prepare-generators.sh`, `node src/cli/main.ts fetch --corpus all`, then
       `scripts/run-compat.sh all all`. Every difference from `fork-base` is classified:
       documented fix, byte-only difference with identical types, or defect. The report's
@@ -97,6 +108,8 @@ webhooks.
 - [ ] 4.2 Generated output type-checks with every strict flag of §2: the whole corpus with
       the default options under TypeScript 5.4 and 7.0, and every option set on the example
       schemas under every TypeScript version (the type matrix covers a sample today).
+      `examples/digital-ocean-api.ts` and `examples/enum-root-types.ts` are excluded from
+      `tsconfig.examples.json` and the type-matrix consumer: include them or record why.
 - [ ] 4.3 Generated output has no `any` that the schema did not ask for, and is stable: two
       runs on the same input give the same bytes, also with a different key order in YAML.
 - [ ] 4.4 OpenAPI versions: 3.0.x, 3.1.x (incl. `type` arrays, `const`, `$defs`,
@@ -108,14 +121,18 @@ webhooks.
       `docs/cli.md`), stdin, a `redocly.yaml` with several APIs, multi-file `$ref` (relative,
       absolute, URL, circular, to a JSON pointer with `~0`/`~1`/`%`). Output: to a file, and to
       stdout when `--output` is not given.
-- [ ] 4.6 Every CLI flag alone, and every pair that interacts (`--enum` × `--enum-values` ×
-      `--dedupe-enums` × `--conditional-enums`; `--root-types` × its two modifiers;
-      `--immutable` × `--read-write-markers`; `--export-type` × `--root-types`). Compare each
-      with `fork-base`.
+- [ ] 4.6 Every CLI flag alone, and every pair that interacts. The harness matrix
+      (`tools/compat-harness/src/domain/option-matrix.ts`) has single flags and three pairs
+      (`--root-types` × its two modifiers, `--enum` × `--dedupe-enums`); add `--enum` ×
+      `--enum-values`, `--enum` × `--conditional-enums`, `--immutable` × `--read-write-markers`
+      and `--export-type` × `--root-types`. Flags whose default is `true`
+      (`--default-non-nullable`) need their negative form (`--default-non-nullable=false`).
+      Compare flags that exist in `fork-base` with it; test the new flags (`--no-lint`,
+      `--local-ref-root`, `--remote-ref-hosts`) against their docs and ADR-017.
 - [ ] 4.7 `--check`: up to date, out of date, missing output. Every row of the exit-code table
       in `docs/cli.md` (0, 1, 2, 3, 4) is reached with the listed error codes. With several
       APIs in `redocly.yaml`, the others still run when one fails, and the exit code is the
-      first failure's.
+      first failure's. `--check` with no output (see PB-4).
 - [ ] 4.8 Performance: time and peak memory on the largest documents (GitHub, Stripe,
       Kubernetes), 5 runs each, median. Budget: at most 10% slower than openapi-typescript
       7.13 (users notice more than that in watch scripts and CI).
@@ -126,12 +143,19 @@ webhooks.
 
 - [ ] 5.1 Every example in `docs/node.md` runs as written (copy-paste into a fresh project).
 - [ ] 5.2 Every CLI flag behaves like its Node API option. Options that have no flag
-      (`transform`, `postTransform`, `transformProperty`, `irCallbacks`, `inject`, the Redocly
-      config object) are documented in `docs/node.md`; the deprecated TypeScript-node callbacks
-      warn once.
-- [ ] 5.3 Input kinds: parsed object, YAML or JSON string, `URL` (file and remote), `Readable`
-      stream; `transform` / `postTransform` callbacks; `astToString`.
-- [ ] 5.4 Errors: each code of ADR-011 is reachable, typed, and has a useful message.
+      (`transform`, `postTransform`, `transformProperty`, `irCallbacks`, `inject`, `silent`,
+      `cwd`, the Redocly config object) are documented in `docs/node.md`; the deprecated
+      TypeScript-node callbacks warn once. Deprecated exports (`stringToAST` with its
+      `DeprecationWarning`, `resolveRef`, `walk`, `c`, `debug`, `warn`, `error`,
+      `scanDiscriminators`, see `.changeset/deprecate-*.md`) still work; `stringToAST` warns at
+      run time, the others are `@deprecated` in the types only.
+- [ ] 5.3 Input kinds (`SchemaSource`): parsed object, YAML or JSON string, a string that
+      starts with `http(s)://` or `file://`, `URL` (file and remote), `Buffer`, `Readable`
+      stream (also one that emits an error, see PB-5); `transform` / `postTransform`
+      callbacks; `astToString`. A plain file path string is parsed as YAML, not loaded (PB-6).
+- [ ] 5.4 Errors: each entry of `ERROR_CODES` (`src/domain/errors.ts`) that the Node API can
+      raise (all except `CLI_*` and `OUTPUT_*`, which §4.7 covers) is reachable, typed as
+      ADR-011 says, and has a useful message.
 - [ ] 5.5 Concurrency: many parallel `openapiTS()` calls give the same output as sequential
       ones (no shared state between runs).
 
@@ -142,12 +166,16 @@ Bun, Deno and the browsers run a smoke subset through the existing runtime and b
 
 - [ ] 6.1 Every HTTP method; path parameters in every style (`simple`, `label`, `matrix`,
       with and without `explode`), query and header parameters. Cookie parameters are typed
-      but not sent, as in openapi-fetch: check that the docs say so.
+      but not sent, as in openapi-fetch: check that the docs say so. `TRACE` is rejected by
+      the platform's `Request` (ADR-013, item 5): check the error is clear.
 - [ ] 6.2 Query serialization: `form`/`spaceDelimited`/`pipeDelimited`/`deepObject`, `explode`
       true/false, arrays, nested objects, `null`/`undefined`, reserved characters, Unicode.
 - [ ] 6.3 Bodies: JSON, `application/x-www-form-urlencoded`, `multipart/form-data` with files,
-      `Blob`, `ArrayBuffer`, streams, custom `bodySerializer`. The form media type is
-      serialized by the client itself (`URLSearchParams`); check nested values.
+      `Blob`, `ArrayBuffer`, streams, custom `bodySerializer`. Expected today: the client
+      builds `URLSearchParams` only when the caller sets `Content-Type:
+      application/x-www-form-urlencoded`; any other non-`FormData` body, `Blob` and
+      `ArrayBuffer` included, goes through `JSON.stringify` unless a `bodySerializer` is given.
+      Check nested form values, and whether that default surprises users (docs or fix).
 - [ ] 6.4 Responses: JSON, text, empty (204 / `content-length: 0`), binary, stream,
       `parseAs` options; `data`/`error` narrowing by status in the types.
 - [ ] 6.5 Errors: network failure, abort (`signal`), non-JSON error body, thrown middleware.
@@ -159,8 +187,14 @@ Bun, Deno and the browsers run a smoke subset through the existing runtime and b
       `any` (type tests with `expectTypeOf`). Record the type-check time and instantiation
       count (`tsc --extendedDiagnostics`) against openapi-fetch 0.17 as the baseline.
 - [ ] 6.9 Behaviour parity with openapi-fetch 0.17: same requests on the wire for the same
-      calls, except the documented fixes of ADR-013.
-- [ ] 6.10 `openapi-typesafe-helpers` has no runtime code of its own: its types are checked
+      calls, except the documented fixes: ADR-013, `.changeset/cross-realm-headers.md`,
+      `.changeset/fix-empty-error-response.md`.
+- [ ] 6.10 The rest of the public API (`src/index.d.ts`): `createPathBasedClient`,
+      `wrapAsPathBasedClient`, `client.request()`, `use()` / `eject()`, the `pathSerializer`
+      and `requestInitExt` options, the `Media` type parameter, and output generated with
+      `--read-write-markers` (`Readable` / `Writable` request and response types).
+- [ ] 6.11 A smoke run of the client in `workerd` (Cloudflare Workers runtime), new.
+- [ ] 6.12 `openapi-typesafe-helpers` has no runtime code of its own: its types are checked
       through 6.8, and its public type names match openapi-typescript-helpers, so code that
       imports them directly keeps compiling after §8.
 
@@ -169,14 +203,21 @@ Bun, Deno and the browsers run a smoke subset through the existing runtime and b
 - [ ] 7.1 `useQuery`, `useSuspenseQuery`, `useInfiniteQuery`, `useMutation`, `queryOptions`
       with React 18 and 19 and TanStack Query 5.80 (lowest allowed) and the latest 5.x.
 - [ ] 7.2 Query keys: stable, unique per params, usable for `invalidateQueries`.
-- [ ] 7.3 Server rendering and hydration (`renderToString` plus `HydrationBoundary`; there
-      is no Next.js example yet), Suspense boundaries, error boundaries.
+- [ ] 7.3 Server rendering and hydration (`renderToString` plus `HydrationBoundary`; the
+      React Query client has no Next.js example, the fetch client has one), Suspense
+      boundaries, error boundaries.
 - [ ] 7.4 Types with `exactOptionalPropertyTypes` (ADR-009).
 - [ ] 7.5 Every example in `docs/react-query/*` compiles and runs.
+- [ ] 7.6 An error response with an empty body fails the query (ADR-013, decision 3); `signal`
+      is passed and cancels the request; `pageParamName` of `useInfiniteQuery`; the typed
+      `queryKey` (`DataTag`) works with `setQueryData` / `getQueryData`.
 
 ## 8. Migration tool (`openapi-typesafe-migrate`)
 
-On real projects from `research/dependents.csv` (top 20 by stars or downloads), cloned fresh.
+On real projects. Start with the existing tool: `pnpm harness dependents --switch migrate`
+(from `tools/compat-harness`) clones the 15 projects of `corpus/dependents.json` at pinned
+commits, runs their checks before and after the migration (see "Real projects" in its README).
+Then add more projects from `research/dependents.csv` that the harness does not cover.
 
 - [ ] 8.1 Dry run lists every change; `--write` applies exactly those.
 - [ ] 8.2 After the migration the project installs, generates, type-checks and passes its own
@@ -184,8 +225,11 @@ On real projects from `research/dependents.csv` (top 20 by stars or downloads), 
 - [ ] 8.3 What it rewrites, each on a real case:
       - sources: static, type-only and dynamic imports, `require()`, re-exports, `vi.mock()`,
         `declare module`, deep imports (reported as manual steps), `transform` callbacks;
-      - manifests: dependencies, `overrides`/`resolutions`, peer dependencies, `package.json`
-        scripts, pnpm catalogs in `pnpm-workspace.yaml`, monorepos (pnpm, npm, Yarn);
+      - manifests: dependency fields and `package.json` scripts are rewritten; peer
+        dependencies and `overrides`/`resolutions` that name an old package are reported as
+        manual steps; pnpm `catalog`/`catalogs` in `pnpm-workspace.yaml` are rewritten, but
+        its `overrides:` are neither rewritten nor reported (check: finding or docs);
+        monorepos (pnpm, npm, Yarn);
       - commands and flags in `.yml`/`.yaml` (CI workflows), `.sh`, `Makefile`, `justfile` and
         `Dockerfile`;
       - it skips `node_modules`, `.git` and `dist` only: check that build output in other
@@ -193,8 +237,9 @@ On real projects from `research/dependents.csv` (top 20 by stars or downloads), 
         sensibly.
 - [ ] 8.4 Running it twice changes nothing the second time; it never touches lockfiles
       (`pnpm-lock.yaml`, `yarn.lock`, `bun.lock` are skipped by name; check `package-lock.json`
-      too) or files outside `--root`. It does not check for uncommitted changes today: decide whether
-      the guide should tell users to commit first, or the tool should warn.
+      too) or files outside `--root`. The guide and the README already say to start from a
+      clean git tree; decide whether the tool should also warn. The `--log` option and the
+      exit codes 0/1/2 work as its `--help` says.
 - [ ] 8.5 `docs/migration-guide.md` steps work word by word.
 
 ## 9. Documentation and examples
@@ -202,10 +247,15 @@ On real projects from `research/dependents.csv` (top 20 by stars or downloads), 
 - [ ] 9.1 Every code block in `docs/` and every `README.md` is either compiled by a test or
       checked by hand in a fresh project. List the ones not covered by tests.
 - [ ] 9.2 Every CLI flag, option and error code in the code is documented, and every
-      documented one exists.
+      documented one exists. Known: PB-1; the `-c` alias of `--redocly` is missing from the
+      flag table of `docs/cli.md`; `--content-never` is accepted on purpose but read by no code
+      (`cli-arguments.ts`): document it as ignored or remove it with a changeset; PB-7.
 - [ ] 9.3 The docs site (VitePress) builds, all links work, the local search finds the main
       topics, and it reads well on a phone.
 - [ ] 9.4 `docs/typescript-7.md` claims are checked against the real TypeScript 7 releases.
+- [ ] 9.5 The example apps `packages/openapi-typesafe-fetch/examples/{nextjs,sveltekit,vue-3}`
+      (linked from `docs/fetch/examples.md`) install, build and run; nothing builds them today.
+- [ ] 9.6 `llms.txt` and `llms-full.txt` of the docs site are generated and complete.
 
 ## 10. Security (threat model)
 
@@ -221,10 +271,12 @@ accepted by design and has no test.
       `file://`, encoded paths), `--remote-ref-hosts` bypass attempts (redirects, userinfo,
       IPv6, uppercase hosts, trailing dots).
 - [ ] 10.4 T5, unsafe requests from the fetch client: path values with `..`, `/`, `?`, `#` and
-      encoded forms, with and without `allowReserved`; header values with line breaks; query
-      values that try to add parameters.
+      encoded forms (expect percent-encoding, and an error for a dot segment, ADR-013; see
+      PB-3); query values with and without `allowReserved` (it applies to query parameters
+      only), and values that try to add parameters; header values with line breaks.
 - [ ] 10.5 T6, supply chain: `pnpm audit` (the known `@redocly/openapi-core` 1.x advisories are
-      tracked by ADR-005; anything new is a finding), licenses of all production dependencies,
+      listed in `research/backlog.md`, item 2, and ADR-005's review trigger covers a 1.x
+      advisory without a fix; anything new is a finding), licenses of all production dependencies,
       no install scripts in our packages.
 - [ ] 10.6 Not in the threat model: prototype keys (`__proto__`, `constructor`, `prototype`) in
       schemas, paths and parameters, in the generator and in the clients' serializers. A
@@ -254,6 +306,12 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 | ID | Area | Severity | Repro | Status |
 |---|---|---|---|---|
 | PB-1 | CLI | S3 | `openapi-typesafe --help` does not list `--generate-path-params`, which `docs/cli.md` documents and the CLI accepts | open |
+| PB-2 | generator deps | S2 | `@redocly/openapi-core` range is `^1.34.6`, but 1.34.6 rejects OpenAPI 3.2 (ADR-005), which the docs say is accepted: an install that resolves the lowest allowed version fails on 3.2 documents. Raise the lower bound to the first version that accepts 3.2 | open |
+| PB-3 | docs, fetch | S3 | `docs/security/threat-model.md` T5 says dot segments in path values "are encoded"; the client throws `Dot path segment in …` (ADR-013) | open |
+| PB-4 | CLI | S2 | `openapi-typesafe schema.yaml --check` with no `--output` and no APIs in `redocly.yaml` prints the types and exits 0 without checking anything (`run-cli.ts`); compare with `fork-base`, then fail or document | open |
+| PB-5 | Node API | S2 | `openapiTS(stream)` with a `Readable` that emits `error` never settles: `readStream` in `schema-source.ts` has no `error` listener | open |
+| PB-6 | docs, Node API | S3 | `docs/node.md` says a string loads "a local file"; a plain path string is parsed as YAML, only `file://` / `http(s)://` strings are loaded | open |
+| PB-7 | CLI | S3 | `CLI_GLOB_UNSUPPORTED` and `CLI_CONFIG_OUTPUT_MISSING` messages link to the upstream site `https://openapi-ts.dev/cli/#multiple-schemas` (`run-cli.ts`, `redocly-apis.ts`) | open |
 
 ## 14. Exit criteria (before inviting testers)
 
