@@ -1,9 +1,15 @@
 import type { OasRef, Referenced } from "@redocly/openapi-core";
 import ts, { type LiteralTypeNode, type TypeLiteralNode } from "typescript";
-import { toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import { toStatements, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import { printNodes } from "../application/print/print-nodes.js";
+import { type AstToStringOptions, printWithTypeScript } from "./typescript-printer.js";
+
+export type { AstToStringOptions } from "./typescript-printer.js";
+
 import { literalType } from "../application/transform/literal-type.js";
 import { refType } from "../application/transform/ref-type.js";
 import { schemaComment } from "../application/transform/schema-comment.js";
+import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { ParameterObject } from "../types.js";
 import { injectWithRequiredHelper } from "./footer-helpers.js";
 
@@ -101,34 +107,31 @@ export function oapiRef(path: string, resolved?: OapiRefResolved, options: OapiR
   );
 }
 
-export interface AstToStringOptions {
-  fileName?: string;
-  sourceText?: string;
-  formatOptions?: ts.PrinterOptions;
+/** Convert TypeScript AST to string */
+/** What `astToString` prints: IR declarations (what `openapiTS` returns) or TypeScript nodes. */
+export type AstToStringInput =
+  | IrDeclaration
+  | ts.Node
+  | ts.TypeElement
+  | readonly (IrDeclaration | ts.Node | ts.TypeElement)[];
+
+function isIrDeclaration(node: IrDeclaration | ts.Node): node is IrDeclaration {
+  return typeof node.kind === "string";
 }
 
-/** Convert TypeScript AST to string */
-export function astToString(
-  ast: ts.Node | ts.Node[] | ts.TypeElement | ts.TypeElement[],
-  options?: AstToStringOptions,
-): string {
-  const sourceFile = ts.createSourceFile(
-    options?.fileName ?? "openapi-ts.ts",
-    options?.sourceText ?? "",
-    ts.ScriptTarget.ESNext,
-    false,
-    ts.ScriptKind.TS,
-  );
-
-  // @ts-expect-error it’s OK to overwrite statements once
-  sourceFile.statements = ts.factory.createNodeArray(Array.isArray(ast) ? ast : [ast]);
-
-  const printer = ts.createPrinter({
-    newLine: ts.NewLineKind.LineFeed,
-    removeComments: false,
-    ...options?.formatOptions,
-  });
-  return printer.printFile(sourceFile);
+/**
+ * Print declarations as a TypeScript file body. IR declarations are printed by our printer; with
+ * TypeScript nodes in the input, or with TypeScript printer options, everything goes through the
+ * TypeScript printer as before (ADR-004, decision 1).
+ */
+export function astToString(ast: AstToStringInput, options?: AstToStringOptions): string {
+  const nodes: readonly (IrDeclaration | ts.Node)[] = Array.isArray(ast) ? ast : [ast as IrDeclaration | ts.Node];
+  const isIrOnly = nodes.every(isIrDeclaration);
+  if (isIrOnly && !options) {
+    return printNodes(nodes);
+  }
+  const statements = nodes.flatMap((node) => (isIrDeclaration(node) ? toStatements(node) : [node]));
+  return printWithTypeScript(statements, options);
 }
 
 /** Convert an arbitrary string to TS (assuming it’s valid) */

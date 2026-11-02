@@ -31,9 +31,9 @@ The Node.js API accepts either a `URL`, `string`, or JSON object as input:
 
 It also accepts `Readable` streams and `Buffer` types that are resolved and treated as strings (validation, bundling, and type generation can’t really happen without the whole document).
 
-The Node API returns a `Promise` with a TypeScript AST. You can then traverse / manipulate / modify the AST as you see fit.
+The Node API returns a `Promise` with the generated declarations as plain IR objects (`IrDeclaration[]`). Each one is a small object with a `kind` (`interface`, `typeAlias`, `enum`, `constArray`, `rawDeclaration`).
 
-To convert the TypeScript AST into a string, you can use `astToString()` helper which is a thin wrapper around [TypeScript’s printer](https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API#re-printing-sections-of-a-typescript-file):
+To print the declarations, use the `astToString()` helper. It prints IR with the package's own printer; given TypeScript nodes or TypeScript printer options, it falls back to [TypeScript’s printer](https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API#re-printing-sections-of-a-typescript-file):
 
 ::: code-group
 

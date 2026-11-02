@@ -1,11 +1,12 @@
 import { performance } from "node:perf_hooks";
 import type { Readable } from "node:stream";
-import type ts from "typescript";
+import type { IrDeclaration } from "./domain/ir/nodes.js";
+import { documentDeclarations } from "./lib/document-declarations.js";
 import { createDocumentRun } from "./lib/document-run.js";
 import { debug } from "./lib/utils.js";
-import transformSchema from "./transform/index.js";
 import type { OpenAPI3, OpenAPITSOptions } from "./types.js";
 
+export type * from "./domain/ir/nodes.js";
 export * from "./lib/ts.js";
 export * from "./lib/utils.js";
 export { default as transformComponentsObject } from "./transform/components-object.js";
@@ -33,7 +34,7 @@ export const COMMENT_HEADER = `/**
 `;
 
 /**
- * Convert an OpenAPI schema to TypesScript AST
+ * Convert an OpenAPI schema to TypeScript declarations (IR nodes; print them with `astToString`)
  * @param {string|URL|object|Readable} source OpenAPI schema source:
  *   - YAML: string
  *   - JSON: parsed object
@@ -43,10 +44,10 @@ export const COMMENT_HEADER = `/**
 export default async function openapiTS(
   source: string | URL | OpenAPI3 | Buffer | Readable,
   options: OpenAPITSOptions = {} as Partial<OpenAPITSOptions>,
-): Promise<ts.Node[]> {
+): Promise<IrDeclaration[]> {
   const { schema, ctx } = await createDocumentRun(source, options);
   const transformT = performance.now();
-  const result = transformSchema(schema, ctx);
+  const result = documentDeclarations(schema, ctx);
   debug("Completed AST transformation for entire document", "ts", performance.now() - transformT);
 
   return result;

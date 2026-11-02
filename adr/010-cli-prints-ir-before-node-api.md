@@ -1,6 +1,6 @@
 # ADR-010: The CLI prints with our printer before the Node API switches to IR
 
-- Status: Accepted
+- Status: Superseded by ADR-004 (task 6.1 implemented: `openapiTS()` returns IR, the CLI uses it again)
 - Date: 2026-11-02
 
 ## Context

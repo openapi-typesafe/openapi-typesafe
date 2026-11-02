@@ -23,4 +23,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | 007 | Release, provenance and npm name reservation | Pending (Phase 9) |
 | [008](./008-client-source-language.md) | Client source language | Accepted |
 | [009](./009-react-query-exact-optional-property-types.md) | `exactOptionalPropertyTypes` is off for openapi-typesafe-react-query | Accepted |
-| [010](./010-cli-prints-ir-before-node-api.md) | The CLI prints with our printer before the Node API switches to IR | Accepted |
+| [010](./010-cli-prints-ir-before-node-api.md) | The CLI prints with our printer before the Node API switches to IR | Superseded by ADR-004 |
