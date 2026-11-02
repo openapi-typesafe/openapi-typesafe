@@ -30,7 +30,10 @@ class RedoclyConfigFiles implements RedoclyConfigSource {
   }
 
   createDefault(): Promise<RedoclyConfig> {
-    return createConfig({}, { extends: ["minimal"] });
+    return createConfig(
+      { rules: { "operation-operationId-unique": { severity: "warn" } } },
+      { extends: ["minimal"] },
+    );
   }
 }
 

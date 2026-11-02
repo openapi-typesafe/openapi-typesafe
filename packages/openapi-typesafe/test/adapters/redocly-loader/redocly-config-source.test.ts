@@ -60,4 +60,18 @@ describe("createRedoclyConfigSource", () => {
     },
     TIMEOUT,
   );
+
+  it(
+    "createDefault warns about a repeated operationId, whose output does not compile",
+    async () => {
+      // A warning, not an error as in the Node API: the CLI wrote such files before, and projects
+      // with `skipLibCheck` use them.
+      const config = await createRedoclyConfigSource(workDir).createDefault();
+
+      expect(config.styleguide.rules.oas3_1["operation-operationId-unique"]).toEqual({
+        severity: "warn",
+      });
+    },
+    TIMEOUT,
+  );
 });
