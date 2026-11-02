@@ -3,9 +3,9 @@ packages:
   - packages/**
 
 catalog:
-  execa: ^9.6.1
+  execa: ^10.2.1
   typescript: ^5.9.3
-  vite: ^7.3.1
+  vite: ^8.3.5
 
 ignoredBuiltDependencies:
   - '@swc/core'

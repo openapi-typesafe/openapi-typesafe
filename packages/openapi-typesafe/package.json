@@ -83,7 +83,7 @@
     "execa": "catalog:",
     "strip-ansi": "7.2.0",
     "typescript": "catalog:",
-    "vite-node": "5.3.0"
+    "vite-node": "6.0.0"
   },
   "engines": {
     "node": ">=22"

@@ -71,12 +71,10 @@
     "axios": "1.16.0",
     "execa": "catalog:",
     "express": "5.2.1",
-    "feature-fetch": "0.0.55",
+    "feature-fetch": "0.1.2",
     "node-forge": "1.4.0",
     "openapi-typesafe": "workspace:^",
-    "openapi-typescript-codegen": "0.30.0",
     "openapi-typescript-fetch": "2.2.1",
-    "superagent": "10.3.0",
     "typescript": "catalog:",
     "undici": "7.25.0",
     "vite": "catalog:"
