@@ -40,7 +40,7 @@ npm install            # or pnpm install, yarn, bun install
 npm run generate       # your script that runs openapi-typesafe
 ```
 
-Commit the regenerated files once. Unless one of the [output fixes](#output-fixes) applies, the only change is the header line that names the generator:
+Commit the regenerated files once. Unless one of the [output fixes](#output-fixes) applies, the only changes are the comments that name the generator, first the header line:
 
 ```diff
  /**
@@ -49,6 +49,9 @@ Commit the regenerated files once. Unless one of the [output fixes](#output-fixe
   * Do not make direct changes to the file.
   */
 ```
+
+A schema with a `discriminator` also gets the generator's name in the comment of each added
+discriminator property: `@description discriminator enum property added by openapi-typesafe`.
 
 If you check generated files in CI with `--check`, it fails until this commit lands, because the files on disk still carry the old header.
 
