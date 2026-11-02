@@ -1,5 +1,6 @@
 ---
 title: useSuspenseQuery
+description: Typed useSuspenseQuery for OpenAPI endpoints
 ---
 # {{ $frontmatter.title }}
 

@@ -1,5 +1,6 @@
 ---
 title: Middleware & Auth
+description: Change requests and responses for every call, add auth tokens, and handle fetch errors
 ---
 
 # Middleware & Auth

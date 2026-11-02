@@ -54,6 +54,16 @@ const { data, error } = await client.GET("/posts/{post_id}", {
 
 Both the request and the response are checked against the schema. There are no manual type annotations.
 
+## For coding agents
+
+- **Agent skill:** [`skills/openapi-typesafe`](./skills/openapi-typesafe/SKILL.md) teaches an agent the
+  setup, typed calls, error handling, middleware, TanStack Query hooks and the migration from openapi-typescript.
+  It follows the [Agent Skills](https://agentskills.io) format: copy the directory to `.claude/skills/` in your
+  project for Claude Code, or to wherever your agent loads skills. [`tools/skill-evals`](./tools/skill-evals)
+  measures it on 34 coding tasks.
+- **`llms.txt`:** the docs site serves `llms.txt` (an index of every page), `llms-full.txt` (all pages in one
+  file) and a Markdown copy of each page.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md). Project rules are in [GOVERNANCE.md](./GOVERNANCE.md) and the

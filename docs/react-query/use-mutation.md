@@ -1,5 +1,6 @@
 ---
 title: useMutation
+description: Typed useMutation for OpenAPI endpoints
 ---
 # {{ $frontmatter.title }}
 

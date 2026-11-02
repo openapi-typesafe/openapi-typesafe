@@ -1,6 +1,6 @@
 ---
 title: API
-description: openapi-typesafe-fetch API
+description: Every option and export of openapi-typesafe-fetch, such as createClient, request options, serializers and middleware
 ---
 
 # API

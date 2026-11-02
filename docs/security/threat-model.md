@@ -1,3 +1,8 @@
+---
+title: Threat model
+description: How openapi-typesafe treats untrusted OpenAPI documents, what it defends against, and the open risks
+---
+
 # Threat model
 
 ENGINEERING_PLAN 9.1. Reviewed on 2026-11-02 against the code at the commit that adds this file.

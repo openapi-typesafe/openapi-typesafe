@@ -1,5 +1,6 @@
 ---
 title: openapi-typesafe-react-query
+description: Type-safe TanStack Query hooks generated from your OpenAPI schema
 ---
 # Introduction
 

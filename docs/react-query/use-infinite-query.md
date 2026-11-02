@@ -1,5 +1,6 @@
 ---
 title: useInfiniteQuery
+description: Typed useInfiniteQuery for paginated OpenAPI endpoints
 ---
 
 # {{ $frontmatter.title }}

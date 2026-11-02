@@ -1,5 +1,6 @@
 ---
 title: openapi-typesafe-fetch
+description: A type-safe fetch client for OpenAPI, with typed paths, parameters, bodies and responses and no generics
 ---
 
 # openapi-typesafe-fetch

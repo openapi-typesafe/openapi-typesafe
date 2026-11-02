@@ -1,5 +1,6 @@
 ---
 title: queryOptions
+description: Build type-safe TanStack Query options for useQueries, prefetching and fetchQuery
 ---
 # {{ $frontmatter.title }}
 

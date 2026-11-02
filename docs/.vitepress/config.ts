@@ -1,4 +1,5 @@
 import { type DefaultTheme, defineConfig } from "vitepress";
+import llmstxt from "vitepress-plugin-llms";
 
 /**
  * Where the site is served. GitHub Pages serves a project site under the repository name, so the
@@ -80,6 +81,22 @@ export default defineConfig({
       message: `Released under the <a href="${REPOSITORY_URL}/blob/main/LICENSE">MIT License</a>. Built on openapi-typescript, openapi-fetch and openapi-react-query.`,
     },
   } satisfies DefaultTheme.Config,
+  vite: {
+    // `llms.txt` (an index for language models, https://llmstxt.org), `llms-full.txt` (every page
+    // in one file) and a Markdown copy of each page, all at the site root.
+    plugins: [
+      llmstxt({
+        domain: SITE_URL.origin,
+        ignoreFiles: ["README.md", "CONTRIBUTING.md"],
+        details: [
+          "Four packages share one version: `openapi-typesafe` (generator: CLI and Node API),",
+          "`openapi-typesafe-fetch` (client), `openapi-typesafe-react-query` (TanStack Query hooks)",
+          "and `openapi-typesafe-helpers` (utility types). Coding agents can also load the agent",
+          `skill: ${REPOSITORY_URL}/tree/main/skills/openapi-typesafe`,
+        ].join(" "),
+      }),
+    ],
+  },
   transformPageData({ relativePath, frontmatter }) {
     const path = relativePath.replace(/(index\.md|\.md)$/, "");
     frontmatter.head ??= [];

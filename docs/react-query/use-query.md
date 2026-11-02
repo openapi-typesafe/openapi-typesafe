@@ -1,5 +1,6 @@
 ---
 title: useQuery
+description: Typed useQuery for OpenAPI endpoints
 ---
 # {{ $frontmatter.title }}
 

@@ -26,6 +26,9 @@ Checked against the npm registry on 2026-11-02. Each update landed in its own co
 | @arethetypeswrong/cli | 0.18.5 | 0.18.5 (latest) | Pins `typescript@5.6.1-rc` internally |
 | typescript (workspace) | 5.9.3 | 5.9.3 | Latest 5.x. Development compiler stays on 5.x until Phase 6 removes the compiler API; TS 6 / 7 are test targets (ADR-006) |
 | linkinator (docs) | — | 8.1.0 | Added in Phase 10.2 for the docs link check (links, anchors); repository links are checked against the working tree by `docs/scripts/check-repository-links.mjs` while the repository is private |
+| react-dom (react-query) | undeclared (picked by peer) | 18.3.1 | Declared in react-query: `@testing-library/react` needs it, and without the declaration pnpm resolved it to 19.x next to React 18 |
+| vitepress-plugin-llms (docs) | — | 1.14.0 | Added in Phase 10.5: `llms.txt`, `llms-full.txt` and a Markdown copy of every page |
+| skill-evals: React, TanStack Query | — | react 18.3.1, @tanstack/react-query 5.100.9 | Not the latest (19.3.1, 5.105.x) on purpose: the linked `openapi-typesafe-react-query` resolves its own copies of these packages, and two copies in one type check do not match. Updated together with the react-query package |
 
 Not yet added (added by the task that needs them, at the then-current version): dependency-cruiser (18.7.1),
 commitlint (21.2.4), lefthook (2.2.2), fast-check (4.10.2), tsdown (not adopted).
