@@ -62,8 +62,18 @@ module.exports = {
       name: "no-circular",
       comment: "Circular imports make module order fragile and hide design problems.",
       severity: "error",
-      from: {},
+      from: { pathNot: "^src/types/" },
       to: { circular: true },
+    },
+    {
+      name: "no-circular-runtime-in-types",
+      comment:
+        "The OpenAPI types are recursive by specification (an operation's security requirement " +
+        "refers to the components, which hold operations), so the type modules may refer to each " +
+        "other through type-only imports, which do not exist at runtime. Any other cycle is an error.",
+      severity: "error",
+      from: { path: "^src/types/" },
+      to: { circular: true, via: { dependencyTypesNot: ["type-only"] } },
     },
     {
       name: "not-to-unresolvable",
