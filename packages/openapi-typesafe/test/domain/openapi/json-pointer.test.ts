@@ -34,3 +34,20 @@ describe("createRef", () => {
     expect(createRef(parts)).toBe(ref);
   });
 });
+
+// Upstream #2251, #2828: a `%` in a name was not escaped, so reading the pointer back threw
+// URIError ("50%") or decoded the name ("a%2Fb" became "a/b").
+describe("createRef with a percent sign in a name", () => {
+  it.each(["50%", "a%2Fb", "x%zz", "%"])(
+    "createRef escapes %j so it reads back unchanged",
+    (name) => {
+      const ref = createRef(["#/components/schemas/Rate", "properties", name]);
+
+      expect(parseRefPointer(ref)).toEqual(["components", "schemas", "Rate", "properties", name]);
+    },
+  );
+
+  it("createRef escapes % as %25", () => {
+    expect(createRef(["#/a", "50%"])).toBe("#/a/50%25");
+  });
+});

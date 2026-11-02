@@ -21,7 +21,7 @@ Items with "No" or "Invalid only" output change and effort S qualify.
 |---:|---|---|---|---|---|
 | 1 | Kebab-case boolean flags before the schema path take the path as their value, so the CLI waits on stdin (candidate 3) | #2523, #1651, #2764, #2694 | generator (CLI) | No | Done |
 | 2 | `--no-lint` skips Redocly lint (candidate 4) | #2840, #2845 | generator (CLI, Node API) | No (opt-in) | Done |
-| 3 | Crash on `%` in a property name (candidate 5) | #2251, #2828 | generator | Invalid only | |
+| 3 | Crash on `%` in a property name (candidate 5) | #2251, #2828 | generator | Invalid only | Done |
 | 4 | Crash when a schema property is named `summary` (candidate 6) | #2349 | generator | Invalid only | |
 | 5 | Invalid `--enum` output: empty member, unescaped `\`, line breaks in `x-enum-descriptions` (candidate 7) | #2807, #2812, #2614, #2838 | generator | Invalid only | |
 | 6 | `--enum-values` with `--immutable` or nullable parents breaks `FlattenedDeepRequired` (candidate 8) | #2714, #2749, #2737 | generator | Invalid only | |

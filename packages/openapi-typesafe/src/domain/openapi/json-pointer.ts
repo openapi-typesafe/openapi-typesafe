@@ -17,9 +17,13 @@ function unescapePointerSegment(segment: string): string {
   return decodeURIComponent(segment.replaceAll("~1", "/").replaceAll("~0", "~"));
 }
 
-/** Escape one segment for a JSON Pointer (`~` → `~0`, `/` → `~1`). */
+/**
+ * Escape one segment for a JSON Pointer in a `$ref` fragment: `~` → `~0`, `/` → `~1`, and `%` →
+ * `%25`, because reading a pointer back percent-decodes it. The original did not escape `%`, so a
+ * name like `50%` threw URIError and `a%2Fb` read back as `a/b` (upstream #2251, #2828).
+ */
 export function escapePointerSegment(segment: string): string {
-  return segment.replaceAll("~", "~0").replaceAll("/", "~1");
+  return segment.replaceAll("~", "~0").replaceAll("/", "~1").replaceAll("%", "%25");
 }
 
 /**

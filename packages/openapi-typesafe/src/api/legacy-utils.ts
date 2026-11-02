@@ -1,9 +1,9 @@
-import { escapePointer, parseRef } from "@redocly/openapi-core/lib/ref-utils.js";
 import colors from "ansi-colors";
 import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
 import type { DebugGroup } from "../application/ports/logger.js";
 import { discriminatorProperty } from "../application/transform/schema/discriminator-property.js";
 import type { IrPropertySignature } from "../domain/ir/nodes.js";
+import { createRef as createDomainRef } from "../domain/openapi/json-pointer.js";
 import type { DiscriminatorObject } from "../types.js";
 import { defaultLogger, terminalSupportsColor } from "./default-ports.js";
 import { type ResolveRefOptions, resolveDocumentRef, walkDocument } from "./document-refs.js";
@@ -38,21 +38,7 @@ export function createDiscriminatorProperty(
 
 /** Create a $ref pointer (even from other $refs) */
 export function createRef(parts: (number | string | undefined | null)[]): string {
-  let pointer = "#";
-  for (const part of parts) {
-    if (part === undefined || part === null || part === "") {
-      continue;
-    }
-    const maybeRef = parseRef(String(part)).pointer;
-    if (maybeRef.length) {
-      for (const refPart of maybeRef) {
-        pointer += `/${escapePointer(refPart)}`;
-      }
-    } else {
-      pointer += `/${escapePointer(part)}`;
-    }
-  }
-  return pointer;
+  return createDomainRef(parts);
 }
 
 /**
