@@ -173,23 +173,38 @@ webhooks.
 
 ## 5. Node API
 
-- [ ] 5.1 Every example in `docs/node.md` runs as written (copy-paste into a fresh project).
-- [ ] 5.2 Every CLI flag behaves like its Node API option. Options that have no flag
+- [x] 5.1 Every example in `docs/node.md` runs as written (copy-paste into a fresh project).
+- [x] 5.2 Every CLI flag behaves like its Node API option. Options that have no flag
       (`transform`, `postTransform`, `transformProperty`, `irCallbacks`, `inject`, `silent`,
       `cwd`, the Redocly config object) are documented in `docs/node.md`; the deprecated
       TypeScript-node callbacks warn once. Deprecated exports (`stringToAST` with its
       `DeprecationWarning`, `resolveRef`, `walk`, `c`, `debug`, `warn`, `error`,
       `scanDiscriminators`, see `.changeset/deprecate-*.md`) still work; `stringToAST` warns at
       run time, the others are `@deprecated` in the types only.
-- [ ] 5.3 Input kinds (`SchemaSource`): parsed object, YAML or JSON string, a string that
+- [x] 5.3 Input kinds (`SchemaSource`): parsed object, YAML or JSON string, a string that
       starts with `http(s)://` or `file://`, `URL` (file and remote), `Buffer`, `Readable`
       stream (also one that emits an error, see PB-5); `transform` / `postTransform`
       callbacks; `astToString`. A plain file path string is parsed as YAML, not loaded (PB-6).
-- [ ] 5.4 Errors: each entry of `ERROR_CODES` (`src/domain/errors.ts`) that the Node API can
+- [x] 5.4 Errors: each entry of `ERROR_CODES` (`src/domain/errors.ts`) that the Node API can
       raise (all except `CLI_*` and `OUTPUT_*`, which §4.7 covers) is reachable, typed as
       ADR-011 says, and has a useful message.
-- [ ] 5.5 Concurrency: many parallel `openapiTS()` calls give the same output as sequential
+- [x] 5.5 Concurrency: many parallel `openapiTS()` calls give the same output as sequential
       ones (no shared state between runs).
+
+**§5 results** (logs: `.logs/pre-beta/node/`):
+
+- 5.1: every `docs/node.md` example was run and type-checked (`strict`, `nodenext`) in a fresh
+  project installed from the packed tarball; this found PB-16 and PB-17.
+- 5.2: for every generator flag, the CLI output equals the Node API output of the same option on
+  two example schemas (42 pairs), and a type test keeps every flag a boolean option. The other
+  options are in the `docs/node.md` table. The TypeScript-node callbacks warn once per run;
+  every deprecated export works, and `stringToAST` emits one `DeprecationWarning`.
+- 5.3: an object, YAML and JSON text, `http://` and `file://` strings, file and remote `URL`s, a
+  `Buffer`, a `Readable` and a file stream all generate. A path string gave PB-18.
+- 5.4: every Node API error code is reached by a test (see 4.7) and is an
+  `OpenAPITypesafeError` with `code` and `details`.
+- 5.5: 18 runs (3 schemas × 6 option sets, `--enum`, `--dedupe-enums`, `--root-types` and more)
+  in parallel, 3 rounds, give the same bytes as sequential runs.
 
 ## 6. Fetch client (`openapi-typesafe-fetch`)
 
@@ -352,6 +367,9 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 | PB-13 | loader | S3 | a YAML or JSON file that does not parse fails with `SCHEMA_LOAD_FAILED` (text input gives `SCHEMA_PARSE_FAILED`), and a second YAML document's message does not name the file | fixed: `SCHEMA_PARSE_FAILED` with the file in the message; `test/api/schema-load-errors.test.ts` |
 | PB-14 | loader | S1 | inherited: an external `$ref` to a key with `~`, `/` or `%` (`#/a~0b`, `#/50%25`) bundles into a ref that names another key (types do not compile) or is malformed (exit 70); a malformed `%` in a local `$ref` is exit 70 too | fixed: the loader repairs Redocly's bundled refs; a malformed `%` fails with `SCHEMA_REF_INVALID` naming the ref; `test/api/bundled-pointer-escapes.test.ts` |
 | PB-15 | CLI | S3 | `--check` says "Generated types are not up-to-date!" without the file, so with several APIs it does not tell which one | fixed: the message names the output file |
+| PB-16 | types | S3 | inherited: the public `StringSubtype` has no `minLength`, `maxLength` or `pattern`, so the `transformProperty` example of `docs/node.md` does not compile under `strict` | fixed: the keywords are in the type; `test/api/schema-object-types.test.ts` |
+| PB-17 | docs | S2 | inherited: `docs/node.md` examples: YAML with `type: object;` and `required: true`, diffs that do not match the output, a Redocly config example that does not parse, a "must return a string" claim, and every callback example in the deprecated TypeScript-node form (which warns) | fixed: every example runs and type-checks in a fresh project, in the IR form |
+| PB-18 | Node API | S3 | inherited: `openapiTS("./openapi.yaml")` fails with "Unsupported schema format, expected `openapi: 3.x`", which does not say the string was read as YAML | fixed: `SCHEMA_SOURCE_INVALID` that says to pass `pathToFileURL(path)` |
 
 ## 14. Exit criteria (before inviting testers)
 
