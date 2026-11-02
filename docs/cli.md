@@ -135,7 +135,7 @@ The following flags are supported in the CLI:
 
 ## Exit codes
 
-The CLI exits with a code that tells what went wrong. On failure it prints one line with the message and the error code, for example `✘  Generated types are not up-to-date! (OUTPUT_STALE)`.
+The CLI exits with a code that tells what went wrong. On failure it prints one line with the message and the error code, for example `✘  Generated types are not up-to-date! src/api.ts differs from its schema. (OUTPUT_STALE)`.
 
 | Code | Meaning | Error codes |
 | :--: | :------ | :---------- |

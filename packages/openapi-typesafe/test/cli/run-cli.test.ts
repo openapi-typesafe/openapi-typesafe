@@ -156,7 +156,9 @@ describe("runCli --check", () => {
 
     expect(exitCode).toBe(1);
     expect(cli.files.files.get("/work/types.ts")).toBe("old");
-    expect(cli.logger.messages("error")).toEqual(["Generated types are not up-to-date! (OUTPUT_STALE)"]);
+    expect(cli.logger.messages("error")).toEqual([
+      "Generated types are not up-to-date! types.ts differs from its schema. (OUTPUT_STALE)",
+    ]);
   });
 
   it("runCli --check without --output exits with 2 and generates nothing", async () => {
@@ -258,7 +260,9 @@ describe("runCli with the APIs of a Redocly config", () => {
     const exitCode = await runCli(["--check"], cli.deps);
 
     expect(exitCode).toBe(1);
-    expect(cli.logger.messages("error")).toEqual(["Generated types are not up-to-date! (OUTPUT_STALE)"]);
+    expect(cli.logger.messages("error")).toEqual([
+      "Generated types are not up-to-date! stale.ts differs from its schema. (OUTPUT_STALE)",
+    ]);
   });
 
   it("runCli prints every failed API and exits with the first one's code", async () => {

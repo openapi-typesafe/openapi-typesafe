@@ -129,7 +129,8 @@ describe("CLI exit codes", () => {
       const { exitCode, stderr } = await runCli([SIMPLE_SCHEMA, "-o", output, "--check"]);
 
       expect(exitCode).toBe(1);
-      expect(stderr).toContain("Generated types are not up-to-date! (OUTPUT_STALE)");
+      expect(stderr).toContain(`Generated types are not up-to-date! ${output} differs`);
+      expect(stderr).toContain("(OUTPUT_STALE)");
     },
     TIMEOUT,
   );

@@ -40,7 +40,11 @@ function printDone(run: CliRun, output: OutputFile): void {
 export function emitOutput(run: CliRun, output: OutputFile, contents: string): void {
   if (run.args.isCheck) {
     if (run.deps.files.readText(output.file) !== contents) {
-      throw cliError("OUTPUT_STALE", "Generated types are not up-to-date!");
+      // The original message, then the file: with several APIs it tells which one is stale.
+      throw cliError(
+        "OUTPUT_STALE",
+        `Generated types are not up-to-date! ${output.output} differs from its schema.`,
+      );
     }
     return;
   }
