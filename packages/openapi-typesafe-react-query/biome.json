@@ -3,7 +3,7 @@
   "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
   "extends": "//",
   "files": {
-    "includes": ["**", "!dist", "!test/fixtures"]
+    "includes": ["**", "!dist", "!test/fixtures", "!**/coverage"]
   },
   "linter": {
     "rules": {
