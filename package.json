@@ -16,7 +16,8 @@
     "test": "turbo run test",
     "test-e2e": "turbo run test-e2e",
     "size": "turbo run size-limit",
-    "version": "pnpm run build && changeset version && pnpm i"
+    "version": "pnpm run build && changeset version && pnpm i",
+    "verify": "scripts/verify.sh"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",

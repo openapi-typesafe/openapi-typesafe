@@ -33,6 +33,7 @@ Packages depend on each other: `openapi-typesafe-fetch` tests use types generate
 | `pnpm lint` | Biome and `tsc` for all packages |
 | `pnpm format` | Format with Biome |
 | `npx size-limit` | Check the fetch client size budget |
+| `pnpm verify` | Run build, lint, test and size with one log file per step in `.logs/verify/`; fails on any error |
 
 ## Rules for every change
 
