@@ -28,7 +28,7 @@ env:
 
 jobs:
   compat:
-    name: compatibility (${{ github.event_name == 'pull_request' && 'subset' || 'full' }})
+    name: compatibility (${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 'subset' || 'full' }})
     if: ${{ github.event_name != 'schedule' || !github.event.repository.private }}
     runs-on: ubuntu-latest
     # The full matrix is 3 generators x 23 option sets x ~1,800 documents.

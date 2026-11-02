@@ -15,6 +15,9 @@ permissions: read-all
 jobs:
   analysis:
     name: scorecard analysis
+    # Scorecard reads the repository through the public API, and a private repository is not found
+    # there. The job starts once the repository is public (ENGINEERING_PLAN 11.2).
+    if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     permissions:
       # Upload the results to code scanning.
