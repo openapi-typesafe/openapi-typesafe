@@ -30,6 +30,16 @@ const DOCUMENT_TIMEOUT_MS = TIMEOUT_MS * 4;
 /** The new and the original transformer; their option types differ (IR and TypeScript). */
 type Transform = (schema: never, ctx: never) => readonly (IrDeclaration | ts.Node)[];
 
+/**
+ * Whether the original exports a root alias and an enum under one name. That output does not
+ * compile; task 7.4 renames the alias on purpose (upstream #2099, root-type-enum-collisions.test.ts).
+ */
+function hasRootAliasEnumCollision(output: string): boolean {
+  const enums = new Set([...output.matchAll(/^export enum (\S+) \{/gm)].map((match) => match[1]));
+  const aliases = [...output.matchAll(/^export type (\S+) = components\['/gm)];
+  return aliases.some((match) => enums.has(match[1]));
+}
+
 function run(transform: Transform, value: unknown, input: ContextInput, code?: string): string {
   resetLegacyEnumState();
   const ctx = { ...createContext(input), inject: code };
@@ -46,9 +56,9 @@ describe("root transformer parity with the fork base", () => {
     () => {
       fc.assert(
         fc.property(document, contextInput, inject, (value, input, code) => {
-          expect(run(transformSchema, value, input, code)).toBe(
-            run(originalTransformSchema, value, input, code),
-          );
+          const original = run(originalTransformSchema, value, input, code);
+          fc.pre(!hasRootAliasEnumCollision(original));
+          expect(run(transformSchema, value, input, code)).toBe(original);
         }),
         { numRuns: RUNS },
       );

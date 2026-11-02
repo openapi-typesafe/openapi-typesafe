@@ -1,4 +1,4 @@
-import { irKeyword, irObject, irProperty, irRaw } from "../../../domain/ir/constructors.js";
+import { irKeyword, irObject, irProperty } from "../../../domain/ir/constructors.js";
 import type {
   IrPropertySignature,
   IrType,
@@ -23,6 +23,7 @@ import { parameterType } from "./parameter.js";
 import { pathItemType } from "./path-item.js";
 import { requestBodyType } from "./request-body.js";
 import { responseType } from "./response.js";
+import { rootTypeAlias } from "./root-type-aliases.js";
 
 type ComponentTransform = (
   item: never,
@@ -81,17 +82,6 @@ function rootTypeName(
     alias = `${prefix}${base}_${counter}`;
   }
   return options.rootTypesNoSchemaPrefix && isSchema ? alias.replace(prefix, "") : alias;
-}
-
-function rootTypeAlias(name: string, kind: ComponentKind, item: string): IrTypeAliasDeclaration {
-  return {
-    kind: "typeAlias",
-    name,
-    isExported: true,
-    // The original writes the reference as text, with single quotes.
-    type: irRaw(`components['${kind}']['${item}']`),
-    comments: [],
-  };
 }
 
 /** `--root-types` skips enum schemas under `--enum`: the enum itself is exported. */
