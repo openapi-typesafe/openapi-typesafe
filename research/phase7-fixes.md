@@ -26,6 +26,6 @@ Items with "No" or "Invalid only" output change and effort S qualify.
 | 5 | Invalid `--enum` output: empty member, unescaped `\`, line breaks in `x-enum-descriptions` (candidate 7) | #2807, #2812, #2614, #2838 | generator | Invalid only | Done |
 | 6 | `--enum-values` with `--immutable` or nullable parents breaks `FlattenedDeepRequired` (candidate 8) | #2714, #2749, #2737 | generator | Invalid only | Done |
 | 7 | `--enum` + `--root-types-no-schema-prefix` name collisions (candidate 9) | #2341, #2206, #2099 | generator | Invalid only | Done |
-| 8 | Deterministic middleware request ID instead of `Math.random()` (candidate 13) | #2486, #2763 | fetch | No | |
-| 9 | Cross-realm `instanceof Function` check in the body serializer (candidate 14) | #2637 | fetch | No | |
-| 10 | CJS consumers cannot find types / `require` fails (candidate 24) | #2047, #2155, #2342 | generator | No | |
+| 8 | Deterministic middleware request ID instead of `Math.random()` (candidate 13) | #2486, #2763 | fetch | No | Done |
+| 9 | Cross-realm `instanceof Function` check in the body serializer (candidate 14) | #2637 | fetch | No | Done |
+| 10 | CJS consumers cannot find types / `require` fails (candidate 24) | #2047, #2155, #2342 | generator | No | Done |

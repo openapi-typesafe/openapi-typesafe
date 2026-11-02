@@ -8,6 +8,22 @@ import { defineBuildConfig } from "unbuild";
  */
 const ACCEPTED_ROLLUP_WARNING_CODES = new Set(["MIXED_EXPORTS"]);
 
+/**
+ * unbuild rewrites `export default` to `export =` in the `.d.cts` and `.d.ts` declarations. That
+ * matches a CommonJS bundle whose `module.exports` is the default export. Ours has named exports
+ * too, so `require()` returns `{ default, astToString, ... }`, and `export =` declared a shape the
+ * runtime does not have (upstream #2047, #2155). The plugin is dropped to keep `export default`.
+ */
+const DTS_CJS_EXPORT_REWRITE_PLUGIN = "fix-dts-default-cjs-exports-plugin";
+
+function isDtsCjsExportRewrite(plugin: unknown): boolean {
+  return (
+    typeof plugin === "object" &&
+    plugin !== null &&
+    (plugin as { name?: unknown }).name === DTS_CJS_EXPORT_REWRITE_PLUGIN
+  );
+}
+
 export default defineBuildConfig({
   // The CLI is not part of the public API; bin/cli.js imports dist/cli/main.mjs.
   entries: ["./src/index.ts", "./src/cli/main.ts"],
@@ -21,6 +37,10 @@ export default defineBuildConfig({
     output: { preserveModules: true },
   },
   hooks: {
+    "rollup:dts:options"(_context, options) {
+      const plugins = Array.isArray(options.plugins) ? options.plugins : [];
+      options.plugins = plugins.filter((plugin) => !isDtsCjsExportRewrite(plugin));
+    },
     "rollup:options"(_context, options) {
       const forwardWarning = options.onwarn;
       options.onwarn = (warning, defaultHandler) => {

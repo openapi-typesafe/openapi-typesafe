@@ -18,10 +18,17 @@
   },
   "type": "module",
   "main": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs",
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
       "default": "./dist/index.mjs"
     },
     "./*.js": "./*.mjs",
@@ -102,6 +109,6 @@
     "vite-node": "6.0.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12.0"
   }
 }
