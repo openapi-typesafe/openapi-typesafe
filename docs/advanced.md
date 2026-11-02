@@ -492,7 +492,8 @@ hanging when a document reaches one of these limits.
 | About 550 levels of inline schemas, or a chain of about 900 `$ref`s where each schema refers to the next | The call stack runs out. The numbers are for the default Node.js stack and vary a little between runs and runtimes | `SCHEMA_TOO_DEEP` |
 | A `$ref` that points at itself, or two `$ref`s that point at each other, with no schema in between | The cycle has no type | `SCHEMA_REF_INVALID` |
 | A key named `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `valueOf` or one of the `__define…` / `__lookup…` methods, where the schema loader reads keys | The schema loader (Redocly 1.x) cannot read it; the error lists every such key | `SCHEMA_KEY_UNSUPPORTED` |
-| A remote `$ref` or remote document that does not answer within 60 seconds | The fetch stops. A `customFetch` in your Redocly config replaces this limit | `SCHEMA_INVALID` (a `$ref`) or `SCHEMA_LOAD_FAILED` (the document) |
+| YAML aliases (`*name`) that expand a file to more than 1,000,000 nodes and to more than 100 times its written size (a "billion laughs" document) | The file is refused right after parsing, before anything walks it | `SCHEMA_PARSE_FAILED` |
+| A remote `$ref` or remote document that does not answer, or does not finish sending its body, within 60 seconds | The fetch stops. A `customFetch` in your Redocly config replaces this limit | `SCHEMA_INVALID` (a `$ref`) or `SCHEMA_LOAD_FAILED` (the document) |
 
 Cyclic schemas are fine when the cycle goes through an object property
 (`Node: { properties: { next: { $ref: Node } } }`): they generate recursive types. A cycle with no

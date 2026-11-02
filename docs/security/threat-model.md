@@ -52,11 +52,14 @@ template literal or key it is written into, and the rest becomes code in the gen
 
 ### T2. Denial of service by a crafted document — Controlled
 
-Deep nesting, long `$ref` chains, cycles, unsupported keys or a server that never answers crash or
-hang the generator.
+Deep nesting, long `$ref` chains, cycles, unsupported keys, YAML aliases that expand a file a
+billion times, or a server that never answers (or sends its body one byte at a time) crash or hang
+the generator.
 
 - Controls: typed errors `SCHEMA_TOO_DEEP`, `SCHEMA_REF_INVALID`, `SCHEMA_KEY_UNSUPPORTED`; a
-  60-second limit on every remote fetch; the YAML parser stops at 100 levels.
+  60-second limit on every remote fetch, body included; the YAML parser stops at 100 levels; a
+  YAML file whose aliases expand it more than 100 times past 1,000,000 nodes fails with
+  `SCHEMA_PARSE_FAILED`.
 - Tests: `test/defensive/`. Limits are listed in docs/advanced.md, "Limits".
 
 ### T3. Local file read through `$ref` — Controlled by an option (R1)

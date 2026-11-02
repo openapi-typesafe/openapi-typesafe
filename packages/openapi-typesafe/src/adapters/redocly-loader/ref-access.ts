@@ -1,9 +1,16 @@
 import { realpath } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BaseResolver, type Config as RedoclyConfig, type Source } from "@redocly/openapi-core";
+import {
+  BaseResolver,
+  type Document,
+  type Config as RedoclyConfig,
+  type Source,
+  YamlParseError,
+} from "@redocly/openapi-core";
 import type { RefAccess } from "../../application/ports/schema-loader.js";
 import { ERROR_CODES, type OpenAPITypesafeError } from "../../domain/errors.js";
+import { aliasExpansionFailure } from "./alias-limit.js";
 import { refForbiddenError } from "./schema-load-errors.js";
 
 /**
@@ -103,6 +110,16 @@ export class RefAccessResolver extends BaseResolver {
       this.#rootRef = this.resolveExternalRef(base, ref);
     }
     return super.resolveDocument(base, ref, isRoot);
+  }
+
+  /** Refuse a YAML alias bomb before Redocly walks it (pre-beta test plan 10.2). */
+  override parseDocument(source: Source, isRoot = false): Document {
+    const document = super.parseDocument(source, isRoot);
+    const failure = aliasExpansionFailure(document.parsed);
+    if (failure !== undefined) {
+      throw new YamlParseError(failure, source);
+    }
+    return document;
   }
 
   override async loadExternalRef(absoluteRef: string): Promise<Source> {

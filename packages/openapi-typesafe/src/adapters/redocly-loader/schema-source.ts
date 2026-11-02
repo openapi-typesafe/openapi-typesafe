@@ -9,6 +9,7 @@ import {
   YamlParseError,
 } from "@redocly/openapi-core";
 import parseJson from "parse-json";
+import { aliasExpansionFailure } from "./alias-limit.js";
 import {
   loadFailedError,
   parseFailedError,
@@ -71,6 +72,10 @@ function parseYamlText(text: string, absoluteRef: string): Document {
   // Text that is only a YAML string scalar, such as "./openapi.yaml", was meant as a file path.
   if (typeof document.parsed === "string") {
     throw pathStringError(text);
+  }
+  const failure = aliasExpansionFailure(document.parsed);
+  if (failure !== undefined) {
+    throw parseFailedError("yaml", absoluteRef, failure);
   }
   return document;
 }

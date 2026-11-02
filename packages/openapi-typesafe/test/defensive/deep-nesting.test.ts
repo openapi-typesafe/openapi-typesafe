@@ -1,3 +1,7 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { defaultRedoclyConfig } from "../../src/api/default-ports.js";
@@ -10,6 +14,8 @@ import { documentWith, generateCompiling, generationFailure, nestedObjects } fro
 const DEEP_BUT_SUPPORTED = 300;
 /** Far past the call stack of every step on the default Node.js stack size. */
 const TOO_DEEP = 5_000;
+/** A parse that refuses the aliases takes milliseconds; an expansion would take minutes. */
+const ALIAS_BOMB_BUDGET_MS = 5_000;
 
 /** Component schemas `M0` to `M<length - 1>`, each referring to the next through a property. */
 function refChain(length: number): Record<string, unknown> {
@@ -18,6 +24,19 @@ function refChain(length: number): Record<string, unknown> {
   return Object.fromEntries(
     Array.from({ length }, (_, index) => [`M${index}`, { type: "object", properties: { next: next(index) } }]),
   );
+}
+
+/**
+ * A "billion laughs" document: each level refers to the previous one ten times, so a full
+ * expansion would have 10^9 strings.
+ */
+function aliasBombYaml(): string {
+  const levels = ["a: &a [lol, lol, lol, lol, lol, lol, lol, lol, lol, lol]"];
+  for (const [index, name] of ["b", "c", "d", "e", "f", "g", "h", "i"].entries()) {
+    const previous = String.fromCharCode("a".charCodeAt(0) + index);
+    levels.push(`${name}: &${name} [${Array(10).fill(`*${previous}`).join(", ")}]`);
+  }
+  return ["openapi: 3.1.0", "info: { title: t, version: '1' }", "paths: {}", ...levels].join("\n");
 }
 
 describe("deep nesting", () => {
@@ -84,6 +103,32 @@ describe("deep nesting", () => {
 
     expect(error).toMatchObject({ code: "SCHEMA_PARSE_FAILED", details: { format: "yaml" } });
     expect(error.message).toMatch(/nesting exceeded maxDepth \(100\)/);
+  });
+
+  it("a YAML alias bomb fails fast with SCHEMA_PARSE_FAILED instead of expanding", async () => {
+    const startedAt = performance.now();
+
+    const error = await generationFailure(aliasBombYaml());
+
+    expect(error).toMatchObject({ code: "SCHEMA_PARSE_FAILED", details: { format: "yaml" } });
+    expect(performance.now() - startedAt).toBeLessThan(ALIAS_BOMB_BUDGET_MS);
+  });
+
+  it("a YAML alias bomb in a file fails fast with SCHEMA_PARSE_FAILED", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "alias-bomb-"));
+    const file = path.join(directory, "openapi.yaml");
+    await writeFile(file, aliasBombYaml());
+    const startedAt = performance.now();
+
+    try {
+      const error = await generationFailure(pathToFileURL(file));
+
+      expect(error).toMatchObject({ code: "SCHEMA_PARSE_FAILED" });
+      expect(error.message).toMatch(/YAML aliases expand the document/);
+      expect(performance.now() - startedAt).toBeLessThan(ALIAS_BOMB_BUDGET_MS);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it("printing TypeScript nodes nested past the call stack fails with SCHEMA_TOO_DEEP", () => {
