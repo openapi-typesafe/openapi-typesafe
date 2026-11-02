@@ -3,6 +3,7 @@ import type {
   IrIndexedAccessType,
   IrMember,
   IrPropertyName,
+  IrRawType,
   IrTupleElement,
   IrType,
 } from "../../domain/ir/nodes.js";
@@ -222,6 +223,30 @@ function writeReadonlyType(writer: TextWriter, operand: IrType): void {
   writeTypeIn(writer, operand, needsParensAsReadonlyOperand);
 }
 
+type IrOperatorType = Extract<IrType, { kind: "array" | "indexedAccess" | "readonly" }>;
+
+/** Types built with a type operator: `T[]`, `T[K]` and `readonly T`. */
+function writeOperatorType(writer: TextWriter, type: IrOperatorType): void {
+  if (type.kind === "array") {
+    writeArrayType(writer, type.element);
+  } else if (type.kind === "indexedAccess") {
+    writeIndexedAccessType(writer, type);
+  } else {
+    writeReadonlyType(writer, type.type);
+  }
+}
+
+const CONSTITUENT_SEPARATORS = { union: " | ", intersection: " & " } as const;
+
+/** A raw type may span lines and is re-indented; any other leaf prints on one line. */
+function writeLeafType(writer: TextWriter, type: IrLeafType | IrRawType): void {
+  if (type.kind === "raw") {
+    writeRawType(writer, type.text);
+  } else {
+    writer.write(printLeafType(type));
+  }
+}
+
 /** Write a type at the writer's current position. */
 export function writeType(writer: TextWriter, type: IrType): void {
   switch (type.kind) {
@@ -229,28 +254,20 @@ export function writeType(writer: TextWriter, type: IrType): void {
     case "stringLiteral":
     case "numberLiteral":
     case "booleanLiteral":
-      writer.write(printLeafType(type));
-      break;
     case "raw":
-      writeRawType(writer, type.text);
+      writeLeafType(writer, type);
       break;
     case "reference":
       writeReferenceType(writer, type.name, type.typeArguments);
       break;
     case "array":
-      writeArrayType(writer, type.element);
-      break;
     case "indexedAccess":
-      writeIndexedAccessType(writer, type);
-      break;
     case "readonly":
-      writeReadonlyType(writer, type.type);
+      writeOperatorType(writer, type);
       break;
     case "union":
-      writeConstituents(writer, type.types, " | ");
-      break;
     case "intersection":
-      writeConstituents(writer, type.types, " & ");
+      writeConstituents(writer, type.types, CONSTITUENT_SEPARATORS[type.kind]);
       break;
     case "object":
       writeObjectType(writer, type.members);

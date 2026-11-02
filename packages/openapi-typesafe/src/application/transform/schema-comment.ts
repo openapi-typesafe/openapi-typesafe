@@ -80,10 +80,10 @@ function constantAndEnumLines(schema: AnnotatedSchema): string[] {
 }
 
 /**
- * The JSDoc comment the original writes for a schema (`addJSDocComment`): title, summary and format,
- * then `@deprecated`, `@description`, `@default`, `@example`, `@constant` and `@enum` tags. One short
- * line stays on the `/**` line; anything else is a block. Returns null when there is nothing to say,
- * or when the value is not a schema object.
+ * The JSDoc comment the original writes for a schema (`addJSDocComment`): title, summary and
+ * format, then `@deprecated`, `@description`, `@default`, `@example`, `@constant` and `@enum`
+ * tags. One short line stays on the `/**` line; anything else is a block. Returns null when there
+ * is nothing to say, or when the value is not a schema object.
  */
 export function schemaComment(schema: unknown): IrComment | null {
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) {

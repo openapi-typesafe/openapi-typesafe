@@ -72,7 +72,7 @@ function inlineItemType(item: Schema, required: readonly string[], request: Sche
   );
 }
 
-/** `allOf` items; an item with a discriminator omits that property (it is redefined by the parent). */
+/** `allOf` items; an item with a discriminator omits that property (the parent redefines it). */
 function allOfTypes(
   items: readonly Schema[],
   required: readonly string[],

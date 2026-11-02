@@ -1,4 +1,4 @@
-import { toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import { toTypeNode, toValueExpression } from "../adapters/type-ast-bridge/ir-to-typescript.js";
 import { lazyNode } from "../adapters/type-ast-bridge/lazy-node.js";
 import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
@@ -50,7 +50,10 @@ export interface AnnotatedSchemaObject {
  * Add the schema's JSDoc comment to a TypeScript property signature.
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
-export function addJSDocComment(schemaObject: AnnotatedSchemaObject, node: ts.PropertySignature): void {
+export function addJSDocComment(
+  schemaObject: AnnotatedSchemaObject,
+  node: ts.PropertySignature,
+): void {
   const ts = loadTypeScript();
   const comment = schemaComment(schemaObject);
   if (comment) {
@@ -58,13 +61,13 @@ export function addJSDocComment(schemaObject: AnnotatedSchemaObject, node: ts.Pr
   }
 }
 
-/** A type argument of the deprecated helpers in TypeScript form; IR (from the type helpers) is converted. */
+/** A type argument of the deprecated helpers as TypeScript; IR from type helpers is converted. */
 function legacyTypeNode(type: TypeInput): ts.TypeNode {
   const ts = loadTypeScript();
   return typeof type.kind === "string" ? toTypeNode(ts, type as IrType) : (type as ts.TypeNode);
 }
 
-/** Add a helper type alias to the footer once, as a named raw declaration (as the generator does). */
+/** Add a helper type alias to the footer once, as a named raw declaration (like the generator). */
 function requireHelper(injectFooter: FooterEntry[], helper: { name: string; text: string }): void {
   if (!injectFooter.some((entry) => declaresTypeAlias(entry, helper.name))) {
     injectFooter.push({ kind: "rawDeclaration", name: helper.name, text: helper.text });
@@ -164,20 +167,7 @@ export function tsArrayLiteralExpression(
           undefined,
           arrayType,
           ts.factory.createArrayLiteralExpression(
-            values.map((value) => {
-              if (typeof value === "number") {
-                if (value < 0) {
-                  return ts.factory.createPrefixUnaryExpression(
-                    ts.SyntaxKind.MinusToken,
-                    ts.factory.createNumericLiteral(Math.abs(value)),
-                  );
-                } else {
-                  return ts.factory.createNumericLiteral(value);
-                }
-              } else {
-                return ts.factory.createStringLiteral(value);
-              }
-            }),
+            values.map((value) => toValueExpression(ts, value)),
           ),
         ),
       ],
@@ -197,53 +187,56 @@ function sanitizeMemberName(name: string) {
   return sanitizedName;
 }
 
+/** An enum member name: a valid identifier as is; anything else prefixed, replaced or quoted. */
+function enumMemberName(value: string | number, explicitName: string | undefined): string {
+  let name = explicitName ?? String(value);
+  if (JS_PROPERTY_INDEX_RE.test(name)) {
+    return name;
+  }
+  if (Number(name[0]) >= 0) {
+    // A decimal point is not valid in a name; keep the digits readable.
+    name = `Value${name}`.replace(".", "_");
+  } else if (name[0] === "-") {
+    name = `ValueMinus${name.slice(1)}`;
+  }
+  const invalidCharMatch = name.match(JS_PROPERTY_INDEX_INVALID_CHARS_RE);
+  if (!invalidCharMatch) {
+    return name;
+  }
+  if (invalidCharMatch[0] === name) {
+    return `"${name}"`;
+  }
+  return name.replace(JS_PROPERTY_INDEX_INVALID_CHARS_RE, (s) =>
+    s in SPECIAL_CHARACTER_MAP ? (SPECIAL_CHARACTER_MAP[s] as string) : "_",
+  );
+}
+
 /**
  * Sanitize TS enum member expression
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
-export function tsEnumMember(value: string | number, metadata: { name?: string; description?: string | null } = {}) {
+export function tsEnumMember(
+  value: string | number,
+  metadata: { name?: string; description?: string | null } = {},
+) {
   const ts = loadTypeScript();
-  let name = metadata.name ?? String(value);
-  if (!JS_PROPERTY_INDEX_RE.test(name)) {
-    if (Number(name[0]) >= 0) {
-      name = `Value${name}`.replace(".", "_"); // don't forged decimals;
-    } else if (name[0] === "-") {
-      name = `ValueMinus${name.slice(1)}`;
-    }
-
-    const invalidCharMatch = name.match(JS_PROPERTY_INDEX_INVALID_CHARS_RE);
-    if (invalidCharMatch) {
-      if (invalidCharMatch[0] === name) {
-        name = `"${name}"`;
-      } else {
-        name = name.replace(JS_PROPERTY_INDEX_INVALID_CHARS_RE, (s) => {
-          return s in SPECIAL_CHARACTER_MAP ? SPECIAL_CHARACTER_MAP[s] : "_";
-        });
-      }
-    }
-  }
-
-  let member: ts.EnumMember;
-  if (typeof value === "number") {
-    const literal =
-      value < 0
-        ? ts.factory.createPrefixUnaryExpression(
-            ts.SyntaxKind.MinusToken,
-            ts.factory.createNumericLiteral(Math.abs(value)),
-          )
-        : ts.factory.createNumericLiteral(value);
-
-    member = ts.factory.createEnumMember(name, literal);
-  } else {
-    member = ts.factory.createEnumMember(name, ts.factory.createStringLiteral(value));
-  }
-
+  const name = enumMemberName(value, metadata.name);
+  const member = ts.factory.createEnumMember(name, toValueExpression(ts, value));
   const trimmedDescription = metadata.description?.trim();
-  if (trimmedDescription === undefined || trimmedDescription === null || trimmedDescription === "") {
+  if (
+    trimmedDescription === undefined ||
+    trimmedDescription === null ||
+    trimmedDescription === ""
+  ) {
     return member;
   }
 
-  return ts.addSyntheticLeadingComment(member, ts.SyntaxKind.SingleLineCommentTrivia, ` ${trimmedDescription}`, true);
+  return ts.addSyntheticLeadingComment(
+    member,
+    ts.SyntaxKind.SingleLineCommentTrivia,
+    ` ${trimmedDescription}`,
+    true,
+  );
 }
 
 /**
@@ -311,5 +304,7 @@ export function tsReadonlyArray(type: TypeInput, injectFooter?: FooterEntry[]): 
   if (injectFooter) {
     requireHelper(injectFooter, HELPER_TYPES.readonlyArray);
   }
-  return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("ReadonlyArray"), [legacyTypeNode(type)]);
+  return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("ReadonlyArray"), [
+    legacyTypeNode(type),
+  ]);
 }

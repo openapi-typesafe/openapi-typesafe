@@ -2,7 +2,6 @@ import type ts from "typescript";
 import { assertNever } from "../../domain/assert-never.js";
 import type {
   IrComment,
-  IrDeclaration,
   IrKeyword,
   IrMember,
   IrPropertyName,
@@ -55,7 +54,8 @@ function toNumberExpression(
     : ts.factory.createNumericLiteral(value);
 }
 
-function toValueExpression(ts: TypeScriptModule, value: string | number): ts.Expression {
+/** An enum member or array element value, written as the original writes it. */
+export function toValueExpression(ts: TypeScriptModule, value: string | number): ts.Expression {
   return typeof value === "number"
     ? toNumberExpression(ts, value)
     : ts.factory.createStringLiteral(value);
@@ -105,6 +105,17 @@ function toLeafTypeNode(ts: TypeScriptModule, type: LeafType): ts.TypeNode {
   }
 }
 
+function toReferenceNode(
+  ts: TypeScriptModule,
+  type: Extract<IrType, { kind: "reference" }>,
+): ts.TypeNode {
+  const typeArguments =
+    type.typeArguments.length > 0
+      ? type.typeArguments.map((argument) => toTypeNode(ts, argument))
+      : undefined;
+  return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(type.name), typeArguments);
+}
+
 /** Convert one IR type. */
 export function toTypeNode(ts: TypeScriptModule, type: IrType): ts.TypeNode {
   const convert = (inner: IrType) => toTypeNode(ts, inner);
@@ -116,11 +127,8 @@ export function toTypeNode(ts: TypeScriptModule, type: IrType): ts.TypeNode {
     case "booleanLiteral":
     case "raw":
       return toLeafTypeNode(ts, type);
-    case "reference": {
-      const typeArguments =
-        type.typeArguments.length > 0 ? type.typeArguments.map(convert) : undefined;
-      return factory.createTypeReferenceNode(factory.createIdentifier(type.name), typeArguments);
-    }
+    case "reference":
+      return toReferenceNode(ts, type);
     case "array":
       return factory.createArrayTypeNode(convert(type.element));
     case "tuple":
@@ -142,7 +150,8 @@ export function toTypeNode(ts: TypeScriptModule, type: IrType): ts.TypeNode {
   }
 }
 
-function withComments<T extends ts.Node>(
+/** Attach IR comments to a node as synthetic leading comments, as the original does. */
+export function withComments<T extends ts.Node>(
   ts: TypeScriptModule,
   node: T,
   comments: readonly IrComment[],
@@ -208,91 +217,4 @@ export function toTypeElement(ts: TypeScriptModule, member: IrMember): ts.TypeEl
     toTypeNode(ts, member.type),
   );
   return withComments(ts, signature, member.comments);
-}
-
-function exportModifiers(ts: TypeScriptModule, isExported: boolean): ts.Modifier[] | undefined {
-  return isExported ? [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)] : undefined;
-}
-
-function toConstArrayStatement(
-  ts: TypeScriptModule,
-  declaration: Extract<IrDeclaration, { kind: "constArray" }>,
-): ts.Statement {
-  const initializer = ts.factory.createArrayLiteralExpression(
-    declaration.values.map((value) => toValueExpression(ts, value)),
-  );
-  const variable = ts.factory.createVariableDeclaration(
-    declaration.name,
-    undefined,
-    toTypeNode(ts, declaration.type),
-    initializer,
-  );
-  const list = ts.factory.createVariableDeclarationList([variable], ts.NodeFlags.Const);
-  return ts.factory.createVariableStatement(exportModifiers(ts, declaration.isExported), list);
-}
-
-/** Parse source text into statements, like the original's `stringToAST`. */
-export function parseStatements(ts: TypeScriptModule, text: string): readonly ts.Statement[] {
-  return ts.createSourceFile("raw.ts", text, ts.ScriptTarget.ESNext).statements;
-}
-
-/** Convert one IR declaration; a raw declaration gives every statement its text holds. */
-export function toStatements(ts: TypeScriptModule, declaration: IrDeclaration): ts.Statement[] {
-  return declaration.kind === "rawDeclaration"
-    ? [...parseStatements(ts, declaration.text)]
-    : [toStatement(ts, declaration)];
-}
-
-function toEnumStatement(
-  ts: TypeScriptModule,
-  declaration: Extract<IrDeclaration, { kind: "enum" }>,
-): ts.Statement {
-  const members = declaration.members.map((member) =>
-    withComments(
-      ts,
-      ts.factory.createEnumMember(member.name, toValueExpression(ts, member.value)),
-      member.comments,
-    ),
-  );
-  const modifiers = exportModifiers(ts, declaration.isExported);
-  return ts.factory.createEnumDeclaration(modifiers, declaration.name, members);
-}
-
-/** Convert one IR declaration. A raw declaration is parsed, like the original's `stringToAST`. */
-export function toStatement(ts: TypeScriptModule, declaration: IrDeclaration): ts.Statement {
-  const modifiers = exportModifiers(
-    ts,
-    declaration.kind === "rawDeclaration" ? false : declaration.isExported,
-  );
-  switch (declaration.kind) {
-    case "interface": {
-      const members = declaration.members.map((member) => toTypeElement(ts, member));
-      const node = ts.factory.createInterfaceDeclaration(
-        modifiers,
-        declaration.name,
-        undefined,
-        undefined,
-        members,
-      );
-      return withComments(ts, node, declaration.comments);
-    }
-    case "typeAlias": {
-      const type = toTypeNode(ts, declaration.type);
-      const node = ts.factory.createTypeAliasDeclaration(
-        modifiers,
-        declaration.name,
-        undefined,
-        type,
-      );
-      return withComments(ts, node, declaration.comments);
-    }
-    case "enum":
-      return withComments(ts, toEnumStatement(ts, declaration), declaration.comments);
-    case "constArray":
-      return withComments(ts, toConstArrayStatement(ts, declaration), declaration.comments);
-    case "rawDeclaration":
-      return parseStatements(ts, declaration.text)[0] as ts.Statement;
-    default:
-      return assertNever(declaration);
-  }
 }

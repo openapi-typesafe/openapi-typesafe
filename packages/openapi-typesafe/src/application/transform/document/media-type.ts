@@ -13,7 +13,7 @@ export function mediaTypeType(
   return mediaType.schema ? transformSchema(mediaType.schema, location, context) : UNKNOWN_TYPE;
 }
 
-/** A `content` entry: a `$ref` is transformed like a schema `$ref`, anything else as a media type. */
+/** A `content` entry: a `$ref` is transformed like a schema `$ref`, the rest as a media type. */
 export function contentEntryType(
   entry: ContentMap[string],
   location: SchemaLocation,

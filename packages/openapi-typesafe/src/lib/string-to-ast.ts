@@ -1,5 +1,5 @@
 import { deprecate } from "node:util";
-import { parseStatements } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import { parseStatements } from "../adapters/type-ast-bridge/ir-declarations-to-typescript.js";
 import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import { IR_CALLBACKS_GUIDE_URL } from "./legacy-callback-warning.js";
 
@@ -15,9 +15,9 @@ function parseSource(source: string): unknown[] {
 }
 
 /**
- * Convert an arbitrary string to TS (assuming it’s valid). Parses with the TypeScript bridge, so it
- * needs TypeScript 6 or earlier (or `@typescript/typescript6`). Node's `util.deprecate` warns on the
- * first call only.
+ * Convert an arbitrary string to TS (assuming it’s valid). Parses with the TypeScript bridge, so
+ * it needs TypeScript 6 or earlier (or `@typescript/typescript6`). Node's `util.deprecate` warns
+ * on the first call only.
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 7). Use type text in IR callbacks.
  */
 export const stringToAST: (source: string) => unknown[] = deprecate(

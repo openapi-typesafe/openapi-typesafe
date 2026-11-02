@@ -2,7 +2,11 @@ import { toPropertySignature, toTypeNode } from "../adapters/type-ast-bridge/ir-
 import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import { fromPropertySignature } from "../adapters/type-ast-bridge/typescript-to-ir.js";
 import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
-import type { CustomType, SchemaCallbacks, SchemaLocation } from "../application/transform/schema/schema-context.js";
+import type {
+  CustomType,
+  SchemaCallbacks,
+  SchemaLocation,
+} from "../application/transform/schema/schema-context.js";
 import { irRaw } from "../domain/ir/constructors.js";
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
 import type {
@@ -65,7 +69,9 @@ function irSchemaCallbacks(ctx: GlobalContext): SchemaCallbacks {
   const transformProperty = ctx.transformProperty as IrTransformProperty | undefined;
   return {
     transform: (schema, location) =>
-      transform ? irCustomType(transform(schema as SchemaObject, nodeOptions(ctx, location))) : null,
+      transform
+        ? irCustomType(transform(schema as SchemaObject, nodeOptions(ctx, location)))
+        : null,
     postTransform(type, location) {
       const result = postTransform?.(type, nodeOptions(ctx, location));
       return result === undefined ? null : fromCallbackType(result);
@@ -87,12 +93,18 @@ function legacyResultType(ctx: GlobalContext, type: IrType | ts.TypeNode): IrTyp
   return toIrType(type);
 }
 
-function legacyCustomType(ctx: GlobalContext, result: ReturnType<LegacyTransform>): CustomType | null {
+function legacyCustomType(
+  ctx: GlobalContext,
+  result: ReturnType<LegacyTransform>,
+): CustomType | null {
   if (!result || typeof result !== "object") {
     return null;
   }
   if ("schema" in result) {
-    return { type: legacyResultType(ctx, result.schema), isOptional: Boolean(result.questionToken) };
+    return {
+      type: legacyResultType(ctx, result.schema),
+      isOptional: Boolean(result.questionToken),
+    };
   }
   return { type: legacyResultType(ctx, result), isOptional: false };
 }
@@ -114,11 +126,14 @@ function legacySchemaCallbacks(ctx: GlobalContext): SchemaCallbacks {
       const result = postTransform(toTypeNode(loadTypeScript(), type), nodeOptions(ctx, location));
       return result ? toIrType(result) : null;
     },
-    transformProperty: (property, schema, location) => legacyTransformProperty(ctx, property, schema, location),
+    transformProperty: (property, schema, location) =>
+      legacyTransformProperty(ctx, property, schema, location),
   };
 }
 
-function isIrProperty(property: IrPropertySignature | ts.PropertySignature): property is IrPropertySignature {
+function isIrProperty(
+  property: IrPropertySignature | ts.PropertySignature,
+): property is IrPropertySignature {
   return typeof property.kind === "string";
 }
 
@@ -135,7 +150,11 @@ function legacyTransformProperty(
   warnLegacyCallback(ctx, "transformProperty");
   const ts = loadTypeScript();
   const options = nodeOptions(ctx, location);
-  const result = transformProperty(toPropertySignature(ts, property), schema as SchemaObject, options);
+  const result = transformProperty(
+    toPropertySignature(ts, property),
+    schema as SchemaObject,
+    options,
+  );
   if (!result) {
     return null;
   }

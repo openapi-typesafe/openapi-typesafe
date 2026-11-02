@@ -27,8 +27,10 @@ const UNAVAILABLE_CODES = new Set([
 export class TypeScriptNotFoundError extends Error {
   constructor() {
     super(
-      "A callback or helper uses TypeScript compiler nodes, which needs the TypeScript JavaScript API. " +
-        'Install "typescript" version 6 or earlier, or "@typescript/typescript6" on TypeScript 7, ' +
+      "A callback or helper uses TypeScript compiler nodes, " +
+        "which needs the TypeScript JavaScript API. " +
+        'Install "typescript" version 6 or earlier, ' +
+        'or "@typescript/typescript6" on TypeScript 7, ' +
         "or use IR callbacks (irCallbacks: true).",
     );
     this.name = "TypeScriptNotFoundError";

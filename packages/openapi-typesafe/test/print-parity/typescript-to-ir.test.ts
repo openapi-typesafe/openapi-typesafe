@@ -2,10 +2,10 @@ import fc from "fast-check";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { toTypeNode } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
+import { printTypeScriptNode } from "../../src/adapters/type-ast-bridge/typescript-raw-text.js";
 import {
   fromPropertySignature,
   fromTypeNode,
-  printTypeScriptNode,
 } from "../../src/adapters/type-ast-bridge/typescript-to-ir.js";
 import { printNodes } from "../../src/application/print/print-nodes.js";
 import { irKeyword } from "../../src/domain/ir/constructors.js";

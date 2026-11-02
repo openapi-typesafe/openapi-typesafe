@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
+import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-declarations-to-typescript.js";
 import type { DocumentFooter } from "../../src/application/transform/transform-context.js";
 import { irReference } from "../../src/domain/ir/constructors.js";
 import { astToString } from "../../src/index.js";

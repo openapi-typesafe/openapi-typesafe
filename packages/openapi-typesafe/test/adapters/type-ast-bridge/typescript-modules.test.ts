@@ -7,10 +7,10 @@ import {
   toTypeNode,
 } from "../../../src/adapters/type-ast-bridge/ir-to-typescript.js";
 import type { TypeScriptModule } from "../../../src/adapters/type-ast-bridge/load-typescript.js";
+import { printTypeScriptNode } from "../../../src/adapters/type-ast-bridge/typescript-raw-text.js";
 import {
   fromPropertySignature,
   fromTypeNode,
-  printTypeScriptNode,
 } from "../../../src/adapters/type-ast-bridge/typescript-to-ir.js";
 import { printNodes } from "../../../src/application/print/print-nodes.js";
 import { irProperty, irReference } from "../../../src/domain/ir/constructors.js";

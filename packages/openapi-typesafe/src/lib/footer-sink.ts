@@ -1,7 +1,11 @@
 import { appendMember, asInterfaceNamed } from "../adapters/type-ast-bridge/footer-nodes.js";
 import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import type { FooterSink } from "../application/transform/footer/document-footer.js";
-import type { IrDeclaration, IrInterfaceDeclaration, IrPropertySignature } from "../domain/ir/nodes.js";
+import type {
+  IrDeclaration,
+  IrInterfaceDeclaration,
+  IrPropertySignature,
+} from "../domain/ir/nodes.js";
 import { declaresTypeAlias, type FooterEntry, isIrDeclaration } from "./footer-entry.js";
 
 const OPERATIONS_NAME = "operations";

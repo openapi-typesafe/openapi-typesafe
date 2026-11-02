@@ -1,6 +1,6 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
+import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-declarations-to-typescript.js";
 import { irProperty, irReference } from "../../src/domain/ir/constructors.js";
 import type { IrDeclaration } from "../../src/domain/ir/nodes.js";
 import { astToString } from "../../src/index.js";

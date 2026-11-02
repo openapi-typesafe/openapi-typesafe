@@ -8,6 +8,7 @@ import type { GeneratorOptions, OpenAPI3 } from "./types.js";
 
 export type * from "./domain/ir/nodes.js";
 export * from "./lib/ast-to-string.js";
+export { scanDiscriminators } from "./lib/discriminator-scan.js";
 export type { FooterEntry } from "./lib/footer-entry.js";
 export * from "./lib/legacy-ts-helpers.js";
 export * from "./lib/string-to-ast.js";

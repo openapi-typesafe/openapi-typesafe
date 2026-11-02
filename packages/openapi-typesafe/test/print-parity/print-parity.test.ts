@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { toStatement } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
+import { toStatement } from "../../src/adapters/type-ast-bridge/ir-declarations-to-typescript.js";
 import { printNodes } from "../../src/application/print/print-nodes.js";
 import type { IrDeclaration } from "../../src/domain/ir/nodes.js";
 import { astToString } from "../../src/index.js";

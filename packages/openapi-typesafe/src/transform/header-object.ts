@@ -10,7 +10,10 @@ import type { HeaderObject, TransformNodeOptions } from "../types.js";
  * Ported to IR (ENGINEERING_PLAN Phase 5, step 3). Same name and parameters as the original;
  * returns IR (task 6.2). For the public API and for users who call it from callbacks.
  */
-export default function transformHeaderObject(headerObject: HeaderObject, options: TransformNodeOptions): IrType {
+export default function transformHeaderObject(
+  headerObject: HeaderObject,
+  options: TransformNodeOptions,
+): IrType {
   const context = createTransformContext(options.ctx);
   return headerType(headerObject, schemaLocation(options), context);
 }

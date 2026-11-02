@@ -17,7 +17,7 @@ function discriminatorValue(discriminator: Discriminator, path: string): string 
   return match ? match[0] : name;
 }
 
-/** The discriminator property, typed as the literal value (the original `createDiscriminatorProperty`). */
+/** The discriminator property, typed as its literal value (`createDiscriminatorProperty`). */
 export function discriminatorProperty(
   discriminator: Discriminator,
   path: string,

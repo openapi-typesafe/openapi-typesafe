@@ -26,79 +26,152 @@ interface ParseSchemaOptions {
   resolver: BaseResolver;
 }
 
-export async function parseSchema(schema: unknown, { absoluteRef, resolver }: ParseSchemaOptions): Promise<Document> {
-  if (!schema) {
-    throw new Error("Can’t parse empty schema");
-  }
-  if (schema instanceof URL) {
-    const result = await resolver.resolveDocument(null, absoluteRef, true);
-    if ("parsed" in result) {
-      return result;
-    }
-    throw result.originalError;
-  }
-  if (schema instanceof Readable) {
-    const contents = await new Promise<string>((resolve) => {
-      schema.resume();
-      schema.setEncoding("utf8");
-      let content = "";
-      schema.on("data", (chunk: string) => {
-        content += chunk;
-      });
-      schema.on("end", () => {
-        resolve(content.trim());
-      });
+/** Read a stream to the end as UTF-8 text, trimmed. */
+function readStream(stream: Readable): Promise<string> {
+  return new Promise<string>((resolve) => {
+    stream.resume();
+    stream.setEncoding("utf8");
+    let content = "";
+    stream.on("data", (chunk: string) => {
+      content += chunk;
     });
-    return parseSchema(contents, { absoluteRef, resolver });
+    stream.on("end", () => {
+      resolve(content.trim());
+    });
+  });
+}
+
+const URL_PREFIXES = ["http://", "https://", "file://"] as const;
+
+/** A string is a URL, JSON (starts with `{`) or YAML. */
+function parseSchemaText(
+  schema: string,
+  options: ParseSchemaOptions,
+): Promise<Document> | Document {
+  if (URL_PREFIXES.some((prefix) => schema.startsWith(prefix))) {
+    const url = new URL(schema);
+    const absoluteRef = url.protocol === "file:" ? fileURLToPath(url) : url.href;
+    return parseSchema(url, { absoluteRef, resolver: options.resolver });
   }
-  if (schema instanceof Buffer) {
-    return parseSchema(schema.toString("utf8"), { absoluteRef, resolver });
+  if (schema[0] === "{") {
+    return {
+      source: new Source(options.absoluteRef, schema, "application/json"),
+      parsed: parseJson(schema),
+    };
   }
-  if (typeof schema === "string") {
-    // URL
-    if (schema.startsWith("http://") || schema.startsWith("https://") || schema.startsWith("file://")) {
-      const url = new URL(schema);
-      return parseSchema(url, {
-        absoluteRef: url.protocol === "file:" ? fileURLToPath(url) : url.href,
-        resolver,
-      });
-    }
-    // JSON
-    if (schema[0] === "{") {
-      return {
-        source: new Source(absoluteRef, schema, "application/json"),
-        parsed: parseJson(schema),
-      };
-    }
-    // YAML
-    return makeDocumentFromString(schema, absoluteRef);
+  return makeDocumentFromString(schema, options.absoluteRef);
+}
+
+async function resolveSchemaURL(options: ParseSchemaOptions): Promise<Document> {
+  const result = await options.resolver.resolveDocument(null, options.absoluteRef, true);
+  if ("parsed" in result) {
+    return result;
   }
+  throw result.originalError;
+}
+
+function parseSchemaObject(schema: unknown, absoluteRef: string): Document {
   if (typeof schema === "object" && !Array.isArray(schema)) {
     return {
       source: new Source(absoluteRef, JSON.stringify(schema), "application/json"),
       parsed: schema,
     };
   }
-  throw new Error(`Expected string, object, or Buffer. Got ${Array.isArray(schema) ? "Array" : typeof schema}`);
+  throw new Error(
+    `Expected string, object, or Buffer. Got ${Array.isArray(schema) ? "Array" : typeof schema}`,
+  );
 }
 
-function _processProblems(problems: NormalizedProblem[], options: { silent: boolean }) {
-  if (problems.length) {
-    let errorMessage: string | undefined;
-    for (const problem of problems) {
-      const problemLocation = problem.location?.[0].pointer;
-      const problemMessage = problemLocation ? `${problem.message} at ${problemLocation}` : problem.message;
-      if (problem.severity === "error") {
-        errorMessage = problemMessage;
-        error(problemMessage);
-      } else {
-        warn(problemMessage, options.silent);
-      }
-    }
-    if (errorMessage) {
-      throw new Error(errorMessage);
+/** Parse any supported source: URL, stream, buffer, URL or document text, or a plain object. */
+export async function parseSchema(schema: unknown, options: ParseSchemaOptions): Promise<Document> {
+  if (!schema) {
+    throw new Error("Can’t parse empty schema");
+  }
+  if (schema instanceof URL) {
+    return resolveSchemaURL(options);
+  }
+  if (schema instanceof Readable) {
+    return parseSchema(await readStream(schema), options);
+  }
+  if (schema instanceof Buffer) {
+    return parseSchema(schema.toString("utf8"), options);
+  }
+  if (typeof schema === "string") {
+    return parseSchemaText(schema, options);
+  }
+  return parseSchemaObject(schema, options.absoluteRef);
+}
+
+/** Report every problem; throw the last error, after all of them are printed. */
+function processProblems(problems: NormalizedProblem[], options: { silent: boolean }): void {
+  let errorMessage: string | undefined;
+  for (const problem of problems) {
+    const problemLocation = problem.location?.[0].pointer;
+    const problemMessage = problemLocation
+      ? `${problem.message} at ${problemLocation}`
+      : problem.message;
+    if (problem.severity === "error") {
+      errorMessage = problemMessage;
+      error(problemMessage);
+    } else {
+      warn(problemMessage, options.silent);
     }
   }
+  if (errorMessage) {
+    throw new Error(errorMessage);
+  }
+}
+
+/** Accept OpenAPI 3.x only; Swagger 2 and other formats get their own message. */
+function assertOpenAPI3(parsed: Record<string, unknown>): void {
+  const openapiVersion = Number.parseFloat(parsed.openapi as string);
+  const isOpenAPI3 =
+    !parsed.swagger &&
+    Boolean(parsed.openapi) &&
+    !Number.isNaN(openapiVersion) &&
+    openapiVersion >= 3 &&
+    openapiVersion < 4;
+  if (isOpenAPI3) {
+    return;
+  }
+  if (parsed.swagger) {
+    throw new Error("Unsupported Swagger version: 2.x. Use OpenAPI 3.x instead.");
+  }
+  if (parsed.openapi || openapiVersion < 3 || openapiVersion >= 4) {
+    throw new Error(`Unsupported OpenAPI version: ${parsed.openapi}`);
+  }
+  throw new Error("Unsupported schema format, expected `openapi: 3.x`");
+}
+
+/** The base for relative `$ref`s: the source file or URL itself, else the working directory. */
+function sourceAbsoluteRef(source: unknown, cwd: URL | undefined): string {
+  if (source instanceof URL) {
+    return source.protocol === "file:" ? fileURLToPath(source) : source.href;
+  }
+  return fileURLToPath(new URL(cwd ?? `file://${process.cwd()}/`));
+}
+
+async function lintSchema(
+  document: Document,
+  resolver: BaseResolver,
+  options: ValidateAndBundleOptions,
+): Promise<void> {
+  const startedAt = performance.now();
+  const problems = await lintDocument({
+    document,
+    config: options.redoc.styleguide,
+    externalRefResolver: resolver,
+  });
+  processProblems(problems, options);
+  debug("Linted schema", "lint", performance.now() - startedAt);
+}
+
+async function bundleSchema(document: Document, options: ValidateAndBundleOptions) {
+  const startedAt = performance.now();
+  const bundled = await bundle({ config: options.redoc, dereference: false, doc: document });
+  processProblems(bundled.problems, options);
+  debug("Bundled schema", "bundle", performance.now() - startedAt);
+  return bundled.bundle.parsed;
 }
 
 /**
@@ -108,57 +181,14 @@ export async function validateAndBundle(
   source: string | URL | OpenAPI3 | Readable | Buffer,
   options: ValidateAndBundleOptions,
 ) {
-  const redocConfigT = performance.now();
-  debug("Loaded Redoc config", "redoc", performance.now() - redocConfigT);
-  const redocParseT = performance.now();
-  let absoluteRef = fileURLToPath(new URL(options?.cwd ?? `file://${process.cwd()}/`));
-  if (source instanceof URL) {
-    absoluteRef = source.protocol === "file:" ? fileURLToPath(source) : source.href;
-  }
+  const configLoadedAt = performance.now();
+  debug("Loaded Redoc config", "redoc", performance.now() - configLoadedAt);
+  const parseStartedAt = performance.now();
+  const absoluteRef = sourceAbsoluteRef(source, options.cwd);
   const resolver = new BaseResolver(options.redoc.resolve);
-  const document = await parseSchema(source, {
-    absoluteRef,
-    resolver,
-  });
-  debug("Parsed schema", "redoc", performance.now() - redocParseT);
-
-  // 1. check for OpenAPI 3 or greater
-  const openapiVersion = Number.parseFloat(document.parsed.openapi);
-  if (
-    document.parsed.swagger ||
-    !document.parsed.openapi ||
-    Number.isNaN(openapiVersion) ||
-    openapiVersion < 3 ||
-    openapiVersion >= 4
-  ) {
-    if (document.parsed.swagger) {
-      throw new Error("Unsupported Swagger version: 2.x. Use OpenAPI 3.x instead.");
-    }
-    if (document.parsed.openapi || openapiVersion < 3 || openapiVersion >= 4) {
-      throw new Error(`Unsupported OpenAPI version: ${document.parsed.openapi}`);
-    }
-    throw new Error("Unsupported schema format, expected `openapi: 3.x`");
-  }
-
-  // 2. lint
-  const redocLintT = performance.now();
-  const problems = await lintDocument({
-    document,
-    config: options.redoc.styleguide,
-    externalRefResolver: resolver,
-  });
-  _processProblems(problems, options);
-  debug("Linted schema", "lint", performance.now() - redocLintT);
-
-  // 3. bundle
-  const redocBundleT = performance.now();
-  const bundled = await bundle({
-    config: options.redoc,
-    dereference: false,
-    doc: document,
-  });
-  _processProblems(bundled.problems, options);
-  debug("Bundled schema", "bundle", performance.now() - redocBundleT);
-
-  return bundled.bundle.parsed;
+  const document = await parseSchema(source, { absoluteRef, resolver });
+  debug("Parsed schema", "redoc", performance.now() - parseStartedAt);
+  assertOpenAPI3(document.parsed);
+  await lintSchema(document, resolver, options);
+  return bundleSchema(document, options);
 }

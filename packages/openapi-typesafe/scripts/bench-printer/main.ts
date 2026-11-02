@@ -12,7 +12,7 @@ import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { performance } from "node:perf_hooks";
 import ts from "typescript";
-import { toStatement } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
+import { toStatement } from "../../src/adapters/type-ast-bridge/ir-declarations-to-typescript.js";
 import { printNodes } from "../../src/application/print/print-nodes.js";
 import type { IrDeclaration } from "../../src/domain/ir/nodes.js";
 import { measure, type Timing } from "./measure.js";

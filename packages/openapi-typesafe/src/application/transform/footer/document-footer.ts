@@ -9,7 +9,7 @@ import type {
 import type { DocumentFooter } from "../transform-context.js";
 import { EnumNaming, enumDeclaration } from "./enum-naming.js";
 
-/** Where footer declarations go, in order: the run's `ctx.injectFooter`, which user code may add to. */
+/** Where footer declarations go, in order: the run's `ctx.injectFooter`, open to user code. */
 export interface FooterSink {
   /** Whether a type alias with this name is declared already (by the generator or a user). */
   hasTypeAlias(name: string): boolean;

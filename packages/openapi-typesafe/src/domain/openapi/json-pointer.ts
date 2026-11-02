@@ -23,8 +23,8 @@ export function escapePointerSegment(segment: string): string {
 }
 
 /**
- * Join parts into a local `$ref` (the original `createRef`). Empty parts are skipped. A part that is
- * itself a `$ref` contributes its segments; any other part is one segment.
+ * Join parts into a local `$ref` (the original `createRef`). Empty parts are skipped. A part that
+ * is itself a `$ref` contributes its segments; any other part is one segment.
  */
 export function createRef(parts: readonly (string | number | null | undefined)[]): string {
   let ref = "#";

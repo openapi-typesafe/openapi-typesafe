@@ -18,20 +18,19 @@
   "overrides": [
     {
       "includes": [
-        "src/domain/**",
-        "src/application/**",
-        "src/adapters/**",
-        "src/lib/transform-context.ts",
-        "src/lib/footer-helpers.ts",
         "test/domain/**",
         "test/application/**",
         "test/adapters/**",
         "test/print-parity/**",
         "test/fakes/**",
         "test/lib/transform-context.test.ts",
-        "scripts/bench-printer/**"
+        "scripts/bench-printer/**",
+        "src/**",
+        "scripts/size-rules/**"
       ],
-      "formatter": { "lineWidth": 100 }
+      "formatter": {
+        "lineWidth": 100
+      }
     }
   ]
 }

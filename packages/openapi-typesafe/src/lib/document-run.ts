@@ -1,8 +1,9 @@
 import type { Readable } from "node:stream";
 import { createConfig, type Config as RedoclyConfig } from "@redocly/openapi-core";
 import type { GeneratorOptions, GlobalContext, OpenAPI3 } from "../types.js";
+import { scanDiscriminators } from "./discriminator-scan.js";
 import { validateAndBundle } from "./redoc.js";
-import { resolveRef, scanDiscriminators } from "./utils.js";
+import { resolveRef } from "./utils.js";
 
 /** A validated, bundled document and the context of one generator run. */
 export interface DocumentRun {
@@ -23,7 +24,9 @@ function defaultRedoclyConfig(): Promise<RedoclyConfig> {
 }
 
 function sourceCwd(options: GeneratorOptions): URL {
-  return options.cwd instanceof URL ? options.cwd : new URL(`file://${options.cwd ?? process.cwd()}/`);
+  return options.cwd instanceof URL
+    ? options.cwd
+    : new URL(`file://${options.cwd ?? process.cwd()}/`);
 }
 
 function callbackOptions(options: GeneratorOptions) {
@@ -31,7 +34,8 @@ function callbackOptions(options: GeneratorOptions) {
     irCallbacks: options.irCallbacks === true,
     postTransform: typeof options.postTransform === "function" ? options.postTransform : undefined,
     transform: typeof options.transform === "function" ? options.transform : undefined,
-    transformProperty: typeof options.transformProperty === "function" ? options.transformProperty : undefined,
+    transformProperty:
+      typeof options.transformProperty === "function" ? options.transformProperty : undefined,
   };
 }
 

@@ -11,14 +11,17 @@ export interface TransformedDocument {
   readonly closing: readonly IrDeclaration[];
 }
 
-/** The TypeScript printer ends the file with a line break; a raw declaration holds the text without it. */
+/** The TypeScript printer ends the file with a line break; a raw declaration's text has none. */
 function withoutFinalLineBreak(text: string): string {
   return text.endsWith("\n") ? text.slice(0, -1) : text;
 }
 
 /** A TypeScript node from user code, as the TypeScript printer prints it. */
 function printedNode(node: ts.Node): IrDeclaration {
-  return { kind: "rawDeclaration", text: withoutFinalLineBreak(printWithTypeScript(loadTypeScript(), [node])) };
+  return {
+    kind: "rawDeclaration",
+    text: withoutFinalLineBreak(printWithTypeScript(loadTypeScript(), [node])),
+  };
 }
 
 function entryDeclaration(entry: FooterEntry): IrDeclaration {
@@ -29,6 +32,10 @@ function entryDeclaration(entry: FooterEntry): IrDeclaration {
  * The document as IR declarations in output order. Footer TypeScript nodes from user code become
  * raw text through the bridge; raw text is printed as written (ADR-010, decision 4).
  */
-export function documentDeclarations({ body, footer, closing }: TransformedDocument): IrDeclaration[] {
+export function documentDeclarations({
+  body,
+  footer,
+  closing,
+}: TransformedDocument): IrDeclaration[] {
   return [...body, ...footer.map(entryDeclaration), ...closing];
 }

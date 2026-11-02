@@ -1,6 +1,6 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { toStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
+import { toStatements } from "../../src/adapters/type-ast-bridge/ir-declarations-to-typescript.js";
 import { printWithTypeScript } from "../../src/adapters/type-ast-bridge/print-typescript.js";
 import openapiTS, { astToString } from "../../src/index.js";
 import type { OpenAPI3, OpenAPITSOptions } from "../../src/types.js";

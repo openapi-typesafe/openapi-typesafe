@@ -128,7 +128,8 @@ export function componentsType(
   components: ComponentsObject,
   context: TransformContext,
 ): ComponentsResult {
-  // A plain object, as in the original: its key order (integer-like names first) is the output order.
+  // A plain object, as in the original: its key order (integer-like names first) is the
+  // output order.
   const aliases: Record<string, IrTypeAliasDeclaration> = {};
   const members = COMPONENT_KINDS.map((kind) => kindMember(kind, components, aliases, context));
   return { type: irObject(members), rootTypes: Object.values(aliases) };

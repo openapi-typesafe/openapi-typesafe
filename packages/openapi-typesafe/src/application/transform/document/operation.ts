@@ -12,7 +12,7 @@ import { parametersMember } from "./parameters.js";
 import { requestBodyType } from "./request-body.js";
 import { responsesType } from "./responses.js";
 
-/** `requestBody`, optional unless the (resolved) body is required; `requestBody?: never` if none. */
+/** `requestBody`, optional unless the resolved body is required; `requestBody?: never` if none. */
 function requestBodyMember(
   operation: OperationObject,
   location: SchemaLocation,

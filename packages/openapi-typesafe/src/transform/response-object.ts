@@ -10,7 +10,10 @@ import type { ResponseObject, TransformNodeOptions } from "../types.js";
  * Ported to IR (ENGINEERING_PLAN Phase 5, step 4). Same name and parameters as the original;
  * returns IR (task 6.2). For the public API and for users who call it from callbacks.
  */
-export default function transformResponseObject(responseObject: ResponseObject, options: TransformNodeOptions): IrType {
+export default function transformResponseObject(
+  responseObject: ResponseObject,
+  options: TransformNodeOptions,
+): IrType {
   const context = createTransformContext(options.ctx);
   return responseType(responseObject, schemaLocation(options), context);
 }

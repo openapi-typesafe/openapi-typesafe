@@ -84,7 +84,11 @@ export function tsLiteral(value: unknown): IrType {
  * `WithRequired<T, "a" | "b">`, or the type itself for no keys. Adds the `WithRequired` helper
  * type to the footer once.
  */
-export function tsWithRequired(type: TypeInput, keys: readonly string[], injectFooter: FooterEntry[]): IrType {
+export function tsWithRequired(
+  type: TypeInput,
+  keys: readonly string[],
+  injectFooter: FooterEntry[],
+): IrType {
   if (keys.length === 0) {
     return toIrType(type);
   }
@@ -102,7 +106,9 @@ export interface OapiRefOptions {
   extractProperties?: string[];
 }
 
-function isParameterObject(value: ParameterObject | ReferenceObject | undefined): value is ParameterObject {
+function isParameterObject(
+  value: ParameterObject | ReferenceObject | undefined,
+): value is ParameterObject {
   return Boolean(value && !("$ref" in value && value.$ref) && (value as ParameterObject).in);
 }
 
