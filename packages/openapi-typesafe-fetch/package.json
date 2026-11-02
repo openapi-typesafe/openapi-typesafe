@@ -73,15 +73,15 @@
     "openapi-typesafe-helpers": "workspace:^"
   },
   "devDependencies": {
-    "axios": "1.16.0",
+    "axios": "1.21.0",
     "execa": "catalog:",
     "express": "5.2.1",
     "feature-fetch": "0.1.2",
-    "node-forge": "1.4.0",
+    "node-forge": "1.4.2",
     "openapi-typesafe": "workspace:^",
     "openapi-typescript-fetch": "2.2.1",
     "typescript": "catalog:",
-    "undici": "7.25.0",
+    "undici": "8.12.3",
     "vite": "catalog:"
   },
   "engines": {
