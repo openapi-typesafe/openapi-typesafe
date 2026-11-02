@@ -78,3 +78,12 @@ Every pull request must meet the Definition of Done in [ENGINEERING_PLAN.md](./E
 - Keep the PR focused; link the issue it resolves (`Closes #123`).
 - Describe what changed and why, and how you tested it.
 - CI must be green. A yellow CI (warnings) counts as red.
+
+## Troubleshooting
+
+- **Tests do not see my change.** Most tests import the built `dist/` output. Run `pnpm build` first.
+- **`pnpm install` rejects a version.** The workspace refuses versions published less than 24 hours ago
+  (`minimumReleaseAge`). Pick the previous release or wait a day.
+- **Firefox e2e fails locally with "Could not find profile folder".** Seen with Playwright 1.64 on macOS 27.
+  Chromium and WebKit are unaffected, and CI runs the browser tests on Linux. Run
+  `pnpm --filter openapi-typesafe-fetch exec playwright test --project=chrome --project=webkit` locally.

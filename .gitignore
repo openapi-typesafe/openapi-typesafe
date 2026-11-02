@@ -11,3 +11,7 @@ packages/openapi-typesafe/test/fixtures/cli-outputs/out
 
 # Local run logs (build, test, harness output)
 .logs
+
+# Playwright output
+test-results
+playwright-report
