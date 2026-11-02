@@ -1,4 +1,5 @@
 import { performance } from "node:perf_hooks";
+import * as changeCase from "change-case";
 import ts from "typescript";
 import { toPropertySignature, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
 import {
@@ -13,6 +14,7 @@ import type {
 import { UNKNOWN_TYPE } from "../application/transform/shared-types.js";
 import type {
   DocumentFooter,
+  NameCasing,
   TemplateLiteralParser,
   TransformContext,
   TransformDiagnostics,
@@ -69,6 +71,9 @@ function transformOptions(ctx: GlobalContext): TransformOptions {
     readWriteMarkers: ctx.readWriteMarkers,
     generatePathParams: ctx.generatePathParams,
     pathParamsAsTypes: ctx.pathParamsAsTypes,
+    rootTypes: ctx.rootTypes,
+    rootTypesNoSchemaPrefix: ctx.rootTypesNoSchemaPrefix,
+    rootTypesKeepCasing: ctx.rootTypesKeepCasing,
   };
 }
 
@@ -108,6 +113,8 @@ const TEMPLATES: TemplateLiteralParser = {
     return expression ? fromTypeNode(expression as ts.TypeNode) : null;
   },
 };
+
+const CASING: NameCasing = { pascalCase: (text) => changeCase.pascalCase(text) };
 
 /** `performance.now()` and the original `debug` logger, in the "ts" group. */
 const DIAGNOSTICS: TransformDiagnostics = {
@@ -186,6 +193,7 @@ export function createTransformContext(ctx: GlobalContext): TransformContext {
     callbacks: callbacks(ctx),
     templates: TEMPLATES,
     diagnostics: DIAGNOSTICS,
+    casing: CASING,
   };
 }
 

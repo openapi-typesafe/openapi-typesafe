@@ -1,0 +1,94 @@
+import { describe, expect, it } from "vitest";
+import { printNodes } from "../../../../src/application/print/print-nodes.js";
+import { componentsType } from "../../../../src/application/transform/document/components.js";
+import { irReference } from "../../../../src/domain/ir/constructors.js";
+import type { IrDeclaration } from "../../../../src/domain/ir/nodes.js";
+import {
+  isEnumSchema,
+  singularizeComponentKind,
+} from "../../../../src/domain/openapi/components-object.js";
+import { type FakeContextInput, fakeTransformContext } from "../../../fakes/transform-context.js";
+
+function transform(components: unknown, input: FakeContextInput = {}) {
+  const fake = fakeTransformContext(input);
+  const { type, rootTypes } = componentsType(components as never, fake.context);
+  const alias: IrDeclaration = {
+    kind: "typeAlias",
+    name: "T",
+    isExported: false,
+    type,
+    comments: [],
+  };
+  return { text: printNodes([alias]), rootTypes: printNodes(rootTypes), ...fake };
+}
+
+describe("componentsType", () => {
+  it("componentsType lists every kind; empty kinds are never", () => {
+    const { text, diagnostics } = transform({ schemas: { Pet: { type: "string" } } });
+
+    expect(text).toContain("schemas: {\n        Pet: string;\n    };");
+    expect(text).toContain("pathItems: never;");
+    expect(diagnostics.messages.map((entry) => entry.message)).toEqual([
+      "Transformed components → schemas",
+      "Transformed components → responses",
+      "Transformed components → parameters",
+      "Transformed components → requestBodies",
+      "Transformed components → headers",
+      "Transformed components → pathItems",
+    ]);
+  });
+
+  it("componentsType lets the transform callback replace a component and make it optional", () => {
+    const callbacks = { transform: () => ({ type: irReference("Custom"), isOptional: true }) };
+
+    const { text } = transform(
+      { schemas: { Pet: {} } },
+      { callbacks, options: { immutable: true } },
+    );
+
+    expect(text).toContain("readonly Pet?: Custom;");
+  });
+
+  it("componentsType with --root-types numbers conflicting aliases", () => {
+    const components = { schemas: { pet: {}, Pet: {} }, responses: { pet: {} } };
+
+    const { rootTypes } = transform(components, { options: { rootTypes: true } });
+
+    expect(rootTypes).toBe(
+      "export type SchemaPet = components['schemas']['pet'];\n" +
+        "export type SchemaPet_2 = components['schemas']['Pet'];\n" +
+        "export type ResponsePet = components['responses']['pet'];\n",
+    );
+  });
+
+  it("componentsType with --root-types options keeps casing and drops the schema prefix", () => {
+    const options = { rootTypes: true, rootTypesKeepCasing: true, rootTypesNoSchemaPrefix: true };
+
+    const { rootTypes } = transform({ schemas: { pet: {} } }, { options });
+
+    expect(rootTypes).toBe("export type pet = components['schemas']['pet'];\n");
+  });
+
+  it("componentsType with --root-types and --enum skips enum schemas", () => {
+    const options = { rootTypes: true, enum: true };
+
+    const { rootTypes } = transform({ schemas: { Status: { enum: ["a"] } } }, { options });
+
+    expect(rootTypes).toBe("");
+  });
+});
+
+describe("components domain rules", () => {
+  it("singularizeComponentKind handles requestBodies and drops the s otherwise", () => {
+    expect(singularizeComponentKind("requestBodies")).toBe("requestBody");
+    expect(singularizeComponentKind("pathItems")).toBe("pathItem");
+  });
+
+  it("isEnumSchema is true only for non-object enums without properties", () => {
+    expect(isEnumSchema({ enum: ["a"], type: "string" })).toBe(true);
+    expect(isEnumSchema({ enum: ["a"], type: "object" })).toBe(false);
+    expect(isEnumSchema({ enum: ["a"], additionalProperties: true })).toBe(false);
+    expect(isEnumSchema([])).toBe(false);
+    expect(isEnumSchema(null)).toBe(false);
+  });
+});

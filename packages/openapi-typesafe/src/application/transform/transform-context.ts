@@ -7,6 +7,17 @@ export interface TransformOptions extends SchemaOptions {
   readonly generatePathParams: boolean;
   /** `--path-params-as-types`: key templated paths by a template literal type. */
   readonly pathParamsAsTypes: boolean;
+  /** `--root-types`: export an alias per component, like `SchemaPet`. */
+  readonly rootTypes: boolean;
+  /** `--root-types-no-schema-prefix`: `Pet` instead of `SchemaPet` for schemas. */
+  readonly rootTypesNoSchemaPrefix: boolean;
+  /** `--root-types-keep-casing`: keep schema names as written instead of PascalCase. */
+  readonly rootTypesKeepCasing: boolean;
+}
+
+/** Name casing for generated identifiers (the original uses the `change-case` package). */
+export interface NameCasing {
+  pascalCase(text: string): string;
 }
 
 /** Declarations after the main types, including the top-level `operations` interface. */
@@ -37,4 +48,5 @@ export interface TransformContext extends SchemaContext {
   readonly footer: DocumentFooter;
   readonly templates: TemplateLiteralParser;
   readonly diagnostics: TransformDiagnostics;
+  readonly casing: NameCasing;
 }

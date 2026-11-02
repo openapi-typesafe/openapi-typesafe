@@ -8,6 +8,7 @@ import type {
 } from "../../src/application/transform/schema/schema-context.js";
 import type {
   DocumentFooter,
+  NameCasing,
   TemplateLiteralParser,
   TransformContext,
   TransformDiagnostics,
@@ -32,6 +33,9 @@ export const DEFAULT_TRANSFORM_OPTIONS: TransformOptions = {
   readWriteMarkers: false,
   generatePathParams: false,
   pathParamsAsTypes: false,
+  rootTypes: false,
+  rootTypesNoSchemaPrefix: false,
+  rootTypesKeepCasing: false,
 };
 
 /** Records footer requests; enum names are the requested names with a capital letter. */
@@ -74,6 +78,11 @@ export class RecordingDiagnostics implements TransformDiagnostics {
     this.messages.push({ message, durationMs });
   }
 }
+
+/** Capitalizes the first letter only; the real casing is covered by the parity tests. */
+const CAPITALIZING_CASING: NameCasing = {
+  pascalCase: (text) => `${text.charAt(0).toUpperCase()}${text.slice(1)}`,
+};
 
 /** Reads any text as a raw type; the real parser is covered by the parity tests. */
 const RAW_TEMPLATES: TemplateLiteralParser = { parse: (text) => irRaw(text) };
@@ -125,6 +134,7 @@ export function fakeTransformContext(input: FakeContextInput = {}): {
     callbacks: callbacksOf(input.callbacks ?? {}),
     templates: input.templates ?? RAW_TEMPLATES,
     diagnostics,
+    casing: CAPITALIZING_CASING,
   };
   return { context, footer, diagnostics };
 }
