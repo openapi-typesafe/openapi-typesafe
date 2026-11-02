@@ -224,3 +224,37 @@ export function pinSwitchedDependencies(text: string, specs: SwitchedPackageSpec
     },
   });
 }
+
+/**
+ * Pin the switched packages of a `package.json` that the migration tool already rewrote: it gives
+ * them a registry range, and the packages to test are local tarballs. Peer ranges accept any
+ * version, as in `switchPackageManifest`.
+ */
+export function pinMigratedPackages(text: string, specs: SwitchedPackageSpecs): SwitchedText {
+  const pinFields = Object.fromEntries(
+    INSTALLED_DEPENDENCY_FIELDS.map((field) => [
+      field,
+      (value: JsonObject) => pinSwitched(value, (name) => specs[name]),
+    ]),
+  );
+  return rewriteManifest(text, {
+    ...pinFields,
+    [PEER_DEPENDENCY_FIELD]: (value) => pinSwitched(value, () => SWITCHED_PEER_RANGE),
+  });
+}
+
+/** Give every switched package of one dependency map a new spec, keeping the key order. */
+function pinSwitched(
+  dependencies: JsonObject,
+  specFor: (name: SwitchedPackage) => string,
+): FieldSwitch {
+  let replacementCount = 0;
+  const entries = Object.entries(dependencies).map(([name, spec]) => {
+    if (!isSwitchedPackage(name)) {
+      return [name, spec];
+    }
+    replacementCount++;
+    return [name, specFor(name)];
+  });
+  return { value: Object.fromEntries(entries), replacementCount };
+}

@@ -109,8 +109,8 @@ export interface ProjectSwitchSummary {
 }
 
 /**
- * Rewrites a checked-out project for the two runs of ENGINEERING_PLAN 8.4. Task 10.1 can replace
- * `switchProject` with the migration tool without touching the use case.
+ * Rewrites a checked-out project for the two runs of ENGINEERING_PLAN 8.4: by package name only,
+ * or with the migration tool of 10.1 (`--switch migrate`).
  */
 export interface ProjectSwitcher {
   /** Switch to openapi-typesafe by package name only (the candidate run). */

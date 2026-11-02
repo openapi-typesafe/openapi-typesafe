@@ -14,6 +14,16 @@ export const HarnessCommand = {
 
 export type HarnessCommand = (typeof HarnessCommand)[keyof typeof HarnessCommand];
 
+/** How the dependents command switches a candidate project to openapi-typesafe. */
+export const SwitchMode = {
+  /** Rename the packages, specifiers and the command in place (ENGINEERING_PLAN 8.4). */
+  Names: "names",
+  /** Run the migration tool, as a user does (ENGINEERING_PLAN 10.1). */
+  Migrate: "migrate",
+} as const;
+
+export type SwitchMode = (typeof SwitchMode)[keyof typeof SwitchMode];
+
 /** Defaults of the business parameters; each can be overridden by a CLI option. */
 export const HARNESS_DEFAULTS = {
   apisGuruListUrl: "https://api.apis.guru/v2/list.json",
@@ -38,6 +48,10 @@ export const HARNESS_DEFAULTS = {
   dependentStepTimeoutMs: 600_000,
   /** The openapi-typesafe packages the dependents command packs, relative to this package. */
   packagesDir: "../../packages",
+  /** The migration tool's command, relative to this package; it must be built. */
+  migrateBin: "../../packages/openapi-typesafe-migrate/bin/migrate.js",
+  /** A migration reads and writes each project file once; a minute covers a large monorepo. */
+  migrateTimeoutMs: 60_000,
   /** Under the system temporary directory: outside the repository, see DEPENDENTS_WORK_PATHS. */
   dependentsWorkDirName: "openapi-typesafe-dependents",
   /** Large documents download in seconds; a minute covers slow mirrors without hanging the run. */
@@ -81,6 +95,7 @@ const SettingsSchema = z.object({
     .optional(),
   /** Absent: `<system temporary directory>/openapi-typesafe-dependents`. */
   workDir: z.string().min(1).optional(),
+  switchMode: z.enum(Object.values(SwitchMode)).default(SwitchMode.Names),
 });
 
 export type HarnessSettings = z.infer<typeof SettingsSchema>;
@@ -101,6 +116,7 @@ const CLI_OPTIONS = {
   "timeout-ms": { type: "string" },
   projects: { type: "string" },
   "work-dir": { type: "string" },
+  switch: { type: "string" },
 } as const;
 
 /**
@@ -131,6 +147,7 @@ export function parseSettings(argv: readonly string[]): HarnessSettings {
     timeoutMs: values["timeout-ms"],
     projects: values.projects,
     workDir: values["work-dir"],
+    switchMode: values.switch,
   });
   if (!parsed.success) {
     throw new HarnessError(HarnessErrorCode.SettingsInvalid, z.prettifyError(parsed.error));

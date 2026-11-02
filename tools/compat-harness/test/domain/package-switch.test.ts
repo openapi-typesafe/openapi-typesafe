@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  pinMigratedPackages,
   pinSwitchedDependencies,
   pinUpstreamVersions,
   type SwitchedPackageSpecs,
@@ -175,5 +176,32 @@ describe("pinUpstreamVersions", () => {
       scripts: { gen: "openapi-typescript a.json" },
     });
     expect(pinned.replacementCount).toBe(4);
+  });
+});
+
+describe("pinMigratedPackages", () => {
+  it("pinMigratedPackages points installed switched packages at the specs and opens peers", () => {
+    const text = manifest({
+      dependencies: { "openapi-typesafe-fetch": "^1.0.0", react: "18" },
+      devDependencies: { "openapi-typesafe": "1.0.0" },
+      optionalDependencies: { "openapi-typesafe-helpers": "~1.0.0" },
+      peerDependencies: { "openapi-typesafe-react-query": "^1.0.0", react: "18" },
+    });
+
+    const pinned = pinMigratedPackages(text, SPECS);
+
+    expect(JSON.parse(pinned.text)).toEqual({
+      dependencies: { "openapi-typesafe-fetch": "file:/p/fetch.tgz", react: "18" },
+      devDependencies: { "openapi-typesafe": "file:/p/openapi-typesafe.tgz" },
+      optionalDependencies: { "openapi-typesafe-helpers": "file:/p/helpers.tgz" },
+      peerDependencies: { "openapi-typesafe-react-query": "*", react: "18" },
+    });
+    expect(pinned.replacementCount).toBe(4);
+  });
+
+  it("pinMigratedPackages leaves a manifest without switched packages unchanged", () => {
+    const text = manifest({ dependencies: { "openapi-fetch": "1" } });
+
+    expect(pinMigratedPackages(text, SPECS)).toEqual({ text, replacementCount: 0 });
   });
 });

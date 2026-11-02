@@ -4,6 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { FetchHttpClient } from "../adapters/fetch-http-client.ts";
 import { JsonLinesFileLogger } from "../adapters/json-lines-file-logger.ts";
+import { MigrationToolProjectSwitcher } from "../adapters/migration-tool-project-switcher.ts";
 import { NodeCommandRunner } from "../adapters/node-command-runner.ts";
 import { NodeDirectoryEraser } from "../adapters/node-directory-eraser.ts";
 import { NodeFileStore } from "../adapters/node-file-store.ts";
@@ -20,7 +21,7 @@ import type {
   ProjectSwitcher,
   Sleep,
 } from "../application/ports.ts";
-import { HARNESS_DEFAULTS, type HarnessSettings } from "./settings.ts";
+import { HARNESS_DEFAULTS, type HarnessSettings, SwitchMode } from "./settings.ts";
 
 /**
  * The harness package directory; relative settings paths resolve against it, not against the shell
@@ -54,9 +55,27 @@ function logFileName(clock: Clock, command: string): string {
   return `${timestamp}-${command}.jsonl`;
 }
 
+/** The plain rename, or the migration tool with the plain baseline pin. */
+function createSwitcher(
+  settings: HarnessSettings,
+  runner: CommandRunner,
+  resolvePath: (path: string) => string,
+): ProjectSwitcher {
+  const names = new NodeProjectSwitcher();
+  if (settings.switchMode === SwitchMode.Names) {
+    return names;
+  }
+  const options = {
+    migrateBin: resolvePath(HARNESS_DEFAULTS.migrateBin),
+    timeoutMs: HARNESS_DEFAULTS.migrateTimeoutMs,
+  };
+  return new MigrationToolProjectSwitcher(runner, options, names);
+}
+
 export function createContainer(settings: HarnessSettings): HarnessContainer {
   const clock = new SystemClock();
   const resolvePath = (path: string): string => resolve(PACKAGE_ROOT, path);
+  const runner = new NodeCommandRunner();
   return {
     settings,
     clock,
@@ -74,9 +93,9 @@ export function createContainer(settings: HarnessSettings): HarnessContainer {
         ? join(tmpdir(), HARNESS_DEFAULTS.dependentsWorkDirName)
         : resolvePath(settings.workDir),
     ),
-    runner: new NodeCommandRunner(),
+    runner,
     eraser: new NodeDirectoryEraser(),
-    switcher: new NodeProjectSwitcher(),
+    switcher: createSwitcher(settings, runner, resolvePath),
     logger: new JsonLinesFileLogger(
       join(resolvePath(settings.logDir), logFileName(clock, settings.command)),
       clock,

@@ -31,12 +31,13 @@ async function listFiles(directory: string): Promise<string[]> {
   return nested.flat();
 }
 
-type TextSwitch = (text: string) => SwitchedText;
+export type TextSwitch = (text: string) => SwitchedText;
 
-const isPackageManifest = (path: string): boolean => path.endsWith(`/${PACKAGE_MANIFEST_NAME}`);
+export const isPackageManifest = (path: string): boolean =>
+  path.endsWith(`/${PACKAGE_MANIFEST_NAME}`);
 
 /** Apply the switch chosen for each file of a project tree and count the changes. */
-async function rewriteTree(
+export async function rewriteTree(
   projectRoot: string,
   switchFor: (path: string) => TextSwitch | undefined,
 ): Promise<ProjectSwitchSummary> {
