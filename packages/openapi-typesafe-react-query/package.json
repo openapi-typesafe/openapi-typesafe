@@ -57,7 +57,8 @@
     "test": "pnpm run generate-types && pnpm run test:js && pnpm run test:exports",
     "test:js": "vitest run",
     "test:exports": "pnpm run build && attw --pack .",
-    "version": "pnpm run prepare && pnpm run build"
+    "version": "pnpm run prepare && pnpm run build",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "openapi-typesafe-helpers": "workspace:^"

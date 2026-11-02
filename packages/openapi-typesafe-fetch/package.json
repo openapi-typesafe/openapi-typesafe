@@ -62,7 +62,8 @@
     "bench:js": "vitest bench",
     "e2e-vite-build": "vite build test/e2e/app",
     "e2e-vite-start": "vite preview test/e2e/app",
-    "version": "pnpm run prepare && pnpm run build"
+    "version": "pnpm run prepare && pnpm run build",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "openapi-typesafe-helpers": "workspace:^"

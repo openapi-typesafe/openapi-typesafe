@@ -63,7 +63,8 @@
     "update:examples": "pnpm run build && pnpm run download:schemas && vite-node ./scripts/update-examples.ts",
     "prepublish": "pnpm run build",
     "version": "pnpm run build",
-    "lint:deps": "depcruise src --config .dependency-cruiser.cjs"
+    "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
+    "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
     "typescript": "^5.x"
