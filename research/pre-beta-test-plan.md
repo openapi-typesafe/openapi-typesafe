@@ -236,12 +236,12 @@ Bun, Deno and the browsers run a smoke subset through the existing runtime and b
 - [x] 6.9 Behaviour parity with openapi-fetch 0.17: same requests on the wire for the same
       calls, except the documented fixes: ADR-013, `.changeset/cross-realm-headers.md`,
       `.changeset/fix-empty-error-response.md`.
-- [ ] 6.10 The rest of the public API (`src/index.d.ts`): `createPathBasedClient`,
+- [x] 6.10 The rest of the public API (`src/index.d.ts`): `createPathBasedClient`,
       `wrapAsPathBasedClient`, `client.request()`, `use()` / `eject()`, the `pathSerializer`
       and `requestInitExt` options, the `Media` type parameter, and output generated with
       `--read-write-markers` (`Readable` / `Writable` request and response types).
-- [ ] 6.11 A smoke run of the client in `workerd` (Cloudflare Workers runtime), new.
-- [ ] 6.12 `openapi-typesafe-helpers` has no runtime code of its own: its types are checked
+- [x] 6.11 A smoke run of the client in `workerd` (Cloudflare Workers runtime), new.
+- [x] 6.12 `openapi-typesafe-helpers` has no runtime code of its own: its types are checked
       through 6.8, and its public type names match openapi-typescript-helpers, so code that
       imports them directly keeps compiling after §8.
 
@@ -267,6 +267,17 @@ Stripe), against openapi-fetch 0.17.0 (`.logs/pre-beta/fetch/6.8-diagnostics.log
 | Stripe | 278,635 / 279,329 | 29,687 / 29,668 | 1.00 s / 0.99 s |
 
 No errors in either. The type cost is the same as openapi-fetch; times are rechecked in §4.8.
+
+**6.10–6.12 results.** 6.10: the package tests cover `createPathBasedClient` and
+`wrapAsPathBasedClient` (`test/path-based-client/`), `use()`/`eject()` (`test/middleware/`),
+`pathSerializer`, `requestInitExt` (`test/common/create-client-e2e.test.js`), the `Media` parameter
+and `$Read`/`$Write` output (`test/read-write-visibility/`); the wire stand also ran `request()`,
+`requestInitExt` and `eject()`. 6.11: workerd 1.20261102.1 ran the built client
+(`.logs/pre-beta/fetch/6.11-workerd.json`): path and query encoding, JSON, `Blob` and form bodies,
+204, an error body and middleware all behave as on Node.js, with no runtime warnings. 6.12: the 31
+exported type names of openapi-typesafe-helpers equal those of openapi-typescript-helpers 0.1.0
+(the version openapi-fetch 0.17 uses); its two extra names are not exported
+(`6.12-*-names.txt`).
 
 ## 7. React Query client (`openapi-typesafe-react-query`)
 
