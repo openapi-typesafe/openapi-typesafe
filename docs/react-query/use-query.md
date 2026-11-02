@@ -7,7 +7,8 @@ description: Typed useQuery for OpenAPI endpoints
 The `useQuery` method allows you to use the original [useQuery](https://tanstack.com/query/latest/docs/framework/react/guides/queries).
 
 - The result is the same as the original function.
-- The query key is `[method, path, params]`.
+- The query key is `[method, path, options]`, or `[method, path]` without options, so
+  `[method, path]` matches every variant in `invalidateQueries`.
 - `data` and `error` are fully typed.
 - You can pass query options as fourth parameter.
 
@@ -29,8 +30,8 @@ export const App = () => {
     },
   });
 
+  if (error) return `An error occurred: ${error.message}`;
   if (!data || isLoading) return "Loading...";
-  if (error) return `An error occured: ${error.message}`;
 
   return <div>{data.firstname}</div>;
 };
@@ -67,7 +68,7 @@ const query = $api.useQuery(method, path, options, queryOptions, queryClient);
 - `options`
   - The fetch options to use for the request.
   - Only required if the OpenApi schema requires parameters.
-  - The options `params` are used as key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
+  - The whole options object (`params`, `headers`, `body` and the rest) is part of the key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
 - `queryOptions`
   - The original `useQuery` options.
   - [See more information](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)

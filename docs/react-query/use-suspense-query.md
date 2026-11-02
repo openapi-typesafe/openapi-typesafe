@@ -20,6 +20,7 @@ You can find more information about `useSuspenseQuery` on the [@tanstack/react-q
 ::: code-group
 
 ```tsx [src/app.tsx]
+import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { $api } from "./api";
 
@@ -35,8 +36,10 @@ const MyComponent = () => {
 
 export const App = () => {
   return (
-    <ErrorBoundary fallbackRender={({ error }) => `Error: ${error.message}`}>
-      <MyComponent />
+    <ErrorBoundary fallback="Could not load the user.">
+      <Suspense fallback="Loading...">
+        <MyComponent />
+      </Suspense>
     </ErrorBoundary>
   );
 };
@@ -73,7 +76,7 @@ const query = $api.useSuspenseQuery(method, path, options, queryOptions, queryCl
 - `options`
   - The fetch options to use for the request.
   - Only required if the OpenApi schema requires parameters.
-  - The options `params` are used as key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
+  - The whole options object (`params`, `headers`, `body` and the rest) is part of the key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
 - `queryOptions`
   - The original `useSuspenseQuery` options.
   - [See more information](https://tanstack.com/query/latest/docs/framework/react/reference/useSuspenseQuery)

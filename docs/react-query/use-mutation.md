@@ -48,7 +48,7 @@ export const $api = createClient(fetchClient);
 ## Api
 
 ```tsx
-const query = $api.useMutation(method, path, queryOptions, queryClient);
+const mutation = $api.useMutation(method, path, mutationOptions, queryClient);
 ```
 
 **Arguments**
@@ -60,7 +60,7 @@ const query = $api.useMutation(method, path, queryOptions, queryClient);
   - The pathname to use for the request.
   - Must be an available path for the given method in your schema.
   - The pathname is used as key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
-- `queryOptions`
+- `mutationOptions`
   - The original `useMutation` options.
   - [See more information](https://tanstack.com/query/latest/docs/framework/react/reference/useMutation)
 - `queryClient`

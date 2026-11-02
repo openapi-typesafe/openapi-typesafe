@@ -37,9 +37,9 @@ const MyComponent = () => {
     },
   );
 
-  if (isLoading || !data) return "Loading...";
+  if (error) return `An error occurred: ${error.message}`;
 
-  if (error) return `An error occured: ${error.message}`;
+  if (isLoading || !data) return "Loading...";
 
   return <div>{data.title}</div>;
 };
@@ -95,9 +95,9 @@ const MyComponent = () => {
     },
   );
 
-  if (isLoading || !data) return "Loading...";
+  if (error) return `An error occurred: ${error.message}`;
 
-  if (error) return `An error occured: ${error.message}`;
+  if (isLoading || !data) return "Loading...";
 
   return <div>{data.title}</div>;
 };

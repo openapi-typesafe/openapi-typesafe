@@ -22,7 +22,8 @@ You can find more information about `useInfiniteQuery` on the [@tanstack/react-q
 
 ```tsx [src/app.tsx]
 import { $api } from "./api";
-const PostList = () => {
+
+export const PostList = () => {
   const { data, fetchNextPage, hasNextPage, isFetching } =
     $api.useInfiniteQuery(
       "get",
@@ -55,14 +56,6 @@ const PostList = () => {
         </button>
       )}
     </div>
-  );
-};
-
-export const App = () => {
-  return (
-    <ErrorBoundary fallbackRender={({ error }) => `Error: ${error.message}`}>
-      <MyComponent />
-    </ErrorBoundary>
   );
 };
 ```
@@ -104,7 +97,7 @@ const query = $api.useInfiniteQuery(
 - `options`
   - The fetch options to use for the request.
   - Only required if the OpenApi schema requires parameters.
-  - The options `params` are used as key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
+  - The whole options object (`params`, `headers`, `body` and the rest) is part of the key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
 - `infiniteQueryOptions`
   - `pageParamName` The query param name used for pagination, `"cursor"` by default.
   - The original `useInfiniteQuery` options.

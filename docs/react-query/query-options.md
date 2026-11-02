@@ -34,8 +34,8 @@ export const App = () => {
     }),
   );
 
+  if (error) return `An error occurred: ${error.message}`;
   if (!data || isLoading) return "Loading...";
-  if (error) return `An error occured: ${error.message}`;
 
   return <div>{data.firstname}</div>;
 };
@@ -112,7 +112,7 @@ const queryOptions = $api.queryOptions(method, path, options, queryOptions);
 - `options`
   - The fetch options to use for the request.
   - Only required if the OpenApi schema requires parameters.
-  - The options `params` are used as key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
+  - The whole options object (`params`, `headers`, `body` and the rest) is part of the key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
 - `queryOptions`
   - Additional query options to pass through.
 
