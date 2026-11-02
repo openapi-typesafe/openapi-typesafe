@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { refForbiddenError } from "../../src/adapters/redocly-loader/schema-load-errors.js";
 import { cliError } from "../../src/cli/cli-errors.js";
 import { HELP_TEXT } from "../../src/cli/help-text.js";
 import { runCli } from "../../src/cli/run-cli.js";
@@ -264,5 +265,52 @@ describe("runCli with the APIs of a Redocly config", () => {
     const errors = cli.logger.messages("error");
     expect(errors[0]).toBe("first (CLI_FLAG_REMOVED)");
     expect(errors[1]).toMatch(/^Unexpected error: Error: second/);
+  });
+});
+
+describe("runCli: $ref limits", () => {
+  it("runCli passes --local-ref-root, resolved against the cwd, and --remote-ref-hosts", async () => {
+    const cli = createFakeCli();
+
+    const exitCode = await runCli(
+      ["a.yaml", "--local-ref-root", "schemas", "--remote-ref-hosts", "api.example.com"],
+      cli.deps,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(cli.generator.calls[0]?.options).toMatchObject({
+      localRefRoot: new URL("file:///work/schemas"),
+      remoteRefHosts: ["api.example.com"],
+    });
+  });
+
+  it("runCli passes the $ref limits to every API of the Redocly config", async () => {
+    const cli = cliWithApis({ first: { root: "first.yaml", "x-openapi-ts": { output: "first.ts" } } });
+
+    const exitCode = await runCli(["--remote-ref-hosts="], cli.deps);
+
+    expect(exitCode).toBe(0);
+    expect(cli.generator.calls[0]?.options).toMatchObject({ remoteRefHosts: [] });
+  });
+
+  it("runCli without the flags sets no $ref limits", async () => {
+    const cli = createFakeCli();
+
+    await runCli(["a.yaml"], cli.deps);
+
+    expect(cli.generator.calls[0]?.options).not.toHaveProperty("localRefRoot");
+    expect(cli.generator.calls[0]?.options).not.toHaveProperty("remoteRefHosts");
+  });
+
+  it("runCli exits with 3 when a $ref is refused", async () => {
+    const cli = createFakeCli();
+    cli.generator.failures.set(
+      "file:///work/a.yaml",
+      refForbiddenError("/etc/passwd", { reason: "outside-local-root", localRoot: "/work" }),
+    );
+
+    const exitCode = await runCli(["a.yaml", "--local-ref-root", "."], cli.deps);
+
+    expect(exitCode).toBe(3);
   });
 });

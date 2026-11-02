@@ -37,6 +37,16 @@ export interface OpenAPITSBaseOptions {
   emptyObjectsUnknown?: boolean;
   /** Provide current working directory (cwd) which helps resolve relative remote schemas */
   cwd?: PathLike;
+  /**
+   * Load local `$ref` files only from this directory and below it; a relative path resolves
+   * against `cwd`. Default: no limit. Threat model R1, ADR-017.
+   */
+  localRefRoot?: string | URL;
+  /**
+   * Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` loads none.
+   * Redirects are checked too. Default: any host. Threat model R2, ADR-017.
+   */
+  remoteRefHosts?: readonly string[];
   /** Should schema objects with a default value not be considered optional? */
   defaultNonNullable?: boolean;
   /** Exclude deprecated fields from types? (default: false) */

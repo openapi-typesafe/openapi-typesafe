@@ -59,23 +59,29 @@ hang the generator.
   60-second limit on every remote fetch; the YAML parser stops at 100 levels.
 - Tests: `test/defensive/`. Limits are listed in docs/advanced.md, "Limits".
 
-### T3. Local file read through `$ref` — Open (R1)
+### T3. Local file read through `$ref` — Controlled by an option (R1)
 
 A local document can refer to any file the process can read (`$ref: ../../home/me/.kube/config`).
 A YAML or JSON file is parsed, and its content can land in the generated file, for example as an
 `example` in a comment. A document loaded from a URL cannot do this: its relative and `file:`
 references resolve against the URL, and only `http(s)` URLs are fetched.
 
-- Today: documented here and in the advice below; the behavior is inherited and other documents
-  may rely on references outside their directory.
+- Control: `--local-ref-root <dir>` (`localRefRoot`) refuses a local `$ref` outside the directory,
+  after links are resolved, with `SCHEMA_REF_FORBIDDEN` (ADR-017). It is off by default, because
+  the behavior is inherited and documents rely on references outside their directory.
+- Tests: `test/security/ref-access.test.ts`.
 
-### T4. Requests to internal hosts (SSRF) through remote `$ref` — Open (R2)
+### T4. Requests to internal hosts (SSRF) through remote `$ref` — Controlled by an option (R2)
 
 Any document can make the generator fetch any `http(s)` URL it can reach, including
 `localhost`, private networks and cloud metadata addresses, and put the response into the output.
 This matters in CI and on servers that generate types from user-supplied documents.
 
-- Today: a `customFetch` in the Redocly config can filter URLs; documented in the advice below.
+- Control: `--remote-ref-hosts <hosts>` (`remoteRefHosts`) refuses a remote `$ref`, and each
+  redirect, to a host that is not listed, with `SCHEMA_REF_FORBIDDEN`; `[]` refuses all
+  (ADR-017). It is off by default, as in openapi-typescript. A listed name is trusted: its address
+  is not checked after DNS resolution.
+- Tests: `test/security/ref-access.test.ts`, `test/adapters/redocly-loader/ref-access.test.ts`.
 
 ### T5. Unsafe requests from the fetch client — Controlled
 
@@ -107,16 +113,11 @@ others change them has a code-review problem, not a generator problem.
 
 - Treat an OpenAPI document from someone else like code: review changes to it, and review the
   diff of the generated file before you commit it.
-- When the document is not yours, generate in a sandbox or CI job with no secrets and no access to
-  internal networks (T3, T4).
-- To restrict remote references, give the Redocly config a `resolve.http.customFetch` that allows
-  only the hosts you expect.
+- When the document is not yours, set `--local-ref-root` and `--remote-ref-hosts` (see
+  [Untrusted documents](/advanced#untrusted-documents)), and generate in a sandbox or CI job with
+  no secrets and no access to internal networks (T3, T4).
 
 ## Open risks
 
-| Id | Threat | Proposed follow-up |
-| :-- | :-- | :-- |
-| R1 | T3, local file read | An option that limits local `$ref` to the document's directory; default to be decided for 2.0, because it can break existing documents |
-| R2 | T4, SSRF | An option with allowed hosts for remote `$ref`, and a refusal of private and link-local addresses unless allowed |
-
-Each open risk becomes an issue in the tracker when the repository goes public (task 11.2).
+None. R1 and R2 are controlled by opt-in options (ADR-017). Whether they become the default is
+decided for 2.0; that decision is tracked as an issue when the repository goes public (task 11.2).

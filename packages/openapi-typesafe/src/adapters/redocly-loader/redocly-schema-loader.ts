@@ -1,29 +1,24 @@
-import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import {
-  BaseResolver,
+  type BaseResolver,
   bundle,
   type Document,
   lintDocument,
-  makeDocumentFromString,
   type NormalizedProblem,
   type Config as RedoclyConfig,
-  Source,
 } from "@redocly/openapi-core";
-import parseJson from "parse-json";
 import type { Logger } from "../../application/ports/logger.js";
 import type { SchemaLoader, SchemaLoadRequest } from "../../application/ports/schema-loader.js";
 import { withStackOverflowReportedAsync } from "../../application/stack-overflow.js";
 import type { OpenAPI3 } from "../../types.js";
+import { RefAccessResolver } from "./ref-access.js";
+import { resolveConfigWithAccess } from "./remote-fetch.js";
 import {
-  loadFailedError,
-  parseFailedError,
   refCycleError,
   schemaInvalidError,
-  sourceEmptyError,
-  sourceInvalidError,
   versionUnsupportedError,
 } from "./schema-load-errors.js";
+import { parseSchema } from "./schema-source.js";
 import {
   findUnsupportedKeys,
   type LoadedDocument,
@@ -41,102 +36,6 @@ export interface RedoclySchemaLoaderOptions {
   readonly now: () => number;
   /** Time limit of one remote fetch, unless the Redocly config brings its own `customFetch`. */
   readonly remoteRefTimeoutMs: number;
-}
-
-interface ParseSchemaOptions {
-  absoluteRef: string;
-  resolver: BaseResolver;
-}
-
-/** Read a stream to the end as UTF-8 text, trimmed. */
-function readStream(stream: Readable): Promise<string> {
-  return new Promise<string>((resolve) => {
-    stream.resume();
-    stream.setEncoding("utf8");
-    let content = "";
-    stream.on("data", (chunk: string) => {
-      content += chunk;
-    });
-    stream.on("end", () => {
-      resolve(content.trim());
-    });
-  });
-}
-
-const URL_PREFIXES = ["http://", "https://", "file://"] as const;
-
-/** A string is a URL, JSON (starts with `{`) or YAML. */
-function parseSchemaText(
-  schema: string,
-  options: ParseSchemaOptions,
-): Promise<Document> | Document {
-  if (URL_PREFIXES.some((prefix) => schema.startsWith(prefix))) {
-    const url = new URL(schema);
-    const absoluteRef = url.protocol === "file:" ? fileURLToPath(url) : url.href;
-    return parseSchema(url, { absoluteRef, resolver: options.resolver });
-  }
-  return schema[0] === "{"
-    ? parseJsonText(schema, options.absoluteRef)
-    : parseYamlText(schema, options.absoluteRef);
-}
-
-function parseJsonText(text: string, absoluteRef: string): Document {
-  try {
-    return { source: new Source(absoluteRef, text, "application/json"), parsed: parseJson(text) };
-  } catch (cause) {
-    throw parseFailedError("json", absoluteRef, cause);
-  }
-}
-
-function parseYamlText(text: string, absoluteRef: string): Document {
-  try {
-    return makeDocumentFromString(text, absoluteRef);
-  } catch (cause) {
-    throw parseFailedError("yaml", absoluteRef, cause);
-  }
-}
-
-/** The resolver throws for some failures (a missing file) and returns an error for others. */
-async function resolveSchemaURL(options: ParseSchemaOptions): Promise<Document> {
-  const result = await options.resolver
-    .resolveDocument(null, options.absoluteRef, true)
-    .catch((cause: unknown) => {
-      throw loadFailedError(options.absoluteRef, cause);
-    });
-  if ("parsed" in result) {
-    return result;
-  }
-  throw loadFailedError(options.absoluteRef, result.originalError);
-}
-
-function parseSchemaObject(schema: unknown, absoluteRef: string): Document {
-  if (typeof schema === "object" && !Array.isArray(schema)) {
-    return {
-      source: new Source(absoluteRef, JSON.stringify(schema), "application/json"),
-      parsed: schema,
-    };
-  }
-  throw sourceInvalidError(schema);
-}
-
-/** Parse any supported source: URL, stream, buffer, URL or document text, or a plain object. */
-export async function parseSchema(schema: unknown, options: ParseSchemaOptions): Promise<Document> {
-  if (!schema) {
-    throw sourceEmptyError("Can’t parse empty schema");
-  }
-  if (schema instanceof URL) {
-    return resolveSchemaURL(options);
-  }
-  if (schema instanceof Readable) {
-    return parseSchema(await readStream(schema), options);
-  }
-  if (schema instanceof Buffer) {
-    return parseSchema(schema.toString("utf8"), options);
-  }
-  if (typeof schema === "string") {
-    return parseSchemaText(schema, options);
-  }
-  return parseSchemaObject(schema, options.absoluteRef);
 }
 
 /** Accept OpenAPI 3.x only; Swagger 2 and other formats get their own message. */
@@ -169,24 +68,6 @@ function sourceAbsoluteRef(source: unknown, cwd: URL): string {
     return source.protocol === "file:" ? fileURLToPath(source) : source.href;
   }
   return fileURLToPath(cwd);
-}
-
-type ResolveConfig = RedoclyConfig["resolve"];
-
-/**
- * Give remote fetches a time limit: without one, a server that never answers keeps the generator
- * waiting for Node's five-minute default. A `customFetch` of the Redocly config is kept as it is.
- */
-function resolveConfigWithTimeout(resolve: ResolveConfig, timeoutMs: number): ResolveConfig {
-  if (resolve.http.customFetch !== undefined) {
-    return resolve;
-  }
-  const customFetch = (input: string, init: RequestInit = {}): Promise<Response> =>
-    fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) }).catch((cause: unknown) => {
-      const isTimeout = cause instanceof Error && cause.name === "TimeoutError";
-      throw isTimeout ? new Error(`Timed out after ${timeoutMs} ms loading ${input}`) : cause;
-    });
-  return { ...resolve, http: { ...resolve.http, customFetch } };
 }
 
 /** Redocly throws a plain Error for a `$ref` chain that points back to itself. */
@@ -231,24 +112,46 @@ class RedoclySchemaLoader implements SchemaLoader {
   }
 
   async load(request: SchemaLoadRequest): Promise<OpenAPI3> {
-    const { logger, now, redoc } = this.#options;
+    const { logger, now } = this.#options;
     const configLoadedAt = now();
     logger.debug("Loaded Redoc config", "redoc", now() - configLoadedAt);
     const parseStartedAt = now();
+    const resolver = this.#resolver(request);
     const absoluteRef = sourceAbsoluteRef(request.source, request.cwd);
-    const resolver = new BaseResolver(
-      resolveConfigWithTimeout(redoc.resolve, this.#options.remoteRefTimeoutMs),
-    );
     const document = await parseSchema(request.source, { absoluteRef, resolver });
     logger.debug("Parsed schema", "redoc", now() - parseStartedAt);
     assertOpenAPI3(document.parsed);
-    const rethrow = (error: unknown) => rethrowDocumentError(error, document, resolver);
-    return withStackOverflowReportedAsync("load", async () => {
-      if (request.shouldLint) {
-        await this.#lint(document, resolver).catch(rethrow);
-      }
-      return this.#bundle(document, resolver).catch(rethrow);
+    const bundled = await withStackOverflowReportedAsync("load", () =>
+      this.#lintAndBundle(document, resolver, request.shouldLint),
+    ).catch((error: unknown) => {
+      throw resolver.firstRefusal ?? error;
     });
+    // A refused `$ref` is an unresolved-`$ref` problem, which a Redocly config can turn off.
+    if (resolver.firstRefusal !== undefined) {
+      throw resolver.firstRefusal;
+    }
+    return bundled;
+  }
+
+  #resolver(request: SchemaLoadRequest): RefAccessResolver {
+    const { redoc, remoteRefTimeoutMs } = this.#options;
+    const config = resolveConfigWithAccess(redoc.resolve, {
+      timeoutMs: remoteRefTimeoutMs,
+      access: request.refAccess,
+    });
+    return new RefAccessResolver(config, request.refAccess);
+  }
+
+  async #lintAndBundle(
+    document: Document,
+    resolver: BaseResolver,
+    shouldLint: boolean,
+  ): Promise<OpenAPI3> {
+    const rethrow = (error: unknown) => rethrowDocumentError(error, document, resolver);
+    if (shouldLint) {
+      await this.#lint(document, resolver).catch(rethrow);
+    }
+    return this.#bundle(document, resolver).catch(rethrow);
   }
 
   async #lint(document: Document, resolver: BaseResolver): Promise<void> {

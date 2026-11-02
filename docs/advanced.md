@@ -456,6 +456,31 @@ When in doubt, you can always define `$defs` at the root schema level.
 
 :::
 
+## Untrusted documents
+
+A document can refer to other files and URLs with `$ref`, and the generator loads them. By default
+it loads any local file it can read and any `http(s)` URL it can reach, as openapi-typescript does.
+For a document you did not write (from a vendor, a URL or a user), limit both:
+
+```bash
+npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
+  --local-ref-root ./vendor --remote-ref-hosts api.vendor.example
+```
+
+- `--local-ref-root` (`localRefRoot` in the Node API): local `$ref` files must be in this
+  directory or below it. Links are followed before the check, so a link inside the directory that
+  points outside it is refused too.
+- `--remote-ref-hosts` (`remoteRefHosts`): remote `$ref` documents must come from these hosts,
+  written as `name` (any port) or `name:port`. An empty list (`--remote-ref-hosts=`) allows no
+  remote `$ref`. Each redirect is checked against the list, at most 5 are followed, and headers
+  from your Redocly config are not sent on to another origin. A listed name is trusted: it is not
+  checked again after DNS resolution.
+- The document you pass to the generator is never limited, only what it refers to.
+
+A refused `$ref` fails with `SCHEMA_REF_FORBIDDEN` (CLI exit code `3`); `err.details` has the
+`ref` and the `reason` (`outside-local-root` or `host-not-allowed`). The
+[threat model](/security/threat-model) explains the risks (T3, T4).
+
 ## Limits
 
 openapi-typesafe fails with a typed error (`err.code`, CLI exit code `3`) instead of crashing or

@@ -115,6 +115,8 @@ The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plu
 | `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors will still show)                                      |
 | `lint`             |    `boolean`    |     `true`      | Lint the document with the Redocly config first. `false` skips it; bundling errors still fail |
 | `cwd`              | `string \| URL` | `process.cwd()` | (optional) Provide the current working directory to help resolve remote `$ref`s (if needed). |
+| `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd` |
+| `remoteRefHosts`   |   `string[]`    |                 | Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` allows none |
 | `inject`           |    `string`     |                 | Inject arbitrary TypeScript types into the start of the file                                 |
 
 ### IR callbacks

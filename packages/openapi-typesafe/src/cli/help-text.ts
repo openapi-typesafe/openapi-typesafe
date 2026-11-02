@@ -39,5 +39,8 @@ export const HELP_TEXT = [
   "  --read-write-markers       Generate $Read/$Write markers for" +
     " readOnly/writeOnly properties",
   "  --no-lint                  Skip the Redocly lint (bundling errors still fail)",
+  "  --local-ref-root [dir]     Load local $ref files only from this directory",
+  "  --remote-ref-hosts [hosts] Load remote $ref documents only from these" +
+    " comma-separated hosts (empty: none)",
   "",
 ].join("\n");

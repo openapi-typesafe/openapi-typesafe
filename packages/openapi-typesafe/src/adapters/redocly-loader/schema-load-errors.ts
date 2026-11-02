@@ -81,3 +81,25 @@ export function refCycleError(cause: Error): OpenAPITypesafeError {
     cause,
   });
 }
+
+function hostListText(hosts: readonly string[]): string {
+  return hosts.length === 0 ? "none" : hosts.join(", ");
+}
+
+/** Why a `$ref` document was refused, with the limit it broke (ADR-017). */
+export type RefRefusalDetails =
+  | { readonly reason: "outside-local-root"; readonly localRoot: string }
+  | { readonly reason: "host-not-allowed"; readonly allowedHosts: readonly string[] };
+
+/** A `$ref` is outside the local root, or its host is not allowed (threat model R1, R2). */
+export function refForbiddenError(ref: string, details: RefRefusalDetails): OpenAPITypesafeError {
+  const limit =
+    details.reason === "outside-local-root"
+      ? `it is outside the local $ref root ${details.localRoot}`
+      : `its host is not in the allowed remote $ref hosts (${hostListText(details.allowedHosts)})`;
+  return new OpenAPITypesafeError({
+    code: ERROR_CODES.SCHEMA_REF_FORBIDDEN,
+    message: `Refused to load ${ref}: ${limit}`,
+    details: { ref, ...details },
+  });
+}

@@ -45,7 +45,7 @@ async function loadDocument(source: unknown) {
     now: () => 0,
     remoteRefTimeoutMs: TEST_TIMEOUT_MS,
   });
-  return loader.load({ source: source as never, cwd: new URL("file:///work/"), shouldLint: true });
+  return loader.load({ source: source as never, cwd: new URL("file:///work/"), shouldLint: true, refAccess: {} });
 }
 
 async function loadFailure(source: unknown): Promise<OpenAPITypesafeError> {

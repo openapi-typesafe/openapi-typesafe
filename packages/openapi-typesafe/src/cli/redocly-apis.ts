@@ -4,6 +4,7 @@ import type { GeneratorOptions } from "../types.js";
 import { GENERATOR_FLAGS, type GeneratorFlags } from "./cli-arguments.js";
 import { cliError } from "./cli-errors.js";
 import { type CliRun, emitOutput, resolveFileUrl } from "./cli-output.js";
+import { refLimitOptions } from "./ref-limits.js";
 
 /** The `apis` of a Redocly config: each API is generated into its `x-openapi-ts.output`. */
 
@@ -59,6 +60,7 @@ async function generateApi(run: CliRun, redocly: RedoclyConfig, api: RedoclyApi)
   const options: GeneratorOptions = {
     ...run.args.generatorFlags,
     ...apiFlags(api.settings),
+    ...refLimitOptions(run.args, run.deps.cwd),
     redocly,
   };
   const contents = await run.deps.generate(new URL(api.root, configRoot), options);

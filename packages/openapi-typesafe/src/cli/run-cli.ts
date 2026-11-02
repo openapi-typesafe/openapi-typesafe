@@ -6,6 +6,7 @@ import { cliError, describeCliFailure, EXIT_CODES, type ExitCode } from "./cli-e
 import { type CliRun, emitOutput, resolveFileUrl } from "./cli-output.js";
 import { HELP_TEXT } from "./help-text.js";
 import { generateRedoclyApis, hasRedoclyApis } from "./redocly-apis.js";
+import { refLimitOptions } from "./ref-limits.js";
 
 /**
  * The CLI's use case: parse the arguments, then generate the APIs of the Redocly config, one
@@ -33,7 +34,12 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
     );
   }
   const source = input ? new URL(input, run.deps.cwd) : run.deps.stdin();
-  const options = { ...run.args.generatorFlags, redocly, silent: !output };
+  const options = {
+    ...run.args.generatorFlags,
+    ...refLimitOptions(run.args, run.deps.cwd),
+    redocly,
+    silent: !output,
+  };
   const contents = await run.deps.generate(source, options);
   if (!output) {
     run.deps.writeStdout(contents);

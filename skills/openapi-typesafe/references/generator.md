@@ -32,6 +32,8 @@ Common flags (all default to off unless noted):
 | `--make-paths-enum` | Export an `ApiPaths` enum |
 | `--read-write-markers` | Mark `readOnly` / `writeOnly` with `$Read<T>` / `$Write<T>`; the client strips them from request and response types |
 | `--no-lint` | Skip the Redocly lint; bundling errors still fail |
+| `--local-ref-root <dir>` | Local `$ref` files only from this directory (for documents you did not write) |
+| `--remote-ref-hosts <a,b>` | Remote `$ref` documents only from these hosts; empty allows none |
 
 Flags can also go under `x-openapi-ts` per API in `redocly.yaml`.
 
@@ -52,7 +54,7 @@ fs.writeFileSync("./src/api/schema.d.ts", astToString(ast));
   `Readable`.
 - Options: the CLI flags in camelCase (`rootTypes`, `enum`, `immutable`, ...), plus `transform`,
   `postTransform`, `transformProperty`, `irCallbacks`, `inject` (text added at the top), `silent`,
-  `lint`, `cwd`, `redocly`.
+  `lint`, `cwd`, `redocly`, `localRefRoot`, `remoteRefHosts`.
 - The result is `IrDeclaration[]` (plain objects with a `kind`). Print it with `astToString`.
 
 ## IR callbacks
@@ -111,7 +113,7 @@ try {
 | Group | Codes |
 | :-- | :-- |
 | Usage / config | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE` |
-| Document | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
+| Document | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | Output | `OUTPUT_STALE`, `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 
 `ERROR_CODES` exports them all. A lower-level error (file system, parser) is in `cause`.

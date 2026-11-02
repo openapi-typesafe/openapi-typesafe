@@ -1,7 +1,9 @@
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import { sourceEmptyError } from "../adapters/redocly-loader/schema-load-errors.js";
 import type { Logger } from "../application/ports/logger.js";
-import type { SchemaLoader } from "../application/ports/schema-loader.js";
+import type { RefAccess, SchemaLoader } from "../application/ports/schema-loader.js";
 import type { GeneratorOptions, GlobalContext, OpenAPI3, SchemaSource } from "../types.js";
 import { findDiscriminators } from "./discriminator-scan.js";
 import { resolveDocumentRef } from "./document-refs.js";
@@ -38,6 +40,19 @@ function sourceCwd(options: GeneratorOptions): URL {
   return options.cwd instanceof URL
     ? options.cwd
     : new URL(`file://${options.cwd ?? process.cwd()}/`);
+}
+
+/** The `$ref` limits of the options; a relative local root resolves against the cwd. */
+function refAccessOf(options: GeneratorOptions, cwd: URL): RefAccess {
+  const { localRefRoot, remoteRefHosts } = options;
+  const localRoot =
+    typeof localRefRoot === "string"
+      ? pathToFileURL(path.resolve(fileURLToPath(cwd), localRefRoot))
+      : localRefRoot;
+  return {
+    ...(localRoot === undefined ? {} : { localRoot }),
+    ...(remoteRefHosts === undefined ? {} : { remoteHosts: remoteRefHosts }),
+  };
 }
 
 function callbackOptions(options: GeneratorOptions) {
@@ -89,10 +104,12 @@ export async function createDocumentRun(
   }
   const { logger } = ports;
   const silent = options.silent ?? false;
+  const cwd = sourceCwd(options);
   const schema = await ports.loader.load({
     source,
-    cwd: sourceCwd(options),
+    cwd,
     shouldLint: options.lint ?? true,
+    refAccess: refAccessOf(options, cwd),
   });
   const ctx: GlobalContext = {
     ...contextFlags(options),

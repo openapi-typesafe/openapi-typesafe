@@ -12,7 +12,36 @@ describe("parseCliArguments", () => {
       isHelp: false,
       isVersion: false,
       generatorFlags: {},
+      refLimits: {},
     });
+  });
+
+  it("parseCliArguments reads the $ref limits; a port-like host stays a string", () => {
+    const args = parseCliArguments([
+      "a.yaml",
+      "--local-ref-root",
+      "schemas",
+      "--remote-ref-hosts",
+      "api.example.com, localhost:8080",
+      "--remote-ref-hosts",
+      "8080",
+    ]);
+
+    expect(args.input).toBe("a.yaml");
+    expect(args.refLimits).toEqual({
+      localRefRoot: "schemas",
+      remoteRefHosts: ["api.example.com", "localhost:8080", "8080"],
+    });
+  });
+
+  it("parseCliArguments with an empty --remote-ref-hosts allows no host", () => {
+    expect(parseCliArguments(["--remote-ref-hosts="]).refLimits).toEqual({ remoteRefHosts: [] });
+  });
+
+  it("parseCliArguments uses the last --local-ref-root and accepts camelCase", () => {
+    const args = parseCliArguments(["--localRefRoot", "a", "--local-ref-root", "b"]);
+
+    expect(args.refLimits).toEqual({ localRefRoot: "b" });
   });
 
   it("parseCliArguments reads the input, the short aliases and --check", () => {

@@ -45,6 +45,12 @@ const BOOLEAN_FLAGS = [
   ...CAMEL_CASE_BOOLEAN_FLAGS.map((flag) => kebabCase(flag)),
 ];
 
+/** The `$ref` limits as the user wrote them; unset flags are absent. */
+export interface CliRefLimits {
+  readonly localRefRoot?: string;
+  readonly remoteRefHosts?: readonly string[];
+}
+
 export interface CliArguments {
   /** The schema path or URL; none means stdin, or the APIs of the Redocly config. */
   readonly input: string | undefined;
@@ -54,6 +60,7 @@ export interface CliArguments {
   readonly isHelp: boolean;
   readonly isVersion: boolean;
   readonly generatorFlags: GeneratorFlags;
+  readonly refLimits: CliRefLimits;
 }
 
 /** Flags of older versions that were removed or renamed, with the message for each. */
@@ -103,12 +110,45 @@ function optionalString(value: unknown): string | undefined {
   return value === undefined ? undefined : String(value);
 }
 
+/** The last value of a flag that may be given more than once. */
+function lastString(value: unknown): string | undefined {
+  return optionalString(Array.isArray(value) ? value.at(-1) : value);
+}
+
+/** `--remote-ref-hosts a.example,b.example`, repeatable; an empty value allows no host. */
+function hostList(value: unknown): string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return [value]
+    .flat()
+    .flatMap((entry) => String(entry).split(","))
+    .map((host) => host.trim())
+    .filter((host) => host !== "");
+}
+
+function refLimitsOf(parsed: parser.Arguments): CliRefLimits {
+  const localRefRoot = lastString(parsed.localRefRoot);
+  const remoteRefHosts = hostList(parsed.remoteRefHosts);
+  return {
+    ...(localRefRoot === undefined ? {} : { localRefRoot }),
+    ...(remoteRefHosts === undefined ? {} : { remoteRefHosts }),
+  };
+}
+
+/** String flags, in both spellings, so that a value such as `8080` is not read as a number. */
+const STRING_FLAGS = [
+  "output",
+  "redocly",
+  ...["localRefRoot", "remoteRefHosts"].flatMap((flag) => [flag, kebabCase(flag)]),
+];
+
 /** Parse the arguments after `node cli.js`. Fails with `CLI_FLAG_REMOVED` for an old flag. */
 export function parseCliArguments(argv: readonly string[]): CliArguments {
   rejectRemovedFlags(argv);
   const parsed = parser([...argv], {
     boolean: BOOLEAN_FLAGS,
-    string: ["output", "redocly"],
+    string: STRING_FLAGS,
     alias: { redocly: ["c"], exportType: ["t"], output: ["o"] },
   });
   return {
@@ -119,5 +159,6 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
     isHelp: "help" in parsed,
     isVersion: "version" in parsed,
     generatorFlags: generatorFlagsOf(parsed),
+    refLimits: refLimitsOf(parsed),
   };
 }
