@@ -313,10 +313,10 @@ On real projects. Start with the existing tool: `pnpm harness dependents --switc
 commits, runs their checks before and after the migration (see "Real projects" in its README).
 Then add more projects from `research/dependents.csv` that the harness does not cover.
 
-- [ ] 8.1 Dry run lists every change; `--write` applies exactly those.
+- [x] 8.1 Dry run lists every change; `--write` applies exactly those.
 - [ ] 8.2 After the migration the project installs, generates, type-checks and passes its own
       tests. Each failure is ours or documented in the migration guide.
-- [ ] 8.3 What it rewrites, each on a real case:
+- [x] 8.3 What it rewrites, each on a real case:
       - sources: static, type-only and dynamic imports, `require()`, re-exports, `vi.mock()`,
         `declare module`, deep imports (reported as manual steps), `transform` callbacks;
       - manifests: dependency fields and `package.json` scripts are rewritten; peer
@@ -329,27 +329,53 @@ Then add more projects from `research/dependents.csv` that the harness does not 
       - it skips `node_modules`, `.git` and `dist` only: check that build output in other
         folders (`build`, `.next`, `coverage`) and committed generated files are handled
         sensibly.
-- [ ] 8.4 Running it twice changes nothing the second time; it never touches lockfiles
+- [x] 8.4 Running it twice changes nothing the second time; it never touches lockfiles
       (`pnpm-lock.yaml`, `yarn.lock`, `bun.lock` are skipped by name; check `package-lock.json`
       too) or files outside `--root`. The guide and the README already say to start from a
       clean git tree; decide whether the tool should also warn. The `--log` option and the
       exit codes 0/1/2 work as its `--help` says.
 - [ ] 8.5 `docs/migration-guide.md` steps work word by word.
 
+**§8 results (8.1, 8.3, 8.4; 8.2 and 8.5 below).** `pnpm harness dependents --switch migrate` on
+the 15 projects of the manifest: 15 passed, 0 regressed (two Bun projects need `bun` on `PATH`; run
+with `npx -p bun`) (`.logs/pre-beta/migrate/8.1-dependents*.log`). A synthetic project with every case
+of 8.3 (`scratchpad/migrate-cases`) found PB-24..26; static, type-only and dynamic imports,
+`require()`, re-exports, `vi.mock()`, `declare module`, deep imports (reported), `transform`,
+manifests, catalogs, CI YAML, `.sh`, `Makefile`, `justfile` and `Dockerfile` are all handled. A second
+`--write` changes nothing; `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` and files outside
+`--root` are untouched; exit codes match the README (PB-27 for `--help`). The README and the guide
+already say to start from a clean tree; the dry run is the default, so no extra warning.
+`docs/migration-guide.md` now lists the client fixes of PB-19..21 and the 3.2 warnings.
+
 ## 9. Documentation and examples
 
 - [ ] 9.1 Every code block in `docs/` and every `README.md` is either compiled by a test or
       checked by hand in a fresh project. List the ones not covered by tests.
-- [ ] 9.2 Every CLI flag, option and error code in the code is documented, and every
+- [x] 9.2 Every CLI flag, option and error code in the code is documented, and every
       documented one exists. Known: PB-1; the `-c` alias of `--redocly` is missing from the
       flag table of `docs/cli.md`; `--content-never` is accepted on purpose but read by no code
       (`cli-arguments.ts`): document it as ignored or remove it with a changeset; PB-7.
-- [ ] 9.3 The docs site (VitePress) builds, all links work, the local search finds the main
+- [x] 9.3 The docs site (VitePress) builds, all links work, the local search finds the main
       topics, and it reads well on a phone.
-- [ ] 9.4 `docs/typescript-7.md` claims are checked against the real TypeScript 7 releases.
-- [ ] 9.5 The example apps `packages/openapi-typesafe-fetch/examples/{nextjs,sveltekit,vue-3}`
+- [x] 9.4 `docs/typescript-7.md` claims are checked against the real TypeScript 7 releases.
+- [x] 9.5 The example apps `packages/openapi-typesafe-fetch/examples/{nextjs,sveltekit,vue-3}`
       (linked from `docs/fetch/examples.md`) install, build and run; nothing builds them today.
-- [ ] 9.6 `llms.txt` and `llms-full.txt` of the docs site are generated and complete.
+- [x] 9.6 `llms.txt` and `llms-full.txt` of the docs site are generated and complete.
+
+**§9 results (9.2–9.6).** 9.2: the CLI flags and aliases of `cli-arguments.ts` equal the
+`docs/cli.md` table (`--no-lint` is the form of `lint`; `-c` and `--content-never` are documented);
+the 25 error codes of `errors.ts` are all documented; added the deprecated exports with
+`OPENAPI_TYPESAFE_DEP_STRING_TO_AST`, and the `redocly` and `version` options to `docs/node.md`.
+9.3: the site builds with no warnings, `check-links` passes (479 links), the local search index
+holds every main topic, and all 21 pages at iPhone 13 width have no page overflow and no console
+errors (wide tables scroll inside themselves) (`.logs/pre-beta/docs/9.3-*`). 9.4: every claim of
+`docs/typescript-7.md` reproduced with typescript 7.0.2: npm `ERESOLVE`, pnpm `unmet peer`,
+`ts.factory` undefined and the `createKeywordTypeNode` crash; openapi-typesafe installs and
+generates next to it, `postTransform` without TypeScript 6 fails with `TYPESCRIPT_NOT_FOUND`, and
+works with `@typescript/typescript6@6.0.2`. 9.5: `nextjs` (`next build`), `sveltekit` (`vite
+build`, `svelte-check`) and `vue-3` (`generate`, `vue-tsc`, `vite build`) build with no warnings,
+and the regenerated types equal the committed ones; they call live APIs, so they were not run.
+9.6: `llms.txt` lists every page and `llms-full.txt` has the new sections.
 
 ## 10. Security (threat model)
 
@@ -422,6 +448,10 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 | PB-21 | Fetch | S3 | inherited: a path with `?` plus `params.query` got a second `?` | fixed: joined with `&` (ADR-013, decision 8) |
 | PB-22 | Docs | S4 | the fetch docs did not say that cookie parameters are typed but not sent | fixed: note in `docs/fetch/api.md` |
 | PB-23 | Docs | S3 | inherited: the `docs/react-query` `useQuery` examples checked `!data` before `error`, so a failed request showed "Loading..." forever; the `useInfiniteQuery` example did not compile (undefined `ErrorBoundary`, `MyComponent`); the `useSuspenseQuery` example had no `Suspense` and read `message` from an `unknown` error | fixed: every example compiles and renders against a mock server |
+| PB-24 | Migrate | S4 | override keys were matched as substrings: a `pnpm.overrides` entry for `openapi-typescript-helpers` also reported `openapi-typescript` | fixed: keys are read as the package they target (pnpm `>` chains, Yarn paths, versions) |
+| PB-25 | Migrate | S3 | `overrides:` and `patchedDependencies:` in `pnpm-workspace.yaml` that name an old package were neither rewritten nor reported | fixed: reported as manual steps, like `package.json` |
+| PB-26 | Migrate | S4 | `.next`, `coverage` and other tool output folders were rewritten (noise in the dry run and the diff) | fixed: skipped like `dist`; `build` and `out` stay in (may hold sources) |
+| PB-27 | Migrate | S4 | `--help` did not list the exit codes the README documents | fixed |
 
 ## 14. Exit criteria (before inviting testers)
 
