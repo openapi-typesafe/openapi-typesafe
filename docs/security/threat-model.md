@@ -115,6 +115,15 @@ A compromised dependency, GitHub Action or npm token publishes a malicious versi
   has GHSA-587h-7wmj-h5pm (the dev server's open-in-editor check, Windows only). It does not reach
   any published package; it is fixed when vitepress 2 is stable.
 
+### Prototype keys — Tested
+
+`__proto__`, `constructor` and `prototype` as schema, property, path, parameter, operation and enum
+names are kept and generate valid TypeScript, and the fetch client serializes them as names without
+writing to `Object.prototype` (`test/security/prototype-keys.test.ts`,
+`packages/openapi-typesafe-fetch/test/common/prototype-keys.test.ts`). A document passed to the Node
+API as a JavaScript object literal loses a `__proto__: …` key before the generator sees it, because
+the literal sets the prototype; use a computed key (`["__proto__"]: …`) or pass JSON or YAML text.
+
 ### T7. Trusted inputs used as an attack path — Accepted
 
 `redocly.yaml` plugins, callbacks and `inject` run or emit any code by design. A project that lets
