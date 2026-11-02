@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Check the published types of the package in the current directory with are-the-types-wrong.
+# Check the published types of the package in the current directory with are-the-types-wrong,
+# and that the tarball holds only the paths in `files` plus the files npm always adds.
 #
 # Usage: run from a package directory after `pnpm run build` (each package's `test:exports`).
 # Logs:  .logs/attw/<package directory>.log
@@ -25,3 +26,7 @@ if grep -q "does not contain types" "${LOG_FILE}"; then
   echo "check-exports: ${PACKAGE_DIR} publishes no types" >&2
   exit 1
 fi
+
+# Only `files` and the files npm always includes; anything else (local logs, coverage, configs)
+# must not reach the registry.
+node "${ROOT_DIR}/scripts/check-tarball-files.mjs" "${PACK_DIR}"/*.tgz

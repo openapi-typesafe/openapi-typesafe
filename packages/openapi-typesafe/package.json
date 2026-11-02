@@ -34,6 +34,11 @@
     "./*.js": "./*.mjs",
     "./*": "./*"
   },
+  "files": [
+    "bin",
+    "dist",
+    "src"
+  ],
   "homepage": "https://github.com/openapi-typesafe/openapi-typesafe#readme",
   "repository": {
     "type": "git",
