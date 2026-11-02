@@ -42,7 +42,7 @@ await client.PUT("/blogposts", {
 Notice there are no generics, and no manual typing. Your endpoint’s request and response were inferred automatically. This is a huge improvement in the type safety of your endpoints because **every manual assertion could lead to a bug**! This eliminates all of the following:
 
 - No typos in URLs or params
-- All parameters, request bodies, and responses are type-checked and 100% match your schema
+- All parameters, request bodies, and responses are type-checked against your schema
 - No manual typing of your API
 - Eliminates `any` types that hide bugs
 - Also eliminates `as` type overrides that can also hide bugs
@@ -68,6 +68,15 @@ Next, generate TypeScript types from your OpenAPI schema using openapi-typesafe:
 ```bash
 npx openapi-typesafe ./path/to/api/v1.yaml -o ./src/lib/api/v1.d.ts
 ```
+
+::: tip Node.js without a bundler
+
+Set `"module"` and `"moduleResolution"` to `"NodeNext"` in `tsconfig.json` and `"type": "module"` in
+`package.json`, and import the types with the `.js` extension:
+`import type { paths } from "./lib/api/v1.js"`. `"Bundler"` type-checks, but Node then fails to find
+imports without an extension.
+
+:::
 
 Lastly, be sure to **run typechecking** in your project. This can be done by adding `tsc --noEmit` to your [npm scripts](https://docs.npmjs.com/cli/v9/using-npm/scripts) like so:
 
@@ -135,6 +144,18 @@ openapi-typesafe-fetch infers types from the URL. Prefer static string values ov
 
 - Good: `"/blogposts/{post_id}"`
 - Bad: `[...pathParts].join("/") + "{post_id}"`
+
+:::
+
+::: tip Reading type errors
+
+A wrong path is reported on the arguments, not on the path string:
+
+- A path that is not in the schema, such as `client.GET("/blogposts/5")` instead of
+  `"/blogposts/{post_id}"`, gives `Expected 2 arguments, but got 1`. Pass the options object to see
+  the real cause: `Argument of type '"/blogposts/5"' is not assignable to parameter of type
+  'PathsWithMethod<paths, "get">'`.
+- A path that exists but has no such method gives `not assignable to parameter of type 'never'`.
 
 :::
 

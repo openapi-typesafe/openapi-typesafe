@@ -9,7 +9,7 @@ openapi-typesafe-react-query is a type-safe tiny wrapper (1 kb) around [@tanstac
 It works by using [openapi-typesafe-fetch](../fetch/) and [openapi-typesafe](../introduction) so you get all the following features:
 
 - No typos in URLs or params.
-- All parameters, request bodies, and responses are type-checked and 100% match your schema
+- All parameters, request bodies, and responses are type-checked against your schema
 - No manual typing of your API
 - Eliminates `any` types that hide bugs
 - Also eliminates `as` type overrides that can also hide bugs

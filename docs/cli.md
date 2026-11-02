@@ -16,13 +16,15 @@ The simplest way to transform schemas is by specifying an input schema (JSON or 
 ```bash
 npx openapi-typesafe schema.yaml -o schema.ts
 
-# 🚀 schema.yaml -> schema.ts [50ms]
+# ✨ openapi-typesafe 1.0.0
+# 🚀 schema.yaml → schema.ts [50ms]
 ```
 
 ```bash
 npx openapi-typesafe https://petstore3.swagger.io/api/v3/openapi.yaml -o petstore.d.ts
 
-# 🚀 https://petstore3.swagger.io/api/v3/openapi.yaml -> petstore.d.ts [250ms]
+# ✨ openapi-typesafe 1.0.0
+# 🚀 https://petstore3.swagger.io/api/v3/openapi.yaml → petstore.d.ts [250ms]
 ```
 
 Paths may contain spaces and non-ASCII characters, and missing output directories are created. Relative `$ref`s resolve from the path the document was read from: for a symlink, next to the link, not its target (as in openapi-typescript). In `redocly.yaml`, `root` and `output` are relative to that file.
