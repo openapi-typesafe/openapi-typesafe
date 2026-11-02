@@ -72,6 +72,19 @@ The Node API options `transform`, `postTransform` and `transformProperty` may bu
 npm i -D @typescript/typescript6
 ```
 
+::: warning npm links `tsc` to TypeScript 6
+`@typescript/typescript6` depends on `@typescript/old` (TypeScript 6), which also has a `tsc`
+command. npm puts that one in `node_modules/.bin`, so `npx tsc` and the `tsc` of your scripts run
+TypeScript 6.0 without a warning. pnpm and bun keep TypeScript 7. With npm, also install
+TypeScript 7 under a name that npm links first:
+
+```bash
+npm i -D @typescript/native@npm:typescript@7
+```
+
+Check with `npx tsc -v`.
+:::
+
 Without `typescript` 6 or earlier, and without `@typescript/typescript6`, the run fails with an `OpenAPITypesafeError` whose `code` is `TYPESCRIPT_NOT_FOUND`:
 
 ```txt
