@@ -1,5 +1,6 @@
 import { irRaw } from "../../../domain/ir/constructors.js";
 import type { IrDeclaration, IrTypeAliasDeclaration } from "../../../domain/ir/nodes.js";
+import { escapeSingleQuotedText } from "../../../domain/ir/raw-text-escapes.js";
 import type { ComponentKind } from "../../../domain/openapi/components-object.js";
 
 /** The `--root-types` aliases: `export type Pet = components['schemas']['Pet'];`. */
@@ -16,8 +17,9 @@ export function rootTypeAlias(
     kind: "typeAlias",
     name,
     isExported: true,
-    // The original writes the reference as text, with single quotes.
-    type: irRaw(`${REFERENCE_PREFIX}${kind}']['${item}']`),
+    // The original writes the reference as text, with single quotes, and did not escape the
+    // name: a quote in it could add code to the generated file (intentional fix).
+    type: irRaw(`${REFERENCE_PREFIX}${kind}']['${escapeSingleQuotedText(item)}']`),
     comments: [],
   };
 }

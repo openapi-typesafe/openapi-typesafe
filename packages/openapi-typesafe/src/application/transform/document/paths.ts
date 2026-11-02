@@ -1,6 +1,7 @@
 import { irObject, irProperty, irRaw } from "../../../domain/ir/constructors.js";
 import type { IrMember, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
+import { escapeTemplateText } from "../../../domain/ir/raw-text-escapes.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { OperationObject } from "../../../domain/openapi/operation-object.js";
 import type {
@@ -90,14 +91,16 @@ function pathTemplateText(
     return null;
   }
   const parameters = pathParameters(pathItem, context);
-  // A backtick would end the literal early; the original output broke there (intentional fix).
-  let text = `\`${url.replaceAll("`", "\\`")}\``;
-  for (const match of matches) {
+  const placeholders = matches.map((match) => {
     const schema = parameters.get(match.slice(1, -1))?.schema as SchemaObject | undefined;
-    // Only the first occurrence is replaced per match, as in the original.
-    text = text.replace(match, PLACEHOLDERS.get(schema?.type) ?? STRING_PLACEHOLDER);
-  }
-  return text;
+    return PLACEHOLDERS.get(schema?.type) ?? STRING_PLACEHOLDER;
+  });
+  // The original escaped only backticks: a backslash or `${` in the URL could end the literal or
+  // open a placeholder, and add code to the generated file (intentional fix). So the text between
+  // the `{name}` parts is escaped, and each `{name}` becomes its parameter's placeholder.
+  const segments = url.split(PATH_PARAMETER_RE).map(escapeTemplateText);
+  const text = segments.map((segment, index) => `${segment}${placeholders[index] ?? ""}`).join("");
+  return `\`${text}\``;
 }
 
 function pathItemMember(

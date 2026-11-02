@@ -51,3 +51,18 @@ describe("renameAliasesTakenByEnums", () => {
     expect(renameAliasesTakenByEnums(body, [])).toEqual(body);
   });
 });
+
+describe("rootTypeAlias", () => {
+  it("rootTypeAlias refers to the component with single quotes", () => {
+    expect(rootTypeAlias("Pet", "schemas", "Pet").type).toEqual({
+      kind: "raw",
+      text: "components['schemas']['Pet']",
+    });
+  });
+
+  it("rootTypeAlias escapes quotes, backslashes and line breaks in the name", () => {
+    const alias = rootTypeAlias("A", "schemas", "A'];\\\n");
+
+    expect(alias.type).toEqual({ kind: "raw", text: "components['schemas']['A\\'];\\\\\\n']" });
+  });
+});

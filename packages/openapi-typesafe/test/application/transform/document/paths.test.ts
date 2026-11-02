@@ -133,6 +133,15 @@ describe("pathsType", () => {
     // biome-ignore lint/suspicious/noTemplateCurlyInString: the expected output is a template literal type
     expect(text).toContain("[path: `/a\\`b/${string}`]: {");
   });
+
+  it("pathsType escapes backslashes, placeholders and carriage returns in the URL of a template", () => {
+    const url = "/{id}/a\\`]: never; }; //\r$" + "{";
+
+    const { text } = transformPaths({ [url]: {} }, { options: { pathParamsAsTypes: true } });
+
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: the expected output is a template literal type
+    expect(text).toContain("[path: `/${string}/a\\\\\\`]: never; }; //\\r\\${`]: {");
+  });
 });
 
 describe("webhooksType", () => {
