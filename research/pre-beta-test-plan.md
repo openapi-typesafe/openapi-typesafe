@@ -450,7 +450,7 @@ per-request `signal` (from `RequestInit`) match.
 Time-boxed sessions without a script, one per area, writing what was tried:
 
 - [x] 12.1 A new user builds a small app from `docs/introduction.md` only.
-- [ ] 12.2 A user of openapi-typescript 7 upgrades a real project.
+- [x] 12.2 A user of openapi-typescript 7 upgrades a real project.
 - [x] 12.3 Hostile and odd schemas: empty document, only `components`, no `paths`,
       duplicated `operationId`, 10,000 operations, non-ASCII everywhere.
 - [x] 12.4 Error messages: trigger each error on purpose and judge whether a user can fix the
@@ -459,6 +459,13 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 **§12.1 result.** An agent with only the docs and the beta.2 tarballs built a Node todo client
 (list with query, create, get, delete, auth middleware): `tsc --noEmit` strict passes and every call
 works, typed 404/400 errors included. Findings went to PB-42. Log `.logs/pre-beta/explore/12.1.log`.
+
+**§12.2 result.** An agent with only the migration guide and the beta notes moved
+argos-ci/argos-javascript (pnpm monorepo, openapi-typescript 7.13 + openapi-fetch 0.17, TS 7) to the
+beta tarballs: install, `tsc` (24/24), vitest, tsdown build and lint pass before and after; migrate
+found the 3 files and kept `^` and `catalog:`. Its generate step downloads the schema, so a 32k-line
+local schema stood in: output identical apart from the generator name in comments. Findings went to
+PB-45 and PB-46. Log `.logs/pre-beta/explore/12.2.log`.
 
 **§12.3 result.** CLI on each schema, then `tsc` on the output: 10,000 operations (4.1 s, compiles),
 non-ASCII names, no `paths`, only `components`, only `webhooks`, only `openapi`, OpenAPI 3.0 and 3.2
@@ -523,6 +530,8 @@ clearly. Log `.logs/pre-beta/explore/12.4.log`.
 | PB-42 | Docs | S3 | §12.1 new user: no word on running under Node without a bundler (`Bundler` type-checks, Node fails on imports without an extension; `"type": "module"`); wrong-path type errors read as `Expected 2 arguments` / `never`; CLI output sample outdated; "100% match your schema" overpromises (`minLength` is not typed) | fixed: tips in fetch/index.md (Node.js without a bundler, Reading type errors), cli.md output, wording; install of helpers is covered by the beta notes and `pnpm -r` publish order; dead GitHub links wait for 11.2; Redocly minimatch audit note is in ADR-005 |
 | PB-43 | CLI | S3 | §12.4: an unreachable remote schema printed only `fetch failed` (Redocly's `ResolveError` hid the network reason); YAML past the parser depth printed `nesting exceeded maxDepth (100)` with no way out | fixed: the loader unwraps `ResolveError`, the CLI adds the reason and URL; the CLI adds a `components` + `$ref` hint; Node API messages unchanged |
 | PB-44 | Node API | S3 | §12.4: a JS `transform` / `postTransform` / `transformProperty` returning a non-node (plain object, text, index signature) crashed with `Debug Failure. Unhandled SyntaxKind` or a `TypeError` (inherited) | fixed: results are checked at the callback boundary; CALLBACK_RESULT_UNREADABLE with the callback and path; `transform` text keeps the original tolerance. IR callbacks (`irCallbacks: true`) are typed and not checked deeply |
+| PB-45 | Beta notes | S2 | §12.2: the notes said to install migrate from its tarball and run `npx openapi-typesafe-migrate`, which finds the empty npm placeholder (`could not determine executable to run`); the migrate README says not to install it; `pnpm dlx ./vendor/…` fails with ENOENT | fixed: the notes give `npx --package ./vendor/…migrate-VERSION.tgz openapi-typesafe-migrate` (tested), the absolute-path `pnpm dlx` form, and say not to install it |
+| PB-46 | Beta notes, docs | S3 | §12.2: `file:` paths in a monorepo package differ from the root overrides, not explained; the migration guide said the header is the only change, but discriminator comments also name the generator | fixed: monorepo note in the beta notes; guide lists the discriminator comment. Not changed: migrate also renames a package name in backticks inside a JSDoc comment and reports it like an import; harmless and keeps the docs right |
 
 ## 14. Exit criteria (before inviting testers)
 
