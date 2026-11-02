@@ -12,6 +12,36 @@ const NORMAL_TIMEOUT_MS = 10_000;
 /** Long enough for Node to start, short enough to keep the test fast. */
 const SHORT_TIMEOUT_MS = 1_000;
 const OUTPUT_TAIL_LENGTH = 8_192;
+/**
+ * How long a killed process may stay visible. SIGKILL is delivered asynchronously, and an orphaned
+ * grandchild is reaped by init a moment later; under a loaded test run that takes a while.
+ */
+const PROCESS_GONE_DEADLINE_MS = 2_000;
+const PROCESS_POLL_INTERVAL_MS = 20;
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ESRCH") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+/** Whether the process is gone within the deadline. */
+async function isProcessGone(pid: number): Promise<boolean> {
+  const deadline = performance.now() + PROCESS_GONE_DEADLINE_MS;
+  while (isProcessAlive(pid)) {
+    if (performance.now() > deadline) {
+      return false;
+    }
+    await new Promise((resolve) => setTimeout(resolve, PROCESS_POLL_INTERVAL_MS));
+  }
+  return true;
+}
 
 /** Run a Node.js script through the runner. */
 async function runNode(
@@ -78,7 +108,7 @@ describe("NodeCommandRunner", () => {
 
     expect(outcome).toMatchObject({ exitCode: null, isTimedOut: true });
     const grandchild = Number.parseInt(outcome.outputTail, 10);
-    expect(() => process.kill(grandchild, 0)).toThrow(expect.objectContaining({ code: "ESRCH" }));
+    expect(await isProcessGone(grandchild)).toBe(true);
   });
 
   it("run writes a failed kill to the output instead of crashing", async () => {
