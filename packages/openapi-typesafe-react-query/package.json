@@ -56,7 +56,7 @@
     "prepack": "pnpm run build",
     "test": "pnpm run generate-types && pnpm run test:js && pnpm run test:exports",
     "test:js": "vitest run",
-    "test:exports": "pnpm run build && attw --pack .",
+    "test:exports": "pnpm run build && ../../scripts/check-exports.sh",
     "version": "pnpm run prepare && pnpm run build",
     "test:coverage": "vitest run --coverage"
   },

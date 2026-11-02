@@ -37,7 +37,9 @@
     "format": "biome format src --write",
     "lint": "pnpm run lint:js && pnpm run lint:ts",
     "lint:js": "biome check src",
-    "lint:ts": "tsc --noEmit"
+    "lint:ts": "tsc --noEmit",
+    "test": "pnpm run test:exports",
+    "test:exports": "pnpm run build && ../../scripts/check-exports.sh"
   },
   "devDependencies": {
     "typescript": "5.9.3"

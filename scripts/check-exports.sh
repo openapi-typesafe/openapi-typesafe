@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Check the published types of the package in the current directory with are-the-types-wrong.
+#
+# Usage: run from a package directory after `pnpm run build` (each package's `test:exports`).
+# Logs:  .logs/attw/<package directory>.log
+#
+# The tarball comes from `pnpm pack`, not from `attw --pack` (which runs `npm pack`): only pnpm
+# replaces `workspace:` and `catalog:` versions, so this checks exactly what `pnpm publish` uploads.
+set -euo pipefail
+
+readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly LOG_DIR="${ROOT_DIR}/.logs/attw"
+readonly PACKAGE_DIR="$(pwd)"
+PACK_DIR="$(mktemp -d)"
+readonly PACK_DIR
+trap 'rm -rf "${PACK_DIR}"' EXIT
+
+mkdir -p "${LOG_DIR}"
+pnpm pack --pack-destination "${PACK_DIR}" >/dev/null
+readonly LOG_FILE="${LOG_DIR}/$(basename "${PACKAGE_DIR}").log"
+# --no-color keeps the log readable; attw exits non-zero on any resolution problem.
+attw --no-color "${PACK_DIR}"/*.tgz 2>&1 | tee "${LOG_FILE}"
+# attw exits 0 for a package without any types, but every package here must ship them.
+if grep -q "does not contain types" "${LOG_FILE}"; then
+  echo "check-exports: ${PACKAGE_DIR} publishes no types" >&2
+  exit 1
+fi
