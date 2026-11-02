@@ -1,6 +1,13 @@
 import fc from "fast-check";
 import ts from "typescript";
-import { astToString, enumCache, NULL, stringToAST, tsUnion } from "../../src/lib/ts.js";
+import {
+  astToString,
+  enumCache,
+  JS_PROPERTY_INDEX_INVALID_CHARS_RE,
+  NULL,
+  stringToAST,
+  tsUnion,
+} from "../../src/lib/ts.js";
 import type { GlobalContext, OpenAPITSOptions, TransformNodeOptions } from "../../src/types.js";
 import { DEFAULT_CTX } from "../test-helpers.js";
 
@@ -272,6 +279,9 @@ export const OPTION_KEYS = [
   "readWriteMarkers",
   "generatePathParams",
   "pathParamsAsTypes",
+  "rootTypes",
+  "rootTypesNoSchemaPrefix",
+  "rootTypesKeepCasing",
 ] as const;
 
 export const contextInput = fc.record({
@@ -313,13 +323,22 @@ export function createContext(input: ContextInput): GlobalContext {
   } as GlobalContext;
 }
 
+/**
+ * Start the original's module-level enum state fresh, as the ported code starts each run: the
+ * dedupe cache and the `lastIndex` of the global regex its enum naming tests with.
+ */
+export function resetLegacyEnumState(): void {
+  enumCache.clear();
+  JS_PROPERTY_INDEX_INVALID_CHARS_RE.lastIndex = 0;
+}
+
 /** Print the type `build` returns with the footer it added, or the error message. */
 export function runLegacy(
   build: (options: TransformNodeOptions) => ts.TypeNode,
   input: ContextInput,
   path: string | undefined,
 ): string {
-  enumCache.clear();
+  resetLegacyEnumState();
   const ctx = createContext(input);
   try {
     const type = build({ path, ctx });

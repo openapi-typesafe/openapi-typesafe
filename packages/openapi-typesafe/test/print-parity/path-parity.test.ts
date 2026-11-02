@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { astToString, enumCache } from "../../src/lib/ts.js";
+import { astToString } from "../../src/lib/ts.js";
 import transformOperationObject, {
   injectOperationObject,
 } from "../../src/transform/operation-object.js";
@@ -24,6 +24,7 @@ import {
   headerArbitrary,
   key,
   RUNS,
+  resetLegacyEnumState,
   runLegacy,
   schemaArbitrary,
   TIMEOUT_MS,
@@ -146,7 +147,7 @@ function injected(inject: typeof injectOperationObject, value: unknown): Build {
 }
 
 function printEnum(make: typeof makeApiPathsEnum, value: unknown): string {
-  enumCache.clear();
+  resetLegacyEnumState();
   try {
     return astToString([make(value as never)]);
   } catch (error) {
