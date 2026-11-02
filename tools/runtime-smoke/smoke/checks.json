@@ -1,0 +1,20 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Smoke", "version": "1.0.0" },
+  "paths": {
+    "/pets": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Pets",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

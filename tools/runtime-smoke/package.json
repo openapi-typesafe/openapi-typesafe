@@ -1,0 +1,18 @@
+{
+  "name": "@openapi-typesafe/runtime-smoke",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Runs the generator Node API and the fetch client as ESM and CommonJS consumers on Node, Bun and Deno",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "smoke:node": "node smoke/esm.mjs && node smoke/cjs.cjs",
+    "smoke:bun": "bun smoke/esm.mjs && bun smoke/cjs.cjs",
+    "smoke:deno": "deno run --allow-read --allow-env --allow-sys smoke/esm.mjs && deno run --allow-read --allow-env --allow-sys smoke/cjs.cjs",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "openapi-typesafe": "workspace:*",
+    "openapi-typesafe-fetch": "workspace:*"
+  }
+}

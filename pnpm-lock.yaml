@@ -503,6 +503,15 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
 
+  tools/runtime-smoke:
+    dependencies:
+      openapi-typesafe:
+        specifier: workspace:*
+        version: link:../../packages/openapi-typesafe
+      openapi-typesafe-fetch:
+        specifier: workspace:*
+        version: link:../../packages/openapi-typesafe-fetch
+
   tools/type-matrix:
     devDependencies:
       '@tanstack/react-query':
