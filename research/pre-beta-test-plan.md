@@ -230,7 +230,7 @@ Bun, Deno and the browsers run a smoke subset through the existing runtime and b
       retry, auth refresh (the recipe in `docs/fetch/middleware-auth.md`).
 - [x] 6.7 Options: `baseUrl` with and without a trailing slash, custom `fetch`, `Request`
       subclass, default and per-call headers (merge and removal), `querySerializer` override.
-- [ ] 6.8 Types: inference for every operation in the GitHub and Stripe schemas gives no
+- [x] 6.8 Types: inference for every operation in the GitHub and Stripe schemas gives no
       `any` (type tests with `expectTypeOf`). Record the type-check time and instantiation
       count (`tsc --extendedDiagnostics`) against openapi-fetch 0.17 as the baseline.
 - [x] 6.9 Behaviour parity with openapi-fetch 0.17: same requests on the wire for the same
@@ -255,6 +255,18 @@ body (`6-wire-after-fix.log`). Same as openapi-fetch and documented: cookies are
 nesting throws a clear error, and a text response with the default `parseAs` rejects with
 `SyntaxError`. The `Request` subclass and the auth recipe are covered by `test/common/request.test.ts`
 and the stand's retry middleware. The bundle budget rose to 8 kB (ADR-013, consequences).
+
+**6.8 results.** `test/examples/no-any.test.ts` (checked by `tsc` in `lint:ts`) finds no operation of
+the GitHub and Stripe schemas whose `data`, `error` or init is `any`; a control case proves the check
+fires. `tsc 5.9.3 --extendedDiagnostics` on a typed `GET` call for every GET path (540 GitHub, 257
+Stripe), against openapi-fetch 0.17.0 (`.logs/pre-beta/fetch/6.8-diagnostics.log`):
+
+| Schema | Instantiations, ours / openapi-fetch | Types | Check time (machine under load) |
+|---|---|---|---|
+| GitHub | 575,049 / 575,702 | 56,940 / 57,063 | 1.75 s / 2.59 s |
+| Stripe | 278,635 / 279,329 | 29,687 / 29,668 | 1.00 s / 0.99 s |
+
+No errors in either. The type cost is the same as openapi-fetch; times are rechecked in §4.8.
 
 ## 7. React Query client (`openapi-typesafe-react-query`)
 
