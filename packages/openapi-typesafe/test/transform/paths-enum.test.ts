@@ -95,6 +95,48 @@ describe("transformPathsObjectToEnum", () => {
       },
     ],
     [
+      "keys that collide name their path parameters, and only those keys change",
+      {
+        given: {
+          "/user/{user_id}": { get: {} },
+          "/user": { get: {} },
+          "/user/{user_id}/pets": { get: {} },
+          "/user/{user_id}/pets/{pet_id}": { get: {} },
+          "/order/:order-id": { get: {} },
+          "/order": { get: {} },
+          "/stores": { get: {} },
+        },
+        want: `export enum ApiPaths {
+    GetUserByUserId = "/user/{user_id}",
+    GetUser = "/user",
+    GetUserByUserIdPets = "/user/{user_id}/pets",
+    GetUserByUserIdPetsByPetId = "/user/{user_id}/pets/{pet_id}",
+    GetOrderByOrderId = "/order/:order-id",
+    GetOrder = "/order",
+    GetStores = "/stores"
+}`,
+      },
+    ],
+    [
+      "names that still collide get a number, in document order",
+      {
+        given: {
+          "/a": { get: { operationId: "same" } },
+          "/b": { get: { operationId: "same" } },
+          "/c": { get: { operationId: "GetC" } },
+          "/c/": { get: {} },
+          "/d": { get: { operationId: "same2" } },
+        },
+        want: `export enum ApiPaths {
+    same = "/a",
+    same3 = "/b",
+    GetC = "/c",
+    GetC2 = "/c/",
+    same2 = "/d"
+}`,
+      },
+    ],
+    [
       "invalid method",
       {
         given: {

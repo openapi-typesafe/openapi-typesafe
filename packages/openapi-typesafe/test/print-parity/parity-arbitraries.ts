@@ -433,3 +433,15 @@ export function reachesFixedLegacyBug(value: unknown, input: ContextInput): bool
     (isUnprefixed && hasDuplicates(rootNames))
   );
 }
+
+const API_PATHS_BLOCK_RE = /^export enum ApiPaths \{\n([\s\S]*?)^\}/m;
+
+/**
+ * Whether the original `ApiPaths` enum repeats a member name: that output does not compile, and
+ * the new generator makes the names unique (upstream #2194).
+ */
+export function hasDuplicateApiPathsMembers(output: string): boolean {
+  const body = API_PATHS_BLOCK_RE.exec(output)?.[1] ?? "";
+  const names = [...body.matchAll(/^\s+(\S+) = /gm)].map((match) => match[1]);
+  return new Set(names).size !== names.length;
+}
