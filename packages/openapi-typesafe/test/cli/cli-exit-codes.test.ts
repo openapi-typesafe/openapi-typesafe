@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import stripAnsi from "strip-ansi";
 import { afterAll, describe, expect, it } from "vitest";
+import { MULTIPLE_SCHEMAS_DOCS_URL } from "../../src/cli/docs-links.js";
 
 /** End-to-end exit codes of the built CLI (ADR-011, docs/cli.md); needs `pnpm run build`. */
 
@@ -37,6 +38,7 @@ describe("CLI exit codes", () => {
     [["--redoc", "a.yaml"], "CLI_FLAG_REMOVED"],
     [["schemas/*.yaml"], "CLI_GLOB_UNSUPPORTED"],
     [["--redocly", "no-such-redocly.yaml"], "CLI_CONFIG_NOT_FOUND"],
+    [[SIMPLE_SCHEMA, "--check"], "CLI_CHECK_OUTPUT_MISSING"],
   ])(
     "cli %j exits with 2 and %s",
     async (args, code) => {
@@ -44,6 +46,26 @@ describe("CLI exit codes", () => {
 
       expect(exitCode).toBe(2);
       expect(stderr).toContain(`(${code})`);
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "cli with a glob or an API without output links to this project's multiple-schemas docs",
+    async () => {
+      const cwd = path.join(workDir, "api-without-output");
+      fs.mkdirSync(cwd, { recursive: true });
+      fs.writeFileSync(path.join(cwd, "redocly.yaml"), `apis:\n  main:\n    root: ${SIMPLE_SCHEMA}\n`);
+
+      const missingOutput = await runCli([], cwd);
+      const glob = await runCli(["schemas/*.yaml"]);
+
+      expect(missingOutput.exitCode).toBe(2);
+      expect(missingOutput.stderr).toContain("(CLI_CONFIG_OUTPUT_MISSING)");
+      for (const { stderr } of [missingOutput, glob]) {
+        expect(stderr).toContain(MULTIPLE_SCHEMAS_DOCS_URL);
+        expect(stderr).not.toContain("openapi-ts.dev");
+      }
     },
     TIMEOUT,
   );

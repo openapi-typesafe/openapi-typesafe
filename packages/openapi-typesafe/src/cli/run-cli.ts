@@ -4,6 +4,7 @@ import { ineffectiveFlagNotices, parseCliArguments } from "./cli-arguments.js";
 import type { CliDependencies } from "./cli-dependencies.js";
 import { cliError, describeCliFailure, EXIT_CODES, type ExitCode } from "./cli-errors.js";
 import { type CliRun, emitOutput, resolveFileUrl } from "./cli-output.js";
+import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
 import { HELP_TEXT } from "./help-text.js";
 import { generateRedoclyApis, hasRedoclyApis } from "./redocly-apis.js";
 import { refLimitOptions } from "./ref-limits.js";
@@ -30,7 +31,14 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
     throw cliError(
       "CLI_GLOB_UNSUPPORTED",
       "Globbing has been deprecated in favor of redocly.yaml’s `apis` keys. " +
-        "See https://openapi-ts.dev/cli/#multiple-schemas",
+        `See ${MULTIPLE_SCHEMAS_DOCS_URL}`,
+    );
+  }
+  if (run.args.isCheck && !output) {
+    // Without a file there is nothing to compare: the original printed the types and passed.
+    throw cliError(
+      "CLI_CHECK_OUTPUT_MISSING",
+      "--check needs the generated file to compare with: add --output <file>.",
     );
   }
   const source = input ? new URL(input, run.deps.cwd) : run.deps.stdin();

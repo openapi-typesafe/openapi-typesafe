@@ -80,7 +80,7 @@ As in openapi-typescript 7, the old spellings fail with an error that names the 
 
 ### CLI exit codes and errors
 
-Failures now exit with a documented code: `1` stale output with `--check` (as before), `2` usage or configuration, `3` input document, `4` output files, `70` unexpected error. Before, every failure exited with `1`. See [exit codes](/cli#exit-codes).
+Failures now exit with a documented code: `1` stale output with `--check` (as before), `2` usage or configuration, `3` input document, `4` output files, `70` unexpected error. Before, every failure exited with `1`. See [exit codes](/cli#exit-codes). `--check` without `--output` (and without `apis` in `redocly.yaml`) now fails with `2` and `CLI_CHECK_OUTPUT_MISSING`; before, it printed the types and passed without checking anything.
 
 Errors thrown by the Node API are `OpenAPITypesafeError`s with a stable `code` (see [errors](/node#errors)). The messages are unchanged. A file system error is kept as `cause`: check `error.cause.code` instead of `error.code === "ENOENT"`.
 

@@ -27,6 +27,8 @@ export const HELP_TEXT = [
     " set to all properties by default",
   "  --array-length             Generate tuples using array minItems / maxItems",
   "  --path-params-as-types     Convert paths to template literal types",
+  "  --generate-path-params     Generate path parameters for all paths where they are" +
+    " undefined by schema",
   "  --alphabetize              Sort object keys alphabetically",
   "  --exclude-deprecated       Exclude deprecated types",
   "  --root-types               Export schemas types at root level",

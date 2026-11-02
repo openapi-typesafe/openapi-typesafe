@@ -159,6 +159,16 @@ describe("runCli --check", () => {
     expect(cli.logger.messages("error")).toEqual(["Generated types are not up-to-date! (OUTPUT_STALE)"]);
   });
 
+  it("runCli --check without --output exits with 2 and generates nothing", async () => {
+    const cli = createFakeCli();
+
+    const exitCode = await runCli(["a.yaml", "--check"], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")[0]).toContain("(CLI_CHECK_OUTPUT_MISSING)");
+    expect(cli.stdout).toEqual([]);
+  });
+
   it("runCli --check with a missing file exits with 4", async () => {
     const cli = createFakeCli();
 

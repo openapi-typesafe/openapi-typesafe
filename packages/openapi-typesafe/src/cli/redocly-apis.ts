@@ -4,6 +4,7 @@ import type { GeneratorOptions } from "../types.js";
 import { GENERATOR_FLAGS, type GeneratorFlags } from "./cli-arguments.js";
 import { cliError } from "./cli-errors.js";
 import { type CliRun, emitOutput, resolveFileUrl } from "./cli-output.js";
+import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
 import { refLimitOptions } from "./ref-limits.js";
 
 /** The `apis` of a Redocly config: each API is generated into its `x-openapi-ts.output`. */
@@ -52,7 +53,7 @@ async function generateApi(run: CliRun, redocly: RedoclyConfig, api: RedoclyApi)
     throw cliError(
       "CLI_CONFIG_OUTPUT_MISSING",
       `API ${api.name} is missing an \`${REDOCLY_CONFIG_KEY}.output\` key. ` +
-        "See https://openapi-ts.dev/cli/#multiple-schemas.",
+        `See ${MULTIPLE_SCHEMAS_DOCS_URL}`,
     );
   }
   const output = String(api.settings.output);

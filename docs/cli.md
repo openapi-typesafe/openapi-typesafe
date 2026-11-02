@@ -105,7 +105,7 @@ The following flags are supported in the CLI:
 | `--help`                           |       |          | Display inline help message and exit                                                                                |
 | `--version`                        |       |          | Display this library’s version and exit                                                                             |
 | `--output [location]`              | `-o`  | (stdout) | Where should the output file be saved?                                                                              |
-| `--redocly [location]`             |       |          | Path to a `redocly.yaml` file (see [Multiple schemas](#multiple-schemas))                                           |
+| `--redocly [location]`             | `-c`  |          | Path to a `redocly.yaml` file (see [Multiple schemas](#multiple-schemas))                                           |
 | `--additional-properties`          |       | `false`  | Allow arbitrary properties for all schema objects without `additionalProperties: false`                             |
 | `--alphabetize`                    |       | `false`  | Sort types alphabetically                                                                                           |
 | `--array-length`                   |       | `false`  | Generate tuples using array `minItems` / `maxItems`                                                                 |
@@ -131,6 +131,8 @@ The following flags are supported in the CLI:
 | `--local-ref-root [dir]`           |       |          | Load local `$ref` files only from this directory and below it (see [Untrusted documents](/advanced#untrusted-documents)) |
 | `--remote-ref-hosts [hosts]`       |       |          | Load remote `$ref` documents only from these comma-separated hosts; an empty value allows none                        |
 
+`--content-never` is accepted for compatibility with openapi-typescript and has no effect.
+
 ## Exit codes
 
 The CLI exits with a code that tells what went wrong. On failure it prints one line with the message and the error code, for example `✘  Generated types are not up-to-date! (OUTPUT_STALE)`.
@@ -139,7 +141,7 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 | :--: | :------ | :---------- |
 | `0` | Success; with `--check`, the output is up to date | |
 | `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
-| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE` |
 | `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 | `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |
