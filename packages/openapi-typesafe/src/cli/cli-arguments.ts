@@ -1,3 +1,4 @@
+import { kebabCase } from "scule";
 import parser from "yargs-parser";
 import { cliError } from "./cli-errors.js";
 
@@ -32,8 +33,16 @@ export type GeneratorFlag = (typeof GENERATOR_FLAGS)[number];
 export type GeneratorFlags = Readonly<Partial<Record<GeneratorFlag, boolean>>>;
 
 // `contentNever` was a boolean flag of the original CLI that no code reads; it stays in the list
-// so that the arguments parse exactly as they did.
-const BOOLEAN_FLAGS = [...GENERATOR_FLAGS, "check", "contentNever", "help"];
+// so that `--content-never <input>` keeps parsing as a flag and an input.
+const CAMEL_CASE_BOOLEAN_FLAGS = [...GENERATOR_FLAGS, "check", "contentNever", "help"];
+
+// yargs-parser matches the `boolean` list by the exact spelling of the flag: with camelCase names
+// only, `--root-types schema.yaml` took the path as the flag's value (upstream #2523). Both
+// spellings are listed.
+const BOOLEAN_FLAGS = [
+  ...CAMEL_CASE_BOOLEAN_FLAGS,
+  ...CAMEL_CASE_BOOLEAN_FLAGS.map((flag) => kebabCase(flag)),
+];
 
 export interface CliArguments {
   /** The schema path or URL; none means stdin, or the APIs of the Redocly config. */

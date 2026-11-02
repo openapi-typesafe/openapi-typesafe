@@ -1,5 +1,6 @@
+import { kebabCase } from "scule";
 import { describe, expect, it } from "vitest";
-import { ineffectiveFlagNotices, parseCliArguments } from "../../src/cli/cli-arguments.js";
+import { GENERATOR_FLAGS, ineffectiveFlagNotices, parseCliArguments } from "../../src/cli/cli-arguments.js";
 
 describe("parseCliArguments", () => {
   it("parseCliArguments with no arguments reads stdin to stdout", () => {
@@ -35,6 +36,16 @@ describe("parseCliArguments", () => {
       rootTypes: true,
     });
   });
+
+  // Upstream #2523, #1651, #2764, #2694: the flag took the path as its value, so the CLI read stdin.
+  it.each([...GENERATOR_FLAGS, "check", "contentNever"])(
+    "parseCliArguments with --%s in kebab-case before the input keeps the input",
+    (flag) => {
+      const args = parseCliArguments([`--${kebabCase(flag)}`, "schema.yaml"]);
+
+      expect(args.input).toBe("schema.yaml");
+    },
+  );
 
   it("parseCliArguments reads --help and --version", () => {
     expect(parseCliArguments(["--help"]).isHelp).toBe(true);
