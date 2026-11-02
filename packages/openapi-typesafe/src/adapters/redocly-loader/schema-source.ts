@@ -1,4 +1,5 @@
 import { Readable } from "node:stream";
+import { text } from "node:stream/consumers";
 import { fileURLToPath } from "node:url";
 import {
   type BaseResolver,
@@ -21,19 +22,16 @@ export interface ParseSchemaOptions {
   resolver: BaseResolver;
 }
 
-/** Read a stream to the end as UTF-8 text, trimmed. */
-function readStream(stream: Readable): Promise<string> {
-  return new Promise<string>((resolve) => {
-    stream.resume();
-    stream.setEncoding("utf8");
-    let content = "";
-    stream.on("data", (chunk: string) => {
-      content += chunk;
-    });
-    stream.on("end", () => {
-      resolve(content.trim());
-    });
-  });
+/**
+ * Read a stream to the end as UTF-8 text, trimmed. A stream that fails rejects with
+ * SCHEMA_LOAD_FAILED; listening only for `data` and `end` left the promise pending forever.
+ */
+async function readStream(stream: Readable, absoluteRef: string): Promise<string> {
+  try {
+    return (await text(stream)).trim();
+  } catch (error) {
+    throw loadFailedError(absoluteRef, error);
+  }
 }
 
 const URL_PREFIXES = ["http://", "https://", "file://"] as const;
@@ -101,7 +99,7 @@ export async function parseSchema(schema: unknown, options: ParseSchemaOptions):
     return resolveSchemaURL(options);
   }
   if (schema instanceof Readable) {
-    return parseSchema(await readStream(schema), options);
+    return parseSchema(await readStream(schema, options.absoluteRef), options);
   }
   if (schema instanceof Buffer) {
     return parseSchema(schema.toString("utf8"), options);

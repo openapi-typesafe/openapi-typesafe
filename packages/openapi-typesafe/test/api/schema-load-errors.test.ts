@@ -30,6 +30,19 @@ describe("schema load errors", () => {
     expect(error).toMatchObject({ code: "SCHEMA_SOURCE_EMPTY", message: "Can’t parse empty schema" });
   });
 
+  it("openapiTS with a stream that fails rejects with SCHEMA_LOAD_FAILED instead of hanging", async () => {
+    const stream = new Readable({
+      read() {
+        this.destroy(new Error("disk unplugged"));
+      },
+    });
+
+    const error = await failureOf(stream);
+
+    expect(error.code).toBe("SCHEMA_LOAD_FAILED");
+    expect(error.message).toContain("disk unplugged");
+  });
+
   it("openapiTS with a number fails with SCHEMA_SOURCE_INVALID", async () => {
     const error = await failureOf(42);
 
