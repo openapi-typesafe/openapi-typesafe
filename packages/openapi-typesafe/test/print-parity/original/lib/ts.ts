@@ -355,8 +355,10 @@ export function tsArrayLiteralExpression(
       (node) => ts.isTypeAliasDeclaration(node) && node?.name?.escapedText === "FlattenedDeepRequired",
     )
   ) {
+    // Task 7.4 fixes this helper on purpose (upstream #2714, #2749, #2737; helper-types.ts), so the
+    // oracle carries the fixed text; the original was `T[K] extends unknown[] ... : T[K]`.
     const helper = stringToAST(
-      "type FlattenedDeepRequired<T> = { [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>; };",
+      "type FlattenedDeepRequired<T> = { [K in keyof T]-?: FlattenedDeepRequired<T[K] extends readonly unknown[] | undefined | null ? Extract<T[K], readonly unknown[]>[number] : NonNullable<T[K]>>; };",
     )[0] as any;
     options.injectFooter.push(helper);
   }
@@ -610,8 +612,9 @@ export function tsReadonlyArray(type: ts.TypeNode, injectFooter?: ts.Node[]): ts
     injectFooter &&
     !injectFooter.some((node) => ts.isTypeAliasDeclaration(node) && node?.name?.escapedText === "ReadonlyArray")
   ) {
+    // Task 7.4: `readonly unknown[]` on purpose (upstream #2749); the original had `unknown[]`.
     const helper = stringToAST(
-      "type ReadonlyArray<T> = [Exclude<T, undefined>] extends [unknown[]] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;",
+      "type ReadonlyArray<T> = [Exclude<T, undefined>] extends [readonly unknown[]] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;",
     )[0] as any;
     injectFooter.push(helper);
   }

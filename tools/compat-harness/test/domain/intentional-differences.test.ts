@@ -51,4 +51,30 @@ describe("INTENTIONAL_DIFFERENCES", () => {
       'export enum A {\n    "" = "",\n    b = "b"\n}\nexport enum B {\n    "" = ""\n}',
     );
   });
+
+  it("the enum-values helpers get the fixed text", () => {
+    const golden = [
+      "type FlattenedDeepRequired<T> = {",
+      "    [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null " +
+        "? Extract<T[K], unknown[]>[number] : T[K]>;",
+      "};",
+      "type ReadonlyArray<T> = [",
+      "    Exclude<T, undefined>",
+      "] extends [",
+      "    unknown[]",
+      "] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;",
+    ].join("\n");
+
+    const { text, appliedIds } = applyIntentionalDifferences(golden, INTENTIONAL_DIFFERENCES);
+
+    expect(text).toContain(
+      "T[K] extends readonly unknown[] | undefined | null ? Extract<T[K], readonly unknown[]>" +
+        "[number] : NonNullable<T[K]>>;",
+    );
+    expect(text).toContain("] extends [\n    readonly unknown[]\n]");
+    expect(appliedIds).toEqual([
+      "enum-values-flattened-deep-required",
+      "enum-values-readonly-array",
+    ]);
+  });
 });

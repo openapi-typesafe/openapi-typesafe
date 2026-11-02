@@ -1,7 +1,7 @@
 /**
  * The helper type aliases the generator adds to the footer, declared once each. The text is the
  * original's source text as the TypeScript printer printed it, so printing it as written gives
- * the original output (ENGINEERING_PLAN 6.2 and 6.6).
+ * the original output (ENGINEERING_PLAN 6.2 and 6.6), except for the fixes noted below.
  */
 export interface HelperType {
   readonly name: string;
@@ -17,22 +17,26 @@ export const HELPER_TYPES = {
     name: "WithRequired",
     text: lines("type WithRequired<T, K extends keyof T> = T & {", "    [P in K]-?: T[P];", "};"),
   },
+  // Task 7.4 changes the original text on purpose: `readonly unknown[]` also flattens the arrays
+  // of `--immutable` (upstream #2714, #2749), and `NonNullable` looks through nullable parents
+  // (upstream #2737). The old text did not compile for those schemas.
   flattenedDeepRequired: {
     name: "FlattenedDeepRequired",
     text: lines(
       "type FlattenedDeepRequired<T> = {",
-      "    [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null " +
-        "? Extract<T[K], unknown[]>[number] : T[K]>;",
+      "    [K in keyof T]-?: FlattenedDeepRequired<T[K] extends readonly unknown[] | undefined | " +
+        "null ? Extract<T[K], readonly unknown[]>[number] : NonNullable<T[K]>>;",
       "};",
     ),
   },
+  // `readonly unknown[]`: a readonly array value type stays as is (upstream #2749).
   readonlyArray: {
     name: "ReadonlyArray",
     text: lines(
       "type ReadonlyArray<T> = [",
       "    Exclude<T, undefined>",
       "] extends [",
-      "    unknown[]",
+      "    readonly unknown[]",
       "] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;",
     ),
   },

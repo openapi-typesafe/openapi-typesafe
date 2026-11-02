@@ -25,6 +25,24 @@ export const INTENTIONAL_DIFFERENCES: readonly IntentionalDifference[] = [
     golden: /^( +) = ""(,?)$/gm,
     candidate: '$1"" = ""$2',
   },
+  {
+    id: "enum-values-flattened-deep-required",
+    issues: [`${UPSTREAM}#2714`, `${UPSTREAM}#2737`],
+    description:
+      "`--enum-values`: `FlattenedDeepRequired` flattens readonly arrays and nullable parents",
+    golden:
+      /^( {4}\[K in keyof T\]-\?: FlattenedDeepRequired<T\[K\] extends )unknown\[\] \| undefined \| null \? Extract<T\[K\], unknown\[\]>\[number\] : T\[K\]>;$/gm,
+    candidate:
+      "$1readonly unknown[] | undefined | null ? Extract<T[K], readonly unknown[]>[number] : " +
+      "NonNullable<T[K]>>;",
+  },
+  {
+    id: "enum-values-readonly-array",
+    issues: [`${UPSTREAM}#2749`],
+    description: "`--enum-values`: the `ReadonlyArray` helper accepts readonly arrays",
+    golden: /^(\] extends \[\n {4})unknown\[\](\n\] \? Readonly<Exclude<T, undefined>>)/gm,
+    candidate: "$1readonly unknown[]$2",
+  },
 ];
 
 export interface RewrittenGolden {

@@ -1,0 +1,48 @@
+import { describe, expect, it } from "vitest";
+import openapiTS, { astToString, type OpenAPI3 } from "../../src/index.js";
+import { typeErrorsOf } from "../typescript-diagnostics.js";
+
+/**
+ * `--enum-values` arrays are typed through `FlattenedDeepRequired`, which did not look through
+ * readonly arrays (`--immutable`, upstream #2714, #2749) or nullable parents (upstream #2737).
+ */
+
+const DOCUMENT: OpenAPI3 = {
+  openapi: "3.1.0",
+  info: { title: "Test", version: "1.0.0" },
+  paths: {},
+  components: {
+    schemas: {
+      Filter: {
+        type: "object",
+        properties: {
+          fields: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { name: { type: "string", enum: ["description", "amount"] } },
+            },
+          },
+          submission: {
+            type: ["object", "null"],
+            properties: { status: { type: "string", enum: ["draft", "submitted"] } },
+          },
+        },
+      },
+    },
+  },
+};
+
+async function generate(options: { immutable?: boolean }): Promise<string> {
+  const nodes = await openapiTS(structuredClone(DOCUMENT), { silent: true, enumValues: true, ...options });
+  return astToString(nodes);
+}
+
+describe("--enum-values helper types", () => {
+  it.each([[{}], [{ immutable: true }]])("the output with %j compiles", async (options) => {
+    const output = await generate(options);
+
+    expect(output).toContain("export const filterFieldsNameValues");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
