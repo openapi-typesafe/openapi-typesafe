@@ -10,11 +10,19 @@ const supportsRequestInitExt = () => {
 };
 
 /**
- * Returns a cheap, non-cryptographically-secure random ID
- * Courtesy of @imranbarbhuiya (https://github.com/imranbarbhuiya)
+ * The number of request ids handed out. It is shared by all clients on purpose: one middleware can
+ * be used by several clients, and it tells their requests apart by id.
+ */
+let requestIdCount = 0;
+
+/**
+ * Returns a cheap, non-cryptographically-secure ID, unique within the process.
+ * A counter, not `Math.random()`: Next.js prerendering rejects random values read before uncached
+ * data (upstream #2486, #2763). The name stays for compatibility.
  */
 export function randomID() {
-  return Math.random().toString(36).slice(2, 11);
+  requestIdCount += 1;
+  return requestIdCount.toString(36);
 }
 
 /**
