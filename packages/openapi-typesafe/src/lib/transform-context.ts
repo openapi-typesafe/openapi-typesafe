@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 import * as changeCase from "change-case";
 import type ts from "typescript";
+import { parseStatements } from "../adapters/type-ast-bridge/ir-to-typescript.js";
 import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import { fromTypeNode } from "../adapters/type-ast-bridge/typescript-to-ir.js";
 import { RunFooter } from "../application/transform/footer/document-footer.js";
@@ -16,7 +17,6 @@ import type {
 import type { GlobalContext, TransformNodeOptions } from "../types.js";
 import { ContextFooterSink } from "./footer-sink.js";
 import { schemaCallbacks } from "./schema-callbacks.js";
-import { stringToAST } from "./ts.js";
 import { debug } from "./utils.js";
 
 /**
@@ -56,12 +56,13 @@ function runFooter(ctx: GlobalContext): DocumentFooter {
   return ctx.runFooter;
 }
 
-/** Reads the text like the original: the expression of the first statement `stringToAST` parses. */
+/** Reads the text like the original: the expression of the first statement the text parses to. */
 const TEMPLATES: TemplateLiteralParser = {
   parse(text) {
-    const [statement] = stringToAST(text) as { expression?: ts.Node }[];
+    const ts = loadTypeScript();
+    const [statement] = parseStatements(ts, text) as readonly { expression?: ts.Node }[];
     const expression = statement?.expression;
-    return expression ? fromTypeNode(loadTypeScript(), expression as ts.TypeNode) : null;
+    return expression ? fromTypeNode(ts, expression as ts.TypeNode) : null;
   },
 };
 

@@ -1,7 +1,8 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
 import type { FooterEntry } from "../../src/lib/footer-entry.js";
-import { astToString, stringToAST } from "../../src/lib/ts.js";
+import { astToString } from "../../src/lib/ts.js";
 import {
   BOOLEAN,
   NULL,
@@ -74,7 +75,7 @@ describe("tsWithRequired", () => {
   });
 
   it("adds no helper when the user declared WithRequired already", () => {
-    const footer: FooterEntry[] = stringToAST("type WithRequired<T, K> = T;") as ts.Node[];
+    const footer: FooterEntry[] = [...parseStatements(ts, "type WithRequired<T, K> = T;")];
 
     tsWithRequired(STRING, ["a"], footer);
 

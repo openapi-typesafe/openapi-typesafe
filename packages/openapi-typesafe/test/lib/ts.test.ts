@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+import { execa } from "execa";
 import ts from "typescript";
 import { irProperty } from "../../src/domain/ir/constructors.js";
 import type { FooterEntry } from "../../src/lib/footer-entry.js";
@@ -11,6 +13,8 @@ import {
   oapiRef,
   QUESTION_TOKEN,
   STRING,
+  STRING_TO_AST_DEPRECATION_CODE,
+  stringToAST,
   tsArrayLiteralExpression,
   tsDedupe,
   tsEnum,
@@ -22,6 +26,16 @@ import {
   tsReadonlyArray,
   tsUnion,
 } from "../../src/lib/ts.js";
+
+/** Run with Node deprecation warnings off, so a test of the deprecated API prints nothing. */
+function runWithoutDeprecation<T>(run: () => T): T {
+  process.noDeprecation = true;
+  try {
+    return run();
+  } finally {
+    process.noDeprecation = false;
+  }
+}
 
 // The helper constants are IR since task 6.2; TypeScript nodes built with `ts.factory` need
 // TypeScript type nodes.
@@ -549,4 +563,22 @@ describe("QUESTION_TOKEN", () => {
     expect(Object.keys(QUESTION_TOKEN)).toContain("kind");
     expect(astToString(ts.factory.createTypeLiteralNode([property])).trim()).toBe("{\n    a?: string;\n}");
   });
+});
+
+describe("stringToAST", () => {
+  test("parses statements", () => {
+    const [statement] = runWithoutDeprecation(() => stringToAST("type B = 1;")) as ts.Node[];
+
+    expect(statement && ts.isTypeAliasDeclaration(statement) && statement.name.text).toBe("B");
+  });
+
+  test("warns once with a Node deprecation code", async () => {
+    const fixture = fileURLToPath(new URL("../fixtures/string-to-ast-twice.ts", import.meta.url));
+    const viteNode = fileURLToPath(new URL("../../node_modules/.bin/vite-node", import.meta.url));
+
+    const { stderr } = await execa(viteNode, [fixture]);
+
+    expect(stderr.match(/DeprecationWarning/g)).toHaveLength(1);
+    expect(stderr).toContain(STRING_TO_AST_DEPRECATION_CODE);
+  }, 30_000);
 });

@@ -1,10 +1,11 @@
-import type ts from "typescript";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
 import { irProperty, irReference } from "../../src/domain/ir/constructors.js";
 import type { IrDeclaration } from "../../src/domain/ir/nodes.js";
 import type { FooterEntry } from "../../src/lib/footer-entry.js";
 import { ContextFooterSink } from "../../src/lib/footer-sink.js";
-import { astToString, stringToAST } from "../../src/lib/ts.js";
+import { astToString } from "../../src/lib/ts.js";
 
 const ALIAS: IrDeclaration = {
   kind: "typeAlias",
@@ -16,7 +17,7 @@ const ALIAS: IrDeclaration = {
 const MEMBER = irProperty({ kind: "identifier", text: "listItems" }, irReference("T"));
 
 function userNode(source: string): ts.Node {
-  const [node] = stringToAST(source) as ts.Node[];
+  const [node] = [...parseStatements(ts, source)];
   return node as ts.Node;
 }
 

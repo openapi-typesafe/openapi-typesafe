@@ -1,10 +1,11 @@
 import fc from "fast-check";
-import type ts from "typescript";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
 import type { DocumentFooter } from "../../src/application/transform/transform-context.js";
 import { irReference } from "../../src/domain/ir/constructors.js";
 import { createTransformContext } from "../../src/lib/transform-context.js";
-import { astToString, stringToAST } from "../../src/lib/ts.js";
+import { astToString } from "../../src/lib/ts.js";
 import { DEFAULT_CTX } from "../test-helpers.js";
 import originalFooter from "./original/footer.js";
 import { RUNS, resetLegacyEnumState, TIMEOUT_MS } from "./parity-arbitraries.js";
@@ -61,7 +62,7 @@ function apply(footer: DocumentFooter, step: FooterOperation): string {
 
 function run(footerOf: (ctx: never) => DocumentFooter, value: FooterInput): string {
   resetLegacyEnumState();
-  const injectFooter = value.predeclared ? (stringToAST(value.predeclared) as ts.Node[]) : [];
+  const injectFooter = value.predeclared ? [...parseStatements(ts, value.predeclared)] : [];
   const ctx = { ...DEFAULT_CTX, dedupeEnums: value.isDedupingEnums, injectFooter };
   const names: string[] = [];
   try {

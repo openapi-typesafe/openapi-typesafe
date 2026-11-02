@@ -1,5 +1,11 @@
+import { deprecate } from "node:util";
 import type ts from "typescript";
-import { toStatements, toTypeElement, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import {
+  parseStatements,
+  toStatements,
+  toTypeElement,
+  toTypeNode,
+} from "../adapters/type-ast-bridge/ir-to-typescript.js";
 import { lazyNode } from "../adapters/type-ast-bridge/lazy-node.js";
 import { loadTypeScript, type TypeScriptModule } from "../adapters/type-ast-bridge/load-typescript.js";
 import { type AstToStringOptions, printWithTypeScript } from "../adapters/type-ast-bridge/print-typescript.js";
@@ -8,6 +14,7 @@ import { HELPER_TYPES } from "../application/transform/footer/helper-types.js";
 import { schemaComment } from "../application/transform/schema-comment.js";
 import type { IrDeclaration, IrType } from "../domain/ir/nodes.js";
 import { declaresTypeAlias, type FooterEntry } from "./footer-entry.js";
+import { IR_CALLBACKS_GUIDE_URL } from "./legacy-callback-warning.js";
 import type { TypeInput } from "./type-helpers.js";
 
 export type { AstToStringOptions } from "../adapters/type-ast-bridge/print-typescript.js";
@@ -126,17 +133,28 @@ function requireHelper(injectFooter: FooterEntry[], helper: { name: string; text
   }
 }
 
-/** Convert an arbitrary string to TS (assuming it’s valid) */
-export function stringToAST(source: string): unknown[] {
-  const ts = loadTypeScript();
-  return ts.createSourceFile(
-    /* fileName        */ "stringInput",
-    /* sourceText      */ source,
-    /* languageVersion */ ts.ScriptTarget.ESNext,
-    /* setParentNodes  */ undefined,
-    /* scriptKind      */ undefined,
-  ).statements as any;
+const STRING_TO_AST_DEPRECATION =
+  "stringToAST() is deprecated and removed in 2.0. Return TypeScript type text from an IR " +
+  `callback (irCallbacks: true) instead: ${IR_CALLBACKS_GUIDE_URL}`;
+
+/** Node's deprecation code for `stringToAST`, so users can filter or trace the warning. */
+export const STRING_TO_AST_DEPRECATION_CODE = "OPENAPI_TYPESAFE_DEP_STRING_TO_AST";
+
+function parseSource(source: string): unknown[] {
+  return [...parseStatements(loadTypeScript(), source)];
 }
+
+/**
+ * Convert an arbitrary string to TS (assuming it’s valid). Parses with the TypeScript bridge, so it
+ * needs TypeScript 6 or earlier (or `@typescript/typescript6`). Node's `util.deprecate` warns on the
+ * first call only.
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 7). Use type text in IR callbacks.
+ */
+export const stringToAST: (source: string) => unknown[] = deprecate(
+  parseSource,
+  STRING_TO_AST_DEPRECATION,
+  STRING_TO_AST_DEPRECATION_CODE,
+);
 
 /**
  * Deduplicate simple primitive types from an array of nodes
