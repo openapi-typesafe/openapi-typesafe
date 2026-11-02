@@ -20,7 +20,7 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [004](./004-legacy-ts-node-callbacks.md) | Legacy `ts.Node` callbacks and `stringToAST` | Accepted |
 | [005](./005-schema-loader.md) | Keep Redocly 1.34.x as the schema loader for 1.0 | Accepted |
 | [006](./006-supported-versions.md) | Supported TypeScript and Node versions, strict compiler flags rollout | Accepted |
-| [007](./007-release-provenance-and-name-reservation.md) | Release, provenance and npm name reservation | Proposed |
+| [007](./007-release-provenance-and-name-reservation.md) | Release, provenance and npm name reservation | Accepted |
 | [008](./008-client-source-language.md) | Client source language | Accepted |
 | [009](./009-react-query-exact-optional-property-types.md) | `exactOptionalPropertyTypes` is off for openapi-typesafe-react-query | Accepted |
 | [010](./010-cli-prints-ir-before-node-api.md) | The CLI prints with our printer before the Node API switches to IR | Superseded by ADR-004 |

@@ -1,6 +1,6 @@
 # ADR-007: Release, provenance and npm name reservation
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-02
 
 ## Context
