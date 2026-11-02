@@ -186,8 +186,10 @@ const client = createPathBasedClient<paths>({
 });
 
 client["/blogposts/{post_id}"].GET({
-  params: { post_id: "my-post" },
-  query: { version: 2 },
+  params: {
+    path: { post_id: "my-post" },
+    query: { version: 2 },
+  },
 });
 ```
 
@@ -199,5 +201,5 @@ See [`wrapAsPathBasedClient`](/fetch/api#wrapaspathbasedclient) for more.
 | Platform       | Support                                                                                                                                            |
 | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Browsers**   | [See fetch API support](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API#browser_compatibility) (widely-available in all major browsers) |
-| **Node**       | >= 18.0.0                                                                                                                                          |
-| **TypeScript** | >= 4.7 (>= 5.0 recommended)                                                                                                                        |
+| **Node**       | >= 22; Bun and Deno are tested too |
+| **TypeScript** | >= 5.4, including 6.x and 7.x |
