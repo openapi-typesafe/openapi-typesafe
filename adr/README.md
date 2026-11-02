@@ -27,3 +27,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [011](./011-typed-errors-and-exit-codes.md) | Typed errors with stable codes, and CLI exit codes | Accepted |
 | [012](./012-composition-roots-and-ports.md) | Composition roots and ports for the CLI and the Node API | Accepted |
 | [013](./013-client-behavior-fixes.md) | Client behavior fixes for 1.0 | Accepted |
+| [014](./014-readable-writable-shape-preservation.md) | `Readable` / `Writable` keep shapes instead of an opt-in flag | Accepted |
