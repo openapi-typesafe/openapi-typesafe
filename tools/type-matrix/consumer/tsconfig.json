@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": false,
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["src", "../../../packages/openapi-typesafe/examples/*.ts"],
+  "exclude": [
+    "../../../packages/openapi-typesafe/examples/digital-ocean-api.ts",
+    "../../../packages/openapi-typesafe/examples/enum-root-types.ts"
+  ]
+}
