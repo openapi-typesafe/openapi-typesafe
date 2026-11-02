@@ -107,7 +107,7 @@ DigitalOcean and smaller ones), the compat corpus (1,820 documents), and large p
 them, picked by hand: Kubernetes, Cloudflare, Twilio, Slack, Jira, and a 3.1 document with
 webhooks.
 
-- [ ] 4.1 Full compat run, all option sets, locally (Node.js ≥ 22.18; first
+- [x] 4.1 Full compat run, all option sets, locally (Node.js ≥ 22.18; first
       `pnpm --filter openapi-typesafe run build`; then from `tools/compat-harness`):
       `scripts/prepare-generators.sh`, `node src/cli/main.ts fetch --corpus all`, then
       `scripts/run-compat.sh all all`. Every difference from `fork-base` is classified:
@@ -149,6 +149,17 @@ webhooks.
 
 **§4 results** (logs: `.logs/pre-beta/generator/`):
 
+- 4.1 (`.logs/pre-beta/compat/`): 1,820 documents × 23 option sets = 41,860 cases. Byte identity
+  99.52%, type identity 99.53%; the candidate never fails (fork-base fails 138 cases: OpenAPI 3.2,
+  and refs its corpus layout cannot resolve). All 197 differences are classified
+  (`4.1-diff-classification.log`): 165 are fork-base output that does not compile and ours does
+  (`--enum` names that start with a digit, `--root-types-keep-casing` names with `-`, numbered
+  `--root-types-no-schema-prefix` clashes); 3 fail on both sides with the inherited document errors
+  (fork-base's dnd5eapi file did not even parse); 29 compiled on both sides and found PB-47 — after
+  the fix they differ from fork-base only by added aliases. `upstream-7.13.0` is byte-identical to
+  fork-base before the intentional rewrites, so users of 7.13 see exactly these changes. No `any`
+  in any output of any option set (only the `$Read<any>` / `$Write<any>` patterns of the marker
+  helpers).
 - 4.2: the whole corpus with the default options (1,817 files; fork-base generates 1,814) under
   TypeScript 5.4 and 7.0 with `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
   `verbatimModuleSyntax` and `skipLibCheck: false`: the same errors in the same 19 files as
@@ -541,6 +552,7 @@ clearly. Log `.logs/pre-beta/explore/12.4.log`.
 | PB-44 | Node API | S3 | §12.4: a JS `transform` / `postTransform` / `transformProperty` returning a non-node (plain object, text, index signature) crashed with `Debug Failure. Unhandled SyntaxKind` or a `TypeError` (inherited) | fixed: results are checked at the callback boundary; CALLBACK_RESULT_UNREADABLE with the callback and path; `transform` text keeps the original tolerance. IR callbacks (`irCallbacks: true`) are typed and not checked deeply |
 | PB-45 | Beta notes | S2 | §12.2: the notes said to install migrate from its tarball and run `npx openapi-typesafe-migrate`, which finds the empty npm placeholder (`could not determine executable to run`); the migrate README says not to install it; `pnpm dlx ./vendor/…` fails with ENOENT | fixed: the notes give `npx --package ./vendor/…migrate-VERSION.tgz openapi-typesafe-migrate` (tested), the absolute-path `pnpm dlx` form, and say not to install it |
 | PB-46 | Beta notes, docs | S3 | §12.2: `file:` paths in a monorepo package differ from the root overrides, not explained; the migration guide said the header is the only change, but discriminator comments also name the generator | fixed: monorepo note in the beta notes; guide lists the discriminator comment. Not changed: migrate also renames a package name in backticks inside a JSDoc comment and reports it like an import; harmless and keeps the docs right |
+| PB-47 | Generator | S2 | §4.1: `--root-types-no-schema-prefix` with `Void` and `void` schemas: openapi-typescript exported `Void` for the later schema only; ours made `Void` the earlier one and `Void_2` the later, so valid output silently changed meaning (29 corpus documents) | fixed: the shared name keeps its old meaning, earlier schemas get numbered aliases; those documents now differ from fork-base only by added lines; test/api/root-type-name-clashes.test.ts; migration guide lists the root-type fixes |
 
 ## 14. Exit criteria (before inviting testers)
 
