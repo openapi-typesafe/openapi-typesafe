@@ -435,18 +435,35 @@ client does not touch `Object.prototype` (new tests); found PB-34 on the way.
       `pnpm --filter @openapi-typesafe/skill-evals eval` once with a real agent (Claude Code,
       with `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`); it costs money, so agree the
       budget first.
-- [ ] 11.2 Every command and API name in `skills/openapi-typesafe/` exists and matches the docs.
+- [x] 11.2 Every command and API name in `skills/openapi-typesafe/` exists and matches the docs.
+
+**§11.2 result.** A script compared the skill's flags with `--help` (only the old
+`--immutable-types` and `--support-array-length`, named as removed, and the migrate `--write` are
+not generator flags), its error codes with `errors.ts` and `cli-errors.ts` (all exist), and its
+option, type and hook names with the generator options, the fetch `index.d.ts`, the helpers and
+the React Query exports (all exist; the rest are TanStack Query and plain words). The engines
+(Node.js 22.12+ / 22+), the `--check` exit code `1` (`OUTPUT_STALE`), the 8 kB size and the
+per-request `signal` (from `RequestInit`) match.
 
 ## 12. Exploratory testing
 
 Time-boxed sessions without a script, one per area, writing what was tried:
 
-- [ ] 12.1 A new user builds a small app from `docs/introduction.md` only.
+- [x] 12.1 A new user builds a small app from `docs/introduction.md` only.
 - [ ] 12.2 A user of openapi-typescript 7 upgrades a real project.
-- [ ] 12.3 Hostile and odd schemas: empty document, only `components`, no `paths`,
+- [x] 12.3 Hostile and odd schemas: empty document, only `components`, no `paths`,
       duplicated `operationId`, 10,000 operations, non-ASCII everywhere.
 - [ ] 12.4 Error messages: trigger each error on purpose and judge whether a user can fix the
       problem from the message alone.
+
+**§12.1 result.** An agent with only the docs and the beta.2 tarballs built a Node todo client
+(list with query, create, get, delete, auth middleware): `tsc --noEmit` strict passes and every call
+works, typed 404/400 errors included. Findings went to PB-42. Log `.logs/pre-beta/explore/12.1.log`.
+
+**§12.3 result.** CLI on each schema, then `tsc` on the output: 10,000 operations (4.1 s, compiles),
+non-ASCII names, no `paths`, only `components`, only `webhooks`, only `openapi`, OpenAPI 3.0 and 3.2
+pass; `{}`, Swagger 2.0 and OpenAPI 4.0 fail with SCHEMA_VERSION_UNSUPPORTED. A repeated
+`operationId` (PB-40) and an empty file (PB-41) were fixed. Log `.logs/pre-beta/explore/12.3.log`.
 
 ## 13. Findings
 
@@ -491,6 +508,9 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 | PB-37 | Fetch | S4 | the invalid middleware error missed a backtick after `onResponse()` | fixed |
 | PB-38 | Generator | S3 | inherited (upstream #2194): `--make-paths-enum` without `operationId` gave `GetUser` to both `/user` and `/user/{user_id}`, and the enum did not compile | fixed: colliding URL keys name their path parameters, repeats get a number |
 | PB-39 | Repo deps | S3 | `pnpm audit`: the Next.js example pinned postcss 8.4.31 (2 high), dev dependencies axios, node-forge and undici had high advisories; new GHSA-g3hv-75wg-m249 (minimatch) through Redocly 1.x | fixed: Next 16.4.3, axios 1.21.0, node-forge 1.4.2, undici 8.12.3; minimatch reviewed in ADR-005 (needs a config pattern, not reachable from a document); vite 5 under vitepress 1.6.4 (Windows dev server only) recorded in the threat model |
+| PB-40 | CLI | S2 | a repeated `operationId` gave CLI output that does not compile (duplicate `operations` member), with no message; the Node API already fails with SCHEMA_INVALID | fixed: the CLI default lint config warns (`operation-operationId-unique: warn`); output and exit code unchanged |
+| PB-41 | Generator | S2 | an empty schema file or a `null` root crashed with `TypeError: Cannot read properties of undefined (reading 'openapi')`, exit 70 (inherited) | fixed: `assertOpenAPI3` checks the root is an object first; SCHEMA_VERSION_UNSUPPORTED, exit 3; test/defensive/non-object-root.test.ts |
+| PB-42 | Docs | S3 | §12.1 new user: no word on running under Node without a bundler (`Bundler` type-checks, Node fails on imports without an extension; `"type": "module"`); wrong-path type errors read as `Expected 2 arguments` / `never`; CLI output sample outdated; "100% match your schema" overpromises (`minLength` is not typed) | fixed: tips in fetch/index.md (Node.js without a bundler, Reading type errors), cli.md output, wording; install of helpers is covered by the beta notes and `pnpm -r` publish order; dead GitHub links wait for 11.2; Redocly minimatch audit note is in ADR-005 |
 
 ## 14. Exit criteria (before inviting testers)
 
