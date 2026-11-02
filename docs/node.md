@@ -128,6 +128,8 @@ The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plu
 | `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd` |
 | `remoteRefHosts`   |   `string[]`    |                 | Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` allows none |
 | `inject`           |    `string`     |                 | Inject arbitrary TypeScript types into the start of the file                                 |
+| `redocly`          |     `Config`    |                 | A Redocly config object; see [Redoc config](#redoc-config). Without it, the built-in `minimal` config; the Node API does not look for `redocly.yaml`
+| `version`          |     `number`    |                 | Accepted for compatibility with openapi-typescript; no code reads it
 
 ### IR callbacks
 
