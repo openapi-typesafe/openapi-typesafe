@@ -16,6 +16,8 @@ allowBuilds:
   '@biomejs/biome': true
   '@swc/core': false
   esbuild: false
+  # Git hooks are installed by the root `prepare` script instead of a dependency build script.
+  lefthook: false
   msw: false
   sharp: false
   svelte-preprocess: false
