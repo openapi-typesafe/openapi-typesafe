@@ -5,6 +5,11 @@ import { NodeCompilerRunner } from "../../src/adapters/node-compiler-runner.ts";
 const STAND_IN = fileURLToPath(new URL("../fixtures/stand-in-tsc.mjs", import.meta.url));
 const CONSUMER_DIR = fileURLToPath(new URL("../fixtures", import.meta.url));
 const NORMAL_TIMEOUT_MS = 10_000;
+/**
+ * The test with a real compiler waits for the runner's own limit, not vitest's 5 s default: a cold
+ * `tsc` start on a busy CI runner took longer than 5 s, while the runner allows 10 s.
+ */
+const REAL_COMPILER_TEST_TIMEOUT_MS = NORMAL_TIMEOUT_MS + 2_000;
 const SHORT_TIMEOUT_MS = 200;
 
 function runner(timeoutMs: number): NodeCompilerRunner {
@@ -42,17 +47,21 @@ describe("NodeCompilerRunner", () => {
     expect(outcome.output).toMatch(/abort/i);
   });
 
-  it("the default resolver runs the bin/tsc of an installed compiler package", async () => {
-    const real = new NodeCompilerRunner({
-      consumerDir: CONSUMER_DIR,
-      timeoutMs: NORMAL_TIMEOUT_MS,
-    });
+  it(
+    "the default resolver runs the bin/tsc of an installed compiler package",
+    async () => {
+      const real = new NodeCompilerRunner({
+        consumerDir: CONSUMER_DIR,
+        timeoutMs: NORMAL_TIMEOUT_MS,
+      });
 
-    const outcome = await real.run({
-      packageName: "typescript-5.4",
-      tsconfig: "tiny-project/tsconfig.json",
-    });
+      const outcome = await real.run({
+        packageName: "typescript-5.4",
+        tsconfig: "tiny-project/tsconfig.json",
+      });
 
-    expect(outcome).toMatchObject({ exitCode: 0, output: "" });
-  });
+      expect(outcome).toMatchObject({ exitCode: 0, output: "" });
+    },
+    REAL_COMPILER_TEST_TIMEOUT_MS,
+  );
 });
