@@ -7,7 +7,31 @@ import transformSchema from "./transform/index.js";
 import type { GeneratorOptions, OpenAPI3 } from "./types.js";
 
 export type * from "./domain/ir/nodes.js";
-export * from "./lib/ts.js";
+export * from "./lib/ast-to-string.js";
+export type { FooterEntry } from "./lib/footer-entry.js";
+export * from "./lib/legacy-ts-helpers.js";
+export * from "./lib/string-to-ast.js";
+export {
+  BOOLEAN,
+  FALSE,
+  NEVER,
+  NULL,
+  NUMBER,
+  type OapiRefOptions,
+  oapiRef,
+  STRING,
+  TRUE,
+  type TypeInput,
+  tsIntersection,
+  tsLiteral,
+  tsNullable,
+  tsOmit,
+  tsRecord,
+  tsUnion,
+  tsWithRequired,
+  UNDEFINED,
+  UNKNOWN,
+} from "./lib/type-helpers.js";
 export * from "./lib/utils.js";
 export { default as transformComponentsObject } from "./transform/components-object.js";
 export { default as transformHeaderObject } from "./transform/header-object.js";

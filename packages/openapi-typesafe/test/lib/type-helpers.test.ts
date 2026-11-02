@@ -1,8 +1,8 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
+import { astToString } from "../../src/index.js";
 import type { FooterEntry } from "../../src/lib/footer-entry.js";
-import { astToString } from "../../src/lib/ts.js";
 import {
   BOOLEAN,
   NULL,

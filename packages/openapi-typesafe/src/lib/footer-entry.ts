@@ -1,6 +1,6 @@
-import type ts from "typescript";
 import { isTypeAliasNamed } from "../adapters/type-ast-bridge/footer-nodes.js";
 import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
+import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 
 /** A footer entry: a declaration in IR, or a TypeScript node added by user code. */

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { toStatement } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
 import { printNodes } from "../../src/application/print/print-nodes.js";
 import type { IrDeclaration } from "../../src/domain/ir/nodes.js";
-import { astToString } from "../../src/lib/ts.js";
+import { astToString } from "../../src/index.js";
 import { arbitraryDeclarations } from "./ir-arbitraries.js";
 import { alias, DECLARATION_CASES, TYPE_CASES } from "./print-parity.fixtures.js";
 

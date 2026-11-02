@@ -1,4 +1,4 @@
-import type ts from "typescript";
+import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import { documentBody, documentClosing } from "../application/transform/document/document.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";

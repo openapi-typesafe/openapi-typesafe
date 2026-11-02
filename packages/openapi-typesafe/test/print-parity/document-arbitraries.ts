@@ -80,8 +80,9 @@ export const pathItemArbitrary = fc.record(
   },
   { requiredKeys: [] },
 );
+// No backtick URLs: task 6.6 escapes them on purpose (research/legacy-bugs.md #10, paths.test.ts).
 export const pathsArbitrary = fc.dictionary(
-  fc.constantFrom("/items", "/items/{id}", "/a/{count}/{flag}/{count}", "/b/{open", "/c/{id}`x"),
+  fc.constantFrom("/items", "/items/{id}", "/a/{count}/{flag}/{count}", "/b/{open", "/c/{id}$x"),
   fc.oneof(
     { weight: 6, arbitrary: pathItemArbitrary },
     fc.record({ $ref: fc.constant("#/components/pathItems/P") }),
@@ -134,8 +135,13 @@ export const documentArbitrary = fc.record(
 );
 
 /** The Node API `inject` option: none, empty, or code with a comment between statements. */
+/**
+ * `inject` text in the layout the TypeScript printer gives it: task 6.6 prints the text as written,
+ * while the original reprinted it (document-declarations.test.ts covers other layouts).
+ */
 export const injectArbitrary = fc.constantFrom(
   undefined,
   "",
-  "type A = 1;\n// note\nexport const b = 2;",
+  "   \n",
+  "\ntype A = 1;\nexport const b = 2;\n",
 );

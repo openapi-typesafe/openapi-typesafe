@@ -2,7 +2,7 @@ import fc from "fast-check";
 import type ts from "typescript";
 import { describe, expect, it } from "vitest";
 import type { IrDeclaration } from "../../src/domain/ir/nodes.js";
-import { astToString } from "../../src/lib/ts.js";
+import { astToString } from "../../src/index.js";
 import transformSchema from "../../src/transform/index.js";
 import {
   documentArbitrary as document,

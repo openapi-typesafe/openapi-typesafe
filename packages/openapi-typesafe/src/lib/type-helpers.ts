@@ -1,7 +1,7 @@
-import type ts from "typescript";
 import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import { fromTypeNode } from "../adapters/type-ast-bridge/typescript-to-ir.js";
-import { HELPER_TYPES } from "../application/transform/footer/helper-types.js";
+import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
+import { HELPER_TYPES } from "../application/transform/helper-types.js";
 import { literalType } from "../application/transform/literal-type.js";
 import { refType } from "../application/transform/ref-type.js";
 import { UNKNOWN_TYPE } from "../application/transform/shared-types.js";

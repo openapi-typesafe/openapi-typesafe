@@ -1,7 +1,6 @@
-import type ts from "typescript";
-import { parseStatements } from "../adapters/type-ast-bridge/ir-to-typescript.js";
 import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import { printWithTypeScript } from "../adapters/type-ast-bridge/print-typescript.js";
+import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import { type FooterEntry, isIrDeclaration } from "./footer-entry.js";
 
@@ -22,29 +21,14 @@ function printedNode(node: ts.Node): IrDeclaration {
   return { kind: "rawDeclaration", text: withoutFinalLineBreak(printWithTypeScript(loadTypeScript(), [node])) };
 }
 
+function entryDeclaration(entry: FooterEntry): IrDeclaration {
+  return isIrDeclaration(entry) ? entry : printedNode(entry);
+}
+
 /**
- * Raw declaration text (helper types, the `inject` option) as the TypeScript printer reprints it,
- * as the original output did. Null when the text holds no statement. Temporary: task 6.6 removes
- * the TypeScript dependency and prints the text as written.
+ * The document as IR declarations in output order. Footer TypeScript nodes from user code become
+ * raw text through the bridge; raw text is printed as written (ADR-010, decision 4).
  */
-function reprinted(declaration: IrDeclaration): IrDeclaration | null {
-  if (declaration.kind !== "rawDeclaration") {
-    return declaration;
-  }
-  const ts = loadTypeScript();
-  const text = withoutFinalLineBreak(printWithTypeScript(ts, parseStatements(ts, declaration.text)));
-  return text === "" ? null : { ...declaration, text };
-}
-
-function entryDeclaration(entry: FooterEntry): IrDeclaration | null {
-  return isIrDeclaration(entry) ? reprinted(entry) : printedNode(entry);
-}
-
-/** The document as IR declarations in output order; footer TypeScript nodes become raw text. */
 export function documentDeclarations({ body, footer, closing }: TransformedDocument): IrDeclaration[] {
-  return [
-    ...body.flatMap((declaration) => reprinted(declaration) ?? []),
-    ...footer.flatMap((entry) => entryDeclaration(entry) ?? []),
-    ...closing,
-  ];
+  return [...body, ...footer.map(entryDeclaration), ...closing];
 }

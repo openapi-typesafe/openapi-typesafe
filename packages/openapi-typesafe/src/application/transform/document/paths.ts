@@ -1,4 +1,4 @@
-import { irObject, irProperty } from "../../../domain/ir/constructors.js";
+import { irObject, irProperty, irRaw } from "../../../domain/ir/constructors.js";
 import type { IrMember, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
@@ -90,7 +90,8 @@ function pathTemplateText(
     return null;
   }
   const parameters = pathParameters(pathItem, context);
-  let text = `\`${url}\``;
+  // A backtick would end the literal early; the original output broke there (intentional fix).
+  let text = `\`${url.replaceAll("`", "\\`")}\``;
   for (const match of matches) {
     const schema = parameters.get(match.slice(1, -1))?.schema as SchemaObject | undefined;
     // Only the first occurrence is replaced per match, as in the original.
@@ -110,7 +111,7 @@ function pathItemMember(
     context.options.pathParamsAsTypes && url.includes("{")
       ? pathTemplateText(url, pathItem, context)
       : null;
-  const keyType = text === null ? null : context.templates.parse(text);
+  const keyType = text === null ? null : irRaw(text);
   if (keyType === null) {
     return irProperty(toPropertyName(url), type, { isReadonly });
   }

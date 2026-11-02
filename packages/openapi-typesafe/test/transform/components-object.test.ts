@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { astToString, NULL, tsUnion } from "../../src/lib/ts.js";
+import { astToString, NULL, tsUnion } from "../../src/index.js";
 import transformComponentsObject, { isEnumSchema } from "../../src/transform/components-object.js";
 import type { GlobalContext } from "../../src/types.js";
 import { DEFAULT_CTX, type TestCase } from "../test-helpers.js";

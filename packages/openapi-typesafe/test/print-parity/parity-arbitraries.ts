@@ -2,7 +2,7 @@ import fc from "fast-check";
 import ts from "typescript";
 import { irObject } from "../../src/domain/ir/constructors.js";
 import type { IrMember, IrType, IrTypeAliasDeclaration } from "../../src/domain/ir/nodes.js";
-import { astToString } from "../../src/lib/ts.js";
+import { astToString } from "../../src/index.js";
 import type { GlobalContext, OpenAPITSOptions, TransformNodeOptions } from "../../src/types.js";
 import { DEFAULT_CTX } from "../test-helpers.js";
 import {

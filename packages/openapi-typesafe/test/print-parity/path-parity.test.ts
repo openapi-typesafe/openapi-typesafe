@@ -2,7 +2,7 @@ import fc from "fast-check";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import type { IrEnumDeclaration, IrMember, IrType } from "../../src/domain/ir/nodes.js";
-import { astToString } from "../../src/lib/ts.js";
+import { astToString } from "../../src/index.js";
 import transformOperationObject, {
   injectOperationObject,
 } from "../../src/transform/operation-object.js";

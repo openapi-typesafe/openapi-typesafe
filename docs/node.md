@@ -13,6 +13,12 @@ The Node API may be useful if dealing with dynamically-created schemas, or youâ€
 npm i --save-dev openapi-typescript typescript
 ```
 
+::: info TypeScript is optional
+
+The generator does not need the `typescript` package. Only callbacks or helpers that use TypeScript compiler nodes (the legacy forms, see [IR callbacks](#ir-callbacks)) load it: `typescript` 6 or earlier, or `@typescript/typescript6` in a TypeScript 7 project.
+
+:::
+
 ::: tip Recommended
 
 For the best experience, use Node ESM by adding `"type": "module"` to `package.json` ([docs](https://nodejs.org/api/esm.html#enabling))

@@ -1,7 +1,7 @@
-import type ts from "typescript";
 import { toPropertySignature, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
 import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import { fromPropertySignature } from "../adapters/type-ast-bridge/typescript-to-ir.js";
+import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import type { CustomType, SchemaCallbacks, SchemaLocation } from "../application/transform/schema/schema-context.js";
 import { irRaw } from "../domain/ir/constructors.js";
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";

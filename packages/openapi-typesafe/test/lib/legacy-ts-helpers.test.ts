@@ -2,7 +2,6 @@ import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import ts from "typescript";
 import { irProperty } from "../../src/domain/ir/constructors.js";
-import type { FooterEntry } from "../../src/lib/footer-entry.js";
 import {
   addJSDocComment,
   astToString,
@@ -25,7 +24,8 @@ import {
   tsPropertyIndex,
   tsReadonlyArray,
   tsUnion,
-} from "../../src/lib/ts.js";
+} from "../../src/index.js";
+import type { FooterEntry } from "../../src/lib/footer-entry.js";
 
 /** Run with Node deprecation warnings off, so a test of the deprecated API prints nothing. */
 function runWithoutDeprecation<T>(run: () => T): T {

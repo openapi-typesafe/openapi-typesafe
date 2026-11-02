@@ -41,10 +41,18 @@ describe("documentDeclarations", () => {
   });
 
   it("the IR prints what the TypeScript printer prints for the same run", async () => {
-    const { ir, typescript } = await printBoth({ enum: true, enumValues: true, inject: "type A=1" });
+    const { ir, typescript } = await printBoth({ enum: true, enumValues: true, inject: "type A = 1;" });
 
     expect(ir).toBe(typescript);
     expect(ir).toContain("type A = 1;");
+  });
+
+  it("injected code is printed as written, without the blank lines around it", async () => {
+    const inject = "\n\n// Shared types\ntype A=1\n\n";
+
+    const ir = astToString(await openapiTS(DOCUMENT, { silent: true, inject }));
+
+    expect(ir.startsWith("// Shared types\ntype A=1\nexport interface paths {")).toBe(true);
   });
 
   it("a footer node added by a user callback is printed", async () => {

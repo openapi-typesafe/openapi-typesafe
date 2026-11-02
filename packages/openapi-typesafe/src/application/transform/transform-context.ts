@@ -1,4 +1,4 @@
-import type { IrPropertySignature, IrType } from "../../domain/ir/nodes.js";
+import type { IrPropertySignature } from "../../domain/ir/nodes.js";
 import type { FooterDeclarations, SchemaContext, SchemaOptions } from "./schema/schema-context.js";
 
 /** Options of the transformers above schemas. They grow as parents are ported (Phase 5). */
@@ -35,12 +35,6 @@ export interface DocumentFooter extends FooterDeclarations {
   addOperation(build: () => IrPropertySignature): void;
 }
 
-/** Reads the text of a template literal type (`--path-params-as-types`). */
-export interface TemplateLiteralParser {
-  /** The type, or null when the text does not read as a template literal. */
-  parse(text: string): IrType | null;
-}
-
 /** Debug output for slow parts of a run (`DEBUG=openapi-ts:*`). */
 export interface TransformDiagnostics {
   /** A monotonic time in milliseconds, used only to measure durations. */
@@ -52,7 +46,6 @@ export interface TransformDiagnostics {
 export interface TransformContext extends SchemaContext {
   readonly options: TransformOptions;
   readonly footer: DocumentFooter;
-  readonly templates: TemplateLiteralParser;
   readonly diagnostics: TransformDiagnostics;
   readonly casing: NameCasing;
 }

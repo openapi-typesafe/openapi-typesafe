@@ -1,6 +1,6 @@
 import type { PathLike } from "node:fs";
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
-import type ts from "typescript";
+import type { ts } from "./adapters/type-ast-bridge/typescript-types.js";
 import type { DocumentFooter } from "./application/transform/transform-context.js";
 import type { IrPropertySignature, IrType } from "./domain/ir/nodes.js";
 import type { FooterEntry } from "./lib/footer-entry.js";

@@ -1,15 +1,10 @@
 import { performance } from "node:perf_hooks";
 import * as changeCase from "change-case";
-import type ts from "typescript";
-import { parseStatements } from "../adapters/type-ast-bridge/ir-to-typescript.js";
-import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
-import { fromTypeNode } from "../adapters/type-ast-bridge/typescript-to-ir.js";
 import { RunFooter } from "../application/transform/footer/document-footer.js";
 import type { SchemaLocation } from "../application/transform/schema/schema-context.js";
 import type {
   DocumentFooter,
   NameCasing,
-  TemplateLiteralParser,
   TransformContext,
   TransformDiagnostics,
   TransformOptions,
@@ -56,16 +51,6 @@ function runFooter(ctx: GlobalContext): DocumentFooter {
   return ctx.runFooter;
 }
 
-/** Reads the text like the original: the expression of the first statement the text parses to. */
-const TEMPLATES: TemplateLiteralParser = {
-  parse(text) {
-    const ts = loadTypeScript();
-    const [statement] = parseStatements(ts, text) as readonly { expression?: ts.Node }[];
-    const expression = statement?.expression;
-    return expression ? fromTypeNode(ts, expression as ts.TypeNode) : null;
-  },
-};
-
 const CASING: NameCasing = { pascalCase: (text) => changeCase.pascalCase(text) };
 
 /** `performance.now()` and the original `debug` logger, in the "ts" group. */
@@ -85,7 +70,6 @@ export function createTransformContext(ctx: GlobalContext): TransformContext {
     },
     footer: runFooter(ctx),
     callbacks: schemaCallbacks(ctx),
-    templates: TEMPLATES,
     diagnostics: DIAGNOSTICS,
     casing: CASING,
   };

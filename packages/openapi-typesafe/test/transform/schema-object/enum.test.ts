@@ -1,5 +1,4 @@
-import { transformSchema } from "../../../src/index.js";
-import { astToString } from "../../../src/lib/ts.js";
+import { astToString, transformSchema } from "../../../src/index.js";
 import { DEFAULT_CTX, type TestCase } from "../../test-helpers.js";
 
 const tests: TestCase[] = [

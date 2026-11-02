@@ -9,12 +9,10 @@ import type {
 import type {
   DocumentFooter,
   NameCasing,
-  TemplateLiteralParser,
   TransformContext,
   TransformDiagnostics,
   TransformOptions,
 } from "../../src/application/transform/transform-context.js";
-import { irRaw } from "../../src/domain/ir/constructors.js";
 import type { IrPropertySignature, IrType } from "../../src/domain/ir/nodes.js";
 
 export const DEFAULT_TRANSFORM_OPTIONS: TransformOptions = {
@@ -88,7 +86,6 @@ const CAPITALIZING_CASING: NameCasing = {
 };
 
 /** Reads any text as a raw type; the real parser is covered by the parity tests. */
-const RAW_TEMPLATES: TemplateLiteralParser = { parse: (text) => irRaw(text) };
 
 /** Callbacks given as plain functions; missing ones return null like unset user callbacks. */
 export interface FakeCallbacks {
@@ -116,7 +113,6 @@ export interface FakeContextInput {
   readonly discriminators?: Readonly<Record<string, Discriminator>>;
   readonly handledRefs?: readonly string[];
   readonly callbacks?: FakeCallbacks;
-  readonly templates?: TemplateLiteralParser;
 }
 
 export function fakeTransformContext(input: FakeContextInput = {}): {
@@ -135,7 +131,6 @@ export function fakeTransformContext(input: FakeContextInput = {}): {
     },
     footer,
     callbacks: callbacksOf(input.callbacks ?? {}),
-    templates: input.templates ?? RAW_TEMPLATES,
     diagnostics,
     casing: CAPITALIZING_CASING,
   };

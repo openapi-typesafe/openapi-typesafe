@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
 import { irProperty, irReference } from "../../src/domain/ir/constructors.js";
 import type { IrDeclaration } from "../../src/domain/ir/nodes.js";
+import { astToString } from "../../src/index.js";
 import type { FooterEntry } from "../../src/lib/footer-entry.js";
 import { ContextFooterSink } from "../../src/lib/footer-sink.js";
-import { astToString } from "../../src/lib/ts.js";
 
 const ALIAS: IrDeclaration = {
   kind: "typeAlias",

@@ -51,10 +51,12 @@ module.exports = {
     },
     {
       name: "typescript-only-in-bridge",
-      comment: "No layered module except the legacy bridge may import the TypeScript compiler.",
+      comment:
+        "No module except the legacy bridge may import the TypeScript compiler, not even its types " +
+        "(ENGINEERING_PLAN 6.6). Other code takes the types from the bridge's typescript-types module.",
       severity: "error",
-      from: { path: "^src/(domain|application|adapters|cli|api)/", pathNot: TYPE_AST_BRIDGE },
-      to: { path: "^typescript$|node_modules/typescript/" },
+      from: { path: "^src/", pathNot: TYPE_AST_BRIDGE },
+      to: { path: "^typescript$|node_modules/typescript/|^@typescript/|node_modules/@typescript/" },
     },
     {
       name: "no-circular",

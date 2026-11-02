@@ -1,45 +1,18 @@
-import { deprecate } from "node:util";
-import type ts from "typescript";
-import {
-  parseStatements,
-  toStatements,
-  toTypeElement,
-  toTypeNode,
-} from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import { toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
 import { lazyNode } from "../adapters/type-ast-bridge/lazy-node.js";
-import { loadTypeScript, type TypeScriptModule } from "../adapters/type-ast-bridge/load-typescript.js";
-import { type AstToStringOptions, printWithTypeScript } from "../adapters/type-ast-bridge/print-typescript.js";
-import { type IrPrintable, printFragments } from "../application/print/print-nodes.js";
-import { HELPER_TYPES } from "../application/transform/footer/helper-types.js";
+import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
+import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
+import { HELPER_TYPES } from "../application/transform/helper-types.js";
 import { schemaComment } from "../application/transform/schema-comment.js";
-import type { IrDeclaration, IrType } from "../domain/ir/nodes.js";
+import type { IrType } from "../domain/ir/nodes.js";
 import { declaresTypeAlias, type FooterEntry } from "./footer-entry.js";
-import { IR_CALLBACKS_GUIDE_URL } from "./legacy-callback-warning.js";
 import type { TypeInput } from "./type-helpers.js";
 
-export type { AstToStringOptions } from "../adapters/type-ast-bridge/print-typescript.js";
-export type { FooterEntry } from "./footer-entry.js";
-export {
-  BOOLEAN,
-  FALSE,
-  NEVER,
-  NULL,
-  NUMBER,
-  type OapiRefOptions,
-  oapiRef,
-  STRING,
-  TRUE,
-  type TypeInput,
-  tsIntersection,
-  tsLiteral,
-  tsNullable,
-  tsOmit,
-  tsRecord,
-  tsUnion,
-  tsWithRequired,
-  UNDEFINED,
-  UNKNOWN,
-} from "./type-helpers.js";
+/**
+ * The original's helpers that build TypeScript compiler nodes, kept for 1.x and deprecated
+ * (ADR-004, decision 9). They load TypeScript on first use through the bridge; the generator
+ * itself does not use them.
+ */
 
 export const JS_PROPERTY_INDEX_RE = /^[A-Za-z_$][A-Za-z_$0-9]*$/;
 export const JS_ENUM_INVALID_CHARS_RE = /[^A-Za-z_$0-9]+(.)?/g;
@@ -85,41 +58,6 @@ export function addJSDocComment(schemaObject: AnnotatedSchemaObject, node: ts.Pr
   }
 }
 
-/** What `astToString` prints: IR (what `openapiTS` and the transformers return) or TypeScript nodes. */
-export type AstToStringInput = IrPrintable | ts.Node | readonly (IrPrintable | ts.Node)[];
-
-function isIrNode(node: IrPrintable | ts.Node): node is IrPrintable {
-  return typeof node.kind === "string";
-}
-
-/** An IR node in TypeScript form, for printing it together with TypeScript nodes. */
-function toTypeScriptNodes(ts: TypeScriptModule, node: IrPrintable): ts.Node[] {
-  if (isIrDeclarationKind(node)) {
-    return toStatements(ts, node);
-  }
-  const isMember = node.kind === "property" || node.kind === "indexSignature";
-  return [isMember ? toTypeElement(ts, node) : toTypeNode(ts, node)];
-}
-
-function isIrDeclarationKind(node: IrPrintable): node is IrDeclaration {
-  return ["interface", "typeAlias", "enum", "constArray", "rawDeclaration"].includes(node.kind);
-}
-
-/**
- * Print declarations, members or types as a TypeScript file body. IR is printed by our printer;
- * with TypeScript nodes in the input, or with TypeScript printer options, everything goes
- * through the TypeScript printer as before (ADR-004, decision 1).
- */
-export function astToString(ast: AstToStringInput, options?: AstToStringOptions): string {
-  const nodes: readonly (IrPrintable | ts.Node)[] = Array.isArray(ast) ? ast : [ast as IrPrintable | ts.Node];
-  if (nodes.every(isIrNode) && !options) {
-    return printFragments(nodes);
-  }
-  const ts = loadTypeScript();
-  const statements = nodes.flatMap((node) => (isIrNode(node) ? toTypeScriptNodes(ts, node) : [node]));
-  return printWithTypeScript(ts, statements, options);
-}
-
 /** A type argument of the deprecated helpers in TypeScript form; IR (from the type helpers) is converted. */
 function legacyTypeNode(type: TypeInput): ts.TypeNode {
   const ts = loadTypeScript();
@@ -132,29 +70,6 @@ function requireHelper(injectFooter: FooterEntry[], helper: { name: string; text
     injectFooter.push({ kind: "rawDeclaration", name: helper.name, text: helper.text });
   }
 }
-
-const STRING_TO_AST_DEPRECATION =
-  "stringToAST() is deprecated and removed in 2.0. Return TypeScript type text from an IR " +
-  `callback (irCallbacks: true) instead: ${IR_CALLBACKS_GUIDE_URL}`;
-
-/** Node's deprecation code for `stringToAST`, so users can filter or trace the warning. */
-export const STRING_TO_AST_DEPRECATION_CODE = "OPENAPI_TYPESAFE_DEP_STRING_TO_AST";
-
-function parseSource(source: string): unknown[] {
-  return [...parseStatements(loadTypeScript(), source)];
-}
-
-/**
- * Convert an arbitrary string to TS (assuming it’s valid). Parses with the TypeScript bridge, so it
- * needs TypeScript 6 or earlier (or `@typescript/typescript6`). Node's `util.deprecate` warns on the
- * first call only.
- * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 7). Use type text in IR callbacks.
- */
-export const stringToAST: (source: string) => unknown[] = deprecate(
-  parseSource,
-  STRING_TO_AST_DEPRECATION,
-  STRING_TO_AST_DEPRECATION_CODE,
-);
 
 /**
  * Deduplicate simple primitive types from an array of nodes

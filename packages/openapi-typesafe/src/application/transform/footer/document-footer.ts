@@ -1,5 +1,6 @@
 import { irReference } from "../../../domain/ir/constructors.js";
 import type { IrDeclaration, IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
+import { HELPER_TYPES, type HelperType } from "../helper-types.js";
 import type {
   EnumDeclarationRequest,
   EnumMemberMetadata,
@@ -7,7 +8,6 @@ import type {
 } from "../schema/schema-context.js";
 import type { DocumentFooter } from "../transform-context.js";
 import { EnumNaming, enumDeclaration } from "./enum-naming.js";
-import { HELPER_TYPES, type HelperType } from "./helper-types.js";
 
 /** Where footer declarations go, in order: the run's `ctx.injectFooter`, which user code may add to. */
 export interface FooterSink {

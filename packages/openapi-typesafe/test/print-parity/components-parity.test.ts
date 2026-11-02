@@ -2,7 +2,7 @@ import fc from "fast-check";
 import type ts from "typescript";
 import { describe, expect, it } from "vitest";
 import type { IrPrintable } from "../../src/application/print/print-nodes.js";
-import { astToString } from "../../src/lib/ts.js";
+import { astToString } from "../../src/index.js";
 import transformComponentsObject from "../../src/transform/components-object.js";
 import { componentsArbitrary as components } from "./document-arbitraries.js";
 import originalTransformComponentsObject from "./original/components-object.js";

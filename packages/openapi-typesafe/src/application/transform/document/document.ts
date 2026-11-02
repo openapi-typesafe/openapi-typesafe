@@ -10,6 +10,7 @@ import type { DocumentObject } from "../../../domain/openapi/document-object.js"
 import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { PathsObject } from "../../../domain/openapi/path-item-object.js";
 import type { Schema } from "../../../domain/openapi/schema-object.js";
+import { READ_WRITE_MARKER_TYPES } from "../helper-types.js";
 import { transformSchema } from "../schema/schema-transform.js";
 import type { TransformContext, TransformOptions } from "../transform-context.js";
 import { componentsType } from "./components.js";
@@ -24,14 +25,6 @@ type RootKey = (typeof ROOT_KEYS)[number];
 const OPERATIONS_NAME = "operations";
 /** The type of a root without members: `Record<string, never>`. */
 const EMPTY_ROOT_TYPE = irRecord(irKeyword("string"), irKeyword("never"));
-
-/** `--read-write-markers` helper types, with the original's source text. */
-const READ_WRITE_HELPERS = `
-export type $Read<T> = { readonly $read: T };
-export type $Write<T> = { readonly $write: T };
-export type Readable<T> = T extends $Write<any> ? never : T extends $Read<infer U> ? Readable<U> : T extends (infer E)[] ? Readable<E>[] : T extends object ? { [K in keyof T as NonNullable<T[K]> extends $Write<any> ? never : K]: Readable<T[K]> } : T;
-export type Writable<T> = T extends $Read<any> ? never : T extends $Write<infer U> ? Writable<U> : T extends (infer E)[] ? Writable<E>[] : T extends object ? { [K in keyof T as NonNullable<T[K]> extends $Read<any> ? never : K]: Writable<T[K]> } & { [K in keyof T as NonNullable<T[K]> extends $Read<any> ? K : never]?: never } : T;
-`;
 
 /** A root's type and the declarations that follow it (the `--root-types` aliases). */
 interface RootResult {
@@ -96,16 +89,25 @@ function rootDeclarations(
 }
 
 /**
+ * The `inject` text as written (ADR-010, decision 4), without the blank lines around it. The
+ * original reprinted it with the TypeScript printer; text without code printed nothing then.
+ */
+function withoutBlankLinesAround(text: string): string {
+  return text.replace(/^(?:[ \t]*\r?\n)+/, "").trimEnd();
+}
+
+/**
  * The document's declarations before the footer: helper types, injected code, then one root type
  * per root key with the aliases that follow it.
  */
 export function documentBody(document: DocumentObject, context: TransformContext): IrDeclaration[] {
   const declarations: IrDeclaration[] = [];
   if (context.options.readWriteMarkers) {
-    declarations.push({ kind: "rawDeclaration", text: READ_WRITE_HELPERS });
+    declarations.push({ kind: "rawDeclaration", text: READ_WRITE_MARKER_TYPES });
   }
-  if (context.options.inject) {
-    declarations.push({ kind: "rawDeclaration", text: context.options.inject });
+  const inject = withoutBlankLinesAround(context.options.inject ?? "");
+  if (inject !== "") {
+    declarations.push({ kind: "rawDeclaration", text: inject });
   }
   for (const root of ROOT_KEYS) {
     declarations.push(...rootDeclarations(root, document, context));

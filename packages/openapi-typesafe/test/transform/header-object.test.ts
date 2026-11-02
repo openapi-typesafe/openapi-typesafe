@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { astToString } from "../../src/lib/ts.js";
+import { astToString } from "../../src/index.js";
 import transformHeaderObject from "../../src/transform/header-object.js";
 import { DEFAULT_CTX, type TestCase } from "../test-helpers.js";
 

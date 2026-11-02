@@ -67,7 +67,16 @@
     "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "typescript": "^5.x"
+    "@typescript/typescript6": "^6.0.0",
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@typescript/typescript6": {
+      "optional": true
+    },
+    "typescript": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@redocly/openapi-core": "^1.34.6",

@@ -116,21 +116,22 @@ describe("pathsType", () => {
     expect(diagnostics.messages).toEqual([]);
   });
 
-  it("pathsType keeps a property when the template is not parsed or not complete", () => {
-    const paths = { "/a/{id}": {}, "/b/{open": {} };
-    const templates = { parse: () => null };
+  it("pathsType keeps a property when the template is not complete", () => {
+    const paths = { "/b/{open": {} };
 
-    const { text, diagnostics } = transformPaths(paths, {
-      options: { pathParamsAsTypes: true },
-      templates,
-    });
+    const { text, diagnostics } = transformPaths(paths, { options: { pathParamsAsTypes: true } });
 
-    expect(text).toContain('"/a/{id}": {');
     expect(text).toContain('"/b/{open": {');
     expect(diagnostics.messages).toEqual([
-      { message: 'Transformed path "/a/{id}"', durationMs: 1 },
       { message: 'Transformed path "/b/{open"', durationMs: 1 },
     ]);
+  });
+
+  it("pathsType escapes a backtick in the URL of a template", () => {
+    const { text } = transformPaths({ "/a`b/{id}": {} }, { options: { pathParamsAsTypes: true } });
+
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: the expected output is a template literal type
+    expect(text).toContain("[path: `/a\\`b/${string}`]: {");
   });
 });
 
