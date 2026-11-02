@@ -20,6 +20,9 @@ repository is public.
 
 ## 1. Closed beta (11.1)
 
+- [x] npm organization `openapi-typesafe` created (owner `fedorello`): it guards the
+      `@openapi-typesafe` scope. The packages themselves are unscoped.
+- [ ] Turn on 2FA enforcement for the npm organization.
 - [ ] Reserve the npm names: `scripts/release/reserve-names.sh`, then the commands it prints
       (npm account with 2FA). All five names were free on 2026-11-02.
 - [x] Pack the beta: `scripts/release/pack-beta.sh 1.0.0-beta.1` (smoke install passed).
