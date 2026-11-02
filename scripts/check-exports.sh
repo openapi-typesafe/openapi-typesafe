@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Check the published types of the package in the current directory with are-the-types-wrong,
-# and that the tarball holds only the paths in `files` plus the files npm always adds.
+# the manifest with publint, and that the tarball holds only the paths in `files` plus the files npm always adds.
 #
 # Usage: run from a package directory after `pnpm run build` (each package's `test:exports`).
 #        `--cli-only` skips the types check, for a package that ships only a command.
@@ -30,6 +30,10 @@ if [[ "${MODE}" != "--cli-only" ]]; then
     exit 1
   fi
 fi
+
+# publint checks the manifest against the files. It fails on errors only: the one warning it
+# gives, about the `./*` export, is accepted in ADR-018.
+publint --level error "${PACK_DIR}"/*.tgz 2>&1 | tee -a "${LOG_FILE}"
 
 # Only `files` and the files npm always includes; anything else (local logs, coverage, configs)
 # must not reach the registry.
