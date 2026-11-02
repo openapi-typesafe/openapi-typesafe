@@ -7,6 +7,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { HttpResponse } from "msw";
 import createFetchClient from "openapi-typesafe-fetch";
 import { type ReactNode, Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
@@ -56,7 +57,7 @@ const fetchInfinite = async () => {
 
 beforeAll(() => {
   server.listen({
-    onUnhandledRequest: "error",
+    onUnhandledFrame: "error",
   });
 });
 
@@ -366,19 +367,18 @@ describe("client", () => {
       expect(error).toBeNull();
     });
 
-    it("handles undefined response with non-zero Content-Length (status 200) by setting error and undefined data", async () => {
+    // msw 3 waits for the declared Content-Length, so a body that is not JSON takes the place of an
+    // empty one: both make `response.json()` fail on a response with a non-zero Content-Length.
+    it("handles a non-JSON body with non-zero Content-Length (status 200) by setting error and undefined data", async () => {
       const fetchClient = createFetchClient<paths>({ baseUrl });
       const client = createClient(fetchClient);
+      const notJson = "not json!!";
 
       useMockRequestHandler({
         baseUrl,
         method: "get",
         path: "/string-array",
-        status: 200,
-        headers: {
-          "Content-Length": "10",
-        },
-        body: undefined,
+        handler: () => new HttpResponse(notJson, { status: 200, headers: { "Content-Length": `${notJson.length}` } }),
       });
 
       const { result } = renderHook(() => client.useQuery("get", "/string-array"), { wrapper });
