@@ -6,6 +6,7 @@ import { performance } from "node:perf_hooks";
 import { createConfig, findConfig, loadConfig } from "@redocly/openapi-core";
 import { kebabCase } from "scule";
 import parser from "yargs-parser";
+import { cliError, describeCliFailure } from "../dist/cli/cli-errors.mjs";
 import openapiTS, { astToString, COMMENT_HEADER, c, error, formatTime, warn } from "../dist/index.mjs";
 
 const HELP = `Usage
@@ -48,20 +49,22 @@ const REDOC_CONFIG_KEY = "x-openapi-ts";
 const timeStart = performance.now();
 
 const [, , ...args] = process.argv;
-if (args.includes("-ap")) {
-  errorAndExit(`The -ap alias has been deprecated. Use "--additional-properties" instead.`);
-}
-if (args.includes("--immutable-types")) {
-  errorAndExit(`The --immutable-types flag has been renamed to "--immutable".`);
-}
-if (args.includes("--support-array-length")) {
-  errorAndExit(`The --support-array-length flag has been renamed to "--array-length".`);
-}
-if (args.includes("-it")) {
-  errorAndExit(`The -it alias has been deprecated. Use "--immutable-types" instead.`);
-}
-if (args.includes("--redoc")) {
-  errorAndExit(`The --redoc config flag has been renamed to "--redocly" (or -c as shorthand).`);
+
+/** Flags of older versions that were removed or renamed, with the message for each. */
+const REMOVED_FLAGS = [
+  ["-ap", `The -ap alias has been deprecated. Use "--additional-properties" instead.`],
+  ["--immutable-types", `The --immutable-types flag has been renamed to "--immutable".`],
+  ["--support-array-length", `The --support-array-length flag has been renamed to "--array-length".`],
+  ["-it", `The -it alias has been deprecated. Use "--immutable-types" instead.`],
+  ["--redoc", `The --redoc config flag has been renamed to "--redocly" (or -c as shorthand).`],
+];
+
+function rejectRemovedFlags() {
+  for (const [flag, message] of REMOVED_FLAGS) {
+    if (args.includes(flag)) {
+      throw cliError("CLI_FLAG_REMOVED", message);
+    }
+  }
 }
 if (args.includes("--root-types-no-schema-prefix") && !args.includes("--root-types")) {
   // biome-ignore lint/suspicious/noConsole: this is a CLI
@@ -127,13 +130,36 @@ function normalizeOutput(output) {
  */
 function checkStaleOutput(current, outputPath) {
   if (flags.check) {
-    const previous = fs.readFileSync(outputPath, "utf8");
-    if (current === previous) {
+    if (current === readOutput(outputPath)) {
       process.exit(0);
-    } else {
-      error("Generated types are not up-to-date!");
-      process.exit(1);
     }
+    throw cliError("OUTPUT_STALE", "Generated types are not up-to-date!");
+  }
+}
+
+/**
+ * @param {URL} outputPath
+ * @returns {string}
+ */
+function readOutput(outputPath) {
+  try {
+    return fs.readFileSync(outputPath, "utf8");
+  } catch (cause) {
+    throw cliError("OUTPUT_READ_FAILED", `Cannot read ${outputPath.pathname}: ${cause.message}`, cause);
+  }
+}
+
+/**
+ * Write the generated types, creating the directory first.
+ * @param {URL} outFile
+ * @param {string} contents
+ */
+function writeOutput(outFile, contents) {
+  try {
+    fs.mkdirSync(new URL(".", outFile), { recursive: true });
+    fs.writeFileSync(outFile, contents, "utf8");
+  } catch (cause) {
+    throw cliError("OUTPUT_WRITE_FAILED", `Cannot write ${outFile.pathname}: ${cause.message}`, cause);
   }
 }
 
@@ -143,12 +169,6 @@ function checkStaleOutput(current, outputPath) {
  */
 async function generateSchema(schema, config) {
   return `${COMMENT_HEADER}${astToString(await openapiTS(schema, config))}`;
-}
-
-/** pretty-format error message but also throw */
-function errorAndExit(message) {
-  error(message);
-  throw new Error(message);
 }
 
 function done(input, output, time) {
@@ -170,6 +190,7 @@ function findRedocConfigPath() {
 }
 
 async function main() {
+  rejectRemovedFlags();
   if ("help" in flags) {
     // biome-ignore lint/suspicious/noConsole: this is a CLI
     console.info(HELP);
@@ -192,7 +213,7 @@ async function main() {
 
   const redocConfigPath = findRedocConfigPath();
   if (flags.redocly && !redocConfigPath) {
-    errorAndExit(`Redocly config not found at: ${flags.redocly}`);
+    throw cliError("CLI_CONFIG_NOT_FOUND", `Redocly config not found at: ${flags.redocly}`);
   }
   const redocly = redocConfigPath
     ? await loadConfig({ configPath: redocConfigPath })
@@ -216,7 +237,8 @@ async function main() {
             : new URL(redocly.configFile, `file://${process.cwd()}/`);
         }
         if (!api[REDOC_CONFIG_KEY]?.output) {
-          errorAndExit(
+          throw cliError(
+            "CLI_CONFIG_OUTPUT_MISSING",
             `API ${name} is missing an \`${REDOC_CONFIG_KEY}.output\` key. See https://openapi-ts.dev/cli/#multiple-schemas.`,
           );
         }
@@ -234,8 +256,7 @@ async function main() {
 
         const outFile = new URL(api[REDOC_CONFIG_KEY].output, configRoot);
         checkStaleOutput(result, outFile);
-        fs.mkdirSync(new URL(".", outFile), { recursive: true });
-        fs.writeFileSync(outFile, result, "utf8");
+        writeOutput(outFile, result);
         done(name, api[REDOC_CONFIG_KEY].output, performance.now() - timeStart);
       }),
     );
@@ -254,8 +275,7 @@ async function main() {
     } else {
       const outFile = normalizeOutput(flags.output);
       checkStaleOutput(result, outFile);
-      fs.mkdirSync(new URL(".", outFile), { recursive: true });
-      fs.writeFileSync(outFile, result, "utf8");
+      writeOutput(outFile, result);
       done("stdin", flags.output, performance.now() - timeStart);
     }
   }
@@ -264,7 +284,8 @@ async function main() {
   else {
     // throw error on glob
     if (input.includes("*")) {
-      errorAndExit(
+      throw cliError(
+        "CLI_GLOB_UNSUPPORTED",
         "Globbing has been deprecated in favor of redocly.yaml’s `apis` keys. See https://openapi-ts.dev/cli/#multiple-schemas",
       );
     }
@@ -279,11 +300,14 @@ async function main() {
     } else {
       const outFile = normalizeOutput(flags.output);
       checkStaleOutput(result, outFile);
-      fs.mkdirSync(new URL(".", outFile), { recursive: true });
-      fs.writeFileSync(outFile, result, "utf8");
+      writeOutput(outFile, result);
       done(input, flags.output, performance.now() - timeStart);
     }
   }
 }
 
-main();
+main().catch((thrown) => {
+  const failure = describeCliFailure(thrown);
+  error(failure.message);
+  process.exitCode = failure.exitCode;
+});

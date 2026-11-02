@@ -1,3 +1,4 @@
+import { ERROR_CODES, OpenAPITypesafeError } from "../../../domain/errors.js";
 import type { IrComment, IrEnumDeclaration } from "../../../domain/ir/nodes.js";
 
 const IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z_$0-9]*$/;
@@ -11,9 +12,13 @@ const SPECIAL_CHARACTERS: ReadonlyMap<string, string> = new Map([["+", "Plus"]])
 const NUMBER_PREFIX = "Value";
 const NEGATIVE_PREFIX = "ValueMinus";
 
-export class EmptyEnumNameError extends Error {
+export class EmptyEnumNameError extends OpenAPITypesafeError {
   constructor(name: string) {
-    super(`Cannot build an enum or enum values name from "${name}": no valid characters`);
+    super({
+      code: ERROR_CODES.ENUM_NAME_EMPTY,
+      message: `Cannot build an enum or enum values name from "${name}": no valid characters`,
+      details: { name },
+    });
     this.name = "EmptyEnumNameError";
   }
 }

@@ -1,3 +1,4 @@
+import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
 import {
   irIndexedAccess,
   irKeyword,
@@ -24,9 +25,13 @@ export interface RefTypeOptions {
   readonly parameter?: RefParameterTarget | null;
 }
 
-export class InvalidRefError extends Error {
+export class InvalidRefError extends OpenAPITypesafeError {
   constructor(ref: string) {
-    super(`Error parsing $ref: ${ref}. Is this a valid $ref?`);
+    super({
+      code: ERROR_CODES.SCHEMA_REF_INVALID,
+      message: `Error parsing $ref: ${ref}. Is this a valid $ref?`,
+      details: { ref },
+    });
     this.name = "InvalidRefError";
   }
 }

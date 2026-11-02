@@ -3,6 +3,7 @@ import { createConfig, type Config as RedoclyConfig } from "@redocly/openapi-cor
 import type { GeneratorOptions, GlobalContext, OpenAPI3 } from "../types.js";
 import { scanDiscriminators } from "./discriminator-scan.js";
 import { validateAndBundle } from "./redoc.js";
+import { sourceEmptyError } from "./schema-load-errors.js";
 import { resolveRef } from "./utils.js";
 
 /** A validated, bundled document and the context of one generator run. */
@@ -73,7 +74,7 @@ export async function createDocumentRun(
   options: GeneratorOptions,
 ): Promise<DocumentRun> {
   if (!source) {
-    throw new Error("Empty schema. Please specify a URL, file path, or Redocly Config");
+    throw sourceEmptyError("Empty schema. Please specify a URL, file path, or Redocly Config");
   }
   const redoc = options.redocly ?? (await defaultRedoclyConfig());
   const silent = options.silent ?? false;

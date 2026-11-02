@@ -6,6 +6,13 @@ import { debug } from "./lib/utils.js";
 import transformSchema from "./transform/index.js";
 import type { GeneratorOptions, OpenAPI3 } from "./types.js";
 
+export {
+  ERROR_CODES,
+  type ErrorCode,
+  type ErrorDetails,
+  isOpenAPITypesafeError,
+  OpenAPITypesafeError,
+} from "./domain/errors.js";
 export type * from "./domain/ir/nodes.js";
 export * from "./lib/ast-to-string.js";
 export { scanDiscriminators } from "./lib/discriminator-scan.js";

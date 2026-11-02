@@ -1,3 +1,4 @@
+import { ERROR_CODES, OpenAPITypesafeError } from "../../../domain/errors.js";
 import { irKeyword } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
@@ -9,10 +10,14 @@ import { enumRule } from "./enum-rule.js";
 import type { SchemaContext, SchemaLocation } from "./schema-context.js";
 import type { SchemaRequest, SchemaRule } from "./schema-rule.js";
 
-export class InvalidSchemaError extends Error {
+export class InvalidSchemaError extends OpenAPITypesafeError {
   constructor(schema: unknown, path: string | undefined) {
     const received = Array.isArray(schema) ? "Array" : typeof schema;
-    super(`Expected SchemaObject, received ${received} at ${path}`);
+    super({
+      code: ERROR_CODES.SCHEMA_OBJECT_INVALID,
+      message: `Expected SchemaObject, received ${received} at ${path}`,
+      details: { path, received },
+    });
     this.name = "InvalidSchemaError";
   }
 }

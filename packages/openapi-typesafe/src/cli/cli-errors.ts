@@ -1,0 +1,92 @@
+import {
+  ERROR_CODES,
+  type ErrorCode,
+  isOpenAPITypesafeError,
+  OpenAPITypesafeError,
+} from "../domain/errors.js";
+
+/**
+ * How the CLI reports a failure (ENGINEERING_PLAN 4.6, ADR-011): each error code maps to a process
+ * exit code and the line printed for it. The table is exhaustive, so a new error code does not
+ * compile until the CLI handles it.
+ */
+
+/** Process exit codes of the CLI, documented in docs/cli.md. */
+export const EXIT_CODES = {
+  SUCCESS: 0,
+  /** `--check` found output that differs from the generated types (as in the original CLI). */
+  OUTPUT_STALE: 1,
+  /** A flag, the Redocly config, the environment or a callback is wrong. */
+  USAGE: 2,
+  /** The OpenAPI document cannot be read, is invalid, or cannot be converted. */
+  SCHEMA: 3,
+  /** An output file cannot be read or written. */
+  OUTPUT: 4,
+  /** An unexpected failure: a bug in the generator (sysexits `EX_SOFTWARE`). */
+  INTERNAL: 70,
+} as const;
+
+export type ExitCode = (typeof EXIT_CODES)[keyof typeof EXIT_CODES];
+
+interface CliErrorReport {
+  readonly exitCode: ExitCode;
+  /** The printed text; the error's own message when absent. */
+  readonly message?: (error: OpenAPITypesafeError) => string;
+}
+
+/** Problems are printed one by one while linting, so the summary only counts them. */
+function schemaInvalidMessage(error: OpenAPITypesafeError): string {
+  const count = Array.isArray(error.details.problems) ? error.details.problems.length : 1;
+  return `The OpenAPI document has ${count} ${count === 1 ? "error" : "errors"} (see above)`;
+}
+
+const CLI_ERROR_REPORTS: Readonly<Record<ErrorCode, CliErrorReport>> = {
+  SCHEMA_SOURCE_EMPTY: { exitCode: EXIT_CODES.SCHEMA },
+  SCHEMA_SOURCE_INVALID: { exitCode: EXIT_CODES.SCHEMA },
+  SCHEMA_LOAD_FAILED: { exitCode: EXIT_CODES.SCHEMA },
+  SCHEMA_PARSE_FAILED: { exitCode: EXIT_CODES.SCHEMA },
+  SCHEMA_VERSION_UNSUPPORTED: { exitCode: EXIT_CODES.SCHEMA },
+  SCHEMA_INVALID: { exitCode: EXIT_CODES.SCHEMA, message: schemaInvalidMessage },
+  SCHEMA_REF_INVALID: { exitCode: EXIT_CODES.SCHEMA },
+  SCHEMA_OBJECT_INVALID: { exitCode: EXIT_CODES.SCHEMA },
+  SCHEMA_PROPERTY_INVALID: { exitCode: EXIT_CODES.SCHEMA },
+  ENUM_NAME_EMPTY: { exitCode: EXIT_CODES.SCHEMA },
+  CALLBACK_RESULT_UNREADABLE: { exitCode: EXIT_CODES.USAGE },
+  TYPESCRIPT_NOT_FOUND: { exitCode: EXIT_CODES.USAGE },
+  CLI_FLAG_REMOVED: { exitCode: EXIT_CODES.USAGE },
+  CLI_GLOB_UNSUPPORTED: { exitCode: EXIT_CODES.USAGE },
+  CLI_CONFIG_NOT_FOUND: { exitCode: EXIT_CODES.USAGE },
+  CLI_CONFIG_OUTPUT_MISSING: { exitCode: EXIT_CODES.USAGE },
+  OUTPUT_STALE: { exitCode: EXIT_CODES.OUTPUT_STALE },
+  OUTPUT_READ_FAILED: { exitCode: EXIT_CODES.OUTPUT },
+  OUTPUT_WRITE_FAILED: { exitCode: EXIT_CODES.OUTPUT },
+};
+
+/** What the CLI prints and returns for a thrown value. */
+export interface CliFailure {
+  readonly exitCode: ExitCode;
+  readonly message: string;
+}
+
+/**
+ * Map a thrown value to the CLI's output. A typed error prints one line with its code; anything
+ * else is a bug and prints its stack, so it can be reported.
+ */
+export function describeCliFailure(error: unknown): CliFailure {
+  if (!isOpenAPITypesafeError(error)) {
+    const text = error instanceof Error ? (error.stack ?? error.message) : String(error);
+    return { exitCode: EXIT_CODES.INTERNAL, message: `Unexpected error: ${text}` };
+  }
+  const report = CLI_ERROR_REPORTS[error.code];
+  const message = report.message?.(error) ?? error.message;
+  return { exitCode: report.exitCode, message: `${message} (${error.code})` };
+}
+
+/** Errors of the CLI itself; its messages are the original CLI's messages. */
+export function cliError(
+  code: Extract<ErrorCode, `CLI_${string}` | `OUTPUT_${string}`>,
+  message: string,
+  cause?: unknown,
+): OpenAPITypesafeError {
+  return new OpenAPITypesafeError({ code: ERROR_CODES[code], message, cause });
+}

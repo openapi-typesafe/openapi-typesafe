@@ -56,6 +56,23 @@ fs.writeFileSync("./my-schema.ts", contents);
 
 :::
 
+### Errors
+
+When generation fails, `openapiTS()` rejects with an `OpenAPITypesafeError`. Each error has a stable `code` (for example `SCHEMA_INVALID` or `SCHEMA_LOAD_FAILED`) and structured `details`; `cause` holds the lower-level error, if any. Decide by `code`: messages are for people and may change. The codes are listed under [CLI exit codes](/cli#exit-codes).
+
+```ts
+import openapiTS, { isOpenAPITypesafeError } from "openapi-typesafe";
+
+try {
+  await openapiTS(new URL("./my-schema.yaml", import.meta.url));
+} catch (error) {
+  if (isOpenAPITypesafeError(error) && error.code === "SCHEMA_INVALID") {
+    console.error(error.details.problems);
+  }
+  throw error;
+}
+```
+
 ### Redoc config
 
 A Redoc config isn’t required to use openapi-typescript. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redoc config to the Node API. You can do this with the helpers in `@redocly/openapi-core`:

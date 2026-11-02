@@ -1,3 +1,4 @@
+import { ERROR_CODES, OpenAPITypesafeError } from "../../../domain/errors.js";
 import {
   irObject,
   irProperty,
@@ -20,10 +21,15 @@ import type { SchemaRequest } from "./schema-rule.js";
 /** Path parts where a default value cannot make a property required (inputs may omit it). */
 const INPUT_PATH_PARTS = ["parameters", "requestBody", "requestBodies"] as const;
 
-export class InvalidPropertyError extends Error {
+export class InvalidPropertyError extends OpenAPITypesafeError {
   constructor(path: string | undefined, key: string, value: unknown) {
     const received = Array.isArray(value) ? "Array" : typeof value;
-    super(`${path}: invalid property ${key}. Expected Schema Object or boolean, got ${received}`);
+    super({
+      code: ERROR_CODES.SCHEMA_PROPERTY_INVALID,
+      message:
+        `${path}: invalid property ${key}. ` + `Expected Schema Object or boolean, got ${received}`,
+      details: { path, property: key, received },
+    });
     this.name = "InvalidPropertyError";
   }
 }

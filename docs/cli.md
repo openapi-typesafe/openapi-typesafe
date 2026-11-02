@@ -128,6 +128,21 @@ The following flags are supported in the CLI:
 | `--generate-path-params`           |       | `false`  | Generate path parameters for all paths where they are undefined by schema                                           |
 | `--read-write-markers`             |       | `false`  | Generate `$Read<T>`/`$Write<T>` markers for readOnly/writeOnly properties                                           |
 
+## Exit codes
+
+The CLI exits with a code that tells what went wrong. On failure it prints one line with the message and the error code, for example `✘  Generated types are not up-to-date! (OUTPUT_STALE)`.
+
+| Code | Meaning | Error codes |
+| :--: | :------ | :---------- |
+| `0` | Success; with `--check`, the output is up to date | |
+| `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE` |
+| `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `ENUM_NAME_EMPTY` |
+| `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
+| `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |
+
+For `SCHEMA_INVALID`, every lint or bundle error is printed first, then a summary line.
+
 ### pathParamsAsTypes
 
 By default, your URLs are preserved exactly as-written in your schema:

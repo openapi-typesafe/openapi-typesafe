@@ -7,6 +7,7 @@ import type {
   SchemaCallbacks,
   SchemaLocation,
 } from "../application/transform/schema/schema-context.js";
+import { ERROR_CODES, OpenAPITypesafeError } from "../domain/errors.js";
 import { irRaw } from "../domain/ir/constructors.js";
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
 import type {
@@ -28,9 +29,15 @@ import { toIrType } from "./type-helpers.js";
  * their results are read by the bridge.
  */
 
-export class UnreadablePropertyError extends Error {
+export class UnreadablePropertyError extends OpenAPITypesafeError {
   constructor(path: string | undefined) {
-    super(`transformProperty at ${path} returned a property with syntax the generator cannot read`);
+    super({
+      code: ERROR_CODES.CALLBACK_RESULT_UNREADABLE,
+      message:
+        `transformProperty at ${path} returned a property ` +
+        "with syntax the generator cannot read",
+      details: { callback: "transformProperty", path },
+    });
     this.name = "UnreadablePropertyError";
   }
 }

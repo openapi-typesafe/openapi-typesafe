@@ -13,6 +13,14 @@ import {
 } from "@redocly/openapi-core";
 import parseJson from "parse-json";
 import type { OpenAPI3 } from "../types.js";
+import {
+  loadFailedError,
+  parseFailedError,
+  schemaInvalidError,
+  sourceEmptyError,
+  sourceInvalidError,
+  versionUnsupportedError,
+} from "./schema-load-errors.js";
 import { debug, error, warn } from "./utils.js";
 
 export interface ValidateAndBundleOptions {
@@ -53,21 +61,38 @@ function parseSchemaText(
     const absoluteRef = url.protocol === "file:" ? fileURLToPath(url) : url.href;
     return parseSchema(url, { absoluteRef, resolver: options.resolver });
   }
-  if (schema[0] === "{") {
-    return {
-      source: new Source(options.absoluteRef, schema, "application/json"),
-      parsed: parseJson(schema),
-    };
-  }
-  return makeDocumentFromString(schema, options.absoluteRef);
+  return schema[0] === "{"
+    ? parseJsonText(schema, options.absoluteRef)
+    : parseYamlText(schema, options.absoluteRef);
 }
 
+function parseJsonText(text: string, absoluteRef: string): Document {
+  try {
+    return { source: new Source(absoluteRef, text, "application/json"), parsed: parseJson(text) };
+  } catch (cause) {
+    throw parseFailedError("json", absoluteRef, cause);
+  }
+}
+
+function parseYamlText(text: string, absoluteRef: string): Document {
+  try {
+    return makeDocumentFromString(text, absoluteRef);
+  } catch (cause) {
+    throw parseFailedError("yaml", absoluteRef, cause);
+  }
+}
+
+/** The resolver throws for some failures (a missing file) and returns an error for others. */
 async function resolveSchemaURL(options: ParseSchemaOptions): Promise<Document> {
-  const result = await options.resolver.resolveDocument(null, options.absoluteRef, true);
+  const result = await options.resolver
+    .resolveDocument(null, options.absoluteRef, true)
+    .catch((cause: unknown) => {
+      throw loadFailedError(options.absoluteRef, cause);
+    });
   if ("parsed" in result) {
     return result;
   }
-  throw result.originalError;
+  throw loadFailedError(options.absoluteRef, result.originalError);
 }
 
 function parseSchemaObject(schema: unknown, absoluteRef: string): Document {
@@ -77,15 +102,13 @@ function parseSchemaObject(schema: unknown, absoluteRef: string): Document {
       parsed: schema,
     };
   }
-  throw new Error(
-    `Expected string, object, or Buffer. Got ${Array.isArray(schema) ? "Array" : typeof schema}`,
-  );
+  throw sourceInvalidError(schema);
 }
 
 /** Parse any supported source: URL, stream, buffer, URL or document text, or a plain object. */
 export async function parseSchema(schema: unknown, options: ParseSchemaOptions): Promise<Document> {
   if (!schema) {
-    throw new Error("Can’t parse empty schema");
+    throw sourceEmptyError("Can’t parse empty schema");
   }
   if (schema instanceof URL) {
     return resolveSchemaURL(options);
@@ -102,23 +125,23 @@ export async function parseSchema(schema: unknown, options: ParseSchemaOptions):
   return parseSchemaObject(schema, options.absoluteRef);
 }
 
-/** Report every problem; throw the last error, after all of them are printed. */
+/** Report every problem; then throw if any of them is an error. */
 function processProblems(problems: NormalizedProblem[], options: { silent: boolean }): void {
-  let errorMessage: string | undefined;
+  const errorMessages: string[] = [];
   for (const problem of problems) {
     const problemLocation = problem.location?.[0].pointer;
     const problemMessage = problemLocation
       ? `${problem.message} at ${problemLocation}`
       : problem.message;
     if (problem.severity === "error") {
-      errorMessage = problemMessage;
+      errorMessages.push(problemMessage);
       error(problemMessage);
     } else {
       warn(problemMessage, options.silent);
     }
   }
-  if (errorMessage) {
-    throw new Error(errorMessage);
+  if (errorMessages.length > 0) {
+    throw schemaInvalidError(errorMessages);
   }
 }
 
@@ -135,12 +158,15 @@ function assertOpenAPI3(parsed: Record<string, unknown>): void {
     return;
   }
   if (parsed.swagger) {
-    throw new Error("Unsupported Swagger version: 2.x. Use OpenAPI 3.x instead.");
+    throw versionUnsupportedError(
+      "Unsupported Swagger version: 2.x. Use OpenAPI 3.x instead.",
+      parsed,
+    );
   }
   if (parsed.openapi || openapiVersion < 3 || openapiVersion >= 4) {
-    throw new Error(`Unsupported OpenAPI version: ${parsed.openapi}`);
+    throw versionUnsupportedError(`Unsupported OpenAPI version: ${parsed.openapi}`, parsed);
   }
-  throw new Error("Unsupported schema format, expected `openapi: 3.x`");
+  throw versionUnsupportedError("Unsupported schema format, expected `openapi: 3.x`", parsed);
 }
 
 /** The base for relative `$ref`s: the source file or URL itself, else the working directory. */

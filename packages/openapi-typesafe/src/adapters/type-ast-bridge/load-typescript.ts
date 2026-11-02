@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import { join } from "node:path";
+import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
 
 /**
  * Load a TypeScript compiler module with the JavaScript API (ADR-004, decision 4). The bridge
@@ -24,15 +25,18 @@ const UNAVAILABLE_CODES = new Set([
   "ERR_PACKAGE_PATH_NOT_EXPORTED",
 ]);
 
-export class TypeScriptNotFoundError extends Error {
+export class TypeScriptNotFoundError extends OpenAPITypesafeError {
   constructor() {
-    super(
-      "A callback or helper uses TypeScript compiler nodes, " +
+    super({
+      code: ERROR_CODES.TYPESCRIPT_NOT_FOUND,
+      message:
+        "A callback or helper uses TypeScript compiler nodes, " +
         "which needs the TypeScript JavaScript API. " +
         'Install "typescript" version 6 or earlier, ' +
         'or "@typescript/typescript6" on TypeScript 7, ' +
         "or use IR callbacks (irCallbacks: true).",
-    );
+      details: { packages: [...TYPESCRIPT_PACKAGES] },
+    });
     this.name = "TypeScriptNotFoundError";
   }
 }
