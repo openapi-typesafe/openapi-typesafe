@@ -1,0 +1,26 @@
+openapi-typesafe
+Copyright (c) 2026 Fedor Chishchin and openapi-typesafe contributors
+
+This project is a fork of openapi-typescript (https://github.com/openapi-ts/openapi-typescript),
+taken at upstream commit d46a319a (2026-09-25), with its full git history.
+
+The upstream project was created by Drew Powers and maintained by the openapi-ts team and
+more than 240 contributors. Its author announced on 2026-09-19 that the project would no
+longer be maintained (https://github.com/openapi-ts/openapi-typescript/issues/2874).
+This fork continues the work so that existing users have a maintained, drop-in successor.
+
+Package mapping:
+
+  openapi-typescript          -> openapi-typesafe
+  openapi-fetch               -> openapi-typesafe-fetch
+  openapi-typescript-helpers  -> openapi-typesafe-helpers
+  openapi-react-query         -> openapi-typesafe-react-query
+
+openapi-typescript, openapi-fetch and openapi-typescript-helpers:
+  Copyright (c) 2020-2023 Drew Powers
+openapi-react-query:
+  Copyright (c) 2023 Martin Paucot
+
+All original code is distributed under the MIT License; the original copyright notices
+are kept in LICENSE and in each package's LICENSE file. This project is not affiliated
+with or endorsed by the original authors.
