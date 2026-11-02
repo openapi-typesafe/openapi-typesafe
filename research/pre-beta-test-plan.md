@@ -350,7 +350,7 @@ already say to start from a clean tree; the dry run is the default, so no extra 
 
 ## 9. Documentation and examples
 
-- [ ] 9.1 Every code block in `docs/` and every `README.md` is either compiled by a test or
+- [x] 9.1 Every code block in `docs/` and every `README.md` is either compiled by a test or
       checked by hand in a fresh project. List the ones not covered by tests.
 - [x] 9.2 Every CLI flag, option and error code in the code is documented, and every
       documented one exists. Known: PB-1; the `-c` alias of `--redocly` is missing from the
@@ -378,30 +378,56 @@ build`, `svelte-check`) and `vue-3` (`generate`, `vue-tsc`, `vite build`) build 
 and the regenerated types equal the committed ones; they call live APIs, so they were not run.
 9.6: `llms.txt` lists every page and `llms-full.txt` has the new sections.
 
+**§9.1 result.** All code blocks of 13 pages and the READMEs were checked by hand in a fresh
+project from the packed tarballs (TypeScript 5.9.3, strict, `noUncheckedIndexedAccess`, Bundler):
+compiled with `tsc`, run against a fake `fetch` where self-contained, and compared with real
+generator output (`.logs/pre-beta/docs/9.1-blocks.log`). 20 broken blocks were fixed (PB-32); the
+side findings are PB-35 to PB-38. Not covered by tests: none of the blocks is compiled by a test
+(`help-text.test.ts` only compares the flag table of `docs/cli.md` with `--help`), so all of them
+are checked by hand only; a docs block test is a follow-up. Not run at all: illustration-only
+blocks (`// …` placeholders, the eject `ts{9}` block, diff blocks, the mock structure pseudo-code,
+the `mockResponses` signature excerpt), blocks that need a network (remote petstore,
+`myapi.dev`), and the runtime of the React Query README hook (the `docs/react-query` examples were
+rendered in §7).
+
 ## 10. Security (threat model)
 
 Each threat in `docs/security/threat-model.md` that is marked "Controlled" gets hostile inputs
 that try to defeat its control. T7 (trusted inputs: Redocly plugins, callbacks, `inject`) is
 accepted by design and has no test.
 
-- [ ] 10.1 T1, code injection into the generated file: descriptions, names and enum values with
+- [x] 10.1 T1, code injection into the generated file: descriptions, names and enum values with
       `*/`, backticks, `${}`, quotes, Unicode line separators U+2028/U+2029.
-- [ ] 10.2 T2, denial of service: deep nesting, huge documents, YAML alias bombs, long `$ref`
+- [x] 10.2 T2, denial of service: deep nesting, huge documents, YAML alias bombs, long `$ref`
       chains, slow remote hosts.
-- [ ] 10.3 T3 and T4, `$ref` limits: `--local-ref-root` escape attempts (`..`, symlinks,
+- [x] 10.3 T3 and T4, `$ref` limits: `--local-ref-root` escape attempts (`..`, symlinks,
       `file://`, encoded paths), `--remote-ref-hosts` bypass attempts (redirects, userinfo,
       IPv6, uppercase hosts, trailing dots).
-- [ ] 10.4 T5, unsafe requests from the fetch client: path values with `..`, `/`, `?`, `#` and
+- [x] 10.4 T5, unsafe requests from the fetch client: path values with `..`, `/`, `?`, `#` and
       encoded forms (expect percent-encoding, and an error for a dot segment, ADR-013; see
       PB-3); query values with and without `allowReserved` (it applies to query parameters
       only), and values that try to add parameters; header values with line breaks.
-- [ ] 10.5 T6, supply chain: `pnpm audit` (the known `@redocly/openapi-core` 1.x advisories are
+- [x] 10.5 T6, supply chain: `pnpm audit` (the known `@redocly/openapi-core` 1.x advisories are
       listed in `research/backlog.md`, item 2, and ADR-005's review trigger covers a 1.x
       advisory without a fix; anything new is a finding), licenses of all production dependencies,
       no install scripts in our packages.
-- [ ] 10.6 Not in the threat model: prototype keys (`__proto__`, `constructor`, `prototype`) in
+- [x] 10.6 Not in the threat model: prototype keys (`__proto__`, `constructor`, `prototype`) in
       schemas, paths and parameters, in the generator and in the clients' serializers. A
       finding here also updates the threat model.
+
+**§10 results.** 10.1: the injection property tests (descriptions, names, enum values with `*/`,
+backticks, `${}`, quotes, U+2028/U+2029) found PB-28; nothing else reached code. 10.2: deep
+nesting, long `$ref` chains, cycles and a never-answering host fail with typed errors; a
+byte-by-byte remote body (PB-29) and a YAML alias bomb (PB-30) were fixed. 10.3: 33 escape and
+bypass attempts on `--local-ref-root` and `--remote-ref-hosts` were all refused or harmless; host
+forms fixed (PB-31) (`.logs/pre-beta/security/10.3-bypass.log`). 10.4: path values are encoded and
+dot segments throw, query values are encoded unless `allowReserved`, header line breaks are
+refused by the platform; names and keys were not encoded (PB-33)
+(`.logs/pre-beta/security/10.4-fetch.log`). 10.5: `pnpm audit --prod` leaves only the reviewed
+minimatch advisory; all production licenses are MIT, ISC, Apache-2.0, Python-2.0 or
+MIT/CC0-1.0; no package has install scripts and no dependency needs a build (PB-39)
+(`.logs/pre-beta/security/10.5/`). 10.6: prototype keys everywhere generate valid output and the
+client does not touch `Object.prototype` (new tests); found PB-34 on the way.
 
 ## 11. Agent skill
 
@@ -453,6 +479,18 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 | PB-25 | Migrate | S3 | `overrides:` and `patchedDependencies:` in `pnpm-workspace.yaml` that name an old package were neither rewritten nor reported | fixed: reported as manual steps, like `package.json` |
 | PB-26 | Migrate | S4 | `.next`, `coverage` and other tool output folders were rewritten (noise in the dry run and the diff) | fixed: skipped like `dist`; `build` and `out` stay in (may hold sources) |
 | PB-27 | Migrate | S4 | `--help` did not list the exit codes the README documents | fixed |
+| PB-28 | Generator | S2 | `--root-types` with a name that upper-cases to a letter newer than TypeScript's tables (`ꟓ` → `꟒`, Unicode 17) wrote an identifier TypeScript rejects ("Invalid character"); found by the 10.1 property test | fixed: identifier checks subtract the code points TypeScript does not know (ADR-019); a test compares every code point with `ts.isIdentifierStart/Part` |
+| PB-29 | Generator | S3 | a remote document whose server sends the body one byte at a time kept the run past the 60-second limit; a root URL then failed with "Cannot set property message of … which has only a getter" | fixed: the body is read inside the time limit, "Timed out after … ms loading <url>" |
+| PB-30 | Generator | S2 | a YAML "billion laughs" document (9 alias levels × 10) ran for minutes and ended with "RangeError: Set maximum size exceeded" | fixed: refused right after parsing with `SCHEMA_PARSE_FAILED` when aliases expand it past 1,000,000 nodes and 100 times its size, string and file input |
+| PB-31 | Generator | S4 | `--remote-ref-hosts` refused URLs to a listed host written in another form: a default port (`host:443`), a bare IPv6 address, a trailing dot, a Unicode name, another IPv4 form. No bypass found (encoded paths, `file:` URLs, symlinks, user info, `#@`, `\@`, redirects to other hosts and to `file:`) | fixed: entries are compared as the URL parser writes hosts; bypass attempts kept as regression tests |
+| PB-32 | Docs | S3 | 20 code blocks did not compile or did not match the output (cli, advanced, fetch api, middleware-auth, index, testing, examples): undefined names, wrong path lookups, `Middleware` imported as a value, `{ ...response }` copying nothing, `schemaPath` compared with the base URL, msw 3 option name, third-party APIs that changed | fixed: each block compiles under strict mode and `noUncheckedIndexedAccess` or matches real output |
+| PB-33 | Fetch | S2 | query parameter names and object keys were not encoded: an `additionalProperties` key `a&admin` added a query parameter, a path object key `a/b` added a path segment | fixed: encoded like values except `[ ] $ : @ ,` (ADR-013, decision 9) |
+| PB-34 | Generator | S3 | inherited: with `--enum`, a schema named by a parent `discriminator.mapping` and by a discriminated `oneOf` got its `…Kind` enum twice ("Duplicate identifier") | fixed: an identical non-empty enum is declared once; the conflicting-value case is backlog item 26 (valid output, opt-in) |
+| PB-35 | Packaging | S2 | `npm i -D @typescript/typescript6` (which `docs/typescript-7.md` recommends) and an npm install of the migration tool link `node_modules/.bin/tsc` to TypeScript 6.0.3 through `@typescript/old`; pnpm and bun keep TypeScript 7 | documented: warning and the `@typescript/native` alias in `docs/typescript-7.md`; the migrate README says to run it with `npx`. Upstream packaging issue |
+| PB-36 | CLI | S4 | inherited: an unknown flag (`--alphabetise`) was ignored silently | fixed: a notice per unknown flag; the run continues, as before |
+| PB-37 | Fetch | S4 | the invalid middleware error missed a backtick after `onResponse()` | fixed |
+| PB-38 | Generator | S3 | inherited (upstream #2194): `--make-paths-enum` without `operationId` gave `GetUser` to both `/user` and `/user/{user_id}`, and the enum did not compile | fixed: colliding URL keys name their path parameters, repeats get a number |
+| PB-39 | Repo deps | S3 | `pnpm audit`: the Next.js example pinned postcss 8.4.31 (2 high), dev dependencies axios, node-forge and undici had high advisories; new GHSA-g3hv-75wg-m249 (minimatch) through Redocly 1.x | fixed: Next 16.4.3, axios 1.21.0, node-forge 1.4.2, undici 8.12.3; minimatch reviewed in ADR-005 (needs a config pattern, not reachable from a document); vite 5 under vitepress 1.6.4 (Windows dev server only) recorded in the threat model |
 
 ## 14. Exit criteria (before inviting testers)
 
