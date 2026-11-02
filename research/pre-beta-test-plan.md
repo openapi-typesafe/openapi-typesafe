@@ -176,11 +176,19 @@ On real projects from `research/dependents.csv` (top 20 by stars or downloads), 
 - [ ] 8.1 Dry run lists every change; `--write` applies exactly those.
 - [ ] 8.2 After the migration the project installs, generates, type-checks and passes its own
       tests. Each failure is ours or documented in the migration guide.
-- [ ] 8.3 Monorepos (pnpm, npm, Yarn workspaces), CJS `require`, dynamic `import()`, re-exports,
-      type-only imports, scripts in `package.json`. Files it does not change (`redocly.yaml`,
-      CI files, Dockerfiles) are listed in its report, so the user knows to check them.
-- [ ] 8.4 Running it twice changes nothing the second time; it never touches lockfiles or
-      files outside `--root`. It does not check for uncommitted changes today: decide whether
+- [ ] 8.3 What it rewrites, each on a real case:
+      - sources: static, type-only and dynamic imports, `require()`, re-exports, `vi.mock()`,
+        `declare module`, deep imports (reported as manual steps), `transform` callbacks;
+      - manifests: dependencies, `overrides`/`resolutions`, peer dependencies, `package.json`
+        scripts, pnpm catalogs in `pnpm-workspace.yaml`, monorepos (pnpm, npm, Yarn);
+      - commands and flags in `.yml`/`.yaml` (CI workflows), `.sh`, `Makefile`, `justfile` and
+        `Dockerfile`;
+      - it skips `node_modules`, `.git` and `dist` only: check that build output in other
+        folders (`build`, `.next`, `coverage`) and committed generated files are handled
+        sensibly.
+- [ ] 8.4 Running it twice changes nothing the second time; it never touches lockfiles
+      (`pnpm-lock.yaml`, `yarn.lock`, `bun.lock` are skipped by name; check `package-lock.json`
+      too) or files outside `--root`. It does not check for uncommitted changes today: decide whether
       the guide should tell users to commit first, or the tool should warn.
 - [ ] 8.5 `docs/migration-guide.md` steps work word by word.
 
