@@ -1,0 +1,100 @@
+# openapi-typesafe-react-query
+
+Typed TanStack Query v5 hooks on top of an openapi-typesafe-fetch client. Peer dependencies:
+`@tanstack/react-query` 5.80+ and `openapi-typesafe-fetch`.
+
+```bash
+npm i openapi-typesafe-react-query openapi-typesafe-fetch @tanstack/react-query
+npm i -D openapi-typesafe
+```
+
+## Setup
+
+```ts
+// src/api.ts
+import createFetchClient from "openapi-typesafe-fetch";
+import createClient from "openapi-typesafe-react-query";
+import type { paths } from "./api/schema";
+
+export const fetchClient = createFetchClient<paths>({ baseUrl: "https://api.example.com/v1" });
+export const $api = createClient(fetchClient);
+```
+
+Middleware goes on `fetchClient` (`fetchClient.use(authMiddleware)`); the hooks use it.
+The app still needs a `QueryClientProvider` from `@tanstack/react-query`.
+
+## Hooks
+
+The HTTP method is **lower-case** here, and the options object is the same as in
+`client.GET(...)` (`params`, `body`, `headers`, ...).
+
+```tsx
+const { data, error, isPending } = $api.useQuery("get", "/pets/{petId}", {
+  params: { path: { petId } },
+});
+
+const { data } = $api.useSuspenseQuery("get", "/pets");
+
+const createPet = $api.useMutation("post", "/pets", {
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ["get", "/pets"] }),
+});
+createPet.mutate({ body: { name: "Rex" } });
+
+const pages = $api.useInfiniteQuery(
+  "get",
+  "/pets",
+  { params: { query: { limit: 20 } } },
+  {
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    initialPageParam: 0,
+    pageParamName: "cursor", // the query parameter that receives the page param; default "cursor"
+  },
+);
+```
+
+Signatures:
+
+- `useQuery(method, path, init?, options?, queryClient?)`; `useSuspenseQuery` takes the same.
+- `useMutation(method, path, options?, queryClient?)`; `mutate(init)` takes `params` / `body`.
+- `useInfiniteQuery(method, path, init, options, queryClient?)`; `options` needs
+  `getNextPageParam` and `initialPageParam`.
+- `queryOptions(method, path, init?, options?)` returns options for any TanStack API:
+  `useQueries`, `queryClient.fetchQuery`, `ensureQueryData`, `prefetchQuery`.
+
+```ts
+await queryClient.prefetchQuery($api.queryOptions("get", "/pets"));
+const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey); // typed
+```
+
+## Query keys
+
+- Query key: `[method, path]`, or `[method, path, init]` when `init` is given.
+- Mutation key: `[method, path]`.
+- Invalidate every query of an endpoint with a prefix key:
+  `queryClient.invalidateQueries({ queryKey: ["get", "/pets"] })`.
+- Prefer `$api.queryOptions(...).queryKey` over a hand-written key for one exact query.
+
+## Errors
+
+A query or mutation fails on every non-OK response, also one without a body. The thrown value
+is the typed error body of the operation, or `undefined` when the response had no body. So in
+the hook result:
+
+- check `isError` / `status === "error"`, not only `error`;
+- `error` is the error body type (for example `{ code: string; message: string }`), not an
+  `Error`; do not read `error.message` unless the document defines it;
+- network errors and aborts reject as usual.
+
+A `204` success gives `data: null` in queries.
+
+## Mistakes
+
+| Mistake | Fix |
+| :-- | :-- |
+| `$api.useQuery("GET", ...)` | Lower-case method: `"get"` |
+| `$api.useQuery("get", "/pets/{petId}", { petId })` | `{ params: { path: { petId } } }` |
+| `useMutation(...).mutate(pet)` | `mutate({ body: pet })` |
+| `if (error)` to detect failure | `if (isError)`; `error` is `undefined` for an empty error body |
+| `error.message` on a typed error body | Use the fields the document defines, or `response`-level handling in middleware |
+| Wrapping `fetchClient.GET` in `useQuery` by hand | Use `$api.useQuery` or `$api.queryOptions`; they set the key, the signal and the error handling |
+| Middleware registered on `$api` | Register it on the fetch client: `fetchClient.use(...)` |
