@@ -40,7 +40,7 @@ npm install            # or pnpm install, yarn, bun install
 npm run generate       # your script that runs openapi-typesafe
 ```
 
-Commit the regenerated files once. The only change is the first line of the header:
+Commit the regenerated files once. Unless one of the [output fixes](#output-fixes) applies, the only change is the first line of the header:
 
 ```diff
  /**
@@ -82,6 +82,8 @@ As in openapi-typescript 7, the old spellings fail with an error that names the 
 
 Failures now exit with a documented code: `1` stale output with `--check` (as before), `2` usage or configuration, `3` input document, `4` output files, `70` unexpected error. Before, every failure exited with `1`. See [exit codes](/cli#exit-codes). `--check` without `--output` (and without `apis` in `redocly.yaml`) now fails with `2` and `CLI_CHECK_OUTPUT_MISSING`; before, it printed the types and passed without checking anything.
 
+The generator warns on stderr about OpenAPI 3.2 features that the output leaves out (`query` and `additionalOperations` operations, `itemSchema`, `in: querystring` parameters); see [OpenAPI 3.2 support](/introduction#openapi-3-2-support).
+
 Errors thrown by the Node API are `OpenAPITypesafeError`s with a stable `code` (see [errors](/node#errors)). The messages are unchanged. A file system error is kept as `cause`: check `error.cause.code` instead of `error.code === "ENOENT"`.
 
 ### Output fixes
@@ -102,5 +104,8 @@ All other output is byte-identical.
 - A path parameter that makes a `.` or `..` segment is rejected before the request is sent.
 - openapi-typesafe-react-query fails on every non-OK response, also one without a body.
 - Middleware request ids come from a counter instead of `Math.random()`.
+- A `Blob`, `File`, `ArrayBuffer`, typed array or `URLSearchParams` body is sent as is; before, it was JSON-encoded to `{}`.
+- A nested object in an `application/x-www-form-urlencoded` body throws instead of being sent as `[object Object]`; write a `bodySerializer` for the format your server reads.
+- A path that already has a query string gets `&` before `params.query`, not a second `?`.
 
 The full list, with the upstream issues each change closes, is in the [changelog](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/packages/openapi-typesafe/CHANGELOG.md).
