@@ -1,14 +1,13 @@
 # openapi-typesafe-react-query
 
-openapi-typesafe-react-query is a type-safe tiny wrapper (1 kb) around [@tanstack/react-query](https://tanstack.com/query/latest/docs/framework/react/overview) to work with OpenAPI schema.
+openapi-typesafe-react-query is a small, type-safe wrapper (about 2.5 kB) around [@tanstack/react-query](https://tanstack.com/query/latest/docs/framework/react/overview) to work with OpenAPI schema.
 
-It works by using [openapi-typesafe-fetch](../openapi-typesafe-fetch) and [openapi-typesafe](../openapi-typesafe) so you get all the following features:
+It works by using [openapi-typesafe-fetch](../openapi-typesafe-fetch) and [openapi-typesafe](../openapi-typesafe) so URLs, parameters, request bodies and responses are checked against your schema, with no manual types,
+no `any` and no `as` assertions.
 
-- ✅ No typos in URLs or params.
-- ✅ All parameters, request bodies, and responses are type-checked and 100% match your schema
-- ✅ No manual typing of your API
-- ✅ Eliminates `any` types that hide bugs
-- ✅ Eliminates `as` type overrides that can also hide bugs
+A maintained, drop-in successor to `openapi-react-query` (see the [repository README](../../README.md)).
+
+> **Status: in development; not published to npm yet.**
 
 ## Setup
 
@@ -60,6 +59,13 @@ const MyComponent = () => {
 
 > You can find more information about `createFetchClient` in the [openapi-typesafe-fetch documentation](../openapi-typesafe-fetch).
 
-## 📓 Docs
+## Migrating from openapi-react-query
 
-[View Docs](https://openapi-ts.dev/openapi-typesafe-react-query/)
+```diff
+- import createClient from "openapi-react-query";
++ import createClient from "openapi-typesafe-react-query";
+```
+
+## License
+
+[MIT](./LICENSE)

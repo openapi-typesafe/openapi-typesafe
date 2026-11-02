@@ -1,13 +1,17 @@
 ## Changes
 
-_What does this PR change? Link to any related issue(s)._
+_What does this PR change, and why? Link the related issue (`Closes #123`)._
 
-## How to Review
+## How to review
 
-_How can a reviewer review your changes? What should be kept in mind for this review?_
+_What should a reviewer focus on? How did you test it?_
 
-## Checklist
+## Checklist (Definition of Done, ENGINEERING_PLAN.md §8)
 
-- [ ] Unit tests updated
-- [ ] `docs/` updated (if necessary)
-- [ ] `pnpm run update:examples` run (only applicable for openapi-typesafe)
+- [ ] PR title follows Conventional Commits; one logical change
+- [ ] Tests added or updated (failing test first for a bug fix)
+- [ ] Coverage did not drop; no new warnings
+- [ ] Corpus subset still matches (generator changes only)
+- [ ] Changeset added if a published package changes
+- [ ] Docs updated if behavior or public API changed
+- [ ] `pnpm run update:examples` run and diff reviewed (only if generated output is meant to change)

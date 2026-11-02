@@ -38,4 +38,4 @@ body:
     attributes:
       label: Extra
       options:
-        - label: I’m willing to open a PR (see [CONTRIBUTING.md](https://github.com/openapi-ts/openapi-typescript/blob/main/packages/openapi-typesafe-react-query/CONTRIBUTING.md))
+        - label: I’m willing to open a PR (see [CONTRIBUTING.md](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/CONTRIBUTING.md))

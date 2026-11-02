@@ -1,7 +1,7 @@
 name: "openapi-typesafe: Bug report"
 description: Report a bug or unexpected behavior
 labels:
-  - openapi-ts
+  - openapi-typesafe
   - bug
   - triage
 body:
@@ -16,7 +16,7 @@ body:
     id: node
     attributes:
       label: Node.js version
-      placeholder: 20.x.x
+      placeholder: 22.x.x
     validations:
       required: true
   - type: input
@@ -58,4 +58,4 @@ body:
     attributes:
       label: Extra
       options:
-        - label: I’m willing to open a PR (see [CONTRIBUTING.md](https://github.com/openapi-ts/openapi-typescript/blob/main/packages/openapi-typesafe/CONTRIBUTING.md))
+        - label: I’m willing to open a PR (see [CONTRIBUTING.md](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/CONTRIBUTING.md))

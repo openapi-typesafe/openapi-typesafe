@@ -1,57 +1,60 @@
-# openapi-typescript
+# openapi-typesafe
 
-Tools for consuming OpenAPI schemas in TypeScript.
+Type-safe TypeScript for OpenAPI: generate types from an OpenAPI 3.x schema and call your API with a
+fully typed `fetch` client.
 
-## 📦 Packages
+`openapi-typesafe` is a maintained, drop-in successor to
+[`openapi-typescript`](https://github.com/openapi-ts/openapi-typescript) and `openapi-fetch`, whose
+author [stopped maintaining them](https://github.com/openapi-ts/openapi-typescript/issues/2874) in
+September 2026. It is a fork with the full upstream history (see [NOTICE](./NOTICE)).
 
-<a href="./packages/openapi-typescript"><img src="./docs/public/assets/openapi-ts.svg" alt="openapi-typescript" width="200" height="40" /><br />
-Generate TypeScript types from static OpenAPI schemas
-</a>
+> **Status: in development. Nothing is published to npm yet.**
+> The goals below describe the 1.0 release. Progress is tracked in
+> [ENGINEERING_PLAN.md](./ENGINEERING_PLAN.md).
 
-<a href="./packages/openapi-fetch"><img src="./docs/public/assets/openapi-fetch.svg" alt="openapi-fetch" width="216" height="40" /><br />
-Ultra-fast fetching for TypeScript generated automatically from your OpenAPI schema.
-</a>
+## Goals for 1.0
 
-## ⭐ Sponsors
+- **Drop-in.** Migrate by changing package names. Generated output and the client API stay compatible.
+- **TypeScript 7 ready.** The generator will not depend on the TypeScript compiler API, so it works the
+  same on TypeScript 5, 6 and 7.
+- **Verifiably compatible.** Every release ships a public compatibility report against more than
+  1,800 real-world OpenAPI 3.x schemas.
+- **Secure releases.** Minimal dependencies, npm provenance, no long-lived publish tokens.
 
-### 🥇 Gold Sponsors
+## Packages
 
-<p align="center">
-  <a href="https://zuplo.link/openapi-ts-gh"><img width="288" height="120" alt="Zuplo" src="./docs/public/assets/zuplo.svg"></a>
-  <a href="https://www.speakeasy.com/editor?utm_source=pow_openapi_ts" target="_blank"><img width="288" height="120" src="./docs/public/assets/speakeasy.png" /></a>
-</p>
+| Package | Replaces | Purpose |
+|---|---|---|
+| [`openapi-typesafe`](./packages/openapi-typesafe) | `openapi-typescript` | CLI and Node API: OpenAPI 3.0 / 3.1 → TypeScript types |
+| [`openapi-typesafe-fetch`](./packages/openapi-typesafe-fetch) | `openapi-fetch` | Type-safe `fetch` client for the generated types |
+| [`openapi-typesafe-helpers`](./packages/openapi-typesafe-helpers) | `openapi-typescript-helpers` | Shared type helpers |
+| [`openapi-typesafe-react-query`](./packages/openapi-typesafe-react-query) | `openapi-react-query` | TanStack Query bindings |
 
-### 🥈 Silver Sponsors
+## Usage
 
-<p align="center"><a href="https://github.com/nanabit-inc"><img width="128" height="128" alt="nanabit" src="https://avatars.githubusercontent.com/u/154126976?s=200&v=4"></a></p>
+```sh
+npx openapi-typesafe ./openapi.yaml -o ./src/api/schema.d.ts
+```
 
-### Backers
+```ts
+import createClient from "openapi-typesafe-fetch";
+import type { paths } from "./api/schema";
 
-<p align="center">
-  <a href="https://github.com/customerio"><img width="64" height="64" alt="@customerio on GitHub" src="https://avatars.githubusercontent.com/u/1152079?s=200&v=4"></a>
-  <a href="https://github.com/shaunpersad"><img width="64" height="64" alt="@shaunpersad on GitHub" src="https://avatars.githubusercontent.com/u/1702976?s=52&v=4"></a>
-  <a href="https://github.com/yoshi2no"><img width="64" height="64" alt="@yoshi2no on GitHub" src="https://avatars.githubusercontent.com/u/57059705?v=4"></a>
-  <a href="https://github.com/siketyan"><img width="64" height="64" alt="@siketyan on GitHub" src="https://avatars.githubusercontent.com/u/12772118?v=4"></a>
-</p>
+const client = createClient<paths>({ baseUrl: "https://api.example.com/v1/" });
 
-Become a sponsor by supporting this project on [OpenCollective](https://opencollective.com/openapi-ts)!
+const { data, error } = await client.GET("/posts/{post_id}", {
+  params: { path: { post_id: "123" } },
+});
+```
 
-<a href="https://opencollective.com/openapi-ts/donate" target="_blank">
-  <img src="https://opencollective.com/openapi-ts/donate/button@2x.png?color=blue" width="300" />
-</a>
+Both the request and the response are checked against the schema. There are no manual type annotations.
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are appreciated and welcome! See the appropriate guide for each package:
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Project rules are in [GOVERNANCE.md](./GOVERNANCE.md) and the
+[Code of Conduct](./CODE_OF_CONDUCT.md). Report vulnerabilities as described in [SECURITY.md](./SECURITY.md).
 
-- [Contributing to openapi-typescript](./packages/openapi-typescript/CONTRIBUTING.md)
-- [Contributing to openapi-fetch](./packages/openapi-fetch/CONTRIBUTING.md)
-- [Contributing to docs](./docs/CONTRIBUTING.md)
+## License
 
-## ♥️ Thanks
-
-- Thanks to [the Project Sponsors](#-sponsors) for keeping this project going!
-- Thanks to [dozens of lovely, smart contributors](https://github.com/openapi-ts/openapi-typescript/graphs/contributors) that made this library possible
-- Thanks to [Vitepress](https://vitepress.dev/) for the docs site
-- Thanks to [Cloudflare Pages](https://pages.cloudflare.com/) for docs site hosting
-- Thanks to [Algolia](https://www.algolia.com/) for the docs site search
+[MIT](./LICENSE). The original copyright notices of `openapi-typescript` and `openapi-react-query`
+are preserved. This project is not affiliated with or endorsed by the original authors.
