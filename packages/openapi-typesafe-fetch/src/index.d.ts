@@ -321,8 +321,10 @@ export declare function createQuerySerializer<T = unknown>(
  */
 export declare function defaultPathSerializer(pathname: string, pathParams: Record<string, unknown>): string;
 
-/** Serialize body object to string */
-export declare function defaultBodySerializer<T>(body: T): string;
+/**
+ * Serialize body object to string; with a form content type in `headers`, as URL-encoded form data.
+ */
+export declare function defaultBodySerializer<T>(body: T, headers?: HeadersOptions): string;
 
 /** Construct URL string from baseUrl and handle path and query params */
 export declare function createFinalURL<O>(

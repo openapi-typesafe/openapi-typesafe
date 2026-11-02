@@ -635,7 +635,9 @@ export function defaultBodySerializer(body, headers) {
   }
   if (headers) {
     const contentType =
-      headers.get instanceof Function
+      // `typeof`, not `instanceof Function`: headers from another realm (iframe, `node:vm`) have a
+      // `get` that is not an instance of this realm's Function (upstream #2637).
+      typeof headers.get === "function"
         ? (headers.get("Content-Type") ?? headers.get("content-type"))
         : (headers["Content-Type"] ?? headers["content-type"]);
     if (contentType === "application/x-www-form-urlencoded") {
