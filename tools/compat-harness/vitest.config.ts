@@ -1,13 +1,15 @@
 import { defineConfig } from "vitest/config";
-import { createCoverageOptions } from "../../vitest.coverage.ts";
+import { createCoverageOptions, LAYER_GLOBS } from "../../vitest.coverage.ts";
 
 export default defineConfig({
   test: {
     environment: "node",
     include: ["test/**/*.test.ts"],
-    // The harness is new code: it starts at the project target instead of an inherited baseline.
     coverage: {
-      ...createCoverageOptions({ statements: 90, branches: 90, functions: 90, lines: 90 }),
+      ...createCoverageOptions(
+        { statements: 99, branches: 95, functions: 100, lines: 99 },
+        LAYER_GLOBS,
+      ),
       exclude: ["src/cli/**"],
     },
   },

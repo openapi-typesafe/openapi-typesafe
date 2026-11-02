@@ -10,6 +10,6 @@ export default defineConfig({
     // Node 25+ exposes its own experimental localStorage and warns when it is not configured.
     // Tests use the jsdom localStorage, so the Node one is turned off.
     execArgv: ["--no-experimental-webstorage"],
-    coverage: createCoverageOptions({ statements: 96, branches: 88, functions: 100, lines: 96 }),
+    coverage: createCoverageOptions({ statements: 100, branches: 100, functions: 100, lines: 100 }),
   },
 });

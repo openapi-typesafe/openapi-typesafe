@@ -10,6 +10,6 @@ export default defineConfig({
       tsconfig: "./tsconfig.json",
     },
     restoreMocks: true,
-    coverage: createCoverageOptions({ statements: 91, branches: 89, functions: 85, lines: 91 }),
+    coverage: createCoverageOptions({ statements: 100, branches: 97, functions: 100, lines: 100 }),
   },
 });
