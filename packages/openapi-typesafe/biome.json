@@ -3,6 +3,30 @@
   "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
   "extends": "//",
   "files": {
-    "includes": ["bin/**", "!examples", "src/**", "test/**", "!**/fixtures/**/*", "!**/dist", "!**/coverage"]
-  }
+    "includes": [
+      "bin/**",
+      "!examples",
+      "src/**",
+      "test/**",
+      "scripts/bench-printer/**",
+      "!**/fixtures/**/*",
+      "!**/dist",
+      "!**/coverage"
+    ]
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/domain/**",
+        "src/application/**",
+        "src/adapters/**",
+        "test/domain/**",
+        "test/application/**",
+        "test/adapters/**",
+        "test/print-parity/**",
+        "scripts/bench-printer/**"
+      ],
+      "formatter": { "lineWidth": 100 }
+    }
+  ]
 }

@@ -54,7 +54,7 @@
     "format": "biome format . --write",
     "lint": "pnpm run lint:js && pnpm run lint:ts && pnpm run lint:deps",
     "lint:js": "biome check .",
-    "lint:ts": "tsc --noEmit",
+    "lint:ts": "tsc --noEmit && tsc -p tsconfig.strict.json",
     "prepack": "pnpm run build",
     "test": "pnpm run test:js && pnpm run test:examples && pnpm run test:exports",
     "test:js": "vitest run",
@@ -84,6 +84,7 @@
     "degit": "2.8.6",
     "dependency-cruiser": "18.7.0",
     "execa": "catalog:",
+    "fast-check": "4.10.2",
     "strip-ansi": "7.2.0",
     "typescript": "catalog:",
     "vite-node": "6.0.0"
