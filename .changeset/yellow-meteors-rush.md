@@ -1,5 +1,5 @@
 ---
-"openapi-typescript": minor
+"openapi-typesafe": minor
 ---
 
 Add ability to set flags in redocly.yaml

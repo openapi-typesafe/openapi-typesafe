@@ -10,4 +10,4 @@ _How can a reviewer review your changes? What should be kept in mind for this re
 
 - [ ] Unit tests updated
 - [ ] `docs/` updated (if necessary)
-- [ ] `pnpm run update:examples` run (only applicable for openapi-typescript)
+- [ ] `pnpm run update:examples` run (only applicable for openapi-typesafe)

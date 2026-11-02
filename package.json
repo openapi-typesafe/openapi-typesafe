@@ -1,11 +1,11 @@
 {
-  "name": "openapi-typescript-monorepo",
+  "name": "openapi-typesafe-monorepo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "author": {
-    "name": "Drew Powers",
-    "email": "drew@pow.rs"
+    "name": "Fedor Chishchin",
+    "email": "fedorstartup@gmail.com"
   },
   "packageManager": "pnpm@10.30.3",
   "scripts": {
@@ -36,7 +36,7 @@
   },
   "size-limit": [
     {
-      "path": "packages/openapi-fetch/dist/index.mjs",
+      "path": "packages/openapi-typesafe-fetch/dist/index.mjs",
       "limit": "7.5 kB",
       "brotli": false
     }

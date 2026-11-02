@@ -1,5 +1,5 @@
 ---
-"openapi-fetch": patch
+"openapi-typesafe-fetch": patch
 ---
 
-fix(openapi-fetch): handle empty error responses when Content-Length header is stripped
+fix(openapi-typesafe-fetch): handle empty error responses when Content-Length header is stripped

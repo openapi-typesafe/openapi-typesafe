@@ -1,0 +1,48 @@
+{
+  "name": "openapi-typesafe-helpers",
+  "description": "TypeScript helpers for consuming openapi-typesafe types",
+  "version": "0.0.0",
+  "author": {
+    "name": "Fedor Chishchin",
+    "email": "fedorstartup@gmail.com"
+  },
+  "contributors": [
+    {
+      "name": "Drew Powers",
+      "email": "drew@pow.rs"
+    }
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.mjs"
+    },
+    "./*": "./*"
+  },
+  "homepage": "https://github.com/openapi-typesafe/openapi-typesafe#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openapi-typesafe/openapi-typesafe.git",
+    "directory": "packages/openapi-typesafe-helpers"
+  },
+  "bugs": {
+    "url": "https://github.com/openapi-typesafe/openapi-typesafe/issues"
+  },
+  "scripts": {
+    "build": "unbuild",
+    "format": "biome format src --write",
+    "lint": "pnpm run lint:js && pnpm run lint:ts",
+    "lint:js": "biome check src",
+    "lint:ts": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

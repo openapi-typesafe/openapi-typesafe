@@ -4,7 +4,7 @@ dist
 node_modules
 coverage
 
-packages/openapi-typescript/test/fixtures/cli-outputs/out
+packages/openapi-typesafe/test/fixtures/cli-outputs/out
 
 # IntelliJ IDEA settings folder
 /.idea
