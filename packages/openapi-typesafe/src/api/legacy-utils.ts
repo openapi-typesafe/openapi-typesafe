@@ -1,11 +1,12 @@
 import { escapePointer, parseRef } from "@redocly/openapi-core/lib/ref-utils.js";
-import c from "ansi-colors";
+import colors from "ansi-colors";
 import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
-import type { DebugGroup, Logger } from "../application/ports/logger.js";
+import type { DebugGroup } from "../application/ports/logger.js";
 import { discriminatorProperty } from "../application/transform/schema/discriminator-property.js";
 import type { IrPropertySignature } from "../domain/ir/nodes.js";
 import type { DiscriminatorObject } from "../types.js";
 import { defaultLogger, terminalSupportsColor } from "./default-ports.js";
+import { type ResolveRefOptions, resolveDocumentRef, walkDocument } from "./document-refs.js";
 
 /**
  * The original's exported utilities, kept for 1.x (ADR-004, decision 9). The generator itself
@@ -15,10 +16,14 @@ import { defaultLogger, terminalSupportsColor } from "./default-ports.js";
 // The exported `c` is the shared ansi-colors instance, switched off at import when the terminal has
 // no colors, as the original did. The generator's own logger uses a separate instance.
 if (!terminalSupportsColor()) {
-  c.enabled = false;
+  colors.enabled = false;
 }
 
-export { c };
+/**
+ * The shared ansi-colors instance.
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9). Use a color library directly.
+ */
+export const c = colors;
 
 /**
  * The discriminator property of a schema at `path`, typed as its discriminator value. Returns IR
@@ -50,13 +55,19 @@ export function createRef(parts: (number | string | undefined | null)[]): string
   return pointer;
 }
 
-/** Print debug message (cribbed from the `debug` package, but without all the bells & whistles */
+/**
+ * Print debug message (cribbed from the `debug` package, but without all the bells & whistles
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
 export function debug(msg: string, group?: string, time?: number) {
   // Any group name was accepted; one the logger does not know prints in white, as before.
   defaultLogger(false).debug(msg, group as DebugGroup | undefined, time);
 }
 
-/** Print error message */
+/**
+ * Print error message
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
 export function error(msg: string) {
   defaultLogger(false).error(msg);
 }
@@ -86,69 +97,36 @@ export function getEntries<T>(
   return entries;
 }
 
-export interface ResolveRefOptions {
-  silent: boolean;
-  visited?: string[];
-  /** @internal Where warnings go; the default terminal logger (respecting `silent`) if absent. */
-  logger?: Logger;
-}
+export type { ResolveRefOptions } from "./document-refs.js";
 
-/** resolve a $ref in a schema */
+/**
+ * resolve a $ref in a schema
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
 export function resolveRef<T>(
   schema: any,
   $ref: string,
   options: ResolveRefOptions,
 ): T | undefined {
-  const { visited = [] } = options;
-  const logger = options.logger ?? defaultLogger(options.silent ?? false);
-  const { pointer } = parseRef($ref);
-  if (!pointer.length) {
-    return undefined;
-  }
-  let node = schema;
-  for (const key of pointer) {
-    if (node && typeof node === "object" && node[key]) {
-      node = node[key];
-    } else {
-      logger.warn(`Could not resolve $ref "${$ref}"`);
-      return undefined;
-    }
-  }
-
-  // if this is also a $ref, keep tracing
-  if (node && typeof node === "object" && node.$ref) {
-    if (visited.includes(node.$ref)) {
-      logger.warn(`Could not resolve circular $ref "${$ref}"`);
-      return undefined;
-    }
-    return resolveRef(schema, node.$ref, { ...options, logger, visited: [...visited, node.$ref] });
-  }
-
-  return node;
+  return resolveDocumentRef<T>(schema, $ref, options);
 }
 
-/** Walk through any JSON-serializable (i.e. non-circular) object */
+/**
+ * Walk through any JSON-serializable (i.e. non-circular) object
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
 export function walk(
   obj: unknown,
   cb: (value: Record<string, unknown>, path: (string | number)[]) => void,
   path: (string | number)[] = [],
 ): void {
-  if (!obj || typeof obj !== "object") {
-    return;
-  }
-  if (Array.isArray(obj)) {
-    for (let i = 0; i < obj.length; i++) {
-      walk(obj[i], cb, path.concat(i));
-    }
-    return;
-  }
-  cb(obj as Record<string, unknown>, path);
-  for (const k of Object.keys(obj)) {
-    walk((obj as Record<string, unknown>)[k], cb, path.concat(k));
-  }
+  walkDocument(obj, cb, path);
 }
 
-/** Print warning message */
+/**
+ * Print warning message
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
 export function warn(msg: string, silent = false) {
   defaultLogger(silent).warn(msg);
 }

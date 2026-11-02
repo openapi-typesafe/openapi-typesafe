@@ -3,7 +3,7 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import degit from "degit";
-import { error } from "../src/api/legacy-utils.js";
+import { defaultLogger } from "../src/api/default-ports.js";
 import { multiFile, singleFile } from "./schemas.js";
 
 const ONE_DAY = 1000 * 60 * 60 * 24;
@@ -27,7 +27,7 @@ export async function download() {
       }
       const result = await fetch(url);
       if (!result.ok) {
-        error(`Error fetching ${url}`);
+        defaultLogger(false).error(`Error fetching ${url}`);
         process.exit(1);
       }
       fs.mkdirSync(new URL(".", dest), { recursive: true });

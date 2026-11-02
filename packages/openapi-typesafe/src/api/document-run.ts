@@ -3,8 +3,8 @@ import { sourceEmptyError } from "../adapters/redocly-loader/schema-load-errors.
 import type { Logger } from "../application/ports/logger.js";
 import type { SchemaLoader } from "../application/ports/schema-loader.js";
 import type { GeneratorOptions, GlobalContext, OpenAPI3, SchemaSource } from "../types.js";
-import { scanDiscriminators } from "./discriminator-scan.js";
-import { resolveRef } from "./legacy-utils.js";
+import { findDiscriminators } from "./discriminator-scan.js";
+import { resolveDocumentRef } from "./document-refs.js";
 
 /** The ports of one generator run, wired by the Node API or the CLI (ENGINEERING_PLAN 4.5). */
 export interface GeneratorPorts {
@@ -92,10 +92,10 @@ export async function createDocumentRun(
   const schema = await ports.loader.load({ source, cwd: sourceCwd(options) });
   const ctx: GlobalContext = {
     ...contextFlags(options),
-    discriminators: scanDiscriminators(schema, options, logger),
+    discriminators: findDiscriminators(schema, silent, logger),
     injectFooter: [],
     redoc: ports.redoc,
-    resolve: ($ref) => resolveRef(schema, $ref, { silent, logger }),
+    resolve: ($ref) => resolveDocumentRef(schema, $ref, { silent, logger }),
     logger,
   };
   return { schema, ctx };

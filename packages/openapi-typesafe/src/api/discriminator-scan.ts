@@ -8,7 +8,8 @@ import type {
   SchemaObject,
 } from "../types.js";
 import { defaultLogger } from "./default-ports.js";
-import { createRef, resolveRef, walk } from "./legacy-utils.js";
+import { resolveDocumentRef, walkDocument } from "./document-refs.js";
+import { createRef } from "./legacy-utils.js";
 
 /**
  * The inherited discriminator pre-pass. It finds every discriminator in the bundled document and
@@ -83,7 +84,7 @@ function isObjectSchema(schema: unknown): schema is SchemaObject & ObjectSubtype
  */
 function patchDiscriminatorEnum(state: ScanState, patch: EnumPatch): boolean {
   const { silent, logger } = state;
-  const resolved = resolveRef<SchemaObject>(state.schema, patch.ref, { silent, logger });
+  const resolved = resolveDocumentRef<SchemaObject>(state.schema, patch.ref, { silent, logger });
   if (resolved?.allOf) {
     patchAllOf(resolved.allOf, patch);
     return true;
@@ -220,19 +221,34 @@ function inheritDiscriminators(
   }
 }
 
+/** The discriminators of a bundled document, after patching the mapped schemas in place. */
+export interface DiscriminatorScan {
+  objects: Record<string, DiscriminatorObject>;
+  refsHandled: string[];
+}
+
+/** Find every discriminator in `schema`; warnings go to `logger` unless `silent`. */
+export function findDiscriminators(
+  schema: OpenAPI3,
+  silent: boolean,
+  logger: Logger,
+): DiscriminatorScan {
+  const state: ScanState = { schema, silent, logger, objects: {}, refsHandled: [] };
+  walkDocument(schema, (value, path) => collectDiscriminator(state, value, path));
+  // A second pass, because an `allOf` may name a discriminator that is defined later.
+  walkDocument(schema, (value, path) => inheritDiscriminators(state, value, path));
+  return { objects: state.objects, refsHandled: state.refsHandled };
+}
+
 /**
  * Return a key–value map of discriminator objects found in a schema. Warnings go to `logger`;
  * without one, to the default terminal logger, as the original did.
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
 export function scanDiscriminators(
   schema: OpenAPI3,
   options: GeneratorOptions,
   logger: Logger = defaultLogger(options.silent ?? false),
-): { objects: Record<string, DiscriminatorObject>; refsHandled: string[] } {
-  const silent = options.silent ?? false;
-  const state: ScanState = { schema, silent, logger, objects: {}, refsHandled: [] };
-  walk(schema, (value, path) => collectDiscriminator(state, value, path));
-  // A second pass, because an `allOf` may name a discriminator that is defined later.
-  walk(schema, (value, path) => inheritDiscriminators(state, value, path));
-  return { objects: state.objects, refsHandled: state.refsHandled };
+): DiscriminatorScan {
+  return findDiscriminators(schema, options.silent ?? false, logger);
 }
