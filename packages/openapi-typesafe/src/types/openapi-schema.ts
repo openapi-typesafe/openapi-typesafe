@@ -59,6 +59,9 @@ export type SchemaObject = {
 
 export interface StringSubtype {
   type: "string" | ["string", "null"];
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
   enum?: (string | ReferenceObject)[];
 }
 
