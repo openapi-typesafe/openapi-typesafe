@@ -70,3 +70,31 @@ describe("enumDeclaration", () => {
     });
   });
 });
+
+// Upstream #2807, #2812: an empty string value gave an empty member name.
+// Upstream #2614: a quoted member name was not escaped, so `\` gave `"\"`.
+describe("EnumNaming.memberName for names that must be quoted", () => {
+  it.each([
+    ["", '""'],
+    ["\\", '"\\\\"'],
+    ['"', '"\\""'],
+  ])("memberName(%j) is %s", (value, name) => {
+    expect(new EnumNaming().memberName(value)).toBe(name);
+  });
+});
+
+// Upstream #2838: a line break in `x-enum-descriptions` ended the `//` comment early.
+describe("enumDeclaration member comments with line breaks", () => {
+  it.each([
+    ["Code 100\nspanning two lines", " Code 100 spanning two lines"],
+    ["a\r\nb\rc d e", " a b c d e"],
+  ])("the comment of %j is one line", (description, text) => {
+    const declaration = enumDeclaration(
+      "Codes",
+      { values: [100], metadata: [{ description }] },
+      new EnumNaming(),
+    );
+
+    expect(declaration.members[0]?.comments).toEqual([{ kind: "line", text }]);
+  });
+});

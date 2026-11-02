@@ -73,6 +73,10 @@ export const DOCUMENTS: Readonly<Record<string, unknown>> = {
 };
 
 export const text = fc.constantFrom("", "x", "Line one\nline two", "a */ b", "ünïcode");
+// Task 7.4 fixes `--enum` output for an empty value and for line breaks in member descriptions on
+// purpose (upstream #2807, #2838; test/api/enum-invalid-output.test.ts), so enums leave them out.
+const enumValueText = fc.constantFrom("x", "Line one\nline two", "a */ b", "ünïcode");
+const enumDescriptionText = fc.constantFrom("", "x", "a */ b", "ünïcode");
 export const key = fc.constantFrom(...KEYS);
 
 export function schemaArbitrary(): fc.Arbitrary<unknown> {
@@ -123,7 +127,7 @@ export function schemaArbitrary(): fc.Arbitrary<unknown> {
         type: fc.constantFrom("string", "number", "object", undefined),
         enum: fc.array(
           fc.oneof(
-            text,
+            enumValueText,
             fc.integer({ min: -3, max: 3 }),
             fc.constant(null),
             fc.record({ a: fc.integer() }),
@@ -135,7 +139,7 @@ export function schemaArbitrary(): fc.Arbitrary<unknown> {
         nullable: fc.boolean(),
         additionalProperties: fc.boolean(),
         "x-enum-varnames": fc.array(fc.constantFrom("One", "Two"), { maxLength: 2 }),
-        "x-enum-descriptions": fc.array(text, { maxLength: 2 }),
+        "x-enum-descriptions": fc.array(enumDescriptionText, { maxLength: 2 }),
       },
       { requiredKeys: ["enum"] },
     ),

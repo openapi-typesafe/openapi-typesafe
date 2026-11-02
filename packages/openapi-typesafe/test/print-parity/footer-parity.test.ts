@@ -18,8 +18,9 @@ import { RUNS, resetLegacyEnumState, TIMEOUT_MS } from "./parity-arbitraries.js"
 
 const NAMES = ["a-", "b-", "Status", "my status", "1abc", "é", "a+b", "/Pet/status", "-", "$x"];
 const name = fc.constantFrom(...NAMES);
+// No empty string: task 7.4 names that member `""` on purpose (upstream #2807, enum-naming.test.ts).
 const value = fc.oneof(
-  fc.constantFrom("a", "b-c", "1.5", "-x", "+", "a+b", "é", "", "x y", "B"),
+  fc.constantFrom("a", "b-c", "1.5", "-x", "+", "a+b", "é", "x y", "B"),
   fc.constantFrom(0, 1, -1, 1.5, -2.5, 10),
 );
 const metadata = fc.record({

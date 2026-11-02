@@ -2,6 +2,10 @@ import { toTypeNode, toValueExpression } from "../adapters/type-ast-bridge/ir-to
 import { lazyNode } from "../adapters/type-ast-bridge/lazy-node.js";
 import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
+import {
+  enumMemberDescription,
+  quotedMemberName,
+} from "../application/transform/footer/enum-naming.js";
 import { HELPER_TYPES } from "../application/transform/helper-types.js";
 import { schemaComment } from "../application/transform/schema-comment.js";
 import type { IrType } from "../domain/ir/nodes.js";
@@ -202,10 +206,10 @@ function enumMemberName(value: string | number, explicitName: string | undefined
   }
   const invalidCharMatch = name.match(JS_PROPERTY_INDEX_INVALID_CHARS_RE);
   if (!invalidCharMatch) {
-    return name;
+    return name === "" ? quotedMemberName(name) : name;
   }
   if (invalidCharMatch[0] === name) {
-    return `"${name}"`;
+    return quotedMemberName(name);
   }
   return name.replace(JS_PROPERTY_INDEX_INVALID_CHARS_RE, (s) =>
     s in SPECIAL_CHARACTER_MAP ? (SPECIAL_CHARACTER_MAP[s] as string) : "_",
@@ -223,12 +227,8 @@ export function tsEnumMember(
   const ts = loadTypeScript();
   const name = enumMemberName(value, metadata.name);
   const member = ts.factory.createEnumMember(name, toValueExpression(ts, value));
-  const trimmedDescription = metadata.description?.trim();
-  if (
-    trimmedDescription === undefined ||
-    trimmedDescription === null ||
-    trimmedDescription === ""
-  ) {
+  const trimmedDescription = enumMemberDescription(metadata.description);
+  if (trimmedDescription === "") {
     return member;
   }
 

@@ -64,10 +64,11 @@ export class EnumNaming {
     const prefixed = prefixedMemberName(name);
     const invalidRun = INVALID_RUN_RE.exec(prefixed);
     if (!invalidRun) {
-      return prefixed;
+      // Only the empty name has no invalid run and is no identifier (upstream #2807).
+      return prefixed === "" ? quotedMemberName(prefixed) : prefixed;
     }
     return invalidRun[0] === prefixed
-      ? `"${prefixed}"`
+      ? quotedMemberName(prefixed)
       : prefixed.replace(INVALID_RUNS_RE, (run) => SPECIAL_CHARACTERS.get(run) ?? "_");
   }
 
@@ -98,6 +99,14 @@ function firstCharacter(sanitized: string, name: string): string {
   return first;
 }
 
+/**
+ * A string-literal member name. The original wrapped the name in quotes without escaping, so `\`
+ * and `"` gave invalid output (upstream #2614); a JSON string is a valid TypeScript string.
+ */
+export function quotedMemberName(name: string): string {
+  return JSON.stringify(name);
+}
+
 function prefixedMemberName(name: string): string {
   if (Number(name[0]) >= 0) {
     // Only the first dot: `1.5` → `Value1_5`.
@@ -106,9 +115,20 @@ function prefixedMemberName(name: string): string {
   return name[0] === "-" ? `${NEGATIVE_PREFIX}${name.slice(1)}` : name;
 }
 
-/** The member comment: the trimmed description as a line comment, as in the original. */
+/** Every line terminator of JavaScript, which would end a `//` comment. */
+const LINE_TERMINATORS_RE = /\r\n|[\n\r\u2028\u2029]/g;
+
+/** The text of a member's `//` comment: trimmed, on one line; empty when there is none. */
+export function enumMemberDescription(description: string | null | undefined): string {
+  return description?.trim().replace(LINE_TERMINATORS_RE, " ") ?? "";
+}
+
+/**
+ * The member comment: the trimmed description as a line comment, as in the original. Line breaks
+ * become spaces: in a `//` comment they ended the comment early (upstream #2838).
+ */
 function enumMemberComments(metadata: EnumMemberNaming = {}): IrComment[] {
-  const description = metadata.description?.trim();
+  const description = enumMemberDescription(metadata.description);
   return description ? [{ kind: "line", text: ` ${description}` }] : [];
 }
 
