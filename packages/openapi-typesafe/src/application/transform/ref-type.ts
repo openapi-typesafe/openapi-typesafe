@@ -50,6 +50,18 @@ function extractVariantsWith(type: IrType, propertyName: string): IrType {
   return irReference("Extract", [type, irObject([probe])]);
 }
 
+const DEFS_KEYWORD = "$defs";
+
+/**
+ * Index by `segment`. A `$defs` member is optional (it is a keyword, not data), so when more
+ * segments follow it is wrapped in `NonNullable<…>` first; otherwise the next index fails on
+ * `undefined` (upstream #2664).
+ */
+function indexKeyword(type: IrType, segment: string, isLast: boolean): IrType {
+  const indexed = indexBy(type, segment);
+  return segment === DEFS_KEYWORD && !isLast ? irReference("NonNullable", [indexed]) : indexed;
+}
+
 function rootType(rootSegment: string, isDeep: boolean): IrType {
   return irReference(isDeep ? `FlattenedDeepRequired<${rootSegment}>` : rootSegment);
 }
@@ -77,8 +89,9 @@ export function refType(ref: string, options: RefTypeOptions = {}): IrType {
     if (options.parameter && offset + 2 === lastIndex) {
       return indexBy(type, options.parameter.in, options.parameter.name);
     }
+    const isLast = offset + 2 === lastIndex;
     return extracted.has(segment)
       ? indexBy(extractVariantsWith(type, segment), segment)
-      : indexBy(type, segment);
+      : indexKeyword(type, segment, isLast);
   }, leading);
 }

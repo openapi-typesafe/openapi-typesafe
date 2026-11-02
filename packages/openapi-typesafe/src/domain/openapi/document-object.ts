@@ -7,6 +7,6 @@ export interface DocumentObject {
   readonly paths?: PathsObject;
   readonly webhooks?: PathsObject;
   readonly components?: ComponentsObject;
-  /** JSON Schema definitions at the document root. */
-  readonly $defs?: Schema;
+  /** JSON Schema definitions at the document root: named subschemas. */
+  readonly $defs?: Readonly<Record<string, Schema>>;
 }

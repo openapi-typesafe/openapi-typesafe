@@ -7,13 +7,11 @@ import type {
 } from "../../../domain/ir/nodes.js";
 import type { ComponentsObject } from "../../../domain/openapi/components-object.js";
 import type { DocumentObject } from "../../../domain/openapi/document-object.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { PathsObject } from "../../../domain/openapi/path-item-object.js";
-import type { Schema } from "../../../domain/openapi/schema-object.js";
 import { READ_WRITE_MARKER_TYPES } from "../helper-types.js";
-import { transformSchema } from "../schema/schema-transform.js";
 import type { TransformContext, TransformOptions } from "../transform-context.js";
 import { componentsType } from "./components.js";
+import { defsRootType } from "./defs-root.js";
 import { pathsType } from "./paths.js";
 import { apiPathsEnumDeclaration } from "./paths-enum.js";
 import { webhooksType } from "./webhooks.js";
@@ -41,10 +39,10 @@ const ROOT_TRANSFORMS: Readonly<
     const { type, rootTypes } = componentsType(node as ComponentsObject, context);
     return { type, aliases: rootTypes };
   },
-  $defs: (node, context) => {
-    const location = { path: createRef(["$defs"]), schema: node };
-    return { type: transformSchema(node as Schema, location, context), aliases: [] };
-  },
+  $defs: (node, context) => ({
+    type: defsRootType(node as NonNullable<DocumentObject["$defs"]>, context),
+    aliases: [],
+  }),
 };
 
 function emptyAlias(name: string): IrTypeAliasDeclaration {

@@ -124,12 +124,13 @@ export const componentsArbitrary = fc.record(
 /** A root value: usually a generated object, sometimes missing, empty or not an object. */
 const root = <T>(arbitrary: fc.Arbitrary<T>) =>
   fc.oneof({ weight: 4, arbitrary }, fc.constantFrom(null, "text", {}));
+// No root `$defs`: the original transformed the map as one schema, so every `#/$defs/<name>` ref
+// was `never` (legacy bug 18). The fix differs on purpose (test/api/defs-types.test.ts).
 export const documentArbitrary = fc.record(
   {
     paths: root(pathsArbitrary),
     webhooks: root(webhooksArbitrary),
     components: root(componentsArbitrary),
-    $defs: root(schemaArbitrary()),
   },
   { requiredKeys: [] },
 );

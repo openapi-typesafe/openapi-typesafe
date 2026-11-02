@@ -86,12 +86,13 @@ Errors thrown by the Node API are `OpenAPITypesafeError`s with a stable `code` (
 
 ### Output fixes
 
-Where openapi-typescript’s output did not compile or was unsafe, it changes:
+Where openapi-typescript’s output did not compile, was unsafe or had wrong types, it changes:
 
 - `--enum` and `--enum-values` output that did not compile now does.
 - `--root-types` with `--enum`: a root type alias that had the same name as an enum gets a suffix (`ClusterState_2`).
 - Names and URLs from the document are escaped where they reach code (`--root-types`, `--path-params-as-types`), so a document can no longer add code to the generated file.
 - The `inject` option is printed as written, so comments in it are kept.
+- JSON Schema `$defs` (OpenAPI 3.1): a schema's `$defs` member is optional (`$defs?: { … }`), and a `$ref` into it reads `NonNullable<components["schemas"]["Foo"]["$defs"]>["bar"]`. The root `export type $defs` has one member per subschema; before, it was `Record<string, never>` and `#/$defs/<name>` refs were `never`.
 
 All other output is byte-identical.
 

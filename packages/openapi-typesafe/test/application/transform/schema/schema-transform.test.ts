@@ -214,10 +214,10 @@ describe("transformSchema", () => {
     expect(text).not.toContain("kind");
   });
 
-  it("transformSchema with $defs nests them under a $defs member", () => {
+  it("transformSchema with $defs nests them under an optional $defs member", () => {
     const schema = { type: "object", $defs: { a: { type: "string" } } };
 
-    expect(transform(schema).text).toBe("{\n    $defs: {\n        a: string;\n    };\n}");
+    expect(transform(schema).text).toBe("{\n    $defs?: {\n        a: string;\n    };\n}");
   });
 
   it("transformSchema with additionalProperties adds an index signature", () => {

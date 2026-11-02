@@ -58,13 +58,21 @@ describe("documentBody", () => {
     expect(paths).toHaveProperty("type.kind", "object");
   });
 
-  it("documentBody keeps an empty alias for a root whose type is not an object", () => {
+  it("documentBody prints the root $defs with one member per subschema", () => {
     const { context } = fakeTransformContext();
 
-    const declarations = documentBody({ $defs: { type: "string" } }, context);
+    const declarations = documentBody({ $defs: { Name: { type: "string" } } }, context);
 
-    expect(declarations[3]).toMatchObject({ kind: "typeAlias", name: "$defs" });
-    expect(declarations[3]).toHaveProperty("type.name", "Record");
+    expect(declarations[3]).toMatchObject({ kind: "interface", name: "$defs" });
+    expect(declarations[3]).toHaveProperty("members.0.name.text", "Name");
+  });
+
+  it("documentBody with a root $defs entry that is not a schema throws with its path", () => {
+    const { context } = fakeTransformContext();
+
+    const document = { $defs: { type: "string" } } as never;
+
+    expect(() => documentBody(document, context)).toThrow("#/$defs/type");
   });
 
   it("documentBody follows the components type with its root type aliases", () => {

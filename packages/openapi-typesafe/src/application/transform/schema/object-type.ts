@@ -168,7 +168,11 @@ function propertyMembers(schema: SchemaObject, request: SchemaRequest): IrMember
   return members;
 }
 
-/** `$defs` as a nested `$defs: { … }` member, in document order (never alphabetized). */
+/**
+ * `$defs` as a nested `$defs?: { … }` member, in document order (never alphabetized). It is
+ * optional because `$defs` is a schema keyword, not data: the original made it required, so a
+ * value of the type needed a `$defs` key (research/legacy-bugs.md, item 17, upstream #2664).
+ */
 function defsMember(
   defs: Readonly<Record<string, SchemaObject>>,
   request: SchemaRequest,
@@ -190,7 +194,7 @@ function defsMember(
     });
     return finishProperty(property, value, path, request);
   });
-  return irProperty(toPropertyName("$defs"), irObject(members));
+  return irProperty(toPropertyName("$defs"), irObject(members), { isOptional: true });
 }
 
 function hasObjectKeywords(schema: SchemaObject): boolean {

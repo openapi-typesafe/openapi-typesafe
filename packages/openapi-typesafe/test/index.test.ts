@@ -588,20 +588,20 @@ export interface components {
     schemas: {
         Object: {
             rootDef?: $defs["StringType"];
-            nestedDef?: components["schemas"]["OtherObject"]["$defs"]["nestedDef"];
+            nestedDef?: NonNullable<components["schemas"]["OtherObject"]["$defs"]>["nestedDef"];
             remoteDef?: components["schemas"]["remoteDef"];
-            $defs: {
+            $defs?: {
                 hasDefs: boolean;
             };
         };
         ArrayOfDefs: $defs["StringType"][];
         OtherObject: {
-            $defs: {
+            $defs?: {
                 nestedDef: boolean;
             };
         };
         RemoteDefs: {
-            $defs: {
+            $defs?: {
                 remoteDef: components["schemas"]["remoteDef"];
             };
         };
@@ -613,7 +613,9 @@ export interface components {
     headers: never;
     pathItems: never;
 }
-export type $defs = Record<string, never>;
+export interface $defs {
+    StringType: string;
+}
 export type operations = Record<string, never>;`,
         // options: DEFAULT_OPTIONS,
       },

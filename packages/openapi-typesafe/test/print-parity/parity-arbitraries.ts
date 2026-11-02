@@ -161,6 +161,8 @@ export function schemaArbitrary(): fc.Arbitrary<unknown> {
       },
       { requiredKeys: ["type"] },
     ),
+    // Objects have no `$defs`: the original printed it as a required member (legacy bug 17,
+    // upstream #2664), and the fix makes it optional on purpose (test/api/defs-types.test.ts).
     object: fc.record(
       {
         type: fc.constantFrom("object", undefined),
@@ -170,7 +172,6 @@ export function schemaArbitrary(): fc.Arbitrary<unknown> {
         patternProperties: fc.dictionary(fc.constantFrom("^a", "^b"), tie("schema"), {
           maxKeys: 2,
         }),
-        $defs: fc.dictionary(key, tie("primitive"), { maxKeys: 2 }),
         nullable: fc.boolean(),
         description: text,
       },
