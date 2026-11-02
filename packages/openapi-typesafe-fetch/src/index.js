@@ -433,6 +433,14 @@ export function createPathBasedClient(clientOptions) {
 
 // utils
 
+// Parameter names and object keys can be data (an `additionalProperties` object). They are encoded
+// like values, except for characters common in names that do not split a URL (ADR-013, decision 9).
+const KEPT_NAME_ESCAPES = /%(?:5B|5D|24|3A|40|2C)/g;
+
+function encodeName(name) {
+  return encodeURIComponent(name).replace(KEPT_NAME_ESCAPES, decodeURIComponent);
+}
+
 /**
  * Serialize primitive param values
  * @type {import("./index.js").serializePrimitiveParam}
@@ -468,7 +476,7 @@ export function serializeObjectParam(name, value, options) {
   // explode: false
   if (options.style !== "deepObject" && options.explode === false) {
     for (const k in value) {
-      values.push(k, options.allowReserved === true ? value[k] : encodeURIComponent(value[k]));
+      values.push(encodeName(k), options.allowReserved === true ? value[k] : encodeURIComponent(value[k]));
     }
     const final = values.join(","); // note: values are always joined by comma in explode: false (but joiner can prefix)
     switch (options.style) {
@@ -489,7 +497,7 @@ export function serializeObjectParam(name, value, options) {
 
   // explode: true
   for (const k in value) {
-    const finalName = options.style === "deepObject" ? `${name}[${k}]` : k;
+    const finalName = options.style === "deepObject" ? `${name}[${encodeName(k)}]` : encodeName(k);
     values.push(serializePrimitiveParam(finalName, value[k], options));
   }
   const final = values.join(joiner);
@@ -550,8 +558,9 @@ export function createQuerySerializer(options) {
   return function querySerializer(queryParams) {
     const search = [];
     if (queryParams && typeof queryParams === "object") {
-      for (const name in queryParams) {
-        const value = queryParams[name];
+      for (const key in queryParams) {
+        const value = queryParams[key];
+        const name = encodeName(key);
         if (value === undefined || value === null) {
           continue;
         }

@@ -100,7 +100,7 @@ openapi-typesafe-fetch ships the common serialization methods out-of-the-box:
 | :-------------- | :---------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`.        |
 | `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`. |
-| `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`.          |
+| `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding of values (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`. |
 
 ```ts
 const client = createClient<paths>({
@@ -116,6 +116,8 @@ const client = createClient<paths>({
   },
 });
 ```
+
+Parameter names and object keys are encoded too, so a key from your data (`{ "a&b": 1 }`) cannot add a parameter or a path segment. `[`, `]`, `$`, `:`, `@` and `,` stay as written, so names such as `filter[status]` and `$filter` are sent unchanged.
 
 #### Array styles
 

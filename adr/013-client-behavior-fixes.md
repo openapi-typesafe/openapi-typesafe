@@ -32,6 +32,9 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
    a nested object as `[object Object]`. Form encoding has no standard for nesting: servers read `a[b]`,
    `a.b` or a JSON string.
 8. **Query on a path with `?` (PB-21).** A path such as `/search?v=2` with `params.query` got a second `?`.
+9. **Parameter names and object keys (pre-beta test plan 10.4, PB-33).** Values were percent-encoded,
+   names and object keys were not. The keys of an `additionalProperties` query object are data, so a key
+   `a&admin` added a query parameter, and a path object key `a/b` added a path segment.
 
 ## Decision
 
@@ -52,6 +55,10 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
 7. A form body with a nested object value throws and names `bodySerializer()`. Arrays and primitives keep the
    `URLSearchParams` encoding. The client does not pick one of the server conventions.
 8. The query is joined with `&` when the path already has a `?`.
+9. Query parameter names and object keys (query and path) are encoded with `encodeURIComponent`,
+   except `[`, `]`, `$`, `:`, `@` and `,`, which are common in names (`filter[status]`, `$filter`) and do
+   not split a URL. Names made of letters, digits and `-_.!~*'()` are unchanged. `allowReserved` still
+   applies to values only, as in the OpenAPI specification.
 
 ## Alternatives
 
@@ -67,6 +74,9 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
 | Send raw bodies as they are (chosen) | Uploads work; matches what `fetch` does with them | A user who relied on `{}` (no one can) sees a change |
 | Encode nested form values as `a[b]` | Works for PHP and Rails style servers | Silently wrong for servers that read `a.b` or JSON |
 | Throw on nested form values (chosen) | No silent `[object Object]`; the fix is one `bodySerializer` | A request that used to go out (broken) now rejects |
+| Encode names except name characters (chosen) | Closes parameter and segment injection; usual names unchanged | A name with `&`, `=`, `#`, `+`, `/`, `?`, `;`, `%` or a space is sent encoded |
+| Encode names fully (`encodeURIComponent`) | Simplest | `filter[status]` and `$filter` change on the wire; some servers match the raw form |
+| Keep names raw | No change | Data in keys can add parameters or path segments |
 
 ## Consequences
 
@@ -76,6 +86,7 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
 - Decisions 6 to 8 add about 0.3 kB, and there is nothing left to remove without losing a behavior, so the
   budget rises from 7.5 kB to 8 kB (7.77 kB after the changes). Correctness ranks above size
   (CODING_PRINCIPLES §1); openapi-fetch 0.17.0 is about the same size without these fixes.
+- Decision 9 adds about 0.13 kB (7.9 kB of 8 kB).
 
 ## Review trigger
 
