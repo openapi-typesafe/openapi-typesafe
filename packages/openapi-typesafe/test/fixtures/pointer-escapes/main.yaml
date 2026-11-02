@@ -1,0 +1,8 @@
+openapi: 3.1.0
+info: { title: pointer escapes, version: "1" }
+paths: {}
+components:
+  schemas:
+    Tilde: { $ref: "./parts.yaml#/a~0b" }
+    Slash: { $ref: "./parts.yaml#/a~1b" }
+    Percent: { $ref: "./parts.yaml#/50%25" }

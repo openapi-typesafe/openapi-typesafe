@@ -1,0 +1,3 @@
+a~b: { type: boolean }
+a/b: { type: number }
+"50%": { const: half }

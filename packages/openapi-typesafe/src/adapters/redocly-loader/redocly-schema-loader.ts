@@ -11,6 +11,8 @@ import type { Logger } from "../../application/ports/logger.js";
 import type { SchemaLoader, SchemaLoadRequest } from "../../application/ports/schema-loader.js";
 import { withStackOverflowReportedAsync } from "../../application/stack-overflow.js";
 import type { OpenAPI3 } from "../../types.js";
+import { repairBundledRefs } from "./bundled-ref-repair.js";
+import { findMalformedRefs, malformedRefsError } from "./malformed-refs.js";
 import { RefAccessResolver } from "./ref-access.js";
 import { resolveConfigWithAccess } from "./remote-fetch.js";
 import {
@@ -97,6 +99,9 @@ async function rethrowDocumentError(
   if (error instanceof Error && error.message === REF_CYCLE_MESSAGE) {
     throw refCycleError(error);
   }
+  if (error instanceof URIError) {
+    throw malformedRefsError(findMalformedRefs(await loadedDocuments(root, resolver)), error);
+  }
   if (error instanceof TypeError) {
     const keys = findUnsupportedKeys(await loadedDocuments(root, resolver));
     throw keys.length === 0 ? error : unsupportedKeysError(keys, error);
@@ -181,6 +186,7 @@ class RedoclySchemaLoader implements SchemaLoader {
       externalRefResolver: resolver,
     });
     this.#report(bundled.problems);
+    repairBundledRefs(bundled.bundle.parsed);
     this.#options.logger.debug("Bundled schema", "bundle", this.#options.now() - startedAt);
     return bundled.bundle.parsed;
   }
