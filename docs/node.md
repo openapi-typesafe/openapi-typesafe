@@ -75,6 +75,19 @@ try {
 }
 ```
 
+### Deprecated exports
+
+These exports keep working in 1.x and are removed in 2.0:
+
+- `stringToAST()`: return type text from an [IR callback](#ir-callbacks) instead. It needs a
+  TypeScript JavaScript API (`typescript` 6 or earlier, or `@typescript/typescript6`) and emits one
+  Node.js `DeprecationWarning` with the code `OPENAPI_TYPESAFE_DEP_STRING_TO_AST`, so
+  `node --no-deprecation` or `--throw-deprecation` work on it as on Node's own deprecations.
+- `resolveRef`, `scanDiscriminators`, `walk`, `c`, `debug`, `warn` and `error`, and the TypeScript
+  node helpers `addJSDocComment`, `tsArrayLiteralExpression`, `tsDedupe`, `tsEnum`, `tsEnumMember`,
+  `tsIsPrimitive`, `tsModifiers`, `tsPropertyIndex`, `tsReadonlyArray`, `QUESTION` and
+  `enumCache`: rarely used internals, marked `@deprecated` in the types (no runtime warning).
+
 ### Redoc config
 
 A Redoc config isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redoc config to the Node API. You can do this with the helpers in `@redocly/openapi-core` version 1, the version openapi-typesafe uses (`npm i -D @redocly/openapi-core@1`):
