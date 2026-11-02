@@ -13,13 +13,26 @@ const TEST_TIMEOUT_MS = 500;
 const PERSON = JSON.stringify({ type: "object", properties: { name: { type: "string" } } });
 const UNSUPPORTED_KEY = JSON.stringify({ type: "object", properties: { valueOf: { type: "string" } } });
 
-/** The routes of the local server: a schema, a missing file, a redirect loop and no answer. */
+/** How often the slow route sends one more byte: well inside the timeout, so only a total limit stops it. */
+const DRIP_INTERVAL_MS = 50;
+const drips = new Set<NodeJS.Timeout>();
+
+/** Answer at once, then send the body one space at a time and never finish it. */
+function drip(response: ServerResponse): void {
+  response.writeHead(200, { "content-type": "application/json" });
+  const timer = setInterval(() => response.write(" "), DRIP_INTERVAL_MS);
+  drips.add(timer);
+  response.on("close", () => clearInterval(timer));
+}
+
+/** The routes of the local server: a schema, a missing file, a redirect loop, no answer and a slow body. */
 function answer(request: IncomingMessage, response: ServerResponse): void {
   const routes: Record<string, () => void> = {
     "/person.json": () => response.writeHead(200, { "content-type": "application/json" }).end(PERSON),
     "/unsupported-key.json": () => response.writeHead(200, { "content-type": "application/json" }).end(UNSUPPORTED_KEY),
     "/loop.json": () => response.writeHead(302, { location: "/loop.json" }).end(),
     "/hang.json": () => undefined,
+    "/drip.json": () => drip(response),
   };
   (routes[request.url ?? ""] ?? (() => response.writeHead(404).end("Not Found")))();
 }
@@ -34,6 +47,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  for (const timer of drips) {
+    clearInterval(timer);
+  }
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
 });
@@ -73,6 +89,7 @@ describe("remote $ref", () => {
     ["is missing", "/missing.json"],
     ["redirects to itself", "/loop.json"],
     ["never answers", "/hang.json"],
+    ["sends its body one byte at a time forever", "/drip.json"],
   ])("a remote $ref that %s fails with SCHEMA_INVALID within the time limit", async (_name, path) => {
     const startedAt = performance.now();
 
@@ -88,6 +105,13 @@ describe("remote $ref", () => {
 
     expect(error).toMatchObject({ code: "SCHEMA_LOAD_FAILED" });
     expect(error.message).toBe(`Timed out after ${TEST_TIMEOUT_MS} ms loading ${baseURL}/hang.json`);
+  });
+
+  it("a remote source that sends its body one byte at a time fails within the time limit", async () => {
+    const error = await loadFailure(new URL(`${baseURL}/drip.json`));
+
+    expect(error).toMatchObject({ code: "SCHEMA_LOAD_FAILED" });
+    expect(error.message).toBe(`Timed out after ${TEST_TIMEOUT_MS} ms loading ${baseURL}/drip.json`);
   });
 
   it("an unsupported key in a remote document names that document", async () => {

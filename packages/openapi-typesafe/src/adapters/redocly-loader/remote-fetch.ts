@@ -18,13 +18,37 @@ export const MAX_CHECKED_REDIRECTS = 5;
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
-/** Fetch with a time limit: Node's own fetch waits five minutes for a server that never answers. */
+/** Statuses whose responses have no body; `new Response()` refuses a body for them. */
+const NULL_BODY_STATUSES = new Set([101, 103, 204, 205, 304]);
+
+/** A response whose body is already read, so that reading it again cannot wait or fail. */
+async function bufferedResponse(response: Response): Promise<Response> {
+  const body = await response.arrayBuffer();
+  const { status, statusText, headers } = response;
+  return new Response(NULL_BODY_STATUSES.has(status) ? null : body, {
+    status,
+    statusText,
+    headers,
+  });
+}
+
+/**
+ * Fetch with a time limit for the whole response, body included: Node's own fetch waits five
+ * minutes for a server that never answers, and a server that sends its body one byte at a time
+ * never finishes. The body is read here, inside the limit; when Redocly read it, the abort
+ * surfaced as a `DOMException` whose read-only `message` Redocly tried to change, which gave
+ * "Cannot set property message of  which has only a getter" instead of the time limit.
+ */
 function fetchWithTimeout(timeoutMs: number): RemoteFetch {
-  return (input, init = {}) =>
-    fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) }).catch((cause: unknown) => {
+  return async (input, init = {}) => {
+    try {
+      const response = await fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+      return await bufferedResponse(response);
+    } catch (cause) {
       const isTimeout = cause instanceof Error && cause.name === "TimeoutError";
       throw isTimeout ? new Error(`Timed out after ${timeoutMs} ms loading ${input}`) : cause;
-    });
+    }
+  };
 }
 
 /**
@@ -58,7 +82,7 @@ export function fetchWithCheckedRedirects(
 }
 
 export interface RemoteFetchOptions {
-  /** Time limit of one fetch, unless the Redocly config brings its own `customFetch`. */
+  /** Time limit of one fetch and its body, unless the Redocly config has its own `customFetch`. */
   readonly timeoutMs: number;
   readonly access: RefAccess;
 }
