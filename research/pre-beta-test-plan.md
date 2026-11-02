@@ -281,17 +281,30 @@ exported type names of openapi-typesafe-helpers equal those of openapi-typescrip
 
 ## 7. React Query client (`openapi-typesafe-react-query`)
 
-- [ ] 7.1 `useQuery`, `useSuspenseQuery`, `useInfiniteQuery`, `useMutation`, `queryOptions`
+- [x] 7.1 `useQuery`, `useSuspenseQuery`, `useInfiniteQuery`, `useMutation`, `queryOptions`
       with React 18 and 19 and TanStack Query 5.80 (lowest allowed) and the latest 5.x.
-- [ ] 7.2 Query keys: stable, unique per params, usable for `invalidateQueries`.
-- [ ] 7.3 Server rendering and hydration (`renderToString` plus `HydrationBoundary`; the
+- [x] 7.2 Query keys: stable, unique per params, usable for `invalidateQueries`.
+- [x] 7.3 Server rendering and hydration (`renderToString` plus `HydrationBoundary`; the
       React Query client has no Next.js example, the fetch client has one), Suspense
       boundaries, error boundaries.
-- [ ] 7.4 Types with `exactOptionalPropertyTypes` (ADR-009).
-- [ ] 7.5 Every example in `docs/react-query/*` compiles and runs.
-- [ ] 7.6 An error response with an empty body fails the query (ADR-013, decision 3); `signal`
+- [x] 7.4 Types with `exactOptionalPropertyTypes` (ADR-009).
+- [x] 7.5 Every example in `docs/react-query/*` compiles and runs.
+- [x] 7.6 An error response with an empty body fails the query (ADR-013, decision 3); `signal`
       is passed and cancels the request; `pageParamName` of `useInfiniteQuery`; the typed
       `queryKey` (`DataTag`) works with `setQueryData` / `getQueryData`.
+
+**§7 results.** 7.1: the package suite (43 tests, then 49) passes on React 18.3.1 and 19.3.1 with
+TanStack Query 5.80.12 and 5.105.2, installed from packed tarballs (`.logs/pre-beta/react-query/7.1-*`).
+Our declarations type-check on all four; on 5.80 only our own test fails to compile, because it uses
+the four-argument `onError`/`onSettled` of newer TanStack releases (users get the signature of their
+TanStack version). 7.2, 7.3, 7.6: new `test/query-cache.test.tsx` (param order, distinct keys,
+prefix invalidation, typed `getQueryData`/`setQueryData`, `cancelQueries` aborts, `renderToString`
+with `HydrationBoundary` makes no request), green on all four combinations; Suspense and error
+boundaries, `signal` and `pageParamName` were covered already. 7.4: consumer code (the package
+tests) compiles with `exactOptionalPropertyTypes` on both TanStack versions; our source still does
+not (ADR-009 stands). 7.5: PB-23; after the fix every `docs/react-query` example compiles
+(`noUncheckedIndexedAccess`, bundler resolution) and renders against msw
+(`7.5-docs-run.log`). The "1 kb" claim holds: 1.1 kB minified.
 
 ## 8. Migration tool (`openapi-typesafe-migrate`)
 
@@ -408,6 +421,7 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 | PB-20 | Fetch | S3 | inherited: a nested object in a urlencoded body was sent as `[object Object]` | fixed: throws and names `bodySerializer()` (ADR-013, decision 7) |
 | PB-21 | Fetch | S3 | inherited: a path with `?` plus `params.query` got a second `?` | fixed: joined with `&` (ADR-013, decision 8) |
 | PB-22 | Docs | S4 | the fetch docs did not say that cookie parameters are typed but not sent | fixed: note in `docs/fetch/api.md` |
+| PB-23 | Docs | S3 | inherited: the `docs/react-query` `useQuery` examples checked `!data` before `error`, so a failed request showed "Loading..." forever; the `useInfiniteQuery` example did not compile (undefined `ErrorBoundary`, `MyComponent`); the `useSuspenseQuery` example had no `Suspense` and read `message` from an `unknown` error | fixed: every example compiles and renders against a mock server |
 
 ## 14. Exit criteria (before inviting testers)
 
