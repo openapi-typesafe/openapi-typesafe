@@ -113,7 +113,7 @@ webhooks.
       `scripts/run-compat.sh all all`. Every difference from `fork-base` is classified:
       documented fix, byte-only difference with identical types, or defect. The report's
       `upstream-7.13.0` vs `fork-base` part lists what users of 7.13 will see change.
-- [ ] 4.2 Generated output type-checks with every strict flag of §2: the whole corpus with
+- [x] 4.2 Generated output type-checks with every strict flag of §2: the whole corpus with
       the default options under TypeScript 5.4 and 7.0, and every option set on the example
       schemas under every TypeScript version (the type matrix covers a sample today).
       `examples/digital-ocean-api.ts` and `examples/enum-root-types.ts` are excluded from
@@ -149,6 +149,15 @@ webhooks.
 
 **§4 results** (logs: `.logs/pre-beta/generator/`):
 
+- 4.2: the whole corpus with the default options (1,817 files; fork-base generates 1,814) under
+  TypeScript 5.4 and 7.0 with `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
+  `verbatimModuleSyntax` and `skipLibCheck: false`: the same errors in the same 19 files as
+  fork-base (249 lines on 7.0, 259 on 5.4), all from the documents (a `$ref` into a non-schema,
+  duplicate keys, self-reference). The 6 example schemas with 26 option sets (every single flag,
+  the dependent pairs and the 4.6 pairs) under 5.4, 5.9, 6.0 and 7.0: 20 of 26 sets compile; the
+  other 6 fail the same way on every version and never with more errors than fork-base (backlog
+  8, 27, 28, 29). Both formerly excluded examples now compile and are in `tsconfig.examples.json`
+  and the type-matrix consumer; the matrix passes on every version.
 - 4.4: a 3.1 document with `type` arrays, `const`, `$defs`, `unevaluatedProperties`,
   `prefixItems`, a discriminator and webhooks gives correct types, equal to `fork-base` apart
   from the branding and PB-10. `fork-base` rejects 3.2 documents; ours generates them, with the
