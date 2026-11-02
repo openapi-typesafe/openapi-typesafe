@@ -1,14 +1,19 @@
 import { CliGeneratorRunner } from "../adapters/cli-generator-runner.ts";
 import { TypeScriptIdentityChecker } from "../adapters/typescript-identity-checker.ts";
 import { decodeManifest } from "../application/codecs.ts";
+import { decodeDependentsManifest } from "../application/dependents-codecs.ts";
 import { REPOSITORY_PATHS } from "../application/layout.ts";
 import { buildManifest } from "../application/use-cases/build-manifest.ts";
+import { checkDependents } from "../application/use-cases/check-dependents.ts";
 import { compareOutputs } from "../application/use-cases/compare-outputs.ts";
 import { FetchStatus, fetchCorpus } from "../application/use-cases/fetch-corpus.ts";
 import { generateOutputs } from "../application/use-cases/generate-outputs.ts";
+import { packCandidatePackages } from "../application/use-cases/pack-candidate-packages.ts";
 import { renderReport } from "../application/use-cases/render-report.ts";
 import type { CorpusEntry } from "../domain/corpus-entry.ts";
 import { selectCorpusSubset } from "../domain/corpus-subset.ts";
+import type { DependentProject } from "../domain/dependent-project.ts";
+import { DependentStatus, summarizeDependents } from "../domain/dependent-result.ts";
 import { HarnessError, HarnessErrorCode } from "../domain/errors.ts";
 import { INTENTIONAL_DIFFERENCES } from "../domain/intentional-differences.ts";
 import type { CorpusManifest } from "../domain/manifest.ts";
@@ -77,7 +82,7 @@ async function runGenerate(container: HarnessContainer): Promise<ExitCode> {
       entries: selectEntries(container, manifest),
       optionSets: selectOptionSets(settings.optionSets),
       concurrency: settings.concurrency ?? HARNESS_DEFAULTS.workConcurrency,
-      timeoutMs: settings.timeoutMs,
+      timeoutMs: settings.timeoutMs ?? HARNESS_DEFAULTS.generatorTimeoutMs,
     },
   );
   const counts = Object.values(GenerationStatus).map(
@@ -131,6 +136,49 @@ async function runReport(container: HarnessContainer): Promise<ExitCode> {
   return 0;
 }
 
+async function readDependents(container: HarnessContainer): Promise<DependentProject[]> {
+  const text = await container.repository.readText(REPOSITORY_PATHS.dependents);
+  if (text === undefined) {
+    throw new HarnessError(
+      HarnessErrorCode.StoredFileInvalid,
+      `No ${REPOSITORY_PATHS.dependents} in the harness package`,
+    );
+  }
+  const { projects } = decodeDependentsManifest(text);
+  const selected = container.settings.projects;
+  if (selected === undefined) {
+    return [...projects];
+  }
+  const unknown = selected.filter((id) => !projects.some((project) => project.id === id));
+  if (unknown.length > 0) {
+    const message = `Unknown dependent projects: ${unknown.join(", ")}`;
+    throw new HarnessError(HarnessErrorCode.SettingsInvalid, message);
+  }
+  return projects.filter((project) => selected.includes(project.id));
+}
+
+async function runDependents(container: HarnessContainer): Promise<ExitCode> {
+  const projects = await readDependents(container);
+  const timeoutMs = container.settings.timeoutMs ?? HARNESS_DEFAULTS.dependentStepTimeoutMs;
+  const specs = await packCandidatePackages(
+    { ...container, sources: container.packages },
+    timeoutMs,
+  );
+  const results = await checkDependents(
+    { ...container, intentionalDifferences: INTENTIONAL_DIFFERENCES },
+    // Step outputs go next to the run log: `<log name without .jsonl>/<project>/<variant>/`.
+    { projects, specs, timeoutMs, stepLogDirectory: container.logger.path.replace(/\.jsonl$/, "") },
+  );
+  const summary = summarizeDependents(results);
+  printLine(
+    `Dependents: ${DependentStatus.Passed}=${summary.passed} ` +
+      `${DependentStatus.Regressed}=${summary.regressed} ` +
+      `${DependentStatus.BaselineFailed}=${summary.baselineFailed}`,
+  );
+  // A baseline failure is a problem too: the manifest entry no longer checks anything.
+  return summary.passed === summary.total ? 0 : 1;
+}
+
 /** Command table: a new command is a new entry here, not a new branch in `main`. */
 export const COMMANDS: Readonly<
   Record<HarnessCommand, (container: HarnessContainer) => Promise<ExitCode>>
@@ -140,4 +188,5 @@ export const COMMANDS: Readonly<
   [HarnessCommand.Generate]: runGenerate,
   [HarnessCommand.Compare]: runCompare,
   [HarnessCommand.Report]: runReport,
+  [HarnessCommand.Dependents]: runDependents,
 };

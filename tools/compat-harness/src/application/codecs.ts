@@ -63,7 +63,8 @@ const ComparisonResultsSchema = z.array(
   }),
 );
 
-function decode<T>(schema: z.ZodType<T>, text: string, fileDescription: string): T {
+/** Parse JSON text and validate it; any problem is a STORED_FILE_INVALID error. */
+export function decode<T>(schema: z.ZodType<T>, text: string, fileDescription: string): T {
   let json: unknown;
   try {
     json = JSON.parse(text);

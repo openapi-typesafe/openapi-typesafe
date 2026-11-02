@@ -4,6 +4,8 @@
 #   the repository is public (ENGINEERING_PLAN 1.7); until then the full run is done locally with
 #   tools/compat-harness/scripts/run-compat.sh before every release.
 # The corpus documents are cached between runs and verified against corpus/manifest.json hashes.
+# The full run also checks the real projects of corpus/dependents.json (ENGINEERING_PLAN 8.4)
+# before the report, so the report has its "Real projects" section.
 name: compat
 
 on:
@@ -60,6 +62,15 @@ jobs:
       - name: fetch corpus
         working-directory: tools/compat-harness
         run: node src/cli/main.ts fetch --corpus "$CORPUS"
+      - name: set up Bun for the Bun projects
+        if: env.CORPUS == 'all'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - name: check dependent projects
+        if: env.CORPUS == 'all'
+        working-directory: tools/compat-harness
+        run: node src/cli/main.ts dependents
       - name: generate, compare, report
         working-directory: tools/compat-harness
         run: scripts/run-compat.sh "$CORPUS" "$OPTION_SETS"

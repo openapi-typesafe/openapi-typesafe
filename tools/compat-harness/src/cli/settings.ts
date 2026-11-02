@@ -9,6 +9,7 @@ export const HarnessCommand = {
   Generate: "generate",
   Compare: "compare",
   Report: "report",
+  Dependents: "dependents",
 } as const;
 
 export type HarnessCommand = (typeof HarnessCommand)[keyof typeof HarnessCommand];
@@ -30,6 +31,15 @@ export const HARNESS_DEFAULTS = {
    * headroom.
    */
   generatorTimeoutMs: 120_000,
+  /**
+   * Per step of a dependent project. A cold install of a monorepo takes a few minutes and a full
+   * test suite about as long; ten minutes stops a hung watcher without cutting a slow but real run.
+   */
+  dependentStepTimeoutMs: 600_000,
+  /** The openapi-typesafe packages the dependents command packs, relative to this package. */
+  packagesDir: "../../packages",
+  /** Under the system temporary directory: outside the repository, see DEPENDENTS_WORK_PATHS. */
+  dependentsWorkDirName: "openapi-typesafe-dependents",
   /** Large documents download in seconds; a minute covers slow mirrors without hanging the run. */
   httpTimeoutMs: 60_000,
   retryAttempts: 4,
@@ -61,7 +71,16 @@ const SettingsSchema = z.object({
   isTypeCheckEnabled: z.boolean().default(false),
   isHashUpdateAllowed: z.boolean().default(false),
   concurrency: PositiveInteger.optional(),
-  timeoutMs: PositiveInteger.default(HARNESS_DEFAULTS.generatorTimeoutMs),
+  /** Absent: the command default (generator runs or dependent steps). */
+  timeoutMs: PositiveInteger.optional(),
+  /** Ids of the dependent projects to check; absent: every project of the manifest. */
+  projects: z
+    .string()
+    .min(1)
+    .transform((ids) => ids.split(",").map((id) => id.trim()))
+    .optional(),
+  /** Absent: `<system temporary directory>/openapi-typesafe-dependents`. */
+  workDir: z.string().min(1).optional(),
 });
 
 export type HarnessSettings = z.infer<typeof SettingsSchema>;
@@ -80,6 +99,8 @@ const CLI_OPTIONS = {
   "update-hashes": { type: "boolean" },
   concurrency: { type: "string" },
   "timeout-ms": { type: "string" },
+  projects: { type: "string" },
+  "work-dir": { type: "string" },
 } as const;
 
 /**
@@ -108,6 +129,8 @@ export function parseSettings(argv: readonly string[]): HarnessSettings {
     isHashUpdateAllowed: values["update-hashes"],
     concurrency: values.concurrency,
     timeoutMs: values["timeout-ms"],
+    projects: values.projects,
+    workDir: values["work-dir"],
   });
   if (!parsed.success) {
     throw new HarnessError(HarnessErrorCode.SettingsInvalid, z.prettifyError(parsed.error));

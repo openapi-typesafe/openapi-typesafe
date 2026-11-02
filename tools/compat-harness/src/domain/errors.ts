@@ -1,6 +1,7 @@
 /** Stable, machine-readable error codes of the harness. */
 export const HarnessErrorCode = {
   CatalogInvalid: "CATALOG_INVALID",
+  CommandFailed: "COMMAND_FAILED",
   DuplicateCorpusEntry: "DUPLICATE_CORPUS_ENTRY",
   StoredFileInvalid: "STORED_FILE_INVALID",
   SettingsInvalid: "SETTINGS_INVALID",

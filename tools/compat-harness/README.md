@@ -18,6 +18,7 @@ pnpm harness fetch --corpus 200           # download the CI subset (or --corpus 
 pnpm harness generate --label fork-base --cli <path/to/bin/cli.js> --option-sets all
 pnpm harness generate --label current --cli ../../packages/openapi-typesafe/bin/cli.js --option-sets all
 pnpm harness compare --golden fork-base --candidate current --types
+pnpm harness dependents                   # real projects (ENGINEERING_PLAN 8.4), before `report`
 pnpm harness report --golden fork-base --candidate current
 ```
 
@@ -27,7 +28,8 @@ pnpm harness report --golden fork-base --candidate current
 | `--option-sets <ids\|all>`                | Comma-separated option set ids (`default`, `enum`, `root-types+root-types-keep-casing`, …)      |
 | `--types`                                 | Also run the strict type-identity check on outputs whose text differs                           |
 | `--update-hashes`                         | Accept changed documents and record their new hashes (refreshing the corpus on purpose)         |
-| `--concurrency <n>` / `--timeout-ms <n>`  | Worker count; per-run generator timeout                                                         |
+| `--concurrency <n>` / `--timeout-ms <n>`  | Worker count; per-run generator timeout (per step for `dependents`, default 10 minutes)         |
+| `--projects <ids>` / `--work-dir <path>`  | `dependents` only: comma-separated project ids; work directory (default: system temp)           |
 | `--cache-dir <path>` / `--log-dir <path>` | Defaults: `.cache/compat`, `../../.logs/harness`                                                |
 
 Exit codes: `0` passed, `1` the command found problems (failed downloads, mismatches), `2` invalid
@@ -68,6 +70,39 @@ arguments.
   the golden text. The comparison applies the rewrites to the golden text first, so a case that
   differs only by them counts as identical; the report lists every rewrite with the cases it changed.
 - Cases where the golden generator fails are excluded from the identity rates.
+
+## Real projects
+
+`pnpm harness dependents` checks the open-source projects of `corpus/dependents.json`, each pinned to
+a commit. Only the manifest lives in git; the projects are cloned into the work directory, which is
+outside this repository so their package managers do not see the openapi-typesafe workspace.
+
+1. The openapi-typesafe packages are packed with `pnpm pack`, and the dependencies between them are
+   pointed at the other tarballs, because the packages are not on a registry.
+2. Each project runs twice from a fresh git worktree: as it is (baseline), and switched to
+   openapi-typesafe by package name only (candidate). The switch renames the packages in every
+   `package.json`, the generator command in scripts, and quoted module specifiers in source files.
+   The baseline pins the original packages to the upstream releases the fork starts from
+   (`UPSTREAM_BASE_VERSIONS`), so the two runs differ by the switch alone: a project on an older
+   upstream release can break on upstream changes (openapi-fetch 0.13 → 0.17, for example), and
+   that is not a difference of openapi-typesafe.
+3. Each run installs with lifecycle scripts disabled and then runs the project steps of the
+   manifest in order. A project that fails on the upstream releases reports `baseline-failed`: its
+   entry needs work. A step that passes on upstream and fails after the switch reports `regressed`.
+4. Files the steps generate are compared between the runs like corpus outputs.
+
+The commands run with a reduced environment (`PATH`, `HOME`, `TMPDIR`, `USER`, plus `CI=1`,
+`LANG=en_US.UTF-8` and `TZ=UTC` like a CI runner), so tokens of the calling shell never reach
+third-party scripts. Run the command with Node.js 24 (the active LTS, which the projects' own CI
+uses) first on `PATH`: on Node.js 26 some project tests fail on their own, because of the
+`module.register()` deprecation warning and the Web Storage globals. Bun projects need `bun` on
+`PATH`.
+Each step writes its full output to `.logs/harness/<run>-dependents/<project>/<variant>/<step>.log`;
+results go to `.cache/compat/results/dependents.json` and into the "Real projects" section of the
+next report. Checkouts of passed projects are deleted; failed ones stay for inspection.
+
+To add a project, pin its current commit, list the steps its CI runs that work offline (generate,
+type-check, build, unit tests), and note in `notes` why steps were left out.
 
 ## Layout
 

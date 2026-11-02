@@ -1,7 +1,14 @@
+import {
+  type DependentResult,
+  GeneratedFileStatus,
+  StepStatus,
+} from "../domain/dependent-result.ts";
 import { ComparisonStatus, type ComparisonSummary } from "../domain/run-result.ts";
-import type { CompatibilityReport } from "./report.ts";
+import type { CompatibilityReport, DependentsReport } from "./report.ts";
 
 const PERCENT_DIGITS = 2;
+/** Enough of a commit SHA to find it on GitHub. */
+const SHORT_COMMIT_LENGTH = 12;
 const STATUS_COLUMNS = Object.values(ComparisonStatus);
 
 function formatRate(rate: number): string {
@@ -68,6 +75,43 @@ function intentionalDifferenceTable(report: CompatibilityReport): string[] {
   ];
 }
 
+function dependentRow(result: DependentResult): string {
+  const passedSteps = result.candidate.filter((step) => step.status === StepStatus.Passed).length;
+  const identicalFiles = result.generatedFiles.filter(
+    (file) => file.status === GeneratedFileStatus.Identical,
+  ).length;
+  return tableRow([
+    `[${result.projectId}](${result.repository})`,
+    `\`${result.commit.slice(0, SHORT_COMMIT_LENGTH)}\``,
+    result.status,
+    result.failedStep ?? "",
+    `${passedSteps}/${result.candidate.length}`,
+    `${identicalFiles}/${result.generatedFiles.length}`,
+  ]);
+}
+
+function dependentsSection(dependents: DependentsReport | null): string[] {
+  if (dependents === null) {
+    return ["Not run. Run `pnpm harness dependents` before the report to include them."];
+  }
+  const { summary } = dependents;
+  const header = ["Project", "Commit", "Status", "Failed step", "Steps passed", "Same output"];
+  return [
+    `${summary.total} projects: ${summary.passed} passed, ${summary.regressed} regressed, ` +
+      `${summary.baselineFailed} failed before the switch. Generated files with the same ` +
+      `output: ${summary.identicalGeneratedFiles}/${summary.generatedFiles}.`,
+    "",
+    tableRow(header),
+    tableRow(header.map(() => "---")),
+    ...dependents.results.map(dependentRow),
+  ];
+}
+
+/** A level-two section: a blank line, the heading, a blank line and the body. */
+function section(title: string, body: readonly string[]): string[] {
+  return ["", `## ${title}`, "", ...body];
+}
+
 /**
  * Render `compatibility-report.md`. Rates exclude cases where the golden generator failed, because
  * the candidate cannot be expected to match an output that does not exist.
@@ -78,25 +122,22 @@ export function renderMarkdownReport(report: CompatibilityReport): string {
     "",
     `Generated at ${report.generatedAt}.`,
     `Golden: \`${report.goldenLabel}\`. Candidate: \`${report.candidateLabel}\`.`,
-    "",
-    "## Summary",
-    "",
-    ...summaryTable([["all", report.summary]]),
-    "",
-    "## By option set",
-    "",
-    ...summaryTable(Object.entries(report.byOptionSet)),
-    "",
-    "## Intentional differences",
-    "",
-    "Bug fixes that change output on purpose (ENGINEERING_PLAN 7.4). The comparison rewrites the " +
-      "golden text with each change first, so a case that differs only by these counts as identical.",
-    "",
-    ...intentionalDifferenceTable(report),
-    "",
-    "## Differences and failures by category",
-    "",
-    ...failureTable(report),
+    ...section("Summary", summaryTable([["all", report.summary]])),
+    ...section("By option set", summaryTable(Object.entries(report.byOptionSet))),
+    ...section("Intentional differences", [
+      "Bug fixes that change output on purpose (ENGINEERING_PLAN 7.4). The comparison rewrites " +
+        "the golden text with each change first, so a case that differs only by these counts as " +
+        "identical.",
+      "",
+      ...intentionalDifferenceTable(report),
+    ]),
+    ...section("Differences and failures by category", failureTable(report)),
+    ...section("Real projects", [
+      "Open-source dependents run as they are and switched to openapi-typesafe by package name " +
+        "only (ENGINEERING_PLAN 8.4). Same output compares the files they generate.",
+      "",
+      ...dependentsSection(report.dependents),
+    ]),
   ];
   return `${lines.join("\n")}\n`;
 }

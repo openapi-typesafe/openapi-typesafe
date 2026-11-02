@@ -1,0 +1,498 @@
+{
+  "schemaVersion": 1,
+  "projects": [
+    {
+      "id": "unsplash-js",
+      "repository": "https://github.com/unsplash/unsplash-js",
+      "commit": "de61b942e16a6a42376b19bf5a51a810e6685319",
+      "packageManager": "pnpm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "pnpm",
+            "run",
+            "gen"
+          ]
+        },
+        {
+          "name": "typecheck",
+          "command": [
+            "pnpm",
+            "run",
+            "typecheck"
+          ]
+        },
+        {
+          "name": "build",
+          "command": [
+            "pnpm",
+            "run",
+            "build"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "pnpm",
+            "exec",
+            "vitest",
+            "run"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "gen/unsplash.d.ts"
+      ],
+      "notes": "The tests import the built bundle, so the build runs first; gen:alias needs jq."
+    },
+    {
+      "id": "swr-openapi",
+      "repository": "https://github.com/htunnicliff/swr-openapi",
+      "commit": "34d1e0dbb5245d7e60f9bad1cc671ae952a91092",
+      "packageManager": "pnpm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "typecheck",
+          "command": [
+            "pnpm",
+            "run",
+            "lint:ts"
+          ]
+        }
+      ],
+      "generatedFiles": [],
+      "notes": "A library on top of openapi-fetch and openapi-typescript-helpers. Its vitest run fails to start at this commit (vitest 4 with vite 5 in the lockfile), so only the type check runs; it includes the type tests."
+    },
+    {
+      "id": "openapi-fetch-gen",
+      "repository": "https://github.com/moznion/openapi-fetch-gen",
+      "commit": "1b2ec9ee05d240a7488177dee821b1aa950626f7",
+      "packageManager": "pnpm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "pnpm",
+            "run",
+            "generate_test_resource"
+          ]
+        },
+        {
+          "name": "build",
+          "command": [
+            "pnpm",
+            "run",
+            "build"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "pnpm",
+            "run",
+            "test"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "src/test_resources/schema.d.ts"
+      ],
+      "notes": "A client generator that reads openapi-typescript output."
+    },
+    {
+      "id": "vc-bots",
+      "repository": "https://github.com/Virtual-Coffee/vc-bots",
+      "commit": "0bfc54accbe4bda27d88b91e8b21a6d4c10efcfc",
+      "packageManager": "pnpm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "pnpm",
+            "run",
+            "gen:api-types"
+          ]
+        },
+        {
+          "name": "typecheck",
+          "command": [
+            "pnpm",
+            "run",
+            "typecheck"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "pnpm",
+            "run",
+            "test"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "src/generated/google-calendar-v3.d.ts",
+        "src/generated/zoom-meetings.d.ts",
+        "src/generated/google-oauth-token.d.ts",
+        "src/generated/zoom-oauth-token.d.ts"
+      ],
+      "notes": "Generates through the Node API (openapiTS, astToString, COMMENT_HEADER)."
+    },
+    {
+      "id": "org-roam-ui-lite",
+      "repository": "https://github.com/tani/org-roam-ui-lite",
+      "commit": "e036f5ee0a6f21c374643b0d8bc58fb559b87e3c",
+      "packageManager": "npm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "npm",
+            "run",
+            "typegen"
+          ]
+        },
+        {
+          "name": "typecheck",
+          "command": [
+            "npm",
+            "run",
+            "check"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "npm",
+            "test",
+            "--",
+            "--run"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "packages/frontend/src/api/api.d.ts",
+        "packages/backend/src/api.d.ts"
+      ],
+      "notes": "npm workspaces; generates through the Node API and formats the output with Biome."
+    },
+    {
+      "id": "acai-cli",
+      "repository": "https://github.com/acai-sh/cli",
+      "commit": "6ec9df89dda3c6f2812323313f399691b3f6bcd6",
+      "packageManager": "bun",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "bun",
+            "run",
+            "regen:openapi"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "bun",
+            "run",
+            "test"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "src/generated/openapi.ts"
+      ],
+      "notes": "Bun project; no type-check script, the tests run the TypeScript sources."
+    },
+    {
+      "id": "obsidian-media-db",
+      "repository": "https://github.com/mProjectsCode/obsidian-media-db-plugin",
+      "commit": "81ff85560f2aeba0a90e6fe82c05363fc6119d4c",
+      "packageManager": "bun",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "typecheck",
+          "command": [
+            "bun",
+            "run",
+            "typecheck"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "bun",
+            "run",
+            "test"
+          ]
+        }
+      ],
+      "generatedFiles": [],
+      "notes": "Bun project; the committed schemas are kept, only the client is switched."
+    },
+    {
+      "id": "immich-discord-bot",
+      "repository": "https://github.com/immich-app/discord-bot",
+      "commit": "a0369c113426641cc788fe629753a05fb4b1ec70",
+      "packageManager": "npm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "typecheck",
+          "command": [
+            "npm",
+            "run",
+            "check"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "npm",
+            "exec",
+            "--",
+            "vitest",
+            "run",
+            "--exclude",
+            "src/repositories/rss.repository.spec.ts"
+          ]
+        }
+      ],
+      "generatedFiles": [],
+      "notes": "The Zulip types come from a remote spec, so the committed file is kept. The RSS test listens on 127.0.0.2, which only Linux provides, so it is left out."
+    },
+    {
+      "id": "lichess-broadcaster",
+      "repository": "https://github.com/lichess-org/broadcaster",
+      "commit": "e5a30919925180d271d4fd48a3514a3e4fe9e598",
+      "packageManager": "pnpm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "typecheck",
+          "command": [
+            "pnpm",
+            "run",
+            "tsc"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "pnpm",
+            "run",
+            "test"
+          ]
+        }
+      ],
+      "generatedFiles": [],
+      "notes": "Vue app; the client is switched, the types come from a package."
+    },
+    {
+      "id": "arena-cli",
+      "repository": "https://github.com/aredotna/cli",
+      "commit": "63441ef27f7296434bf7f2cccb7532bee68d6b84",
+      "packageManager": "npm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "typecheck",
+          "command": [
+            "npm",
+            "run",
+            "typecheck"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "npm",
+            "exec",
+            "--",
+            "tsx",
+            "--test",
+            "src/api/client.test.ts",
+            "src/cli.contract.test.ts",
+            "src/lib/args.test.ts",
+            "src/lib/destructive-confirmation.test.ts",
+            "src/lib/download.test.ts",
+            "src/lib/import.test.ts",
+            "src/lib/metadata.test.ts",
+            "src/lib/registry-v3.test.ts",
+            "src/lib/session-nav.test.ts",
+            "src/lib/upload-command.test.ts",
+            "src/lib/vcr.test.ts"
+          ]
+        }
+      ],
+      "generatedFiles": [],
+      "notes": "The schema comes from a remote spec, so the committed file is kept. The test files of the npm test script run, without src/lib/registry.test.ts, which calls the live API."
+    },
+    {
+      "id": "whatsapp-js-sdk",
+      "repository": "https://github.com/great-detail/WhatsApp-JS-SDK",
+      "commit": "240843d66159915ba22cb0e503125b3fa577ae22",
+      "packageManager": "pnpm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "pnpm",
+            "run",
+            "gen"
+          ]
+        },
+        {
+          "name": "typecheck",
+          "command": [
+            "pnpm",
+            "run",
+            "typecheck"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "pnpm",
+            "run",
+            "test:unit"
+          ]
+        }
+      ],
+      "generatedFiles": [],
+      "notes": "Generates through the Node API in gen-static.ts."
+    },
+    {
+      "id": "permit-cli",
+      "repository": "https://github.com/permitio/permit-cli",
+      "commit": "745e8a3dc65655d7b8b387eb9028192009e425f5",
+      "packageManager": "npm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "typecheck",
+          "command": [
+            "npm",
+            "run",
+            "test:ts"
+          ]
+        }
+      ],
+      "generatedFiles": [],
+      "notes": "The schemas come from remote specs, so the committed files are kept. Only the type check runs: the Ink terminal UI tests fail at random between runs of the same code."
+    },
+    {
+      "id": "miro-code",
+      "repository": "https://github.com/clean-frontend/miro-code",
+      "commit": "f2226a240c56d140a272b27a5b7ff36419c3a757",
+      "packageManager": "npm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "npm",
+            "run",
+            "api"
+          ]
+        },
+        {
+          "name": "typecheck",
+          "command": [
+            "npm",
+            "exec",
+            "--",
+            "tsc",
+            "-b"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "src/shared/api/schema/generated.ts"
+      ],
+      "notes": "Uses openapi-react-query."
+    },
+    {
+      "id": "immerle-ui",
+      "repository": "https://github.com/immerle/immerle",
+      "commit": "c715fb9f062c6a1eabe383e34851cca8f07a66f9",
+      "packageManager": "npm",
+      "directory": "ui",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "npm",
+            "run",
+            "gen:api"
+          ]
+        },
+        {
+          "name": "typecheck",
+          "command": [
+            "npm",
+            "run",
+            "typecheck"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "npm",
+            "test"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "src/api/generated/schema.ts"
+      ],
+      "notes": "The web UI of a Go service."
+    },
+    {
+      "id": "vue-h5-template",
+      "repository": "https://github.com/sunniejs/vue-h5-template",
+      "commit": "a829261c3558a533b8f012ff94286f0605ad54da",
+      "packageManager": "pnpm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "pnpm",
+            "run",
+            "api:generate"
+          ]
+        },
+        {
+          "name": "typecheck",
+          "command": [
+            "pnpm",
+            "run",
+            "typecheck"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "pnpm",
+            "run",
+            "test"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "src/types/api/generated.d.ts"
+      ],
+      "notes": "Generator only; the output is formatted with oxfmt."
+    }
+  ]
+}

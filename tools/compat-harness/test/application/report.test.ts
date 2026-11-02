@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { encodeJson } from "../../src/application/codecs.ts";
 import {
   comparisonResultsPath,
+  DEPENDENTS_RESULTS_PATH,
   generationResultsPath,
   reportPaths,
 } from "../../src/application/layout.ts";
@@ -9,6 +10,12 @@ import { buildCompatibilityReport, type ReportInput } from "../../src/applicatio
 import { renderMarkdownReport } from "../../src/application/report-markdown.ts";
 import { renderReport } from "../../src/application/use-cases/render-report.ts";
 import type { CorpusEntryId } from "../../src/domain/corpus-entry.ts";
+import {
+  type DependentResult,
+  DependentStatus,
+  GeneratedFileStatus,
+  StepStatus,
+} from "../../src/domain/dependent-result.ts";
 import { HarnessErrorCode } from "../../src/domain/errors.ts";
 import type { IntentionalDifference } from "../../src/domain/intentional-differences.ts";
 import {
@@ -195,6 +202,60 @@ describe("renderMarkdownReport", () => {
   });
 });
 
+const DEPENDENT: DependentResult = {
+  projectId: "demo",
+  repository: "https://github.com/owner/demo",
+  commit: "0123456789abcdef0123456789abcdef01234567",
+  status: DependentStatus.Regressed,
+  failedStep: "test",
+  baseline: [],
+  candidate: [
+    { name: "install", status: StepStatus.Passed, durationMs: 1, outputExcerpt: "" },
+    { name: "test", status: StepStatus.Failed, durationMs: 1, outputExcerpt: "boom" },
+  ],
+  generatedFiles: [
+    {
+      path: "a.ts",
+      status: GeneratedFileStatus.Identical,
+      firstDifferentLine: null,
+      differentLineCount: 0,
+      intentionalDifferenceIds: [],
+    },
+  ],
+};
+
+describe("real projects in the report", () => {
+  it("buildCompatibilityReport without dependents reports them as not run", () => {
+    const report = buildCompatibilityReport(INPUT);
+
+    expect(report.dependents).toBeNull();
+    expect(renderMarkdownReport(report)).toContain("## Real projects");
+    expect(renderMarkdownReport(report)).toContain("Not run. Run `pnpm harness dependents`");
+  });
+
+  it("renderMarkdownReport lists every dependent with its verdict and step counts", () => {
+    const report = buildCompatibilityReport({ ...INPUT, dependents: [DEPENDENT] });
+
+    const markdown = renderMarkdownReport(report);
+
+    expect(report.dependents?.summary).toMatchObject({ total: 1, regressed: 1 });
+    expect(markdown).toContain("1 projects: 0 passed, 1 regressed, 0 failed before the switch.");
+    expect(markdown).toContain(
+      "| [demo](https://github.com/owner/demo) | `0123456789ab` | regressed | test | 1/2 | 1/1 |",
+    );
+  });
+
+  it("renderMarkdownReport leaves the failed step empty for a passed dependent", () => {
+    const passed = { ...DEPENDENT, status: DependentStatus.Passed, failedStep: null };
+
+    const markdown = renderMarkdownReport(
+      buildCompatibilityReport({ ...INPUT, dependents: [passed] }),
+    );
+
+    expect(markdown).toContain("| passed |  | 1/2 |");
+  });
+});
+
 describe("renderReport", () => {
   function setUp() {
     const cache = new InMemoryFileStore({
@@ -220,6 +281,18 @@ describe("renderReport", () => {
     expect(cache.files.get(paths.markdown)).toBe(renderMarkdownReport(report));
     expect(JSON.parse(cache.files.get(paths.json) ?? "{}")).toMatchObject({ generatedAt: NOW });
     expect(dependencies.logger.records[0]?.event).toBe("report_rendered");
+  });
+
+  it("renderReport includes the stored dependent results", async () => {
+    const { cache, dependencies } = setUp();
+    cache.files.set(DEPENDENTS_RESULTS_PATH, encodeJson([DEPENDENT]));
+
+    const report = await renderReport(dependencies, {
+      goldenLabel: "fork-base",
+      candidateLabel: "current",
+    });
+
+    expect(report.dependents?.results).toEqual([DEPENDENT]);
   });
 
   it("renderReport without comparison results throws STORED_FILE_INVALID", async () => {

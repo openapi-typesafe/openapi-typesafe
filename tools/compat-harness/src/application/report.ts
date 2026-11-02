@@ -1,3 +1,8 @@
+import {
+  type DependentResult,
+  type DependentsSummary,
+  summarizeDependents,
+} from "../domain/dependent-result.ts";
 import type { IntentionalDifference } from "../domain/intentional-differences.ts";
 import { compareOrdinal } from "../domain/ordering.ts";
 import {
@@ -36,7 +41,14 @@ export interface CompatibilityReport {
   readonly byOptionSet: Readonly<Record<string, ComparisonSummary>>;
   readonly failureGroups: readonly FailureGroup[];
   readonly intentionalDifferences: readonly IntentionalDifferenceUse[];
+  /** Real projects of ENGINEERING_PLAN 8.4; null when the `dependents` command has not run. */
+  readonly dependents: DependentsReport | null;
   readonly comparisons: readonly ComparisonResult[];
+}
+
+export interface DependentsReport {
+  readonly summary: DependentsSummary;
+  readonly results: readonly DependentResult[];
 }
 
 export interface ReportInput {
@@ -48,6 +60,8 @@ export interface ReportInput {
   readonly candidateResults: readonly GenerationResult[];
   /** The catalog the comparison used; every entry is listed, also when it applied nowhere. */
   readonly intentionalDifferences: readonly IntentionalDifference[];
+  /** Results of the last `dependents` run; absent when it has not run. */
+  readonly dependents?: readonly DependentResult[];
 }
 
 const EXAMPLE_COUNT = 5;
@@ -151,6 +165,10 @@ export function buildCompatibilityReport(input: ReportInput): CompatibilityRepor
     byOptionSet: summarizeByOptionSet(input.comparisons),
     failureGroups: groupFailures(input),
     intentionalDifferences: describeIntentionalDifferences(input),
+    dependents:
+      input.dependents === undefined
+        ? null
+        : { summary: summarizeDependents(input.dependents), results: input.dependents },
     comparisons: input.comparisons,
   };
 }

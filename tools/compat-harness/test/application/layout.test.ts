@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   comparisonResultsPath,
+  dependentCheckoutPath,
+  dependentRepositoryPath,
   documentPath,
   generationResultsPath,
+  joinPath,
   outputPath,
   reportPaths,
 } from "../../src/application/layout.ts";
@@ -31,5 +34,20 @@ describe("layout", () => {
       markdown: "reports/a__vs__b.md",
       json: "reports/a__vs__b.json",
     });
+  });
+});
+
+describe("dependents layout", () => {
+  it("dependentRepositoryPath and dependentCheckoutPath are per project and variant", () => {
+    expect(dependentRepositoryPath("demo")).toBe("repositories/demo");
+    expect(dependentCheckoutPath("demo", "candidate")).toBe("checkouts/demo/candidate");
+  });
+
+  it.each([
+    [["checkouts/demo", ".", "gen/a.ts"], "checkouts/demo/gen/a.ts"],
+    [["/abs/root/", "./app", "x"], "/abs/root/app/x"],
+    [["a//b", "c/"], "a/b/c"],
+  ])("joinPath(%j) is %s", (segments, joined) => {
+    expect(joinPath(...segments)).toBe(joined);
   });
 });

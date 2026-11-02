@@ -1,7 +1,13 @@
 import { HarnessError, HarnessErrorCode } from "../../domain/errors.ts";
 import type { IntentionalDifference } from "../../domain/intentional-differences.ts";
 import { decodeComparisonResults, decodeGenerationResults, encodeJson } from "../codecs.ts";
-import { comparisonResultsPath, generationResultsPath, reportPaths } from "../layout.ts";
+import { decodeDependentResults } from "../dependents-codecs.ts";
+import {
+  comparisonResultsPath,
+  DEPENDENTS_RESULTS_PATH,
+  generationResultsPath,
+  reportPaths,
+} from "../layout.ts";
 import type { Clock, FileStore, Logger } from "../ports.ts";
 import { buildCompatibilityReport, type CompatibilityReport } from "../report.ts";
 import { renderMarkdownReport } from "../report-markdown.ts";
@@ -32,6 +38,7 @@ export async function renderReport(
 ): Promise<CompatibilityReport> {
   const { cache } = dependencies;
   const { goldenLabel, candidateLabel } = labels;
+  const dependentsText = await cache.readText(DEPENDENTS_RESULTS_PATH);
   const report = buildCompatibilityReport({
     goldenLabel,
     candidateLabel,
@@ -46,6 +53,7 @@ export async function renderReport(
       await readRequired(cache, generationResultsPath(candidateLabel)),
     ),
     intentionalDifferences: dependencies.intentionalDifferences ?? [],
+    ...(dependentsText === undefined ? {} : { dependents: decodeDependentResults(dependentsText) }),
   });
   const paths = reportPaths(goldenLabel, candidateLabel);
   await cache.writeText(paths.markdown, renderMarkdownReport(report));
