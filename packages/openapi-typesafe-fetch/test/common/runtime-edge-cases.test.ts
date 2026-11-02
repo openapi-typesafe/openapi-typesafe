@@ -80,7 +80,9 @@ describe("middleware registration", () => {
   it("use with an object without hooks throws", () => {
     const client = createClient<Paths>(recordingOptions([]));
 
-    expect(() => client.use({} as Middleware)).toThrow(/Middleware must be an object/);
+    expect(() => client.use({} as Middleware)).toThrow(
+      "Middleware must be an object with one of `onRequest()`, `onResponse()` or `onError()`",
+    );
   });
 });
 

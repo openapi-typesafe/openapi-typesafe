@@ -335,7 +335,7 @@ export default function createClient(clientOptions) {
           continue;
         }
         if (typeof m !== "object" || !("onRequest" in m || "onResponse" in m || "onError" in m)) {
-          throw new Error("Middleware must be an object with one of `onRequest()`, `onResponse() or `onError()`");
+          throw new Error("Middleware must be an object with one of `onRequest()`, `onResponse()` or `onError()`");
         }
         globalMiddlewares.push(m);
       }
