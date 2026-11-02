@@ -1,17 +1,9 @@
 import { performance } from "node:perf_hooks";
 import * as changeCase from "change-case";
 import type ts from "typescript";
-import { toPropertySignature, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
-import {
-  fromPropertySignature,
-  fromTypeNode,
-} from "../adapters/type-ast-bridge/typescript-to-ir.js";
+import { fromTypeNode } from "../adapters/type-ast-bridge/typescript-to-ir.js";
 import { RunFooter } from "../application/transform/footer/document-footer.js";
-import type {
-  CustomType,
-  SchemaCallbacks,
-  SchemaLocation,
-} from "../application/transform/schema/schema-context.js";
+import type { SchemaLocation } from "../application/transform/schema/schema-context.js";
 import type {
   DocumentFooter,
   NameCasing,
@@ -20,40 +12,16 @@ import type {
   TransformDiagnostics,
   TransformOptions,
 } from "../application/transform/transform-context.js";
-import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
-import type {
-  GlobalContext,
-  SchemaObject,
-  TransformNodeOptions,
-  TransformObject,
-} from "../types.js";
+import type { GlobalContext, TransformNodeOptions } from "../types.js";
 import { ContextFooterSink } from "./footer-sink.js";
+import { schemaCallbacks } from "./schema-callbacks.js";
 import { stringToAST } from "./ts.js";
-import { toIrType } from "./type-helpers.js";
 import { debug } from "./utils.js";
 
 /**
- * Temporary adapter (ENGINEERING_PLAN Phase 5): the transformers work on IR, while the public
- * transformer signatures, the footer and the user callbacks still use `ts.Node`. This builds
- * their context from the original `GlobalContext`. It goes away with the `ts.Node` API in Phase 6.
+ * Builds the ported transformers' context from the original `GlobalContext`: options, refs,
+ * discriminators, the run footer and the user callbacks (see `schema-callbacks.ts`).
  */
-
-export class UnreadablePropertyError extends Error {
-  constructor(path: string | undefined) {
-    super(`transformProperty at ${path} returned a property with syntax the generator cannot read`);
-    this.name = "UnreadablePropertyError";
-  }
-}
-
-/** The original constant keeps its identity across the boundary (see `UNKNOWN_TYPE`). */
-export function toLegacyType(type: IrType): ts.TypeNode {
-  return toTypeNode(type);
-}
-
-/** A callback result in IR: IR types (from the helpers) as they are, TypeScript nodes read by the bridge. */
-export function fromLegacyType(type: IrType | ts.TypeNode): IrType {
-  return toIrType(type);
-}
 
 function transformOptions(ctx: GlobalContext): TransformOptions {
   return {
@@ -104,73 +72,6 @@ const DIAGNOSTICS: TransformDiagnostics = {
   debug: (message, durationMs) => debug(message, "ts", durationMs),
 };
 
-function nodeOptions(ctx: GlobalContext, location: SchemaLocation): TransformNodeOptions {
-  return { ...location, ctx } as TransformNodeOptions;
-}
-
-function customType(result: IrType | ts.TypeNode | TransformObject | undefined): CustomType | null {
-  if (!result || typeof result !== "object") {
-    return null;
-  }
-  if ("schema" in result) {
-    return { type: fromLegacyType(result.schema), isOptional: Boolean(result.questionToken) };
-  }
-  return { type: fromLegacyType(result), isOptional: false };
-}
-
-function callbacks(ctx: GlobalContext): SchemaCallbacks {
-  return {
-    transform(schema, location) {
-      const transform = ctx.transform;
-      return typeof transform === "function"
-        ? customType(transform(schema as SchemaObject, nodeOptions(ctx, location)))
-        : null;
-    },
-    postTransform(type, location) {
-      const postTransform = ctx.postTransform;
-      const result =
-        typeof postTransform === "function"
-          ? postTransform(toLegacyType(type), nodeOptions(ctx, location))
-          : undefined;
-      return result ? fromLegacyType(result) : null;
-    },
-    transformProperty(property, schema, location) {
-      return transformPropertyWith(ctx, property, schema, location);
-    },
-  };
-}
-
-function isIrProperty(
-  property: IrPropertySignature | ts.PropertySignature,
-): property is IrPropertySignature {
-  return typeof property.kind === "string";
-}
-
-function transformPropertyWith(
-  ctx: GlobalContext,
-  property: IrPropertySignature,
-  schema: unknown,
-  location: SchemaLocation,
-): IrPropertySignature | null {
-  const transformProperty = ctx.transformProperty;
-  if (typeof transformProperty !== "function") {
-    return null;
-  }
-  const options = nodeOptions(ctx, location);
-  const result = transformProperty(toPropertySignature(property), schema as SchemaObject, options);
-  if (!result) {
-    return null;
-  }
-  if (isIrProperty(result)) {
-    return result;
-  }
-  const converted = fromPropertySignature(result);
-  if (converted === null) {
-    throw new UnreadablePropertyError(location.path);
-  }
-  return converted;
-}
-
 /** The ported transformers' context for one call from a legacy transformer. */
 export function createTransformContext(ctx: GlobalContext): TransformContext {
   return {
@@ -181,7 +82,7 @@ export function createTransformContext(ctx: GlobalContext): TransformContext {
       isHandled: (ref) => ctx.discriminators.refsHandled.includes(ref),
     },
     footer: runFooter(ctx),
-    callbacks: callbacks(ctx),
+    callbacks: schemaCallbacks(ctx),
     templates: TEMPLATES,
     diagnostics: DIAGNOSTICS,
     casing: CASING,

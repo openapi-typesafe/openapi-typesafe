@@ -4,7 +4,7 @@ import type { IrDeclaration } from "./domain/ir/nodes.js";
 import { createDocumentRun } from "./lib/document-run.js";
 import { debug } from "./lib/utils.js";
 import transformSchema from "./transform/index.js";
-import type { OpenAPI3, OpenAPITSOptions } from "./types.js";
+import type { GeneratorOptions, OpenAPI3 } from "./types.js";
 
 export type * from "./domain/ir/nodes.js";
 export * from "./lib/ts.js";
@@ -43,7 +43,7 @@ export const COMMENT_HEADER = `/**
  */
 export default async function openapiTS(
   source: string | URL | OpenAPI3 | Buffer | Readable,
-  options: OpenAPITSOptions = {} as Partial<OpenAPITSOptions>,
+  options: GeneratorOptions = {},
 ): Promise<IrDeclaration[]> {
   const { schema, ctx } = await createDocumentRun(source, options);
   const transformT = performance.now();

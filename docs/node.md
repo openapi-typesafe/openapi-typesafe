@@ -88,9 +88,44 @@ The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plu
 | `transform`        |   `Function`    |                 | Override the default Schema Object ➝ TypeScript transformer in certain scenarios             |
 | `postTransform`    |   `Function`    |                 | Same as `transform` but runs _after_ the TypeScript transformation                           |
 | `transformProperty`|   `Function`    |                 | Transform individual property signatures for Schema Object properties                        |
+| `irCallbacks`      |    `boolean`    |     `false`     | Callbacks receive and return IR nodes instead of TypeScript nodes (see [IR callbacks](#ir-callbacks)) |
 | `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors will still show)                                      |
 | `cwd`              | `string \| URL` | `process.cwd()` | (optional) Provide the current working directory to help resolve remote `$ref`s (if needed). |
 | `inject`           |    `string`     |                 | Inject arbitrary TypeScript types into the start of the file                                 |
+
+### IR callbacks
+
+With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes. The TypeScript-node form of `postTransform` and `transformProperty` is deprecated and is removed in 2.0.
+
+- A type result is an IR type (from the helpers, such as `tsUnion([STRING, NULL])`) or a string of TypeScript type text, printed as written.
+- `transform` may also return `{ schema, questionToken: true }` to make the property optional.
+- `postTransform(type, options)` receives the generated IR type.
+- `transformProperty(property, schemaObject, options)` receives the generated IR property (`name`, `type`, `isOptional`, `isReadonly`, `comments`) and returns a new one.
+- Returning `undefined` keeps the generated type or property.
+
+::: code-group
+
+```ts [src/my-project.ts]
+import openapiTS, { astToString, NULL, tsUnion } from "openapi-typesafe";
+
+const ast = await openapiTS(mySchema, {
+  irCallbacks: true,
+  transform(schemaObject) {
+    if (schemaObject.format === "date-time") {
+      return schemaObject.nullable ? "Date | null" : "Date";
+    }
+  },
+  postTransform(type, options) {
+    return options.path?.endsWith("/id") ? tsUnion([type, NULL]) : undefined;
+  },
+  transformProperty(property) {
+    return property.isOptional ? { ...property, isReadonly: true } : undefined;
+  },
+});
+const contents = astToString(ast);
+```
+
+:::
 
 ### transform / postTransform
 

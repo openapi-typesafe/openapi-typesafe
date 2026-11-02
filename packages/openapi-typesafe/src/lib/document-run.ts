@@ -1,6 +1,6 @@
 import type { Readable } from "node:stream";
 import { createConfig, type Config as RedoclyConfig } from "@redocly/openapi-core";
-import type { GlobalContext, OpenAPI3, OpenAPITSOptions } from "../types.js";
+import type { GeneratorOptions, GlobalContext, OpenAPI3 } from "../types.js";
 import { validateAndBundle } from "./redoc.js";
 import { resolveRef, scanDiscriminators } from "./utils.js";
 
@@ -19,19 +19,20 @@ function defaultRedoclyConfig(): Promise<RedoclyConfig> {
   return createConfig({ rules }, { extends: ["minimal"] });
 }
 
-function sourceCwd(options: OpenAPITSOptions): URL {
+function sourceCwd(options: GeneratorOptions): URL {
   return options.cwd instanceof URL ? options.cwd : new URL(`file://${options.cwd ?? process.cwd()}/`);
 }
 
-function callbackOptions(options: OpenAPITSOptions) {
+function callbackOptions(options: GeneratorOptions) {
   return {
+    irCallbacks: options.irCallbacks === true,
     postTransform: typeof options.postTransform === "function" ? options.postTransform : undefined,
     transform: typeof options.transform === "function" ? options.transform : undefined,
     transformProperty: typeof options.transformProperty === "function" ? options.transformProperty : undefined,
   };
 }
 
-function contextFlags(options: OpenAPITSOptions): ContextFlags {
+function contextFlags(options: GeneratorOptions): ContextFlags {
   return {
     additionalProperties: options.additionalProperties ?? false,
     alphabetize: options.alphabetize ?? false,
@@ -62,7 +63,7 @@ function contextFlags(options: OpenAPITSOptions): ContextFlags {
 /** Validate and bundle the source, then build the run's context from the options. */
 export async function createDocumentRun(
   source: string | URL | OpenAPI3 | Buffer | Readable,
-  options: OpenAPITSOptions,
+  options: GeneratorOptions,
 ): Promise<DocumentRun> {
   if (!source) {
     throw new Error("Empty schema. Please specify a URL, file path, or Redocly Config");

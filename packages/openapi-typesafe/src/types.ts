@@ -626,7 +626,8 @@ export type SecurityRequirementObject = {
   [P in keyof ComponentsObject["securitySchemes"]]?: string[];
 };
 
-export interface OpenAPITSOptions {
+/** The generator options other than the schema callbacks. */
+export interface OpenAPITSBaseOptions {
   /** Treat all objects as if they have `additionalProperties: true` by default (default: false) */
   additionalProperties?: boolean;
   /** Alphabetize all keys? (default: false) */
@@ -641,19 +642,6 @@ export interface OpenAPITSOptions {
   defaultNonNullable?: boolean;
   /** Exclude deprecated fields from types? (default: false) */
   excludeDeprecated?: boolean;
-  /** Manually transform certain Schema Objects with a custom TypeScript type */
-  transform?: (
-    schemaObject: SchemaObject,
-    options: TransformNodeOptions,
-  ) => IrType | ts.TypeNode | TransformObject | undefined;
-  /** Modify TypeScript types built from Schema Objects (receives a TypeScript node, ADR-004) */
-  postTransform?: (type: ts.TypeNode, options: TransformNodeOptions) => IrType | ts.TypeNode | undefined;
-  /** Modify property signatures for Schema Object properties */
-  transformProperty?: (
-    property: ts.PropertySignature,
-    schemaObject: SchemaObject,
-    options: TransformNodeOptions,
-  ) => IrPropertySignature | ts.PropertySignature | undefined;
   /** Add readonly properties and readonly arrays? (default: false) */
   immutable?: boolean;
   /** (optional) Should logging be suppressed? (necessary for STDOUT) */
@@ -695,6 +683,76 @@ export interface OpenAPITSOptions {
   readWriteMarkers?: boolean;
 }
 
+/**
+ * The schema callbacks of the original API: they receive TypeScript nodes (ADR-004, decisions 5
+ * and 6). Results may be IR (from the helpers) or TypeScript nodes, read by the bridge.
+ */
+export interface LegacyCallbackOptions {
+  /** Unset or false: the callbacks below receive TypeScript nodes. */
+  irCallbacks?: false;
+  /** Manually transform certain Schema Objects with a custom TypeScript type */
+  transform?: (
+    schemaObject: SchemaObject,
+    options: TransformNodeOptions,
+  ) => IrType | ts.TypeNode | TransformObject | undefined;
+  /**
+   * Modify TypeScript types built from Schema Objects (receives a TypeScript node)
+   * @deprecated Use `irCallbacks: true` (ADR-004, decision 6); the TypeScript form is removed in 2.0.
+   */
+  postTransform?: (type: ts.TypeNode, options: TransformNodeOptions) => IrType | ts.TypeNode | undefined;
+  /**
+   * Modify property signatures for Schema Object properties (receives a TypeScript node)
+   * @deprecated Use `irCallbacks: true` (ADR-004, decision 6); the TypeScript form is removed in 2.0.
+   */
+  transformProperty?: (
+    property: ts.PropertySignature,
+    schemaObject: SchemaObject,
+    options: TransformNodeOptions,
+  ) => IrPropertySignature | ts.PropertySignature | undefined;
+}
+
+/** A type an IR callback returns: an IR type, or TypeScript type text printed as written. */
+export type IrCallbackType = IrType | string;
+
+/** What an IR `transform` callback returns to make the property optional. */
+export interface IrTransformObject {
+  schema: IrCallbackType;
+  questionToken: boolean;
+}
+
+/** Replace the generated type of a Schema Object; `undefined` keeps the generated type. */
+export type IrTransform = (
+  schemaObject: SchemaObject,
+  options: TransformNodeOptions,
+) => IrCallbackType | IrTransformObject | undefined;
+
+/** Modify the generated type of a Schema Object; `undefined` keeps it. */
+export type IrPostTransform = (type: IrType, options: TransformNodeOptions) => IrCallbackType | undefined;
+
+/** Modify the generated property of a Schema Object property; `undefined` keeps it. */
+export type IrTransformProperty = (
+  property: IrPropertySignature,
+  schemaObject: SchemaObject,
+  options: TransformNodeOptions,
+) => IrPropertySignature | undefined;
+
+/** The schema callbacks on IR (ENGINEERING_PLAN 6.3): they receive and return IR nodes. */
+export interface IrCallbackOptions {
+  irCallbacks: true;
+  transform?: IrTransform;
+  postTransform?: IrPostTransform;
+  transformProperty?: IrTransformProperty;
+}
+
+/** The options of the original API: callbacks on TypeScript nodes. */
+export interface OpenAPITSOptions extends OpenAPITSBaseOptions, LegacyCallbackOptions {}
+
+/** The options with `irCallbacks: true`: callbacks on IR nodes. */
+export interface OpenAPITSIrOptions extends OpenAPITSBaseOptions, IrCallbackOptions {}
+
+/** Either form of the generator options. */
+export type GeneratorOptions = OpenAPITSOptions | OpenAPITSIrOptions;
+
 /** Context passed to all submodules */
 export interface GlobalContext {
   // user options
@@ -725,15 +783,17 @@ export interface GlobalContext {
    */
   runFooter?: DocumentFooter;
   pathParamsAsTypes: boolean;
-  postTransform: OpenAPITSOptions["postTransform"];
+  /** Whether the callbacks below take IR (`OpenAPITSIrOptions`) or TypeScript nodes. */
+  irCallbacks: boolean;
+  postTransform: GeneratorOptions["postTransform"];
   propertiesRequiredByDefault: boolean;
   rootTypes: boolean;
   rootTypesNoSchemaPrefix: boolean;
   rootTypesKeepCasing: boolean;
   redoc: RedoclyConfig;
   silent: boolean;
-  transform: OpenAPITSOptions["transform"];
-  transformProperty: OpenAPITSOptions["transformProperty"];
+  transform: GeneratorOptions["transform"];
+  transformProperty: GeneratorOptions["transformProperty"];
   /** retrieve a node by $ref */
   resolve<T>($ref: string): T | undefined;
   inject?: string;

@@ -3,7 +3,7 @@ import c from "ansi-colors";
 import supportsColor from "supports-color";
 import { discriminatorProperty } from "../application/transform/schema/discriminator-property.js";
 import type { IrPropertySignature } from "../domain/ir/nodes.js";
-import type { DiscriminatorObject, OpenAPI3, OpenAPITSOptions, ReferenceObject, SchemaObject } from "../types.js";
+import type { DiscriminatorObject, GeneratorOptions, OpenAPI3, ReferenceObject, SchemaObject } from "../types.js";
 
 if (!supportsColor.stdout || supportsColor.stdout.hasBasic === false) {
   c.enabled = false;
@@ -158,7 +158,7 @@ function patchDiscriminatorEnum(
   values: string[],
   discriminator: DiscriminatorObject,
   discriminatorRef: string,
-  options: OpenAPITSOptions,
+  options: GeneratorOptions,
 ): boolean {
   const resolvedSchema = resolveRef<SchemaObject>(schema, ref, {
     silent: options.silent ?? false,
@@ -211,7 +211,7 @@ function patchDiscriminatorEnum(
 type InternalDiscriminatorMapping = Record<string, { inferred?: string; defined?: string[] }>;
 
 /** Return a key–value map of discriminator objects found in a schema */
-export function scanDiscriminators(schema: OpenAPI3, options: OpenAPITSOptions) {
+export function scanDiscriminators(schema: OpenAPI3, options: GeneratorOptions) {
   // all discriminator objects found in the schema
   const objects: Record<string, DiscriminatorObject> = {};
 

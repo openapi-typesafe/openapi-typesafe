@@ -2,10 +2,8 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { irProperty, irReference } from "../../src/domain/ir/constructors.js";
 import { toPropertyName } from "../../src/domain/ir/property-name.js";
-import {
-  createTransformContext,
-  UnreadablePropertyError,
-} from "../../src/lib/transform-context.js";
+import { UnreadablePropertyError } from "../../src/lib/schema-callbacks.js";
+import { createTransformContext } from "../../src/lib/transform-context.js";
 import type { GlobalContext } from "../../src/types.js";
 import { DEFAULT_CTX } from "../test-helpers.js";
 
