@@ -77,7 +77,7 @@ try {
 
 ### Redoc config
 
-A Redoc config isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redoc config to the Node API. You can do this with the helpers in `@redocly/openapi-core`:
+A Redoc config isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redoc config to the Node API. You can do this with the helpers in `@redocly/openapi-core` version 1, the version openapi-typesafe uses (`npm i -D @redocly/openapi-core@1`):
 
 ::: code-group
 
@@ -85,21 +85,16 @@ A Redoc config isn’t required to use openapi-typesafe. By default it extends t
 import { createConfig, loadConfig } from "@redocly/openapi-core";
 import openapiTS from "openapi-typesafe";
 
-// option 1: create in-memory config
-const redocly = await createConfig(
-  {
-    apis: {
-      "core@v2": { … },
-      "external@v1": { … },
-    },
-  },
-  { extends: ["recommended"] },
-);
+// option 1: create an in-memory config
+const inMemory = await createConfig({
+  extends: ["recommended"],
+  rules: { "operation-4xx-response": "off" },
+});
 
-// option 2: load from redocly.yaml file
-const redocly = await loadConfig({ configPath: "redocly.yaml" });
+// option 2: load it from a redocly.yaml file
+const fromFile = await loadConfig({ configPath: "redocly.yaml" });
 
-const ast = await openapiTS(mySchema, { redocly });
+const ast = await openapiTS(mySchema, { redocly: inMemory });
 ```
 
 :::
@@ -123,7 +118,7 @@ The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plu
 
 ### IR callbacks
 
-With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes. The TypeScript-node form of `postTransform` and `transformProperty` is deprecated and is removed in 2.0.
+With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, prints a deprecation warning once per run, and is removed in 2.0. The examples below use the IR form.
 
 - A type result is an IR type (from the helpers, such as `tsUnion([STRING, NULL])`) or a string of TypeScript type text, printed as written.
 - `transform` may also return `{ schema, questionToken: true }` to make the property optional.
@@ -160,7 +155,7 @@ const contents = astToString(ast);
 Use the `transform()` and `postTransform()` options to override the default Schema Object transformer with your own. This is useful for providing nonstandard modifications for specific parts of your schema.
 
 - `transform()` runs **before** the conversion to TypeScript (you’re working with the original OpenAPI nodes)
-- `postTransform()` runs **after** the conversion to TypeScript (you’re working with TypeScript AST)
+- `postTransform()` runs **after** the conversion to TypeScript (you’re working with the generated IR type)
 
 #### Example: `Date` types
 
@@ -179,17 +174,12 @@ By default, openapiTS will generate `updated_at?: string;` because it’s not su
 
 ```ts [src/my-project.ts]
 import openapiTS from "openapi-typesafe";
-import ts from "typescript";
-
-const DATE = ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Date")); // `Date`
-const NULL = ts.factory.createLiteralTypeNode(ts.factory.createNull()); // `null`
 
 const ast = await openapiTS(mySchema, {
+  irCallbacks: true,
   transform(schemaObject, metadata) {
     if (schemaObject.format === "date-time") {
-      return schemaObject.nullable
-        ? ts.factory.createUnionTypeNode([DATE, NULL])
-        : DATE;
+      return schemaObject.nullable ? "Date | null" : "Date";
     }
   },
 });
@@ -201,9 +191,9 @@ That would result in the following change:
 
 ::: code-group
 
-```yaml [my-openapi-3-schema.yaml]
+```ts [my-openapi-3-schema.d.ts]
 updated_at?: string; // [!code --]
-updated_at: Date | null; // [!code ++]
+updated_at?: Date; // [!code ++]
 ```
 
 :::
@@ -216,11 +206,11 @@ Another common transformation is for file uploads, where the `body` of a request
 
 ```yaml [my-openapi-3-schema.yaml]
 Body_file_upload:
-  type: object;
+  type: object
   properties:
     file:
-      type: string;
-      format: binary;
+      type: string
+      format: binary
 ```
 
 :::
@@ -231,17 +221,12 @@ Use the same pattern to transform the types:
 
 ```ts [src/my-project.ts]
 import openapiTS from "openapi-typesafe";
-import ts from "typescript";
-
-const BLOB = ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Blob")); // `Blob`
-const NULL = ts.factory.createLiteralTypeNode(ts.factory.createNull()); // `null`
 
 const ast = await openapiTS(mySchema, {
+  irCallbacks: true,
   transform(schemaObject, metadata) {
     if (schemaObject.format === "binary") {
-      return schemaObject.nullable
-        ? ts.factory.createUnionTypeNode([BLOB, NULL])
-        : BLOB;
+      return schemaObject.nullable ? "Blob | null" : "Blob";
     }
   },
 });
@@ -255,25 +240,25 @@ Resultant diff with correctly-typed `file` property:
 
 ```ts [my-openapi-3-schema.d.ts]
 file?: string; // [!code --]
-file: Blob | null; // [!code ++]
+file?: Blob; // [!code ++]
 ```
 
 :::
 
 #### Example: Add "?" token to property
 
-It is not possible to create a property with the optional "?" token with the above `transform` functions. The transform function also accepts a different return object, which allows you to add a "?" token to the property. Here's an example schema:
+It is not possible to create a property with the optional "?" token with the above `transform` functions. The transform function also accepts a different return object, which allows you to add a "?" token to a required property. Here's an example schema:
 
 ::: code-group
 
 ```yaml [my-openapi-3-schema.yaml]
 Body_file_upload:
-  type: object;
+  type: object
+  required: [file]
   properties:
     file:
-      type: string;
-      format: binary;
-      required: true;
+      type: string
+      format: binary
 ```
 
 :::
@@ -284,18 +269,13 @@ Here we return an object with a schema property, which is the same as the above 
 
 ```ts [src/my-project.ts]
 import openapiTS from "openapi-typesafe";
-import ts from "typescript";
-
-const BLOB = ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Blob")); // `Blob`
-const NULL = ts.factory.createLiteralTypeNode(ts.factory.createNull()); // `null`
 
 const ast = await openapiTS(mySchema, {
+  irCallbacks: true,
   transform(schemaObject, metadata) {
     if (schemaObject.format === "binary") {
       return {
-        schema: schemaObject.nullable
-          ? ts.factory.createUnionTypeNode([BLOB, NULL])
-          : BLOB,
+        schema: schemaObject.nullable ? "Blob | null" : "Blob",
         questionToken: true,
       };
     }
@@ -310,23 +290,23 @@ Resultant diff with correctly-typed `file` property and "?" token:
 ::: code-group
 
 ```ts [my-openapi-3-schema.d.ts]
-file: Blob; // [!code --]
-file?: Blob | null; // [!code ++]
+file: string; // [!code --]
+file?: Blob; // [!code ++]
 ```
 
 :::
 
 Any [Schema Object](https://spec.openapis.org/oas/latest.html#schema-object) present in your schema will be run through this formatter (even remote ones!). Also be sure to check the `metadata` parameter for additional context that may be helpful.
 
-There are many other uses for this besides checking `format`. Because this must return a **string** you can produce any arbitrary TypeScript code you'd like (even your own custom types).
+There are many other uses for this besides checking `format`. Because it can return TypeScript type text, you can produce any type you'd like (even your own custom types).
 
 ### transformProperty
 
 Use the `transformProperty()` option to modify individual property signatures within Schema Objects. This is particularly useful for adding JSDoc comments, validation annotations, or modifying property-level attributes that can't be achieved with `transform` or `postTransform`.
 
 - `transformProperty()` runs **after** type conversion but **before** JSDoc comments are added
-- It receives the property signature, the original schema object, and transformation options
-- It should return a modified `PropertySignature` or `undefined` to leave the property unchanged
+- It receives the property (with `irCallbacks: true`, an IR property: `name`, `type`, `isOptional`, `isReadonly`, `comments`), the original schema object, and transformation options
+- It returns a changed property, or `undefined` to leave the property unchanged
 
 #### Example: JSDoc validation annotations
 
@@ -360,58 +340,23 @@ components:
 
 ```ts [src/my-project.ts]
 import fs from "node:fs";
-import ts from "typescript";
 import openapiTS, { astToString } from "openapi-typesafe";
 
 const ast = await openapiTS(mySchema, {
-  transformProperty(property, schemaObject, options) {
-    const validationTags: string[] = [];
-    
+  irCallbacks: true,
+  transformProperty(property, schemaObject) {
     // Add validation JSDoc tags based on schema constraints
-    if (schemaObject.minLength !== undefined) {
-      validationTags.push(`@minLength ${schemaObject.minLength}`);
+    const constraints = schemaObject as Record<string, unknown>;
+    const validationTags = ["minLength", "maxLength", "minimum", "maximum", "pattern", "format"]
+      .filter((key) => constraints[key] !== undefined)
+      .map((key) => `@${key} ${constraints[key]}`);
+    if (validationTags.length === 0) {
+      return undefined;
     }
-    if (schemaObject.maxLength !== undefined) {
-      validationTags.push(`@maxLength ${schemaObject.maxLength}`);
-    }
-    if (schemaObject.minimum !== undefined) {
-      validationTags.push(`@minimum ${schemaObject.minimum}`);
-    }
-    if (schemaObject.maximum !== undefined) {
-      validationTags.push(`@maximum ${schemaObject.maximum}`);
-    }
-    if (schemaObject.pattern !== undefined) {
-      validationTags.push(`@pattern ${schemaObject.pattern}`);
-    }
-    if (schemaObject.format !== undefined) {
-      validationTags.push(`@format ${schemaObject.format}`);
-    }
-    
-    // If we have validation tags, add them as JSDoc comments
-    if (validationTags.length > 0) {
-      // Create a new property signature
-      const newProperty = ts.factory.updatePropertySignature(
-        property,
-        property.modifiers,
-        property.name,
-        property.questionToken,
-        property.type,
-      );
-      
-      // Add JSDoc comment
-      const jsDocText = `*\n * ${validationTags.join('\n * ')}\n `;
-      
-      ts.addSyntheticLeadingComment(
-        newProperty,
-        ts.SyntaxKind.MultiLineCommentTrivia,
-        jsDocText,
-        true,
-      );
-      
-      return newProperty;
-    }
-    
-    return property;
+
+    // A JSDoc block: the comment text goes between `/*` and `*/`
+    const text = `*\n * ${validationTags.join("\n * ")}\n `;
+    return { ...property, comments: [...property.comments, { kind: "block", text }] };
   },
 });
 
@@ -451,6 +396,6 @@ export interface components {
 :::
 
 The `transformProperty` function provides access to:
-- `property`: The TypeScript PropertySignature AST node
+- `property`: The generated IR property (without `irCallbacks`, a TypeScript `PropertySignature` node; deprecated)
 - `schemaObject`: The original OpenAPI Schema Object for this property
 - `options`: Transformation context including path information and other utilities
