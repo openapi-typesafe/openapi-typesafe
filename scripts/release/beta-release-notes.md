@@ -13,7 +13,9 @@ shasum -a 256 -c SHA256SUMS
 
 Put the tarballs in your project, for example in `vendor/openapi-typesafe/`. Install the packages
 you need, and pin every openapi-typesafe package to its tarball, so the package manager never looks
-for them on npm (they are not there yet).
+for them on npm. npm only has empty `0.0.0` placeholders of these names, so a package that is not
+pinned fails with an error like `No matching version found for openapi-typesafe-helpers@{{VERSION}}`:
+add it to the overrides below.
 
 npm, in `package.json`:
 
@@ -40,7 +42,20 @@ overrides:
   openapi-typesafe-fetch: file:vendor/openapi-typesafe/openapi-typesafe-fetch-{{VERSION}}.tgz
 ```
 
-Yarn: `resolutions` in `package.json` instead of `overrides`.
+Yarn (Berry) and Bun: the same `dependencies` in `package.json`, and every package pinned by its
+path; Yarn reads `resolutions`, Bun reads `overrides`. The `$openapi-typesafe-fetch` reference of
+the npm snippet works only in npm.
+
+```json
+{
+  "resolutions": {
+    "openapi-typesafe-helpers": "file:vendor/openapi-typesafe/openapi-typesafe-helpers-{{VERSION}}.tgz",
+    "openapi-typesafe-fetch": "file:vendor/openapi-typesafe/openapi-typesafe-fetch-{{VERSION}}.tgz"
+  }
+}
+```
+
+For Bun, name the field `overrides` instead of `resolutions`.
 
 Add `openapi-typesafe-react-query` and `openapi-typesafe-migrate` the same way if you use them.
 
@@ -48,9 +63,10 @@ Add `openapi-typesafe-react-query` and `openapi-typesafe-migrate` the same way i
 
 - Migrating from openapi-typescript / openapi-fetch / openapi-react-query: install
   `openapi-typesafe-migrate` from its tarball, run `npx openapi-typesafe-migrate` to see the report,
-  then `npx openapi-typesafe-migrate --write`. It sets the new packages to `^{{VERSION}}`, which is
-  not on npm yet: change those versions to the `file:` paths above before you install. Then
-  regenerate your schema and run your type check and tests.
+  then `npx openapi-typesafe-migrate --write`. It sets the new packages to version `{{VERSION}}`
+  (with the `^` or `~` your old versions had), which is not on npm: change those versions to the
+  `file:` paths above and add the overrides before you install. Then regenerate your schema and
+  run your type check and tests.
 - New project: see the README of each package in the tarball.
 
 ## What to report

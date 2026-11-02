@@ -88,9 +88,10 @@ This matters in CI and on servers that generate types from user-supplied documen
 User-supplied path parameters move the request to another path (`..`), or query and header
 values break the request.
 
-- Controls: path and query values are percent-encoded unless `allowReserved` is set; dot segments
-  in path values are encoded (ADR-013); headers go through the platform `Headers` class, which
-  rejects line breaks.
+- Controls: path values are always percent-encoded, and query values unless the parameter sets
+  `allowReserved`; a path value that would form a `.` or `..` segment makes the call throw
+  (`Dot path segment in …`, ADR-013), because percent-encoding keeps dots; headers go through the
+  platform `Headers` class, which rejects line breaks.
 - Tests: the fetch client's serializer tests.
 
 ### T6. Supply chain — Controlled from Phase 9

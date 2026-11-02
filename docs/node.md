@@ -5,7 +5,7 @@ description: Programmatic usage and unlimited flexibility.
 
 # Node.js API
 
-The Node API may be useful if dealing with dynamically-created schemas, or you’re using within context of a larger application. Pass in either a JSON-friendly object to load a schema from memory, or a string to load a schema from a local file or remote URL.
+The Node API may be useful if dealing with dynamically-created schemas, or you’re using within context of a larger application. Pass in either a JSON-friendly object or a YAML or JSON string to load a schema from memory, or a `URL` to load it from a local file or a remote URL.
 
 ## Setup
 
@@ -34,6 +34,8 @@ The Node.js API accepts either a `URL`, `string`, or JSON object as input:
 |  `URL`   | Read a local or remote file | `await openapiTS(new URL('./schema.yaml', import.meta.url))`<br/>`await openapiTS(new URL('https://myapi.com/v1/openapi.yaml'))` |
 | `string` | Read dynamic YAML or JSON   | `await openapiTS('openapi: "3.1" … ')`                                                                                           |
 |  `JSON`  | Read dynamic JSON           | `await openapiTS({ openapi: '3.1', … })`                                                                                         |
+
+A string that starts with `file://`, `http://` or `https://` is loaded like a `URL`; any other string, a file path included, is parsed as YAML or JSON. To load a file by its path, pass `pathToFileURL(path)` from `node:url`.
 
 It also accepts `Readable` streams and `Buffer` types that are resolved and treated as strings (validation, bundling, and type generation can’t really happen without the whole document).
 
