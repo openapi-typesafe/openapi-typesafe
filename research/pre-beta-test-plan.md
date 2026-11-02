@@ -98,7 +98,11 @@ generate, type-check (strict, `nodenext`) and import in ESM and CJS on Node.js 2
 sources, both `bin` files have a shebang; the legacy TypeScript-node callbacks work with
 TypeScript 5.0.4, 5.4.5, 5.9.3 and with `@typescript/typescript6` alone, so the `>=5.0.0` peer is
 right; the React Query client installs with TanStack Query 5.80.0 and 5.105.2 without peer
-warnings; the migration path of the notes works end to end.
+warnings; the migration path of the notes works end to end. The same install, run, generate, type-check, ESM and
+CJS steps pass with all four managers on Node.js 22.12.0, latest 22 and 24 too
+(`matrix-summary.log`), except pnpm 11 on 22.12.0: pnpm 11 itself needs 22.13
+(`This version of pnpm requires at least Node.js v22.13`). pnpm 10 passes there
+(`node-22.12.0-pnpm10/`), and the beta notes now say so.
 
 ## 4. Generator on real schemas
 
@@ -141,7 +145,7 @@ webhooks.
       in `docs/cli.md` (0, 1, 2, 3, 4) is reached with the listed error codes. With several
       APIs in `redocly.yaml`, the others still run when one fails, and the exit code is the
       first failure's. `--check` with no output (see PB-4).
-- [ ] 4.8 Performance: time and peak memory on the largest documents (GitHub, Stripe,
+- [x] 4.8 Performance: time and peak memory on the largest documents (GitHub, Stripe,
       Kubernetes), 5 runs each, median. Budget: at most 10% slower than openapi-typescript
       7.13 (users notice more than that in watch scripts and CI).
 - [x] 4.9 Paths: spaces, Unicode, symlinks, relative to `cwd` vs to the config file; output
@@ -149,6 +153,10 @@ webhooks.
 
 **§4 results** (logs: `.logs/pre-beta/generator/`):
 
+- 4.8 (`4.8-perf.log`, `/usr/bin/time -l`, 5 runs, median): ours vs openapi-typescript 7.13.
+  GitHub 3.1: 1.52 s vs 1.55 s, 438 vs 501 MB. Stripe: 0.72 s vs 0.85 s, 301 vs 359 MB.
+  Kubernetes apps/v1: 0.20 s vs 0.29 s, 132 vs 182 MB. Microsoft Graph (the largest corpus
+  document): 2.88 s vs 4.04 s, 846 vs 825 MB (+2.5%). Never slower; within the budget.
 - 4.6: the harness matrix now has `--default-non-nullable=false` and the pairs `--enum` ×
   `--enum-values`, `--enum` × `--conditional-enums`, `--immutable` × `--read-write-markers`,
   `--export-type` × `--root-types` (28 sets). On the full corpus (9,100 new cases): 9,069

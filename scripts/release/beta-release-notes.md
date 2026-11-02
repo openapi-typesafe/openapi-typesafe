@@ -11,6 +11,9 @@ shasum -a 256 -c SHA256SUMS
 
 ## Install
 
+You need Node.js 22.12 or newer. pnpm 11 itself needs Node.js 22.13 or newer; on 22.12 use
+pnpm 10.
+
 Put the tarballs in your project, for example in `vendor/openapi-typesafe/`. Install the packages
 you need, and pin every openapi-typesafe package to its tarball, so the package manager never looks
 for them on npm. npm only has empty `0.0.0` placeholders of these names, so a package that is not
