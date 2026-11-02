@@ -79,14 +79,16 @@ describe("componentsType", () => {
     );
   });
 
-  it("componentsType without the schema prefix keeps both schemas of one PascalCase name", () => {
+  // The original exported only the later schema under the shared name; it keeps that meaning,
+  // and the earlier schema, which had no alias, gets a numbered one.
+  it("componentsType without the schema prefix keeps the shared name for the later schema", () => {
     const options = { rootTypes: true, rootTypesNoSchemaPrefix: true };
 
     const { rootTypes } = transform({ schemas: { PetStore: {}, petStore: {} } }, { options });
 
     expect(rootTypes).toBe(
-      "export type PetStore = components['schemas']['PetStore'];\n" +
-        "export type PetStore_2 = components['schemas']['petStore'];\n",
+      "export type PetStore = components['schemas']['petStore'];\n" +
+        "export type PetStore_2 = components['schemas']['PetStore'];\n",
     );
   });
 
@@ -96,8 +98,8 @@ describe("componentsType", () => {
     const { rootTypes } = transform({ schemas: { "1": {}, Schema1: {} } }, { options });
 
     expect(rootTypes).toBe(
-      "export type Schema1 = components['schemas']['1'];\n" +
-        "export type Schema1_2 = components['schemas']['Schema1'];\n",
+      "export type Schema1 = components['schemas']['Schema1'];\n" +
+        "export type Schema1_2 = components['schemas']['1'];\n",
     );
   });
 

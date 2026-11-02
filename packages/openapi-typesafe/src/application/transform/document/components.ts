@@ -66,7 +66,8 @@ function componentMember(
 
 /**
  * The root alias name: `SchemaPet`, `ResponseNotFound`, … A taken name gets `_2`, `_3`, … The
- * original checks for conflicts before it removes the schema prefix, and so does this.
+ * original checks for conflicts before it removes the schema prefix, and so does this; a clash
+ * of exported names is handled by `addRootAlias`.
  *
  * The original could build a name that is no identifier, so the generated file did not parse
  * (research/legacy-bugs.md, item 16): a kept casing keeps spaces and symbols, which become `_`;
@@ -89,14 +90,34 @@ function rootTypeName(
     const isUnprefixed = options.rootTypesNoSchemaPrefix && isSchema;
     return isUnprefixed && hasIdentifierStart(unprefixed) ? unprefixed : alias;
   };
-  // The exported name is checked too: a name that keeps its prefix can meet an unprefixed one.
-  const isTaken = (alias: string) =>
-    aliases[alias] !== undefined || aliases[exportedName(alias)] !== undefined;
   let alias = `${prefix}${base}`;
-  for (let counter = 2; isTaken(alias); counter++) {
+  for (let counter = 2; aliases[alias] !== undefined; counter++) {
     alias = `${prefix}${base}_${counter}`;
   }
   return exportedName(alias);
+}
+
+/**
+ * Add a root alias. When its exported name is taken (two schemas of one PascalCase name without
+ * the prefix), the original overwrote the earlier alias, so the name meant the later schema.
+ * The name keeps that meaning, and the earlier schema moves to the next free `Name_2`, `Name_3`, …
+ * instead of losing its alias.
+ */
+function addRootAlias(
+  aliases: Record<string, IrTypeAliasDeclaration>,
+  alias: string,
+  kind: ComponentKind,
+  name: string,
+): void {
+  const earlier = aliases[alias];
+  if (earlier !== undefined) {
+    let moved = `${alias}_2`;
+    for (let counter = 3; aliases[moved] !== undefined; counter++) {
+      moved = `${alias}_${counter}`;
+    }
+    aliases[moved] = { ...earlier, name: moved };
+  }
+  aliases[alias] = rootTypeAlias(alias, kind, name);
 }
 
 /** `--root-types` skips enum schemas under `--enum`: the enum itself is exported. */
@@ -116,8 +137,7 @@ function kindMember(
   for (const [name, item] of documentEntries(components[kind] ?? {}, context.options)) {
     items.push(componentMember(kind, name, item, context));
     if (hasRootType(kind, item, context)) {
-      const alias = rootTypeName(kind, name, aliases, context);
-      aliases[alias] = rootTypeAlias(alias, kind, name);
+      addRootAlias(aliases, rootTypeName(kind, name, aliases, context), kind, name);
     }
   }
   const type = items.length > 0 ? irObject(items) : irKeyword("never");
