@@ -211,29 +211,29 @@ webhooks.
 Against a local test server (`node:http`) for a test schema. The full list runs on Node.js;
 Bun, Deno and the browsers run a smoke subset through the existing runtime and browser suites.
 
-- [ ] 6.1 Every HTTP method; path parameters in every style (`simple`, `label`, `matrix`,
+- [x] 6.1 Every HTTP method; path parameters in every style (`simple`, `label`, `matrix`,
       with and without `explode`), query and header parameters. Cookie parameters are typed
       but not sent, as in openapi-fetch: check that the docs say so. `TRACE` is rejected by
       the platform's `Request` (ADR-013, item 5): check the error is clear.
-- [ ] 6.2 Query serialization: `form`/`spaceDelimited`/`pipeDelimited`/`deepObject`, `explode`
+- [x] 6.2 Query serialization: `form`/`spaceDelimited`/`pipeDelimited`/`deepObject`, `explode`
       true/false, arrays, nested objects, `null`/`undefined`, reserved characters, Unicode.
-- [ ] 6.3 Bodies: JSON, `application/x-www-form-urlencoded`, `multipart/form-data` with files,
+- [x] 6.3 Bodies: JSON, `application/x-www-form-urlencoded`, `multipart/form-data` with files,
       `Blob`, `ArrayBuffer`, streams, custom `bodySerializer`. Expected today: the client
       builds `URLSearchParams` only when the caller sets `Content-Type:
       application/x-www-form-urlencoded`; any other non-`FormData` body, `Blob` and
       `ArrayBuffer` included, goes through `JSON.stringify` unless a `bodySerializer` is given.
       Check nested form values, and whether that default surprises users (docs or fix).
-- [ ] 6.4 Responses: JSON, text, empty (204 / `content-length: 0`), binary, stream,
+- [x] 6.4 Responses: JSON, text, empty (204 / `content-length: 0`), binary, stream,
       `parseAs` options; `data`/`error` narrowing by status in the types.
-- [ ] 6.5 Errors: network failure, abort (`signal`), non-JSON error body, thrown middleware.
-- [ ] 6.6 Middleware: order, `onRequest`/`onResponse`/`onError`, replacing the request,
+- [x] 6.5 Errors: network failure, abort (`signal`), non-JSON error body, thrown middleware.
+- [x] 6.6 Middleware: order, `onRequest`/`onResponse`/`onError`, replacing the request,
       retry, auth refresh (the recipe in `docs/fetch/middleware-auth.md`).
-- [ ] 6.7 Options: `baseUrl` with and without a trailing slash, custom `fetch`, `Request`
+- [x] 6.7 Options: `baseUrl` with and without a trailing slash, custom `fetch`, `Request`
       subclass, default and per-call headers (merge and removal), `querySerializer` override.
 - [ ] 6.8 Types: inference for every operation in the GitHub and Stripe schemas gives no
       `any` (type tests with `expectTypeOf`). Record the type-check time and instantiation
       count (`tsc --extendedDiagnostics`) against openapi-fetch 0.17 as the baseline.
-- [ ] 6.9 Behaviour parity with openapi-fetch 0.17: same requests on the wire for the same
+- [x] 6.9 Behaviour parity with openapi-fetch 0.17: same requests on the wire for the same
       calls, except the documented fixes: ADR-013, `.changeset/cross-realm-headers.md`,
       `.changeset/fix-empty-error-response.md`.
 - [ ] 6.10 The rest of the public API (`src/index.d.ts`): `createPathBasedClient`,
@@ -244,6 +244,17 @@ Bun, Deno and the browsers run a smoke subset through the existing runtime and b
 - [ ] 6.12 `openapi-typesafe-helpers` has no runtime code of its own: its types are checked
       through 6.8, and its public type names match openapi-typescript-helpers, so code that
       imports them directly keeps compiling after §8.
+
+**§6 results (6.1–6.7, 6.9).** A wire stand (71 scenarios: every method, path, query, header and
+cookie styles, bodies, responses, errors, options, middleware) ran each call through
+openapi-typesafe-fetch and openapi-fetch 0.17.0 against a recording `node:http` server
+(`.logs/pre-beta/fetch/6-wire.log`). The only difference was the documented empty error body. It
+found PB-19..21, all inherited; after the fixes the differences are those three plus the empty error
+body (`6-wire-after-fix.log`). Same as openapi-fetch and documented: cookies are not sent (PB-22),
+`TRACE` rejects with the platform's `TypeError: 'TRACE' HTTP method is unsupported.`, deeper query
+nesting throws a clear error, and a text response with the default `parseAs` rejects with
+`SyntaxError`. The `Request` subclass and the auth recipe are covered by `test/common/request.test.ts`
+and the stand's retry middleware. The bundle budget rose to 8 kB (ADR-013, consequences).
 
 ## 7. React Query client (`openapi-typesafe-react-query`)
 
@@ -370,6 +381,10 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 | PB-16 | types | S3 | inherited: the public `StringSubtype` has no `minLength`, `maxLength` or `pattern`, so the `transformProperty` example of `docs/node.md` does not compile under `strict` | fixed: the keywords are in the type; `test/api/schema-object-types.test.ts` |
 | PB-17 | docs | S2 | inherited: `docs/node.md` examples: YAML with `type: object;` and `required: true`, diffs that do not match the output, a Redocly config example that does not parse, a "must return a string" claim, and every callback example in the deprecated TypeScript-node form (which warns) | fixed: every example runs and type-checks in a fresh project, in the IR form |
 | PB-18 | Node API | S3 | inherited: `openapiTS("./openapi.yaml")` fails with "Unsupported schema format, expected `openapi: 3.x`", which does not say the string was read as YAML | fixed: `SCHEMA_SOURCE_INVALID` that says to pass `pathToFileURL(path)` |
+| PB-19 | Fetch | S2 | inherited: a `Blob`, `File`, `ArrayBuffer`, typed array or `URLSearchParams` body was JSON-encoded to `{}`, so a `format: binary` upload lost its data | fixed: sent as is, no JSON `Content-Type` (ADR-013, decision 6) |
+| PB-20 | Fetch | S3 | inherited: a nested object in a urlencoded body was sent as `[object Object]` | fixed: throws and names `bodySerializer()` (ADR-013, decision 7) |
+| PB-21 | Fetch | S3 | inherited: a path with `?` plus `params.query` got a second `?` | fixed: joined with `&` (ADR-013, decision 8) |
+| PB-22 | Docs | S4 | the fetch docs did not say that cookie parameters are typed but not sent | fixed: note in `docs/fetch/api.md` |
 
 ## 14. Exit criteria (before inviting testers)
 
