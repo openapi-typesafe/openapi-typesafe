@@ -32,6 +32,8 @@ invite testers.
    types`, plus `npx node@22` / `npx node@24` for the affected suites). Push several fixes at
    once to save CI minutes.
 5. Every run writes its log to `.logs/pre-beta/<area>/`. A test is "passed" only with a log.
+6. Exit code 70 (an unexpected error with a stack trace) is always a finding, at least S2: the
+   docs promise a typed error for every expected failure.
 
 ## 2. Test environment matrix
 
@@ -110,7 +112,10 @@ webhooks.
       `--dedupe-enums` × `--conditional-enums`; `--root-types` × its two modifiers;
       `--immutable` × `--read-write-markers`; `--export-type` × `--root-types`). Compare each
       with `fork-base`.
-- [ ] 4.7 `--check`: up to date, out of date, missing output; exit codes match `docs/cli.md`.
+- [ ] 4.7 `--check`: up to date, out of date, missing output. Every row of the exit-code table
+      in `docs/cli.md` (0, 1, 2, 3, 4) is reached with the listed error codes. With several
+      APIs in `redocly.yaml`, the others still run when one fails, and the exit code is the
+      first failure's.
 - [ ] 4.8 Performance: time and peak memory on the largest documents (GitHub, Stripe,
       Kubernetes), 5 runs each, median. Budget: at most 10% slower than openapi-typescript
       7.13 (users notice more than that in watch scripts and CI).
