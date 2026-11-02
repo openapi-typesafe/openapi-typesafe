@@ -21,10 +21,13 @@ invite testers.
    - then the fix at the root cause, not a special case for the repro;
    - then a changeset for user-visible changes;
    - an ADR when the fix changes a contract or a systemic decision.
-3. A difference in the generated types from openapi-typescript 7.13 (the type-identity check
-   of the compat harness) is a defect unless it is a documented bug fix. A byte-only difference
-   with identical types is classified and explained, and counts against the ≥ 99% byte target
-   of §14.
+3. The reference for generated output is the `fork-base` tag, as in the compat harness:
+   openapi-typescript at the fork point, which already has the unreleased upstream changes of
+   7.14. A difference in the generated types from `fork-base` (the harness's type-identity
+   check) is a defect unless it is a documented bug fix. A byte-only difference with identical
+   types is classified and explained, and counts against the ≥ 99% byte target of §14.
+   openapi-typescript 7.13 (what users run today) is the reference for performance (§4.8) and
+   for what users see change when they migrate (§8).
 4. Verify locally (`VERIFY_FAIL_ON_WARNINGS=1 scripts/verify.sh build lint test size coverage
    types`, plus `npx node@22` / `npx node@24` for the affected suites). Push several fixes at
    once to save CI minutes.
@@ -47,8 +50,8 @@ workspace never resolves anything for them.
 | OS | macOS locally; Linux in CI; Windows only after the repository is public |
 
 Not every combination: the full grid would be thousands of runs. Each section names the slice
-it needs: §3 runs every package manager on every Node.js version; TypeScript versions and
-`moduleResolution` values are covered by §3.5 and §4.2.
+it needs: §3 runs every package manager on every Node.js version, `moduleResolution` values are
+covered by §3.5, TypeScript versions and strict flags by §4.2 and §6.8.
 
 ## 3. Install from the beta tarballs (the tester's first 10 minutes)
 
@@ -56,8 +59,10 @@ Follow `RELEASE_NOTES.md` of `beta-1.0.0-beta.1` word by word, as a tester would
 
 - [ ] 3.1 `shasum -a 256 -c SHA256SUMS` passes for the downloaded assets.
 - [ ] 3.2 Install with npm, pnpm and Yarn, using exactly the `overrides` / `resolutions`
-      snippets from the notes. No openapi-typesafe package is looked up on npm. Bun has no
-      snippet in the notes yet: find the working recipe and add it.
+      snippets from the notes. No openapi-typesafe package is looked up on npm. The names now
+      exist on npm as deprecated `0.0.0` placeholders, so a missing override fails with "no
+      matching version" instead of "not found": check that the notes explain that error. Bun
+      has no snippet in the notes yet: find the working recipe and add it.
 - [ ] 3.3 `openapi-typesafe --version` and `--help` work through each manager's own runner
       (`npx`, `pnpm exec`, `yarn`, `bunx`).
 - [ ] 3.4 Every package imports in ESM and in CJS (`require`) where its `exports` map says so.
@@ -84,8 +89,9 @@ webhooks.
 
 - [ ] 4.1 Full compat run, all option sets, locally (from `tools/compat-harness`):
       `scripts/prepare-generators.sh`, `node src/cli/main.ts fetch --corpus all`, then
-      `scripts/run-compat.sh all all`. Every difference from openapi-typescript 7.13 is
-      classified: documented fix, byte-only difference with identical types, or defect.
+      `scripts/run-compat.sh all all`. Every difference from `fork-base` is classified:
+      documented fix, byte-only difference with identical types, or defect. The report's
+      `upstream-7.13.0` vs `fork-base` part lists what users of 7.13 will see change.
 - [ ] 4.2 Generated output type-checks with every strict flag of §2: the whole corpus with
       the default options under TypeScript 5.4 and 7.0, and every option set on the example
       schemas under every TypeScript version (the type matrix covers a sample today).
@@ -96,13 +102,14 @@ webhooks.
       which 3.2 features give correct types and document the rest), Swagger 2.0 (the docs say
       "not supported": check that the error says so).
 - [ ] 4.5 Inputs: JSON, YAML (anchors, BOM, CRLF; multi-document and tab indents must fail
-      with a clear message), a URL, stdin, a
-      `redocly.yaml` with several APIs, multi-file `$ref` (relative, absolute, URL, circular,
-      to a JSON pointer with `~0`/`~1`/`%`).
+      with a clear message), a URL (also with the auth headers of `redocly.yaml`, see "Auth" in
+      `docs/cli.md`), stdin, a `redocly.yaml` with several APIs, multi-file `$ref` (relative,
+      absolute, URL, circular, to a JSON pointer with `~0`/`~1`/`%`). Output: to a file, and to
+      stdout when `--output` is not given.
 - [ ] 4.6 Every CLI flag alone, and every pair that interacts (`--enum` × `--enum-values` ×
       `--dedupe-enums` × `--conditional-enums`; `--root-types` × its two modifiers;
       `--immutable` × `--read-write-markers`; `--export-type` × `--root-types`). Compare each
-      with openapi-typescript 7.13.
+      with `fork-base`.
 - [ ] 4.7 `--check`: up to date, out of date, missing output; exit codes match `docs/cli.md`.
 - [ ] 4.8 Performance: time and peak memory on the largest documents (GitHub, Stripe,
       Kubernetes), 5 runs each, median. Budget: at most 10% slower than openapi-typescript
@@ -113,8 +120,10 @@ webhooks.
 ## 5. Node API
 
 - [ ] 5.1 Every example in `docs/node.md` runs as written (copy-paste into a fresh project).
-- [ ] 5.2 Every option of the Node API matches its CLI flag; unknown options are rejected or
-      documented.
+- [ ] 5.2 Every CLI flag behaves like its Node API option. Options that have no flag
+      (`transform`, `postTransform`, `transformProperty`, `irCallbacks`, `inject`, the Redocly
+      config object) are documented in `docs/node.md`; the deprecated TypeScript-node callbacks
+      warn once.
 - [ ] 5.3 Input kinds: parsed object, YAML or JSON string, `URL` (file and remote), `Readable`
       stream; `transform` / `postTransform` callbacks; `astToString`.
 - [ ] 5.4 Errors: each code of ADR-011 is reachable, typed, and has a useful message.
@@ -146,6 +155,9 @@ Bun, Deno and the browsers run a smoke subset through the existing runtime and b
       count (`tsc --extendedDiagnostics`) against openapi-fetch 0.17 as the baseline.
 - [ ] 6.9 Behaviour parity with openapi-fetch 0.17: same requests on the wire for the same
       calls, except the documented fixes of ADR-013.
+- [ ] 6.10 `openapi-typesafe-helpers` has no runtime code of its own: its types are checked
+      through 6.8, and its public type names match openapi-typescript-helpers, so code that
+      imports them directly keeps compiling after §8.
 
 ## 7. React Query client (`openapi-typesafe-react-query`)
 
@@ -232,6 +244,7 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 
 ## 14. Exit criteria (before inviting testers)
 
+- Every section run, each with its log in `.logs/pre-beta/`; §11.1 may wait for the budget.
 - All S1 and S2 findings fixed; S3 findings fixed or filed as issues with a reason.
 - §3 passes with every package manager on every Node.js version of §2.
 - §4.1 compat report: ≥ 99% byte match, 100% type identity, every difference classified.
