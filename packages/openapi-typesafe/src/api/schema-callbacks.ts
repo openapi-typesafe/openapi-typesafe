@@ -42,6 +42,18 @@ export class UnreadablePropertyError extends OpenAPITypesafeError {
   }
 }
 
+/** A `transform` or `postTransform` result that is neither IR nor a TypeScript node. */
+export class UnreadableTypeError extends OpenAPITypesafeError {
+  constructor(callback: "transform" | "postTransform", path: string | undefined) {
+    super({
+      code: ERROR_CODES.CALLBACK_RESULT_UNREADABLE,
+      message: `${callback} at ${path} returned a value that is not a TypeScript node`,
+      details: { callback, path },
+    });
+    this.name = "UnreadableTypeError";
+  }
+}
+
 function nodeOptions(ctx: GlobalContext, location: SchemaLocation): TransformNodeOptions {
   return { ...location, ctx } as TransformNodeOptions;
 }
@@ -93,27 +105,45 @@ type LegacyPostTransform = NonNullable<LegacyCallbackOptions["postTransform"]>;
 type LegacyTransformProperty = NonNullable<LegacyCallbackOptions["transformProperty"]>;
 
 /** A legacy result type: IR from the helpers as it is; a TypeScript node through the bridge. */
-function legacyResultType(ctx: GlobalContext, type: IrType | ts.TypeNode): IrType {
-  if (typeof type.kind !== "string") {
+/**
+ * IR nodes have a string `kind`, TypeScript nodes a number. JavaScript callers can return any
+ * value, and anything else would crash the TypeScript printer later.
+ */
+function readResultType(
+  callback: "transform" | "postTransform",
+  result: unknown,
+  location: SchemaLocation,
+): IrType {
+  const kind = (result as { kind?: unknown }).kind;
+  if (typeof kind !== "string" && typeof kind !== "number") {
+    throw new UnreadableTypeError(callback, location.path);
+  }
+  return toIrType(result as IrType | ts.TypeNode);
+}
+
+function legacyResultType(ctx: GlobalContext, type: unknown, location: SchemaLocation): IrType {
+  const result = readResultType("transform", type, location);
+  if (typeof (type as { kind: unknown }).kind !== "string") {
     warnLegacyCallback(ctx, "transform");
   }
-  return toIrType(type);
+  return result;
 }
 
 function legacyCustomType(
   ctx: GlobalContext,
   result: ReturnType<LegacyTransform>,
+  location: SchemaLocation,
 ): CustomType | null {
   if (!result || typeof result !== "object") {
     return null;
   }
   if ("schema" in result) {
     return {
-      type: legacyResultType(ctx, result.schema),
+      type: legacyResultType(ctx, result.schema, location),
       isOptional: Boolean(result.questionToken),
     };
   }
-  return { type: legacyResultType(ctx, result), isOptional: false };
+  return { type: legacyResultType(ctx, result, location), isOptional: false };
 }
 
 /** See `irSchemaCallbacks` for the casts; `typeof` checks keep the original's tolerance. */
@@ -123,7 +153,11 @@ function legacySchemaCallbacks(ctx: GlobalContext): SchemaCallbacks {
   return {
     transform: (schema, location) =>
       typeof transform === "function"
-        ? legacyCustomType(ctx, transform(schema as SchemaObject, nodeOptions(ctx, location)))
+        ? legacyCustomType(
+            ctx,
+            transform(schema as SchemaObject, nodeOptions(ctx, location)),
+            location,
+          )
         : null,
     postTransform(type, location) {
       if (typeof postTransform !== "function") {
@@ -131,7 +165,7 @@ function legacySchemaCallbacks(ctx: GlobalContext): SchemaCallbacks {
       }
       warnLegacyCallback(ctx, "postTransform");
       const result = postTransform(toTypeNode(loadTypeScript(), type), nodeOptions(ctx, location));
-      return result ? toIrType(result) : null;
+      return result ? readResultType("postTransform", result, location) : null;
     },
     transformProperty: (property, schema, location) =>
       legacyTransformProperty(ctx, property, schema, location),
@@ -168,7 +202,8 @@ function legacyTransformProperty(
   if (isIrProperty(result)) {
     return result;
   }
-  const converted = fromPropertySignature(ts, result);
+  // JavaScript callers can return any value, so check the node kind before reading it.
+  const converted = ts.isPropertySignature(result) ? fromPropertySignature(ts, result) : null;
   if (converted === null) {
     throw new UnreadablePropertyError(location.path);
   }

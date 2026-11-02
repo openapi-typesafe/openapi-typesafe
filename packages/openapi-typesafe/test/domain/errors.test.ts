@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TypeScriptNotFoundError } from "../../src/adapters/type-ast-bridge/load-typescript.js";
-import { UnreadablePropertyError } from "../../src/api/schema-callbacks.js";
+import { UnreadablePropertyError, UnreadableTypeError } from "../../src/api/schema-callbacks.js";
 import { EmptyEnumNameError } from "../../src/application/transform/footer/enum-naming.js";
 import { InvalidRefError } from "../../src/application/transform/ref-type.js";
 import { InvalidPropertyError } from "../../src/application/transform/schema/object-type.js";
@@ -78,6 +78,11 @@ describe("typed error classes", () => {
       new UnreadablePropertyError("#/a"),
       "CALLBACK_RESULT_UNREADABLE",
       { callback: "transformProperty", path: "#/a" },
+    ],
+    [
+      new UnreadableTypeError("postTransform", "#/a"),
+      "CALLBACK_RESULT_UNREADABLE",
+      { callback: "postTransform", path: "#/a" },
     ],
     [
       new TypeScriptNotFoundError(),
