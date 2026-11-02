@@ -181,7 +181,7 @@ function writeConstituents(writer: TextWriter, types: readonly IrType[], separat
 
 type IrLeafType = Extract<
   IrType,
-  { kind: "keyword" | "stringLiteral" | "numberLiteral" | "booleanLiteral" | "raw" }
+  { kind: "keyword" | "stringLiteral" | "numberLiteral" | "booleanLiteral" }
 >;
 
 function printLeafType(type: IrLeafType): string {
@@ -194,11 +194,22 @@ function printLeafType(type: IrLeafType): string {
       return printNumberLiteral(type.value);
     case "booleanLiteral":
       return String(type.value);
-    case "raw":
-      return type.text;
     default:
       return assertNever(type);
   }
+}
+
+/**
+ * Raw text is printed as if it started at column 0, so its continuation lines get the current
+ * indentation, as the TypeScript printer indents a nested node.
+ */
+function writeRawType(writer: TextWriter, text: string): void {
+  text.split("\n").forEach((line, index) => {
+    if (index > 0) {
+      writer.rawWrite(writer.options.newLine);
+    }
+    writer.write(line);
+  });
 }
 
 function writeArrayType(writer: TextWriter, element: IrType): void {
@@ -218,8 +229,10 @@ export function writeType(writer: TextWriter, type: IrType): void {
     case "stringLiteral":
     case "numberLiteral":
     case "booleanLiteral":
-    case "raw":
       writer.write(printLeafType(type));
+      break;
+    case "raw":
+      writeRawType(writer, type.text);
       break;
     case "reference":
       writeReferenceType(writer, type.name, type.typeArguments);

@@ -102,11 +102,20 @@ export interface IrReadonlyType {
 
 /**
  * Text printed as is. Escape hatch for types that come from outside the IR, for example output of
- * legacy `ts.Node` callbacks converted by the type-AST bridge (ENGINEERING_PLAN 6.3).
+ * legacy `ts.Node` callbacks converted by the type-AST bridge (ENGINEERING_PLAN 6.3). The text is
+ * written as if it started at column 0: each line after the first gets the indentation of the
+ * position where the type is printed. Known limit: this also indents the continuation lines of a
+ * template literal that spans lines, which TypeScript keeps verbatim (ADR-004).
  */
 export interface IrRawType {
   readonly kind: "raw";
   readonly text: string;
+  /**
+   * The outside node the text was printed from, opaque to the IR. While unported parents still
+   * print with TypeScript (Phase 5), the bridge hands this node back unchanged, exactly as the
+   * original did. Removed with the reverse bridge in Phase 6.
+   */
+  readonly origin?: unknown;
 }
 
 export type IrType =

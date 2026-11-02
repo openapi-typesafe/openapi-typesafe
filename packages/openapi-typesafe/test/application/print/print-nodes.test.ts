@@ -33,6 +33,16 @@ describe("printNodes", () => {
     );
   });
 
+  it("printNodes indents the continuation lines of a nested raw type", () => {
+    const type = irObject([
+      irProperty({ kind: "identifier", text: "a" }, { kind: "raw", text: "{\n    b: 1;\n\n}" }),
+    ]);
+
+    expect(printNodes([alias(type)])).toBe(
+      "export type A = {\n    a: {\n        b: 1;\n\n    };\n};\n",
+    );
+  });
+
   it("printNodes with an unknown declaration kind throws", () => {
     expect(() => printNodes([{ kind: "module" } as unknown as IrDeclaration])).toThrow(
       "Unexpected variant",

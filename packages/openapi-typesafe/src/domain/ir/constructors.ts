@@ -88,8 +88,8 @@ export function irReadonly(type: IrType): IrReadonlyType {
  * Type text printed as is. The original builds some types from text (template literal path keys,
  * root type aliases); keeping them as text keeps their exact spelling.
  */
-export function irRaw(text: string): IrRawType {
-  return { kind: "raw", text };
+export function irRaw(text: string, origin?: unknown): IrRawType {
+  return origin === undefined ? { kind: "raw", text } : { kind: "raw", text, origin };
 }
 
 /** Options of a property signature; omitted flags are false and there are no comments. */

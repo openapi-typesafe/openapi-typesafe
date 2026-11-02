@@ -39,15 +39,21 @@ function withoutIrNodes<T extends ts.Node>(node: T): T {
   return visit(node) as T;
 }
 
-/** Print as the original did: the TypeScript printer with an empty source file and LF. */
-export function printTypeScriptNode(node: ts.Node): string {
+function printPlainNode(node: ts.Node): string {
   const source = ts.createSourceFile("openapi-ts.ts", "", ts.ScriptTarget.ESNext, false);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-  return printer.printNode(ts.EmitHint.Unspecified, withoutIrNodes(node), source);
+  return printer.printNode(ts.EmitHint.Unspecified, node, source);
 }
 
-function asRaw(node: ts.Node): IrType {
-  return irRaw(printTypeScriptNode(node));
+/** Print as the original did: the TypeScript printer with an empty source file and LF. */
+export function printTypeScriptNode(node: ts.Node): string {
+  return printPlainNode(withoutIrNodes(node));
+}
+
+/** The node as text, keeping the node itself for the way back to TypeScript (`toTypeNode`). */
+function asRaw(node: ts.TypeNode): IrType {
+  const printable = withoutIrNodes(node);
+  return irRaw(printPlainNode(printable), printable);
 }
 
 function hasSyntheticComments(node: ts.Node): boolean {
@@ -259,22 +265,22 @@ function fromStructure(node: ts.TypeNode): IrType | null {
 
 /**
  * Whether the factory's parenthesizer put these parentheses in (same rules as the IR printer):
- * unions and intersections as array elements, indexed objects, `readonly` operands and members of
- * other unions or intersections; `readonly` types as array elements and indexed objects.
+ * unions, intersections and `readonly` types as array elements, indexed objects and `readonly`
+ * operands; unions and intersections as members of other unions or intersections.
  */
 function isFactoryParenthesis(inner: ts.TypeNode, parent: ts.Node | undefined): boolean {
   if (parent === undefined) {
     return false;
   }
   const isComposite = ts.isUnionTypeNode(inner) || ts.isIntersectionTypeNode(inner);
-  const isReadonly = ts.isTypeOperatorNode(inner);
-  if (ts.isArrayTypeNode(parent) || ts.isIndexedAccessTypeNode(parent)) {
-    return isComposite || isReadonly;
-  }
-  const isCompositeParent =
-    ts.isUnionTypeNode(parent) ||
-    ts.isIntersectionTypeNode(parent) ||
+  const isPostfixOrReadonlyParent =
+    ts.isArrayTypeNode(parent) ||
+    ts.isIndexedAccessTypeNode(parent) ||
     ts.isTypeOperatorNode(parent);
+  if (isPostfixOrReadonlyParent) {
+    return isComposite || ts.isTypeOperatorNode(inner);
+  }
+  const isCompositeParent = ts.isUnionTypeNode(parent) || ts.isIntersectionTypeNode(parent);
   return isCompositeParent && isComposite;
 }
 

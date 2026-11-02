@@ -81,7 +81,11 @@ function toLeafTypeNode(
         type.value ? factory.createTrue() : factory.createFalse(),
       );
     case "raw":
-      return factory.createIdentifier(type.text) as unknown as ts.TypeNode;
+      // A node read from TypeScript goes back as it was, so the TypeScript printer indents it.
+      return (
+        (type.origin as ts.TypeNode | undefined) ??
+        (factory.createIdentifier(type.text) as unknown as ts.TypeNode)
+      );
     default:
       return assertNever(type);
   }

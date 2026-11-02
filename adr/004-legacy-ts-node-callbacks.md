@@ -81,6 +81,12 @@ so a node can only be read with the same `typescript` module that created it.
   Phase 8 real-project check covers both projects, plus TabbyML/tabby, InvokeAI, marimo, supabase/mcp,
   openmeter, andesine and the Qraft plugin, which together use every callback style found in 3.1.
 - 2.0 removes the deprecated forms and the bridge's reverse direction.
+- Callback nodes that the IR cannot model become `raw` text. While output is still printed by TypeScript
+  (Phase 5), the raw node keeps the original node and gives it back, so output is unchanged. Once our
+  printer prints the output (Phase 5, step 7), raw text is re-indented line by line at its position, as
+  TypeScript indents a nested node. Known limit: that also indents the continuation lines of a template
+  literal type that spans lines, which TypeScript keeps verbatim. Step 7 lists it in the compatibility
+  report's known differences.
 
 ## Review trigger
 

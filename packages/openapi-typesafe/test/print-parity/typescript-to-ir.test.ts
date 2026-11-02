@@ -55,6 +55,24 @@ describe("fromTypeNode", () => {
         ]),
     ],
     [
+      "readonly of a readonly tuple in a property (multi-line, needs the indentation)",
+      () =>
+        factory.createTypeLiteralNode([
+          factory.createPropertySignature(
+            undefined,
+            "a",
+            undefined,
+            factory.createTypeOperatorNode(
+              ts.SyntaxKind.ReadonlyKeyword,
+              factory.createTypeOperatorNode(
+                ts.SyntaxKind.ReadonlyKeyword,
+                factory.createTupleTypeNode([]),
+              ),
+            ),
+          ),
+        ]),
+    ],
+    [
       "factory parentheses in an array",
       () => factory.createArrayTypeNode(factory.createUnionTypeNode([STRING, NULL])),
     ],
@@ -132,6 +150,16 @@ describe("fromTypeNode", () => {
     const node = build();
 
     expect(printConverted(node)).toBe(printOriginal(node));
+  });
+
+  it("fromTypeNode of a node kept as text converts back to the same node", () => {
+    const [declaration] = stringToAST("type X = {\n  a: string;\n};");
+    const node = (declaration as ts.TypeAliasDeclaration).type;
+
+    const type = fromTypeNode(node);
+
+    expect(type.kind).toBe("raw");
+    expect(toTypeNode(type)).toBe(node);
   });
 
   it("fromTypeNode keeps IR nodes found inside a TypeScript tree", () => {
