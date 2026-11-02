@@ -1,6 +1,6 @@
 import type ts from "typescript";
 import { transformSchema, transformSchemaShape } from "../application/transform/schema/schema-transform.js";
-import { createSchemaContext, schemaLocation, toLegacyType } from "../lib/schema-context.js";
+import { createTransformContext, schemaLocation, toLegacyType } from "../lib/transform-context.js";
 import type { ReferenceObject, SchemaObject, TransformNodeOptions } from "../types.js";
 
 /**
@@ -16,7 +16,7 @@ export default function transformSchemaObject(
   options: TransformNodeOptions,
   fromAdditionalProperties = false,
 ): ts.TypeNode {
-  const context = createSchemaContext(options.ctx);
+  const context = createTransformContext(options.ctx);
   const location = schemaLocation(options);
   return toLegacyType(transformSchema(schemaObject, location, context, fromAdditionalProperties));
 }
@@ -27,7 +27,7 @@ export function transformSchemaObjectWithComposition(
   options: TransformNodeOptions,
   fromAdditionalProperties = false,
 ): ts.TypeNode {
-  const context = createSchemaContext(options.ctx);
+  const context = createTransformContext(options.ctx);
   const location = schemaLocation(options);
   return toLegacyType(transformSchemaShape(schemaObject, location, context, fromAdditionalProperties));
 }

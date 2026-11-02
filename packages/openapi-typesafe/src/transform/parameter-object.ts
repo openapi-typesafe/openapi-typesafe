@@ -1,15 +1,19 @@
 import type ts from "typescript";
-import { STRING } from "../lib/ts.js";
+import { parameterType } from "../application/transform/document/parameter.js";
+import { createTransformContext, schemaLocation, toLegacyType } from "../lib/transform-context.js";
 import type { ParameterObject, TransformNodeOptions } from "../types.js";
-import transformSchemaObject from "./schema-object.js";
 
 /**
  * Transform ParameterObject nodes (4.8.12)
  * @see https://spec.openapis.org/oas/v3.1.0#parameter-object
+ *
+ * Ported to IR (ENGINEERING_PLAN Phase 5, step 3); this keeps the original signature for the
+ * unported parents and the public API.
  */
 export default function transformParameterObject(
   parameterObject: ParameterObject,
   options: TransformNodeOptions,
 ): ts.TypeNode {
-  return parameterObject.schema ? transformSchemaObject(parameterObject.schema, options) : STRING; // assume a parameter is a string by default rather than "unknown"
+  const context = createTransformContext(options.ctx);
+  return toLegacyType(parameterType(parameterObject, schemaLocation(options), context));
 }

@@ -1,31 +1,22 @@
 import ts from "typescript";
 import { toPropertySignature, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
-import {
-  fromPropertySignature,
-  fromTypeNode,
-} from "../adapters/type-ast-bridge/typescript-to-ir.js";
+import { fromPropertySignature, fromTypeNode } from "../adapters/type-ast-bridge/typescript-to-ir.js";
 import type {
   CustomType,
   FooterDeclarations,
   SchemaCallbacks,
-  SchemaContext,
   SchemaLocation,
-  SchemaOptions,
 } from "../application/transform/schema/schema-context.js";
 import { UNKNOWN_TYPE } from "../application/transform/shared-types.js";
+import type { TransformContext, TransformOptions } from "../application/transform/transform-context.js";
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
-import type {
-  GlobalContext,
-  SchemaObject,
-  TransformNodeOptions,
-  TransformObject,
-} from "../types.js";
+import type { GlobalContext, SchemaObject, TransformNodeOptions, TransformObject } from "../types.js";
 import { injectWithRequiredHelper } from "./footer-helpers.js";
 import { tsArrayLiteralExpression, tsEnum, UNKNOWN } from "./ts.js";
 
 /**
- * Temporary adapter (ENGINEERING_PLAN Phase 5): the schema transformer works on IR, while its
- * parents, the footer and the user callbacks still use `ts.Node`. This builds its context from the
+ * Temporary adapter (ENGINEERING_PLAN Phase 5): the ported transformers work on IR, while their
+ * unported parents, the footer and the user callbacks still use `ts.Node`. This builds its context from the
  * original `GlobalContext`. It goes away when the parents are ported (Phase 5, step 6).
  */
 
@@ -45,7 +36,7 @@ export function fromLegacyType(node: ts.TypeNode): IrType {
   return node === UNKNOWN ? UNKNOWN_TYPE : fromTypeNode(node);
 }
 
-function schemaOptions(ctx: GlobalContext): SchemaOptions {
+function transformOptions(ctx: GlobalContext): TransformOptions {
   return {
     additionalProperties: ctx.additionalProperties,
     alphabetize: ctx.alphabetize,
@@ -60,6 +51,7 @@ function schemaOptions(ctx: GlobalContext): SchemaOptions {
     immutable: ctx.immutable,
     propertiesRequiredByDefault: ctx.propertiesRequiredByDefault,
     readWriteMarkers: ctx.readWriteMarkers,
+    generatePathParams: ctx.generatePathParams,
   };
 }
 
@@ -78,9 +70,7 @@ function footer(ctx: GlobalContext): FooterDeclarations {
     },
     addEnumValues({ name, type, values }) {
       const options = { export: true, readonly: true, injectFooter: ctx.injectFooter };
-      ctx.injectFooter.push(
-        tsArrayLiteralExpression(name, toLegacyType(type), [...values], options),
-      );
+      ctx.injectFooter.push(tsArrayLiteralExpression(name, toLegacyType(type), [...values], options));
     },
     requireWithRequired() {
       injectWithRequiredHelper(ctx.injectFooter);
@@ -113,9 +103,7 @@ function callbacks(ctx: GlobalContext): SchemaCallbacks {
     postTransform(type, location) {
       const postTransform = ctx.postTransform;
       const result =
-        typeof postTransform === "function"
-          ? postTransform(toLegacyType(type), nodeOptions(ctx, location))
-          : undefined;
+        typeof postTransform === "function" ? postTransform(toLegacyType(type), nodeOptions(ctx, location)) : undefined;
       return result ? fromLegacyType(result) : null;
     },
     transformProperty(property, schema, location) {
@@ -146,10 +134,10 @@ function transformPropertyWith(
   return converted;
 }
 
-/** The schema transformer's context for one call from a legacy transformer. */
-export function createSchemaContext(ctx: GlobalContext): SchemaContext {
+/** The ported transformers' context for one call from a legacy transformer. */
+export function createTransformContext(ctx: GlobalContext): TransformContext {
   return {
-    options: schemaOptions(ctx),
+    options: transformOptions(ctx),
     refs: { resolve: (ref) => ctx.resolve(ref) },
     discriminators: {
       objectAt: (ref) => ctx.discriminators.objects[ref],

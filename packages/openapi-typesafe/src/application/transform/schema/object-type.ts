@@ -5,12 +5,12 @@ import type {
   IrPropertySignature,
   IrType,
 } from "../../../domain/ir/nodes.js";
-import { sortEntriesByKey } from "../../../domain/ir/normalize.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { documentEntries } from "../document-entries.js";
 import { refType } from "../ref-type.js";
-import { schemaComment } from "../schema-comment.js";
+import { withSchemaComment } from "../schema-comment.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import { discriminatorProperty } from "./discriminator-property.js";
@@ -26,23 +26,6 @@ export class InvalidPropertyError extends Error {
     super(`${path}: invalid property ${key}. Expected Schema Object or boolean, got ${received}`);
     this.name = "InvalidPropertyError";
   }
-}
-
-/** `Object.entries`, sorted for `--alphabetize`, without deprecated entries for `--exclude-deprecated` (`getEntries`). */
-export function schemaEntries<T>(
-  record: Readonly<Record<string, T>>,
-  options: SchemaOptions,
-): [string, T][] {
-  const entries = Object.entries(record);
-  const sorted = options.alphabetize ? sortEntriesByKey(entries) : entries;
-  if (!options.excludeDeprecated) {
-    return sorted;
-  }
-  return sorted.filter(([, value]) => {
-    const isDeprecated =
-      value && typeof value === "object" && "deprecated" in value && value.deprecated;
-    return !isDeprecated;
-  });
 }
 
 /** `--read-write-markers`: `$Read<T>` / `$Write<T>`, unless the property is both or neither. */
@@ -69,10 +52,7 @@ function finishProperty(
   const transformed =
     request.context.callbacks.transformProperty(property, schema, location) ?? property;
   // The original adds the schema's comment after any comment the callback set.
-  const comment = schemaComment(schema);
-  return comment === null
-    ? transformed
-    : { ...transformed, comments: [...transformed.comments, comment] };
+  return withSchemaComment(transformed, schema);
 }
 
 /** What the property loop reads from a property schema, in the original order. */
@@ -173,7 +153,7 @@ function propertyMember(
 
 function propertyMembers(schema: SchemaObject, request: SchemaRequest): IrMember[] {
   const members: IrMember[] = [];
-  for (const [key, value] of schemaEntries(schema.properties ?? {}, request.context.options)) {
+  for (const [key, value] of documentEntries(schema.properties ?? {}, request.context.options)) {
     const member = propertyMember(key, value, schema, request);
     if (member !== null) {
       members.push(member);
@@ -231,7 +211,7 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
   }
   const patterns = schema.patternProperties;
   if (typeof patterns === "object" && patterns !== null && Object.keys(patterns).length > 0) {
-    for (const [, value] of schemaEntries(patterns, request.context.options)) {
+    for (const [, value] of documentEntries(patterns, request.context.options)) {
       types.push(request.transformNested(value, request.location));
     }
   }

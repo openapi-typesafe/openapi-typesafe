@@ -5,13 +5,15 @@ import type {
   EnumValuesRequest,
   FooterDeclarations,
   SchemaCallbacks,
-  SchemaContext,
   SchemaLocation,
-  SchemaOptions,
 } from "../../src/application/transform/schema/schema-context.js";
+import type {
+  TransformContext,
+  TransformOptions,
+} from "../../src/application/transform/transform-context.js";
 import type { IrPropertySignature, IrType } from "../../src/domain/ir/nodes.js";
 
-export const DEFAULT_SCHEMA_OPTIONS: SchemaOptions = {
+export const DEFAULT_TRANSFORM_OPTIONS: TransformOptions = {
   additionalProperties: false,
   alphabetize: false,
   arrayLength: false,
@@ -25,6 +27,7 @@ export const DEFAULT_SCHEMA_OPTIONS: SchemaOptions = {
   immutable: false,
   propertiesRequiredByDefault: false,
   readWriteMarkers: false,
+  generatePathParams: false,
 };
 
 /** Records footer requests; enum names are the requested names with a capital letter. */
@@ -69,20 +72,20 @@ function callbacksOf(fake: FakeCallbacks): SchemaCallbacks {
 }
 
 export interface FakeContextInput {
-  readonly options?: Partial<SchemaOptions>;
+  readonly options?: Partial<TransformOptions>;
   readonly documents?: Readonly<Record<string, unknown>>;
   readonly discriminators?: Readonly<Record<string, Discriminator>>;
   readonly handledRefs?: readonly string[];
   readonly callbacks?: FakeCallbacks;
 }
 
-export function fakeSchemaContext(input: FakeContextInput = {}): {
-  context: SchemaContext;
+export function fakeTransformContext(input: FakeContextInput = {}): {
+  context: TransformContext;
   footer: RecordingFooter;
 } {
   const footer = new RecordingFooter();
-  const context: SchemaContext = {
-    options: { ...DEFAULT_SCHEMA_OPTIONS, ...input.options },
+  const context: TransformContext = {
+    options: { ...DEFAULT_TRANSFORM_OPTIONS, ...input.options },
     refs: { resolve: (ref) => input.documents?.[ref] },
     discriminators: {
       objectAt: (ref) => input.discriminators?.[ref],

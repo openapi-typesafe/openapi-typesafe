@@ -1,4 +1,4 @@
-import type { IrComment } from "../../domain/ir/nodes.js";
+import type { IrComment, IrPropertySignature } from "../../domain/ir/nodes.js";
 
 /** Schema fields that produce JSDoc lines (the original `AnnotatedSchemaObject`). */
 export interface AnnotatedSchema {
@@ -102,4 +102,13 @@ export function schemaComment(schema: unknown): IrComment | null {
   const text = isSingleLine ? `* ${lines.join("\n")} ` : `*\n * ${lines.join("\n * ")}\n `;
   // A `*/` inside a value would end the comment early.
   return { kind: "block", text: text.replace(COMMENT_END_RE, "*\\/") };
+}
+
+/** The property with the schema's JSDoc added after the comments it already has. */
+export function withSchemaComment(
+  property: IrPropertySignature,
+  schema: unknown,
+): IrPropertySignature {
+  const comment = schemaComment(schema);
+  return comment === null ? property : { ...property, comments: [...property.comments, comment] };
 }

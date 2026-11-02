@@ -11,8 +11,8 @@ import type { IrType } from "../../../../src/domain/ir/nodes.js";
 import {
   type FakeCallbacks,
   type FakeContextInput,
-  fakeSchemaContext,
-} from "../../../fakes/schema-context.js";
+  fakeTransformContext,
+} from "../../../fakes/transform-context.js";
 
 const ROOT = { path: "#/components/schemas/Root" };
 
@@ -22,7 +22,7 @@ function print(type: IrType): string {
 }
 
 function transform(schema: unknown, input: FakeContextInput = {}, path = ROOT.path) {
-  const { context, footer } = fakeSchemaContext(input);
+  const { context, footer } = fakeTransformContext(input);
   const type = transformSchema(schema as never, { path }, context);
   return { text: print(type), footer };
 }
@@ -156,7 +156,7 @@ describe("transformSchema", () => {
 
   it("transformSchema applies postTransform and transformSchemaShape skips it", () => {
     const callbacks = { postTransform: () => irReference("Custom") };
-    const { context } = fakeSchemaContext({ callbacks });
+    const { context } = fakeTransformContext({ callbacks });
 
     expect(print(transformSchema({ type: "string" }, ROOT, context))).toBe("Custom");
     expect(print(transformSchemaShape({ type: "string" }, ROOT, context))).toBe("string");
