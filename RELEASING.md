@@ -23,6 +23,21 @@ does not generate provenance for private repositories.
    merge, then merge the "chore(release): version packages" pull request. That gives
    `1.0.0-rc.0` on the `next` tag (11.3).
 
+## Closed beta (11.1)
+
+The beta runs while the repository is private, so nothing goes to npm.
+
+1. `scripts/release/pack-beta.sh 1.0.0-beta.<n>` builds the packages and writes the tarballs,
+   `SHA256SUMS` and `RELEASE_NOTES.md` (install steps for testers) to `.release/beta/<version>/`.
+   The tarballs carry the beta version and pin each other to it; `package.json` files stay as they
+   are. A smoke install of the client tarballs runs before the script succeeds. Log:
+   `.logs/release/pack-beta-<version>.log`.
+2. Add the testers as read-only collaborators.
+3. Run the `gh release create` command the script prints. It creates a prerelease with the
+   tarballs attached, visible only to collaborators.
+4. Triage reports as issues; fixes go in with changesets as usual. Pack a new `beta.<n+1>` when
+   enough has changed.
+
 ## Every release
 
 1. Pull requests carry changesets (`pnpm changeset`).

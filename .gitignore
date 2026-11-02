@@ -21,3 +21,6 @@ playwright-report
 
 # Loader evaluation installs (research/loader-evaluation/setup.sh)
 research/loader-evaluation/*/
+
+# Closed-beta tarballs (scripts/release/pack-beta.sh)
+.release
