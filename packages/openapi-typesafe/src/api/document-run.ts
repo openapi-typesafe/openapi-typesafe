@@ -4,6 +4,7 @@ import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import { sourceEmptyError } from "../adapters/redocly-loader/schema-load-errors.js";
 import type { Logger } from "../application/ports/logger.js";
 import type { RefAccess, SchemaLoader } from "../application/ports/schema-loader.js";
+import { withStackOverflowReported } from "../application/stack-overflow.js";
 import type { GeneratorOptions, GlobalContext, OpenAPI3, SchemaSource } from "../types.js";
 import { findDiscriminators } from "./discriminator-scan.js";
 import { resolveDocumentRef } from "./document-refs.js";
@@ -113,7 +114,11 @@ export async function createDocumentRun(
   });
   const ctx: GlobalContext = {
     ...contextFlags(options),
-    discriminators: findDiscriminators(schema, silent, logger),
+    // The scan walks every schema before the transform does, so on a larger stack, where loading
+    // passed, it is the first step to run out.
+    discriminators: withStackOverflowReported("transform", () =>
+      findDiscriminators(schema, silent, logger),
+    ),
     injectFooter: [],
     redoc: ports.redoc,
     resolve: ($ref) => resolveDocumentRef(schema, $ref, { silent, logger }),
