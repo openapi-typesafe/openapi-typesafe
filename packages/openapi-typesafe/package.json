@@ -52,7 +52,7 @@
     "dev": "tsc -p tsconfig.build.json --watch",
     "download:schemas": "vite-node ./scripts/download-schemas.ts",
     "format": "biome format . --write",
-    "lint": "pnpm run lint:js && pnpm run lint:ts && pnpm run lint:deps",
+    "lint": "pnpm run lint:js && pnpm run lint:ts && pnpm run lint:deps && pnpm run lint:sizes",
     "lint:js": "biome check .",
     "lint:ts": "tsc --noEmit && tsc -p tsconfig.strict.json",
     "prepack": "pnpm run build",
@@ -64,7 +64,8 @@
     "prepublish": "pnpm run build",
     "version": "pnpm run build",
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "lint:sizes": "vite-node scripts/size-rules/check-sizes.ts src"
   },
   "peerDependencies": {
     "@typescript/typescript6": "^6.0.0",
