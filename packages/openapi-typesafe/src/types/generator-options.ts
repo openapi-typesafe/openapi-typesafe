@@ -43,6 +43,11 @@ export interface OpenAPITSBaseOptions {
   excludeDeprecated?: boolean;
   /** Add readonly properties and readonly arrays? (default: false) */
   immutable?: boolean;
+  /**
+   * Lint the document with the Redocly config before generating (default: true). Bundling errors
+   * still fail the run.
+   */
+  lint?: boolean;
   /** (optional) Should logging be suppressed? (necessary for STDOUT) */
   silent?: boolean;
   /** (optional) OpenAPI version. Must be present if parsing raw schema */

@@ -47,6 +47,13 @@ describe("parseCliArguments", () => {
     },
   );
 
+  it("parseCliArguments reads --no-lint as lint: false and keeps the input", () => {
+    const args = parseCliArguments(["--no-lint", "schema.yaml"]);
+
+    expect(args.generatorFlags).toEqual({ lint: false });
+    expect(args.input).toBe("schema.yaml");
+  });
+
   it("parseCliArguments reads --help and --version", () => {
     expect(parseCliArguments(["--help"]).isHelp).toBe(true);
     expect(parseCliArguments(["--version"]).isVersion).toBe(true);

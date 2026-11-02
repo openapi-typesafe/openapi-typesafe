@@ -179,7 +179,9 @@ class RedoclySchemaLoader implements SchemaLoader {
     const document = await parseSchema(request.source, { absoluteRef, resolver });
     logger.debug("Parsed schema", "redoc", now() - parseStartedAt);
     assertOpenAPI3(document.parsed);
-    await this.#lint(document, resolver);
+    if (request.shouldLint) {
+      await this.#lint(document, resolver);
+    }
     return this.#bundle(document);
   }
 

@@ -19,6 +19,7 @@ export const GENERATOR_FLAGS = [
   "exportType",
   "generatePathParams",
   "immutable",
+  "lint",
   "makePathsEnum",
   "pathParamsAsTypes",
   "propertiesRequiredByDefault",

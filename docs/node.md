@@ -113,6 +113,7 @@ The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plu
 | `transformProperty`|   `Function`    |                 | Transform individual property signatures for Schema Object properties                        |
 | `irCallbacks`      |    `boolean`    |     `false`     | Callbacks receive and return IR nodes instead of TypeScript nodes (see [IR callbacks](#ir-callbacks)) |
 | `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors will still show)                                      |
+| `lint`             |    `boolean`    |     `true`      | Lint the document with the Redocly config first. `false` skips it; bundling errors still fail |
 | `cwd`              | `string \| URL` | `process.cwd()` | (optional) Provide the current working directory to help resolve remote `$ref`s (if needed). |
 | `inject`           |    `string`     |                 | Inject arbitrary TypeScript types into the start of the file                                 |
 

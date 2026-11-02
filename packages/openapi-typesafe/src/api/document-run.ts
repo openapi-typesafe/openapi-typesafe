@@ -89,7 +89,11 @@ export async function createDocumentRun(
   }
   const { logger } = ports;
   const silent = options.silent ?? false;
-  const schema = await ports.loader.load({ source, cwd: sourceCwd(options) });
+  const schema = await ports.loader.load({
+    source,
+    cwd: sourceCwd(options),
+    shouldLint: options.lint ?? true,
+  });
   const ctx: GlobalContext = {
     ...contextFlags(options),
     discriminators: findDiscriminators(schema, silent, logger),

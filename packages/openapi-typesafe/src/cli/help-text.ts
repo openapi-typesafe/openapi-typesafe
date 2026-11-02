@@ -38,5 +38,6 @@ export const HELP_TEXT = [
   "  --make-paths-enum          Generate ApiPaths enum for all paths",
   "  --read-write-markers       Generate $Read/$Write markers for" +
     " readOnly/writeOnly properties",
+  "  --no-lint                  Skip the Redocly lint (bundling errors still fail)",
   "",
 ].join("\n");
