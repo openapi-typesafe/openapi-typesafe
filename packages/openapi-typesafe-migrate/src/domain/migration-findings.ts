@@ -1,0 +1,71 @@
+/**
+ * What a migration found in one file: changes it made, and steps it leaves to the user. Both are
+ * closed sets of facts, not text; the report turns them into messages (application/report.ts).
+ */
+
+export type Change =
+  | {
+      readonly kind: "dependency-renamed";
+      readonly field: string;
+      readonly from: string;
+      readonly to: string;
+      readonly spec: string;
+    }
+  | { readonly kind: "catalog-entry-renamed"; readonly from: string; readonly to: string }
+  | { readonly kind: "command-renamed"; readonly location: string }
+  | {
+      readonly kind: "flag-renamed";
+      readonly location: string;
+      readonly from: string;
+      readonly to: string;
+    }
+  | {
+      readonly kind: "specifier-renamed";
+      readonly line: number;
+      readonly from: string;
+      readonly to: string;
+    }
+  | { readonly kind: "transform-rewritten"; readonly line: number };
+
+export type ManualStep =
+  | { readonly kind: "manifest-unreadable"; readonly reason: string }
+  | { readonly kind: "peer-dependency-renamed"; readonly name: string }
+  | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
+  | { readonly kind: "override-names-package"; readonly field: string; readonly name: string }
+  | { readonly kind: "versioned-command"; readonly location: string }
+  | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
+  | {
+      readonly kind: "transform-not-rewritten";
+      readonly line: number;
+      readonly reason: TransformKeepReason;
+    }
+  | { readonly kind: "legacy-callback"; readonly line: number; readonly callback: string };
+
+/** Why a `transform` callback was left as it is. */
+export type TransformKeepReason =
+  | "other-callbacks"
+  | "not-a-function"
+  | "shared-function"
+  | "unknown-return";
+
+/** A file's new text and what was found in it. Unchanged text means nothing to write. */
+export interface FileMigration {
+  readonly text: string;
+  readonly changes: readonly Change[];
+  readonly manualSteps: readonly ManualStep[];
+}
+
+/** The result for a file that the migration does not touch. */
+export function unchanged(text: string): FileMigration {
+  return { text, changes: [], manualSteps: [] };
+}
+
+/** Line number (1-based) of a character offset. */
+export function lineAt(text: string, offset: number): number {
+  let line = 1;
+  for (let index = text.indexOf("\n"); index !== -1 && index < offset; ) {
+    line++;
+    index = text.indexOf("\n", index + 1);
+  }
+  return line;
+}

@@ -28,3 +28,5 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [012](./012-composition-roots-and-ports.md) | Composition roots and ports for the CLI and the Node API | Accepted |
 | [013](./013-client-behavior-fixes.md) | Client behavior fixes for 1.0 | Accepted |
 | [014](./014-readable-writable-shape-preservation.md) | `Readable` / `Writable` keep shapes instead of an opt-in flag | Accepted |
+| [015](./015-migration-tool-parser.md) | The migration tool parses sources with `@typescript/typescript6` | Accepted |
+| [016](./016-one-version-line.md) | One version line for the published packages | Accepted |

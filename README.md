@@ -31,6 +31,9 @@ September 2026. It is a fork with the full upstream history (see [NOTICE](./NOTI
 | [`openapi-typesafe-fetch`](./packages/openapi-typesafe-fetch) | `openapi-fetch` | Type-safe `fetch` client for the generated types |
 | [`openapi-typesafe-helpers`](./packages/openapi-typesafe-helpers) | `openapi-typescript-helpers` | Shared type helpers |
 | [`openapi-typesafe-react-query`](./packages/openapi-typesafe-react-query) | `openapi-react-query` | TanStack Query bindings |
+| [`openapi-typesafe-migrate`](./packages/openapi-typesafe-migrate) | — | Moves a project to the packages above |
+
+All packages share one version (ADR-016).
 
 ## Usage
 

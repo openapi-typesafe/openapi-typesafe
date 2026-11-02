@@ -12,7 +12,15 @@
     "@openapi-typesafe/compat-harness"
   ],
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "openapi-typesafe",
+      "openapi-typesafe-fetch",
+      "openapi-typesafe-react-query",
+      "openapi-typesafe-helpers",
+      "openapi-typesafe-migrate"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main"

@@ -1,0 +1,33 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderReport > renderReport ends a written run with the written note 1`] = `
+"Changes:
+  package.json
+    scripts.gen: openapi-typescript → openapi-typesafe
+
+Next steps:
+  1. Install: run your package manager's install, so the lockfile has the new packages.
+  2. Regenerate your types and commit them once: the file header names openapi-typesafe now, so \`--check\` fails until you do.
+  3. Run your type check and tests.
+
+Files were written.
+"
+`;
+
+exports[`renderReport > renderReport lists changes, manual steps and next steps of a dry run 1`] = `
+"Changes:
+  package.json
+    scripts.gen: openapi-typescript → openapi-typesafe
+
+Manual steps:
+  package.json: openapi-typesafe-fetch is a peer dependency: users of this package must switch too (a breaking change for them)
+  ci.yml: ci.yml:1 runs a pinned openapi-typescript@<version>: change it to openapi-typesafe@<version>
+
+Next steps:
+  1. Install: run your package manager's install, so the lockfile has the new packages.
+  2. Regenerate your types and commit them once: the file header names openapi-typesafe now, so \`--check\` fails until you do.
+  3. Run your type check and tests.
+
+Dry run: nothing was written. Run again with --write to apply.
+"
+`;

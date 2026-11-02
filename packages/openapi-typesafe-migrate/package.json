@@ -1,0 +1,59 @@
+{
+  "name": "openapi-typesafe-migrate",
+  "description": "Move a project from openapi-typescript and openapi-fetch to openapi-typesafe",
+  "version": "0.0.0",
+  "author": {
+    "name": "Fedor Chishchin",
+    "email": "fedorstartup@gmail.com"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "openapi-typesafe-migrate": "bin/migrate.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "homepage": "https://github.com/openapi-typesafe/openapi-typesafe#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openapi-typesafe/openapi-typesafe.git",
+    "directory": "packages/openapi-typesafe-migrate"
+  },
+  "bugs": {
+    "url": "https://github.com/openapi-typesafe/openapi-typesafe/issues"
+  },
+  "keywords": [
+    "openapi",
+    "openapi-typescript",
+    "openapi-fetch",
+    "openapi-typesafe",
+    "codemod",
+    "migration"
+  ],
+  "scripts": {
+    "build": "unbuild",
+    "format": "biome format . --write",
+    "lint": "pnpm run lint:js && pnpm run lint:ts && pnpm run lint:deps && pnpm run lint:sizes",
+    "lint:js": "biome check .",
+    "lint:ts": "tsc --noEmit",
+    "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
+    "lint:sizes": "vite-node ../openapi-typesafe/scripts/size-rules/check-sizes.ts src",
+    "prepack": "pnpm run build",
+    "test": "pnpm run test:js && pnpm run test:exports",
+    "test:js": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:exports": "pnpm run build && ../../scripts/check-exports.sh --cli-only"
+  },
+  "dependencies": {
+    "@typescript/typescript6": "^6.0.2"
+  },
+  "devDependencies": {
+    "dependency-cruiser": "18.7.0",
+    "vite-node": "6.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

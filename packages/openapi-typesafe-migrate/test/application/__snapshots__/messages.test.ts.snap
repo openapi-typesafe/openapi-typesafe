@@ -1,0 +1,28 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`changeMessage > changeMessage describes every kind of change 1`] = `
+[
+  "dependencies: a → b@^1.0.0",
+  "catalog: a → b",
+  "scripts.gen: openapi-typescript → openapi-typesafe",
+  "scripts.gen: -it → --immutable",
+  "line 3: "a" → "b"",
+  "line 7: transform returns type text; irCallbacks: true added",
+]
+`;
+
+exports[`manualStepMessage > manualStepMessage describes every kind of manual step 1`] = `
+[
+  "package.json is not valid JSON (Unexpected token); migrate it by hand",
+  "b is a peer dependency: users of this package must switch too (a breaking change for them)",
+  "b kept the spec "latest": point it at an openapi-typesafe version",
+  ""overrides" names a: update or remove that override",
+  "ci.yml:3 runs a pinned openapi-typescript@<version>: change it to openapi-typesafe@<version>",
+  "line 2: "b/x" imports a file inside the package; check that it exists",
+  "line 4: transform kept (postTransform or transformProperty are set too, and they need TypeScript nodes); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
+  "line 4: transform kept (it is not an inline function or a function of this file); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
+  "line 4: transform kept (the function it names is used elsewhere too); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
+  "line 4: transform kept (a return value is not a plain ts.factory type); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
+  "line 5: postTransform receives TypeScript nodes (deprecated). See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
+]
+`;

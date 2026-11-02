@@ -1,0 +1,45 @@
+{
+  "root": false,
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "extends": "//",
+  "files": {
+    "includes": ["bin/**", "src/**", "test/**", "*.ts", "!**/fixtures/**/*", "!**/dist", "!**/coverage"]
+  },
+  "overrides": [
+    {
+      "includes": ["src/**", "test/**"],
+      "formatter": {
+        "lineWidth": 100
+      }
+    },
+    {
+      "includes": ["src/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveLinesPerFunction": {
+              "level": "error",
+              "options": {
+                "maxLines": 30
+              }
+            },
+            "useMaxParams": {
+              "level": "error",
+              "options": {
+                "max": 4
+              }
+            }
+          },
+          "style": {
+            "noExcessiveLinesPerFile": {
+              "level": "error",
+              "options": {
+                "maxLines": 300
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
