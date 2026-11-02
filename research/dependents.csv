@@ -1,0 +1,112 @@
+# Built 2026-11-02. npm rows: latest manifests that list openapi-typescript / openapi-fetch / openapi-typescript-helpers (candidates from ecosyste.ms + npm search), top 60 by weekly downloads (api.npmjs.org, 2026-10-23..2026-10-29). github rows: top 50 by stars from GitHub code search of package.json files + ecosyste.ms repo usage + Node API code search (task 3.1), checked against the GitHub dependency graph (SBOM API); rows whose dependency graph lacks all target packages were dropped. See research/node-api-usage.md for limits.
+name,kind,repository,stars,weekly_downloads,uses_generator,uses_fetch,notes
+iceberg-js,npm,https://github.com/supabase/iceberg-js,87,48491761,yes,no,openapi-typescript ^7.13.0 (devDependencies)
+openapi-fetch,npm,https://github.com/openapi-ts/openapi-typescript,8425,15474229,yes,no,upstream package that this project forks; openapi-typescript ^7.13.0 (devDependencies); helpers ^0.1.0 (dependencies)
+convex,npm,https://github.com/convex/convex-backend,12773,2438272,yes,yes,openapi-typescript ~7.8.0 (devDependencies); openapi-fetch ~0.17.0 (devDependencies); helpers ~0.1.0 (devDependencies)
+@openapi-contrib/openapi-schema-to-json-schema,npm,https://github.com/openapi-contrib/openapi-schema-to-json-schema,272,1491966,yes,no,openapi-typescript ^5.4.1 (dependencies)
+@netlify/open-api,npm,https://github.com/netlify/open-api,325,879662,yes,no,openapi-typescript ^5.4.2 (devDependencies)
+openapi-react-query,npm,https://github.com/openapi-ts/openapi-typescript,8425,724004,yes,yes,upstream package that this project forks; openapi-typescript ^7.13.0 (devDependencies); openapi-fetch ^0.17.0 (devDependencies+peerDependencies); helpers ^0.1.0 (dependencies)
+@prisma/management-api-sdk,npm,https://github.com/prisma/pdp-control-plane,,478590,yes,yes,openapi-typescript 7.10.1 (devDependencies); openapi-fetch 0.14.0 (dependencies)
+@argos-ci/api-client,npm,https://github.com/argos-ci/argos-javascript,19,439170,yes,yes,openapi-typescript ^7.13.0 (devDependencies); openapi-fetch ^0.17.0 (dependencies)
+openapi-msw,npm,https://github.com/christoph-fricke/openapi-msw,91,304593,yes,no,openapi-typescript ^7.13.0 (devDependencies)
+@effect/openapi-generator,npm,https://github.com/Effect-TS/effect,17456,242348,yes,no,openapi-typescript ^7.13.0 (devDependencies)
+@bike4mind/sdk,npm,https://github.com/Bike4Mind/bike4mind,94,203765,yes,no,openapi-typescript ^7.13.0 (devDependencies)
+@lovable.dev/ai-gateway,npm,https://github.com/lovablelabs/lovable,,199911,yes,no,openapi-typescript 7.10.1 (dependencies)
+@coderabbitai/bitbucket,npm,https://github.com/coderabbitai/bitbucket,15,173685,yes,yes,openapi-typescript ^7.8.0 (devDependencies); openapi-fetch ~0.14.0 (dependencies)
+@opensdks/fetch-links,npm,,,98903,no,no,helpers ^0.0.15 (devDependencies)
+twitter-api-sdk,npm,https://github.com/twitterdev/twitter-api-typescript-sdk,997,92872,yes,no,openapi-typescript ^5.4.0 (devDependencies)
+swr-openapi,npm,https://github.com/htunnicliff/swr-openapi,26,53759,yes,yes,openapi-typescript 7.10.1 (devDependencies+peerDependencies); openapi-fetch 0.15.0 (devDependencies+peerDependencies); helpers ^0.0.15 (dependencies)
+@rootly/ts,npm,https://github.com/rootlyhq/rootly-ts,1,49822,yes,yes,openapi-typescript ^7.6.1 (devDependencies); openapi-fetch ^0.17.0 (dependencies)
+@blockfrost/openapi,npm,https://github.com/blockfrost/openapi,26,38764,yes,no,openapi-typescript 7.4.4 (devDependencies)
+weaviate-ts-client,npm,https://github.com/weaviate/typescript-client,101,35357,yes,no,openapi-typescript ^5.4.1 (devDependencies)
+@vitrina/api,npm,https://github.com/VitrinaDev/vitrina-api,0,33990,yes,yes,openapi-typescript ^7.13.0 (devDependencies); openapi-fetch ^0.17.0 (dependencies)
+@ganintegrity/screenings,npm,,,33866,yes,yes,openapi-typescript ^7.8.0 (devDependencies); openapi-fetch 0.17.0 (dependencies); helpers 0.1.0 (dependencies)
+@salesforce/b2c-tooling-sdk,npm,https://github.com/SalesforceCommerceCloud/b2c-developer-tooling,57,30757,yes,yes,openapi-typescript ^7.10.1 (devDependencies); openapi-fetch 0.15.0 (dependencies)
+@openapi-qraft/openapi-typescript-plugin,npm,https://github.com/OpenAPI-Qraft/openapi-qraft,98,28375,yes,no,openapi-typescript ^7.10.1 (dependencies)
+@opensdks/sdk-apollo,npm,,,24412,yes,no,openapi-typescript 6.7.1 (devDependencies)
+@opensdks/sdk-stripe,npm,,,24267,yes,no,openapi-typescript 6.7.1 (devDependencies)
+@opensdks/sdk-twenty,npm,,,24256,yes,no,openapi-typescript 6.7.1 (devDependencies)
+@opensdks/sdk-brex,npm,,,24250,yes,no,openapi-typescript 6.7.1 (devDependencies)
+@opensdks/sdk-revert,npm,,,24241,yes,no,openapi-typescript 6.7.1 (devDependencies)
+sendly-sdk,npm,https://github.com/DevinoSolutions/sendly-js,0,24009,yes,no,openapi-typescript 7.13.0 (devDependencies)
+nuxt-open-fetch,npm,https://github.com/Norbiros/nuxt-open-fetch,260,20056,yes,no,openapi-typescript ^7.10.1 (dependencies); helpers ^0.0.15 (dependencies)
+@shotstack/schemas,npm,https://github.com/shotstack/oas-api-definition,1,17266,yes,no,openapi-typescript ^7.4.4 (devDependencies)
+@web-bee-ru/openapi-axios,npm,https://github.com/web-bee-ru/openapi-axios,14,15990,yes,no,openapi-typescript 7.0.0 (devDependencies); helpers ^0.0.12 (dependencies)
+@hypequery/serve,npm,https://github.com/hypequery/hypequery,104,13801,yes,no,openapi-typescript ^7.13.0 (dependencies)
+@sveltesentio/api,npm,https://github.com/golusoris/sveltesentio,0,12514,yes,yes,openapi-typescript ^7.13.0 (devDependencies+peerDependencies); openapi-fetch ^0.17.0 (devDependencies+peerDependencies)
+@forge-dashboard/sdk-node,npm,https://github.com/alrayyes/forge-dashboard-sdk-node,0,10570,yes,yes,openapi-typescript 7.13.0 (devDependencies); openapi-fetch 0.17.0 (dependencies)
+fal-endpoint-types,npm,https://github.com/rawpixel-vincent/fal-endpoint-types,1,9531,yes,no,openapi-typescript 7.13.0 (devDependencies)
+@snapvisor/api-client,npm,https://github.com/DevinoSolutions/snapvisor-js,0,8914,yes,yes,openapi-typescript ^7.13.0 (devDependencies); openapi-fetch ^0.17.0 (dependencies)
+@shopware/api-gen,npm,https://github.com/shopware/frontends,231,8528,yes,no,openapi-typescript 7.13.0 (dependencies)
+nuxt-api-party,npm,https://github.com/johannschopplich/nuxt-api-party,306,7876,yes,no,openapi-typescript ^7.13.0 (devDependencies+peerDependencies); helpers 0.1.0 (dependencies)
+openapi-ts-router,npm,https://github.com/builder-group/community,37,6411,no,no,helpers ^0.1.0 (dependencies)
+@composio/keyring,npm,,,6213,no,yes,openapi-fetch 0.17.0 (dependencies)
+@maced/api-client,npm,https://github.com/goatedventures/maced,,5867,yes,yes,openapi-typescript ^7.5.0 (devDependencies); openapi-fetch ^0.12.2 (dependencies)
+@fluid-app/api-client,npm,https://github.com/fluid-app/fluid-npm,,5645,yes,no,openapi-typescript ^7.6.1 (devDependencies)
+schema-to-ts,npm,,,5630,yes,no,openapi-typescript ^7.5.1 (dependencies)
+@nosana/types,npm,https://github.com/nosana-ci/nosana-kit,270,5138,yes,no,openapi-typescript ^7.10.1 (devDependencies)
+@grafana/openapi-to-k6,npm,https://github.com/grafana/openapi-to-k6,78,4791,yes,no,openapi-typescript ^7.4.1 (dependencies)
+feature-fetch,npm,https://github.com/builder-group/community,37,4234,no,no,helpers ^0.1.0 (dependencies)
+@geekmidas/cli,npm,https://github.com/geekmidas/toolbox,12,3508,yes,no,openapi-typescript ^7.4.2 (dependencies)
+ojp-shared-types,npm,https://github.com/openTdataCH/ojp-shared-types,0,2974,yes,no,openapi-typescript 7.8.0 (devDependencies)
+@insurance-broker/api-client,npm,https://github.com/FreeWillie265/InsuranceBroker,,2936,no,yes,openapi-fetch ^0.17.0 (peerDependencies)
+squarefi-bff-api-module,npm,https://github.com/squarefi-tech/bff-api-module-npm,1,2841,yes,no,openapi-typescript ^7.8.0 (devDependencies)
+@peasant-labs/schema,npm,https://github.com/peasant-labs/schema,2,2725,yes,no,openapi-typescript 7.13.0 (devDependencies)
+@confighub/api,npm,https://github.com/confighub/js-sdk,0,2640,no,yes,openapi-fetch ^0.13.1 (dependencies)
+@gnosticdev/highlevel-sdk,npm,https://github.com/gnosticdev/highlevel-api-sdk,13,2277,yes,yes,openapi-typescript 7.10.1 (devDependencies); openapi-fetch ^0.13.8 (peerDependencies)
+@charcuterie/logic,npm,https://github.com/Sawtaytoes/charcuterie,2,2200,no,yes,openapi-fetch ^0.17.0 (devDependencies+peerDependencies)
+@pam-ai/pam-ordo-contracts,npm,https://github.com/dream-lab-ai/pam-ordo-contracts,,2184,yes,no,openapi-typescript 7.13.0 (devDependencies)
+@epam/ai-dial-typescript-sdk,npm,https://github.com/epam/ai-dial-typescript-sdk,3,2173,yes,yes,openapi-typescript 7.13.0 (devDependencies); openapi-fetch ^0.17.0 (dependencies)
+@yolo-labs/octocove-client,npm,https://github.com/yolo-labs-hq/octocove,0,1964,yes,no,openapi-typescript 7.13.0 (devDependencies)
+@noxhere/sdk,npm,https://github.com/No-Box-Dev/NoxHere,,1937,yes,no,openapi-typescript 7.12.0 (devDependencies)
+@nxgt/openapi-codegen,npm,https://github.com/softistx/nxgt-http,0,1660,no,yes,openapi-fetch ^0.17.0 (devDependencies)
+lobehub/lobehub,github,https://github.com/lobehub/lobehub,83687,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript
+BerriAI/litellm,github,https://github.com/BerriAI/litellm,62510,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-react-query openapi-typescript openapi-typescript-helpers; uses openapi-react-query
+TabbyML/tabby,github,https://github.com/TabbyML/tabby,33922,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers; imports the openapi-typescript Node API in code
+ComposioHQ/composio,github,https://github.com/ComposioHQ/composio,30872,,yes,no,verified in GitHub dependency graph: openapi-typescript; imports the openapi-typescript Node API in code
+karakeep-app/karakeep,github,https://github.com/karakeep-app/karakeep,30238,,no,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript-helpers
+invoke-ai/InvokeAI,github,https://github.com/invoke-ai/InvokeAI,28958,,yes,no,verified in GitHub dependency graph: openapi-typescript; imports the openapi-typescript Node API in code
+QwenLM/qwen-code,github,https://github.com/QwenLM/qwen-code,28871,,yes,no,dependency graph unavailable; evidence = code search; imports the openapi-typescript Node API in code
+PrefectHQ/prefect,github,https://github.com/PrefectHQ/prefect,24105,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers; imports the openapi-typescript Node API in code
+marimo-team/marimo,github,https://github.com/marimo-team/marimo,23399,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript; imports the openapi-typescript Node API in code
+teableio/teable,github,https://github.com/teableio/teable,21948,,yes,no,verified in GitHub dependency graph: openapi-typescript; imports the openapi-typescript Node API in code
+ether/etherpad,github,https://github.com/ether/etherpad,18616,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-react-query openapi-typescript; uses openapi-react-query
+vercel/vercel,github,https://github.com/vercel/vercel,16498,,yes,no,dependency graph unavailable; evidence = code search
+logto-io/logto,github,https://github.com/logto-io/logto,14834,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers
+polarsource/polar,github,https://github.com/polarsource/polar,10452,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers
+open-edge-platform/anomalib,github,https://github.com/open-edge-platform/anomalib,6354,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-react-query openapi-typescript openapi-typescript-helpers; uses openapi-react-query
+Helicone/helicone,github,https://github.com/Helicone/helicone,6251,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-react-query openapi-typescript openapi-typescript-helpers; uses openapi-react-query
+scanopy/scanopy,github,https://github.com/scanopy/scanopy,5926,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers; imports the openapi-typescript Node API in code
+iflytek/skillhub,github,https://github.com/iflytek/skillhub,5353,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers
+streamyfin/streamyfin,github,https://github.com/streamyfin/streamyfin,5332,,yes,no,verified in GitHub dependency graph: openapi-typescript; imports the openapi-typescript Node API in code
+Kiln-AI/Kiln,github,https://github.com/Kiln-AI/Kiln,5247,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers
+diggerhq/digger,github,https://github.com/diggerhq/digger,5062,,no,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript-helpers
+firebase/firebase-tools,github,https://github.com/firebase/firebase-tools,4486,,yes,no,verified in GitHub dependency graph: openapi-typescript; imports the openapi-typescript Node API in code
+browser-use/workflow-use,github,https://github.com/browser-use/workflow-use,4244,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-react-query openapi-typescript openapi-typescript-helpers; uses openapi-react-query
+maplibre/martin,github,https://github.com/maplibre/martin,4039,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers
+sunniejs/vue-h5-template,github,https://github.com/sunniejs/vue-h5-template,3491,,yes,no,verified in GitHub dependency graph: openapi-typescript
+ding113/claude-code-hub,github,https://github.com/ding113/claude-code-hub,3398,,yes,no,verified in GitHub dependency graph: openapi-typescript; imports the openapi-typescript Node API in code
+tahowallet/extension,github,https://github.com/tahowallet/extension,3210,,yes,no,verified in GitHub dependency graph: openapi-typescript; imports the openapi-typescript Node API in code
+tgdrive/teldrive,github,https://github.com/tgdrive/teldrive,3145,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-react-query openapi-typescript; uses openapi-react-query
+supabase/mcp,github,https://github.com/supabase/mcp,2990,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers; imports the openapi-typescript Node API in code
+BigDawnGhost/wenyi,github,https://github.com/BigDawnGhost/wenyi,2869,,yes,no,dependency graph unavailable; evidence = code search; imports the openapi-typescript Node API in code
+compozy/compozy,github,https://github.com/compozy/compozy,2828,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript; imports the openapi-typescript Node API in code
+openmeterio/openmeter,github,https://github.com/openmeterio/openmeter,2432,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers; imports the openapi-typescript Node API in code
+aleksilassila/reiverr,github,https://github.com/aleksilassila/reiverr,2343,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers
+unsplash/unsplash-js,github,https://github.com/unsplash/unsplash-js,2197,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers
+vriteio/andesine,github,https://github.com/vriteio/andesine,2005,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers; imports the openapi-typescript Node API in code
+galaxyproject/galaxy,github,https://github.com/galaxyproject/galaxy,1887,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers
+theopenco/llmgateway,github,https://github.com/theopenco/llmgateway,1721,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-react-query openapi-typescript openapi-typescript-helpers; uses openapi-react-query
+mxsm/rocketmq-rust,github,https://github.com/mxsm/rocketmq-rust,1539,,yes,no,verified in GitHub dependency graph: openapi-typescript
+hook0/hook0,github,https://github.com/hook0/hook0,1504,,yes,no,verified in GitHub dependency graph: openapi-typescript
+oceanbase/powercontext,github,https://github.com/oceanbase/powercontext,1482,,yes,no,verified in GitHub dependency graph: openapi-typescript; imports the openapi-typescript Node API in code
+growilabs/growi,github,https://github.com/growilabs/growi,1476,,yes,no,verified in GitHub dependency graph: openapi-typescript; imports the openapi-typescript Node API in code
+milliHQ/terraform-aws-next-js,github,https://github.com/milliHQ/terraform-aws-next-js,1474,,yes,no,verified in GitHub dependency graph: openapi-typescript
+uxfront-com/inkline,github,https://github.com/uxfront-com/inkline,1469,,yes,no,verified in GitHub dependency graph: openapi-typescript
+open-edge-platform/geti,github,https://github.com/open-edge-platform/geti,1365,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-react-query openapi-typescript openapi-typescript-helpers; uses openapi-react-query
+KittyCAD/modeling-app,github,https://github.com/KittyCAD/modeling-app,1328,,yes,no,verified in GitHub dependency graph: openapi-typescript
+everydaythingssoftware/citadel,github,https://github.com/everydaythingssoftware/citadel,1311,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript; imports the openapi-typescript Node API in code
+percona/pmm,github,https://github.com/percona/pmm,1123,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers; imports the openapi-typescript Node API in code
+crowi/crowi,github,https://github.com/crowi/crowi,1098,,yes,no,verified in GitHub dependency graph: openapi-typescript; imports the openapi-typescript Node API in code
+y-scope/clp,github,https://github.com/y-scope/clp,1091,,yes,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript openapi-typescript-helpers
+langwatch/scenario,github,https://github.com/langwatch/scenario,1009,,no,yes,verified in GitHub dependency graph: openapi-fetch openapi-typescript-helpers
