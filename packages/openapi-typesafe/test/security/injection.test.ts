@@ -142,4 +142,18 @@ describe("injection through document text", () => {
       { numRuns: RUNS },
     );
   });
+
+  it("a name that upper-cases to a letter newer than TypeScript's tables still parses", async () => {
+    // Found by a 500-run property run: `ꟓ` upper-cases to `꟒` (Unicode 17), which Node.js 26
+    // counts as an identifier letter and TypeScript 5.9 does not (ADR-019).
+    const text = `\u{A7D3} export const ${MARKER} = 1; `;
+    const options = { rootTypes: true, rootTypesNoSchemaPrefix: true };
+
+    const output = await generated(attackDocument(text), options);
+
+    expect(output === null ? null : inspect(output)).toEqual({
+      syntaxErrors: [],
+      markerIdentifiers: 0,
+    });
+  });
 });

@@ -32,3 +32,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [016](./016-one-version-line.md) | One version line for the published packages | Accepted |
 | [017](./017-ref-access-limits.md) | Opt-in limits for local and remote `$ref` | Accepted |
 | [018](./018-keep-wildcard-exports.md) | Keep the `./*` export of the upstream packages in 1.x | Accepted |
+| [019](./019-identifier-characters-follow-typescript.md) | Identifier characters follow TypeScript's tables, not the runtime's Unicode | Accepted |
