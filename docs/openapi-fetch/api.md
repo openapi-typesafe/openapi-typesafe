@@ -194,6 +194,18 @@ or when instantiating the client.
 
 :::
 
+### Text body
+
+A string body is sent as is when you set a non-JSON `Content-Type`, such as `text/plain`. Without a
+`Content-Type`, or with a JSON one, a string is sent as a JSON string value (`"abc"` becomes `"\"abc\""`).
+
+```ts
+const { data, error } = await client.POST("/notes", {
+  body: "Remember the milk",
+  headers: { "Content-Type": "text/plain" },
+});
+```
+
 ### URL-encoded body
 
 To send a body request in `application/x-www-form-urlencoded` format, which is commonly used to transmit key-value pairs in APIs like OAuth 2.0, pass the appropriate header and body as an object. `openapi-fetch` will automatically encode the body to the correct format.
@@ -235,6 +247,14 @@ const { data, error } = await client.GET("/users/{id}", {
 
 // URL: `/users/[5]`
 ```
+
+::: warning
+
+The default path serializer rejects a request when a path parameter makes a `.` or `..` path segment (for
+example `{ id: ".." }`): URL resolution would send it to another endpoint. A custom `pathSerializer` is not
+checked.
+
+:::
 
 ### Default Path Serializer
 
