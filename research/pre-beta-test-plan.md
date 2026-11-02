@@ -118,13 +118,13 @@ webhooks.
       schemas under every TypeScript version (the type matrix covers a sample today).
       `examples/digital-ocean-api.ts` and `examples/enum-root-types.ts` are excluded from
       `tsconfig.examples.json` and the type-matrix consumer: include them or record why.
-- [ ] 4.3 Generated output has no `any` that the schema did not ask for, and is stable: two
+- [x] 4.3 Generated output has no `any` that the schema did not ask for, and is stable: two
       runs on the same input give the same bytes, also with a different key order in YAML.
 - [x] 4.4 OpenAPI versions: 3.0.x, 3.1.x (incl. `type` arrays, `const`, `$defs`,
       `unevaluatedProperties`, `prefixItems`, webhooks), 3.2 (the docs say "accepted": check
       which 3.2 features give correct types and document the rest), Swagger 2.0 (the docs say
       "not supported": check that the error says so).
-- [ ] 4.5 Inputs: JSON, YAML (anchors, BOM, CRLF; multi-document and tab indents must fail
+- [x] 4.5 Inputs: JSON, YAML (anchors, BOM, CRLF; multi-document and tab indents must fail
       with a clear message), a URL (also with the auth headers of `redocly.yaml`, see "Auth" in
       `docs/cli.md`), stdin, a `redocly.yaml` with several APIs, multi-file `$ref` (relative,
       absolute, URL, circular, to a JSON pointer with `~0`/`~1`/`%`). Output: to a file, and to
@@ -154,6 +154,15 @@ webhooks.
   from the branding and PB-10. `fork-base` rejects 3.2 documents; ours generates them, with the
   gaps of PB-12 now warned and documented. `$defs` gave PB-10 and PB-11. Swagger 2.0 fails with
   `SCHEMA_VERSION_UNSUPPORTED` and says it is not supported. 3.0 is covered by the corpus (4.1).
+- 4.3: the generator never writes `any` (no `any` type node in any example output). Two runs give
+  the same bytes (GitHub, Stripe); with `--alphabetize`, Stripe with every key order reversed
+  gives the same bytes. Without it the output follows document order, as in the original.
+- 4.5: JSON, YAML with anchors, a BOM and CRLF, and stdin (JSON and YAML) generate. A second YAML
+  document and tab indents fail with exit 3 and a clear message (PB-13). A URL behind a header
+  works with the `resolve.http.headers` of `redocly.yaml` and fails with 401 without it; the
+  header also reaches `$ref`ed files on that host. Relative, absolute, remote and circular `$ref`s
+  work; `~0`, `~1` and `%25` gave PB-14. Several APIs: each one is generated, a broken one does
+  not stop the others and sets the exit code, `--check` finds a stale one (PB-15).
 
 ## 5. Node API
 
@@ -333,6 +342,9 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 | PB-10 | generator | S1 | inherited (upstream #2664): a schema's `$defs` is printed as a required member, so values need a `$defs` key | fixed: `$defs?:`, refs past it use `NonNullable<…>`; legacy bug 17; `test/api/defs-types.test.ts` |
 | PB-11 | generator | S1 | inherited: the root `$defs` is `Record<string, never>`, so every `#/$defs/<name>` ref is `never` | fixed: one member per subschema; legacy bug 18; `test/api/defs-types.test.ts` |
 | PB-12 | generator | S2 | 3.2 `query`, `additionalOperations`, `in: querystring` and `itemSchema` are dropped from the output without a word, while the docs say 3.2 is "accepted" | each use now warns with its JSON Pointer; docs list what 3.2 generates ("OpenAPI 3.2 features" in `docs/introduction.md`). Generating them is a feature for after 1.0 (needs a `QUERY` method in the fetch client) |
+| PB-13 | loader | S3 | a YAML or JSON file that does not parse fails with `SCHEMA_LOAD_FAILED` (text input gives `SCHEMA_PARSE_FAILED`), and a second YAML document's message does not name the file | fixed: `SCHEMA_PARSE_FAILED` with the file in the message; `test/api/schema-load-errors.test.ts` |
+| PB-14 | loader | S1 | inherited: an external `$ref` to a key with `~`, `/` or `%` (`#/a~0b`, `#/50%25`) bundles into a ref that names another key (types do not compile) or is malformed (exit 70); a malformed `%` in a local `$ref` is exit 70 too | fixed: the loader repairs Redocly's bundled refs; a malformed `%` fails with `SCHEMA_REF_INVALID` naming the ref; `test/api/bundled-pointer-escapes.test.ts` |
+| PB-15 | CLI | S3 | `--check` says "Generated types are not up-to-date!" without the file, so with several APIs it does not tell which one | fixed: the message names the output file |
 
 ## 14. Exit criteria (before inviting testers)
 
