@@ -14,6 +14,7 @@ function comparison(status: ComparisonStatus): ComparisonResult {
     firstDifferentLine: null,
     differentLineCount: 0,
     differentTypeNames: [],
+    intentionalDifferenceIds: [],
   };
 }
 

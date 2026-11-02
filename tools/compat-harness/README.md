@@ -63,6 +63,10 @@ arguments.
   `(<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)`. This catches `readonly`
   and `any` differences that mutual assignability misses. Enums and generic types are compared by
   declaration text.
+- **Intentional differences:** bug fixes that change output on purpose (ENGINEERING_PLAN 7.4) are
+  listed in `src/domain/intentional-differences.ts`, each with its upstream issues and a rewrite of
+  the golden text. The comparison applies the rewrites to the golden text first, so a case that
+  differs only by them counts as identical; the report lists every rewrite with the cases it changed.
 - Cases where the golden generator fails are excluded from the identity rates.
 
 ## Layout

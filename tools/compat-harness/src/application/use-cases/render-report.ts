@@ -1,4 +1,5 @@
 import { HarnessError, HarnessErrorCode } from "../../domain/errors.ts";
+import type { IntentionalDifference } from "../../domain/intentional-differences.ts";
 import { decodeComparisonResults, decodeGenerationResults, encodeJson } from "../codecs.ts";
 import { comparisonResultsPath, generationResultsPath, reportPaths } from "../layout.ts";
 import type { Clock, FileStore, Logger } from "../ports.ts";
@@ -9,6 +10,8 @@ export interface RenderReportDependencies {
   readonly cache: FileStore;
   readonly clock: Clock;
   readonly logger: Logger;
+  /** The catalog the comparison used, listed in the report; none when absent. */
+  readonly intentionalDifferences?: readonly IntentionalDifference[];
 }
 
 async function readRequired(cache: FileStore, path: string): Promise<string> {
@@ -42,6 +45,7 @@ export async function renderReport(
     candidateResults: decodeGenerationResults(
       await readRequired(cache, generationResultsPath(candidateLabel)),
     ),
+    intentionalDifferences: dependencies.intentionalDifferences ?? [],
   });
   const paths = reportPaths(goldenLabel, candidateLabel);
   await cache.writeText(paths.markdown, renderMarkdownReport(report));

@@ -58,6 +58,8 @@ const ComparisonResultsSchema = z.array(
     firstDifferentLine: z.number().int().positive().nullable(),
     differentLineCount: z.number().int().nonnegative(),
     differentTypeNames: z.array(z.string()),
+    // Results written before task 7.4 have no such field.
+    intentionalDifferenceIds: z.array(z.string()).default([]),
   }),
 );
 

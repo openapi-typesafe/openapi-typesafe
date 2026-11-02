@@ -10,6 +10,7 @@ import { renderMarkdownReport } from "../../src/application/report-markdown.ts";
 import { renderReport } from "../../src/application/use-cases/render-report.ts";
 import type { CorpusEntryId } from "../../src/domain/corpus-entry.ts";
 import { HarnessErrorCode } from "../../src/domain/errors.ts";
+import type { IntentionalDifference } from "../../src/domain/intentional-differences.ts";
 import {
   type ComparisonResult,
   ComparisonStatus,
@@ -27,7 +28,12 @@ function comparison(
   status: ComparisonStatus,
   extra: Partial<ComparisonResult> = {},
 ) {
-  const base = { firstDifferentLine: null, differentLineCount: 0, differentTypeNames: [] };
+  const base = {
+    firstDifferentLine: null,
+    differentLineCount: 0,
+    differentTypeNames: [],
+    intentionalDifferenceIds: [],
+  };
   return { entryId: entryId as CorpusEntryId, optionSetId: "default", status, ...base, ...extra };
 }
 
@@ -66,6 +72,15 @@ const INPUT: ReportInput = {
     generation("d", GenerationStatus.Failed, "TypeError: boom\n  at y"),
     generation("e", GenerationStatus.TimedOut),
   ],
+  intentionalDifferences: [],
+};
+
+const FIX: IntentionalDifference = {
+  id: "fix",
+  issues: ["owner/repo#1"],
+  description: "x becomes y",
+  golden: /^x$/gm,
+  candidate: "y",
 };
 
 describe("buildCompatibilityReport", () => {
@@ -102,6 +117,61 @@ describe("buildCompatibilityReport", () => {
     expect(report.summary.total).toBe(7);
     expect(Object.keys(report.byOptionSet)).toEqual(["default", "enum"]);
     expect(report.byOptionSet.enum?.typeIdentityRate).toBe(1);
+  });
+});
+
+describe("buildCompatibilityReport with intentional differences", () => {
+  it("buildCompatibilityReport lists every catalog entry with the cases it applied to", () => {
+    const comparisons = [
+      comparison("a", ComparisonStatus.Identical, { intentionalDifferenceIds: ["fix"] }),
+      comparison("b", ComparisonStatus.Identical),
+    ];
+    const unused = { ...FIX, id: "unused" };
+
+    const report = buildCompatibilityReport({
+      ...INPUT,
+      comparisons,
+      intentionalDifferences: [FIX, unused],
+    });
+
+    expect(report.intentionalDifferences).toEqual([
+      {
+        id: "fix",
+        issues: ["owner/repo#1"],
+        description: "x becomes y",
+        caseCount: 1,
+        examples: ["default/a"],
+      },
+      {
+        id: "unused",
+        issues: ["owner/repo#1"],
+        description: "x becomes y",
+        caseCount: 0,
+        examples: [],
+      },
+    ]);
+  });
+
+  it("renderMarkdownReport renders the intentional differences table", () => {
+    const comparisons = [
+      comparison("a", ComparisonStatus.Identical, { intentionalDifferenceIds: ["fix"] }),
+    ];
+    const report = buildCompatibilityReport({
+      ...INPUT,
+      comparisons,
+      intentionalDifferences: [FIX],
+    });
+
+    const markdown = renderMarkdownReport(report);
+
+    expect(markdown).toContain("## Intentional differences");
+    expect(markdown).toContain("| fix | x becomes y | owner/repo#1 | 1 | default/a |");
+  });
+
+  it("renderMarkdownReport says None without intentional differences", () => {
+    expect(renderMarkdownReport(buildCompatibilityReport(INPUT))).toContain(
+      "## Intentional differences\n\nBug fixes",
+    );
   });
 });
 

@@ -1,4 +1,5 @@
 import { HarnessError, HarnessErrorCode } from "../../domain/errors.ts";
+import type { IntentionalDifference } from "../../domain/intentional-differences.ts";
 import {
   type ComparisonResult,
   ComparisonStatus,
@@ -19,6 +20,8 @@ export interface CompareOutputsDependencies {
    * slow).
    */
   readonly typeChecker?: TypeIdentityChecker;
+  /** Rewrites of the golden text for fixes made on purpose; none when absent. */
+  readonly intentionalDifferences?: readonly IntentionalDifference[];
 }
 
 export interface CompareOutputsOptions {
@@ -60,7 +63,12 @@ async function compareCase(
   golden: GenerationResult,
   candidate: GenerationResult | undefined,
 ): Promise<ComparisonResult> {
-  const base = { entryId: golden.entryId, optionSetId: golden.optionSetId, differentTypeNames: [] };
+  const base = {
+    entryId: golden.entryId,
+    optionSetId: golden.optionSetId,
+    differentTypeNames: [],
+    intentionalDifferenceIds: [],
+  };
   const noDifference = { firstDifferentLine: null, differentLineCount: 0 };
   if (golden.status !== GenerationStatus.Ok) {
     return { ...base, ...noDifference, status: ComparisonStatus.GoldenFailed };
@@ -70,10 +78,15 @@ async function compareCase(
   }
   const goldenText = await readOutput(dependencies.cache, options.goldenLabel, golden);
   const candidateText = await readOutput(dependencies.cache, options.candidateLabel, candidate);
-  const text = compareGeneratedTexts(goldenText, candidateText);
+  const text = compareGeneratedTexts(
+    goldenText,
+    candidateText,
+    dependencies.intentionalDifferences,
+  );
   const lines = {
     firstDifferentLine: text.firstDifferentLine,
     differentLineCount: text.differentLineCount,
+    intentionalDifferenceIds: text.intentionalDifferenceIds,
   };
   if (text.isIdentical) {
     return { ...base, ...lines, status: ComparisonStatus.Identical };

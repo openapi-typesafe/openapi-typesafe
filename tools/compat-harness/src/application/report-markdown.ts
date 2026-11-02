@@ -48,6 +48,26 @@ function failureTable(report: CompatibilityReport): string[] {
   ];
 }
 
+function intentionalDifferenceTable(report: CompatibilityReport): string[] {
+  if (report.intentionalDifferences.length === 0) {
+    return ["None."];
+  }
+  const header = ["Id", "Change", "Issues", "Cases", "Examples"];
+  return [
+    tableRow(header),
+    tableRow(header.map(() => "---")),
+    ...report.intentionalDifferences.map((difference) =>
+      tableRow([
+        difference.id,
+        difference.description,
+        difference.issues.join(", "),
+        difference.caseCount,
+        difference.examples.join(", "),
+      ]),
+    ),
+  ];
+}
+
 /**
  * Render `compatibility-report.md`. Rates exclude cases where the golden generator failed, because
  * the candidate cannot be expected to match an output that does not exist.
@@ -66,6 +86,13 @@ export function renderMarkdownReport(report: CompatibilityReport): string {
     "## By option set",
     "",
     ...summaryTable(Object.entries(report.byOptionSet)),
+    "",
+    "## Intentional differences",
+    "",
+    "Bug fixes that change output on purpose (ENGINEERING_PLAN 7.4). The comparison rewrites the " +
+      "golden text with each change first, so a case that differs only by these counts as identical.",
+    "",
+    ...intentionalDifferenceTable(report),
     "",
     "## Differences and failures by category",
     "",

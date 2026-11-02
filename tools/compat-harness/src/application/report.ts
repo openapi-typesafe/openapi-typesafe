@@ -1,3 +1,4 @@
+import type { IntentionalDifference } from "../domain/intentional-differences.ts";
 import { compareOrdinal } from "../domain/ordering.ts";
 import {
   type ComparisonResult,
@@ -18,6 +19,15 @@ export interface FailureGroup {
   readonly examples: readonly string[];
 }
 
+/** An intentional difference of the catalog and the cases whose golden text it rewrote. */
+export interface IntentionalDifferenceUse {
+  readonly id: string;
+  readonly issues: readonly string[];
+  readonly description: string;
+  readonly caseCount: number;
+  readonly examples: readonly string[];
+}
+
 export interface CompatibilityReport {
   readonly goldenLabel: string;
   readonly candidateLabel: string;
@@ -25,6 +35,7 @@ export interface CompatibilityReport {
   readonly summary: ComparisonSummary;
   readonly byOptionSet: Readonly<Record<string, ComparisonSummary>>;
   readonly failureGroups: readonly FailureGroup[];
+  readonly intentionalDifferences: readonly IntentionalDifferenceUse[];
   readonly comparisons: readonly ComparisonResult[];
 }
 
@@ -35,6 +46,8 @@ export interface ReportInput {
   readonly comparisons: readonly ComparisonResult[];
   readonly goldenResults: readonly GenerationResult[];
   readonly candidateResults: readonly GenerationResult[];
+  /** The catalog the comparison used; every entry is listed, also when it applied nowhere. */
+  readonly intentionalDifferences: readonly IntentionalDifference[];
 }
 
 const EXAMPLE_COUNT = 5;
@@ -101,6 +114,21 @@ function groupFailures(input: ReportInput): FailureGroup[] {
     );
 }
 
+function describeIntentionalDifferences(input: ReportInput): IntentionalDifferenceUse[] {
+  return input.intentionalDifferences.map((difference) => {
+    const cases = input.comparisons
+      .filter((comparison) => comparison.intentionalDifferenceIds.includes(difference.id))
+      .map(caseKey);
+    return {
+      id: difference.id,
+      issues: difference.issues,
+      description: difference.description,
+      caseCount: cases.length,
+      examples: cases.slice(0, EXAMPLE_COUNT),
+    };
+  });
+}
+
 function summarizeByOptionSet(
   comparisons: readonly ComparisonResult[],
 ): Record<string, ComparisonSummary> {
@@ -122,6 +150,7 @@ export function buildCompatibilityReport(input: ReportInput): CompatibilityRepor
     summary: summarizeComparisons(input.comparisons),
     byOptionSet: summarizeByOptionSet(input.comparisons),
     failureGroups: groupFailures(input),
+    intentionalDifferences: describeIntentionalDifferences(input),
     comparisons: input.comparisons,
   };
 }

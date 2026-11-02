@@ -44,6 +44,21 @@ describe("decodeGenerationResults and decodeComparisonResults", () => {
     expect(decodeGenerationResults(encodeJson(results))).toEqual(results);
   });
 
+  it("decodeComparisonResults reads results without intentional differences as none", () => {
+    const stored = [
+      {
+        entryId: "e",
+        optionSetId: "default",
+        status: "identical",
+        firstDifferentLine: null,
+        differentLineCount: 0,
+        differentTypeNames: [],
+      },
+    ];
+
+    expect(decodeComparisonResults(encodeJson(stored))[0]?.intentionalDifferenceIds).toEqual([]);
+  });
+
   it("decodeComparisonResults with an unknown status throws STORED_FILE_INVALID", () => {
     const results = [
       {

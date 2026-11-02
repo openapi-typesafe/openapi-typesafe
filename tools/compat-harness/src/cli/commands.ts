@@ -10,6 +10,7 @@ import { renderReport } from "../application/use-cases/render-report.ts";
 import type { CorpusEntry } from "../domain/corpus-entry.ts";
 import { selectCorpusSubset } from "../domain/corpus-subset.ts";
 import { HarnessError, HarnessErrorCode } from "../domain/errors.ts";
+import { INTENTIONAL_DIFFERENCES } from "../domain/intentional-differences.ts";
 import type { CorpusManifest } from "../domain/manifest.ts";
 import { selectOptionSets } from "../domain/option-matrix.ts";
 import { ComparisonStatus, GenerationStatus } from "../domain/run-result.ts";
@@ -100,6 +101,7 @@ async function runCompare(container: HarnessContainer): Promise<ExitCode> {
     {
       cache: container.cache,
       logger: container.logger,
+      intentionalDifferences: INTENTIONAL_DIFFERENCES,
       ...(settings.isTypeCheckEnabled ? { typeChecker: new TypeScriptIdentityChecker() } : {}),
     },
     {
@@ -120,7 +122,10 @@ async function runCompare(container: HarnessContainer): Promise<ExitCode> {
 }
 
 async function runReport(container: HarnessContainer): Promise<ExitCode> {
-  const report = await renderReport(container, readLabels(container, HarnessCommand.Report));
+  const report = await renderReport(
+    { ...container, intentionalDifferences: INTENTIONAL_DIFFERENCES },
+    readLabels(container, HarnessCommand.Report),
+  );
   const { byteIdentityRate, typeIdentityRate } = report.summary;
   printLine(`Report: byte identity ${byteIdentityRate}, type identity ${typeIdentityRate}`);
   return 0;

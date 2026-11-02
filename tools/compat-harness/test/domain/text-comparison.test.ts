@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
+import type { IntentionalDifference } from "../../src/domain/intentional-differences.ts";
 import { compareGeneratedTexts } from "../../src/domain/text-comparison.ts";
+
+const FIX: IntentionalDifference = {
+  id: "fix",
+  issues: ["owner/repo#1"],
+  description: "x becomes y",
+  golden: /^x$/gm,
+  candidate: "y",
+};
 
 describe("compareGeneratedTexts", () => {
   it("compareGeneratedTexts with texts equal after normalization reports identical", () => {
@@ -7,6 +16,7 @@ describe("compareGeneratedTexts", () => {
       isIdentical: true,
       firstDifferentLine: null,
       differentLineCount: 0,
+      intentionalDifferenceIds: [],
     });
   });
 
@@ -15,6 +25,7 @@ describe("compareGeneratedTexts", () => {
       isIdentical: false,
       firstDifferentLine: 2,
       differentLineCount: 2,
+      intentionalDifferenceIds: [],
     });
   });
 
@@ -23,6 +34,16 @@ describe("compareGeneratedTexts", () => {
       isIdentical: false,
       firstDifferentLine: 2,
       differentLineCount: 2,
+      intentionalDifferenceIds: [],
+    });
+  });
+
+  it("compareGeneratedTexts rewrites the golden text with the intentional differences first", () => {
+    expect(compareGeneratedTexts("a\nx", "a\ny", [FIX])).toEqual({
+      isIdentical: true,
+      firstDifferentLine: null,
+      differentLineCount: 0,
+      intentionalDifferenceIds: ["fix"],
     });
   });
 });

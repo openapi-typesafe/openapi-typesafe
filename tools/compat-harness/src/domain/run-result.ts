@@ -42,6 +42,8 @@ export interface ComparisonResult {
   readonly differentLineCount: number;
   /** Names of exported types that are not identical; empty when not checked or identical. */
   readonly differentTypeNames: readonly string[];
+  /** Intentional differences applied to the golden text (`IntentionalDifference.id`). */
+  readonly intentionalDifferenceIds: readonly string[];
 }
 
 /** Totals per comparison status, plus the share of comparable cases that match. */

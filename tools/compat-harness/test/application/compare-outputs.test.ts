@@ -107,6 +107,30 @@ describe("compareOutputs", () => {
     expect(typeChecker.calls).toHaveLength(2);
   });
 
+  it("compareOutputs rewrites the golden text with the intentional differences", async () => {
+    const cache = setUp({
+      fixed: { golden: "a\nx", candidate: "a\ny" },
+      untouched: { golden: "a", candidate: "a" },
+    });
+    const fix = {
+      id: "fix",
+      issues: ["o/r#1"],
+      description: "x to y",
+      golden: /^x$/gm,
+      candidate: "y",
+    };
+
+    const results = await compareOutputs(
+      { cache, logger: new RecordingLogger(), intentionalDifferences: [fix] },
+      OPTIONS,
+    );
+
+    expect(results.map((r) => [r.entryId, r.status, r.intentionalDifferenceIds])).toEqual([
+      ["fixed", ComparisonStatus.Identical, ["fix"]],
+      ["untouched", ComparisonStatus.Identical, []],
+    ]);
+  });
+
   it("compareOutputs does not run the type checker on identical text", async () => {
     const cache = setUp({ same: { golden: "a", candidate: "a" } });
     const typeChecker = new FakeTypeIdentityChecker();
