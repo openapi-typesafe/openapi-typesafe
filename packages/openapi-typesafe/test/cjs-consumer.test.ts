@@ -22,7 +22,7 @@ const REQUIRE_SCRIPT = [
 
 describe("CommonJS consumer", () => {
   it(
-    "require of the package loads the API without warnings",
+    "require of the package loads the API with an empty stderr",
     async () => {
       const result = await execa("node", ["-e", REQUIRE_SCRIPT], { cwd: PACKAGE_ROOT });
 
