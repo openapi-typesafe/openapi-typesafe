@@ -7,6 +7,7 @@ const INVALID_RUN_THEN_CHARACTER_RE = /[^A-Za-z_$0-9]+(.)?/g;
 const INVALID_RUN_RE = /[^A-Za-z_$0-9]+/;
 const INVALID_RUNS_RE = /[^A-Za-z_$0-9]+/g;
 const INVALID_CHARACTER_RE = /[^A-Za-z_$0-9]/;
+const STARTS_WITH_DIGIT_RE = /^[0-9]/;
 /** Invalid character runs with a readable replacement; any other run becomes `_`. */
 const SPECIAL_CHARACTERS: ReadonlyMap<string, string> = new Map([["+", "Plus"]]);
 const NUMBER_PREFIX = "Value";
@@ -77,8 +78,10 @@ export class EnumNaming {
       const next = run.charAt(run.length - 1);
       return this.isInvalid(next) ? "" : next.toUpperCase();
     });
-    // The original prefixes the unsanitized name.
-    return Number(name[0]) >= 0 ? `${NUMBER_PREFIX}${name}` : sanitized;
+    // The original prefixed the unsanitized name, which kept invalid characters after a leading
+    // digit, and missed a digit that only became first after sanitizing (research/legacy-bugs.md,
+    // item 15). Prefixing the sanitized name gives the same name wherever the original was valid.
+    return STARTS_WITH_DIGIT_RE.test(sanitized) ? `${NUMBER_PREFIX}${sanitized}` : sanitized;
   }
 
   private isInvalid(character: string): boolean {

@@ -1,3 +1,4 @@
+import { pascalCase } from "change-case";
 import fc from "fast-check";
 import ts from "typescript";
 import { irObject } from "../../src/domain/ir/constructors.js";
@@ -383,4 +384,51 @@ export function runLegacy(
   } catch (error) {
     return `error: ${(error as Error).message}`;
   }
+}
+
+const DIGIT_START_RE = /^[0-9]/;
+const NON_IDENTIFIER_CHARACTER_RE = /[^\p{ID_Continue}$]/u;
+
+/** The component schemas of a components object or of a document. */
+function schemasOf(value: unknown): Record<string, unknown> {
+  const object = value as {
+    schemas?: Record<string, unknown>;
+    components?: { schemas?: Record<string, unknown> };
+  } | null;
+  return object?.schemas ?? object?.components?.schemas ?? {};
+}
+
+/** Whether a schema has an `enum` anywhere in it, which names an enum after the schema. */
+function hasEnum(schema: unknown): boolean {
+  return (JSON.stringify(schema) ?? "").includes('"enum":');
+}
+
+function hasDuplicates(names: readonly string[]): boolean {
+  return new Set(names).size < names.length;
+}
+
+/**
+ * Whether the input can reach legacy bug 15 or 16 (research/legacy-bugs.md), where the original
+ * writes a declaration name or type reference that does not parse, reads as a number literal, or
+ * replaces another alias. Enum and root alias names start with the schema name, so only schema
+ * names matter: one that starts with a digit (with `--enum`, `--enum-values` or
+ * `--root-types-no-schema-prefix`), one with characters that cannot be in an identifier (with
+ * `--root-types-keep-casing`), or two with one PascalCase name (without the prefix). We build
+ * valid, distinct names, so these inputs differ on purpose; enum-naming.test.ts and
+ * components.test.ts cover them.
+ */
+export function reachesFixedLegacyBug(value: unknown, input: ContextInput): boolean {
+  const { flags } = input;
+  const schemas = schemasOf(value);
+  const names = Object.keys(schemas);
+  const isKeptCasing = flags.rootTypes && flags.rootTypesKeepCasing;
+  const isUnprefixed = flags.rootTypes && flags.rootTypesNoSchemaPrefix;
+  const rootNames = names.map((name) => (isKeptCasing ? name : pascalCase(name)));
+  return (
+    ((flags.enum || flags.enumValues) &&
+      names.some((name) => DIGIT_START_RE.test(name) && hasEnum(schemas[name]))) ||
+    (isKeptCasing && names.some((name) => NON_IDENTIFIER_CHARACTER_RE.test(name))) ||
+    (isUnprefixed && rootNames.some((name) => DIGIT_START_RE.test(name))) ||
+    (isUnprefixed && hasDuplicates(rootNames))
+  );
 }

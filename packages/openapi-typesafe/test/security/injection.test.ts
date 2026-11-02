@@ -53,6 +53,10 @@ const OPTION_SETS: readonly [string, OpenAPITSOptions][] = [
   ["enumValues and dedupeEnums", { enumValues: true, dedupeEnums: true }],
   ["rootTypes", { rootTypes: true }],
   ["rootTypes without the Schema prefix", { rootTypes: true, rootTypesNoSchemaPrefix: true }],
+  [
+    "rootTypes with kept casing and without the Schema prefix",
+    { rootTypes: true, rootTypesKeepCasing: true, rootTypesNoSchemaPrefix: true },
+  ],
   ["pathParamsAsTypes", { pathParamsAsTypes: true }],
   ["makePathsEnum and generatePathParams", { makePathsEnum: true, generatePathParams: true }],
   ["exportType and immutable", { exportType: true, immutable: true }],

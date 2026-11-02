@@ -1,4 +1,5 @@
 import { irKeyword, irObject, irProperty } from "../../../domain/ir/constructors.js";
+import { hasIdentifierStart, withIdentifierParts } from "../../../domain/ir/identifier-text.js";
 import type {
   IrPropertySignature,
   IrType,
@@ -66,6 +67,10 @@ function componentMember(
 /**
  * The root alias name: `SchemaPet`, `ResponseNotFound`, … A taken name gets `_2`, `_3`, … The
  * original checks for conflicts before it removes the schema prefix, and so does this.
+ *
+ * The original could build a name that is no identifier, so the generated file did not parse
+ * (research/legacy-bugs.md, item 16): a kept casing keeps spaces and symbols, which become `_`;
+ * and a name without the prefix can start with a digit, so it keeps the prefix (`Schema1`).
  */
 function rootTypeName(
   kind: ComponentKind,
@@ -76,12 +81,22 @@ function rootTypeName(
   const { options, casing } = context;
   const prefix = casing.pascalCase(singularizeComponentKind(kind));
   const isSchema = kind === "schemas";
-  const base = options.rootTypesKeepCasing && isSchema ? name : casing.pascalCase(name);
+  const base = withIdentifierParts(
+    options.rootTypesKeepCasing && isSchema ? name : casing.pascalCase(name),
+  );
+  const exportedName = (alias: string): string => {
+    const unprefixed = alias.replace(prefix, "");
+    const isUnprefixed = options.rootTypesNoSchemaPrefix && isSchema;
+    return isUnprefixed && hasIdentifierStart(unprefixed) ? unprefixed : alias;
+  };
+  // The exported name is checked too: a name that keeps its prefix can meet an unprefixed one.
+  const isTaken = (alias: string) =>
+    aliases[alias] !== undefined || aliases[exportedName(alias)] !== undefined;
   let alias = `${prefix}${base}`;
-  for (let counter = 2; aliases[alias] !== undefined; counter++) {
+  for (let counter = 2; isTaken(alias); counter++) {
     alias = `${prefix}${base}_${counter}`;
   }
-  return options.rootTypesNoSchemaPrefix && isSchema ? alias.replace(prefix, "") : alias;
+  return exportedName(alias);
 }
 
 /** `--root-types` skips enum schemas under `--enum`: the enum itself is exported. */

@@ -69,6 +69,46 @@ describe("componentsType", () => {
     expect(rootTypes).toBe("export type pet = components['schemas']['pet'];\n");
   });
 
+  it("componentsType with --root-types-no-schema-prefix keeps the prefix before a digit (legacy bug 16)", () => {
+    const options = { rootTypes: true, rootTypesNoSchemaPrefix: true };
+
+    const { rootTypes } = transform({ schemas: { "1": {}, pet: {} } }, { options });
+
+    expect(rootTypes).toBe(
+      "export type Schema1 = components['schemas']['1'];\nexport type Pet = components['schemas']['pet'];\n",
+    );
+  });
+
+  it("componentsType without the schema prefix keeps both schemas of one PascalCase name", () => {
+    const options = { rootTypes: true, rootTypesNoSchemaPrefix: true };
+
+    const { rootTypes } = transform({ schemas: { PetStore: {}, petStore: {} } }, { options });
+
+    expect(rootTypes).toBe(
+      "export type PetStore = components['schemas']['PetStore'];\n" +
+        "export type PetStore_2 = components['schemas']['petStore'];\n",
+    );
+  });
+
+  it("componentsType without the schema prefix never exports one name twice", () => {
+    const options = { rootTypes: true, rootTypesNoSchemaPrefix: true };
+
+    const { rootTypes } = transform({ schemas: { "1": {}, Schema1: {} } }, { options });
+
+    expect(rootTypes).toBe(
+      "export type Schema1 = components['schemas']['1'];\n" +
+        "export type Schema1_2 = components['schemas']['Schema1'];\n",
+    );
+  });
+
+  it("componentsType with --root-types-keep-casing writes invalid characters as _ (legacy bug 16)", () => {
+    const options = { rootTypes: true, rootTypesKeepCasing: true };
+
+    const { rootTypes } = transform({ schemas: { "my pet+x": {} } }, { options });
+
+    expect(rootTypes).toBe("export type Schemamy_pet_x = components['schemas']['my pet+x'];\n");
+  });
+
   it("componentsType with --root-types and --enum skips enum schemas", () => {
     const options = { rootTypes: true, enum: true };
 

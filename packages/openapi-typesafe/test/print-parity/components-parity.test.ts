@@ -11,6 +11,7 @@ import {
   contextInput,
   createContext,
   RUNS,
+  reachesFixedLegacyBug,
   resetLegacyEnumState,
   TIMEOUT_MS,
 } from "./parity-arbitraries.js";
@@ -41,6 +42,7 @@ describe("components transformer parity with the fork base", () => {
     () => {
       fc.assert(
         fc.property(components, contextInput, (value, input) => {
+          fc.pre(!reachesFixedLegacyBug(value, input));
           expect(run(transformComponentsObject, value, input)).toBe(
             run(originalTransformComponentsObject, value, input),
           );

@@ -10,8 +10,17 @@ describe("EnumNaming", () => {
     expect(new EnumNaming().enumName("/pet/my status")).toBe("PetMyStatus");
   });
 
-  it("enumName prefixes a name that starts with a digit, unsanitized", () => {
-    expect(new EnumNaming().enumName("1a-b")).toBe("Value1a-b");
+  it.each([
+    ["0 a-b", "value0AB"],
+    ["\u{1D1B9}9 x", "value9X"],
+    ["§9abc", "value9abc"],
+    ["9abc", "value9abc"],
+  ])("arrayName(%j) is the identifier %s", (name, expected) => {
+    expect(new EnumNaming().arrayName(name)).toBe(expected);
+  });
+
+  it("enumName prefixes a name that starts with a digit after sanitizing it (legacy bug 15)", () => {
+    expect(new EnumNaming().enumName("1a-b")).toBe("Value1aB");
   });
 
   it("enumName keeps a trailing invalid character after one was removed (original state)", () => {

@@ -14,6 +14,7 @@ import {
   contextInput,
   createContext,
   RUNS,
+  reachesFixedLegacyBug,
   resetLegacyEnumState,
   TIMEOUT_MS,
 } from "./parity-arbitraries.js";
@@ -58,6 +59,7 @@ describe("root transformer parity with the fork base", () => {
         fc.property(document, contextInput, inject, (value, input, code) => {
           const original = run(originalTransformSchema, value, input, code);
           fc.pre(!hasRootAliasEnumCollision(original));
+          fc.pre(!reachesFixedLegacyBug(value, input));
           expect(run(transformSchema, value, input, code)).toBe(original);
         }),
         { numRuns: RUNS },
