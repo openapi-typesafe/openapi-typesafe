@@ -2,8 +2,8 @@ import { PACKAGE_RENAMES } from "./package-names.js";
 
 /**
  * Override, resolution and patch keys name a package with a path or a version around it:
- * `app>openapi-fetch` (pnpm), `**\/openapi-fetch` (Yarn), `openapi-fetch@0.13` (pnpm, npm). Matching
- * the name as a substring took `openapi-typescript-helpers` for `openapi-typescript` too.
+ * `app>openapi-fetch` (pnpm), `**\/openapi-fetch` (Yarn), `openapi-fetch@0.13` (pnpm, npm).
+ * Matching the name as a substring took `openapi-typescript-helpers` for `openapi-typescript` too.
  */
 
 const PARENT_SEPARATOR = ">";

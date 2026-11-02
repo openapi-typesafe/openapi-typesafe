@@ -5,7 +5,8 @@ import type { ProjectFiles } from "../../application/ports.js";
 
 /**
  * Installed packages, git metadata, build output and the output folders of frameworks and test
- * tools are not the project's own files: rewriting them only adds noise to the dry run and the diff.
+ * tools are not the project's own files: rewriting them only adds noise to the dry run and the
+ * diff.
  * `build` and `out` stay in, because some projects keep sources there. Links are not followed, so a
  * linked workspace package is migrated in its own project, not twice.
  */
