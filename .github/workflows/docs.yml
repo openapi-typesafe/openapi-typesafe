@@ -1,0 +1,62 @@
+# Deploy the docs site to GitHub Pages on every push to main (ENGINEERING_PLAN 10.2, 10.5).
+# ci.yml builds the site and checks its links on every pull request; this workflow only publishes.
+# Actions are pinned by commit SHA (supply-chain hardening); the comment names the release.
+name: docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push waits instead of cancelling a deployment half way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  FORCE_COLOR: "0"
+
+jobs:
+  build:
+    name: build site
+    # Pages for a private repository needs a paid plan; the site goes live with the public
+    # repository (ENGINEERING_PLAN 11.2), so a private repository skips the job instead of failing.
+    if: github.event.repository.visibility == 'public'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - run: pnpm install --frozen-lockfile
+      # The site URL from Pages, so canonical links, the sitemap and llms.txt also work with a
+      # custom domain.
+      - run: pnpm --filter openapi-typesafe-docs build-docs
+        env:
+          DOCS_SITE_URL: ${{ steps.pages.outputs.base_url }}/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    name: deploy to pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Apply the repository settings of ENGINEERING_PLAN 9.8 when the repository goes public (11.2):
 # rulesets for main and release tags, secret scanning with push protection, private vulnerability
-# reporting, and the `npm-publish` environment with the maintainer as required reviewer.
+# reporting, the `npm-publish` environment with the maintainer as required reviewer, and GitHub
+# Pages built by .github/workflows/docs.yml.
 #
 # Usage: scripts/repo/apply-settings.sh [--apply]
 #        Without --apply it only prints what it would change. Needs `gh` logged in as an admin.
@@ -63,5 +64,12 @@ api --method PUT "repos/${REPOSITORY}/environments/${ENVIRONMENT}" --input - <<J
   "deployment_branch_policy": { "protected_branches": true, "custom_branch_policies": false }
 }
 JSON
+
+# The docs site is deployed by a workflow, not from a branch; a 404 means Pages is not set up yet.
+if gh api "repos/${REPOSITORY}/pages" > /dev/null 2>&1; then
+  api --method PUT "repos/${REPOSITORY}/pages" -f build_type=workflow
+else
+  api --method POST "repos/${REPOSITORY}/pages" -f build_type=workflow
+fi
 
 [[ "${IS_APPLY}" == "1" ]] && log "applied" || log "dry run; rerun with --apply"
