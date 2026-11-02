@@ -43,8 +43,11 @@ export const HELPER_TYPES = {
 } as const satisfies Readonly<Record<string, HelperType>>;
 
 /**
- * The `--read-write-markers` helper types, written before the root types. As above, the text is
- * the original's source as the TypeScript printer printed it.
+ * The `--read-write-markers` helper types, written before the root types. Task 7.6 replaces the
+ * original text on purpose (ADR-014): primitives (also branded), readonly arrays, tuples,
+ * intersected arrays and null-only properties keep their types (upstream #2615, #2620, #2632,
+ * #2717, #2765). The declarations equal `Readable` / `Writable` of openapi-typesafe-helpers
+ * (`test/api/read-write-marker-types.test.ts`); the text is what the TypeScript printer prints.
  */
 export const READ_WRITE_MARKER_TYPES = lines(
   "export type $Read<T> = {",
@@ -53,14 +56,30 @@ export const READ_WRITE_MARKER_TYPES = lines(
   "export type $Write<T> = {",
   "    readonly $write: T;",
   "};",
+  "type ReadWritePrimitive = string | number | boolean | bigint | symbol | null | undefined;",
+  "type ReadWriteMarkedKeys<T, Marker> = {",
+  "    [K in keyof T]-?: NonNullable<T[K]> extends never ? never : NonNullable<T[K]> " +
+    "extends Marker ? K : never;",
+  "}[keyof T];",
+  'type ReadWriteResolveArray<T extends readonly unknown[], Resolved extends "read" | ' +
+    '"write"> = T[number][] extends T ? T extends unknown[] ? ReadWriteResolve<T[number], ' +
+    "Resolved>[] : readonly ReadWriteResolve<T[number], Resolved>[] : {",
+  "    [K in keyof T]: ReadWriteResolve<T[K], Resolved>;",
+  "};",
+  'type ReadWriteResolve<T, Resolved extends "read" | "write"> = Resolved extends "read" ? ' +
+    "Readable<T> : Writable<T>;",
   "export type Readable<T> = T extends $Write<any> ? never : T extends $Read<infer U> ? " +
-    "Readable<U> : T extends (infer E)[] ? Readable<E>[] : T extends object ? {",
-  "    [K in keyof T as NonNullable<T[K]> extends $Write<any> ? never : K]: Readable<T[K]>;",
+    "Readable<U> : T extends ReadWritePrimitive ? T : T extends readonly unknown[] ? " +
+    'ReadWriteResolveArray<T, "read"> : T extends object ? {',
+  "    [K in keyof T as K extends ReadWriteMarkedKeys<T, $Write<any>> ? never : K]: " +
+    "Readable<T[K]>;",
   "} : T;",
   "export type Writable<T> = T extends $Read<any> ? never : T extends $Write<infer U> ? " +
-    "Writable<U> : T extends (infer E)[] ? Writable<E>[] : T extends object ? {",
-  "    [K in keyof T as NonNullable<T[K]> extends $Read<any> ? never : K]: Writable<T[K]>;",
+    "Writable<U> : T extends ReadWritePrimitive ? T : T extends readonly unknown[] ? " +
+    'ReadWriteResolveArray<T, "write"> : T extends object ? {',
+  "    [K in keyof T as K extends ReadWriteMarkedKeys<T, $Read<any>> ? never : K]: " +
+    "Writable<T[K]>;",
   "} & {",
-  "    [K in keyof T as NonNullable<T[K]> extends $Read<any> ? K : never]?: never;",
+  "    [K in ReadWriteMarkedKeys<T, $Read<any>>]?: never;",
   "} : T;",
 );

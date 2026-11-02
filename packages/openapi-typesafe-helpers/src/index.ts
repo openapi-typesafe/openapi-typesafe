@@ -277,40 +277,86 @@ export type $Read<T> = { readonly $read: T };
 /** Marker type for writeOnly properties (excluded from response bodies) */
 export type $Write<T> = { readonly $write: T };
 
+/** Primitives, also branded ones (`string & { __brand: "Id" }`), which stay unmapped (#2765). */
+type ReadWritePrimitive = string | number | boolean | bigint | symbol | null | undefined;
+
+/**
+ * Keys of `T` whose value is a `Marker`. A key whose value is only `null` or `undefined` is not
+ * marked: `NonNullable` of it is `never`, and `never` extends every marker (upstream #2717). The
+ * checks are not distributive (`NonNullable<T[K]>` is not a type parameter), so `never` is seen.
+ */
+type ReadWriteMarkedKeys<T, Marker> = {
+  [K in keyof T]-?: NonNullable<T[K]> extends never
+    ? never
+    : NonNullable<T[K]> extends Marker
+      ? K
+      : never;
+}[keyof T];
+
+/**
+ * Resolve an array or a tuple element by element. An array uses `T[number]`, not `infer E`: for an
+ * intersection of arrays (`allOf`) inference keeps one member and narrowing breaks (upstream
+ * #2620). `T` is a plain array when an array of its elements is assignable to it; otherwise it is a
+ * tuple (also `[A, ...B[]]`), mapped homomorphically to stay a tuple (upstream #2632). Both keep
+ * `readonly` (upstream #2615).
+ */
+type ReadWriteResolveArray<
+  T extends readonly unknown[],
+  Resolved extends "read" | "write",
+> = T[number][] extends T
+  ? T extends unknown[]
+    ? ReadWriteResolve<T[number], Resolved>[]
+    : readonly ReadWriteResolve<T[number], Resolved>[]
+  : { [K in keyof T]: ReadWriteResolve<T[K], Resolved> };
+
+type ReadWriteResolve<T, Resolved extends "read" | "write"> = Resolved extends "read"
+  ? Readable<T>
+  : Writable<T>;
+
 /**
  * Resolve type for reading (responses): strips $Write properties, unwraps $Read
  * - $Read<T> → T (readable), continues recursion
  * - $Write<T> → never (excluded from response)
- * - object → recursively resolve
+ * - primitives (also branded), arrays and tuples keep their shape; objects resolve recursively
  */
 export type Readable<T> =
   T extends $Write<any>
     ? never
     : T extends $Read<infer U>
       ? Readable<U>
-      : T extends (infer E)[]
-        ? Readable<E>[]
-        : T extends object
-          ? { [K in keyof T as NonNullable<T[K]> extends $Write<any> ? never : K]: Readable<T[K]> }
-          : T;
+      : T extends ReadWritePrimitive
+        ? T
+        : T extends readonly unknown[]
+          ? ReadWriteResolveArray<T, "read">
+          : T extends object
+            ? {
+                [K in keyof T as K extends ReadWriteMarkedKeys<T, $Write<any>>
+                  ? never
+                  : K]: Readable<T[K]>;
+              }
+            : T;
 
 /**
  * Resolve type for writing (requests): strips $Read properties, unwraps $Write
  * - $Write<T> → T (writable), continues recursion
  * - $Read<T> → never (excluded from request)
- * - object → recursively resolve
+ * - primitives (also branded), arrays and tuples keep their shape; objects resolve recursively
  */
 export type Writable<T> =
   T extends $Read<any>
     ? never
     : T extends $Write<infer U>
       ? Writable<U>
-      : T extends (infer E)[]
-        ? Writable<E>[]
-        : T extends object
-          ? {
-              [K in keyof T as NonNullable<T[K]> extends $Read<any> ? never : K]: Writable<T[K]>;
-            } & {
-              [K in keyof T as NonNullable<T[K]> extends $Read<any> ? K : never]?: never;
-            }
-          : T;
+      : T extends ReadWritePrimitive
+        ? T
+        : T extends readonly unknown[]
+          ? ReadWriteResolveArray<T, "write">
+          : T extends object
+            ? {
+                [K in keyof T as K extends ReadWriteMarkedKeys<T, $Read<any>>
+                  ? never
+                  : K]: Writable<T[K]>;
+              } & {
+                [K in ReadWriteMarkedKeys<T, $Read<any>>]?: never;
+              }
+            : T;

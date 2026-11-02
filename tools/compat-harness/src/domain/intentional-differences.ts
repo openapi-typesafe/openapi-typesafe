@@ -1,6 +1,6 @@
 /**
- * Output changes the candidate makes on purpose: bug fixes of task 7.4 that change output which
- * did not compile before (ENGINEERING_PLAN 7.4). The comparison rewrites the golden text with
+ * Output changes the candidate makes on purpose: bug fixes of tasks 7.4 and 7.6 that change
+ * output which did not compile or typed wrongly before (ENGINEERING_PLAN 7.4, ADR-014). The comparison rewrites the golden text with
  * each rule before comparing, and the report lists every rule with the cases it applied to, so a
  * fix does not hide other drift and stays visible.
  */
@@ -15,7 +15,19 @@ export interface IntentionalDifference {
   readonly candidate: string;
 }
 
+import { FIXED_READ_WRITE_TYPES, FORK_BASE_READ_WRITE_TYPES } from "./read-write-marker-texts.ts";
+
 const UPSTREAM = "openapi-ts/openapi-typescript";
+
+/** A pattern that matches `text` literally. */
+function literalPattern(text: string): RegExp {
+  return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gm");
+}
+
+/** A replacement that inserts `text` literally (`$` starts a pattern in replacements). */
+function literalReplacement(text: string): string {
+  return text.replaceAll("$", "$$$$");
+}
 
 export const INTENTIONAL_DIFFERENCES: readonly IntentionalDifference[] = [
   {
@@ -42,6 +54,20 @@ export const INTENTIONAL_DIFFERENCES: readonly IntentionalDifference[] = [
     description: "`--enum-values`: the `ReadonlyArray` helper accepts readonly arrays",
     golden: /^(\] extends \[\n {4})unknown\[\](\n\] \? Readonly<Exclude<T, undefined>>)/gm,
     candidate: "$1readonly unknown[]$2",
+  },
+  {
+    id: "read-write-marker-helpers",
+    issues: [
+      `${UPSTREAM}#2615`,
+      `${UPSTREAM}#2620`,
+      `${UPSTREAM}#2632`,
+      `${UPSTREAM}#2717`,
+      `${UPSTREAM}#2765`,
+    ],
+    description:
+      "`--read-write-markers`: `Readable` / `Writable` keep primitives, arrays, tuples and null-only keys",
+    golden: literalPattern(FORK_BASE_READ_WRITE_TYPES),
+    candidate: literalReplacement(FIXED_READ_WRITE_TYPES),
   },
 ];
 

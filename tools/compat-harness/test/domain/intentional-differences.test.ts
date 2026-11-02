@@ -4,6 +4,10 @@ import {
   INTENTIONAL_DIFFERENCES,
   type IntentionalDifference,
 } from "../../src/domain/intentional-differences.ts";
+import {
+  FIXED_READ_WRITE_TYPES,
+  FORK_BASE_READ_WRITE_TYPES,
+} from "../../src/domain/read-write-marker-texts.ts";
 
 const UPPER: IntentionalDifference = {
   id: "upper",
@@ -76,5 +80,16 @@ describe("INTENTIONAL_DIFFERENCES", () => {
       "enum-values-flattened-deep-required",
       "enum-values-readonly-array",
     ]);
+  });
+
+  it("the catalog replaces the fork-base read-write helpers with the fixed text literally", () => {
+    const golden = `export type $Read<T> = {\n    readonly $read: T;\n};\n${FORK_BASE_READ_WRITE_TYPES}\n`;
+
+    const { text, appliedIds } = applyIntentionalDifferences(golden, INTENTIONAL_DIFFERENCES);
+
+    expect(text).toBe(
+      `export type $Read<T> = {\n    readonly $read: T;\n};\n${FIXED_READ_WRITE_TYPES}\n`,
+    );
+    expect(appliedIds).toEqual(["read-write-marker-helpers"]);
   });
 });
