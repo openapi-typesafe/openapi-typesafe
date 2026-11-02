@@ -5,7 +5,7 @@
 > way a user meets it: installed from the beta tarballs, run on real schemas, read from the docs.
 > The goal is to find every defect a tester would hit first, and fix it properly.
 
-**Status:** started; PB-1 found while checking this plan. **Target:** `1.0.0-beta.2`, then
+**Status:** in progress; PB-1 to PB-7 fixed. **Target:** `1.0.0-beta.2`, then
 invite testers.
 
 ## 1. Rules for every finding
@@ -60,19 +60,19 @@ covered by §3.5, TypeScript versions and strict flags by §4.2, §6.8 (client i
 
 Follow `RELEASE_NOTES.md` of `beta-1.0.0-beta.1` word by word, as a tester would.
 
-- [ ] 3.1 `shasum -a 256 -c SHA256SUMS` passes for the downloaded assets.
-- [ ] 3.2 Install with npm, pnpm and Yarn, using exactly the `overrides` / `resolutions`
+- [x] 3.1 `shasum -a 256 -c SHA256SUMS` passes for the downloaded assets.
+- [x] 3.2 Install with npm, pnpm and Yarn, using exactly the `overrides` / `resolutions`
       snippets from the notes. No openapi-typesafe package is looked up on npm. The names now
       exist on npm as deprecated `0.0.0` placeholders, so a missing override fails with "no
       matching version" instead of "not found": check that the notes explain that error. The
       npm snippet uses the `$openapi-typesafe-fetch` reference, which only npm understands;
       the notes tell Yarn users to use `resolutions` "instead": check what Yarn berry needs
       and write it out. Bun has no snippet yet: find the working recipe and add it.
-- [ ] 3.3 `openapi-typesafe --version` and `--help` work through each manager's own runner
+- [x] 3.3 `openapi-typesafe --version` and `--help` work through each manager's own runner
       (`npx`, `pnpm exec`, `yarn`, `bunx`).
-- [ ] 3.4 Every library package (all except `openapi-typesafe-migrate`, which is a CLI with no
+- [x] 3.4 Every library package (all except `openapi-typesafe-migrate`, which is a CLI with no
       `exports`) imports in ESM and in CJS (`require`) where its `exports` map says so.
-- [ ] 3.5 Types resolve for every `moduleResolution` value in §2 (the client packages have no
+- [x] 3.5 Types resolve for every `moduleResolution` value in §2 (the client packages have no
       `types` condition in `exports` and a `./*` wildcard export: check both): run
       [`@arethetypeswrong/cli`](https://github.com/arethetypeswrong/arethetypeswrong.github.io)
       and [`publint`](https://publint.dev) on each tarball (check the latest versions first).
@@ -80,17 +80,25 @@ Follow `RELEASE_NOTES.md` of `beta-1.0.0-beta.1` word by word, as a tester would
       (`scripts/check-tarball-files.mjs`) on the workspace packages; what is new here is
       running them on the beta tarballs, whose manifests `pack-beta.sh` rewrites, plus
       `publint`.
-- [ ] 3.6 Tarball contents: no tests, fixtures, source maps to missing files, `.logs`, or
+- [x] 3.6 Tarball contents: no tests, fixtures, source maps to missing files, `.logs`, or
       personal files; `LICENSE` and `README.md` present; `bin` files have a shebang and run.
-- [ ] 3.7 `peerDependencies` ranges: install with the lowest and the highest allowed version;
+- [x] 3.7 `peerDependencies` ranges: install with the lowest and the highest allowed version;
       no peer warnings. `@tanstack/react-query` `^5.80.0` for the React Query client. The
       generator's optional `typescript` peer says `>=5.0.0`, while ADR-006 supports 5.4+ and
       ADR-004 tests the legacy callbacks with 5.9 and 6.x: test 5.0 and 5.4 with those
       callbacks, then fix the range or the docs. Also the optional `@typescript/typescript6`
       `^6.0.0` peer, and the React Query client's peer on `openapi-typesafe-fetch` (pinned
       exactly in the beta tarballs). Lowest allowed runtime dependencies too: see PB-2.
-- [ ] 3.8 The migration path from the notes: `openapi-typesafe-migrate --write`, then replace
+- [x] 3.8 The migration path from the notes: `openapi-typesafe-migrate --write`, then replace
       `^1.0.0-beta.1` with the `file:` paths. Check that the notes are enough on their own.
+
+**§3 results** (logs: `.logs/pre-beta/install/`): checksums pass; npm, pnpm, Yarn 4 and Bun 1 install,
+generate, type-check (strict, `nodenext`) and import in ESM and CJS on Node.js 26 after PB-8;
+`attw` finds no problems; publint: PB-9; tarballs hold no stray files, every source map embeds its
+sources, both `bin` files have a shebang; the legacy TypeScript-node callbacks work with
+TypeScript 5.0.4, 5.4.5, 5.9.3 and with `@typescript/typescript6` alone, so the `>=5.0.0` peer is
+right; the React Query client installs with TanStack Query 5.80.0 and 5.105.2 without peer
+warnings; the migration path of the notes works end to end.
 
 ## 4. Generator on real schemas
 
@@ -305,13 +313,17 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 
 | ID | Area | Severity | Repro | Status |
 |---|---|---|---|---|
-| PB-1 | CLI | S3 | `openapi-typesafe --help` does not list `--generate-path-params`, which `docs/cli.md` documents and the CLI accepts | open |
-| PB-2 | generator deps | S2 | `@redocly/openapi-core` range is `^1.34.6`, but 1.34.6 rejects OpenAPI 3.2 (ADR-005), which the docs say is accepted: an install that resolves the lowest allowed version fails on 3.2 documents. Raise the lower bound to the first version that accepts 3.2 | open |
-| PB-3 | docs, fetch | S3 | `docs/security/threat-model.md` T5 says dot segments in path values "are encoded"; the client throws `Dot path segment in …` (ADR-013) | open |
-| PB-4 | CLI | S2 | `openapi-typesafe schema.yaml --check` with no `--output` and no APIs in `redocly.yaml` prints the types and exits 0 without checking anything (`run-cli.ts`); compare with `fork-base`, then fail or document | open |
-| PB-5 | Node API | S2 | `openapiTS(stream)` with a `Readable` that emits `error` never settles: `readStream` in `schema-source.ts` has no `error` listener | open |
-| PB-6 | docs, Node API | S3 | `docs/node.md` says a string loads "a local file"; a plain path string is parsed as YAML, only `file://` / `http(s)://` strings are loaded | open |
-| PB-7 | CLI | S3 | `CLI_GLOB_UNSUPPORTED` and `CLI_CONFIG_OUTPUT_MISSING` messages link to the upstream site `https://openapi-ts.dev/cli/#multiple-schemas` (`run-cli.ts`, `redocly-apis.ts`) | open |
+| PB-1 | CLI | S3 | `openapi-typesafe --help` does not list `--generate-path-params`, which `docs/cli.md` documents and the CLI accepts | fixed: help line added; a test checks every generator flag in `--help` and `docs/cli.md`; `-c` and `--content-never` documented |
+| PB-2 | generator deps | S2 | `@redocly/openapi-core` range is `^1.34.6`, but 1.34.6 rejects OpenAPI 3.2 (ADR-005), which the docs say is accepted: an install that resolves the lowest allowed version fails on 3.2 documents. Raise the lower bound to the first version that accepts 3.2 | fixed: range `^1.34.22` (1.34.15 is the first 1.x that accepts 3.2; 1.34.23 is blocked by the minimum release age); `dependency-ranges.test.ts` |
+| PB-3 | docs, fetch | S3 | `docs/security/threat-model.md` T5 says dot segments in path values "are encoded"; the client throws `Dot path segment in …` (ADR-013) | fixed: threat model T5 describes the encoding and the dot-segment error |
+| PB-4 | CLI | S2 | `openapi-typesafe schema.yaml --check` with no `--output` and no APIs in `redocly.yaml` prints the types and exits 0 without checking anything (`run-cli.ts`); compare with `fork-base`, then fail or document | fixed: new `CLI_CHECK_OUTPUT_MISSING`, exit 2; docs and migration guide updated (`fork-base` had the same bug) |
+| PB-5 | Node API | S2 | `openapiTS(stream)` with a `Readable` that emits `error` never settles: `readStream` in `schema-source.ts` has no `error` listener | fixed: `readStream` uses `node:stream/consumers` and rejects with `SCHEMA_LOAD_FAILED`; the new test hung before the fix |
+| PB-6 | docs, Node API | S3 | `docs/node.md` says a string loads "a local file"; a plain path string is parsed as YAML, only `file://` / `http(s)://` strings are loaded | fixed: `docs/node.md` says which strings load and how to load a path (`pathToFileURL`) |
+| PB-7 | CLI | S3 | `CLI_GLOB_UNSUPPORTED` and `CLI_CONFIG_OUTPUT_MISSING` messages link to the upstream site `https://openapi-ts.dev/cli/#multiple-schemas` (`run-cli.ts`, `redocly-apis.ts`) | fixed: one `MULTIPLE_SCHEMAS_DOCS_URL` constant pointing at our docs; e2e test |
+| PB-8 | beta notes | S2 | Yarn Berry fails on the npm-only `$openapi-typesafe-fetch` reference, Bun has no recipe and fails with "No version matching 1.0.0-beta.1", and the notes said migrate sets `^VERSION` (it keeps the old `^`/`~`/exact style) | fixed: `scripts/release/beta-release-notes.md` has a tested Yarn/Bun snippet, explains the placeholder error and the version style |
+| PB-9 | packaging | S3 | publint warns on the `./*` export of `openapi-typesafe` and `openapi-typesafe-fetch` (CJS `__esModule` + `default` reachable from ESM) | accepted in ADR-018 (kept for deep-import compatibility); publint now runs in `scripts/check-exports.sh` at the error level |
+| PB-10 | generator | S1 | inherited (upstream #2664): a schema's `$defs` is printed as a required member, so values need a `$defs` key | fixed: `$defs?:`, refs past it use `NonNullable<…>`; legacy bug 17; `test/api/defs-types.test.ts` |
+| PB-11 | generator | S1 | inherited: the root `$defs` is `Record<string, never>`, so every `#/$defs/<name>` ref is `never` | fixed: one member per subschema; legacy bug 18; `test/api/defs-types.test.ts` |
 
 ## 14. Exit criteria (before inviting testers)
 
