@@ -1,12 +1,12 @@
 // settings & const
 const PATH_PARAM_RE = /\{[^{}]+\}/g;
 
+/**
+ * Whether `fetch` is Node.js undici, which takes `requestInitExt` as a second argument. A Node.js
+ * version check is not needed: every supported Node.js (`engines`) ships undici.
+ */
 const supportsRequestInitExt = () => {
-  return (
-    typeof process === "object" &&
-    Number.parseInt(process?.versions?.node?.substring(0, 2), 10) >= 18 &&
-    process.versions.undici
-  );
+  return typeof process === "object" && process.versions?.undici;
 };
 
 /**
