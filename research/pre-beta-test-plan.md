@@ -42,7 +42,9 @@ workspace never resolves anything for them.
 | Runtimes (clients) | Node.js, Bun, Deno, Chromium, Firefox, WebKit (all in CI today); a Workers-like runtime (`workerd`) is new |
 | OS | macOS locally; Linux in CI; Windows only after the repository is public |
 
-Not every combination: each section names the slice it needs. The full grid runs once, in §3.
+Not every combination: the full grid would be thousands of runs. Each section names the slice
+it needs: §3 runs every package manager on every Node.js version; TypeScript versions and
+`moduleResolution` values are covered by §3.5 and §4.2.
 
 ## 3. Install from the beta tarballs (the tester's first 10 minutes)
 
@@ -52,7 +54,8 @@ Follow `RELEASE_NOTES.md` of `beta-1.0.0-beta.1` word by word, as a tester would
 - [ ] 3.2 Install with npm, pnpm and Yarn, using exactly the `overrides` / `resolutions`
       snippets from the notes. No openapi-typesafe package is looked up on npm. Bun has no
       snippet in the notes yet: find the working recipe and add it.
-- [ ] 3.3 `npx openapi-typesafe --version` and `--help` work with each manager.
+- [ ] 3.3 `openapi-typesafe --version` and `--help` work through each manager's own runner
+      (`npx`, `pnpm exec`, `yarn`, `bunx`).
 - [ ] 3.4 Every package imports in ESM and in CJS (`require`) where its `exports` map says so.
 - [ ] 3.5 Types resolve for every `moduleResolution` value in §2: run
       [`@arethetypeswrong/cli`](https://github.com/arethetypeswrong/arethetypeswrong.github.io)
@@ -67,24 +70,26 @@ Follow `RELEASE_NOTES.md` of `beta-1.0.0-beta.1` word by word, as a tester would
 
 ## 4. Generator on real schemas
 
-Inputs: the 7 example schemas in `packages/openapi-typesafe/examples/`, the compat corpus
-(1,820 documents), and 10 large public APIs
-picked by hand (GitHub, Stripe, DigitalOcean, Kubernetes, Cloudflare, Twilio, Slack, Jira,
-Azure, AWS-style 3.1 documents).
+Inputs: the 7 example schemas in `packages/openapi-typesafe/examples/` (GitHub, Stripe,
+DigitalOcean and smaller ones), the compat corpus (1,820 documents), and large public APIs not in
+them, picked by hand: Kubernetes, Cloudflare, Twilio, Slack, Jira, and a 3.1 document with
+webhooks.
 
 - [ ] 4.1 Full compat run, all option sets, locally (from `tools/compat-harness`):
       `scripts/prepare-generators.sh`, `node src/cli/main.ts fetch --corpus all`, then
       `scripts/run-compat.sh all all`. Every difference from openapi-typescript 7.13 is
       classified: documented fix, or defect.
-- [ ] 4.2 Generated output type-checks with every TypeScript version in §2 and every strict
-      flag, for every option set (the type matrix covers a sample; extend it to the corpus).
+- [ ] 4.2 Generated output type-checks with every strict flag of §2: the whole corpus with
+      the default options under TypeScript 5.4 and 7.0, and every option set on the example
+      schemas under every TypeScript version (the type matrix covers a sample today).
 - [ ] 4.3 Generated output has no `any` that the schema did not ask for, and is stable: two
       runs on the same input give the same bytes, also with a different key order in YAML.
 - [ ] 4.4 OpenAPI versions: 3.0.x, 3.1.x (incl. `type` arrays, `const`, `$defs`,
       `unevaluatedProperties`, `prefixItems`, webhooks), 3.2 (the docs say "accepted": check
       which 3.2 features give correct types and document the rest), Swagger 2.0 (the docs say
       "not supported": check that the error says so).
-- [ ] 4.5 Inputs: JSON, YAML (anchors, multi-document, BOM, CRLF, tabs), a URL, stdin, a
+- [ ] 4.5 Inputs: JSON, YAML (anchors, BOM, CRLF; multi-document and tab indents must fail
+      with a clear message), a URL, stdin, a
       `redocly.yaml` with several APIs, multi-file `$ref` (relative, absolute, URL, circular,
       to a JSON pointer with `~0`/`~1`/`%`).
 - [ ] 4.6 Every CLI flag alone, and every pair that interacts (`--enum` × `--enum-values` ×
@@ -111,7 +116,8 @@ Azure, AWS-style 3.1 documents).
 
 ## 6. Fetch client (`openapi-typesafe-fetch`)
 
-Against a real local server generated from a test schema, in every runtime of §2.
+Against a local test server (`node:http`) for a test schema. The full list runs on Node.js;
+Bun, Deno and the browsers run a smoke subset through the existing runtime and browser suites.
 
 - [ ] 6.1 Every HTTP method; path parameters in every style (`simple`, `label`, `matrix`,
       with and without `explode`), query and header parameters. Cookie parameters are typed
@@ -119,7 +125,8 @@ Against a real local server generated from a test schema, in every runtime of §
 - [ ] 6.2 Query serialization: `form`/`spaceDelimited`/`pipeDelimited`/`deepObject`, `explode`
       true/false, arrays, nested objects, `null`/`undefined`, reserved characters, Unicode.
 - [ ] 6.3 Bodies: JSON, `application/x-www-form-urlencoded`, `multipart/form-data` with files,
-      `Blob`, `ArrayBuffer`, streams, custom `bodySerializer`.
+      `Blob`, `ArrayBuffer`, streams, custom `bodySerializer`. The form media type is
+      serialized by the client itself (`URLSearchParams`); check nested values.
 - [ ] 6.4 Responses: JSON, text, empty (204 / `content-length: 0`), binary, stream,
       `parseAs` options; `data`/`error` narrowing by status in the types.
 - [ ] 6.5 Errors: network failure, abort (`signal`), non-JSON error body, thrown middleware.
@@ -151,7 +158,8 @@ On real projects from `research/dependents.csv` (top 20 by stars or downloads), 
 - [ ] 8.2 After the migration the project installs, generates, type-checks and passes its own
       tests. Each failure is ours or documented in the migration guide.
 - [ ] 8.3 Monorepos (pnpm, npm, Yarn workspaces), CJS `require`, dynamic `import()`, re-exports,
-      type-only imports, scripts in `package.json`, `redocly.yaml`, CI files.
+      type-only imports, scripts in `package.json`. Files it does not change (`redocly.yaml`,
+      CI files, Dockerfiles) are listed in its report, so the user knows to check them.
 - [ ] 8.4 Running it twice changes nothing the second time; it never touches lockfiles or
       files outside `--root`. It does not check for uncommitted changes today: decide whether
       the guide should tell users to commit first, or the tool should warn.
@@ -172,7 +180,7 @@ On real projects from `research/dependents.csv` (top 20 by stars or downloads), 
 Each threat in `docs/security/threat-model.md` gets one hostile input that proves the control.
 
 - [ ] 10.1 Code injection through descriptions, names and enum values (`*/`, backticks,
-      `${}`, Unicode line separators, `</script>`).
+      `${}`, quotes, Unicode line separators U+2028/U+2029).
 - [ ] 10.2 Prototype keys (`__proto__`, `constructor`, `prototype`) in schemas, paths and
       parameters, in the generator and in the clients' serializers.
 - [ ] 10.3 Resource limits: deep nesting, huge documents, YAML alias bombs, long `$ref` chains,
@@ -186,8 +194,9 @@ Each threat in `docs/security/threat-model.md` gets one hostile input that prove
 ## 11. Agent skill
 
 - [ ] 11.1 CI runs only `validate` (the reference solutions). Run
-      `pnpm --filter @openapi-typesafe/skill-evals eval` once with a real agent; it needs an
-      API key and costs money, so agree the budget first.
+      `pnpm --filter @openapi-typesafe/skill-evals eval` once with a real agent (Claude Code,
+      with `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`); it costs money, so agree the
+      budget first.
 - [ ] 11.2 Every command and API name in `skills/openapi-typesafe/` exists and matches the docs.
 
 ## 12. Exploratory testing
@@ -205,7 +214,7 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 
 | ID | Area | Severity | Repro | Status |
 |---|---|---|---|---|
-| | | | | |
+| PB-1 | CLI | S3 | `openapi-typesafe --help` does not list `--generate-path-params`, which `docs/cli.md` documents and the CLI accepts | open |
 
 ## 14. Exit criteria (before inviting testers)
 
