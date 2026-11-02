@@ -7,6 +7,13 @@ import { useTemporaryDirectory } from "./temporary-directory.ts";
 
 const createDirectory = useTemporaryDirectory();
 
+/**
+ * Each test builds a real TypeScript program with the default lib. Alone the first one takes about
+ * 2 s; while other suites (or a compat run) use the CPU it took more than vitest's 5 s default. The
+ * tests check which types differ, not how fast, so they allow 30 s.
+ */
+const COMPILER_TEST_TIMEOUT_MS = 30_000;
+
 async function findDifferences(golden: string, candidate: string): Promise<readonly string[]> {
   const directory = await createDirectory();
   const goldenPath = join(directory, "golden.ts");
@@ -16,7 +23,7 @@ async function findDifferences(golden: string, candidate: string): Promise<reado
   return new TypeScriptIdentityChecker().findDifferentTypes(goldenPath, candidatePath);
 }
 
-describe("TypeScriptIdentityChecker", () => {
+describe("TypeScriptIdentityChecker", { timeout: COMPILER_TEST_TIMEOUT_MS }, () => {
   it("findDifferentTypes treats structurally identical declarations as identical", async () => {
     const golden =
       "export interface paths { '/a': { get: components['schemas']['A'] } }\n" +
