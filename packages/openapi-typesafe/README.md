@@ -64,7 +64,7 @@ Replace the package and the binary name; options and output are the same.
 + npx openapi-typesafe ./schema.yaml -o ./schema.d.ts
 ```
 
-The first line of generated files names the new generator, so regenerate and commit the output once.
+The header of generated files names the new generator, so regenerate and commit the output once.
 
 ## License
 

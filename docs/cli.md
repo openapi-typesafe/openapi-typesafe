@@ -160,7 +160,10 @@ By default, your URLs are preserved exactly as-written in your schema:
 
 ```ts [my-openapi-3-schema.d.ts]
 export interface paths {
-  "/user/{user_id}": components["schemas"]["User"];
+  "/user/{user_id}": {
+    get: operations["getUser"];
+    // …
+  };
 }
 ```
 
@@ -173,8 +176,7 @@ Which means your type lookups also have to match the exact URL:
 ```ts [src/my-project.ts]
 import type { paths } from "./my-openapi-3-schema";
 
-const url = `/user/${id}`;
-type UserResponses = paths["/user/{user_id}"]["responses"];
+type UserResponses = paths["/user/{user_id}"]["get"]["responses"];
 ```
 
 :::
@@ -186,8 +188,9 @@ But when `--path-params-as-types` is enabled, you can take advantage of dynamic 
 ```ts [src/my-project.ts]
 import type { paths } from "./my-openapi-3-schema";
 
-const url = `/user/${id}`;
-type UserResponses = paths[url]["responses"]; // automatically matches `paths['/user/{user_id}']`
+const id = "123";
+const url = `/user/${id}` as const;
+type UserResponses = paths[typeof url]["get"]["responses"]; // matches `paths["/user/{user_id}"]`
 ```
 
 :::
@@ -225,7 +228,7 @@ Enabling `--array-length` would change the typing like so:
 export interface components {
   schemas: {
     TupleType: string[]; // [!code --]
-    TupleType: [string] | [string, string]; // [!code ++]
+    TupleType: [] | [string]; // [!code ++]
   };
 }
 ```
@@ -233,6 +236,13 @@ export interface components {
 :::
 
 This results in more explicit typechecking of array lengths.
+
+::: warning Inherited tuple lengths
+With both `minItems` and `maxItems`, the tuples have 0 to `maxItems - minItems` elements, not
+`minItems` to `maxItems`, as in openapi-typescript ([#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048)).
+The output is kept so that existing types do not change. Only `minItems` alone
+(`[string, string, ...string[]]`) and equal bounds (`[string, string]`) give the expected tuples.
+:::
 
 _Note: this has a reasonable limit, so for example `maxItems: 100` would simply flatten back down to `string[];`_
 
@@ -242,20 +252,22 @@ _Thanks, [@kgtkr](https://github.com/kgtkr)!_
 
 This option is useful for generating an enum for all paths in the schema. This can be useful to use the paths from the schema in your code.
 
-Enabling `--make-paths-enum` will add an `ApiPaths` enum like this to the generated types:
+Enabling `--make-paths-enum` will add an `ApiPaths` enum like this to the generated types, with one member per operation. A member is named after the `operationId`:
 
 ::: code-group
 
 ```ts [my-openapi-3-schema.d.ts]
 export enum ApiPaths {
-  "/user/{user_id}" = "/user/{user_id}",
-  "/user" = "/user",
-  "/user/{user_id}/pets" = "/user/{user_id}/pets",
-  "/user/{user_id}/pets/{pet_id}" = "/user/{user_id}/pets/{pet_id}",
+  getUserById = "/user/{user_id}",
+  listUsers = "/user",
+  listUserPets = "/user/{user_id}/pets",
+  getUserPet = "/user/{user_id}/pets/{pet_id}",
 }
 ```
 
 :::
+
+Without an `operationId`, the name is built from the method and the URL (`GetUser` for `GET /user`). When two such names would be the same, they name the path parameters too (`GetUserByUserId` for `GET /user/{user_id}`); a name that still repeats gets a number (`listItems2`).
 
 ### generatePathParams
 

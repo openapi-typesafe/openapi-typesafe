@@ -17,7 +17,7 @@ $ DEBUG=openapi-ts:* npx openapi-typesafe schema.yaml -o my-types.ts
 
 To only see certain types of debug messages, you can set `DEBUG=openapi-ts:[scope]` instead. Valid scopes are `redoc`, `lint`, `bundle`, and `ts`.
 
-Note that debug messages will be suppressed if the output is `stdout`.
+Debug messages go to stderr, so they do not mix with types written to stdout.
 
 ## Enum extensions
 
@@ -56,11 +56,11 @@ Will result in:
 ::: code-group
 
 ```ts [my-openapi-3-schema.d.ts]
-enum ErrorCode {
+export enum ErrorCode {
   // User is not authorized
-  Unauthorized = 100
+  Unauthorized = 100,
   // User has no access to this resource
-  AccessDenied = 200
+  AccessDenied = 200,
   // Something went wrong
   Unknown = 300
 }
@@ -254,6 +254,8 @@ maxItems: 2
 minItems: 2
 ```
 
+(with [`--array-length`](cli.md#arraylength))
+
 — or —
 
 ```yaml
@@ -261,8 +263,8 @@ type: array
 items:
   type: number
 prefixItems:
-  - number
-  - number
+  - type: number
+  - type: number
 ```
 
 </td>
@@ -344,10 +346,11 @@ PetCommonProperties:
 Cat:
   allOf:
     - "$ref": "#/components/schemas/PetCommonProperties"
-  type:
-    type: string
-    enum:
-      - cat
+  properties:
+    type:
+      type: string
+      enum:
+        - cat
 ```
 
 :::
@@ -398,12 +401,12 @@ This will transform into the following TypeScript:
 export interface components {
   schemas: {
     DefType: {
-      $defs: {
+      $defs?: {
         myDefType: string;
       };
     };
     MyType: {
-      myType?: components["schemas"]["DefType"]["$defs"]["myDefType"]; // OK: Works
+      myType?: NonNullable<components["schemas"]["DefType"]["$defs"]>["myDefType"]; // OK: Works
     };
   };
 }
@@ -440,7 +443,7 @@ export interface components {
   schemas: {
     DefType: string;
     MyType: {
-      myType?: components["schemas"]["DefType"]["$defs"]["myDefType"]; // Wrong: Property '$defs' does not exist on type 'String'.
+      myType?: NonNullable<components["schemas"]["DefType"]["$defs"]>["myDefType"]; // Wrong: Property '$defs' does not exist on type 'String'.
     };
   };
 }
@@ -501,7 +504,7 @@ Cyclic schemas are fine when the cycle goes through an object property
 (`Node: { properties: { next: { $ref: Node } } }`): they generate recursive types. A cycle with no
 object on it, such as two arrays of each other or two `allOf`s of each other, generates types that
 TypeScript rejects with “is referenced directly or indirectly in its own type annotation”, as in
-openapi-typesafe.
+openapi-typescript.
 
 Names need no care: reserved words (`class`, `default`, `constructor`), TypeScript global names,
 `__proto__`, Unicode, quotes, backslashes and line breaks in schema, property, enum, path and
