@@ -3,6 +3,7 @@ import type { Schema } from "./schema-object.js";
 
 /** The parts of a Header Object the generator reads (OpenAPI 3.1 §4.8.21). */
 export interface HeaderObject {
+  readonly required?: boolean;
   readonly schema?: Schema;
   readonly content?: ContentMap;
 }

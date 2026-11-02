@@ -154,6 +154,37 @@ export function schemaArbitrary(): fc.Arbitrary<unknown> {
   return schema;
 }
 
+const MEDIA_TYPES = ["application/json", "text/plain", "a/b~c", "*/*"] as const;
+const nestedSchema = schemaArbitrary();
+
+/** A media type object, or a `$ref` in its place. */
+export const mediaTypeArbitrary = fc.oneof(
+  {
+    weight: 3,
+    arbitrary: fc.record(
+      { schema: nestedSchema, description: text, deprecated: fc.boolean() },
+      { requiredKeys: [] },
+    ),
+  },
+  fc.record({ $ref: fc.constantFrom(...REFS) }),
+);
+
+/** A `content` map. */
+export const contentArbitrary = fc.dictionary(fc.constantFrom(...MEDIA_TYPES), mediaTypeArbitrary, {
+  maxKeys: 3,
+});
+
+export const headerArbitrary = fc.record(
+  {
+    schema: nestedSchema,
+    content: contentArbitrary,
+    required: fc.boolean(),
+    deprecated: fc.boolean(),
+    description: text,
+  },
+  { requiredKeys: [] },
+);
+
 /** Deterministic callbacks, each one exercising a different callback contract. */
 function multiLineType(isParsed: boolean): ts.TypeNode {
   if (isParsed) {

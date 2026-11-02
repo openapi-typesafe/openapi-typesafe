@@ -1,10 +1,10 @@
-import { irKeyword, irObject, irProperty, irReference } from "../../../domain/ir/constructors.js";
-import type {
-  IrIndexSignature,
-  IrMember,
-  IrPropertySignature,
-  IrType,
-} from "../../../domain/ir/nodes.js";
+import {
+  irObject,
+  irProperty,
+  irReference,
+  irStringIndexSignature,
+} from "../../../domain/ir/constructors.js";
+import type { IrMember, IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
@@ -218,17 +218,6 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
   return types;
 }
 
-function indexSignature(type: IrType, isReadonly: boolean): IrIndexSignature {
-  return {
-    kind: "indexSignature",
-    parameterName: "key",
-    parameterType: irKeyword("string"),
-    type,
-    isReadonly,
-    comments: [],
-  };
-}
-
 /** The discriminator property that a parent's mapping implies for this schema, if any. */
 function discriminatorMembers(schema: SchemaObject, request: SchemaRequest): IrMember[] {
   if (!schema.allOf && !schema.anyOf) {
@@ -265,6 +254,8 @@ export function objectType(schema: SchemaObject, request: SchemaRequest): IrType
   if (valueTypes.length === 0) {
     return members.length > 0 ? irObject(members) : null;
   }
-  const index = irObject([indexSignature(unionOf(valueTypes), request.context.options.immutable)]);
+  const index = irObject([
+    irStringIndexSignature("key", unionOf(valueTypes), request.context.options.immutable),
+  ]);
   return intersectionOf([...(members.length > 0 ? [irObject(members)] : []), index]);
 }

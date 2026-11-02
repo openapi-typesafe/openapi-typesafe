@@ -13,8 +13,9 @@ import { transformParametersArray as originalTransformParametersArray } from "./
 import {
   type ContextInput,
   contextInput,
+  headerArbitrary,
   key,
-  REFS,
+  mediaTypeArbitrary,
   RUNS,
   runLegacy,
   schemaArbitrary,
@@ -36,26 +37,6 @@ const PARAMETER_REFS = [
 const TEMPLATE_PATHS = [undefined, "/items/{id}", "/a/{x}/{y}/{x}", "#/paths/~1items~1{id}/get"];
 
 const schema = schemaArbitrary();
-const mediaType = fc.oneof(
-  {
-    weight: 3,
-    arbitrary: fc.record(
-      { schema, description: text, deprecated: fc.boolean() },
-      { requiredKeys: [] },
-    ),
-  },
-  fc.record({ $ref: fc.constantFrom(...REFS) }),
-);
-const header = fc.record(
-  {
-    schema,
-    content: fc.dictionary(fc.constantFrom("application/json", "text/plain", "a/b~c"), mediaType, {
-      maxKeys: 3,
-    }),
-    description: text,
-  },
-  { requiredKeys: [] },
-);
 const parameter = fc.record(
   {
     name: fc.oneof({ weight: 8, arbitrary: key }, fc.constant(undefined)),
@@ -98,7 +79,7 @@ describe("document transformer parity with the fork base", () => {
     "transformMediaTypeObject matches the original",
     () => {
       fc.assert(
-        fc.property(mediaType, contextInput, (value, input) => {
+        fc.property(mediaTypeArbitrary, contextInput, (value, input) => {
           expectSameOutput(
             (options) => transformMediaTypeObject(value as never, options),
             (options) => originalTransformMediaTypeObject(value as never, options),
@@ -116,7 +97,7 @@ describe("document transformer parity with the fork base", () => {
     "transformHeaderObject matches the original",
     () => {
       fc.assert(
-        fc.property(header, contextInput, (value, input) => {
+        fc.property(headerArbitrary, contextInput, (value, input) => {
           expectSameOutput(
             (options) => transformHeaderObject(value as never, options),
             (options) => originalTransformHeaderObject(value as never, options),

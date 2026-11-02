@@ -3,6 +3,7 @@ import type {
   IrBooleanLiteralType,
   IrComment,
   IrIndexedAccessType,
+  IrIndexSignature,
   IrIntersectionType,
   IrKeyword,
   IrKeywordType,
@@ -111,6 +112,22 @@ export function irProperty(
     isOptional: options.isOptional ?? false,
     isReadonly: options.isReadonly ?? false,
     comments: options.comments ?? [],
+  };
+}
+
+/** `[name: string]: type` (a `string` key, the only kind the generator writes). */
+export function irStringIndexSignature(
+  parameterName: string,
+  type: IrType,
+  isReadonly = false,
+): IrIndexSignature {
+  return {
+    kind: "indexSignature",
+    parameterName,
+    parameterType: irKeyword("string"),
+    type,
+    isReadonly,
+    comments: [],
   };
 }
 
