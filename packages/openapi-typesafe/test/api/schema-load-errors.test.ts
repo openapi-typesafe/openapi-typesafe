@@ -71,6 +71,19 @@ describe("schema load errors", () => {
     expect(error.message).toBe((error.cause as Error).message);
   });
 
+  it.each([
+    ["yaml", "multi-document.yaml"],
+    ["yaml", "tab-indent.yaml"],
+    ["json", "truncated.json"],
+  ])("openapiTS with a broken %s file %s fails with SCHEMA_PARSE_FAILED and names it", async (format, name) => {
+    const file = new URL(`../fixtures/broken/${name}`, import.meta.url);
+
+    const error = await failureOf(file);
+
+    expect(error).toMatchObject({ code: "SCHEMA_PARSE_FAILED", details: { format } });
+    expect(error.message).toContain(name);
+  });
+
   it("openapiTS with OpenAPI 2.0 fails with SCHEMA_VERSION_UNSUPPORTED and the version", async () => {
     const error = await failureOf({ openapi: "2.0", info: INFO });
 

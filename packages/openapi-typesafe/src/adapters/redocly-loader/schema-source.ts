@@ -6,6 +6,7 @@ import {
   type Document,
   makeDocumentFromString,
   Source,
+  YamlParseError,
 } from "@redocly/openapi-core";
 import parseJson from "parse-json";
 import {
@@ -72,12 +73,26 @@ async function resolveSchemaURL(options: ParseSchemaOptions): Promise<Document> 
   const result = await options.resolver
     .resolveDocument(null, options.absoluteRef, true)
     .catch((cause: unknown) => {
-      throw loadFailedError(options.absoluteRef, cause);
+      throw cause instanceof YamlParseError
+        ? fileParseFailedError(options.absoluteRef, cause)
+        : loadFailedError(options.absoluteRef, cause);
     });
   if ("parsed" in result) {
     return result;
   }
   throw loadFailedError(options.absoluteRef, result.originalError);
+}
+
+/**
+ * The resolver parses JSON files with its YAML parser too, so the format comes from the file
+ * name. Some parser messages (a second YAML document) do not name the file; the error adds it.
+ */
+function fileParseFailedError(absoluteRef: string, error: YamlParseError): Error {
+  const format = absoluteRef.toLowerCase().endsWith(".json") ? "json" : "yaml";
+  const cause = error.message.includes(absoluteRef)
+    ? error
+    : new Error(`${error.message} in "${absoluteRef}"`, { cause: error });
+  return parseFailedError(format, absoluteRef, cause);
 }
 
 function parseSchemaObject(schema: unknown, absoluteRef: string): Document {
