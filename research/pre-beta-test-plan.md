@@ -61,7 +61,8 @@ Follow `RELEASE_NOTES.md` of `beta-1.0.0-beta.1` word by word, as a tester would
 - [ ] 3.3 `openapi-typesafe --version` and `--help` work through each manager's own runner
       (`npx`, `pnpm exec`, `yarn`, `bunx`).
 - [ ] 3.4 Every package imports in ESM and in CJS (`require`) where its `exports` map says so.
-- [ ] 3.5 Types resolve for every `moduleResolution` value in §2: run
+- [ ] 3.5 Types resolve for every `moduleResolution` value in §2 (the client packages have no
+      `types` condition in `exports` and a `./*` wildcard export: check both): run
       [`@arethetypeswrong/cli`](https://github.com/arethetypeswrong/arethetypeswrong.github.io)
       and [`publint`](https://publint.dev) on each tarball (check the latest versions first).
 - [ ] 3.6 Tarball contents: no tests, fixtures, source maps to missing files, `.logs`, or
@@ -183,19 +184,26 @@ On real projects from `research/dependents.csv` (top 20 by stars or downloads), 
 
 ## 10. Security (threat model)
 
-Each threat in `docs/security/threat-model.md` gets one hostile input that proves the control.
+Each threat in `docs/security/threat-model.md` that is marked "Controlled" gets hostile inputs
+that try to defeat its control. T7 (trusted inputs: Redocly plugins, callbacks, `inject`) is
+accepted by design and has no test.
 
-- [ ] 10.1 Code injection through descriptions, names and enum values (`*/`, backticks,
-      `${}`, quotes, Unicode line separators U+2028/U+2029).
-- [ ] 10.2 Prototype keys (`__proto__`, `constructor`, `prototype`) in schemas, paths and
-      parameters, in the generator and in the clients' serializers.
-- [ ] 10.3 Resource limits: deep nesting, huge documents, YAML alias bombs, long `$ref` chains,
-      slow remote hosts.
-- [ ] 10.4 `$ref` limits: `--local-ref-root` escape attempts (`..`, symlinks, `file://`,
-      encoded paths), `--remote-ref-hosts` bypass attempts (redirects, userinfo, IPv6,
-      uppercase hosts, trailing dots).
-- [ ] 10.5 Supply chain: `pnpm audit`, licenses of all production dependencies, no install
-      scripts in our packages.
+- [ ] 10.1 T1, code injection into the generated file: descriptions, names and enum values with
+      `*/`, backticks, `${}`, quotes, Unicode line separators U+2028/U+2029.
+- [ ] 10.2 T2, denial of service: deep nesting, huge documents, YAML alias bombs, long `$ref`
+      chains, slow remote hosts.
+- [ ] 10.3 T3 and T4, `$ref` limits: `--local-ref-root` escape attempts (`..`, symlinks,
+      `file://`, encoded paths), `--remote-ref-hosts` bypass attempts (redirects, userinfo,
+      IPv6, uppercase hosts, trailing dots).
+- [ ] 10.4 T5, unsafe requests from the fetch client: path values with `..`, `/`, `?`, `#` and
+      encoded forms, with and without `allowReserved`; header values with line breaks; query
+      values that try to add parameters.
+- [ ] 10.5 T6, supply chain: `pnpm audit` (the known `@redocly/openapi-core` 1.x advisories are
+      tracked by ADR-005; anything new is a finding), licenses of all production dependencies,
+      no install scripts in our packages.
+- [ ] 10.6 Not in the threat model: prototype keys (`__proto__`, `constructor`, `prototype`) in
+      schemas, paths and parameters, in the generator and in the clients' serializers. A
+      finding here also updates the threat model.
 
 ## 11. Agent skill
 
