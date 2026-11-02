@@ -1029,10 +1029,10 @@ describe("client", () => {
       expect(secondRequestUrl?.searchParams.get("cursor")).toBe("1");
 
       expect(result.current.data).toBeDefined();
-      expect(result.current.data?.pages[0].nextPage).toBe(1);
+      expect(result.current.data?.pages[0]?.nextPage).toBe(1);
 
       expect(result.current.data).toBeDefined();
-      expect(result.current.data?.pages[1].nextPage).toBe(2);
+      expect(result.current.data?.pages[1]?.nextPage).toBe(2);
 
       // Verify the complete data structure
       expect(result.current.data?.pages).toEqual([
@@ -1197,10 +1197,10 @@ describe("client", () => {
       expect(secondRequestUrl?.searchParams.get("follow_cursor")).toBe("1");
 
       expect(result.current.data).toBeDefined();
-      expect(result.current.data?.pages[0].nextPage).toBe(1);
+      expect(result.current.data?.pages[0]?.nextPage).toBe(1);
 
       expect(result.current.data).toBeDefined();
-      expect(result.current.data?.pages[1].nextPage).toBe(2);
+      expect(result.current.data?.pages[1]?.nextPage).toBe(2);
 
       // Verify the complete data structure
       expect(result.current.data?.pages).toEqual([

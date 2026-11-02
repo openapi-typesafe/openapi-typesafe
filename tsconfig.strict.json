@@ -1,0 +1,9 @@
+{
+  "//": "Full strictness required for new and ported code (ENGINEERING_PLAN §5.2, ADR-006).",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true
+  }
+}
