@@ -84,6 +84,16 @@ describe("schema load errors", () => {
     expect(error.message).toContain(name);
   });
 
+  it.each(["./openapi.yaml", "/abs/openapi.json", "C:\\api\\openapi.yml"])(
+    "openapiTS with the path string %s fails with SCHEMA_SOURCE_INVALID and a hint",
+    async (path) => {
+      const error = await failureOf(path);
+
+      expect(error).toMatchObject({ code: "SCHEMA_SOURCE_INVALID", details: { reason: "path" } });
+      expect(error.message).toContain("pathToFileURL");
+    },
+  );
+
   it("openapiTS with OpenAPI 2.0 fails with SCHEMA_VERSION_UNSUPPORTED and the version", async () => {
     const error = await failureOf({ openapi: "2.0", info: INFO });
 

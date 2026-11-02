@@ -12,6 +12,7 @@ import parseJson from "parse-json";
 import {
   loadFailedError,
   parseFailedError,
+  pathStringError,
   sourceEmptyError,
   sourceInvalidError,
 } from "./schema-load-errors.js";
@@ -61,11 +62,17 @@ function parseJsonText(text: string, absoluteRef: string): Document {
 }
 
 function parseYamlText(text: string, absoluteRef: string): Document {
+  let document: Document;
   try {
-    return makeDocumentFromString(text, absoluteRef);
+    document = makeDocumentFromString(text, absoluteRef);
   } catch (cause) {
     throw parseFailedError("yaml", absoluteRef, cause);
   }
+  // Text that is only a YAML string scalar, such as "./openapi.yaml", was meant as a file path.
+  if (typeof document.parsed === "string") {
+    throw pathStringError(text);
+  }
+  return document;
 }
 
 /** The resolver throws for some failures (a missing file) and returns an error for others. */

@@ -24,6 +24,25 @@ function causeMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
+/** Enough of a source string to recognise it in the message. */
+const SOURCE_TEXT_IN_MESSAGE = 200;
+
+/**
+ * A string source is document text, so a file path parses as a YAML string scalar, not as a
+ * document (docs/node.md). The message says how to load the file instead.
+ */
+export function pathStringError(text: string): OpenAPITypesafeError {
+  const shown =
+    text.length > SOURCE_TEXT_IN_MESSAGE ? `${text.slice(0, SOURCE_TEXT_IN_MESSAGE)}…` : text;
+  return new OpenAPITypesafeError({
+    code: ERROR_CODES.SCHEMA_SOURCE_INVALID,
+    message:
+      `The string "${shown}" was parsed as YAML text, not loaded as a file. ` +
+      "To load a file, pass a URL: openapiTS(pathToFileURL(path)) from node:url.",
+    details: { reason: "path", received: "string" },
+  });
+}
+
 /** Reading the document from a file or URL failed; the message is the reader's message. */
 export function loadFailedError(absoluteRef: string, cause: unknown): OpenAPITypesafeError {
   return new OpenAPITypesafeError({
