@@ -314,7 +314,7 @@ commits, runs their checks before and after the migration (see "Real projects" i
 Then add more projects from `research/dependents.csv` that the harness does not cover.
 
 - [x] 8.1 Dry run lists every change; `--write` applies exactly those.
-- [ ] 8.2 After the migration the project installs, generates, type-checks and passes its own
+- [x] 8.2 After the migration the project installs, generates, type-checks and passes its own
       tests. Each failure is ours or documented in the migration guide.
 - [x] 8.3 What it rewrites, each on a real case:
       - sources: static, type-only and dynamic imports, `require()`, re-exports, `vi.mock()`,
@@ -334,11 +334,12 @@ Then add more projects from `research/dependents.csv` that the harness does not 
       too) or files outside `--root`. The guide and the README already say to start from a
       clean git tree; decide whether the tool should also warn. The `--log` option and the
       exit codes 0/1/2 work as its `--help` says.
-- [ ] 8.5 `docs/migration-guide.md` steps work word by word.
+- [x] 8.5 `docs/migration-guide.md` steps work word by word.
 
 **§8 results (8.1, 8.3, 8.4; 8.2 and 8.5 below).** `pnpm harness dependents --switch migrate` on
 the 15 projects of the manifest: 15 passed, 0 regressed (two Bun projects need `bun` on `PATH`; run
-with `npx -p bun`) (`.logs/pre-beta/migrate/8.1-dependents*.log`). A synthetic project with every case
+with `npx -p bun`); 7 projects from `research/dependents.csv` were added (8.2: 22 passed, 0
+regressed, generated files identical; see `research/phase8-real-projects.md`) (`.logs/pre-beta/migrate/8.1-dependents*.log`). A synthetic project with every case
 of 8.3 (`scratchpad/migrate-cases`) found PB-24..26; static, type-only and dynamic imports,
 `require()`, re-exports, `vi.mock()`, `declare module`, deep imports (reported), `transform`,
 manifests, catalogs, CI YAML, `.sh`, `Makefile`, `justfile` and `Dockerfile` are all handled. A second

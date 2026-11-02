@@ -493,6 +493,273 @@
         "src/types/api/generated.d.ts"
       ],
       "notes": "Generator only; the output is formatted with oxfmt."
+    },
+    {
+      "id": "coderabbit-bitbucket",
+      "repository": "https://github.com/coderabbitai/bitbucket",
+      "commit": "c39a1e9c37e7ba88248520bcdd851c81c65044be",
+      "packageManager": "pnpm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "build",
+          "command": [
+            "pnpm",
+            "run",
+            "build"
+          ]
+        }
+      ],
+      "generatedFiles": [],
+      "notes": "A Bitbucket client on openapi-fetch and openapi-typescript-helpers over committed types generated with --immutable, --empty-objects-unknown, --alphabetize and --root-types. Its openapi script downloads the specs, and its tests call a live Bitbucket server, so only the build (tsgo --build, which type-checks) runs."
+    },
+    {
+      "id": "vitrina-api",
+      "repository": "https://github.com/VitrinaDev/vitrina-api",
+      "commit": "ad69f0078de7536bba34ad66fd8ab399b3b325ee",
+      "packageManager": "pnpm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "typecheck",
+          "command": [
+            "pnpm",
+            "run",
+            "typecheck"
+          ]
+        },
+        {
+          "name": "build",
+          "command": [
+            "pnpm",
+            "run",
+            "build"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "pnpm",
+            "run",
+            "test"
+          ]
+        }
+      ],
+      "generatedFiles": [],
+      "notes": "An SDK on openapi-fetch. scripts/generate-types.ts (Node API: openapiTS and astToString) reads the spec from the root of the private monorepo it is synced from, so the committed types are used and generation is left out."
+    },
+    {
+      "id": "rootly-ts",
+      "repository": "https://github.com/rootlyhq/rootly-ts",
+      "commit": "dece1e2322e888c9f8699104b6954d9a8473dd38",
+      "packageManager": "npm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "typecheck",
+          "command": [
+            "npm",
+            "run",
+            "typecheck"
+          ]
+        },
+        {
+          "name": "build",
+          "command": [
+            "npm",
+            "run",
+            "build"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "npm",
+            "run",
+            "test"
+          ]
+        }
+      ],
+      "generatedFiles": [],
+      "notes": "A client on openapi-fetch; the scripts call make, which runs npx. Generation downloads the spec from S3, so the committed schema.d.ts is used."
+    },
+    {
+      "id": "ai-dial-sdk",
+      "repository": "https://github.com/epam/ai-dial-typescript-sdk",
+      "commit": "1b23ddf8c44971b7849c87089ee9a5c399cd7647",
+      "packageManager": "npm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "npm",
+            "run",
+            "gen"
+          ]
+        },
+        {
+          "name": "build",
+          "command": [
+            "npm",
+            "run",
+            "build"
+          ]
+        },
+        {
+          "name": "lint",
+          "command": [
+            "npm",
+            "run",
+            "test"
+          ]
+        },
+        {
+          "name": "docs-test",
+          "command": [
+            "npm",
+            "run",
+            "docs:test"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "src/schema.ts"
+      ],
+      "notes": "An SDK on openapi-fetch. gen bundles the local spec with Redocly, generates src/schema.ts, writes the client, type-checks, formats with prettier and regenerates the docs. Its test script is eslint. The website build is left out (separate install)."
+    },
+    {
+      "id": "sendly-js",
+      "repository": "https://github.com/DevinoSolutions/sendly-js",
+      "commit": "49a9c06140d7b23b8ead5de01b3c6ff1cbf43e36",
+      "packageManager": "pnpm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "pnpm",
+            "run",
+            "build:types"
+          ]
+        },
+        {
+          "name": "typecheck",
+          "command": [
+            "pnpm",
+            "run",
+            "check-types"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "pnpm",
+            "run",
+            "test"
+          ]
+        },
+        {
+          "name": "build",
+          "command": [
+            "pnpm",
+            "run",
+            "build"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "src/types.generated.ts"
+      ],
+      "notes": "Generator only (the client is hand-written over fetch); the tests include the spec contract suite. check-spec-drift fetches the live spec and test:edge needs the edge runtime, so both are left out."
+    },
+    {
+      "id": "forge-dashboard-sdk",
+      "repository": "https://github.com/alrayyes/forge-dashboard-sdk-node",
+      "commit": "e1f00f9d8e9ab811ed9dded7c6d639b841dc3e9c",
+      "packageManager": "bun",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "bun",
+            "run",
+            "generate"
+          ]
+        },
+        {
+          "name": "typecheck",
+          "command": [
+            "bun",
+            "run",
+            "typecheck"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "bun",
+            "test",
+            "./test/client.test.ts",
+            "./test/errors.test.ts",
+            "./test/retry.test.ts"
+          ]
+        },
+        {
+          "name": "build",
+          "command": [
+            "bun",
+            "run",
+            "build"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "src/generated/schema.ts"
+      ],
+      "notes": "An SDK on openapi-fetch. test/contract needs a Prism mock server in Docker and release-auto-merge.test.ts tests a GitHub workflow script, so the unit tests are listed explicitly."
+    },
+    {
+      "id": "openapi-axios",
+      "repository": "https://github.com/web-bee-ru/openapi-axios",
+      "commit": "4fc0ddec4eeddfccd92e662714dbecc83ac146b5",
+      "packageManager": "npm",
+      "directory": ".",
+      "steps": [
+        {
+          "name": "generate",
+          "command": [
+            "npm",
+            "run",
+            "generate"
+          ]
+        },
+        {
+          "name": "test",
+          "command": [
+            "npm",
+            "run",
+            "test:int",
+            "--",
+            "--run"
+          ]
+        },
+        {
+          "name": "build",
+          "command": [
+            "npm",
+            "run",
+            "build"
+          ]
+        }
+      ],
+      "generatedFiles": [
+        "test/fixtures/query-params.api.ts",
+        "test/fixtures/fetcher-modes.api.ts",
+        "test/fixtures/example.api.ts"
+      ],
+      "notes": "An axios client built on openapi-typescript-helpers (0.0.12 upstream, so the baseline pin to 0.1.0 is already an upgrade). Generates fixtures from a Redocly config with --enum; test:int runs vitest with type checking. Lint is left out; its unit suite is disabled in its own CI."
     }
   ]
 }

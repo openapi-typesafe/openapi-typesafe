@@ -1,6 +1,6 @@
 # Phase 8.4: real dependent projects
 
-`pnpm harness dependents` runs 15 open-source projects twice from a pinned commit:
+`pnpm harness dependents` runs 22 open-source projects (15 at first, 7 added before the beta) twice from a pinned commit:
 
 - **baseline**: the original packages pinned to the fork-base releases
   (openapi-typescript 7.13.0, openapi-fetch 0.17.0, openapi-react-query 0.5.4,
@@ -21,6 +21,13 @@ All 12 generated files are byte-identical after the product name in the header i
 | permit-cli | typecheck only | Its Ink UI tests are flaky on both variants. |
 | immich-discord-bot | one spec excluded | The RSS spec needs the macOS-only address 127.0.0.2. |
 | arena-cli | explicit test list | `registry.test.ts` calls a live API. |
+| openapi-msw | left out | `devEngines` pins Node.js 24.22.1 and npm 11.19.1 exactly; install fails on any other version (`EBADDEVENGINES`). |
+| coderabbit-bitbucket, rootly-ts | no generate step | They download the spec from the network; bitbucket's tests call a live server. |
+| vitrina-api | no generate step | It generates through the Node API from a spec outside the repository; the committed types are used. |
+| forge-dashboard-sdk | no contract tests | They need Prism in Docker. |
+| ai-dial-sdk | no docs site build | It needs a separate install. |
+
+No project in the list uses Yarn: the harness runs npm, pnpm and Bun projects only.
 
 ## Environment
 
@@ -37,7 +44,12 @@ packed tarballs. The baseline is unchanged.
 Run on 2026-11-02 with Node.js 24: **15 passed, 0 regressed, 0 failed before the switch.** All
 12 generated files are byte-identical after the header is normalized.
 
-Over the 15 projects the tool made 35 dependency renames, 55 module specifier renames and 14
+Pre-beta re-run (test plan §8) on 2026-11-02 with the migration tool from that day: the 15
+projects passed again, and 7 new ones (coderabbit-bitbucket, vitrina-api, rootly-ts, ai-dial-sdk,
+sendly-js, forge-dashboard-sdk, openapi-axios) passed too: **22 passed, 0 regressed**, and every
+generated file is identical after the header is normalized.
+
+Over the first 15 projects the tool made 35 dependency renames, 55 module specifier renames and 14
 command renames, and reported 3 renamed peer dependencies (correct: those packages' users must
 switch too).
 
