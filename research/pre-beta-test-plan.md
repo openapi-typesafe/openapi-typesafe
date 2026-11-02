@@ -120,7 +120,7 @@ webhooks.
       `tsconfig.examples.json` and the type-matrix consumer: include them or record why.
 - [ ] 4.3 Generated output has no `any` that the schema did not ask for, and is stable: two
       runs on the same input give the same bytes, also with a different key order in YAML.
-- [ ] 4.4 OpenAPI versions: 3.0.x, 3.1.x (incl. `type` arrays, `const`, `$defs`,
+- [x] 4.4 OpenAPI versions: 3.0.x, 3.1.x (incl. `type` arrays, `const`, `$defs`,
       `unevaluatedProperties`, `prefixItems`, webhooks), 3.2 (the docs say "accepted": check
       which 3.2 features give correct types and document the rest), Swagger 2.0 (the docs say
       "not supported": check that the error says so).
@@ -146,6 +146,14 @@ webhooks.
       7.13 (users notice more than that in watch scripts and CI).
 - [ ] 4.9 Paths: spaces, Unicode, symlinks, relative to `cwd` vs to the config file; output
       into a missing directory.
+
+**§4 results** (logs: `.logs/pre-beta/generator/`):
+
+- 4.4: a 3.1 document with `type` arrays, `const`, `$defs`, `unevaluatedProperties`,
+  `prefixItems`, a discriminator and webhooks gives correct types, equal to `fork-base` apart
+  from the branding and PB-10. `fork-base` rejects 3.2 documents; ours generates them, with the
+  gaps of PB-12 now warned and documented. `$defs` gave PB-10 and PB-11. Swagger 2.0 fails with
+  `SCHEMA_VERSION_UNSUPPORTED` and says it is not supported. 3.0 is covered by the corpus (4.1).
 
 ## 5. Node API
 
@@ -324,6 +332,7 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 | PB-9 | packaging | S3 | publint warns on the `./*` export of `openapi-typesafe` and `openapi-typesafe-fetch` (CJS `__esModule` + `default` reachable from ESM) | accepted in ADR-018 (kept for deep-import compatibility); publint now runs in `scripts/check-exports.sh` at the error level |
 | PB-10 | generator | S1 | inherited (upstream #2664): a schema's `$defs` is printed as a required member, so values need a `$defs` key | fixed: `$defs?:`, refs past it use `NonNullable<…>`; legacy bug 17; `test/api/defs-types.test.ts` |
 | PB-11 | generator | S1 | inherited: the root `$defs` is `Record<string, never>`, so every `#/$defs/<name>` ref is `never` | fixed: one member per subschema; legacy bug 18; `test/api/defs-types.test.ts` |
+| PB-12 | generator | S2 | 3.2 `query`, `additionalOperations`, `in: querystring` and `itemSchema` are dropped from the output without a word, while the docs say 3.2 is "accepted" | each use now warns with its JSON Pointer; docs list what 3.2 generates ("OpenAPI 3.2 features" in `docs/introduction.md`). Generating them is a feature for after 1.0 (needs a `QUERY` method in the fetch client) |
 
 ## 14. Exit criteria (before inviting testers)
 
