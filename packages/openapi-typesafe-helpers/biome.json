@@ -4,5 +4,13 @@
   "extends": "//",
   "files": {
     "includes": ["**/*", "!**/dist", "!**/coverage"]
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/**"],
+      "formatter": {
+        "lineWidth": 100
+      }
+    }
+  ]
 }
