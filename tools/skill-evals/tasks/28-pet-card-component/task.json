@@ -1,0 +1,5 @@
+{
+  "title": "A component with useQuery",
+  "category": "react-query",
+  "prompt": "Create `src/PetCard.tsx` that exports `function PetCard(props: { $api: OpenapiQueryClient<paths>; petId: number })` (`OpenapiQueryClient` from openapi-typesafe-react-query). It loads the pet with `props.$api.useQuery` for `GET /pets/{petId}` and renders `Loading\u2026` while the pet loads, the pet name in an `<h2>` when it is loaded, and `Pet not found` when the request failed."
+}

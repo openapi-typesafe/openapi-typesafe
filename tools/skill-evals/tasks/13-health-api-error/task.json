@@ -1,0 +1,5 @@
+{
+  "title": "Typed error class for every failure",
+  "category": "errors",
+  "prompt": "Create `src/errors.ts` that exports `class ApiError extends Error` with a public readonly `status: number` (the HTTP status), and `src/health.ts` that exports `async function getHealthStatus(client: Client<paths>): Promise<\"ok\" | \"degraded\">` using `GET /health`. It throws an `ApiError` with the HTTP status for every response that is not OK, also when the response has no body."
+}

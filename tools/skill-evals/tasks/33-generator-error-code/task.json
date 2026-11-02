@@ -1,0 +1,5 @@
+{
+  "title": "Branch on typed generator errors",
+  "category": "generator",
+  "prompt": "Create `scripts/validate.ts` that exports `async function checkDocument(document: string): Promise<{ ok: true } | { ok: false; code: string }>`. It runs the openapi-typesafe generator (Node API) on the OpenAPI document text. When generation fails with an openapi-typesafe error, it returns that error's stable code (not its message). Any other error is rethrown."
+}

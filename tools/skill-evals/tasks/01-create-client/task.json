@@ -1,0 +1,5 @@
+{
+  "title": "Create a typed client",
+  "category": "setup",
+  "prompt": "Create `src/api/client.ts` that exports `createApiClient(baseUrl: string, fetchImpl?: (request: Request) => Promise<Response>)`. It returns an openapi-typesafe-fetch client typed with the generated `paths`, and uses `fetchImpl` as its fetch when it is given. Also export the type of that client as `ApiClient`."
+}

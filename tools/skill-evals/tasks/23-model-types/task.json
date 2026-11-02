@@ -1,0 +1,5 @@
+{
+  "title": "Derive model types from the schema",
+  "category": "types",
+  "prompt": "Create `src/models.ts` that exports the types `Pet`, `NewPet`, `PetPage`, `Problem` and `PetStatus`, derived from the generated types in `src/api/schema.d.ts` (do not write the shapes by hand), and a constant `PET_STATUSES: readonly PetStatus[]` that lists every pet status of the document."
+}

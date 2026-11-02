@@ -1,0 +1,5 @@
+{
+  "title": "Delete with a 204 response",
+  "category": "typed-calls",
+  "prompt": "Create `src/pets.ts` that exports `async function deletePet(client: Client<paths>, petId: number): Promise<boolean>`. It deletes the pet with `DELETE /pets/{petId}`. It returns `true` when the pet was deleted (204), `false` when there is no such pet (404), and throws an `Error` for any other failure."
+}

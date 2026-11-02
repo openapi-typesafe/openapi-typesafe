@@ -1,0 +1,5 @@
+{
+  "title": "Register and eject middleware",
+  "category": "middleware",
+  "prompt": "Create `src/headers.ts` that exports `async function withHeader<T>(client: Client<paths>, name: string, value: string, run: () => Promise<T>): Promise<T>`. While `run` is running, every request that `client` sends carries the header `name: value`. Afterwards the header is no longer added, also when `run` throws. It returns what `run` returns."
+}

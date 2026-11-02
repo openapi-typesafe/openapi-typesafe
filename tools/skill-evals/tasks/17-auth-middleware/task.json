@@ -1,0 +1,5 @@
+{
+  "title": "Bearer token middleware",
+  "category": "middleware",
+  "prompt": "Create `src/auth.ts` that exports `function createAuthMiddleware(getToken: () => Promise<string>): Middleware` (`Middleware` from openapi-typesafe-fetch). The middleware adds `Authorization: Bearer <token>` to every request, except `POST /auth/login` and `GET /health`, which the document marks as public. It asks `getToken` for the token on every request."
+}

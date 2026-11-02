@@ -1,0 +1,5 @@
+{
+  "title": "Fix a crash on empty error bodies",
+  "category": "errors",
+  "prompt": "Users report that `getPetTag` in `src/pets.ts` crashes with `TypeError: Cannot read properties of undefined (reading 'tag')` when the server answers 500 with an empty body. Fix it so that every failed response throws an `Error` whose message contains the HTTP status code. Keep the signature of the function."
+}

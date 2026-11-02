@@ -1,0 +1,5 @@
+{
+  "title": "Turn network errors into a response",
+  "category": "middleware",
+  "prompt": "Create `src/offline.ts` that exports `const offlineMiddleware: Middleware` (`Middleware` from openapi-typesafe-fetch). When a request cannot be sent at all (fetch rejects, for example when offline), the call must resolve as a 503 response with the JSON body `{ \"code\": \"offline\", \"message\": \"The network is unavailable\" }` instead of rejecting."
+}

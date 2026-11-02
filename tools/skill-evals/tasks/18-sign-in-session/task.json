@@ -1,0 +1,5 @@
+{
+  "title": "Log in, then authenticate later calls",
+  "category": "middleware",
+  "prompt": "Create `src/session.ts` that exports `async function signIn(client: Client<paths>, username: string, password: string): Promise<void>`. It calls `POST /auth/login`, then registers a middleware on the same client so that every later request carries `Authorization: Bearer <accessToken>`. When the login fails (for example 401), it throws an `Error` and registers nothing."
+}

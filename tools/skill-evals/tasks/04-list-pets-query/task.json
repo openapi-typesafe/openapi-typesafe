@@ -1,0 +1,5 @@
+{
+  "title": "Pass query parameters",
+  "category": "typed-calls",
+  "prompt": "Create `src/pets.ts` that exports `async function listPetNames(client: Client<paths>, filter: { limit?: number; tag?: string }): Promise<string[]>`. It calls `GET /pets` with the filter as query parameters and returns the names of the pets on the first page. Parameters that are not set must not appear in the URL. Throw an `Error` when the request fails."
+}

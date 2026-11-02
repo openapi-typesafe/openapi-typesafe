@@ -1,0 +1,5 @@
+{
+  "title": "Add generate and check scripts",
+  "category": "setup",
+  "prompt": "Add two npm scripts to `package.json`: `generate:api` regenerates `src/api/schema.d.ts` from `openapi.yaml` with openapi-typesafe, and `check:api` exits with a non-zero code when `src/api/schema.d.ts` is out of date with `openapi.yaml` (for CI). Do not change the generated file."
+}

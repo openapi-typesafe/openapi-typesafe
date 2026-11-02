@@ -1,0 +1,5 @@
+{
+  "title": "Read a binary response",
+  "category": "typed-calls",
+  "prompt": "Create `src/photos.ts` that exports `async function getPetPhoto(client: Client<paths>, petId: number): Promise<Blob>`. It downloads the PNG photo of the pet with `GET /pets/{petId}/photo` and returns it as a `Blob`. Throw an `Error` when the request fails."
+}

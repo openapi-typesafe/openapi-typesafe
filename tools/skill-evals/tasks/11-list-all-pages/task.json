@@ -1,0 +1,5 @@
+{
+  "title": "Follow a cursor",
+  "category": "typed-calls",
+  "prompt": "Create `src/pets.ts` that exports `async function listAllPets(client: Client<paths>, tag?: string): Promise<Pet[]>` (`Pet` is the generated `Pet` schema). It reads every page of `GET /pets`: it passes the `nextCursor` of a page as the `cursor` query parameter of the next request, stops when `nextCursor` is `null`, and returns all pets in order. When `tag` is given, every request filters by it. Throw an `Error` when a request fails."
+}

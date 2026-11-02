@@ -1,0 +1,5 @@
+{
+  "title": "Move a ts.factory transform to IR callbacks",
+  "category": "migration",
+  "prompt": "The project moves to TypeScript 7, whose `typescript` package has no compiler API. `scripts/generate-schema.ts` generates the API types with openapi-typescript and a `transform` callback built on `ts.factory`. Move it to openapi-typesafe so that it no longer needs the TypeScript compiler API, and keep what it generates: date-time strings become `Date`. Keep the exported function `generateSchema(source: URL | string): Promise<string>`. Also update `package.json`. The new packages are installed; do not run an install."
+}

@@ -1,0 +1,5 @@
+{
+  "title": "Query options for TanStack Query",
+  "category": "react-query",
+  "prompt": "Create `src/queries.ts` that exports `function createPetQueries(fetchClient: Client<paths>)` (`Client` from openapi-typesafe-fetch). It returns `{ $api, petQuery, petListQuery }`: `$api` is the openapi-typesafe-react-query client for `fetchClient`; `petQuery(petId: number)` and `petListQuery(tag?: string)` return TanStack Query options (usable with `useQuery` and `queryClient.fetchQuery`) for `GET /pets/{petId}` and `GET /pets`, with `tag` as a query parameter only when it is given. Build the options with `$api`."
+}

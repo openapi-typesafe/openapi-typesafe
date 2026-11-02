@@ -1,0 +1,5 @@
+{
+  "title": "Read a pet by path parameter",
+  "category": "typed-calls",
+  "prompt": "Create `src/pets.ts` that exports `async function getPetName(client: Client<paths>, petId: number): Promise<string>` (`Client` from openapi-typesafe-fetch, `paths` from the generated types). It loads the pet with `GET /pets/{petId}` and returns its name. When the request does not succeed, it throws an `Error`."
+}

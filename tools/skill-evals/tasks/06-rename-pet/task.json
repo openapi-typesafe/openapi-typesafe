@@ -1,0 +1,5 @@
+{
+  "title": "Patch a resource",
+  "category": "typed-calls",
+  "prompt": "Create `src/pets.ts` that exports `async function renamePet(client: Client<paths>, petId: number, name: string): Promise<Pet>` (`Pet` is the generated `Pet` schema). It changes only the name with `PATCH /pets/{petId}` and returns the updated pet. Throw an `Error` when the request fails."
+}

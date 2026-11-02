@@ -1,0 +1,5 @@
+{
+  "title": "Move an openapi-fetch project",
+  "category": "migration",
+  "prompt": "The team is upgrading this project to TypeScript 7, which breaks openapi-typescript. Move the project from openapi-typescript and openapi-fetch to openapi-typesafe: package.json, imports, scripts, and the generated types (regenerate them). The new packages are already installed in `node_modules`; do not run an install."
+}

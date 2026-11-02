@@ -1,0 +1,27 @@
+{
+  "name": "pet-clinic-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "generate:api": "openapi-typesafe openapi.yaml -o src/api/schema.d.ts",
+    "check:api": "openapi-typesafe openapi.yaml -o src/api/schema.d.ts --check"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.100.9",
+    "openapi-typesafe-fetch": "^1.0.0",
+    "openapi-typesafe-react-query": "^1.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "openapi-typesafe": "^1.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  }
+}

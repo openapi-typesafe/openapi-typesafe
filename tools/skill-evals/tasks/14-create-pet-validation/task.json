@@ -1,0 +1,5 @@
+{
+  "title": "Read a typed error body",
+  "category": "errors",
+  "prompt": "Create `src/pets.ts` that exports `async function createPetChecked(client: Client<paths>, input: NewPet): Promise<{ ok: true; pet: Pet } | { ok: false; invalidFields: string[] }>` (`Pet` and `NewPet` are the generated schemas). It calls `POST /pets`. On a 400 validation error it returns the `name`s of the invalid fields from the error body. It throws an `Error` on any other failure."
+}

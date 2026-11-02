@@ -1,0 +1,5 @@
+{
+  "title": "Send a plain-text body",
+  "category": "typed-calls",
+  "prompt": "Create `src/notes.ts` that exports `async function savePetNotes(client: Client<paths>, petId: number, notes: string): Promise<void>`. It saves the notes with `PUT /pets/{petId}/notes`, whose request body is `text/plain`: the body must be the notes text itself. Throw an `Error` when the request fails."
+}

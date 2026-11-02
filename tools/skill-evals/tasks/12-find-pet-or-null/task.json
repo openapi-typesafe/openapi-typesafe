@@ -1,0 +1,5 @@
+{
+  "title": "Map 404 to null",
+  "category": "errors",
+  "prompt": "Create `src/pets.ts` that exports `async function findPet(client: Client<paths>, petId: number): Promise<Pet | null>` (`Pet` is the generated `Pet` schema). It loads the pet with `GET /pets/{petId}`, returns `null` when the API answers 404, and throws an `Error` for any other failure, including an error response without a body."
+}

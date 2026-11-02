@@ -1,0 +1,5 @@
+{
+  "title": "Generic response type helper",
+  "category": "types",
+  "prompt": "Create `src/api/types.ts` that exports `GetPath`, the union of every path of the document that has a GET operation, and a generic type `GetData<Path extends GetPath>`: the type of `data` of a successful `client.GET(path)` for that path (its 200 JSON body). Build both from the generated `paths` type and the openapi-typesafe helper types; do not list paths or shapes by hand."
+}

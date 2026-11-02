@@ -1,0 +1,5 @@
+{
+  "title": "Header middleware that respects callers",
+  "category": "middleware",
+  "prompt": "Create `src/request-id.ts` that exports `function createRequestIdMiddleware(nextId: () => string): Middleware` (`Middleware` from openapi-typesafe-fetch). It sets the `X-Request-Id` header to `nextId()` on every request that does not already have that header."
+}

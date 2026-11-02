@@ -1,0 +1,5 @@
+{
+  "title": "Move an openapi-react-query project",
+  "category": "migration",
+  "prompt": "Move this project from openapi-typescript, openapi-fetch and openapi-react-query to openapi-typesafe, openapi-typesafe-fetch and openapi-typesafe-react-query (package.json, scripts and imports). The new packages are installed; do not run an install. `createApi` in `src/api/react.ts` must keep working."
+}

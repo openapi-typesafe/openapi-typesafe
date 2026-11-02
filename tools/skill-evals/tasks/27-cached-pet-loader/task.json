@@ -1,0 +1,5 @@
+{
+  "title": "fetchQuery with a stale time",
+  "category": "react-query",
+  "prompt": "Create `src/pet-loader.ts` that exports `async function loadPet(queryClient: QueryClient, $api: OpenapiQueryClient<paths>, petId: number): Promise<Pet>` (`QueryClient` from @tanstack/react-query, `OpenapiQueryClient` from openapi-typesafe-react-query, `Pet` the generated schema). It loads the pet through `queryClient.fetchQuery` with options from `$api` for `GET /pets/{petId}`, and reuses a cached pet for 60 seconds instead of requesting it again. It rejects when the request fails, also for an error response without a body."
+}

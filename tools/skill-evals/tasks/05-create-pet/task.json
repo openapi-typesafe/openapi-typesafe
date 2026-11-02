@@ -1,0 +1,5 @@
+{
+  "title": "Send a JSON body",
+  "category": "typed-calls",
+  "prompt": "Create `src/pets.ts` that exports `async function createPet(client: Client<paths>, input: { name: string; tag?: string }): Promise<Pet>` where `Pet` is the `Pet` schema of the generated types. It creates the pet with `POST /pets` and returns the created pet. Throw an `Error` when the request fails."
+}

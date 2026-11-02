@@ -1,0 +1,315 @@
+openapi: 3.1.0
+info:
+  title: Pet Clinic API
+  version: 1.0.0
+servers:
+  - url: https://api.petclinic.test/v1
+security:
+  - bearer: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: The service status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok, degraded]
+        "503":
+          description: The service is down
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /auth/login:
+    post:
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: A new access token
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accessToken, expiresIn]
+                properties:
+                  accessToken:
+                    type: string
+                  expiresIn:
+                    type: integer
+                    description: Lifetime of the token in seconds
+        "401":
+          description: Wrong credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /pets:
+    get:
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: cursor
+          in: query
+          schema:
+            type: integer
+        - name: tag
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: One page of pets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PetPage"
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPet"
+      responses:
+        "201":
+          description: The created pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+        "400":
+          description: The input is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+  /pets/{petId}:
+    parameters:
+      - name: petId
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      operationId: getPet
+      responses:
+        "200":
+          description: The pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+        "404":
+          description: No such pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    patch:
+      operationId: updatePet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PetUpdate"
+      responses:
+        "200":
+          description: The updated pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+        "404":
+          description: No such pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      operationId: deletePet
+      responses:
+        "204":
+          description: The pet was deleted
+        "404":
+          description: No such pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /pets/{petId}/photo:
+    parameters:
+      - name: petId
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      operationId: getPetPhoto
+      responses:
+        "200":
+          description: The photo of the pet
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No such pet or no photo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /pets/{petId}/notes:
+    parameters:
+      - name: petId
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      operationId: putPetNotes
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        "204":
+          description: The notes were saved
+        "404":
+          description: No such pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /owners/{ownerId}/pets:
+    get:
+      operationId: listOwnerPets
+      parameters:
+        - name: ownerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Request-Id
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The pets of the owner
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pet"
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+  schemas:
+    PetStatus:
+      type: string
+      enum: [available, adopted]
+    Pet:
+      type: object
+      required: [id, name, status, ownerId]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        tag:
+          type: string
+        status:
+          $ref: "#/components/schemas/PetStatus"
+        ownerId:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+    NewPet:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        tag:
+          type: string
+    PetUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        tag:
+          type: string
+        status:
+          $ref: "#/components/schemas/PetStatus"
+    PetPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Pet"
+        nextCursor:
+          type: [integer, "null"]
+    Problem:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    ValidationError:
+      type: object
+      required: [code, fields]
+      properties:
+        code:
+          type: string
+          const: validation_failed
+        fields:
+          type: array
+          items:
+            type: object
+            required: [name, message]
+            properties:
+              name:
+                type: string
+              message:
+                type: string

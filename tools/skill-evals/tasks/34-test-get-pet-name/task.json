@@ -1,0 +1,5 @@
+{
+  "title": "Test client code with a fake fetch",
+  "category": "testing",
+  "prompt": "Write Vitest tests for `getPetName` in `src/pets.ts`, in the file `src/pets.test.ts`. Do not use the network: give the client a fake `fetch`. Cover a pet that is found, a 404, and a 500 without a body. Do not change `src/pets.ts`."
+}

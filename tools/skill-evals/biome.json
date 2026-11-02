@@ -1,0 +1,17 @@
+{
+  "root": false,
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "extends": "//",
+  "files": {
+    "includes": [
+      "**",
+      "!**/coverage",
+      "!template/src/api/schema.d.ts",
+      "!tasks/*/start/src/api/schema.d.ts",
+      "!tasks/*/solution/src/api/schema.d.ts"
+    ]
+  },
+  "formatter": {
+    "lineWidth": 100
+  }
+}

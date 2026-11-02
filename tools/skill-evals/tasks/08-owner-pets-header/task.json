@@ -1,0 +1,5 @@
+{
+  "title": "Send a header parameter",
+  "category": "typed-calls",
+  "prompt": "Create `src/owners.ts` that exports `async function listOwnerPets(client: Client<paths>, ownerId: string, requestId: string): Promise<Pet[]>` (`Pet` is the generated `Pet` schema). It calls `GET /owners/{ownerId}/pets` and sends `requestId` in the `X-Request-Id` header parameter that the operation declares. Throw an `Error` when the request fails."
+}

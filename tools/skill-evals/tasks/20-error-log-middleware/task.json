@@ -1,0 +1,5 @@
+{
+  "title": "Log failed responses by schema path",
+  "category": "middleware",
+  "prompt": "Create `src/error-log.ts` that exports `function createErrorLogMiddleware(log: (entry: { method: string; schemaPath: string; status: number }) => void): Middleware` (`Middleware` from openapi-typesafe-fetch). It calls `log` once for every response that is not OK. `schemaPath` is the path as written in the OpenAPI document, such as `/pets/{petId}`, not the URL. Responses must reach the caller unchanged."
+}

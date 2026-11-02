@@ -1,0 +1,5 @@
+{
+  "title": "Result type with network failures",
+  "category": "errors",
+  "prompt": "Create `src/pets.ts` that exports `type PetResult = { kind: \"ok\"; pet: Pet } | { kind: \"not-found\" } | { kind: \"failed\"; status: number } | { kind: \"network-error\" }` and `async function loadPet(client: Client<paths>, petId: number): Promise<PetResult>` (`Pet` is the generated `Pet` schema) using `GET /pets/{petId}`. `not-found` is a 404, `failed` is any other response that is not OK, and `network-error` is when the request cannot be sent at all (fetch rejects). `loadPet` never throws."
+}

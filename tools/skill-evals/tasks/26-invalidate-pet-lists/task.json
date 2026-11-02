@@ -1,0 +1,5 @@
+{
+  "title": "Invalidate by query key prefix",
+  "category": "react-query",
+  "prompt": "Queries in this app are built with openapi-typesafe-react-query. Create `src/cache.ts` that exports `async function invalidatePetLists(queryClient: QueryClient): Promise<void>` (`QueryClient` from @tanstack/react-query). It invalidates every cached `GET /pets` query, whatever its query parameters, and leaves `GET /pets/{petId}` queries alone."
+}
