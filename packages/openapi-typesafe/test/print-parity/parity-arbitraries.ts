@@ -42,6 +42,25 @@ export const DOCUMENTS: Readonly<Record<string, unknown>> = {
   },
   "#/components/parameters/Old": { name: "old", in: "query", deprecated: true },
   "#/components/parameters/Alias": { $ref: "#/components/parameters/Id", in: "path" },
+  "#/components/parameters/Count": {
+    name: "count",
+    in: "path",
+    required: true,
+    schema: { type: "integer" },
+  },
+  "#/components/requestBodies/Body": {
+    required: true,
+    content: { "application/json": { schema: { type: "string" } } },
+  },
+  "#/components/requestBodies/Optional": { content: {} },
+  "#/paths/~1old/get": {
+    deprecated: true,
+    parameters: [{ name: "flag", in: "path", schema: { type: "boolean" } }],
+  },
+  "#/paths/~1new/get": {
+    operationId: "getNew",
+    parameters: [{ $ref: "#/components/parameters/Count" }],
+  },
 };
 
 export const text = fc.constantFrom("", "x", "Line one\nline two", "a */ b", "ünïcode");
@@ -252,6 +271,7 @@ export const OPTION_KEYS = [
   "propertiesRequiredByDefault",
   "readWriteMarkers",
   "generatePathParams",
+  "pathParamsAsTypes",
 ] as const;
 
 export const contextInput = fc.record({

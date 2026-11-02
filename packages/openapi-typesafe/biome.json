@@ -21,14 +21,14 @@
         "src/domain/**",
         "src/application/**",
         "src/adapters/**",
-        "src/lib/schema-context.ts",
+        "src/lib/transform-context.ts",
         "src/lib/footer-helpers.ts",
         "test/domain/**",
         "test/application/**",
         "test/adapters/**",
         "test/print-parity/**",
         "test/fakes/**",
-        "test/lib/schema-context.test.ts",
+        "test/lib/transform-context.test.ts",
         "scripts/bench-printer/**"
       ],
       "formatter": { "lineWidth": 100 }

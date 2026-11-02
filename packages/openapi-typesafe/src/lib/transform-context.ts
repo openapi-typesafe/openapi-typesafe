@@ -1,23 +1,39 @@
+import { performance } from "node:perf_hooks";
 import ts from "typescript";
 import { toPropertySignature, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
-import { fromPropertySignature, fromTypeNode } from "../adapters/type-ast-bridge/typescript-to-ir.js";
+import {
+  fromPropertySignature,
+  fromTypeNode,
+} from "../adapters/type-ast-bridge/typescript-to-ir.js";
 import type {
   CustomType,
-  FooterDeclarations,
   SchemaCallbacks,
   SchemaLocation,
 } from "../application/transform/schema/schema-context.js";
 import { UNKNOWN_TYPE } from "../application/transform/shared-types.js";
-import type { TransformContext, TransformOptions } from "../application/transform/transform-context.js";
+import type {
+  DocumentFooter,
+  TemplateLiteralParser,
+  TransformContext,
+  TransformDiagnostics,
+  TransformOptions,
+} from "../application/transform/transform-context.js";
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
-import type { GlobalContext, SchemaObject, TransformNodeOptions, TransformObject } from "../types.js";
-import { injectWithRequiredHelper } from "./footer-helpers.js";
-import { tsArrayLiteralExpression, tsEnum, UNKNOWN } from "./ts.js";
+import type {
+  GlobalContext,
+  SchemaObject,
+  TransformNodeOptions,
+  TransformObject,
+} from "../types.js";
+import { injectOperation, injectWithRequiredHelper } from "./footer-helpers.js";
+import { stringToAST, tsArrayLiteralExpression, tsEnum, UNKNOWN } from "./ts.js";
+import { debug } from "./utils.js";
 
 /**
  * Temporary adapter (ENGINEERING_PLAN Phase 5): the ported transformers work on IR, while their
- * unported parents, the footer and the user callbacks still use `ts.Node`. This builds its context from the
- * original `GlobalContext`. It goes away when the parents are ported (Phase 5, step 6).
+ * unported parents, the footer and the user callbacks still use `ts.Node`. This builds their
+ * context from the original `GlobalContext`. It goes away when the parents are ported (Phase 5,
+ * step 6).
  */
 
 export class UnreadablePropertyError extends Error {
@@ -52,10 +68,11 @@ function transformOptions(ctx: GlobalContext): TransformOptions {
     propertiesRequiredByDefault: ctx.propertiesRequiredByDefault,
     readWriteMarkers: ctx.readWriteMarkers,
     generatePathParams: ctx.generatePathParams,
+    pathParamsAsTypes: ctx.pathParamsAsTypes,
   };
 }
 
-function footer(ctx: GlobalContext): FooterDeclarations {
+function footer(ctx: GlobalContext): DocumentFooter {
   return {
     addEnum({ name, values, metadata }) {
       const declaration = tsEnum(name, [...values], [...metadata], {
@@ -70,13 +87,33 @@ function footer(ctx: GlobalContext): FooterDeclarations {
     },
     addEnumValues({ name, type, values }) {
       const options = { export: true, readonly: true, injectFooter: ctx.injectFooter };
-      ctx.injectFooter.push(tsArrayLiteralExpression(name, toLegacyType(type), [...values], options));
+      ctx.injectFooter.push(
+        tsArrayLiteralExpression(name, toLegacyType(type), [...values], options),
+      );
     },
     requireWithRequired() {
       injectWithRequiredHelper(ctx.injectFooter);
     },
+    addOperation(build) {
+      injectOperation(ctx.injectFooter, () => toPropertySignature(build()));
+    },
   };
 }
+
+/** Reads the text like the original: the expression of the first statement `stringToAST` parses. */
+const TEMPLATES: TemplateLiteralParser = {
+  parse(text) {
+    const [statement] = stringToAST(text) as { expression?: ts.Node }[];
+    const expression = statement?.expression;
+    return expression ? fromTypeNode(expression as ts.TypeNode) : null;
+  },
+};
+
+/** `performance.now()` and the original `debug` logger, in the "ts" group. */
+const DIAGNOSTICS: TransformDiagnostics = {
+  now: () => performance.now(),
+  debug: (message, durationMs) => debug(message, "ts", durationMs),
+};
 
 function nodeOptions(ctx: GlobalContext, location: SchemaLocation): TransformNodeOptions {
   return { ...location, ctx } as TransformNodeOptions;
@@ -103,7 +140,9 @@ function callbacks(ctx: GlobalContext): SchemaCallbacks {
     postTransform(type, location) {
       const postTransform = ctx.postTransform;
       const result =
-        typeof postTransform === "function" ? postTransform(toLegacyType(type), nodeOptions(ctx, location)) : undefined;
+        typeof postTransform === "function"
+          ? postTransform(toLegacyType(type), nodeOptions(ctx, location))
+          : undefined;
       return result ? fromLegacyType(result) : null;
     },
     transformProperty(property, schema, location) {
@@ -145,6 +184,8 @@ export function createTransformContext(ctx: GlobalContext): TransformContext {
     },
     footer: footer(ctx),
     callbacks: callbacks(ctx),
+    templates: TEMPLATES,
+    diagnostics: DIAGNOSTICS,
   };
 }
 
