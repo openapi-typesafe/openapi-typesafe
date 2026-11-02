@@ -1,8 +1,8 @@
 // The fork-base request-body-object transformer, kept as the reference for the parity tests
 // (ENGINEERING_PLAN Phase 5: no behavior changes). Not linted: it is upstream code as it was.
 import ts from "typescript";
-import { addJSDocComment, NEVER, QUESTION_TOKEN, tsModifiers, tsPropertyIndex } from "../../../src/lib/ts.js";
-import { createRef, getEntries } from "../../../src/lib/utils.js";
+import { addJSDocComment, NEVER, QUESTION_TOKEN, tsModifiers, tsPropertyIndex } from "./lib/ts.js";
+import { createRef, getEntries } from "./lib/utils.js";
 import type { RequestBodyObject, TransformNodeOptions } from "../../../src/types.js";
 import transformMediaTypeObject from "./media-type-object.js";
 import transformSchemaObject from "./schema-object.js";

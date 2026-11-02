@@ -25,8 +25,8 @@ import {
   tsWithRequired,
   UNDEFINED,
   UNKNOWN,
-} from "../../../src/lib/ts.js";
-import { createDiscriminatorProperty, createRef, getEntries } from "../../../src/lib/utils.js";
+} from "./lib/ts.js";
+import { createDiscriminatorProperty, createRef, getEntries } from "./lib/utils.js";
 import type { ReferenceObject, SchemaObject, TransformNodeOptions } from "../../../src/types.js";
 
 /**

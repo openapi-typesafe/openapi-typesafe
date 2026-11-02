@@ -2,8 +2,8 @@
 // (ENGINEERING_PLAN Phase 5: no behavior changes). Not linted: it is upstream code as it was.
 import { performance } from "node:perf_hooks";
 import ts from "typescript";
-import { addJSDocComment, oapiRef, stringToAST, tsModifiers, tsPropertyIndex } from "../../../src/lib/ts.js";
-import { createRef, debug, getEntries } from "../../../src/lib/utils.js";
+import { addJSDocComment, oapiRef, stringToAST, tsModifiers, tsPropertyIndex } from "./lib/ts.js";
+import { createRef, debug, getEntries } from "./lib/utils.js";
 import type {
   GlobalContext,
   OperationObject,

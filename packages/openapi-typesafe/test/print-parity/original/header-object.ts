@@ -2,8 +2,8 @@
 // (ENGINEERING_PLAN Phase 5: no behavior changes). Not linted: it is upstream code as it was.
 import { escapePointer } from "@redocly/openapi-core/lib/ref-utils.js";
 import ts from "typescript";
-import { addJSDocComment, tsModifiers, tsPropertyIndex, UNKNOWN } from "../../../src/lib/ts.js";
-import { getEntries } from "../../../src/lib/utils.js";
+import { addJSDocComment, tsModifiers, tsPropertyIndex, UNKNOWN } from "./lib/ts.js";
+import { getEntries } from "./lib/utils.js";
 import type { HeaderObject, TransformNodeOptions } from "../../../src/types.js";
 import transformMediaTypeObject from "./media-type-object.js";
 import transformSchemaObject from "./schema-object.js";

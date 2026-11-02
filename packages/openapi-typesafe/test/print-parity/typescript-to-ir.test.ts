@@ -10,8 +10,8 @@ import {
 import { printNodes } from "../../src/application/print/print-nodes.js";
 import { irKeyword } from "../../src/domain/ir/constructors.js";
 import type { IrType } from "../../src/domain/ir/nodes.js";
-import { NULL, STRING, stringToAST, tsLiteral, tsUnion } from "../../src/lib/ts.js";
 import { arbitraryType } from "./ir-arbitraries.js";
+import { NULL, STRING, stringToAST, tsLiteral, tsUnion } from "./original/lib/ts.js";
 import { alias } from "./print-parity.fixtures.js";
 
 const factory = ts.factory;

@@ -1,7 +1,7 @@
 // The fork-base parameter-object transformer, kept as the reference for the parity tests
 // (ENGINEERING_PLAN Phase 5: no behavior changes). Not linted: it is upstream code as it was.
 import type ts from "typescript";
-import { STRING } from "../../../src/lib/ts.js";
+import { STRING } from "./lib/ts.js";
 import type { ParameterObject, TransformNodeOptions } from "../../../src/types.js";
 import transformSchemaObject from "./schema-object.js";
 

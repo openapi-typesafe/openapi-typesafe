@@ -2,8 +2,8 @@
 // (ENGINEERING_PLAN Phase 5: no behavior changes). Not linted: it is upstream code as it was.
 import { performance } from "node:perf_hooks";
 import ts, { type InterfaceDeclaration, type TypeLiteralNode } from "typescript";
-import { NEVER, STRING, stringToAST, tsModifiers, tsRecord } from "../../../src/lib/ts.js";
-import { createRef, debug } from "../../../src/lib/utils.js";
+import { NEVER, STRING, stringToAST, tsModifiers, tsRecord } from "./lib/ts.js";
+import { createRef, debug } from "./lib/utils.js";
 import type { GlobalContext, OpenAPI3 } from "../../../src/types.js";
 import transformComponentsObject from "./components-object.js";
 import makeApiPathsEnum from "./paths-enum.js";

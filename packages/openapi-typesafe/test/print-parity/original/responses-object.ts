@@ -1,8 +1,8 @@
 // The fork-base responses-object transformer, kept as the reference for the parity tests
 // (ENGINEERING_PLAN Phase 5: no behavior changes). Not linted: it is upstream code as it was.
 import ts from "typescript";
-import { addJSDocComment, NEVER, oapiRef, tsModifiers, tsPropertyIndex } from "../../../src/lib/ts.js";
-import { createRef, getEntries } from "../../../src/lib/utils.js";
+import { addJSDocComment, NEVER, oapiRef, tsModifiers, tsPropertyIndex } from "./lib/ts.js";
+import { createRef, getEntries } from "./lib/utils.js";
 import type { ResponsesObject, TransformNodeOptions } from "../../../src/types.js";
 import transformResponseObject from "./response-object.js";
 

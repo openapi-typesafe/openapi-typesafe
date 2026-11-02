@@ -51,6 +51,8 @@ arguments.
   root; the terminal shows the log path and a one-line result.
 - `.cache/compat/outputs/<label>/<option set>/<entry>.ts`: generated files.
 - `.cache/compat/results/`: per-label generation results and comparison results (JSON).
+  A `generate` run replaces its label's results, so a run with another `--corpus` or `--option-sets`
+  needs its own label (for example `fork-base-full`), or later comparisons see only that run's cases.
 - `.cache/compat/reports/<golden>__vs__<candidate>.{md,json}`: the compatibility report.
 
 ## Comparison rules

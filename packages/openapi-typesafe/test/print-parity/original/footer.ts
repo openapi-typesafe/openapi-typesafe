@@ -6,7 +6,7 @@ import { toPropertySignature } from "../../../src/adapters/type-ast-bridge/ir-to
 import type { DocumentFooter } from "../../../src/application/transform/transform-context.js";
 import { injectOperation, injectWithRequiredHelper } from "../../../src/lib/footer-helpers.js";
 import { toLegacyType } from "../../../src/lib/transform-context.js";
-import { tsArrayLiteralExpression, tsEnum } from "../../../src/lib/ts.js";
+import { tsArrayLiteralExpression, tsEnum } from "./lib/ts.js";
 import type { GlobalContext } from "../../../src/types.js";
 
 export default function footer(ctx: GlobalContext): DocumentFooter {

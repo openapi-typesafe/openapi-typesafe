@@ -1,8 +1,8 @@
 // The fork-base webhooks-object transformer, kept as the reference for the parity tests
 // (ENGINEERING_PLAN Phase 5: no behavior changes). Not linted: it is upstream code as it was.
 import ts from "typescript";
-import { tsModifiers, tsPropertyIndex } from "../../../src/lib/ts.js";
-import { createRef, getEntries } from "../../../src/lib/utils.js";
+import { tsModifiers, tsPropertyIndex } from "./lib/ts.js";
+import { createRef, getEntries } from "./lib/utils.js";
 import type { GlobalContext, WebhooksObject } from "../../../src/types.js";
 import transformPathItemObject from "./path-item-object.js";
 

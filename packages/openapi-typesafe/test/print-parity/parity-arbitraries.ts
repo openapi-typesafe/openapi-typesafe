@@ -1,15 +1,15 @@
 import fc from "fast-check";
 import ts from "typescript";
+import { astToString } from "../../src/lib/ts.js";
+import type { GlobalContext, OpenAPITSOptions, TransformNodeOptions } from "../../src/types.js";
+import { DEFAULT_CTX } from "../test-helpers.js";
 import {
-  astToString,
   enumCache,
   JS_PROPERTY_INDEX_INVALID_CHARS_RE,
   NULL,
   stringToAST,
   tsUnion,
-} from "../../src/lib/ts.js";
-import type { GlobalContext, OpenAPITSOptions, TransformNodeOptions } from "../../src/types.js";
-import { DEFAULT_CTX } from "../test-helpers.js";
+} from "./original/lib/ts.js";
 
 /**
  * Shared inputs of the parity tests (ENGINEERING_PLAN Phase 5): random schemas, option flags,

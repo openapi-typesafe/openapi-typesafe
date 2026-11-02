@@ -1,8 +1,8 @@
 // The fork-base paths-enum transformer, kept as the reference for the parity tests
 // (ENGINEERING_PLAN Phase 5: no behavior changes). Not linted: it is upstream code as it was.
 import type ts from "typescript";
-import { tsEnum } from "../../../src/lib/ts.js";
-import { getEntries } from "../../../src/lib/utils.js";
+import { tsEnum } from "./lib/ts.js";
+import { getEntries } from "./lib/utils.js";
 import type { PathsObject } from "../../../src/types.js";
 
 export default function makeApiPathsEnum(pathsObject: PathsObject): ts.EnumDeclaration {

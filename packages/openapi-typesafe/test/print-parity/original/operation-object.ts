@@ -1,8 +1,8 @@
 // The fork-base operation-object transformer, kept as the reference for the parity tests
 // (ENGINEERING_PLAN Phase 5: no behavior changes). Not linted: it is upstream code as it was.
 import ts from "typescript";
-import { addJSDocComment, NEVER, oapiRef, QUESTION_TOKEN, tsModifiers, tsPropertyIndex } from "../../../src/lib/ts.js";
-import { createRef } from "../../../src/lib/utils.js";
+import { addJSDocComment, NEVER, oapiRef, QUESTION_TOKEN, tsModifiers, tsPropertyIndex } from "./lib/ts.js";
+import { createRef } from "./lib/utils.js";
 import type { OperationObject, RequestBodyObject, TransformNodeOptions } from "../../../src/types.js";
 import { transformParametersArray } from "./parameters-array.js";
 import transformRequestBodyObject from "./request-body-object.js";
