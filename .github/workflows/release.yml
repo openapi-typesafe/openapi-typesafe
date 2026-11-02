@@ -1,0 +1,125 @@
+# Releases (ENGINEERING_PLAN 9.3–9.5). On every push to main, Changesets opens or updates the
+# "Version Packages" pull request. Merging it leaves no changesets, and the publish job then waits
+# for approval in the `npm-publish` environment, publishes with npm trusted publishing (OIDC, with
+# provenance; no npm token exists), and creates a GitHub release with an SBOM for each package.
+# A manual run is a dry run only: it packs everything and runs `npm publish --dry-run`.
+# The trusted publisher of every package names this file and the `npm-publish` environment, so
+# renaming either breaks publishing (docs/release.md).
+# Actions are pinned by commit SHA; the comment names the release.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  FORCE_COLOR: "0"
+  VERIFY_FAIL_ON_WARNINGS: "1"
+  # Trusted publishing needs npm 11.5.1 or later; dist-tag commands need 12.2.0 or later.
+  NPM_VERSION: "12.2.1"
+
+jobs:
+  version:
+    name: version pull request
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    outputs:
+      has-changesets: ${{ steps.changesets.outputs.has-changesets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: changesets
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          version-script: pnpm exec changeset version
+          commit-message: "chore(release): version packages"
+          pr-title: "chore(release): version packages"
+          # Publishing is the job below, so this action never publishes or tags.
+          create-github-releases: false
+          push-git-tags: false
+      # Changes made with the workflow token start no workflows, so CI is started by hand for the
+      # pull request branch; its checks then count for the branch rules.
+      - name: run CI on the version pull request
+        if: steps.changesets.outputs.pr-number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref changeset-release/main
+
+  publish:
+    name: publish
+    needs: version
+    if: needs.version.outputs.has-changesets == 'false'
+    runs-on: ubuntu-latest
+    # Required reviewers on this environment are the manual approval (9.4); the trusted publisher
+    # accepts tokens from this environment only.
+    environment: npm-publish
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      # The token stays in the git config: the release tags are pushed with it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: npm install --global "npm@${NPM_VERSION}"
+      - run: pnpm install --frozen-lockfile
+      - run: scripts/verify.sh build lint test size
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release/publish.sh
+      - name: upload release logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-logs
+          path: .logs/release/
+          if-no-files-found: ignore
+
+  dry-run:
+    name: publish dry run
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: npm install --global "npm@${NPM_VERSION}"
+      - run: pnpm install --frozen-lockfile
+      - run: scripts/verify.sh build lint test size
+      - run: scripts/release/publish.sh --dry-run
+      - name: upload release logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-dry-run-logs
+          path: .logs/release/
+          if-no-files-found: ignore

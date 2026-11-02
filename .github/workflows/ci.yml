@@ -1,12 +1,15 @@
 # Quality gate for every pull request and every push to main (ENGINEERING_PLAN 1.7, Definition of Done §8).
 # Actions are pinned by commit SHA (supply-chain hardening); the comment names the release.
-# The release workflow is added in Phase 9.
+# Releases are in release.yml.
 name: ci
 
 on:
   push:
     branches: [main]
   pull_request:
+  # release.yml starts this for the version pull request: events made with the workflow token
+  # start no workflows, so its checks would never run otherwise.
+  workflow_dispatch:
 
 permissions:
   contents: read
