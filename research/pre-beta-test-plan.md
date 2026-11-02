@@ -129,7 +129,7 @@ webhooks.
       `docs/cli.md`), stdin, a `redocly.yaml` with several APIs, multi-file `$ref` (relative,
       absolute, URL, circular, to a JSON pointer with `~0`/`~1`/`%`). Output: to a file, and to
       stdout when `--output` is not given.
-- [ ] 4.6 Every CLI flag alone, and every pair that interacts. The harness matrix
+- [x] 4.6 Every CLI flag alone, and every pair that interacts. The harness matrix
       (`tools/compat-harness/src/domain/option-matrix.ts`) has single flags and three pairs
       (`--root-types` × its two modifiers, `--enum` × `--dedupe-enums`); add `--enum` ×
       `--enum-values`, `--enum` × `--conditional-enums`, `--immutable` × `--read-write-markers`
@@ -149,6 +149,18 @@ webhooks.
 
 **§4 results** (logs: `.logs/pre-beta/generator/`):
 
+- 4.6: the harness matrix now has `--default-non-nullable=false` and the pairs `--enum` ×
+  `--enum-values`, `--enum` × `--conditional-enums`, `--immutable` × `--read-write-markers`,
+  `--export-type` × `--root-types` (28 sets). On the full corpus (9,100 new cases): 9,069
+  identical, 26 different, and every difference is fork-base output that did not compile — 13
+  now compile, 13 have far fewer errors (GitHub 306 → 40, the rest is backlog 27); the same 3
+  documents fail on both sides (missing sibling files, a remote 400). The new flags match their
+  docs (`4.6-new-flags.log`): `--no-lint` skips a failing lint of a user `redocly.yaml` and still
+  fails on a broken `$ref`; `--local-ref-root` refuses `..` and links that leave the root, is
+  relative to the working directory and means it without a value (now documented);
+  `--remote-ref-hosts` with a host, a host and port, an empty value and no value, checks
+  redirects, and never limits the root document. The default lint (`minimal`) reports nothing
+  for a missing `responses`, as in openapi-typescript.
 - 4.1 (`.logs/pre-beta/compat/`): 1,820 documents × 23 option sets = 41,860 cases. Byte identity
   99.52%, type identity 99.53%; the candidate never fails (fork-base fails 138 cases: OpenAPI 3.2,
   and refs its corpus layout cannot resolve). All 197 differences are classified
