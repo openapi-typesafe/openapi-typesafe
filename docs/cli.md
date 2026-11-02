@@ -1,11 +1,11 @@
 ---
-title: openapi-typescript CLI
+title: openapi-typesafe CLI
 description: The quickest, easiest way to generate types.
 ---
 
 # CLI
 
-The CLI is the most common way to use openapi-typescript. The CLI can parse JSON and YAML, and even validates your schemas using the [Redocly CLI](https://redocly.com/docs/cli/commands/lint/). It can parse local and remote schemas (and even supports basic auth).
+The CLI is the most common way to use openapi-typesafe. The CLI can parse JSON and YAML, and even validates your schemas using the [Redocly CLI](https://redocly.com/docs/cli/commands/lint/). It can parse local and remote schemas (and even supports basic auth).
 
 ## Transforming an OpenAPI schema to TypeScript
 
@@ -14,13 +14,13 @@ The CLI is the most common way to use openapi-typescript. The CLI can parse JSON
 The simplest way to transform schemas is by specifying an input schema (JSON or YAML), followed by `--output` (`-o`) where you’d like the output to be saved:
 
 ```bash
-npx openapi-typescript schema.yaml -o schema.ts
+npx openapi-typesafe schema.yaml -o schema.ts
 
 # 🚀 schema.yaml -> schema.ts [50ms]
 ```
 
 ```bash
-npx openapi-typescript https://petstore3.swagger.io/api/v3/openapi.yaml -o petstore.d.ts
+npx openapi-typesafe https://petstore3.swagger.io/api/v3/openapi.yaml -o petstore.d.ts
 
 # 🚀 https://petstore3.swagger.io/api/v3/openapi.yaml -> petstore.d.ts [250ms]
 ```
@@ -55,7 +55,7 @@ This will preserve schemas 1:1 input:output. To bundle multiple schemas into one
 Whenever you have a `redocly.yaml` file in your project with `apis`, you can omit the input/output parameters in the CLI:
 
 ```bash
-npx openapi-typescript
+npx openapi-typesafe
 ```
 
 ::: warning
@@ -66,10 +66,10 @@ In previous versions globbing was supported, but that has been **deprecated** in
 
 ## Redocly config
 
-A `redocly.yaml` file isn’t required to use openapi-typescript. By default it extends the `"minimal"` built-in config. But it is recommended if you want to have custom validation rules (or build types for [multiple schemas](#multiple-schemas)). The CLI will try to automatically find a `redocly.yaml` in the root of your project, but you can also provide its location with the `--redocly` flag:
+A `redocly.yaml` file isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But it is recommended if you want to have custom validation rules (or build types for [multiple schemas](#multiple-schemas)). The CLI will try to automatically find a `redocly.yaml` in the root of your project, but you can also provide its location with the `--redocly` flag:
 
 ```bash
-npx openapi-typescript --redocly ./path/to/redocly.yaml
+npx openapi-typesafe --redocly ./path/to/redocly.yaml
 ```
 
 You can read more about the Redoc’s configuration options [in their docs](https://redocly.com/docs/cli/configuration/).
@@ -259,7 +259,7 @@ Does not override already defined by schema path parameters.
 
 ### readWriteMarkers
 
-This option enables proper handling of OpenAPI's `readOnly` and `writeOnly` property modifiers. When enabled, properties are wrapped with marker types that allow [openapi-fetch](/openapi-fetch/) to enforce visibility rules at compile time.
+This option enables proper handling of OpenAPI's `readOnly` and `writeOnly` property modifiers. When enabled, properties are wrapped with marker types that allow [openapi-typesafe-fetch](/fetch/) to enforce visibility rules at compile time.
 
 For example, given the following schema:
 
@@ -307,7 +307,7 @@ export interface components {
 
 :::
 
-When used with [openapi-fetch](/openapi-fetch/), the `Readable<T>` and `Writable<T>` helper types automatically:
+When used with [openapi-typesafe-fetch](/fetch/), the `Readable<T>` and `Writable<T>` helper types automatically:
 
 - **Exclude `readOnly` properties from request bodies** - You can't accidentally send `id` in a POST/PUT request
 - **Exclude `writeOnly` properties from responses** - You can't access `password` on response data
@@ -315,17 +315,17 @@ When used with [openapi-fetch](/openapi-fetch/), the `Readable<T>` and `Writable
 ::: code-group
 
 ```ts [src/my-project.ts]
-import createClient from "openapi-fetch";
+import createClient from "openapi-typesafe-fetch";
 import type { paths } from "./my-openapi-3-schema";
 
 const client = createClient<paths>({ baseUrl: "https://api.example.com" });
 
-// ✅ TypeScript error: 'id' is readOnly and not allowed in request body
+// OK: TypeScript error: 'id' is readOnly and not allowed in request body
 await client.POST("/users", {
   body: { id: 123, name: "Alice", password: "secret" },
 });
 
-// ✅ TypeScript error: 'password' is writeOnly and not available in response
+// OK: TypeScript error: 'password' is writeOnly and not available in response
 const { data } = await client.GET("/users/{id}", { params: { path: { id: 1 } } });
 console.log(data?.password); // Error!
 ```

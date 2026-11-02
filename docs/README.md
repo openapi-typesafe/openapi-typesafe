@@ -1,24 +1,30 @@
-# openapi-typescript Docs
+# openapi-typesafe docs
 
-Docs site powered by [Vitepress](https://vitepress.dev/), an ergonomic docs site template powered by Vite.
-
-Lives at [https://openapi-ts.dev](https://openapi-ts.dev).
+The docs site, built with [VitePress](https://vitepress.dev/).
 
 ## Setup
 
-Setup requires the latest version of [Node.js](https://nodejs.org/en) and [pnpm](https://pnpm.io/). With both installed, run:
+With [Node.js](https://nodejs.org/en) 22 and [pnpm](https://pnpm.io/), from the repository root:
 
-```
+```sh
 pnpm i
-pnpm run dev
+pnpm --filter openapi-typesafe-docs dev
 ```
 
-That will launch the docs site at `http://localhost:5173`.
+That serves the site at `http://localhost:5173`.
+
+## Build and check
+
+```sh
+pnpm --filter openapi-typesafe-docs build    # builds the packages, then the site
+pnpm --filter openapi-typesafe-docs check-links
+```
+
+VitePress fails the build on a dead link between pages. `check-links` also checks anchors and
+external links in the built site. The site URL comes from `DOCS_SITE_URL` (default: the GitHub
+Pages URL of the repository); its path is the base of every link.
 
 ## Editing
 
-All content lives in `.md` files that feature normal Markdown content [with powerful Vitepress extensions](https://vitepress.dev/guide/markdown).
-
-## Contributing
-
-Docs contributions are welcome! Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md) for additional assistance.
+All content lives in `.md` files with [VitePress Markdown extensions](https://vitepress.dev/guide/markdown).
+See [CONTRIBUTING.md](./CONTRIBUTING.md).

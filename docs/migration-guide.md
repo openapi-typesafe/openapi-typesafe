@@ -1,56 +1,105 @@
 ---
-title: Migration Guide
-description: Migrating between openapi-typescript versions
+title: Migration guide
+description: Move a project from openapi-typescript, openapi-fetch and openapi-react-query to openapi-typesafe
 ---
 
-# Migrating to 7.x
+# Migrating from openapi-typescript
 
-The 7.x release only has a few minor breaking changes to be aware of:
+openapi-typesafe is a drop-in successor. A project on these packages moves by changing names:
 
-### Authentication / remote schema fetching
+| Before | After |
+| :-- | :-- |
+| `openapi-typescript` 7.x (package and command) | `openapi-typesafe` |
+| `openapi-fetch` 0.x | `openapi-typesafe-fetch` |
+| `openapi-react-query` | `openapi-typesafe-react-query` |
+| `openapi-typescript-helpers` | `openapi-typesafe-helpers` |
 
-In 7.x, all remote schema fetching is handled via the [Redocly CLI](https://redocly.com/docs/developer-portal/guides/reference-docs-integration-advanced/#authentication). This means you’ll need to [move your authentication settings](https://redocly.com/docs/developer-portal/guides/reference-docs-integration-advanced/#authentication) to a `redocly.config.yml` config file ([docs](https://redocly.com/docs/developer-portal/guides/reference-docs-integration-advanced/#authentication)).
+All four packages have one version number. The generated types are the same, the CLI flags are the same, and `redocly.yaml` keeps its `x-openapi-ts` settings.
 
-### TypeScript AST
+Coming from openapi-typescript **6.x**? Follow the [upstream guide to 7.x](https://openapi-ts.dev/migration-guide) first, then this one.
 
-7.x introduces the TypeScript AST rather than simple string transformations. This applies to the core Node.js API, which now returns a TypeScript AST, as well as the options `transform()` and `postTransform()`. [The Node.js API docs have been updated with relevant examples to help](./node).
+## 1. Run the migration tool
 
-### defaultNonNullable: true by default
+In the project root, with a clean git tree:
 
-The CLI and Node.js API now have `--default-non-nullable` behavior enabled by default. This means if a schema object has a `default` value, it will be treated as if it’s `required` (with the exception of parameters).
-
-### Globbing replaced with Redocly config
-
-7.x can still generate multiple schemas at once, but rather than globbing that forces you to follow a particular naming schema, you’ll declare a `redocly.config.yaml` file that lists every input schema and where its associated generated types should go. This allows more flexibility in naming and organizing multiple schemas.
-
-But the neat part is with a `redocly.config.yml` file declared, you can simply run the CLI command with no arguments ([docs](./cli#redoc-config)):
-
-```sh
-npx openapi-typescript
+```bash
+npx openapi-typesafe-migrate          # report what would change
+npx openapi-typesafe-migrate --write  # change the files
 ```
 
-### Node.js API input types
+It renames the packages in every `package.json` and in pnpm catalogs, the module specifiers in your sources, and the `openapi-typescript` command in `package.json` scripts, shell scripts, CI files, Makefiles and Dockerfiles. It also writes the new spelling of [CLI flags that openapi-typescript renamed](#renamed-cli-flags). A legacy [`transform` callback](#legacy-callbacks) that only returns `ts.factory` types becomes type text with `irCallbacks: true`.
 
-The input types have changed slightly in 7.x to be more predictable and versatile.
+Whatever it cannot change safely, it lists with the file and line: version specs such as `latest`, `overrides`, renamed peer dependencies, `npx openapi-typescript@<version>`, deep imports, and callbacks it cannot rewrite. Every finding also goes to a log file whose path it prints. See the [tool’s README](https://github.com/openapi-typesafe/openapi-typesafe/tree/main/packages/openapi-typesafe-migrate) for details.
 
-```ts
-import openapiTS from "openapi-typescript";
+Prefer to do it by hand? Rename the packages in the table above in `package.json`, imports and scripts; nothing else is required.
 
-await openapiTS(input);
+## 2. Install and regenerate once
+
+```bash
+npm install            # or pnpm install, yarn, bun install
+npm run generate       # your script that runs openapi-typesafe
 ```
 
-| Input         |       6.x       |   7.x    |
-| :------------ | :-------------: | :------: |
-| JSON (object) |    `Object`     | `Object` |
-| JSON (string) | (not supported) | `string` |
-| YAML (string) | (not supported) | `string` |
-| Local file    | `string \| URL` |  `URL`   |
-| Remote file   | `string \| URL` |  `URL`   |
+Commit the regenerated files once. The only change is the first line of the header:
 
-The biggest change is the handling of `string`s—in 6.x a string could refer to a local or remote filepath, but this was unpredictable because for local filepaths it would depend where Node was called from. In 7.x, **all filepaths must be a [URL](https://nodejs.org/api/url.html)** (for local paths, use `new URL('./path/to/my/schema', import.meta.url)` or `new URL('file:///absolute/path/to/my/schema')`). This lets the `string` type handle inline YAML (or JSON) which wasn’t supported in 6.x.
+```diff
+ /**
+- * This file was auto-generated by openapi-typescript.
++ * This file was auto-generated by openapi-typesafe.
+  * Do not make direct changes to the file.
+  */
+```
 
-[See the updated docs for more info](./node#usage).
+If you check generated files in CI with `--check`, it fails until this commit lands, because the files on disk still carry the old header.
 
----
+## 3. Type check and test
 
-[See the full CHANGELOG](https://github.com/openapi-ts/openapi-typescript/blob/main/packages/openapi-typescript/CHANGELOG.md)
+Run your type check and tests. For the generator and the client, nothing else changes, with the exceptions below.
+
+## What is different
+
+### Node.js
+
+openapi-typesafe needs Node.js **22.12** or newer (the client and helpers: Node.js 22). The CommonJS build loads ESM-only dependencies with `require()`, which Node.js supports without a flag from 22.12.
+
+### No TypeScript dependency
+
+The generator does not need the `typescript` package. It prints types itself, so it runs next to TypeScript 7 (see [TypeScript 7](/typescript-7)). `typescript` is an optional peer dependency, loaded only by the legacy callbacks below.
+
+### Node API returns IR
+
+`openapiTS()` returns the declarations as IR objects (`IrDeclaration[]`), not TypeScript compiler nodes. `astToString(await openapiTS(…))` works unchanged and prints the same text. Code that inspected or edited the returned `ts.Node`s must use the IR objects instead. The helpers (`tsUnion`, `NULL`, `STRING`, …) and the exported transformers return IR too; they still accept TypeScript nodes as input. See [Node.js API](/node).
+
+### Legacy callbacks
+
+`transform`, `postTransform` and `transformProperty` that work with TypeScript nodes keep working in 1.x, with a deprecation warning, as long as a TypeScript JavaScript API can be loaded: `typescript` 6 or earlier, or `@typescript/typescript6` in a TypeScript 7 project. Move them to [IR callbacks](/node#ir-callbacks) (`irCallbacks: true`), which return IR or plain type text such as `"Date | null"`. The TypeScript-node forms are removed in 2.0.
+
+### Renamed CLI flags
+
+As in openapi-typescript 7, the old spellings fail with an error that names the new one: `--immutable-types` and `-it` (use `--immutable`), `--support-array-length` (`--array-length`), `--redoc` (`--redocly`) and `-ap` (`--additional-properties`).
+
+### CLI exit codes and errors
+
+Failures now exit with a documented code: `1` stale output with `--check` (as before), `2` usage or configuration, `3` input document, `4` output files, `70` unexpected error. Before, every failure exited with `1`. See [exit codes](/cli#exit-codes).
+
+Errors thrown by the Node API are `OpenAPITypesafeError`s with a stable `code` (see [errors](/node#errors)). The messages are unchanged. A file system error is kept as `cause`: check `error.cause.code` instead of `error.code === "ENOENT"`.
+
+### Output fixes
+
+Where openapi-typescript’s output did not compile or was unsafe, it changes:
+
+- `--enum` and `--enum-values` output that did not compile now does.
+- `--root-types` with `--enum`: a root type alias that had the same name as an enum gets a suffix (`ClusterState_2`).
+- Names and URLs from the document are escaped where they reach code (`--root-types`, `--path-params-as-types`), so a document can no longer add code to the generated file.
+- The `inject` option is printed as written, so comments in it are kept.
+
+All other output is byte-identical.
+
+### Client fixes
+
+- A string body with a non-JSON `Content-Type` such as `text/plain` is sent as is, not JSON-encoded.
+- A path parameter that makes a `.` or `..` segment is rejected before the request is sent.
+- openapi-typesafe-react-query fails on every non-OK response, also one without a body.
+- Middleware request ids come from a counter instead of `Math.random()`.
+
+The full list, with the upstream issues each change closes, is in the [changelog](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/packages/openapi-typesafe/CHANGELOG.md).

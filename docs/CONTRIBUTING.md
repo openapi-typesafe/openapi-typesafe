@@ -1,27 +1,21 @@
-# Contributing to openapi-typescript docs
+# Contributing to the openapi-typesafe docs
 
-## Setup
+See the [README](./README.md) for setup.
 
-See the [README](./README.md) for basic setup.
+## Corrections and small edits
 
-## Corrections / small edits
+Corrections are welcome: [open a pull request](https://github.com/openapi-typesafe/openapi-typesafe/pulls) for typos, wrong information, or a clearer sentence.
 
-Corrections are always welcome! Please go straight to [opening a PR](https://github.com/openapi-ts/openapi-typescript/pulls) for correcting typos or misinformation. Small grammar edits are also welcome such as shortening verbose language or clarifying confusing statements.
+## New pages and larger edits
 
-## Styling fixes
+[Open an issue](https://github.com/openapi-typesafe/openapi-typesafe/issues) first for a new page, a new section, or a restructuring, so the plan can be agreed before the work.
 
-Styling fixes are also welcome (contrast improvements, styling bugs, general frontend improvements). You can also go straight to [opening a PR](https://github.com/openapi-ts/openapi-typescript/pulls) for those.
+## Style
 
-## Additions & Larger edits
-
-[Opening a new discussion](https://github.com/openapi-ts/openapi-typescript/discussions) would be appreciated for all of the following:
-
-- Adding a new section or page
-- Restructuring the docs
-- Major rewrites
-
-All of the above are welcome! But if you just opened a PR without discussing the plan ahead-of-time, it will probably be rejected. Be sure to save your own time by talking about big changes first!
+- English only, plain and short sentences.
+- No emoji; the docs use words such as "Good" and "Bad".
+- Every claim about behavior must match the code; link to the page or the source that shows it.
 
 ## Code of Conduct
 
-All docs edits are held accountable to the [Code of Conduct](../CODE_OF_CONDUCT.md) outlined in this project. Language in the documentation must be inclusive, kind, and respectful.
+All docs edits follow the [Code of Conduct](../CODE_OF_CONDUCT.md). Language in the documentation must be inclusive, kind, and respectful.

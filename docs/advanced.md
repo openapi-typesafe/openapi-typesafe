@@ -12,7 +12,7 @@ Advanced usage and various topics. Interpret this as loose recommendations for _
 To enable debugging, set `DEBUG=openapi-ts:*` as an env var like so:
 
 ```sh
-$ DEBUG=openapi-ts:* npx openapi-typescript schema.yaml -o my-types.ts
+$ DEBUG=openapi-ts:* npx openapi-typesafe schema.yaml -o my-types.ts
 ```
 
 To only see certain types of debug messages, you can set `DEBUG=openapi-ts:[scope]` instead. Valid scopes are `redoc`, `lint`, `bundle`, and `ts`.
@@ -99,10 +99,10 @@ Different languages have different preferred syntax styles. To name a few:
 
 It’s tempting to want to rename API responses into `camelCase` that most JS styleguides encourage. However, **avoid renaming** because in addition to being a time sink, it introduces the following maintenance issues:
 
-- ❌ generated types (like the ones produced by openapi-typescript) now have to be manually typed again
-- ❌ renaming has to happen at runtime, which means you’re slowing down your application for an invisible change
-- ❌ name transformation utilities have to be built & maintained (and tested!)
-- ❌ the API probably needs `snake_case` for requestBodies anyway, so all that work now has to be undone for every API request
+- generated types (like the ones produced by openapi-typesafe) now have to be manually typed again
+- renaming has to happen at runtime, which means you’re slowing down your application for an invisible change
+- name transformation utilities have to be built & maintained (and tested!)
+- the API probably needs `snake_case` for requestBodies anyway, so all that work now has to be undone for every API request
 
 Instead, treat “consistency” in a more holistic sense, recognizing that preserving the API schema as-written is better than adhering to JS style conventions.
 
@@ -114,7 +114,7 @@ The default behavior of [Additional Properties](https://swagger.io/docs/specific
 
 ### Be specific in your schema
 
-openapi-typescript will **never produce an `any` type**. Anything not explicated in your schema may as well not exist. For that reason, always be as specific as possible. Here’s how to get the most out of `additionalProperties`:
+openapi-typesafe will **never produce an `any` type**. Anything not explicated in your schema may as well not exist. For that reason, always be as specific as possible. Here’s how to get the most out of `additionalProperties`:
 
 <table>
   <thead>
@@ -127,7 +127,7 @@ openapi-typescript will **never produce an `any` type**. Anything not explicated
   <tbody>
     <tr>
       <th scope="row">
-        ❌ Bad
+        Bad
       </th>
       <td>
 
@@ -146,7 +146,7 @@ Record<string, never>;
     </tr>
     <tr>
       <th scope="row">
-        ❌ Less Bad
+        Less Bad
       </th>
       <td>
 
@@ -166,7 +166,7 @@ Record<string, unknown>;
     </tr>
     <tr>
       <th scope="row">
-        ✅ Best
+        Best
       </th>
       <td>
 
@@ -202,7 +202,7 @@ When it comes to **tuple types**, you’ll also get better results by representi
   <tbody>
     <tr>
       <th scope="row">
-        ❌ Bad
+        Bad
       </th>
       <td>
 
@@ -221,7 +221,7 @@ unknown[]
     </tr>
     <tr>
       <th scope="row">
-        ❌ Less Bad
+        Less Bad
       </th>
       <td>
 
@@ -242,7 +242,7 @@ number[]
     </tr>
     <tr>
       <th scope="row">
-        ✅ Best
+        Best
       </th>
       <td>
 
@@ -282,7 +282,7 @@ prefixItems:
 
 OpenAPI’s composition tools (`oneOf`/`anyOf`/`allOf`) are powerful tools for reducing the amount of code in your schema while maximizing flexibility. TypeScript unions, however, don’t provide [XOR behavior](https://en.wikipedia.org/wiki/Exclusive_or), which means they don’t map directly to `oneOf`. For that reason, it’s recommended to use `oneOf` by itself, and not combined with other composition methods or other properties. e.g.:
 
-#### ❌ Bad
+#### Wrong: Bad
 
 ::: code-group
 
@@ -324,7 +324,7 @@ This generates the following type which mixes both TypeScript unions and interse
 
 :::
 
-#### ✅ Better
+#### OK: Better
 
 ::: code-group
 
@@ -377,7 +377,7 @@ While the schema permits you to use composition in any way you like, it’s good
 components:
   schemas:
     DefType:
-      type: object # ✅ `type: "object"` is OK to define $defs on
+      type: object # OK: `type: "object"` is OK to define $defs on
       $defs:
         myDefType:
           type: string
@@ -403,7 +403,7 @@ export interface components {
       };
     };
     MyType: {
-      myType?: components["schemas"]["DefType"]["$defs"]["myDefType"]; // ✅ Works
+      myType?: components["schemas"]["DefType"]["$defs"]["myDefType"]; // OK: Works
     };
   };
 }
@@ -419,7 +419,7 @@ However, this won’t:
 components:
   schemas:
     DefType:
-      type: string # ❌ this won’t keep its $defs
+      type: string # Wrong: this won’t keep its $defs
       $defs:
         myDefType:
           type: string
@@ -440,7 +440,7 @@ export interface components {
   schemas: {
     DefType: string;
     MyType: {
-      myType?: components["schemas"]["DefType"]["$defs"]["myDefType"]; // ❌ Property '$defs' does not exist on type 'String'.
+      myType?: components["schemas"]["DefType"]["$defs"]["myDefType"]; // Wrong: Property '$defs' does not exist on type 'String'.
     };
   };
 }
@@ -473,7 +473,7 @@ Cyclic schemas are fine when the cycle goes through an object property
 (`Node: { properties: { next: { $ref: Node } } }`): they generate recursive types. A cycle with no
 object on it, such as two arrays of each other or two `allOf`s of each other, generates types that
 TypeScript rejects with “is referenced directly or indirectly in its own type annotation”, as in
-openapi-typescript.
+openapi-typesafe.
 
 Names need no care: reserved words (`class`, `default`, `constructor`), TypeScript global names,
 `__proto__`, Unicode, quotes, backslashes and line breaks in schema, property, enum, path and

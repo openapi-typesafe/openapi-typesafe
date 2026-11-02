@@ -1,5 +1,5 @@
 ---
-title: openapi-typescript Node.js API
+title: openapi-typesafe Node.js API
 description: Programmatic usage and unlimited flexibility.
 ---
 
@@ -10,7 +10,7 @@ The Node API may be useful if dealing with dynamically-created schemas, or you�
 ## Setup
 
 ```bash
-npm i --save-dev openapi-typescript typescript
+npm i --save-dev openapi-typesafe typescript
 ```
 
 ::: info TypeScript is optional
@@ -45,7 +45,7 @@ To print the declarations, use the `astToString()` helper. It prints IR with the
 
 ```ts [src/my-project.ts]
 import fs from "node:fs";
-import openapiTS, { astToString } from "openapi-typescript";
+import openapiTS, { astToString } from "openapi-typesafe";
 
 const ast = await openapiTS(new URL("./my-schema.yaml", import.meta.url));
 const contents = astToString(ast);
@@ -75,13 +75,13 @@ try {
 
 ### Redoc config
 
-A Redoc config isn’t required to use openapi-typescript. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redoc config to the Node API. You can do this with the helpers in `@redocly/openapi-core`:
+A Redoc config isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redoc config to the Node API. You can do this with the helpers in `@redocly/openapi-core`:
 
 ::: code-group
 
 ```ts [src/my-project.ts]
 import { createConfig, loadConfig } from "@redocly/openapi-core";
-import openapiTS from "openapi-typescript";
+import openapiTS from "openapi-typesafe";
 
 // option 1: create in-memory config
 const redocly = await createConfig(
@@ -174,7 +174,7 @@ By default, openapiTS will generate `updated_at?: string;` because it’s not su
 ::: code-group
 
 ```ts [src/my-project.ts]
-import openapiTS from "openapi-typescript";
+import openapiTS from "openapi-typesafe";
 import ts from "typescript";
 
 const DATE = ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Date")); // `Date`
@@ -226,7 +226,7 @@ Use the same pattern to transform the types:
 ::: code-group
 
 ```ts [src/my-project.ts]
-import openapiTS from "openapi-typescript";
+import openapiTS from "openapi-typesafe";
 import ts from "typescript";
 
 const BLOB = ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Blob")); // `Blob`
@@ -279,7 +279,7 @@ Here we return an object with a schema property, which is the same as the above 
 ::: code-group
 
 ```ts [src/my-project.ts]
-import openapiTS from "openapi-typescript";
+import openapiTS from "openapi-typesafe";
 import ts from "typescript";
 
 const BLOB = ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Blob")); // `Blob`
@@ -357,7 +357,7 @@ components:
 ```ts [src/my-project.ts]
 import fs from "node:fs";
 import ts from "typescript";
-import openapiTS, { astToString } from "openapi-typescript";
+import openapiTS, { astToString } from "openapi-typesafe";
 
 const ast = await openapiTS(mySchema, {
   transformProperty(property, schemaObject, options) {

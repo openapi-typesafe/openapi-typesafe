@@ -1,6 +1,6 @@
 ---
 title: API
-description: openapi-fetch API
+description: openapi-typesafe-fetch API
 ---
 
 # API
@@ -40,7 +40,7 @@ client.GET("/my-url", options);
 | `parseAs`         | `"json"` \| `"text"` \| `"arrayBuffer"` \| `"blob"` \| `"stream"` | (optional) Parse the response using [a built-in instance method](https://developer.mozilla.org/en-US/docs/Web/API/Response#instance_methods) (default: `"json"`). `"stream"` skips parsing altogether and returns the raw stream. |
 | `baseUrl`         | `string`                                                          | Prefix the fetch URL with this option (e.g. `"https://myapi.dev/v1/"`)                                                                                                                                                            |
 | `fetch`           | `fetch`                                                           | Fetch instance used for requests (default: fetch from `createClient`)                                                                                                                                                             |
-| `middleware`      | `Middleware[]`                                                    | [See docs](/openapi-fetch/middleware-auth)                                                                                                                                                                                        |
+| `middleware`      | `Middleware[]`                                                    | [See docs](/fetch/middleware-auth)                                                                                                                                                                                        |
 | (Fetch options)   |                                                                   | Any valid fetch option (`headers`, `mode`, `cache`, `signal`, …) ([docs](https://developer.mozilla.org/en-US/docs/Web/API/fetch#options))                                                                                         |
 
 ## wrapAsPathBasedClient
@@ -82,17 +82,17 @@ pathBasedClient["/my-url"].GET(fetchOptions);
 
 ## querySerializer
 
-OpenAPI supports [different ways of serializing objects and arrays](https://swagger.io/docs/specification/serialization/#query) for parameters (strings, numbers, and booleans—primitives—always behave the same way). By default, this library serializes arrays using `style: "form", explode: true`, and objects using `style: "deepObject", explode: true`, but you can customize that behavior with the `querySerializer` option (either on `createClient()` to control every request, or on individual requests for just one).
+OpenAPI supports [different ways of serializing objects and arrays](https://swagger.io/docs/specification/serialization/#query-parameters) for parameters (strings, numbers, and booleans—primitives—always behave the same way). By default, this library serializes arrays using `style: "form", explode: true`, and objects using `style: "deepObject", explode: true`, but you can customize that behavior with the `querySerializer` option (either on `createClient()` to control every request, or on individual requests for just one).
 
 ### Object syntax
 
-openapi-fetch ships the common serialization methods out-of-the-box:
+openapi-typesafe-fetch ships the common serialization methods out-of-the-box:
 
 | Option          |       Type        | Description                                                                                                                                                    |
 | :-------------- | :---------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query)). Default: `{ style: "form", explode: true }`.        |
-| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query)). Default: `{ style: "deepObject", explode: true }`. |
-| `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding (⚠️ may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query)). Default: `false`.          |
+| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`.        |
+| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`. |
+| `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`.          |
 
 ```ts
 const client = createClient({
@@ -185,7 +185,7 @@ const { data, error } = await client.PUT("/submit", {
 
 ::: tip
 
-For convenience, `openapi-fetch` sets `Content-Type` to `application/json` automatically
+For convenience, `openapi-typesafe-fetch` sets `Content-Type` to `application/json` automatically
 for any request that provides value for the `body` parameter. When the `bodySerializer` returns an instance of `FormData`,
 `Content-Type` is omitted, allowing the browser to set it automatically with the correct message part boundary.
 
@@ -208,7 +208,7 @@ const { data, error } = await client.POST("/notes", {
 
 ### URL-encoded body
 
-To send a body request in `application/x-www-form-urlencoded` format, which is commonly used to transmit key-value pairs in APIs like OAuth 2.0, pass the appropriate header and body as an object. `openapi-fetch` will automatically encode the body to the correct format.
+To send a body request in `application/x-www-form-urlencoded` format, which is commonly used to transmit key-value pairs in APIs like OAuth 2.0, pass the appropriate header and body as an object. `openapi-typesafe-fetch` will automatically encode the body to the correct format.
 
 ```ts
 const { data, error } = await client.POST("/tokens", {
@@ -258,7 +258,7 @@ checked.
 
 ### Default Path Serializer
 
-openapi-fetch supports path serialization as [outlined in the 3.1 spec](https://swagger.io/docs/specification/serialization/#path). This happens automatically, based on the specific format in your OpenAPI schema:
+openapi-typesafe-fetch supports path serialization as [outlined in the 3.1 spec](https://swagger.io/docs/specification/serialization/#path-parameters). This happens automatically, based on the specific format in your OpenAPI schema:
 
 | Template          | Style                | Primitive `id = 5` | Array `id = [3, 4, 5]`   | Object `id = {"role": "admin", "firstName": "Alex"}` |
 | :---------------- | :------------------- | :----------------- | :----------------------- | :--------------------------------------------------- |
@@ -274,8 +274,8 @@ openapi-fetch supports path serialization as [outlined in the 3.1 spec](https://
 Middleware is an object with `onRequest()`, `onResponse()` and `onError()` callbacks that can observe and modify requests, responses and errors.
 
 ```ts
-import createClient from "openapi-fetch";
-import type { paths } from "./my-openapi-3-schema"; // generated by openapi-typescript
+import createClient from "openapi-typesafe-fetch";
+import type { paths } from "./my-openapi-3-schema"; // generated by openapi-typesafe
 
 const myMiddleware: Middleware = {
   async onRequest({ request, options }) {
@@ -350,4 +350,4 @@ client.use(myMiddleware);
 client.eject(myMiddleware);
 ```
 
-For additional guides & examples, see [Middleware & Auth](/openapi-fetch/middleware-auth)
+For additional guides & examples, see [Middleware & Auth](/fetch/middleware-auth)

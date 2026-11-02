@@ -25,6 +25,7 @@ Checked against the npm registry on 2026-11-02. Each update landed in its own co
 | unbuild | 3.6.1 | 3.6.1 (latest) | Last release 2025-08-15. Kept: works with zero warnings; the alternative `tsdown` is pre-1.0 (0.23.4). Review trigger: a build defect without an upstream fix, or tsdown 1.0 |
 | @arethetypeswrong/cli | 0.18.5 | 0.18.5 (latest) | Pins `typescript@5.6.1-rc` internally |
 | typescript (workspace) | 5.9.3 | 5.9.3 | Latest 5.x. Development compiler stays on 5.x until Phase 6 removes the compiler API; TS 6 / 7 are test targets (ADR-006) |
+| linkinator (docs) | — | 8.1.0 | Added in Phase 10.2 for the docs link check (links, anchors); repository links are checked against the working tree by `docs/scripts/check-repository-links.mjs` while the repository is private |
 
 Not yet added (added by the task that needs them, at the then-current version): dependency-cruiser (18.7.1),
 commitlint (21.2.4), lefthook (2.2.2), fast-check (4.10.2), tsdown (not adopted).
@@ -49,5 +50,5 @@ stays on Next 15 (Next 16 is a major upgrade of a demo app; it is reviewed with 
 
 ## Remaining notices
 
-- `vitepress` 1.6.4 (latest stable; 2.0 is alpha) pulls in deprecated `@ungap/structured-clone`. The docs site is
-  rebuilt in Phase 10.
+- `vitepress` 1.6.4 (latest stable; 2.0 is alpha) pulls in deprecated `@ungap/structured-clone`. Rechecked in
+  Phase 10.2: 2.0 is still alpha (2.0.0-alpha.21), so the site stays on 1.6.4.
