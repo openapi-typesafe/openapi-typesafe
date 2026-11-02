@@ -67,6 +67,18 @@ describe("parseCliArguments", () => {
   );
 });
 
+describe("parseCliArguments removed flags", () => {
+  it.each([
+    ["-ap", "--additional-properties"],
+    ["--immutable-types", "--immutable"],
+    ["--support-array-length", "--array-length"],
+    ["-it", "--immutable"],
+    ["--redoc", "--redocly"],
+  ])("parseCliArguments with %s names the current flag %s", (flag, current) => {
+    expect(() => parseCliArguments([flag])).toThrow(`"${current}"`);
+  });
+});
+
 describe("ineffectiveFlagNotices", () => {
   it("ineffectiveFlagNotices names each root-types flag given without --root-types", () => {
     expect(ineffectiveFlagNotices(["--root-types-no-schema-prefix", "--root-types-keep-casing"])).toEqual([

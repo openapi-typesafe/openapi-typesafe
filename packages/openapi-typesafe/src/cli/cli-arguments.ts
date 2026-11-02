@@ -64,7 +64,7 @@ const REMOVED_FLAGS: readonly (readonly [string, string])[] = [
     "--support-array-length",
     `The --support-array-length flag has been renamed to "--array-length".`,
   ],
-  ["-it", `The -it alias has been deprecated. Use "--immutable-types" instead.`],
+  ["-it", `The -it alias has been deprecated. Use "--immutable" instead.`],
   ["--redoc", `The --redoc config flag has been renamed to "--redocly" (or -c as shorthand).`],
 ];
 
