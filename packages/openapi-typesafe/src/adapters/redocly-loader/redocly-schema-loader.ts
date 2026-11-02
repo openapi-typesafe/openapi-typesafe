@@ -40,8 +40,17 @@ export interface RedoclySchemaLoaderOptions {
   readonly remoteRefTimeoutMs: number;
 }
 
-/** Accept OpenAPI 3.x only; Swagger 2 and other formats get their own message. */
-function assertOpenAPI3(parsed: Record<string, unknown>): void {
+const UNSUPPORTED_FORMAT_MESSAGE = "Unsupported schema format, expected `openapi: 3.x`";
+
+/**
+ * Accept OpenAPI 3.x only; Swagger 2 and other formats get their own message. An empty file or a
+ * `null` root parses to nothing, so it is checked before any field is read.
+ */
+function assertOpenAPI3(document: unknown): void {
+  if (typeof document !== "object" || document === null) {
+    throw versionUnsupportedError(UNSUPPORTED_FORMAT_MESSAGE, {});
+  }
+  const parsed = document as Record<string, unknown>;
   const openapiVersion = Number.parseFloat(parsed.openapi as string);
   const isOpenAPI3 =
     !parsed.swagger &&
@@ -61,7 +70,7 @@ function assertOpenAPI3(parsed: Record<string, unknown>): void {
   if (parsed.openapi || openapiVersion < 3 || openapiVersion >= 4) {
     throw versionUnsupportedError(`Unsupported OpenAPI version: ${parsed.openapi}`, parsed);
   }
-  throw versionUnsupportedError("Unsupported schema format, expected `openapi: 3.x`", parsed);
+  throw versionUnsupportedError(UNSUPPORTED_FORMAT_MESSAGE, parsed);
 }
 
 /** The base for relative `$ref`s: the source file or URL itself, else the working directory. */
