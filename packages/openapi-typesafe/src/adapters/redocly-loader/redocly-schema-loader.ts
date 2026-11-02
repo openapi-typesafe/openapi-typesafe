@@ -112,17 +112,11 @@ class RedoclySchemaLoader implements SchemaLoader {
   }
 
   async load(request: SchemaLoadRequest): Promise<OpenAPI3> {
-    const { logger, now } = this.#options;
-    const configLoadedAt = now();
-    logger.debug("Loaded Redoc config", "redoc", now() - configLoadedAt);
-    const parseStartedAt = now();
     const resolver = this.#resolver(request);
-    const absoluteRef = sourceAbsoluteRef(request.source, request.cwd);
-    const document = await parseSchema(request.source, { absoluteRef, resolver });
-    logger.debug("Parsed schema", "redoc", now() - parseStartedAt);
-    assertOpenAPI3(document.parsed);
+    // Parsing is guarded too: `JSON.stringify` of a deep object source overflows the stack on
+    // Node.js 22 and 24, before linting starts.
     const bundled = await withStackOverflowReportedAsync("load", () =>
-      this.#lintAndBundle(document, resolver, request.shouldLint),
+      this.#parseAndBundle(request, resolver),
     ).catch((error: unknown) => {
       throw resolver.firstRefusal ?? error;
     });
@@ -131,6 +125,18 @@ class RedoclySchemaLoader implements SchemaLoader {
       throw resolver.firstRefusal;
     }
     return bundled;
+  }
+
+  async #parseAndBundle(request: SchemaLoadRequest, resolver: BaseResolver): Promise<OpenAPI3> {
+    const { logger, now } = this.#options;
+    const configLoadedAt = now();
+    logger.debug("Loaded Redoc config", "redoc", now() - configLoadedAt);
+    const parseStartedAt = now();
+    const absoluteRef = sourceAbsoluteRef(request.source, request.cwd);
+    const document = await parseSchema(request.source, { absoluteRef, resolver });
+    logger.debug("Parsed schema", "redoc", now() - parseStartedAt);
+    assertOpenAPI3(document.parsed);
+    return this.#lintAndBundle(document, resolver, request.shouldLint);
   }
 
   #resolver(request: SchemaLoadRequest): RefAccessResolver {
