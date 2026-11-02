@@ -5,6 +5,7 @@ import {
   type BaseResolver,
   type Document,
   makeDocumentFromString,
+  ResolveError,
   Source,
   YamlParseError,
 } from "@redocly/openapi-core";
@@ -87,12 +88,24 @@ async function resolveSchemaURL(options: ParseSchemaOptions): Promise<Document> 
     .catch((cause: unknown) => {
       throw cause instanceof YamlParseError
         ? fileParseFailedError(options.absoluteRef, cause)
-        : loadFailedError(options.absoluteRef, cause);
+        : loadFailedError(options.absoluteRef, readerError(cause));
     });
   if ("parsed" in result) {
     return result;
   }
-  throw loadFailedError(options.absoluteRef, result.originalError);
+  throw loadFailedError(options.absoluteRef, readerError(result));
+}
+
+/**
+ * Redocly wraps a failed read in `ResolveError`, which keeps the reader's error in
+ * `originalError`, not in `cause`. Unwrapped, the cause keeps the network reason (refused, DNS).
+ */
+function readerError(error: unknown): unknown {
+  let current = error;
+  while (current instanceof ResolveError) {
+    current = current.originalError;
+  }
+  return current;
 }
 
 /**

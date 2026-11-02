@@ -114,6 +114,18 @@ describe("remote $ref", () => {
     expect(error.message).toBe(`Timed out after ${TEST_TIMEOUT_MS} ms loading ${baseURL}/drip.json`);
   });
 
+  it("a refused connection keeps the network reason as the cause", async () => {
+    const closed = createServer();
+    await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
+    const { port } = closed.address() as AddressInfo;
+    await new Promise<void>((resolve) => closed.close(() => resolve()));
+
+    const error = await loadFailure(new URL(`http://127.0.0.1:${port}/a.json`));
+
+    expect(error).toMatchObject({ code: "SCHEMA_LOAD_FAILED", message: "fetch failed" });
+    expect((error.cause as Error).cause).toMatchObject({ code: "ECONNREFUSED" });
+  });
+
   it("an unsupported key in a remote document names that document", async () => {
     const error = await loadFailure(withRemoteRef("/unsupported-key.json"));
 

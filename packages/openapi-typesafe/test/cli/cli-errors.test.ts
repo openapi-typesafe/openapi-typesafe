@@ -37,6 +37,48 @@ describe("describeCliFailure", () => {
     expect(failureFor("SCHEMA_INVALID").message).toContain("has 1 error");
   });
 
+  it("describeCliFailure with a failed fetch names the source and the network reason", () => {
+    const reason = new Error("connect ECONNREFUSED 127.0.0.1:9");
+    const error = new OpenAPITypesafeError({
+      code: "SCHEMA_LOAD_FAILED",
+      message: "fetch failed",
+      details: { source: "http://127.0.0.1:9/a.yaml" },
+      cause: new TypeError("fetch failed", { cause: reason }),
+    });
+
+    expect(describeCliFailure(error).message).toBe(
+      "fetch failed: connect ECONNREFUSED 127.0.0.1:9 (http://127.0.0.1:9/a.yaml) " + "(SCHEMA_LOAD_FAILED)",
+    );
+  });
+
+  it("describeCliFailure with a load failure without a nested reason keeps the message", () => {
+    const error = new OpenAPITypesafeError({
+      code: "SCHEMA_LOAD_FAILED",
+      message: "ENOENT: no such file or directory 'a.yaml'",
+      details: { source: "file:///a.yaml" },
+      cause: new Error("ENOENT: no such file or directory 'a.yaml'"),
+    });
+
+    expect(describeCliFailure(error).message).toBe("ENOENT: no such file or directory 'a.yaml' (SCHEMA_LOAD_FAILED)");
+  });
+
+  it("describeCliFailure with the YAML nesting limit says how to fix the document", () => {
+    const message = failureFor("SCHEMA_PARSE_FAILED").message;
+    const deep = describeCliFailure(
+      new OpenAPITypesafeError({
+        code: "SCHEMA_PARSE_FAILED",
+        message: 'nesting exceeded maxDepth (100) in "a.yaml" (1:1974)',
+      }),
+    ).message;
+
+    expect(message).toBe("Message (SCHEMA_PARSE_FAILED)");
+    expect(deep).toBe(
+      'nesting exceeded maxDepth (100) in "a.yaml" (1:1974). The YAML parser reads at most 100 ' +
+        "nested levels: move nested schemas to `components` and reference them with `$ref` " +
+        "(SCHEMA_PARSE_FAILED)",
+    );
+  });
+
   it("describeCliFailure with an untyped error returns INTERNAL with the stack", () => {
     const failure = describeCliFailure(new TypeError("boom"));
 

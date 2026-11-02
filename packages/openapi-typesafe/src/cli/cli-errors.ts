@@ -40,11 +40,39 @@ function schemaInvalidMessage(error: OpenAPITypesafeError): string {
   return `The OpenAPI document has ${count} ${count === 1 ? "error" : "errors"} (see above)`;
 }
 
+/**
+ * Node's `fetch` fails with only "fetch failed"; the network reason (refused, DNS, TLS) is the
+ * cause of that error. The Node API keeps the original message, so only the CLI adds it.
+ */
+function loadFailedMessage(error: OpenAPITypesafeError): string {
+  const reason = error.cause instanceof Error ? error.cause.cause : undefined;
+  if (!(reason instanceof Error)) {
+    return error.message;
+  }
+  const source = typeof error.details.source === "string" ? ` (${error.details.source})` : "";
+  return `${error.message}: ${reason.message}${source}`;
+}
+
+/** The message js-yaml throws at its nesting limit (docs/security/threat-model.md T2). */
+const YAML_DEPTH_LIMIT_MESSAGE = /nesting exceeded maxDepth \((\d+)\)/;
+
+/** The parser's message says the limit, not how to stay under it. */
+function parseFailedMessage(error: OpenAPITypesafeError): string {
+  const limit = YAML_DEPTH_LIMIT_MESSAGE.exec(error.message)?.[1];
+  if (limit === undefined) {
+    return error.message;
+  }
+  return (
+    `${error.message}. The YAML parser reads at most ${limit} nested levels: ` +
+    "move nested schemas to `components` and reference them with `$ref`"
+  );
+}
+
 const CLI_ERROR_REPORTS: Readonly<Record<ErrorCode, CliErrorReport>> = {
   SCHEMA_SOURCE_EMPTY: { exitCode: EXIT_CODES.SCHEMA },
   SCHEMA_SOURCE_INVALID: { exitCode: EXIT_CODES.SCHEMA },
-  SCHEMA_LOAD_FAILED: { exitCode: EXIT_CODES.SCHEMA },
-  SCHEMA_PARSE_FAILED: { exitCode: EXIT_CODES.SCHEMA },
+  SCHEMA_LOAD_FAILED: { exitCode: EXIT_CODES.SCHEMA, message: loadFailedMessage },
+  SCHEMA_PARSE_FAILED: { exitCode: EXIT_CODES.SCHEMA, message: parseFailedMessage },
   SCHEMA_VERSION_UNSUPPORTED: { exitCode: EXIT_CODES.SCHEMA },
   SCHEMA_INVALID: { exitCode: EXIT_CODES.SCHEMA, message: schemaInvalidMessage },
   SCHEMA_REF_INVALID: { exitCode: EXIT_CODES.SCHEMA },
