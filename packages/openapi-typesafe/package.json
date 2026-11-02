@@ -52,7 +52,7 @@
     "dev": "tsc -p tsconfig.build.json --watch",
     "download:schemas": "vite-node ./scripts/download-schemas.ts",
     "format": "biome format . --write",
-    "lint": "pnpm run lint:js && pnpm run lint:ts",
+    "lint": "pnpm run lint:js && pnpm run lint:ts && pnpm run lint:deps",
     "lint:js": "biome check .",
     "lint:ts": "tsc --noEmit",
     "prepack": "pnpm run build",
@@ -62,7 +62,8 @@
     "test:examples": "tsc -p tsconfig.examples.json --noEmit",
     "update:examples": "pnpm run build && pnpm run download:schemas && vite-node ./scripts/update-examples.ts",
     "prepublish": "pnpm run build",
-    "version": "pnpm run build"
+    "version": "pnpm run build",
+    "lint:deps": "depcruise src --config .dependency-cruiser.cjs"
   },
   "peerDependencies": {
     "typescript": "^5.x"
@@ -80,6 +81,7 @@
     "@types/degit": "2.8.6",
     "@types/js-yaml": "4.0.9",
     "degit": "2.8.6",
+    "dependency-cruiser": "18.7.0",
     "execa": "catalog:",
     "strip-ansi": "7.2.0",
     "typescript": "catalog:",
