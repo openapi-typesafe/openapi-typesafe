@@ -21,10 +21,11 @@ repository is public.
 ## 1. Closed beta (11.1)
 
 - [ ] Reserve the npm names: `scripts/release/reserve-names.sh`, then the commands it prints
-      (npm account with 2FA).
-- [ ] Pack the beta: `scripts/release/pack-beta.sh 1.0.0-beta.1`.
+      (npm account with 2FA). All five names were free on 2026-11-02.
+- [x] Pack the beta: `scripts/release/pack-beta.sh 1.0.0-beta.1` (smoke install passed).
 - [ ] Add 10–20 testers as read-only collaborators.
-- [ ] Run the `gh release create` command the script prints (private prerelease).
+- [x] Run the `gh release create` command the script prints: private prerelease
+      `beta-1.0.0-beta.1` with the five tarballs and `SHA256SUMS` (2026-11-02).
 - [ ] Triage tester reports as issues; fix with changesets; pack `beta.<n+1>` when needed.
 
 ## 2. Make the repository public (11.2)
