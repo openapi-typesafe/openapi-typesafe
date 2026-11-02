@@ -4,19 +4,25 @@ import {
   type ManualStep,
   unchanged,
 } from "./migration-findings.js";
+import { overriddenPackages } from "./override-targets.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import { migrateVersionSpec } from "./version-spec.js";
 
 /**
  * pnpm catalogs (`pnpm-workspace.yaml`): a project whose package.json says `"openapi-fetch":
  * "catalog:"` keeps its version here. The file is edited line by line, not parsed and written
- * again, so comments and formatting stay. Only entries under `catalog:` or `catalogs:` are renamed.
+ * again, so comments and formatting stay. Only entries under `catalog:` or `catalogs:` are renamed;
+ * `overrides:` and `patchedDependencies:` entries that name an original package are reported, like
+ * the same fields of package.json.
  */
 
 /** `  openapi-fetch: ^0.13.1`, `  "openapi-fetch": "0.13"`; groups: indent, quote, name, spec. */
 const ENTRY_RE = /^(\s+)(["']?)([\w@./-]+)\2:\s*(["']?)([^"'#\s]+)\4(.*)$/;
 const TOP_LEVEL_KEY_RE = /^([\w-]+):/;
+/** `  "app>openapi-fetch": 1.0.0`; groups: quote, key. */
+const KEY_RE = /^\s+(["']?)(.+?)\1:(?:\s|$)/;
 const CATALOG_SECTIONS: ReadonlySet<string> = new Set(["catalog", "catalogs"]);
+const REPORTED_SECTIONS: ReadonlySet<string> = new Set(["overrides", "patchedDependencies"]);
 
 interface LineResult {
   readonly line: string;
@@ -45,18 +51,34 @@ function migrateEntry(line: string, version: string): LineResult {
   return { line: migrated, change };
 }
 
-/** Rename the original packages in the catalogs of a pnpm-workspace.yaml. */
+/** The manual step for an override or patch entry that names an original package. */
+function reportEntry(line: string, field: string): ManualStep[] {
+  const key = KEY_RE.exec(line)?.[2];
+  return key === undefined
+    ? []
+    : overriddenPackages({ [key]: null }).map((name) => ({
+        kind: "override-names-package",
+        field,
+        name,
+      }));
+}
+
+/** Rename the original packages in the catalogs of a pnpm-workspace.yaml; report its overrides. */
 export function migrateWorkspaceCatalogs(text: string, version: string): FileMigration {
   const changes: Change[] = [];
   const manualSteps: ManualStep[] = [];
-  let isInCatalog = false;
+  let section: string | undefined;
   const lines = text.split("\n").map((line) => {
     const topLevelKey = TOP_LEVEL_KEY_RE.exec(line)?.[1];
     if (topLevelKey !== undefined) {
-      isInCatalog = CATALOG_SECTIONS.has(topLevelKey);
+      section = topLevelKey;
       return line;
     }
-    if (!isInCatalog) {
+    if (section !== undefined && REPORTED_SECTIONS.has(section)) {
+      manualSteps.push(...reportEntry(line, section));
+      return line;
+    }
+    if (section === undefined || !CATALOG_SECTIONS.has(section)) {
       return line;
     }
     const result = migrateEntry(line, version);
@@ -64,5 +86,7 @@ export function migrateWorkspaceCatalogs(text: string, version: string): FileMig
     manualSteps.push(...(result.manualStep ? [result.manualStep] : []));
     return result.line;
   });
-  return changes.length === 0 ? unchanged(text) : { text: lines.join("\n"), changes, manualSteps };
+  return changes.length === 0
+    ? { ...unchanged(text), manualSteps }
+    : { text: lines.join("\n"), changes, manualSteps };
 }

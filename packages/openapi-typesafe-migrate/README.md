@@ -20,14 +20,16 @@ Run it in the project root, with a clean git tree, so you can review the diff.
 | Sources (`.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, `.vue`, `.svelte`, `.astro`, …)         | Quoted module specifiers: imports, `require()`, `import()`, `vi.mock()`, `declare module`, tool configs.                                                                                                          |
 | `openapiTS(source, { transform })` calls                                               | When `transform` is the only callback and returns plain `ts.factory` types (or the helper constants), the returns become type text and `irCallbacks: true` is added.                                              |
 
-`node_modules`, `.git` and `dist` are skipped; links are not followed.
+`node_modules`, `.git`, `dist` and the output folders `.next`, `.nuxt`, `.output`, `.svelte-kit`,
+`.turbo` and `coverage` are skipped; links are not followed.
 
 ## What it leaves to you
 
 The report lists each of these with the file and line:
 
 - a version spec it cannot replace (`latest`, a URL, a file, an npm alias), and `overrides` /
-  `resolutions` that name an old package;
+  `resolutions` / `pnpm` settings (in `package.json` or `pnpm-workspace.yaml`, patches included)
+  that name an old package;
 - a renamed peer dependency: users of your package must switch too;
 - `npx openapi-typescript@<version>`: the old package is pinned, change it by hand;
 - deep imports such as `openapi-fetch/dist/...`: check that the file exists in the new package;

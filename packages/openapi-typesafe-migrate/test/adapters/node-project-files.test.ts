@@ -20,13 +20,16 @@ describe("NodeProjectFiles", () => {
     await writeFile(join(root, path), text);
   }
 
-  it("listFiles lists the tree by relative paths without installed packages, git and build output", async () => {
+  it("listFiles lists the tree without installed packages, git, build and tool output", async () => {
     await put("package.json", "{}");
     await put("src/api/client.ts", "");
     await put("node_modules/x/index.js", "");
     await put("apps/web/node_modules/y.js", "");
     await put(".git/HEAD", "");
     await put("dist/index.js", "");
+    for (const directory of [".next", ".nuxt", ".output", ".svelte-kit", ".turbo", "coverage"]) {
+      await put(`${directory}/out.js`, "");
+    }
     await symlink(join(root, "src"), join(root, "linked"));
 
     const files = await createNodeProjectFiles(root).listFiles();

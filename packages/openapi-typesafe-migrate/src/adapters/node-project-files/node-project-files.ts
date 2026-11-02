@@ -4,10 +4,22 @@ import { join } from "node:path";
 import type { ProjectFiles } from "../../application/ports.js";
 
 /**
- * Installed packages, git metadata and build output are not the project's own files. Links are
- * not followed, so a linked workspace package is migrated in its own project, not twice.
+ * Installed packages, git metadata, build output and the output folders of frameworks and test
+ * tools are not the project's own files: rewriting them only adds noise to the dry run and the diff.
+ * `build` and `out` stay in, because some projects keep sources there. Links are not followed, so a
+ * linked workspace package is migrated in its own project, not twice.
  */
-const SKIPPED_DIRECTORIES: ReadonlySet<string> = new Set(["node_modules", ".git", "dist"]);
+const SKIPPED_DIRECTORIES: ReadonlySet<string> = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  ".next",
+  ".nuxt",
+  ".output",
+  ".svelte-kit",
+  ".turbo",
+  "coverage",
+]);
 
 async function listTree(root: string, relative: string): Promise<string[]> {
   const entries: Dirent[] = await readdir(join(root, relative), { withFileTypes: true });

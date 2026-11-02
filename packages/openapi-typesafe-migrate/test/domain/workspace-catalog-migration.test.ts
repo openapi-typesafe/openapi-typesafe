@@ -46,8 +46,28 @@ describe("migrateWorkspaceCatalogs", () => {
   });
 
   it("migrateWorkspaceCatalogs leaves a file without catalog entries unchanged", () => {
-    const text = "packages:\n  - apps/*\noverrides:\n  openapi-fetch: 1.0.0\n";
+    const text = "packages:\n  - apps/*\noverrides:\n  react: 19.0.0\n";
 
     expect(migrateWorkspaceCatalogs(text, "1.0.0")).toEqual({ text, changes: [], manualSteps: [] });
+  });
+
+  it("migrateWorkspaceCatalogs reports overrides and patches that name an original package", () => {
+    const text = [
+      "overrides:",
+      '  "app>openapi-fetch": 0.13.0',
+      "  openapi-typescript-helpers: 0.0.15",
+      "patchedDependencies:",
+      "  openapi-typescript@7.6.1: patches/openapi-typescript.patch",
+      "",
+    ].join("\n");
+
+    const migrated = migrateWorkspaceCatalogs(text, "1.0.0");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "override-names-package", field: "overrides", name: "openapi-fetch" },
+      { kind: "override-names-package", field: "overrides", name: "openapi-typescript-helpers" },
+      { kind: "override-names-package", field: "patchedDependencies", name: "openapi-typescript" },
+    ]);
   });
 });

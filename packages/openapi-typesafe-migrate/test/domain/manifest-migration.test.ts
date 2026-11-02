@@ -71,6 +71,27 @@ describe("migratePackageManifest", () => {
     ]);
   });
 
+  it("migratePackageManifest reports only the package an override key targets", () => {
+    const pnpm = {
+      overrides: { "openapi-typescript-helpers": "0.0.15", "a>openapi-fetch@0": "1" },
+    };
+    const text = manifest({ pnpm, resolutions: { "**/openapi-react-query": "0.3.0" } });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.manualSteps).toEqual([
+      { kind: "override-names-package", field: "resolutions", name: "openapi-react-query" },
+      { kind: "override-names-package", field: "pnpm", name: "openapi-typescript-helpers" },
+      { kind: "override-names-package", field: "pnpm", name: "openapi-fetch" },
+    ]);
+  });
+
+  it("migratePackageManifest does not take a scoped package for an original one", () => {
+    const text = manifest({ resolutions: { "@acme/openapi-fetch": "1.0.0" } });
+
+    expect(migratePackageManifest(text, "1.0.0").manualSteps).toEqual([]);
+  });
+
   it("migratePackageManifest keeps tab indentation and a missing final newline", () => {
     const text = JSON.stringify({ dependencies: { "openapi-fetch": "1.0.0" } }, null, "\t");
 

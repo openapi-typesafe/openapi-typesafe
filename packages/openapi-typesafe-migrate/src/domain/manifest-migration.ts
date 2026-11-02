@@ -5,6 +5,7 @@ import {
   type ManualStep,
   unchanged,
 } from "./migration-findings.js";
+import { overriddenPackages } from "./override-targets.js";
 import { DEPENDENCY_FIELDS, OVERRIDE_FIELDS, PACKAGE_RENAMES } from "./package-names.js";
 import { migrateVersionSpec } from "./version-spec.js";
 
@@ -78,11 +79,8 @@ function migrateScripts(scripts: JsonObject, findings: Findings): JsonObject {
 /** Overrides and resolutions can pin the old packages; changing them needs the user's intent. */
 function reportOverrides(manifest: JsonObject, findings: Findings): void {
   for (const field of OVERRIDE_FIELDS) {
-    const text = JSON.stringify(manifest[field] ?? null);
-    for (const name of PACKAGE_RENAMES.keys()) {
-      if (text.includes(`"${name}`)) {
-        findings.manualSteps.push({ kind: "override-names-package", field, name });
-      }
+    for (const name of overriddenPackages(manifest[field])) {
+      findings.manualSteps.push({ kind: "override-names-package", field, name });
     }
   }
 }
