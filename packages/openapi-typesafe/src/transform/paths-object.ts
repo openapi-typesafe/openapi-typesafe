@@ -55,12 +55,15 @@ export default function transformPathsObject(pathsObject: PathsObject, ctx: Glob
             switch (param?.schema?.type) {
               case "number":
               case "integer":
+                // biome-ignore lint/suspicious/noTemplateCurlyInString: emits a TypeScript template literal type, not a JS template
                 rawPath = rawPath.replace(match, "${number}");
                 break;
               case "boolean":
+                // biome-ignore lint/suspicious/noTemplateCurlyInString: emits a TypeScript template literal type, not a JS template
                 rawPath = rawPath.replace(match, "${boolean}");
                 break;
               default:
+                // biome-ignore lint/suspicious/noTemplateCurlyInString: emits a TypeScript template literal type, not a JS template
                 rawPath = rawPath.replace(match, "${string}");
                 break;
             }

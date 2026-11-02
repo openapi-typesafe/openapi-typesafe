@@ -50,8 +50,7 @@ Then import the types:
 import type { components, paths } from "./path/to/schema";
 
 type User = components["schemas"]["User"];
-type GetUserResponse =
-  paths["/users/{id}"]["get"]["responses"][200]["content"]["application/json"];
+type GetUserResponse = paths["/users/{id}"]["get"]["responses"][200]["content"]["application/json"];
 ```
 
 Run `npx openapi-typesafe --help` for all options. Generated examples for real APIs are in [`examples/`](./examples).

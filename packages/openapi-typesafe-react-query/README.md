@@ -39,15 +39,11 @@ const fetchClient = createFetchClient<paths>({
 const $api = createClient(fetchClient);
 
 const MyComponent = () => {
-  const { data, error, isPending } = $api.useQuery(
-    "get",
-    "/blogposts/{post_id}",
-    {
-      params: {
-        path: { post_id: 5 },
-      },
-    }
-  );
+  const { data, error, isPending } = $api.useQuery("get", "/blogposts/{post_id}", {
+    params: {
+      path: { post_id: 5 },
+    },
+  });
 
   if (isPending || !data) return "Loading...";
 

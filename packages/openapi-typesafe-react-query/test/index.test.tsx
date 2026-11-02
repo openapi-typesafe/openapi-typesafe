@@ -67,6 +67,14 @@ afterEach(() => {
 
 afterAll(() => server.close());
 
+/** The mock server rejects with a plain `{ code, message }` object, not an `Error`, so read `message` safely. */
+function readErrorMessage(error: unknown): string {
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String(error.message);
+  }
+  return String(error);
+}
+
 describe("client", () => {
   it("generates all proper functions", () => {
     const fetchClient = createFetchClient<paths>({ baseUrl });
@@ -616,7 +624,7 @@ describe("client", () => {
 
       render(
         <QueryClientProvider client={queryClient}>
-          <ErrorBoundary fallbackRender={({ error }) => <p>{error.message}</p>}>
+          <ErrorBoundary fallbackRender={({ error }) => <p>{readErrorMessage(error)}</p>}>
             <Suspense fallback={<p>loading</p>}>
               <TestComponent />
             </Suspense>
@@ -847,10 +855,10 @@ describe("client", () => {
           () =>
             client.useMutation("put", "/comment", {
               onMutate: () => onMutateReturnValue,
-              onError: (err, _, onMutateResult, context) => {
+              onError: (_err, _, onMutateResult, _context) => {
                 assertType<expectedOnMutateResultType>(onMutateResult);
               },
-              onSettled: (_data, _error, _variables, onMutateResult, context) => {
+              onSettled: (_data, _error, _variables, onMutateResult, _context) => {
                 assertType<expectedOnMutateResultType>(onMutateResult);
               },
             }),
@@ -1082,7 +1090,7 @@ describe("client", () => {
       expect(firstRequestUrl?.searchParams.get("cursor")).toBe("0");
 
       // Set up mock for second page before triggering next page fetch
-      const secondRequestHandler = useMockRequestHandler({
+      useMockRequestHandler({
         baseUrl,
         method: "get",
         path: "/paginated-data",
@@ -1209,7 +1217,7 @@ describe("client", () => {
       const client = createClient(fetchClient);
 
       // First page request handler
-      const firstRequestHandler = useMockRequestHandler({
+      useMockRequestHandler({
         baseUrl,
         method: "get",
         path: "/paginated-data",
@@ -1245,7 +1253,7 @@ describe("client", () => {
       expect(result.current.data).toEqual([1, 2, 3]);
 
       // Set up mock for second page before triggering next page fetch
-      const secondRequestHandler = useMockRequestHandler({
+      useMockRequestHandler({
         baseUrl,
         method: "get",
         path: "/paginated-data",

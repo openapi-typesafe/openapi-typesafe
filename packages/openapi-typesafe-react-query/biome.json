@@ -1,9 +1,9 @@
 {
   "root": false,
-  "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
   "extends": "//",
   "files": {
-    "includes": ["**", "!dist/**", "!test/fixtures/**"]
+    "includes": ["**", "!dist", "!test/fixtures"]
   },
   "linter": {
     "rules": {
@@ -14,5 +14,17 @@
         "noConfusingVoidType": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["test/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noComponentHookFactories": "off"
+          }
+        }
+      }
+    }
+  ]
 }
