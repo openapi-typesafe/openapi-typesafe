@@ -5,7 +5,7 @@
   "type": "module",
   "author": {
     "name": "Fedor Chishchin",
-    "email": "fedorstartup@gmail.com"
+    "url": "https://github.com/fedorello"
   },
   "packageManager": "pnpm@12.16.1",
   "scripts": {
