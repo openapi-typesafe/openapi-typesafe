@@ -1,6 +1,7 @@
 packages:
   - docs
   - packages/**
+  - tools/*
 
 catalog:
   execa: ^10.2.1

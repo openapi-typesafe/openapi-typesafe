@@ -1,0 +1,23 @@
+{
+  "name": "@openapi-typesafe/compat-harness",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Compatibility harness: real-world OpenAPI corpus, golden outputs, and comparison reports",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "harness": "node src/cli/main.ts",
+    "lint": "pnpm run lint:js && pnpm run lint:ts",
+    "lint:js": "biome check .",
+    "lint:ts": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "typescript": "catalog:",
+    "zod": "4.6.7"
+  }
+}

@@ -15,3 +15,6 @@ packages/openapi-typesafe/test/fixtures/cli-outputs/out
 # Playwright output
 test-results
 playwright-report
+
+# Compatibility harness cache: downloaded corpus documents and generated outputs
+.cache
