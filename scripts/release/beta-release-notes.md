@@ -57,16 +57,29 @@ the npm snippet works only in npm.
 
 For Bun, name the field `overrides` instead of `resolutions`.
 
-Add `openapi-typesafe-react-query` and `openapi-typesafe-migrate` the same way if you use them.
+Add `openapi-typesafe-react-query` the same way if you use it. Do not install
+`openapi-typesafe-migrate`: run it from its tarball (see "Try it").
+
+A `file:` path is relative to the `package.json` that has it. In a monorepo, a package in
+`packages/api` writes `file:../../vendor/openapi-typesafe/…`, while the overrides (in the root
+`package.json` or `pnpm-workspace.yaml`) are relative to the root.
 
 ## Try it
 
-- Migrating from openapi-typescript / openapi-fetch / openapi-react-query: install
-  `openapi-typesafe-migrate` from its tarball, run `npx openapi-typesafe-migrate` to see the report,
-  then `npx openapi-typesafe-migrate --write`. It sets the new packages to version `{{VERSION}}`
-  (with the `^` or `~` your old versions had), which is not on npm: change those versions to the
-  `file:` paths above and add the overrides before you install. Then regenerate your schema and
-  run your type check and tests.
+- Migrating from openapi-typescript / openapi-fetch / openapi-react-query: from the project
+  root, run the tool from its tarball, first for the report, then with `--write`:
+
+  ```sh
+  npx --package ./vendor/openapi-typesafe/openapi-typesafe-migrate-{{VERSION}}.tgz openapi-typesafe-migrate
+  npx --package ./vendor/openapi-typesafe/openapi-typesafe-migrate-{{VERSION}}.tgz openapi-typesafe-migrate --write
+  ```
+
+  `npx` comes with Node.js, so this works whatever package manager the project uses; a plain
+  `npx openapi-typesafe-migrate` finds only the empty npm placeholder. (`pnpm dlx` needs an
+  absolute path: `pnpm dlx "$PWD/vendor/…"`.) The tool sets the new packages to version
+  `{{VERSION}}` (with the `^` or `~` your old versions had), which is not on npm: change those
+  versions to the `file:` paths above and add the overrides before you install. Then regenerate
+  your schema and run your type check and tests.
 - New project: see the README of each package in the tarball.
 
 ## What to report
