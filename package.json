@@ -7,7 +7,7 @@
     "name": "Fedor Chishchin",
     "email": "fedorstartup@gmail.com"
   },
-  "packageManager": "pnpm@10.30.3",
+  "packageManager": "pnpm@12.16.1",
   "scripts": {
     "build": "turbo run build",
     "lint": "turbo run lint",

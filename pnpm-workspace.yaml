@@ -7,12 +7,15 @@ catalog:
   typescript: ^5.9.3
   vite: ^8.3.5
 
-ignoredBuiltDependencies:
-  - '@swc/core'
-  - esbuild
-  - msw
-  - sharp
-  - svelte-preprocess
+# Supply-chain policy: never install a version published less than 24 hours ago (most malicious
+# releases are detected and unpublished within that window). Value is in minutes.
+minimumReleaseAge: 1440
 
-onlyBuiltDependencies:
-  - '@biomejs/biome'
+# pnpm 11+ blocks dependency build scripts unless listed here (true = allowed to run, false = skipped).
+allowBuilds:
+  '@biomejs/biome': true
+  '@swc/core': false
+  esbuild: false
+  msw: false
+  sharp: false
+  svelte-preprocess: false
