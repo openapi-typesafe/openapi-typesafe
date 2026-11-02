@@ -12,7 +12,7 @@ import {
   UNKNOWN,
 } from "./lib/ts.js";
 import { createRef, getEntries } from "./lib/utils.js";
-import type { ResponseObject, TransformNodeOptions } from "../../../src/types.js";
+import type { ResponseObject, TransformNodeOptions } from "./lib/types.js";
 import transformHeaderObject from "./header-object.js";
 import transformMediaTypeObject from "./media-type-object.js";
 

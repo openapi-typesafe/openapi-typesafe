@@ -1,17 +1,22 @@
 import type ts from "typescript";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
-import { transformDocument } from "../transform/index.js";
-import type { GlobalContext, OpenAPI3 } from "../types.js";
-import type { LegacyFooterSink } from "./footer-sink.js";
+import { type FooterEntry, isIrDeclaration } from "./footer-entry.js";
 import { stringToAST } from "./ts.js";
 import { printWithTypeScript } from "./typescript-printer.js";
+
+/** The document in three parts; the footer may hold TypeScript nodes from user code. */
+export interface TransformedDocument {
+  readonly body: readonly IrDeclaration[];
+  readonly footer: readonly FooterEntry[];
+  readonly closing: readonly IrDeclaration[];
+}
 
 /** The TypeScript printer ends the file with a line break; a raw declaration holds the text without it. */
 function withoutFinalLineBreak(text: string): string {
   return text.endsWith("\n") ? text.slice(0, -1) : text;
 }
 
-/** A node the generator did not build (from a user callback), as the TypeScript printer prints it. */
+/** A TypeScript node from user code, as the TypeScript printer prints it. */
 function printedNode(node: ts.Node): IrDeclaration {
   return { kind: "rawDeclaration", text: withoutFinalLineBreak(printWithTypeScript([node])) };
 }
@@ -26,23 +31,18 @@ function reprinted(declaration: IrDeclaration): IrDeclaration | null {
     return declaration;
   }
   const text = withoutFinalLineBreak(printWithTypeScript(stringToAST(declaration.text) as ts.Node[]));
-  return text === "" ? null : { kind: "rawDeclaration", text };
+  return text === "" ? null : { ...declaration, text };
 }
 
-/** Footer nodes in IR: the generator's own nodes from the sink, other nodes as printed text. */
-function footerDeclarations(footer: readonly ts.Node[], sink: LegacyFooterSink | undefined): IrDeclaration[] {
-  return footer.flatMap((node) => {
-    const declaration = sink?.declarationOf(node);
-    return declaration ? (reprinted(declaration) ?? []) : [printedNode(node)];
-  });
+function entryDeclaration(entry: FooterEntry): IrDeclaration | null {
+  return isIrDeclaration(entry) ? reprinted(entry) : printedNode(entry);
 }
 
-/** One run's document as IR declarations, in output order (ENGINEERING_PLAN 6.1). */
-export function documentDeclarations(schema: OpenAPI3, ctx: GlobalContext): IrDeclaration[] {
-  const { body, footer, closing } = transformDocument(schema, ctx);
+/** The document as IR declarations in output order; footer TypeScript nodes become raw text. */
+export function documentDeclarations({ body, footer, closing }: TransformedDocument): IrDeclaration[] {
   return [
     ...body.flatMap((declaration) => reprinted(declaration) ?? []),
-    ...footerDeclarations(footer, ctx.runFooter?.sink),
+    ...footer.flatMap((entry) => entryDeclaration(entry) ?? []),
     ...closing,
   ];
 }

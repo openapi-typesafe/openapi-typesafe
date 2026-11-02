@@ -1,6 +1,7 @@
 import fc from "fast-check";
-import ts from "typescript";
+import type ts from "typescript";
 import { describe, expect, it } from "vitest";
+import type { IrMember, IrType } from "../../src/domain/ir/nodes.js";
 import transformHeaderObject from "../../src/transform/header-object.js";
 import transformMediaTypeObject from "../../src/transform/media-type-object.js";
 import transformParameterObject from "../../src/transform/parameter-object.js";
@@ -16,6 +17,7 @@ import {
   headerArbitrary,
   key,
   mediaTypeArbitrary,
+  objectOf,
   RUNS,
   runLegacy,
   schemaArbitrary,
@@ -54,7 +56,7 @@ const parameterOrReference = fc.oneof(
 );
 const parameters = fc.array(parameterOrReference, { maxLength: 5 });
 
-type Build = (options: TransformNodeOptions) => ts.TypeNode;
+type Build = (options: TransformNodeOptions) => IrType | ts.TypeNode;
 
 /** `path` is explicit because the parameters test also covers a missing path. */
 function expectSameOutput(
@@ -68,10 +70,10 @@ function expectSameOutput(
 
 /** A parameters array as a type literal, so the property list prints like any type. */
 function parametersType(
-  transform: typeof transformParametersArray,
+  transform: (value: never, options: never) => IrMember[] | ts.TypeElement[],
   value: unknown[],
-): (options: TransformNodeOptions) => ts.TypeNode {
-  return (options) => ts.factory.createTypeLiteralNode(transform(value as never, options));
+): Build {
+  return (options) => objectOf(transform(value as never, options as never));
 }
 
 describe("document transformer parity with the fork base", () => {
@@ -82,7 +84,7 @@ describe("document transformer parity with the fork base", () => {
         fc.property(mediaTypeArbitrary, contextInput, (value, input) => {
           expectSameOutput(
             (options) => transformMediaTypeObject(value as never, options),
-            (options) => originalTransformMediaTypeObject(value as never, options),
+            (options) => originalTransformMediaTypeObject(value as never, options as never),
             input,
             input.path,
           );
@@ -100,7 +102,7 @@ describe("document transformer parity with the fork base", () => {
         fc.property(headerArbitrary, contextInput, (value, input) => {
           expectSameOutput(
             (options) => transformHeaderObject(value as never, options),
-            (options) => originalTransformHeaderObject(value as never, options),
+            (options) => originalTransformHeaderObject(value as never, options as never),
             input,
             input.path,
           );
@@ -118,7 +120,7 @@ describe("document transformer parity with the fork base", () => {
         fc.property(parameter, contextInput, (value, input) => {
           expectSameOutput(
             (options) => transformParameterObject(value as never, options),
-            (options) => originalTransformParameterObject(value as never, options),
+            (options) => originalTransformParameterObject(value as never, options as never),
             input,
             input.path,
           );

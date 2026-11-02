@@ -7,11 +7,9 @@ import type {
 } from "../schema/schema-context.js";
 import type { DocumentFooter } from "../transform-context.js";
 import { EnumNaming, enumDeclaration } from "./enum-naming.js";
+import { HELPER_TYPES, type HelperType } from "./helper-types.js";
 
-/**
- * Where footer declarations go, in order. Until output is printed by our printer (Phase 5,
- * step 7) this is the legacy `ctx.injectFooter` list, which user callbacks may also add to.
- */
+/** Where footer declarations go, in order: the run's `ctx.injectFooter`, which user code may add to. */
 export interface FooterSink {
   /** Whether a type alias with this name is declared already (by the generator or a user). */
   hasTypeAlias(name: string): boolean;
@@ -19,28 +17,6 @@ export interface FooterSink {
   /** Add a member to the `operations` interface, declared first if needed; see `DocumentFooter`. */
   addOperation(build: () => IrPropertySignature): void;
 }
-
-/** Helper type aliases, declared once each, with the original's source text. */
-const HELPERS = {
-  withRequired: {
-    name: "WithRequired",
-    text: "type WithRequired<T, K extends keyof T> = T & { [P in K]-?: T[P] };",
-  },
-  flattenedDeepRequired: {
-    name: "FlattenedDeepRequired",
-    text:
-      "type FlattenedDeepRequired<T> = { [K in keyof T]-?: FlattenedDeepRequired<T[K] extends " +
-      "unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>; };",
-  },
-  readonlyArray: {
-    name: "ReadonlyArray",
-    text:
-      "type ReadonlyArray<T> = [Exclude<T, undefined>] extends [unknown[]] ? " +
-      "Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;",
-  },
-} as const;
-
-type Helper = (typeof HELPERS)[keyof typeof HELPERS];
 
 /**
  * The `--dedupe-enums` key of the original: the values in default sort order, each paired with
@@ -100,8 +76,8 @@ export class RunFooter implements DocumentFooter {
 
   addEnumValues(request: EnumValuesRequest): void {
     const name = this.naming.arrayName(request.name);
-    this.require(HELPERS.flattenedDeepRequired);
-    this.require(HELPERS.readonlyArray);
+    this.require(HELPER_TYPES.flattenedDeepRequired);
+    this.require(HELPER_TYPES.readonlyArray);
     this.sink.add({
       kind: "constArray",
       name,
@@ -113,20 +89,20 @@ export class RunFooter implements DocumentFooter {
   }
 
   requireWithRequired(): void {
-    this.require(HELPERS.withRequired);
+    this.require(HELPER_TYPES.withRequired);
   }
 
   addOperation(build: () => IrPropertySignature): void {
     this.sink.addOperation(build);
   }
 
-  private require(helper: Helper): void {
+  private require(helper: HelperType): void {
     if (!this.sink.hasTypeAlias(helper.name)) {
-      this.sink.add({ kind: "rawDeclaration", text: helper.text });
+      this.sink.add({ kind: "rawDeclaration", name: helper.name, text: helper.text });
     }
   }
 }
 
 function readonlyArrayOf(type: IrType): IrType {
-  return irReference(HELPERS.readonlyArray.name, [type]);
+  return irReference(HELPER_TYPES.readonlyArray.name, [type]);
 }

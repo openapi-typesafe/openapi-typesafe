@@ -12,8 +12,8 @@ import type {
   SchemaCallbacks,
   SchemaLocation,
 } from "../application/transform/schema/schema-context.js";
-import { UNKNOWN_TYPE } from "../application/transform/shared-types.js";
 import type {
+  DocumentFooter,
   NameCasing,
   TemplateLiteralParser,
   TransformContext,
@@ -23,13 +23,13 @@ import type {
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
 import type {
   GlobalContext,
-  RunFooterState,
   SchemaObject,
   TransformNodeOptions,
   TransformObject,
 } from "../types.js";
-import { LegacyFooterSink } from "./footer-sink.js";
-import { stringToAST, UNKNOWN } from "./ts.js";
+import { ContextFooterSink } from "./footer-sink.js";
+import { stringToAST } from "./ts.js";
+import { toIrType } from "./type-helpers.js";
 import { debug } from "./utils.js";
 
 /**
@@ -47,11 +47,12 @@ export class UnreadablePropertyError extends Error {
 
 /** The original constant keeps its identity across the boundary (see `UNKNOWN_TYPE`). */
 export function toLegacyType(type: IrType): ts.TypeNode {
-  return type === UNKNOWN_TYPE ? UNKNOWN : toTypeNode(type);
+  return toTypeNode(type);
 }
 
-export function fromLegacyType(node: ts.TypeNode): IrType {
-  return node === UNKNOWN ? UNKNOWN_TYPE : fromTypeNode(node);
+/** A callback result in IR: IR types (from the helpers) as they are, TypeScript nodes read by the bridge. */
+export function fromLegacyType(type: IrType | ts.TypeNode): IrType {
+  return toIrType(type);
 }
 
 function transformOptions(ctx: GlobalContext): TransformOptions {
@@ -81,11 +82,8 @@ function transformOptions(ctx: GlobalContext): TransformOptions {
 }
 
 /** One footer per run: it holds the enum registry, so it lives on the run's context. */
-export function runFooterState(ctx: GlobalContext): RunFooterState {
-  if (!ctx.runFooter) {
-    const sink = new LegacyFooterSink(ctx.injectFooter);
-    ctx.runFooter = { footer: new RunFooter(sink, ctx.dedupeEnums), sink };
-  }
+function runFooter(ctx: GlobalContext): DocumentFooter {
+  ctx.runFooter ??= new RunFooter(new ContextFooterSink(ctx.injectFooter), ctx.dedupeEnums);
   return ctx.runFooter;
 }
 
@@ -110,7 +108,7 @@ function nodeOptions(ctx: GlobalContext, location: SchemaLocation): TransformNod
   return { ...location, ctx } as TransformNodeOptions;
 }
 
-function customType(result: ts.TypeNode | TransformObject | undefined): CustomType | null {
+function customType(result: IrType | ts.TypeNode | TransformObject | undefined): CustomType | null {
   if (!result || typeof result !== "object") {
     return null;
   }
@@ -142,6 +140,12 @@ function callbacks(ctx: GlobalContext): SchemaCallbacks {
   };
 }
 
+function isIrProperty(
+  property: IrPropertySignature | ts.PropertySignature,
+): property is IrPropertySignature {
+  return typeof property.kind === "string";
+}
+
 function transformPropertyWith(
   ctx: GlobalContext,
   property: IrPropertySignature,
@@ -156,6 +160,9 @@ function transformPropertyWith(
   const result = transformProperty(toPropertySignature(property), schema as SchemaObject, options);
   if (!result) {
     return null;
+  }
+  if (isIrProperty(result)) {
+    return result;
   }
   const converted = fromPropertySignature(result);
   if (converted === null) {
@@ -173,7 +180,7 @@ export function createTransformContext(ctx: GlobalContext): TransformContext {
       objectAt: (ref) => ctx.discriminators.objects[ref],
       isHandled: (ref) => ctx.discriminators.refsHandled.includes(ref),
     },
-    footer: runFooterState(ctx).footer,
+    footer: runFooter(ctx),
     callbacks: callbacks(ctx),
     templates: TEMPLATES,
     diagnostics: DIAGNOSTICS,

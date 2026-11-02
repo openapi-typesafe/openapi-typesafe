@@ -1,23 +1,35 @@
 import ts from "typescript";
+import { irProperty } from "../../src/domain/ir/constructors.js";
+import type { FooterEntry } from "../../src/lib/footer-entry.js";
 import {
   addJSDocComment,
   astToString,
   BOOLEAN,
+  enumCache,
   NULL,
   NUMBER,
   oapiRef,
   STRING,
   tsArrayLiteralExpression,
+  tsDedupe,
   tsEnum,
+  tsEnumMember,
   tsIsPrimitive,
   tsLiteral,
+  tsModifiers,
   tsPropertyIndex,
+  tsReadonlyArray,
   tsUnion,
 } from "../../src/lib/ts.js";
 
+// The helper constants are IR since task 6.2; TypeScript nodes built with `ts.factory` need
+// TypeScript type nodes.
+const TS_BOOLEAN = ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword);
+const TS_STRING = ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword);
+
 describe("addJSDocComment", () => {
   test("single-line comment", () => {
-    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, BOOLEAN);
+    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, TS_BOOLEAN);
     addJSDocComment({ description: "Single-line comment" }, property);
     expect(astToString(ts.factory.createTypeLiteralNode([property])).trim()).toBe(`{
     /** @description Single-line comment */
@@ -26,7 +38,7 @@ describe("addJSDocComment", () => {
   });
 
   test("multi-line comment", () => {
-    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, BOOLEAN);
+    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, TS_BOOLEAN);
     addJSDocComment(
       {
         summary: "This is the summary",
@@ -47,7 +59,7 @@ describe("addJSDocComment", () => {
   });
 
   test("escapes internal comments", () => {
-    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, BOOLEAN);
+    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, TS_BOOLEAN);
     addJSDocComment({ title: "This is a comment with `/* an example comment */` within" }, property);
     expect(astToString(ts.factory.createTypeLiteralNode([property])).trim()).toBe(`{
     /** This is a comment with \`/* an example comment *\\/\` within */
@@ -56,7 +68,7 @@ describe("addJSDocComment", () => {
   });
 
   test("single example", () => {
-    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, BOOLEAN);
+    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, TS_BOOLEAN);
     addJSDocComment(
       {
         example: "an-example",
@@ -70,7 +82,7 @@ describe("addJSDocComment", () => {
   });
 
   test("array of examples", () => {
-    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, BOOLEAN);
+    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, TS_BOOLEAN);
     addJSDocComment(
       {
         examples: ["an-example", "another-example"],
@@ -87,7 +99,7 @@ describe("addJSDocComment", () => {
   });
 
   test("single example and array of examples", () => {
-    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, BOOLEAN);
+    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, TS_BOOLEAN);
     addJSDocComment(
       {
         example: "old-example",
@@ -106,7 +118,7 @@ describe("addJSDocComment", () => {
   });
 
   test("complex examples", () => {
-    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, BOOLEAN);
+    const property = ts.factory.createPropertySignature(undefined, "comment", undefined, TS_BOOLEAN);
     addJSDocComment(
       {
         examples: [
@@ -428,13 +440,13 @@ describe("tsIsPrimitive", () => {
   });
 
   test("array", () => {
-    expect(tsIsPrimitive(ts.factory.createArrayTypeNode(STRING))).toBe(false);
+    expect(tsIsPrimitive(ts.factory.createArrayTypeNode(TS_STRING))).toBe(false);
   });
 
   test("object", () => {
     expect(
       tsIsPrimitive(
-        ts.factory.createTypeLiteralNode([ts.factory.createPropertySignature(undefined, "foo", undefined, STRING)]),
+        ts.factory.createTypeLiteralNode([ts.factory.createPropertySignature(undefined, "foo", undefined, TS_STRING)]),
       ),
     ).toBe(false);
   });
@@ -461,12 +473,68 @@ describe("tsUnion", () => {
 
   test("multiple (object types)", () => {
     const obj = ts.factory.createTypeLiteralNode([
-      ts.factory.createPropertySignature(undefined, "foo", undefined, STRING),
+      ts.factory.createPropertySignature(undefined, "foo", undefined, TS_STRING),
     ]);
     expect(astToString(tsUnion([obj, obj, NULL])).trim()).toBe(`{
     foo: string;
 } | {
     foo: string;
 } | null`);
+  });
+});
+
+describe("deprecated helpers with IR input (task 6.2)", () => {
+  test("tsArrayLiteralExpression adds each helper type to the footer once", () => {
+    const injectFooter: FooterEntry[] = [];
+    const options = { readonly: true, injectFooter };
+
+    tsArrayLiteralExpression("a", STRING, ["x"], options);
+    tsArrayLiteralExpression("b", STRING, ["y"], options);
+
+    expect(injectFooter.map((entry) => (entry as { name: string }).name)).toEqual([
+      "FlattenedDeepRequired",
+      "ReadonlyArray",
+    ]);
+  });
+
+  test("tsReadonlyArray converts an IR type", () => {
+    expect(astToString(tsReadonlyArray(NUMBER)).trim()).toBe("ReadonlyArray<number>");
+  });
+
+  test("tsDedupe removes repeated primitives from IR and TypeScript types", () => {
+    const types = tsDedupe([STRING, TS_STRING, NUMBER, tsLiteral("a"), tsLiteral("a")]);
+
+    expect(types.map((type) => astToString(type).trim())).toEqual(["string", "number", '"a"', '"a"']);
+  });
+
+  test("tsIsPrimitive of a missing type is true", () => {
+    expect(tsIsPrimitive(undefined as never)).toBe(true);
+  });
+
+  test("tsModifiers adds readonly", () => {
+    expect(tsModifiers({ readonly: true }).map((modifier) => modifier.kind)).toEqual([ts.SyntaxKind.ReadonlyKeyword]);
+  });
+
+  test("tsEnum with shouldCache returns the cached declaration for the same members", () => {
+    enumCache.clear();
+    const first = tsEnum("Color", ["b", "a"], undefined, { shouldCache: true });
+
+    expect(tsEnum("Other", ["a", "b"], undefined, { shouldCache: true })).toBe(first);
+    enumCache.clear();
+  });
+
+  test("tsEnum names a member that starts with a digit", () => {
+    expect(astToString(tsEnum("1st", ["a"])).trim()).toBe('enum Value1st {\n    a = "a"\n}');
+  });
+
+  test("tsEnumMember quotes a name made only of invalid characters", () => {
+    expect(astToString(tsEnum("E", [], undefined)).trim()).toBe("enum E {\n}");
+    expect(astToString(tsEnumMember("@@")).trim()).toBe('"@@" = "@@"');
+  });
+
+  test("astToString prints IR members and types next to TypeScript nodes", () => {
+    const member = irProperty({ kind: "identifier", text: "a" }, STRING);
+
+    expect(astToString([member, NUMBER, TS_STRING])).toBe("a: string;\nnumber\nstring\n");
   });
 });

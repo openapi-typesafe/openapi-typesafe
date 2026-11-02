@@ -1,6 +1,9 @@
 import fc from "fast-check";
+import type ts from "typescript";
 import { describe, expect, it } from "vitest";
+import type { IrType } from "../../src/domain/ir/nodes.js";
 import transformSchemaObject from "../../src/transform/schema-object.js";
+import type { TransformNodeOptions } from "../../src/types.js";
 import originalTransformSchemaObject from "./original/schema-object.js";
 import {
   type ContextInput,
@@ -17,11 +20,16 @@ import {
  * declarations (enums, enum value arrays, helpers), user callbacks, and errors.
  */
 
-type Transform = typeof transformSchemaObject;
+/** The new and the original transformer; their option types differ (IR and TypeScript). */
+type Transform = (
+  schema: never,
+  options: never,
+  isFromAdditionalProperties: boolean,
+) => IrType | ts.TypeNode;
 
 function run(transform: Transform, schema: unknown, input: ContextInput): string {
-  const build = (options: Parameters<Transform>[1]) =>
-    transform(schema as never, options, input.isFromAdditionalProperties);
+  const build = (options: TransformNodeOptions) =>
+    transform(schema as never, options as never, input.isFromAdditionalProperties);
   return runLegacy(build, input, input.path);
 }
 

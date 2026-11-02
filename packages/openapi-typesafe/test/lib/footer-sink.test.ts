@@ -1,9 +1,10 @@
-import ts from "typescript";
+import type ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { irProperty, irReference } from "../../src/domain/ir/constructors.js";
 import type { IrDeclaration } from "../../src/domain/ir/nodes.js";
-import { LegacyFooterSink } from "../../src/lib/footer-sink.js";
-import { stringToAST } from "../../src/lib/ts.js";
+import type { FooterEntry } from "../../src/lib/footer-entry.js";
+import { ContextFooterSink } from "../../src/lib/footer-sink.js";
+import { astToString, stringToAST } from "../../src/lib/ts.js";
 
 const ALIAS: IrDeclaration = {
   kind: "typeAlias",
@@ -14,57 +15,65 @@ const ALIAS: IrDeclaration = {
 };
 const MEMBER = irProperty({ kind: "identifier", text: "listItems" }, irReference("T"));
 
-describe("LegacyFooterSink", () => {
-  it("add pushes the node to the footer and remembers its IR", () => {
-    const footer: ts.Node[] = [];
-    const sink = new LegacyFooterSink(footer);
+function userNode(source: string): ts.Node {
+  const [node] = stringToAST(source) as ts.Node[];
+  return node as ts.Node;
+}
+
+describe("ContextFooterSink", () => {
+  it("add pushes the declaration to the footer", () => {
+    const footer: FooterEntry[] = [];
+    const sink = new ContextFooterSink(footer);
 
     sink.add(ALIAS);
 
-    expect(footer).toHaveLength(1);
-    expect(sink.declarationOf(footer[0] as ts.Node)).toBe(ALIAS);
+    expect(footer).toEqual([ALIAS]);
     expect(sink.hasTypeAlias("A")).toBe(true);
   });
 
-  it("declarationOf a node from elsewhere is null", () => {
-    const [node] = stringToAST("type C = 1;") as ts.Node[];
-    const sink = new LegacyFooterSink([node as ts.Node]);
+  it("hasTypeAlias sees a named raw declaration and a user's TypeScript alias", () => {
+    const footer: FooterEntry[] = [
+      { kind: "rawDeclaration", name: "Raw", text: "type Raw = 1;" },
+      userNode("type User = 1;"),
+    ];
+    const sink = new ContextFooterSink(footer);
 
-    expect(sink.declarationOf(node as ts.Node)).toBeNull();
+    expect(sink.hasTypeAlias("Raw")).toBe(true);
+    expect(sink.hasTypeAlias("User")).toBe(true);
+    expect(sink.hasTypeAlias("Other")).toBe(false);
   });
 
-  it("addOperation declares the operations interface once and keeps its members in IR", () => {
-    const footer: ts.Node[] = [];
-    const sink = new LegacyFooterSink(footer);
+  it("addOperation declares the operations interface once and adds each member", () => {
+    const footer: FooterEntry[] = [];
+    const sink = new ContextFooterSink(footer);
 
     sink.addOperation(() => MEMBER);
     sink.addOperation(() => MEMBER);
 
     expect(footer).toHaveLength(1);
-    expect(sink.declarationOf(footer[0] as ts.Node)).toMatchObject({
-      kind: "interface",
-      name: "operations",
-      members: [MEMBER, MEMBER],
+    expect(footer[0]).toMatchObject({ kind: "interface", name: "operations", members: [MEMBER, MEMBER] });
+  });
+
+  it("addOperation declares the interface before what the member build adds", () => {
+    const footer: FooterEntry[] = [];
+    const sink = new ContextFooterSink(footer);
+
+    sink.addOperation(() => {
+      sink.add(ALIAS);
+      return MEMBER;
     });
+
+    expect(footer.map((entry) => (entry as IrDeclaration).kind)).toEqual(["interface", "typeAlias"]);
   });
 
-  it("declarationOf the operations interface is null after an outside change", () => {
-    const footer: ts.Node[] = [];
-    const sink = new LegacyFooterSink(footer);
-    sink.addOperation(() => MEMBER);
-    const operations = footer[0] as ts.InterfaceDeclaration;
-
-    (operations as { members: ts.NodeArray<ts.TypeElement> }).members = ts.factory.createNodeArray([]);
-
-    expect(sink.declarationOf(operations)).toBeNull();
-  });
-
-  it("addOperation on a user's operations interface keeps it out of the IR", () => {
-    const [operations] = stringToAST("export interface operations {}") as ts.Node[];
-    const sink = new LegacyFooterSink([operations as ts.Node]);
+  it("addOperation adds the member to a user's TypeScript operations interface in place", () => {
+    const operations = userNode("export interface operations {}");
+    const footer: FooterEntry[] = [operations];
+    const sink = new ContextFooterSink(footer);
 
     sink.addOperation(() => MEMBER);
 
-    expect(sink.declarationOf(operations as ts.Node)).toBeNull();
+    expect(footer).toEqual([operations]);
+    expect(astToString(operations)).toBe("export interface operations {\n    listItems: T;\n}\n");
   });
 });

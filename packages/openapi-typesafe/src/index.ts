@@ -1,9 +1,9 @@
 import { performance } from "node:perf_hooks";
 import type { Readable } from "node:stream";
 import type { IrDeclaration } from "./domain/ir/nodes.js";
-import { documentDeclarations } from "./lib/document-declarations.js";
 import { createDocumentRun } from "./lib/document-run.js";
 import { debug } from "./lib/utils.js";
+import transformSchema from "./transform/index.js";
 import type { OpenAPI3, OpenAPITSOptions } from "./types.js";
 
 export type * from "./domain/ir/nodes.js";
@@ -47,7 +47,7 @@ export default async function openapiTS(
 ): Promise<IrDeclaration[]> {
   const { schema, ctx } = await createDocumentRun(source, options);
   const transformT = performance.now();
-  const result = documentDeclarations(schema, ctx);
+  const result = transformSchema(schema, ctx);
   debug("Completed AST transformation for entire document", "ts", performance.now() - transformT);
 
   return result;

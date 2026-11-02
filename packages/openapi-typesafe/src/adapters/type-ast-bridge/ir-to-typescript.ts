@@ -166,7 +166,7 @@ export function toPropertySignature(property: IrPropertySignature): ts.PropertyS
   return withComments(signature, property.comments);
 }
 
-function toTypeElement(member: IrMember): ts.TypeElement {
+export function toTypeElement(member: IrMember): ts.TypeElement {
   if (member.kind === "property") {
     return toPropertySignature(member);
   }

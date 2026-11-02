@@ -4,7 +4,7 @@ import { performance } from "node:perf_hooks";
 import ts, { type InterfaceDeclaration, type TypeLiteralNode } from "typescript";
 import { NEVER, STRING, stringToAST, tsModifiers, tsRecord } from "./lib/ts.js";
 import { createRef, debug } from "./lib/utils.js";
-import type { GlobalContext, OpenAPI3 } from "../../../src/types.js";
+import type { GlobalContext, OpenAPI3 } from "./lib/types.js";
 import transformComponentsObject from "./components-object.js";
 import makeApiPathsEnum from "./paths-enum.js";
 import transformPathsObject from "./paths-object.js";

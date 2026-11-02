@@ -2,7 +2,8 @@ import type { PathLike } from "node:fs";
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import type ts from "typescript";
 import type { DocumentFooter } from "./application/transform/transform-context.js";
-import type { LegacyFooterSink } from "./lib/footer-sink.js";
+import type { IrPropertySignature, IrType } from "./domain/ir/nodes.js";
+import type { FooterEntry } from "./lib/footer-entry.js";
 
 // Many types allow for true “any” for inheritance to work
 
@@ -460,7 +461,8 @@ export type SchemaObject = {
 );
 
 export interface TransformObject {
-  schema: ts.TypeNode;
+  /** The type: an IR type (from the helpers), or a TypeScript node (read by the bridge). */
+  schema: IrType | ts.TypeNode;
   questionToken: boolean;
 }
 
@@ -640,15 +642,18 @@ export interface OpenAPITSOptions {
   /** Exclude deprecated fields from types? (default: false) */
   excludeDeprecated?: boolean;
   /** Manually transform certain Schema Objects with a custom TypeScript type */
-  transform?: (schemaObject: SchemaObject, options: TransformNodeOptions) => ts.TypeNode | TransformObject | undefined;
-  /** Modify TypeScript types built from Schema Objects */
-  postTransform?: (type: ts.TypeNode, options: TransformNodeOptions) => ts.TypeNode | undefined;
+  transform?: (
+    schemaObject: SchemaObject,
+    options: TransformNodeOptions,
+  ) => IrType | ts.TypeNode | TransformObject | undefined;
+  /** Modify TypeScript types built from Schema Objects (receives a TypeScript node, ADR-004) */
+  postTransform?: (type: ts.TypeNode, options: TransformNodeOptions) => IrType | ts.TypeNode | undefined;
   /** Modify property signatures for Schema Object properties */
   transformProperty?: (
     property: ts.PropertySignature,
     schemaObject: SchemaObject,
     options: TransformNodeOptions,
-  ) => ts.PropertySignature | undefined;
+  ) => IrPropertySignature | ts.PropertySignature | undefined;
   /** Add readonly properties and readonly arrays? (default: false) */
   immutable?: boolean;
   /** (optional) Should logging be suppressed? (necessary for STDOUT) */
@@ -690,12 +695,6 @@ export interface OpenAPITSOptions {
   readWriteMarkers?: boolean;
 }
 
-/** @internal The footer of one run and the sink that holds its nodes. */
-export interface RunFooterState {
-  readonly footer: DocumentFooter;
-  readonly sink: LegacyFooterSink;
-}
-
 /** Context passed to all submodules */
 export interface GlobalContext {
   // user options
@@ -715,12 +714,16 @@ export interface GlobalContext {
   excludeDeprecated: boolean;
   exportType: boolean;
   immutable: boolean;
-  injectFooter: ts.Node[];
   /**
-   * @internal Footer state of this run (enum registry, enum naming, and the IR of the footer
-   * nodes), created on first use by the transform context adapter. Not an option; do not set it.
+   * Declarations written after the main types, in order. The generator adds IR declarations;
+   * callbacks may add IR declarations or TypeScript nodes.
    */
-  runFooter?: RunFooterState;
+  injectFooter: FooterEntry[];
+  /**
+   * @internal Footer state of this run (enum registry and enum naming), created on first use by
+   * the transform context adapter. Not an option; do not set it.
+   */
+  runFooter?: DocumentFooter;
   pathParamsAsTypes: boolean;
   postTransform: OpenAPITSOptions["postTransform"];
   propertiesRequiredByDefault: boolean;

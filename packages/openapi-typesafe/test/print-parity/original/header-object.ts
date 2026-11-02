@@ -4,7 +4,7 @@ import { escapePointer } from "@redocly/openapi-core/lib/ref-utils.js";
 import ts from "typescript";
 import { addJSDocComment, tsModifiers, tsPropertyIndex, UNKNOWN } from "./lib/ts.js";
 import { getEntries } from "./lib/utils.js";
-import type { HeaderObject, TransformNodeOptions } from "../../../src/types.js";
+import type { HeaderObject, TransformNodeOptions } from "./lib/types.js";
 import transformMediaTypeObject from "./media-type-object.js";
 import transformSchemaObject from "./schema-object.js";
 

@@ -2,7 +2,7 @@
 // (ENGINEERING_PLAN Phase 5: no behavior changes). Not linted: it is upstream code as it was.
 import type ts from "typescript";
 import { STRING } from "./lib/ts.js";
-import type { ParameterObject, TransformNodeOptions } from "../../../src/types.js";
+import type { ParameterObject, TransformNodeOptions } from "./lib/types.js";
 import transformSchemaObject from "./schema-object.js";
 
 /**

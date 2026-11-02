@@ -1,9 +1,8 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { toStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
 import openapiTS, { astToString } from "../../src/index.js";
-import { createDocumentRun } from "../../src/lib/document-run.js";
 import { printWithTypeScript } from "../../src/lib/typescript-printer.js";
-import transformSchema from "../../src/transform/index.js";
 import type { OpenAPI3, OpenAPITSOptions } from "../../src/types.js";
 
 const DOCUMENT: OpenAPI3 = {
@@ -22,12 +21,12 @@ const DOCUMENT: OpenAPI3 = {
   },
 };
 
-/** The IR path (`astToString(await openapiTS())`) and the run's `ts.Node`s printed by TypeScript. */
+/** The IR path (`astToString(await openapiTS())`) and the same IR printed by TypeScript. */
 async function printBoth(options: OpenAPITSOptions) {
-  const run = await createDocumentRun(DOCUMENT, { silent: true, ...options });
+  const declarations = await openapiTS(DOCUMENT, { silent: true, ...options });
   return {
-    ir: astToString(await openapiTS(DOCUMENT, { silent: true, ...options })),
-    typescript: printWithTypeScript(transformSchema(run.schema, run.ctx)),
+    ir: astToString(declarations),
+    typescript: printWithTypeScript(declarations.flatMap(toStatements)),
   };
 }
 

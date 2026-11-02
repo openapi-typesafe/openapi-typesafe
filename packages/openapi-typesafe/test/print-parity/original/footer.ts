@@ -2,12 +2,11 @@
 // reference for the footer parity test (ENGINEERING_PLAN Phase 5: no behavior changes).
 // Not linted: it is the code as it was.
 import ts from "typescript";
-import { toPropertySignature } from "../../../src/adapters/type-ast-bridge/ir-to-typescript.js";
+import { toPropertySignature, toTypeNode } from "../../../src/adapters/type-ast-bridge/ir-to-typescript.js";
 import type { DocumentFooter } from "../../../src/application/transform/transform-context.js";
-import { injectOperation, injectWithRequiredHelper } from "../../../src/lib/footer-helpers.js";
-import { toLegacyType } from "../../../src/lib/transform-context.js";
+import { injectOperation, injectWithRequiredHelper } from "./lib/footer-helpers.js";
 import { tsArrayLiteralExpression, tsEnum } from "./lib/ts.js";
-import type { GlobalContext } from "../../../src/types.js";
+import type { GlobalContext } from "./lib/types.js";
 
 export default function footer(ctx: GlobalContext): DocumentFooter {
   return {
@@ -25,7 +24,7 @@ export default function footer(ctx: GlobalContext): DocumentFooter {
     addEnumValues({ name, type, values }) {
       const options = { export: true, readonly: true, injectFooter: ctx.injectFooter };
       ctx.injectFooter.push(
-        tsArrayLiteralExpression(name, toLegacyType(type), [...values], options),
+        tsArrayLiteralExpression(name, toTypeNode(type), [...values], options),
       );
     },
     requireWithRequired() {

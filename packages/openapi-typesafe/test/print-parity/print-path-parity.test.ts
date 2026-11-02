@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { toStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
 import { printNodes } from "../../src/application/print/print-nodes.js";
-import { documentDeclarations } from "../../src/lib/document-declarations.js";
 import { printWithTypeScript } from "../../src/lib/typescript-printer.js";
 import transformSchema from "../../src/transform/index.js";
 import type { OpenAPI3 } from "../../src/types.js";
@@ -16,8 +16,9 @@ import {
 } from "./parity-arbitraries.js";
 
 /**
- * ENGINEERING_PLAN 6.1: `openapiTS` returns IR declarations, printed by our printer. On every
- * document they must print exactly what the TypeScript printer prints for the run's `ts.Node`s.
+ * ENGINEERING_PLAN 6.1 and 6.2: `openapiTS` returns IR declarations, printed by our printer. On
+ * every document they must print exactly what the TypeScript printer prints for the same
+ * declarations converted by the bridge.
  */
 
 const DOCUMENT_TIMEOUT_MS = TIMEOUT_MS * 4;
@@ -25,10 +26,12 @@ const DOCUMENT_TIMEOUT_MS = TIMEOUT_MS * 4;
 type Print = (schema: OpenAPI3, input: ContextInput, inject: string | undefined) => string;
 
 const printNodesWithTypeScript: Print = (schema, input, inject) =>
-  printWithTypeScript(transformSchema(schema, { ...createContext(input), inject }));
+  printWithTypeScript(
+    transformSchema(schema, { ...createContext(input), inject }).flatMap(toStatements),
+  );
 
 const printWithIr: Print = (schema, input, inject) =>
-  printNodes(documentDeclarations(schema, { ...createContext(input), inject }));
+  printNodes(transformSchema(schema, { ...createContext(input), inject }));
 
 function run(print: Print, value: unknown, input: ContextInput, inject?: string): string {
   resetLegacyEnumState();
@@ -41,7 +44,7 @@ function run(print: Print, value: unknown, input: ContextInput, inject?: string)
 
 describe("print path parity", () => {
   it(
-    "documentDeclarations print what the TypeScript printer prints",
+    "the IR declarations print what the TypeScript printer prints",
     () => {
       fc.assert(
         fc.property(documentArbitrary, contextInput, injectArbitrary, (value, input, inject) => {

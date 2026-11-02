@@ -3,7 +3,7 @@
 import ts from "typescript";
 import { addJSDocComment, NEVER, oapiRef, QUESTION_TOKEN, tsModifiers, tsPropertyIndex } from "./lib/ts.js";
 import { createRef } from "./lib/utils.js";
-import type { OperationObject, RequestBodyObject, TransformNodeOptions } from "../../../src/types.js";
+import type { OperationObject, RequestBodyObject, TransformNodeOptions } from "./lib/types.js";
 import { transformParametersArray } from "./parameters-array.js";
 import transformRequestBodyObject from "./request-body-object.js";
 import transformResponsesObject from "./responses-object.js";

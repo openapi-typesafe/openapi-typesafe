@@ -5,7 +5,6 @@ import type { DocumentFooter } from "../../src/application/transform/transform-c
 import { irReference } from "../../src/domain/ir/constructors.js";
 import { createTransformContext } from "../../src/lib/transform-context.js";
 import { astToString, stringToAST } from "../../src/lib/ts.js";
-import type { GlobalContext } from "../../src/types.js";
 import { DEFAULT_CTX } from "../test-helpers.js";
 import originalFooter from "./original/footer.js";
 import { RUNS, resetLegacyEnumState, TIMEOUT_MS } from "./parity-arbitraries.js";
@@ -60,14 +59,14 @@ function apply(footer: DocumentFooter, step: FooterOperation): string {
   }
 }
 
-function run(footerOf: (ctx: GlobalContext) => DocumentFooter, value: FooterInput): string {
+function run(footerOf: (ctx: never) => DocumentFooter, value: FooterInput): string {
   resetLegacyEnumState();
   const injectFooter = value.predeclared ? (stringToAST(value.predeclared) as ts.Node[]) : [];
   const ctx = { ...DEFAULT_CTX, dedupeEnums: value.isDedupingEnums, injectFooter };
   const names: string[] = [];
   try {
     for (const step of value.operations) {
-      names.push(apply(footerOf(ctx), step));
+      names.push(apply(footerOf(ctx as never), step));
     }
   } catch {
     // The messages differ (the original fails with a TypeError); failing at the same step is parity.

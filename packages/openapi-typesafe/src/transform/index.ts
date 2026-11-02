@@ -1,26 +1,22 @@
 import type ts from "typescript";
-import { toStatements } from "../adapters/type-ast-bridge/ir-to-typescript.js";
 import { documentBody, documentClosing } from "../application/transform/document/document.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
+import { documentDeclarations, type TransformedDocument } from "../lib/document-declarations.js";
+import { type FooterEntry, isIrDeclaration } from "../lib/footer-entry.js";
 import { createTransformContext } from "../lib/transform-context.js";
 import type { GlobalContext, OpenAPI3 } from "../types.js";
 
+export type { TransformedDocument } from "../lib/document-declarations.js";
+
 const OPERATIONS_NAME = "operations";
 
-/**
- * The document in three parts. The footer stays a `ts.Node` list until Phase 6, because user
- * callbacks may add their own nodes to it.
- */
-export interface TransformedDocument {
-  readonly body: readonly IrDeclaration[];
-  readonly footer: readonly ts.Node[];
-  readonly closing: readonly IrDeclaration[];
-}
-
-/** Whether a footer node is named `operations` (the generator's interface, or a user's node). */
-function isOperations(node: ts.Node): boolean {
-  return (node as ts.InterfaceDeclaration)?.name?.escapedText === OPERATIONS_NAME;
+/** Whether a footer entry is named `operations` (any declaration kind, as in the original). */
+function isOperations(entry: FooterEntry): boolean {
+  const name = isIrDeclaration(entry)
+    ? (entry as { name?: string }).name
+    : (entry as Partial<ts.InterfaceDeclaration>).name?.escapedText;
+  return name === OPERATIONS_NAME;
 }
 
 /** @internal Root types, the footer, then the closing declarations (Phase 5, step 6). */
@@ -33,8 +29,10 @@ export function transformDocument(schema: OpenAPI3, ctx: GlobalContext): Transfo
   return { body, footer, closing };
 }
 
-/** The whole document as `ts.Node`s, as the Node API returns it until Phase 6. */
-export default function transformSchema(schema: OpenAPI3, ctx: GlobalContext): ts.Node[] {
-  const { body, footer, closing } = transformDocument(schema, ctx);
-  return [...body.flatMap(toStatements), ...footer, ...closing.flatMap(toStatements)];
+/**
+ * The whole document as IR declarations (ENGINEERING_PLAN 6.1–6.2); `openapiTS` returns the same
+ * for a loaded document.
+ */
+export default function transformSchema(schema: OpenAPI3, ctx: GlobalContext): IrDeclaration[] {
+  return documentDeclarations(transformDocument(schema, ctx));
 }

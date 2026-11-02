@@ -1,9 +1,9 @@
 import { escapePointer, parseRef } from "@redocly/openapi-core/lib/ref-utils.js";
 import c from "ansi-colors";
 import supportsColor from "supports-color";
-import ts from "typescript";
+import { discriminatorProperty } from "../application/transform/schema/discriminator-property.js";
+import type { IrPropertySignature } from "../domain/ir/nodes.js";
 import type { DiscriminatorObject, OpenAPI3, OpenAPITSOptions, ReferenceObject, SchemaObject } from "../types.js";
-import { tsLiteral, tsModifiers, tsPropertyIndex } from "./ts.js";
 
 if (!supportsColor.stdout || supportsColor.stdout.hasBasic === false) {
   c.enabled = false;
@@ -18,31 +18,15 @@ const DEBUG_GROUPS: Record<string, c.StyleFunction | undefined> = {
 
 export { c };
 
-/** Given a discriminator object, get the property name */
+/**
+ * The discriminator property of a schema at `path`, typed as its discriminator value. Returns IR
+ * (task 6.2), like the exported transformers.
+ */
 export function createDiscriminatorProperty(
   discriminator: DiscriminatorObject,
   { path, readonly = false }: { path: string; readonly?: boolean },
-): ts.TypeElement {
-  // get the inferred propertyName value from the last section of the path (as the spec suggests to do)
-  let value = parseRef(path).pointer.pop();
-  // if mapping, and there’s a match, use this rather than the inferred name
-  if (discriminator.mapping) {
-    // Mapping value can either be a fully-qualified ref (#/components/schemas/XYZ) or a schema name (XYZ)
-    const matchedValue = Object.entries(discriminator.mapping).find(
-      ([, v]) => (!v.startsWith("#") && v === value) || (v.startsWith("#") && parseRef(v).pointer.pop() === value),
-    );
-    if (matchedValue) {
-      value = matchedValue[0]; // why was this designed backwards!?
-    }
-  }
-  return ts.factory.createPropertySignature(
-    /* modifiers     */ tsModifiers({
-      readonly,
-    }),
-    /* name          */ tsPropertyIndex(discriminator.propertyName),
-    /* questionToken */ undefined,
-    /* type          */ tsLiteral(value),
-  );
+): IrPropertySignature {
+  return discriminatorProperty(discriminator, path, readonly);
 }
 
 /** Create a $ref pointer (even from other $refs) */

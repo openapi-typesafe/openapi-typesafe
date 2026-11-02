@@ -212,6 +212,8 @@ export interface IrConstArrayDeclaration {
 export interface IrRawDeclaration {
   readonly kind: "rawDeclaration";
   readonly text: string;
+  /** The type name the text declares, when known (helper types), so the footer can find it. */
+  readonly name?: string;
 }
 
 export type IrDeclaration =

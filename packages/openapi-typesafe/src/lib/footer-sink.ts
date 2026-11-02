@@ -1,70 +1,61 @@
-import ts from "typescript";
-import { toPropertySignature, toStatement } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import { appendMember, asInterfaceNamed } from "../adapters/type-ast-bridge/footer-nodes.js";
 import type { FooterSink } from "../application/transform/footer/document-footer.js";
-import type { IrDeclaration, IrPropertySignature } from "../domain/ir/nodes.js";
-import { injectOperation } from "./footer-helpers.js";
+import type { IrDeclaration, IrInterfaceDeclaration, IrPropertySignature } from "../domain/ir/nodes.js";
+import { declaresTypeAlias, type FooterEntry, isIrDeclaration } from "./footer-entry.js";
 
 const OPERATIONS_NAME = "operations";
 
 /**
- * Temporary sink (ENGINEERING_PLAN Phase 5–6): footer declarations go into the legacy
- * `ctx.injectFooter` list, which the Node API returns and user callbacks may add to. It also
- * remembers the IR of every node it adds, so the CLI can print the footer with our printer.
+ * The footer of a run is its `ctx.injectFooter` list. The generator adds IR declarations; user
+ * code may add IR declarations or TypeScript nodes (ENGINEERING_PLAN 6.2).
  */
-export class LegacyFooterSink implements FooterSink {
-  private readonly injectFooter: ts.Node[];
-  private readonly declarations = new Map<ts.Node, IrDeclaration>();
-  private readonly operationMembers: IrPropertySignature[] = [];
-  private operationsNode: ts.InterfaceDeclaration | undefined;
+export class ContextFooterSink implements FooterSink {
+  private readonly footer: FooterEntry[];
 
-  constructor(injectFooter: ts.Node[]) {
-    this.injectFooter = injectFooter;
+  constructor(footer: FooterEntry[]) {
+    this.footer = footer;
   }
 
   hasTypeAlias(name: string): boolean {
-    return this.injectFooter.some((node) => ts.isTypeAliasDeclaration(node) && node.name.text === name);
+    return this.footer.some((entry) => declaresTypeAlias(entry, name));
   }
 
   add(declaration: IrDeclaration): void {
-    const statement = toStatement(declaration);
-    this.declarations.set(statement, declaration);
-    this.injectFooter.push(statement);
-  }
-
-  addOperation(build: () => IrPropertySignature): void {
-    const before = new Set(this.injectFooter);
-    injectOperation(this.injectFooter, () => {
-      const member = build();
-      this.operationMembers.push(member);
-      return toPropertySignature(member);
-    });
-    this.operationsNode ??= this.injectFooter.find(
-      (node): node is ts.InterfaceDeclaration =>
-        !before.has(node) && ts.isInterfaceDeclaration(node) && node.name.text === OPERATIONS_NAME,
-    );
+    this.footer.push(declaration);
   }
 
   /**
-   * The IR of a footer node this sink added, or null for a node from elsewhere (a user callback)
-   * and for an `operations` interface whose members were changed outside this sink.
+   * Add a member to the `operations` interface, declared first (exported) when missing, so it
+   * comes before any declaration `build` adds. A user's TypeScript `operations` interface gets
+   * the member in place, as in the original.
    */
-  declarationOf(node: ts.Node): IrDeclaration | null {
-    if (node === this.operationsNode) {
-      return this.operationsDeclaration(this.operationsNode);
+  addOperation(build: () => IrPropertySignature): void {
+    const existing = this.findOperations();
+    if (existing !== null && !isIrDeclaration(existing.entry)) {
+      const node = asInterfaceNamed(existing.entry, OPERATIONS_NAME);
+      if (node) {
+        appendMember(node, build());
+      }
+      return;
     }
-    return this.declarations.get(node) ?? null;
+    const index = existing?.index ?? this.footer.push(emptyOperations()) - 1;
+    const member = build();
+    const operations = this.footer[index] as IrInterfaceDeclaration;
+    this.footer[index] = { ...operations, members: [...operations.members, member] };
   }
 
-  private operationsDeclaration(node: ts.InterfaceDeclaration): IrDeclaration | null {
-    if (node.members.length !== this.operationMembers.length) {
-      return null;
-    }
-    return {
-      kind: "interface",
-      name: OPERATIONS_NAME,
-      isExported: true,
-      members: [...this.operationMembers],
-      comments: [],
-    };
+  /** The first `operations` interface: the generator's (IR) or a user's (TypeScript). */
+  private findOperations(): { entry: FooterEntry; index: number } | null {
+    const index = this.footer.findIndex((entry) =>
+      isIrDeclaration(entry)
+        ? entry.kind === "interface" && entry.name === OPERATIONS_NAME
+        : asInterfaceNamed(entry, OPERATIONS_NAME) !== null,
+    );
+    const entry = this.footer[index];
+    return entry === undefined ? null : { entry, index };
   }
+}
+
+function emptyOperations(): IrInterfaceDeclaration {
+  return { kind: "interface", name: OPERATIONS_NAME, isExported: true, members: [], comments: [] };
 }

@@ -3,7 +3,7 @@
 import ts from "typescript";
 import { addJSDocComment, NEVER, oapiRef, QUESTION_TOKEN, tsModifiers, tsPropertyIndex } from "./lib/ts.js";
 import { createRef } from "./lib/utils.js";
-import type { ParameterObject, ReferenceObject, TransformNodeOptions } from "../../../src/types.js";
+import type { ParameterObject, ReferenceObject, TransformNodeOptions } from "./lib/types.js";
 import transformParameterObject from "./parameter-object.js";
 
 // Regex to match path parameters in URL

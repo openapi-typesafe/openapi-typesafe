@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import type { IrEnumDeclaration, IrMember, IrType } from "../../src/domain/ir/nodes.js";
 import { astToString } from "../../src/lib/ts.js";
 import transformOperationObject, {
   injectOperationObject,
@@ -26,6 +27,7 @@ import originalTransformWebhooksObject from "./original/webhooks-object.js";
 import {
   type ContextInput,
   contextInput,
+  objectOf,
   RUNS,
   resetLegacyEnumState,
   runLegacy,
@@ -38,7 +40,7 @@ import {
  * interface and other footer declarations, debug-free output, and errors.
  */
 
-type Build = (options: TransformNodeOptions) => ts.TypeNode;
+type Build = (options: TransformNodeOptions) => IrType | ts.TypeNode;
 
 function expectSameOutput(build: Build, original: Build, input: ContextInput): void {
   expect(runLegacy(build, input, input.path)).toBe(runLegacy(original, input, input.path));
@@ -48,18 +50,24 @@ function property<T>(arbitrary: fc.Arbitrary<T>, check: (value: T, input: Contex
   fc.assert(fc.property(arbitrary, contextInput, check), { numRuns: RUNS });
 }
 
-function elementsType(transform: typeof transformOperationObject, value: unknown): Build {
-  return (options) => ts.factory.createTypeLiteralNode(transform(value as never, options));
+/** The new and the original transformer; their option types differ (IR and TypeScript). */
+type Elements = (value: never, options: never) => IrMember[] | ts.TypeElement[];
+
+function elementsType(transform: Elements, value: unknown): Build {
+  return (options) => objectOf(transform(value as never, options as never));
 }
 
-function injected(inject: typeof injectOperationObject, value: unknown): Build {
+function injected(
+  inject: (id: string, value: never, options: never) => void,
+  value: unknown,
+): Build {
   return (options) => {
-    inject("op", value as never, options);
+    inject("op", value as never, options as never);
     return ts.factory.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword);
   };
 }
 
-function printEnum(make: typeof makeApiPathsEnum, value: unknown): string {
+function printEnum(make: (value: never) => IrEnumDeclaration | ts.Node, value: unknown): string {
   resetLegacyEnumState();
   try {
     return astToString([make(value as never)]);
@@ -101,7 +109,7 @@ describe("path transformer parity with the fork base", () => {
       property(pathItem, (value, input) =>
         expectSameOutput(
           (options) => transformPathItemObject(value as never, options),
-          (options) => originalTransformPathItemObject(value as never, options),
+          (options) => originalTransformPathItemObject(value as never, options as never),
           input,
         ),
       ),
@@ -114,7 +122,7 @@ describe("path transformer parity with the fork base", () => {
       property(paths, (value, input) =>
         expectSameOutput(
           (options) => transformPathsObject(value as never, options.ctx),
-          (options) => originalTransformPathsObject(value as never, options.ctx),
+          (options) => originalTransformPathsObject(value as never, options.ctx as never),
           input,
         ),
       ),
@@ -127,7 +135,7 @@ describe("path transformer parity with the fork base", () => {
       property(webhooks, (value, input) =>
         expectSameOutput(
           (options) => transformWebhooksObject(value as never, options.ctx),
-          (options) => originalTransformWebhooksObject(value as never, options.ctx),
+          (options) => originalTransformWebhooksObject(value as never, options.ctx as never),
           input,
         ),
       ),

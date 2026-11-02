@@ -1,3 +1,5 @@
+// The footer helpers of Phase 5 (src/lib/footer-helpers.ts before task 6.2), kept for the
+// original footer adapter. Not linted: it is reference code.
 import ts from "typescript";
 
 const WITH_REQUIRED_NAME = "WithRequired";

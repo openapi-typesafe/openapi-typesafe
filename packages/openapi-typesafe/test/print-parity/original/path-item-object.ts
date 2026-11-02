@@ -9,7 +9,7 @@ import type {
   PathItemObject,
   ReferenceObject,
   TransformNodeOptions,
-} from "../../../src/types.js";
+} from "./lib/types.js";
 import transformOperationObject, { injectOperationObject } from "./operation-object.js";
 import { transformParametersArray } from "./parameters-array.js";
 

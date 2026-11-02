@@ -27,7 +27,7 @@ import {
   UNKNOWN,
 } from "./lib/ts.js";
 import { createDiscriminatorProperty, createRef, getEntries } from "./lib/utils.js";
-import type { ReferenceObject, SchemaObject, TransformNodeOptions } from "../../../src/types.js";
+import type { ReferenceObject, SchemaObject, TransformNodeOptions } from "./lib/types.js";
 
 /**
  * Transform SchemaObject nodes (4.8.24)

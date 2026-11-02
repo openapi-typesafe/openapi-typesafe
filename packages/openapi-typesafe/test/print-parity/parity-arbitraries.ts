@@ -1,5 +1,7 @@
 import fc from "fast-check";
 import ts from "typescript";
+import { irObject } from "../../src/domain/ir/constructors.js";
+import type { IrMember, IrType, IrTypeAliasDeclaration } from "../../src/domain/ir/nodes.js";
 import { astToString } from "../../src/lib/ts.js";
 import type { GlobalContext, OpenAPITSOptions, TransformNodeOptions } from "../../src/types.js";
 import { DEFAULT_CTX } from "../test-helpers.js";
@@ -335,17 +337,39 @@ export function resetLegacyEnumState(): void {
 }
 
 /** Print the type `build` returns with the footer it added, or the error message. */
+/** IR nodes have a string `kind`; TypeScript nodes have a numeric `SyntaxKind`. */
+function isIr(node: { kind: unknown }): boolean {
+  return typeof node.kind === "string";
+}
+
+/** `type T = ...`: IR for a ported transformer, TypeScript for an original one. */
+function aliasOf(type: IrType | ts.TypeNode): IrTypeAliasDeclaration | ts.TypeAliasDeclaration {
+  if (isIr(type)) {
+    return { kind: "typeAlias", name: "T", isExported: false, type: type as IrType, comments: [] };
+  }
+  return ts.factory.createTypeAliasDeclaration(undefined, "T", undefined, type as ts.TypeNode);
+}
+
+/** A member list as an object type, so it prints like any type (IR or TypeScript). */
+export function objectOf(
+  members: readonly IrMember[] | readonly ts.TypeElement[],
+): IrType | ts.TypeNode {
+  const [first] = members;
+  if (first === undefined || isIr(first)) {
+    return irObject(members as readonly IrMember[]);
+  }
+  return ts.factory.createTypeLiteralNode(members as readonly ts.TypeElement[]);
+}
+
 export function runLegacy(
-  build: (options: TransformNodeOptions) => ts.TypeNode,
+  build: (options: TransformNodeOptions) => IrType | ts.TypeNode,
   input: ContextInput,
   path: string | undefined,
 ): string {
   resetLegacyEnumState();
   const ctx = createContext(input);
   try {
-    const type = build({ path, ctx });
-    const alias = ts.factory.createTypeAliasDeclaration(undefined, "T", undefined, type);
-    return astToString([alias, ...ctx.injectFooter]);
+    return astToString([aliasOf(build({ path, ctx })), ...ctx.injectFooter]);
   } catch (error) {
     return `error: ${(error as Error).message}`;
   }

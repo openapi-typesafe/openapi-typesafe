@@ -1,17 +1,36 @@
-import type { OasRef, Referenced } from "@redocly/openapi-core";
 import ts, { type LiteralTypeNode, type TypeLiteralNode } from "typescript";
-import { toStatements, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
-import { printNodes } from "../application/print/print-nodes.js";
+import { toStatements, toTypeElement, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import { type IrPrintable, printFragments } from "../application/print/print-nodes.js";
+import { HELPER_TYPES } from "../application/transform/footer/helper-types.js";
+import { schemaComment } from "../application/transform/schema-comment.js";
+import type { IrDeclaration, IrType } from "../domain/ir/nodes.js";
+import { declaresTypeAlias, type FooterEntry } from "./footer-entry.js";
+import type { TypeInput } from "./type-helpers.js";
 import { type AstToStringOptions, printWithTypeScript } from "./typescript-printer.js";
 
+export type { FooterEntry } from "./footer-entry.js";
+export {
+  BOOLEAN,
+  FALSE,
+  NEVER,
+  NULL,
+  NUMBER,
+  type OapiRefOptions,
+  oapiRef,
+  STRING,
+  TRUE,
+  type TypeInput,
+  tsIntersection,
+  tsLiteral,
+  tsNullable,
+  tsOmit,
+  tsRecord,
+  tsUnion,
+  tsWithRequired,
+  UNDEFINED,
+  UNKNOWN,
+} from "./type-helpers.js";
 export type { AstToStringOptions } from "./typescript-printer.js";
-
-import { literalType } from "../application/transform/literal-type.js";
-import { refType } from "../application/transform/ref-type.js";
-import { schemaComment } from "../application/transform/schema-comment.js";
-import type { IrDeclaration } from "../domain/ir/nodes.js";
-import type { ParameterObject } from "../types.js";
-import { injectWithRequiredHelper } from "./footer-helpers.js";
 
 export const JS_PROPERTY_INDEX_RE = /^[A-Za-z_$][A-Za-z_$0-9]*$/;
 export const JS_ENUM_INVALID_CHARS_RE = /[^A-Za-z_$0-9]+(.)?/g;
@@ -21,16 +40,8 @@ export const SPECIAL_CHARACTER_MAP: Record<string, string> = {
   // Add more mappings as needed
 };
 
-export const BOOLEAN = ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword);
-export const FALSE = ts.factory.createLiteralTypeNode(ts.factory.createFalse());
-export const NEVER = ts.factory.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword);
-export const NULL = ts.factory.createLiteralTypeNode(ts.factory.createNull());
-export const NUMBER = ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword);
+/** @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9). */
 export const QUESTION_TOKEN = ts.factory.createToken(ts.SyntaxKind.QuestionToken);
-export const STRING = ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword);
-export const TRUE = ts.factory.createLiteralTypeNode(ts.factory.createTrue());
-export const UNDEFINED = ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword);
-export const UNKNOWN = ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword);
 
 export interface AnnotatedSchemaObject {
   const?: unknown; // jsdoc without value
@@ -48,90 +59,59 @@ export interface AnnotatedSchemaObject {
 }
 
 /**
- * Preparing comments from fields
- * @see {comment} for output examples
- * @returns void if not comments or jsdoc format comment string
+ * Add the schema's JSDoc comment to a TypeScript property signature.
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
 export function addJSDocComment(schemaObject: AnnotatedSchemaObject, node: ts.PropertySignature): void {
-  // Ported to IR (ENGINEERING_PLAN Phase 5, step 2); attached as a synthetic comment until then.
   const comment = schemaComment(schemaObject);
   if (comment) {
     ts.addSyntheticLeadingComment(node, ts.SyntaxKind.MultiLineCommentTrivia, comment.text, true);
   }
 }
 
-function isOasRef<T>(obj: Referenced<T>): obj is OasRef {
-  return Boolean((obj as OasRef).$ref);
-}
-type OapiRefResolved = Referenced<ParameterObject>;
+/** What `astToString` prints: IR (what `openapiTS` and the transformers return) or TypeScript nodes. */
+export type AstToStringInput = IrPrintable | ts.Node | readonly (IrPrintable | ts.Node)[];
 
-function isParameterObject(obj: OapiRefResolved | undefined): obj is ParameterObject {
-  return Boolean(obj && !isOasRef(obj) && obj.in);
-}
-
-export interface OapiRefOptions {
-  /** Whether to wrap with FlattenedDeepRequired<> (default: false) */
-  deep?: boolean;
-  /** Array of property names to wrap with Extract<> when accessing */
-  extractProperties?: string[];
-}
-
-/**
- * Convert OpenAPI ref into TS indexed access node (ex: `components["schemas"]["Foo"]`)
- * `path` is a JSON Pointer to a location within an OpenAPI document.
- * Transform it into a TypeScript type reference into the generated types.
- *
- * In most cases the structures of the openapi-typesafe generated types and the
- * JSON Pointer paths into the OpenAPI document are the same. However, in some cases
- * special transformations are necessary to account for the ways they differ.
- *   * Object schemas
- *       $refs into the `properties` of object schemas are valid, but openapi-typesafe
- *       flattens these objects, so we omit  so the index into the schema skips ["properties"]
- *   * Parameters
- *       $refs into the `parameters` of paths are valid, but openapi-ts represents
- *       them according to their type; path, query, header, etc… so in these cases we
- *       must check the parameter definition to determine the how to index into
- *       the openapi-typesafe type.
- *   * Union variant properties (oneOf/anyOf)
- *       When accessing properties that may only exist on some variants of a union type,
- *       we use Extract<> to narrow the type before each property access.
- **/
-export function oapiRef(path: string, resolved?: OapiRefResolved, options: OapiRefOptions = {}): ts.TypeNode {
-  // Ported to IR (ENGINEERING_PLAN Phase 5, step 1); converted back until the parents are ported.
-  return toTypeNode(
-    refType(path, {
-      isDeep: options.deep ?? false,
-      extractProperties: options.extractProperties ?? [],
-      parameter: isParameterObject(resolved) ? { in: resolved.in, name: resolved.name } : null,
-    }),
-  );
-}
-
-/** Convert TypeScript AST to string */
-/** What `astToString` prints: IR declarations (what `openapiTS` returns) or TypeScript nodes. */
-export type AstToStringInput =
-  | IrDeclaration
-  | ts.Node
-  | ts.TypeElement
-  | readonly (IrDeclaration | ts.Node | ts.TypeElement)[];
-
-function isIrDeclaration(node: IrDeclaration | ts.Node): node is IrDeclaration {
+function isIrNode(node: IrPrintable | ts.Node): node is IrPrintable {
   return typeof node.kind === "string";
 }
 
+/** An IR node in TypeScript form, for printing it together with TypeScript nodes. */
+function toTypeScriptNodes(node: IrPrintable): ts.Node[] {
+  if (isIrDeclarationKind(node)) {
+    return toStatements(node);
+  }
+  return [node.kind === "property" || node.kind === "indexSignature" ? toTypeElement(node) : toTypeNode(node)];
+}
+
+function isIrDeclarationKind(node: IrPrintable): node is IrDeclaration {
+  return ["interface", "typeAlias", "enum", "constArray", "rawDeclaration"].includes(node.kind);
+}
+
 /**
- * Print declarations as a TypeScript file body. IR declarations are printed by our printer; with
- * TypeScript nodes in the input, or with TypeScript printer options, everything goes through the
- * TypeScript printer as before (ADR-004, decision 1).
+ * Print declarations, members or types as a TypeScript file body. IR is printed by our printer;
+ * with TypeScript nodes in the input, or with TypeScript printer options, everything goes
+ * through the TypeScript printer as before (ADR-004, decision 1).
  */
 export function astToString(ast: AstToStringInput, options?: AstToStringOptions): string {
-  const nodes: readonly (IrDeclaration | ts.Node)[] = Array.isArray(ast) ? ast : [ast as IrDeclaration | ts.Node];
-  const isIrOnly = nodes.every(isIrDeclaration);
-  if (isIrOnly && !options) {
-    return printNodes(nodes);
+  const nodes: readonly (IrPrintable | ts.Node)[] = Array.isArray(ast) ? ast : [ast as IrPrintable | ts.Node];
+  if (nodes.every(isIrNode) && !options) {
+    return printFragments(nodes);
   }
-  const statements = nodes.flatMap((node) => (isIrDeclaration(node) ? toStatements(node) : [node]));
+  const statements = nodes.flatMap((node) => (isIrNode(node) ? toTypeScriptNodes(node) : [node]));
   return printWithTypeScript(statements, options);
+}
+
+/** A type argument of the deprecated helpers in TypeScript form; IR (from the type helpers) is converted. */
+function legacyTypeNode(type: TypeInput): ts.TypeNode {
+  return typeof type.kind === "string" ? toTypeNode(type as IrType) : (type as ts.TypeNode);
+}
+
+/** Add a helper type alias to the footer once, as a named raw declaration (as the generator does). */
+function requireHelper(injectFooter: FooterEntry[], helper: { name: string; text: string }): void {
+  if (!injectFooter.some((entry) => declaresTypeAlias(entry, helper.name))) {
+    injectFooter.push({ kind: "rawDeclaration", name: helper.name, text: helper.text });
+  }
 }
 
 /** Convert an arbitrary string to TS (assuming it’s valid) */
@@ -148,11 +128,12 @@ export function stringToAST(source: string): unknown[] {
 /**
  * Deduplicate simple primitive types from an array of nodes
  * Note: won’t deduplicate complex types like objects
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
-export function tsDedupe(types: ts.TypeNode[]): ts.TypeNode[] {
+export function tsDedupe(types: TypeInput[]): ts.TypeNode[] {
   const encounteredTypes = new Set<number>();
   const filteredTypes: ts.TypeNode[] = [];
-  for (const t of types) {
+  for (const t of types.map(legacyTypeNode)) {
     // only mark for deduplication if this is not a const ("text" means it is a const)
     if (!("text" in ((t as LiteralTypeNode).literal ?? t))) {
       const { kind } = (t as LiteralTypeNode).literal ?? t;
@@ -168,9 +149,13 @@ export function tsDedupe(types: ts.TypeNode[]): ts.TypeNode[] {
   return filteredTypes;
 }
 
+/** @deprecated The generator keeps its own enum registry per run; kept for 1.x (ADR-004). */
 export const enumCache = new Map<string, ts.EnumDeclaration>();
 
-/** Create a TS enum (with sanitized name and members) */
+/**
+ * Create a TS enum (with sanitized name and members)
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
 export function tsEnum(
   name: string,
   members: (string | number)[],
@@ -201,31 +186,26 @@ export function tsEnum(
   return enumDeclaration;
 }
 
-/** Create an exported TS array literal expression  */
+/**
+ * Create an exported TS array literal expression
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
 export function tsArrayLiteralExpression(
   name: string,
-  elementType: ts.TypeNode,
+  elementType: TypeInput,
   values: (string | number)[],
-  options?: { export?: boolean; readonly?: boolean; injectFooter?: ts.Node[] },
+  options?: { export?: boolean; readonly?: boolean; injectFooter?: FooterEntry[] },
 ) {
   let variableName = sanitizeMemberName(name);
   variableName = `${variableName[0].toLowerCase()}${variableName.substring(1)}`;
 
-  if (
-    options?.injectFooter &&
-    !options.injectFooter.some(
-      (node) => ts.isTypeAliasDeclaration(node) && node?.name?.escapedText === "FlattenedDeepRequired",
-    )
-  ) {
-    const helper = stringToAST(
-      "type FlattenedDeepRequired<T> = { [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>; };",
-    )[0] as any;
-    options.injectFooter.push(helper);
+  if (options?.injectFooter) {
+    requireHelper(options.injectFooter, HELPER_TYPES.flattenedDeepRequired);
   }
 
   const arrayType = options?.readonly
     ? tsReadonlyArray(elementType, options.injectFooter)
-    : ts.factory.createArrayTypeNode(elementType);
+    : ts.factory.createArrayTypeNode(legacyTypeNode(elementType));
 
   return ts.factory.createVariableStatement(
     options ? tsModifiers({ export: options.export ?? false }) : undefined,
@@ -269,7 +249,10 @@ function sanitizeMemberName(name: string) {
   return sanitizedName;
 }
 
-/** Sanitize TS enum member expression */
+/**
+ * Sanitize TS enum member expression
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
 export function tsEnumMember(value: string | number, metadata: { name?: string; description?: string | null } = {}) {
   let name = metadata.name ?? String(value);
   if (!JS_PROPERTY_INDEX_RE.test(name)) {
@@ -314,22 +297,15 @@ export function tsEnumMember(value: string | number, metadata: { name?: string; 
   return ts.addSyntheticLeadingComment(member, ts.SyntaxKind.SingleLineCommentTrivia, ` ${trimmedDescription}`, true);
 }
 
-/** Create an intersection type */
-export function tsIntersection(types: ts.TypeNode[]): ts.TypeNode {
-  if (types.length === 0) {
-    return NEVER;
-  }
-  if (types.length === 1) {
-    return types[0];
-  }
-  return ts.factory.createIntersectionTypeNode(tsDedupe(types));
-}
-
-/** Is this a primitive type (string, number, boolean, null, undefined)? */
-export function tsIsPrimitive(type: ts.TypeNode): boolean {
-  if (!type) {
+/**
+ * Is this a primitive type (string, number, boolean, null, undefined)?
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
+export function tsIsPrimitive(input: TypeInput): boolean {
+  if (!input) {
     return true;
   }
+  const type = legacyTypeNode(input);
   return (
     ts.SyntaxKind[type.kind] === "BooleanKeyword" ||
     ts.SyntaxKind[type.kind] === "NeverKeyword" ||
@@ -341,13 +317,10 @@ export function tsIsPrimitive(type: ts.TypeNode): boolean {
   );
 }
 
-/** Create a literal type */
-export function tsLiteral(value: unknown): ts.TypeNode {
-  // Ported to IR (ENGINEERING_PLAN Phase 5, step 1); converted back until the parents are ported.
-  return toTypeNode(literalType(value));
-}
-
-/** Modifiers (readonly) */
+/**
+ * Modifiers (readonly)
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
 export function tsModifiers(modifiers: { readonly?: boolean; export?: boolean }): ts.Modifier[] {
   const typeMods: ts.Modifier[] = [];
   if (modifiers.export) {
@@ -359,25 +332,10 @@ export function tsModifiers(modifiers: { readonly?: boolean; export?: boolean })
   return typeMods;
 }
 
-/** Create a T | null union */
-export function tsNullable(types: ts.TypeNode[]): ts.TypeNode {
-  return ts.factory.createUnionTypeNode([...types, NULL]);
-}
-
-/** Create a TS Omit<X, Y> type */
-export function tsOmit(type: ts.TypeNode, keys: string[]): ts.TypeNode {
-  return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Omit"), [
-    type,
-    ts.factory.createUnionTypeNode(keys.map((k) => tsLiteral(k))),
-  ]);
-}
-
-/** Create a TS Record<X, Y> type */
-export function tsRecord(key: ts.TypeNode, value: ts.TypeNode) {
-  return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Record"), [key, value]);
-}
-
-/** Create a valid property index */
+/**
+ * Create a valid property index
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
 export function tsPropertyIndex(index: string | number) {
   if (
     (typeof index === "number" && !(index < 0)) ||
@@ -390,48 +348,15 @@ export function tsPropertyIndex(index: string | number) {
     : ts.factory.createStringLiteral(String(index));
 }
 
-/** Create a union type */
-export function tsUnion(types: ts.TypeNode[]): ts.TypeNode {
-  if (types.length === 0) {
-    return NEVER;
-  }
-  if (types.length === 1) {
-    return types[0];
-  }
-  return ts.factory.createUnionTypeNode(tsDedupe(types));
-}
-
-/** Create a WithRequired<X, Y> type */
-export function tsWithRequired(
-  type: ts.TypeNode,
-  keys: string[],
-  injectFooter: ts.Node[], // needed to inject type helper if used
-): ts.TypeNode {
-  if (keys.length === 0) {
-    return type;
-  }
-
-  injectWithRequiredHelper(injectFooter);
-  return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("WithRequired"), [
-    type,
-    tsUnion(keys.map((k) => tsLiteral(k))),
-  ]);
-}
-
 /**
  * Enhanced ReadonlyArray.
  * eg: type Foo = ReadonlyArray<T>; type Bar = ReadonlyArray<T[]>
  * Foo and Bar are both of type `readonly T[]`
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
-export function tsReadonlyArray(type: ts.TypeNode, injectFooter?: ts.Node[]): ts.TypeNode {
-  if (
-    injectFooter &&
-    !injectFooter.some((node) => ts.isTypeAliasDeclaration(node) && node?.name?.escapedText === "ReadonlyArray")
-  ) {
-    const helper = stringToAST(
-      "type ReadonlyArray<T> = [Exclude<T, undefined>] extends [unknown[]] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;",
-    )[0] as any;
-    injectFooter.push(helper);
+export function tsReadonlyArray(type: TypeInput, injectFooter?: FooterEntry[]): ts.TypeNode {
+  if (injectFooter) {
+    requireHelper(injectFooter, HELPER_TYPES.readonlyArray);
   }
-  return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("ReadonlyArray"), [type]);
+  return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("ReadonlyArray"), [legacyTypeNode(type)]);
 }

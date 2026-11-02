@@ -1,10 +1,10 @@
 import fc from "fast-check";
 import type ts from "typescript";
 import { describe, expect, it } from "vitest";
+import type { IrType } from "../../src/domain/ir/nodes.js";
 import transformRequestBodyObject from "../../src/transform/request-body-object.js";
 import transformResponseObject from "../../src/transform/response-object.js";
 import transformResponsesObject from "../../src/transform/responses-object.js";
-import type { TransformNodeOptions } from "../../src/types.js";
 import originalTransformRequestBodyObject from "./original/request-body-object.js";
 import originalTransformResponseObject from "./original/response-object.js";
 import originalTransformResponsesObject from "./original/responses-object.js";
@@ -48,7 +48,8 @@ const responses = fc.dictionary(
   { maxKeys: 3 },
 );
 
-type Transform = (value: never, options: TransformNodeOptions) => ts.TypeNode;
+/** The new and the original transformer; their option types differ (IR and TypeScript). */
+type Transform = (value: never, options: never) => IrType | ts.TypeNode;
 
 function checkParity<T>(
   arbitrary: fc.Arbitrary<T>,
@@ -58,7 +59,7 @@ function checkParity<T>(
   fc.assert(
     fc.property(arbitrary, contextInput, (value: T, input: ContextInput) => {
       const run = (build: Transform) =>
-        runLegacy((options) => build(value as never, options), input, input.path);
+        runLegacy((options) => build(value as never, options as never), input, input.path);
       expect(run(transform)).toBe(run(original));
     }),
     { numRuns: RUNS },

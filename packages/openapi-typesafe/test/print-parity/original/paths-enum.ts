@@ -3,7 +3,7 @@
 import type ts from "typescript";
 import { tsEnum } from "./lib/ts.js";
 import { getEntries } from "./lib/utils.js";
-import type { PathsObject } from "../../../src/types.js";
+import type { PathsObject } from "./lib/types.js";
 
 export default function makeApiPathsEnum(pathsObject: PathsObject): ts.EnumDeclaration {
   const enumKeys = [];

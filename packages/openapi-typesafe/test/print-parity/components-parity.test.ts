@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import type ts from "typescript";
 import { describe, expect, it } from "vitest";
+import type { IrPrintable } from "../../src/application/print/print-nodes.js";
 import { astToString } from "../../src/lib/ts.js";
 import transformComponentsObject from "../../src/transform/components-object.js";
 import { componentsArbitrary as components } from "./document-arbitraries.js";
@@ -20,13 +21,14 @@ import {
  * casing options) and the footer.
  */
 
-type Transform = typeof transformComponentsObject;
+/** The new and the original transformer; their option types differ (IR and TypeScript). */
+type Transform = (value: never, ctx: never) => readonly (IrPrintable | ts.Node)[];
 
 function run(transform: Transform, value: unknown, input: ContextInput): string {
   resetLegacyEnumState();
   const ctx = createContext(input);
   try {
-    const nodes = transform(value as never, ctx) as ts.Node[];
+    const nodes = transform(value as never, ctx as never);
     return astToString([...nodes, ...ctx.injectFooter]);
   } catch (error) {
     return `error: ${(error as Error).message}`;

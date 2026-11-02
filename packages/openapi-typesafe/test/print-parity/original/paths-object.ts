@@ -11,7 +11,7 @@ import type {
   PathItemObject,
   PathsObject,
   ReferenceObject,
-} from "../../../src/types.js";
+} from "./lib/types.js";
 import transformPathItemObject, { type Method } from "./path-item-object.js";
 
 const PATH_PARAM_RE = /\{[^}]+\}/g;

@@ -1,5 +1,7 @@
 import fc from "fast-check";
+import type ts from "typescript";
 import { describe, expect, it } from "vitest";
+import type { IrDeclaration } from "../../src/domain/ir/nodes.js";
 import { astToString } from "../../src/lib/ts.js";
 import transformSchema from "../../src/transform/index.js";
 import {
@@ -25,13 +27,14 @@ import {
 /** A run transforms a whole document, several times the work of one node per run. */
 const DOCUMENT_TIMEOUT_MS = TIMEOUT_MS * 4;
 
-type Transform = typeof transformSchema;
+/** The new and the original transformer; their option types differ (IR and TypeScript). */
+type Transform = (schema: never, ctx: never) => readonly (IrDeclaration | ts.Node)[];
 
 function run(transform: Transform, value: unknown, input: ContextInput, code?: string): string {
   resetLegacyEnumState();
   const ctx = { ...createContext(input), inject: code };
   try {
-    return astToString(transform(value as never, ctx));
+    return astToString(transform(value as never, ctx as never));
   } catch (error) {
     return `error: ${(error as Error).message}`;
   }

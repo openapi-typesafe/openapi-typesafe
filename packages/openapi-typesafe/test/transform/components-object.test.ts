@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { astToString, NULL } from "../../src/lib/ts.js";
+import { astToString, NULL, tsUnion } from "../../src/lib/ts.js";
 import transformComponentsObject, { isEnumSchema } from "../../src/transform/components-object.js";
 import type { GlobalContext } from "../../src/types.js";
 import { DEFAULT_CTX, type TestCase } from "../test-helpers.js";
@@ -833,7 +833,7 @@ export type ItemDTO = components['schemas']['ItemDTO'];
           transform(schemaObject) {
             if (schemaObject.format === "date-time") {
               return {
-                schema: ts.factory.createUnionTypeNode([DATE, NULL]),
+                schema: tsUnion([DATE, NULL]),
                 questionToken: true,
               };
             }

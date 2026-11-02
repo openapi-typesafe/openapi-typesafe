@@ -3,7 +3,7 @@
 import ts from "typescript";
 import { tsModifiers, tsPropertyIndex } from "./lib/ts.js";
 import { createRef, getEntries } from "./lib/utils.js";
-import type { GlobalContext, WebhooksObject } from "../../../src/types.js";
+import type { GlobalContext, WebhooksObject } from "./lib/types.js";
 import transformPathItemObject from "./path-item-object.js";
 
 export default function transformWebhooksObject(webhooksObject: WebhooksObject, options: GlobalContext): ts.TypeNode {

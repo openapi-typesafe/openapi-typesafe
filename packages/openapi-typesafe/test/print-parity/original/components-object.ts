@@ -5,7 +5,7 @@ import * as changeCase from "change-case";
 import ts from "typescript";
 import { addJSDocComment, NEVER, QUESTION_TOKEN, tsModifiers, tsPropertyIndex } from "./lib/ts.js";
 import { createRef, debug, getEntries } from "./lib/utils.js";
-import type { ComponentsObject, GlobalContext, SchemaObject, TransformNodeOptions } from "../../../src/types.js";
+import type { ComponentsObject, GlobalContext, SchemaObject, TransformNodeOptions } from "./lib/types.js";
 import transformHeaderObject from "./header-object.js";
 import transformParameterObject from "./parameter-object.js";
 import transformPathItemObject from "./path-item-object.js";
