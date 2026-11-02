@@ -9,6 +9,7 @@ import {
   NULL,
   NUMBER,
   oapiRef,
+  QUESTION_TOKEN,
   STRING,
   tsArrayLiteralExpression,
   tsDedupe,
@@ -536,5 +537,16 @@ describe("deprecated helpers with IR input (task 6.2)", () => {
     const member = irProperty({ kind: "identifier", text: "a" }, STRING);
 
     expect(astToString([member, NUMBER, TS_STRING])).toBe("a: string;\nnumber\nstring\n");
+  });
+});
+
+describe("QUESTION_TOKEN", () => {
+  test("is a question token the factory and printer accept", () => {
+    const property = ts.factory.createPropertySignature(undefined, "a", QUESTION_TOKEN, TS_STRING);
+
+    expect(QUESTION_TOKEN.kind).toBe(ts.SyntaxKind.QuestionToken);
+    expect("kind" in QUESTION_TOKEN).toBe(true);
+    expect(Object.keys(QUESTION_TOKEN)).toContain("kind");
+    expect(astToString(ts.factory.createTypeLiteralNode([property])).trim()).toBe("{\n    a?: string;\n}");
   });
 });

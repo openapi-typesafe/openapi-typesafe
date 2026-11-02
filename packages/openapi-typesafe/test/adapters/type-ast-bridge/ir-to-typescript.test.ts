@@ -11,14 +11,14 @@ function printStatement(statement: ts.Statement): string {
 
 describe("toStatement", () => {
   it("toStatement with a raw declaration parses its text into a statement", () => {
-    const statement = toStatement({ kind: "rawDeclaration", text: "type A = 1;" });
+    const statement = toStatement(ts, { kind: "rawDeclaration", text: "type A = 1;" });
 
     expect(ts.isTypeAliasDeclaration(statement)).toBe(true);
     expect(printStatement(statement)).toBe("type A = 1;");
   });
 
   it("toStatement with an unknown declaration kind throws", () => {
-    expect(() => toStatement({ kind: "module" } as unknown as IrDeclaration)).toThrow(
+    expect(() => toStatement(ts, { kind: "module" } as unknown as IrDeclaration)).toThrow(
       "Unexpected variant",
     );
   });
@@ -26,7 +26,7 @@ describe("toStatement", () => {
 
 describe("toTypeNode", () => {
   it("toTypeNode with a raw type keeps its text", () => {
-    const node = toTypeNode({ kind: "raw", text: "B | 2" });
+    const node = toTypeNode(ts, { kind: "raw", text: "B | 2" });
     const source = ts.createSourceFile("out.ts", "", ts.ScriptTarget.ESNext);
 
     expect(ts.createPrinter().printNode(ts.EmitHint.Unspecified, node, source)).toBe("B | 2");
@@ -35,14 +35,14 @@ describe("toTypeNode", () => {
   it.each([{ kind: "conditional" }, { kind: "template" }])(
     "toTypeNode with unknown kind %j throws",
     (type) => {
-      expect(() => toTypeNode(type as unknown as IrType)).toThrow("Unexpected variant");
+      expect(() => toTypeNode(ts, type as unknown as IrType)).toThrow("Unexpected variant");
     },
   );
 
   it("toTypeNode with an unknown property name kind throws", () => {
     const name = { kind: "computed", text: "x" } as unknown as IrPropertyName;
 
-    expect(() => toTypeNode(irObject([irProperty(name, irKeyword("string"))]))).toThrow(
+    expect(() => toTypeNode(ts, irObject([irProperty(name, irKeyword("string"))]))).toThrow(
       "Unexpected variant",
     );
   });

@@ -1,4 +1,5 @@
 import { appendMember, asInterfaceNamed } from "../adapters/type-ast-bridge/footer-nodes.js";
+import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import type { FooterSink } from "../application/transform/footer/document-footer.js";
 import type { IrDeclaration, IrInterfaceDeclaration, IrPropertySignature } from "../domain/ir/nodes.js";
 import { declaresTypeAlias, type FooterEntry, isIrDeclaration } from "./footer-entry.js";
@@ -32,9 +33,10 @@ export class ContextFooterSink implements FooterSink {
   addOperation(build: () => IrPropertySignature): void {
     const existing = this.findOperations();
     if (existing !== null && !isIrDeclaration(existing.entry)) {
-      const node = asInterfaceNamed(existing.entry, OPERATIONS_NAME);
+      const ts = loadTypeScript();
+      const node = asInterfaceNamed(ts, existing.entry, OPERATIONS_NAME);
       if (node) {
-        appendMember(node, build());
+        appendMember(ts, node, build());
       }
       return;
     }
@@ -49,7 +51,7 @@ export class ContextFooterSink implements FooterSink {
     const index = this.footer.findIndex((entry) =>
       isIrDeclaration(entry)
         ? entry.kind === "interface" && entry.name === OPERATIONS_NAME
-        : asInterfaceNamed(entry, OPERATIONS_NAME) !== null,
+        : asInterfaceNamed(loadTypeScript(), entry, OPERATIONS_NAME) !== null,
     );
     const entry = this.footer[index];
     return entry === undefined ? null : { entry, index };

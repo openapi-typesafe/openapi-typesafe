@@ -1,4 +1,5 @@
 import fc from "fast-check";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { toStatement } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
 import { printNodes } from "../../src/application/print/print-nodes.js";
@@ -11,7 +12,7 @@ import { alias, DECLARATION_CASES, TYPE_CASES } from "./print-parity.fixtures.js
  * What the original generator prints for the same declarations: TypeScript factory nodes + printer.
  */
 function printWithTypeScript(declarations: readonly IrDeclaration[]): string {
-  return astToString(declarations.map(toStatement));
+  return astToString(declarations.map((node) => toStatement(ts, node)));
 }
 
 /** Random IR trees are large; this many runs keeps the suite under a few seconds. */

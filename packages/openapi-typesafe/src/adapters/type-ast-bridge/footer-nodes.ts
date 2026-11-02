@@ -1,6 +1,7 @@
-import ts from "typescript";
+import type ts from "typescript";
 import type { IrPropertySignature } from "../../domain/ir/nodes.js";
 import { toPropertySignature } from "./ir-to-typescript.js";
+import type { TypeScriptModule } from "./load-typescript.js";
 
 /**
  * TypeScript nodes that user code adds to the footer (`ctx.injectFooter`). The generator's own
@@ -8,12 +9,16 @@ import { toPropertySignature } from "./ir-to-typescript.js";
  */
 
 /** Whether the node is a type alias with this name (the original's helper check). */
-export function isTypeAliasNamed(node: ts.Node, name: string): boolean {
+export function isTypeAliasNamed(ts: TypeScriptModule, node: ts.Node, name: string): boolean {
   return ts.isTypeAliasDeclaration(node) && node.name.text === name;
 }
 
 /** The node as an interface with this name, or null. */
-export function asInterfaceNamed(node: ts.Node, name: string): ts.InterfaceDeclaration | null {
+export function asInterfaceNamed(
+  ts: TypeScriptModule,
+  node: ts.Node,
+  name: string,
+): ts.InterfaceDeclaration | null {
   return ts.isInterfaceDeclaration(node) && node.name.text === name ? node : null;
 }
 
@@ -21,9 +26,13 @@ export function asInterfaceNamed(node: ts.Node, name: string): ts.InterfaceDecla
  * Add a member to a user's interface in place, as the original `injectOperationObject` did:
  * other references to the node see the member.
  */
-export function appendMember(node: ts.InterfaceDeclaration, member: IrPropertySignature): void {
+export function appendMember(
+  ts: TypeScriptModule,
+  node: ts.InterfaceDeclaration,
+  member: IrPropertySignature,
+): void {
   (node as { members: ts.NodeArray<ts.TypeElement> }).members = ts.factory.createNodeArray([
     ...node.members,
-    toPropertySignature(member),
+    toPropertySignature(ts, member),
   ]);
 }

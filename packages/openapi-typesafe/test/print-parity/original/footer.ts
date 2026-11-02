@@ -24,14 +24,14 @@ export default function footer(ctx: GlobalContext): DocumentFooter {
     addEnumValues({ name, type, values }) {
       const options = { export: true, readonly: true, injectFooter: ctx.injectFooter };
       ctx.injectFooter.push(
-        tsArrayLiteralExpression(name, toTypeNode(type), [...values], options),
+        tsArrayLiteralExpression(name, toTypeNode(ts, type), [...values], options),
       );
     },
     requireWithRequired() {
       injectWithRequiredHelper(ctx.injectFooter);
     },
     addOperation(build) {
-      injectOperation(ctx.injectFooter, () => toPropertySignature(build()));
+      injectOperation(ctx.injectFooter, () => toPropertySignature(ts, build()));
     },
   };
 }

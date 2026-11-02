@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 import * as changeCase from "change-case";
 import type ts from "typescript";
+import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import { fromTypeNode } from "../adapters/type-ast-bridge/typescript-to-ir.js";
 import { RunFooter } from "../application/transform/footer/document-footer.js";
 import type { SchemaLocation } from "../application/transform/schema/schema-context.js";
@@ -60,7 +61,7 @@ const TEMPLATES: TemplateLiteralParser = {
   parse(text) {
     const [statement] = stringToAST(text) as { expression?: ts.Node }[];
     const expression = statement?.expression;
-    return expression ? fromTypeNode(expression as ts.TypeNode) : null;
+    return expression ? fromTypeNode(loadTypeScript(), expression as ts.TypeNode) : null;
   },
 };
 

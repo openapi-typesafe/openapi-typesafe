@@ -1,5 +1,6 @@
 import type ts from "typescript";
 import { isTypeAliasNamed } from "../adapters/type-ast-bridge/footer-nodes.js";
+import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 
 /** A footer entry: a declaration in IR, or a TypeScript node added by user code. */
@@ -16,7 +17,7 @@ export function isIrDeclaration(entry: FooterEntry): entry is IrDeclaration {
  */
 export function declaresTypeAlias(entry: FooterEntry, name: string): boolean {
   if (!isIrDeclaration(entry)) {
-    return isTypeAliasNamed(entry, name);
+    return isTypeAliasNamed(loadTypeScript(), entry, name);
   }
   return (entry.kind === "typeAlias" || entry.kind === "rawDeclaration") && entry.name === name;
 }

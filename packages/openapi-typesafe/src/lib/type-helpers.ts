@@ -1,4 +1,5 @@
 import type ts from "typescript";
+import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
 import { fromTypeNode } from "../adapters/type-ast-bridge/typescript-to-ir.js";
 import { HELPER_TYPES } from "../application/transform/footer/helper-types.js";
 import { literalType } from "../application/transform/literal-type.js";
@@ -43,7 +44,7 @@ function isIrType(type: TypeInput): type is IrType {
 
 /** @internal Read a helper argument into IR. */
 export function toIrType(type: TypeInput): IrType {
-  return isIrType(type) ? type : fromTypeNode(type);
+  return isIrType(type) ? type : fromTypeNode(loadTypeScript(), type);
 }
 
 /** `A | B`: `never` for no types, the type itself for one; repeated primitives are removed. */

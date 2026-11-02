@@ -57,7 +57,7 @@ function readBody(path: string): string {
 function benchmarkFile(path: string, iterations: number): FileResult {
   const body = readBody(path);
   const declarations: IrDeclaration[] = parseDeclarations(body);
-  const statements = declarations.map(toStatement);
+  const statements = declarations.map((declaration) => toStatement(ts, declaration));
   const options = { iterations, now: () => performance.now() };
   return {
     file: join(basename(dirname(path)), basename(path)),
@@ -65,7 +65,7 @@ function benchmarkFile(path: string, iterations: number): FileResult {
     declarations: declarations.length,
     isIdentical: printNodes(declarations) === body && printWithTypeScript(statements) === body,
     typescriptBuildAndPrint: measure(
-      () => printWithTypeScript(declarations.map(toStatement)),
+      () => printWithTypeScript(declarations.map((declaration) => toStatement(ts, declaration))),
       options,
     ),
     typescriptPrintOnly: measure(() => printWithTypeScript(statements), options),

@@ -1,8 +1,8 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { toStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
+import { printWithTypeScript } from "../../src/adapters/type-ast-bridge/print-typescript.js";
 import openapiTS, { astToString } from "../../src/index.js";
-import { printWithTypeScript } from "../../src/lib/typescript-printer.js";
 import type { OpenAPI3, OpenAPITSOptions } from "../../src/types.js";
 
 const DOCUMENT: OpenAPI3 = {
@@ -26,7 +26,10 @@ async function printBoth(options: OpenAPITSOptions) {
   const declarations = await openapiTS(DOCUMENT, { silent: true, ...options });
   return {
     ir: astToString(declarations),
-    typescript: printWithTypeScript(declarations.flatMap(toStatements)),
+    typescript: printWithTypeScript(
+      ts,
+      declarations.flatMap((node) => toStatements(ts, node)),
+    ),
   };
 }
 

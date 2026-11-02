@@ -1,8 +1,9 @@
 import type ts from "typescript";
+import { parseStatements } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import { loadTypeScript } from "../adapters/type-ast-bridge/load-typescript.js";
+import { printWithTypeScript } from "../adapters/type-ast-bridge/print-typescript.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import { type FooterEntry, isIrDeclaration } from "./footer-entry.js";
-import { stringToAST } from "./ts.js";
-import { printWithTypeScript } from "./typescript-printer.js";
 
 /** The document in three parts; the footer may hold TypeScript nodes from user code. */
 export interface TransformedDocument {
@@ -18,7 +19,7 @@ function withoutFinalLineBreak(text: string): string {
 
 /** A TypeScript node from user code, as the TypeScript printer prints it. */
 function printedNode(node: ts.Node): IrDeclaration {
-  return { kind: "rawDeclaration", text: withoutFinalLineBreak(printWithTypeScript([node])) };
+  return { kind: "rawDeclaration", text: withoutFinalLineBreak(printWithTypeScript(loadTypeScript(), [node])) };
 }
 
 /**
@@ -30,7 +31,8 @@ function reprinted(declaration: IrDeclaration): IrDeclaration | null {
   if (declaration.kind !== "rawDeclaration") {
     return declaration;
   }
-  const text = withoutFinalLineBreak(printWithTypeScript(stringToAST(declaration.text) as ts.Node[]));
+  const ts = loadTypeScript();
+  const text = withoutFinalLineBreak(printWithTypeScript(ts, parseStatements(ts, declaration.text)));
   return text === "" ? null : { ...declaration, text };
 }
 

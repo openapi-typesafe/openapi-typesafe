@@ -1,8 +1,9 @@
 import fc from "fast-check";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { toStatements } from "../../src/adapters/type-ast-bridge/ir-to-typescript.js";
+import { printWithTypeScript } from "../../src/adapters/type-ast-bridge/print-typescript.js";
 import { printNodes } from "../../src/application/print/print-nodes.js";
-import { printWithTypeScript } from "../../src/lib/typescript-printer.js";
 import transformSchema from "../../src/transform/index.js";
 import type { OpenAPI3 } from "../../src/types.js";
 import { documentArbitrary, injectArbitrary } from "./document-arbitraries.js";
@@ -27,7 +28,10 @@ type Print = (schema: OpenAPI3, input: ContextInput, inject: string | undefined)
 
 const printNodesWithTypeScript: Print = (schema, input, inject) =>
   printWithTypeScript(
-    transformSchema(schema, { ...createContext(input), inject }).flatMap(toStatements),
+    ts,
+    transformSchema(schema, { ...createContext(input), inject }).flatMap((node) =>
+      toStatements(ts, node),
+    ),
   );
 
 const printWithIr: Print = (schema, input, inject) =>

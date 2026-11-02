@@ -1,4 +1,4 @@
-import ts from "typescript";
+import type ts from "typescript";
 import { assertNever } from "../../domain/assert-never.js";
 import type {
   IrComment,
@@ -10,81 +10,95 @@ import type {
   IrTupleElement,
   IrType,
 } from "../../domain/ir/nodes.js";
+import type { TypeScriptModule } from "./load-typescript.js";
 
 /**
- * Convert IR to TypeScript AST nodes with the same factory calls the original generator makes (see
- * `src/lib/ts.ts`). Printing the result with the TypeScript printer gives the original output,
- * which is how the printer parity tests (ENGINEERING_PLAN 4.3) define "byte-identical"; legacy
- * `ts.Node` callbacks reuse it later (task 6.3).
+ * Convert IR to TypeScript AST nodes with the same factory calls the original generator makes.
+ * Printing the result with the TypeScript printer gives the original output, which is how the
+ * printer parity tests (ENGINEERING_PLAN 4.3) define "byte-identical". Every function takes the
+ * TypeScript module to build with (ADR-004, decision 4): the nodes must come from the same module
+ * that later reads or prints them.
  */
 
-const factory = ts.factory;
+type KeywordName = Exclude<IrKeyword, "null">;
 
-const KEYWORD_KINDS: Readonly<Record<Exclude<IrKeyword, "null">, ts.KeywordTypeSyntaxKind>> = {
-  string: ts.SyntaxKind.StringKeyword,
-  number: ts.SyntaxKind.NumberKeyword,
-  boolean: ts.SyntaxKind.BooleanKeyword,
-  undefined: ts.SyntaxKind.UndefinedKeyword,
-  unknown: ts.SyntaxKind.UnknownKeyword,
-  never: ts.SyntaxKind.NeverKeyword,
-};
+function keywordKind(ts: TypeScriptModule, keyword: KeywordName): ts.KeywordTypeSyntaxKind {
+  const kinds: Readonly<Record<KeywordName, ts.KeywordTypeSyntaxKind>> = {
+    string: ts.SyntaxKind.StringKeyword,
+    number: ts.SyntaxKind.NumberKeyword,
+    boolean: ts.SyntaxKind.BooleanKeyword,
+    undefined: ts.SyntaxKind.UndefinedKeyword,
+    unknown: ts.SyntaxKind.UnknownKeyword,
+    never: ts.SyntaxKind.NeverKeyword,
+  };
+  return kinds[keyword];
+}
 
-function toKeywordType(keyword: IrKeyword): ts.TypeNode {
+function toKeywordType(ts: TypeScriptModule, keyword: IrKeyword): ts.TypeNode {
   return keyword === "null"
-    ? factory.createLiteralTypeNode(factory.createNull())
-    : factory.createKeywordTypeNode(KEYWORD_KINDS[keyword]);
+    ? ts.factory.createLiteralTypeNode(ts.factory.createNull())
+    : ts.factory.createKeywordTypeNode(keywordKind(ts, keyword));
 }
 
 /**
  * Numbers as the original writes them: a negative value is a prefix minus on its absolute value.
  */
-function toNumberExpression(value: number): ts.PrefixUnaryExpression | ts.NumericLiteral {
+function toNumberExpression(
+  ts: TypeScriptModule,
+  value: number,
+): ts.PrefixUnaryExpression | ts.NumericLiteral {
   return value < 0
-    ? factory.createPrefixUnaryExpression(
+    ? ts.factory.createPrefixUnaryExpression(
         ts.SyntaxKind.MinusToken,
-        factory.createNumericLiteral(Math.abs(value)),
+        ts.factory.createNumericLiteral(Math.abs(value)),
       )
-    : factory.createNumericLiteral(value);
+    : ts.factory.createNumericLiteral(value);
 }
 
-function toValueExpression(value: string | number): ts.Expression {
-  return typeof value === "number" ? toNumberExpression(value) : factory.createStringLiteral(value);
+function toValueExpression(ts: TypeScriptModule, value: string | number): ts.Expression {
+  return typeof value === "number"
+    ? toNumberExpression(ts, value)
+    : ts.factory.createStringLiteral(value);
 }
 
 /** The original writes JSON-encoded literal types as identifiers to keep UTF-8 readable. */
-function toStringLiteralType(value: string, encoding: "json" | "escaped"): ts.TypeNode {
+function toStringLiteralType(
+  ts: TypeScriptModule,
+  value: string,
+  encoding: "json" | "escaped",
+): ts.TypeNode {
   return encoding === "json"
-    ? (factory.createIdentifier(JSON.stringify(value)) as unknown as ts.TypeNode)
-    : factory.createLiteralTypeNode(factory.createStringLiteral(value));
+    ? (ts.factory.createIdentifier(JSON.stringify(value)) as unknown as ts.TypeNode)
+    : ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(value));
 }
 
-function toTupleElement(element: IrTupleElement): ts.TypeNode {
-  const type = toTypeNode(element.type);
-  return element.isRest ? factory.createRestTypeNode(type) : type;
+function toTupleElement(ts: TypeScriptModule, element: IrTupleElement): ts.TypeNode {
+  const type = toTypeNode(ts, element.type);
+  return element.isRest ? ts.factory.createRestTypeNode(type) : type;
 }
 
-function toLeafTypeNode(
-  type: Extract<
-    IrType,
-    { kind: "keyword" | "stringLiteral" | "numberLiteral" | "booleanLiteral" | "raw" }
-  >,
-) {
+type LeafType = Extract<
+  IrType,
+  { kind: "keyword" | "stringLiteral" | "numberLiteral" | "booleanLiteral" | "raw" }
+>;
+
+function toLeafTypeNode(ts: TypeScriptModule, type: LeafType): ts.TypeNode {
   switch (type.kind) {
     case "keyword":
-      return toKeywordType(type.keyword);
+      return toKeywordType(ts, type.keyword);
     case "stringLiteral":
-      return toStringLiteralType(type.value, type.encoding);
+      return toStringLiteralType(ts, type.value, type.encoding);
     case "numberLiteral":
-      return factory.createLiteralTypeNode(toNumberExpression(type.value));
+      return ts.factory.createLiteralTypeNode(toNumberExpression(ts, type.value));
     case "booleanLiteral":
-      return factory.createLiteralTypeNode(
-        type.value ? factory.createTrue() : factory.createFalse(),
+      return ts.factory.createLiteralTypeNode(
+        type.value ? ts.factory.createTrue() : ts.factory.createFalse(),
       );
     case "raw":
       // A node read from TypeScript goes back as it was, so the TypeScript printer indents it.
       return (
         (type.origin as ts.TypeNode | undefined) ??
-        (factory.createIdentifier(type.text) as unknown as ts.TypeNode)
+        (ts.factory.createIdentifier(type.text) as unknown as ts.TypeNode)
       );
     default:
       return assertNever(type);
@@ -92,39 +106,47 @@ function toLeafTypeNode(
 }
 
 /** Convert one IR type. */
-export function toTypeNode(type: IrType): ts.TypeNode {
+export function toTypeNode(ts: TypeScriptModule, type: IrType): ts.TypeNode {
+  const convert = (inner: IrType) => toTypeNode(ts, inner);
+  const { factory } = ts;
   switch (type.kind) {
     case "keyword":
     case "stringLiteral":
     case "numberLiteral":
     case "booleanLiteral":
     case "raw":
-      return toLeafTypeNode(type);
+      return toLeafTypeNode(ts, type);
     case "reference": {
       const typeArguments =
-        type.typeArguments.length > 0 ? type.typeArguments.map(toTypeNode) : undefined;
+        type.typeArguments.length > 0 ? type.typeArguments.map(convert) : undefined;
       return factory.createTypeReferenceNode(factory.createIdentifier(type.name), typeArguments);
     }
     case "array":
-      return factory.createArrayTypeNode(toTypeNode(type.element));
+      return factory.createArrayTypeNode(convert(type.element));
     case "tuple":
-      return factory.createTupleTypeNode(type.elements.map(toTupleElement));
+      return factory.createTupleTypeNode(
+        type.elements.map((element) => toTupleElement(ts, element)),
+      );
     case "union":
-      return factory.createUnionTypeNode(type.types.map(toTypeNode));
+      return factory.createUnionTypeNode(type.types.map(convert));
     case "intersection":
-      return factory.createIntersectionTypeNode(type.types.map(toTypeNode));
+      return factory.createIntersectionTypeNode(type.types.map(convert));
     case "object":
-      return factory.createTypeLiteralNode(type.members.map(toTypeElement));
+      return factory.createTypeLiteralNode(type.members.map((member) => toTypeElement(ts, member)));
     case "indexedAccess":
-      return factory.createIndexedAccessTypeNode(toTypeNode(type.object), toTypeNode(type.index));
+      return factory.createIndexedAccessTypeNode(convert(type.object), convert(type.index));
     case "readonly":
-      return factory.createTypeOperatorNode(ts.SyntaxKind.ReadonlyKeyword, toTypeNode(type.type));
+      return factory.createTypeOperatorNode(ts.SyntaxKind.ReadonlyKeyword, convert(type.type));
     default:
       return assertNever(type);
   }
 }
 
-function withComments<T extends ts.Node>(node: T, comments: readonly IrComment[]): T {
+function withComments<T extends ts.Node>(
+  ts: TypeScriptModule,
+  node: T,
+  comments: readonly IrComment[],
+): T {
   for (const comment of comments) {
     const kind =
       comment.kind === "block"
@@ -135,129 +157,141 @@ function withComments<T extends ts.Node>(node: T, comments: readonly IrComment[]
   return node;
 }
 
-function toPropertyName(name: IrPropertyName): ts.PropertyName {
+function toPropertyName(ts: TypeScriptModule, name: IrPropertyName): ts.PropertyName {
   switch (name.kind) {
     case "identifier":
-      return factory.createIdentifier(name.text);
+      return ts.factory.createIdentifier(name.text);
     case "string":
-      return factory.createStringLiteral(name.value);
+      return ts.factory.createStringLiteral(name.value);
     case "number":
-      return factory.createNumericLiteral(name.text);
+      return ts.factory.createNumericLiteral(name.text);
     default:
       return assertNever(name);
   }
 }
 
-function readonlyModifiers(isReadonly: boolean): ts.Modifier[] | undefined {
-  return isReadonly ? [factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)] : undefined;
+function readonlyModifiers(ts: TypeScriptModule, isReadonly: boolean): ts.Modifier[] | undefined {
+  return isReadonly ? [ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)] : undefined;
 }
 
 /** Convert one property signature (for callbacks that receive a `ts.PropertySignature`). */
-export function toPropertySignature(property: IrPropertySignature): ts.PropertySignature {
+export function toPropertySignature(
+  ts: TypeScriptModule,
+  property: IrPropertySignature,
+): ts.PropertySignature {
   const questionToken = property.isOptional
-    ? factory.createToken(ts.SyntaxKind.QuestionToken)
+    ? ts.factory.createToken(ts.SyntaxKind.QuestionToken)
     : undefined;
-  const signature = factory.createPropertySignature(
-    readonlyModifiers(property.isReadonly),
-    toPropertyName(property.name),
+  const signature = ts.factory.createPropertySignature(
+    readonlyModifiers(ts, property.isReadonly),
+    toPropertyName(ts, property.name),
     questionToken,
-    toTypeNode(property.type),
+    toTypeNode(ts, property.type),
   );
-  return withComments(signature, property.comments);
+  return withComments(ts, signature, property.comments);
 }
 
-export function toTypeElement(member: IrMember): ts.TypeElement {
+export function toTypeElement(ts: TypeScriptModule, member: IrMember): ts.TypeElement {
   if (member.kind === "property") {
-    return toPropertySignature(member);
+    return toPropertySignature(ts, member);
   }
-  const modifiers = readonlyModifiers(member.isReadonly);
-  const parameter = factory.createParameterDeclaration(
+  const parameter = ts.factory.createParameterDeclaration(
     undefined,
     undefined,
     member.parameterName,
     undefined,
-    toTypeNode(member.parameterType),
+    toTypeNode(ts, member.parameterType),
   );
-  return withComments(
-    factory.createIndexSignature(modifiers, [parameter], toTypeNode(member.type)),
-    member.comments,
+  const signature = ts.factory.createIndexSignature(
+    readonlyModifiers(ts, member.isReadonly),
+    [parameter],
+    toTypeNode(ts, member.type),
   );
+  return withComments(ts, signature, member.comments);
 }
 
-function exportModifiers(isExported: boolean): ts.Modifier[] | undefined {
-  return isExported ? [factory.createModifier(ts.SyntaxKind.ExportKeyword)] : undefined;
+function exportModifiers(ts: TypeScriptModule, isExported: boolean): ts.Modifier[] | undefined {
+  return isExported ? [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)] : undefined;
 }
 
 function toConstArrayStatement(
+  ts: TypeScriptModule,
   declaration: Extract<IrDeclaration, { kind: "constArray" }>,
 ): ts.Statement {
-  const initializer = factory.createArrayLiteralExpression(
-    declaration.values.map(toValueExpression),
+  const initializer = ts.factory.createArrayLiteralExpression(
+    declaration.values.map((value) => toValueExpression(ts, value)),
   );
-  const variable = factory.createVariableDeclaration(
+  const variable = ts.factory.createVariableDeclaration(
     declaration.name,
     undefined,
-    toTypeNode(declaration.type),
+    toTypeNode(ts, declaration.type),
     initializer,
   );
-  const list = factory.createVariableDeclarationList([variable], ts.NodeFlags.Const);
-  return factory.createVariableStatement(exportModifiers(declaration.isExported), list);
+  const list = ts.factory.createVariableDeclarationList([variable], ts.NodeFlags.Const);
+  return ts.factory.createVariableStatement(exportModifiers(ts, declaration.isExported), list);
 }
 
-function parseStatements(text: string): readonly ts.Statement[] {
+/** Parse source text into statements, like the original's `stringToAST`. */
+export function parseStatements(ts: TypeScriptModule, text: string): readonly ts.Statement[] {
   return ts.createSourceFile("raw.ts", text, ts.ScriptTarget.ESNext).statements;
 }
 
 /** Convert one IR declaration; a raw declaration gives every statement its text holds. */
-export function toStatements(declaration: IrDeclaration): ts.Statement[] {
+export function toStatements(ts: TypeScriptModule, declaration: IrDeclaration): ts.Statement[] {
   return declaration.kind === "rawDeclaration"
-    ? [...parseStatements(declaration.text)]
-    : [toStatement(declaration)];
+    ? [...parseStatements(ts, declaration.text)]
+    : [toStatement(ts, declaration)];
+}
+
+function toEnumStatement(
+  ts: TypeScriptModule,
+  declaration: Extract<IrDeclaration, { kind: "enum" }>,
+): ts.Statement {
+  const members = declaration.members.map((member) =>
+    withComments(
+      ts,
+      ts.factory.createEnumMember(member.name, toValueExpression(ts, member.value)),
+      member.comments,
+    ),
+  );
+  const modifiers = exportModifiers(ts, declaration.isExported);
+  return ts.factory.createEnumDeclaration(modifiers, declaration.name, members);
 }
 
 /** Convert one IR declaration. A raw declaration is parsed, like the original's `stringToAST`. */
-export function toStatement(declaration: IrDeclaration): ts.Statement {
+export function toStatement(ts: TypeScriptModule, declaration: IrDeclaration): ts.Statement {
+  const modifiers = exportModifiers(
+    ts,
+    declaration.kind === "rawDeclaration" ? false : declaration.isExported,
+  );
   switch (declaration.kind) {
     case "interface": {
-      const members = declaration.members.map(toTypeElement);
-      const node = factory.createInterfaceDeclaration(
-        exportModifiers(declaration.isExported),
+      const members = declaration.members.map((member) => toTypeElement(ts, member));
+      const node = ts.factory.createInterfaceDeclaration(
+        modifiers,
         declaration.name,
         undefined,
         undefined,
         members,
       );
-      return withComments(node, declaration.comments);
+      return withComments(ts, node, declaration.comments);
     }
     case "typeAlias": {
-      const node = factory.createTypeAliasDeclaration(
-        exportModifiers(declaration.isExported),
+      const type = toTypeNode(ts, declaration.type);
+      const node = ts.factory.createTypeAliasDeclaration(
+        modifiers,
         declaration.name,
         undefined,
-        toTypeNode(declaration.type),
+        type,
       );
-      return withComments(node, declaration.comments);
+      return withComments(ts, node, declaration.comments);
     }
-    case "enum": {
-      const members = declaration.members.map((member) =>
-        withComments(
-          factory.createEnumMember(member.name, toValueExpression(member.value)),
-          member.comments,
-        ),
-      );
-      return withComments(
-        factory.createEnumDeclaration(
-          exportModifiers(declaration.isExported),
-          declaration.name,
-          members,
-        ),
-        declaration.comments,
-      );
-    }
+    case "enum":
+      return withComments(ts, toEnumStatement(ts, declaration), declaration.comments);
     case "constArray":
-      return withComments(toConstArrayStatement(declaration), declaration.comments);
+      return withComments(ts, toConstArrayStatement(ts, declaration), declaration.comments);
     case "rawDeclaration":
-      return parseStatements(declaration.text)[0] as ts.Statement;
+      return parseStatements(ts, declaration.text)[0] as ts.Statement;
     default:
       return assertNever(declaration);
   }

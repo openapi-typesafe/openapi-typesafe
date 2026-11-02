@@ -92,6 +92,12 @@ so a node can only be read with the same `typescript` module that created it.
   the IR has no node for), the root becomes `Record<string, never>` instead of an interface with those
   members. No sampled project does this; the Phase 8 check confirms it.
 
+- The deprecated `QUESTION_TOKEN` constant is a TypeScript node, but importing the package must not need
+  TypeScript. It is a proxy that creates the token on first use (`adapters/type-ast-bridge/lazy-node.ts`);
+  the factory and the printer see a normal node. It goes away with the constant in 2.0.
+- The bridge gets the TypeScript module as an argument from `loadTypeScript()`, which resolves it at the
+  call through Node's module cache. No module keeps a loaded compiler in its own state.
+
 ## Review trigger
 
 - The Phase 8 real-project check finds a 7.x pattern that the bridge cannot convert, or

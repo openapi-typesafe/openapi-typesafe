@@ -20,18 +20,18 @@ const RUNS = 2_000;
 /** What the original prints for a type node in an alias: `type T = <node>;`. */
 function printOriginal(node: ts.TypeNode): string {
   const statement = factory.createTypeAliasDeclaration(undefined, "T", undefined, node);
-  return `${printTypeScriptNode(statement)}\n`;
+  return `${printTypeScriptNode(ts, statement)}\n`;
 }
 
 function printConverted(node: ts.TypeNode): string {
-  return printNodes([alias("T", fromTypeNode(node))]).replace(/^export /, "");
+  return printNodes([alias("T", fromTypeNode(ts, node))]).replace(/^export /, "");
 }
 
 describe("fromTypeNode", () => {
   it("fromTypeNode of factory nodes built from random IR prints like TypeScript", () => {
     fc.assert(
       fc.property(arbitraryType, (type: IrType) => {
-        const node = toTypeNode(type);
+        const node = toTypeNode(ts, type);
 
         expect(printConverted(node)).toBe(printOriginal(node));
       }),
@@ -156,17 +156,17 @@ describe("fromTypeNode", () => {
     const [declaration] = stringToAST("type X = {\n  a: string;\n};");
     const node = (declaration as ts.TypeAliasDeclaration).type;
 
-    const type = fromTypeNode(node);
+    const type = fromTypeNode(ts, node);
 
     expect(type.kind).toBe("raw");
-    expect(toTypeNode(type)).toBe(node);
+    expect(toTypeNode(ts, type)).toBe(node);
   });
 
   it("fromTypeNode keeps IR nodes found inside a TypeScript tree", () => {
     const never = irKeyword("never");
     const node = factory.createArrayTypeNode(never as unknown as ts.TypeNode);
 
-    expect(fromTypeNode(node)).toEqual({ kind: "array", element: never });
+    expect(fromTypeNode(ts, node)).toEqual({ kind: "array", element: never });
   });
 
   it("printTypeScriptNode prints IR nodes found inside a TypeScript tree", () => {
@@ -175,7 +175,7 @@ describe("fromTypeNode", () => {
       irKeyword("never") as unknown as ts.TypeNode,
     );
 
-    expect(printTypeScriptNode(node)).toBe("keyof never");
+    expect(printTypeScriptNode(ts, node)).toBe("keyof never");
   });
 });
 
@@ -189,7 +189,7 @@ describe("fromPropertySignature", () => {
     );
     ts.addSyntheticLeadingComment(property, ts.SyntaxKind.SingleLineCommentTrivia, " x", true);
 
-    expect(fromPropertySignature(property)).toEqual({
+    expect(fromPropertySignature(ts, property)).toEqual({
       kind: "property",
       name: { kind: "string", value: "a-b" },
       type: irKeyword("string"),
@@ -201,7 +201,10 @@ describe("fromPropertySignature", () => {
 
   it("fromPropertySignature without a type is null", () => {
     expect(
-      fromPropertySignature(factory.createPropertySignature(undefined, "a", undefined, undefined)),
+      fromPropertySignature(
+        ts,
+        factory.createPropertySignature(undefined, "a", undefined, undefined),
+      ),
     ).toBeNull();
   });
 });

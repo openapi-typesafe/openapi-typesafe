@@ -711,6 +711,9 @@ export interface LegacyCallbackOptions {
   ) => IrPropertySignature | ts.PropertySignature | undefined;
 }
 
+/** The schema callbacks that have a deprecated TypeScript-node form (ADR-004, decisions 5 and 6). */
+export type LegacyCallbackName = "transform" | "postTransform" | "transformProperty";
+
 /** A type an IR callback returns: an IR type, or TypeScript type text printed as written. */
 export type IrCallbackType = IrType | string;
 
@@ -782,6 +785,11 @@ export interface GlobalContext {
    * the transform context adapter. Not an option; do not set it.
    */
   runFooter?: DocumentFooter;
+  /**
+   * @internal The deprecated callback forms this run has warned about (once each). Not an
+   * option; do not set it.
+   */
+  legacyCallbackWarnings?: Set<LegacyCallbackName>;
   pathParamsAsTypes: boolean;
   /** Whether the callbacks below take IR (`OpenAPITSIrOptions`) or TypeScript nodes. */
   irCallbacks: boolean;

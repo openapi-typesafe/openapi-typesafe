@@ -1,12 +1,16 @@
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import openapiTS, {
   astToString,
+  type GeneratorOptions,
   NULL,
   NUMBER,
   type OpenAPI3,
   type OpenAPITSIrOptions,
   tsUnion,
 } from "../../src/index.js";
+import { createDocumentRun } from "../../src/lib/document-run.js";
+import transformSchema from "../../src/transform/index.js";
 
 const DOCUMENT: OpenAPI3 = {
   openapi: "3.1.0",
@@ -95,5 +99,42 @@ describe("IR callbacks (irCallbacks: true)", () => {
     });
 
     expect(item).toBe(plain);
+  });
+});
+
+/** The deprecated forms each run warned about (recorded also when `silent`). */
+async function warningsOf(options: GeneratorOptions): Promise<string[]> {
+  const { schema, ctx } = await createDocumentRun(DOCUMENT, { silent: true, ...options });
+  transformSchema(schema, ctx);
+  return [...(ctx.legacyCallbackWarnings ?? [])];
+}
+
+describe("legacy callbacks", () => {
+  it("transform returning a TypeScript node warns once per run", async () => {
+    const date = ts.factory.createTypeReferenceNode("Date");
+
+    expect(await warningsOf({ transform: () => date })).toEqual(["transform"]);
+    expect(await warningsOf({ transform: () => ({ schema: date, questionToken: false }) })).toEqual(["transform"]);
+  });
+
+  it("transform returning IR from the helpers does not warn", async () => {
+    expect(await warningsOf({ transform: () => NUMBER })).toEqual([]);
+  });
+
+  it("postTransform and transformProperty in the TypeScript form warn", async () => {
+    const warnings = await warningsOf({ postTransform: () => undefined, transformProperty: () => undefined });
+
+    expect(warnings.sort()).toEqual(["postTransform", "transformProperty"]);
+  });
+
+  it("IR callbacks do not warn", async () => {
+    const warnings = await warningsOf({
+      irCallbacks: true,
+      transform: () => undefined,
+      postTransform: () => undefined,
+      transformProperty: () => undefined,
+    });
+
+    expect(warnings).toEqual([]);
   });
 });

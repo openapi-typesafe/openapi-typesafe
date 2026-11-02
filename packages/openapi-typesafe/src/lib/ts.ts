@@ -1,13 +1,16 @@
-import ts, { type LiteralTypeNode, type TypeLiteralNode } from "typescript";
+import type ts from "typescript";
 import { toStatements, toTypeElement, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import { lazyNode } from "../adapters/type-ast-bridge/lazy-node.js";
+import { loadTypeScript, type TypeScriptModule } from "../adapters/type-ast-bridge/load-typescript.js";
+import { type AstToStringOptions, printWithTypeScript } from "../adapters/type-ast-bridge/print-typescript.js";
 import { type IrPrintable, printFragments } from "../application/print/print-nodes.js";
 import { HELPER_TYPES } from "../application/transform/footer/helper-types.js";
 import { schemaComment } from "../application/transform/schema-comment.js";
 import type { IrDeclaration, IrType } from "../domain/ir/nodes.js";
 import { declaresTypeAlias, type FooterEntry } from "./footer-entry.js";
 import type { TypeInput } from "./type-helpers.js";
-import { type AstToStringOptions, printWithTypeScript } from "./typescript-printer.js";
 
+export type { AstToStringOptions } from "../adapters/type-ast-bridge/print-typescript.js";
 export type { FooterEntry } from "./footer-entry.js";
 export {
   BOOLEAN,
@@ -30,7 +33,6 @@ export {
   UNDEFINED,
   UNKNOWN,
 } from "./type-helpers.js";
-export type { AstToStringOptions } from "./typescript-printer.js";
 
 export const JS_PROPERTY_INDEX_RE = /^[A-Za-z_$][A-Za-z_$0-9]*$/;
 export const JS_ENUM_INVALID_CHARS_RE = /[^A-Za-z_$0-9]+(.)?/g;
@@ -40,8 +42,14 @@ export const SPECIAL_CHARACTER_MAP: Record<string, string> = {
   // Add more mappings as needed
 };
 
-/** @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9). */
-export const QUESTION_TOKEN = ts.factory.createToken(ts.SyntaxKind.QuestionToken);
+/**
+ * The `?` token. Created on first use, so importing the package needs no TypeScript.
+ * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
+ */
+export const QUESTION_TOKEN: ts.QuestionToken = lazyNode(() => {
+  const ts = loadTypeScript();
+  return ts.factory.createToken(ts.SyntaxKind.QuestionToken);
+});
 
 export interface AnnotatedSchemaObject {
   const?: unknown; // jsdoc without value
@@ -63,6 +71,7 @@ export interface AnnotatedSchemaObject {
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
 export function addJSDocComment(schemaObject: AnnotatedSchemaObject, node: ts.PropertySignature): void {
+  const ts = loadTypeScript();
   const comment = schemaComment(schemaObject);
   if (comment) {
     ts.addSyntheticLeadingComment(node, ts.SyntaxKind.MultiLineCommentTrivia, comment.text, true);
@@ -77,11 +86,12 @@ function isIrNode(node: IrPrintable | ts.Node): node is IrPrintable {
 }
 
 /** An IR node in TypeScript form, for printing it together with TypeScript nodes. */
-function toTypeScriptNodes(node: IrPrintable): ts.Node[] {
+function toTypeScriptNodes(ts: TypeScriptModule, node: IrPrintable): ts.Node[] {
   if (isIrDeclarationKind(node)) {
-    return toStatements(node);
+    return toStatements(ts, node);
   }
-  return [node.kind === "property" || node.kind === "indexSignature" ? toTypeElement(node) : toTypeNode(node)];
+  const isMember = node.kind === "property" || node.kind === "indexSignature";
+  return [isMember ? toTypeElement(ts, node) : toTypeNode(ts, node)];
 }
 
 function isIrDeclarationKind(node: IrPrintable): node is IrDeclaration {
@@ -98,13 +108,15 @@ export function astToString(ast: AstToStringInput, options?: AstToStringOptions)
   if (nodes.every(isIrNode) && !options) {
     return printFragments(nodes);
   }
-  const statements = nodes.flatMap((node) => (isIrNode(node) ? toTypeScriptNodes(node) : [node]));
-  return printWithTypeScript(statements, options);
+  const ts = loadTypeScript();
+  const statements = nodes.flatMap((node) => (isIrNode(node) ? toTypeScriptNodes(ts, node) : [node]));
+  return printWithTypeScript(ts, statements, options);
 }
 
 /** A type argument of the deprecated helpers in TypeScript form; IR (from the type helpers) is converted. */
 function legacyTypeNode(type: TypeInput): ts.TypeNode {
-  return typeof type.kind === "string" ? toTypeNode(type as IrType) : (type as ts.TypeNode);
+  const ts = loadTypeScript();
+  return typeof type.kind === "string" ? toTypeNode(ts, type as IrType) : (type as ts.TypeNode);
 }
 
 /** Add a helper type alias to the footer once, as a named raw declaration (as the generator does). */
@@ -116,6 +128,7 @@ function requireHelper(injectFooter: FooterEntry[], helper: { name: string; text
 
 /** Convert an arbitrary string to TS (assuming it’s valid) */
 export function stringToAST(source: string): unknown[] {
+  const ts = loadTypeScript();
   return ts.createSourceFile(
     /* fileName        */ "stringInput",
     /* sourceText      */ source,
@@ -135,8 +148,8 @@ export function tsDedupe(types: TypeInput[]): ts.TypeNode[] {
   const filteredTypes: ts.TypeNode[] = [];
   for (const t of types.map(legacyTypeNode)) {
     // only mark for deduplication if this is not a const ("text" means it is a const)
-    if (!("text" in ((t as LiteralTypeNode).literal ?? t))) {
-      const { kind } = (t as LiteralTypeNode).literal ?? t;
+    if (!("text" in ((t as ts.LiteralTypeNode).literal ?? t))) {
+      const { kind } = (t as ts.LiteralTypeNode).literal ?? t;
       if (encounteredTypes.has(kind)) {
         continue;
       }
@@ -162,6 +175,7 @@ export function tsEnum(
   metadata?: { name?: string; description?: string | null }[],
   options?: { export?: boolean; shouldCache?: boolean },
 ) {
+  const ts = loadTypeScript();
   let enumName = sanitizeMemberName(name);
   enumName = `${enumName[0].toUpperCase()}${enumName.substring(1)}`;
   let key = "";
@@ -196,6 +210,7 @@ export function tsArrayLiteralExpression(
   values: (string | number)[],
   options?: { export?: boolean; readonly?: boolean; injectFooter?: FooterEntry[] },
 ) {
+  const ts = loadTypeScript();
   let variableName = sanitizeMemberName(name);
   variableName = `${variableName[0].toLowerCase()}${variableName.substring(1)}`;
 
@@ -254,6 +269,7 @@ function sanitizeMemberName(name: string) {
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
 export function tsEnumMember(value: string | number, metadata: { name?: string; description?: string | null } = {}) {
+  const ts = loadTypeScript();
   let name = metadata.name ?? String(value);
   if (!JS_PROPERTY_INDEX_RE.test(name)) {
     if (Number(name[0]) >= 0) {
@@ -302,6 +318,7 @@ export function tsEnumMember(value: string | number, metadata: { name?: string; 
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
 export function tsIsPrimitive(input: TypeInput): boolean {
+  const ts = loadTypeScript();
   if (!input) {
     return true;
   }
@@ -313,7 +330,7 @@ export function tsIsPrimitive(input: TypeInput): boolean {
     ts.SyntaxKind[type.kind] === "NumberKeyword" ||
     ts.SyntaxKind[type.kind] === "StringKeyword" ||
     ts.SyntaxKind[type.kind] === "UndefinedKeyword" ||
-    ("literal" in type && tsIsPrimitive(type.literal as TypeLiteralNode))
+    ("literal" in type && tsIsPrimitive(type.literal as ts.TypeLiteralNode))
   );
 }
 
@@ -322,6 +339,7 @@ export function tsIsPrimitive(input: TypeInput): boolean {
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
 export function tsModifiers(modifiers: { readonly?: boolean; export?: boolean }): ts.Modifier[] {
+  const ts = loadTypeScript();
   const typeMods: ts.Modifier[] = [];
   if (modifiers.export) {
     typeMods.push(ts.factory.createModifier(ts.SyntaxKind.ExportKeyword));
@@ -337,6 +355,7 @@ export function tsModifiers(modifiers: { readonly?: boolean; export?: boolean })
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
 export function tsPropertyIndex(index: string | number) {
+  const ts = loadTypeScript();
   if (
     (typeof index === "number" && !(index < 0)) ||
     (typeof index === "string" && String(Number(index)) === index && index[0] !== "-")
@@ -355,6 +374,7 @@ export function tsPropertyIndex(index: string | number) {
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
 export function tsReadonlyArray(type: TypeInput, injectFooter?: FooterEntry[]): ts.TypeNode {
+  const ts = loadTypeScript();
   if (injectFooter) {
     requireHelper(injectFooter, HELPER_TYPES.readonlyArray);
   }

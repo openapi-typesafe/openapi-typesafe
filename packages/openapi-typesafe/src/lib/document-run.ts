@@ -11,7 +11,10 @@ export interface DocumentRun {
 }
 
 /** The context fields that are user flags, with the original defaults. */
-type ContextFlags = Omit<GlobalContext, "discriminators" | "injectFooter" | "redoc" | "resolve" | "runFooter">;
+type ContextFlags = Omit<
+  GlobalContext,
+  "discriminators" | "injectFooter" | "redoc" | "resolve" | "runFooter" | "legacyCallbackWarnings"
+>;
 
 /** The default Redocly config: minimal rules, and duplicate operation IDs are an error. */
 function defaultRedoclyConfig(): Promise<RedoclyConfig> {
