@@ -120,6 +120,8 @@ type ErrorResponse =
 
 :::
 
+With `"moduleResolution": "NodeNext"`, write the extension: `"./my-openapi-3-schema.js"`.
+
 From here, you can use these types for any of the following (but not limited to):
 
 - Using an OpenAPI-supported fetch client (like [openapi-typesafe-fetch](/fetch/))

@@ -53,6 +53,8 @@ type User = components["schemas"]["User"];
 type GetUserResponse = paths["/users/{id}"]["get"]["responses"][200]["content"]["application/json"];
 ```
 
+With `"moduleResolution": "NodeNext"`, write the extension: `"./path/to/schema.js"`.
+
 Run `npx openapi-typesafe --help` for all options. Generated examples for real APIs are in [`examples/`](./examples).
 
 ## Migrating from openapi-typescript

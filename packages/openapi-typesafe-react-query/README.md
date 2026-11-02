@@ -41,7 +41,7 @@ const $api = createClient(fetchClient);
 const MyComponent = () => {
   const { data, error, isPending } = $api.useQuery("get", "/blogposts/{post_id}", {
     params: {
-      path: { post_id: 5 },
+      path: { post_id: "5" },
     },
   });
 

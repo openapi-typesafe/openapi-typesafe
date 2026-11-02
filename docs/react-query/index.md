@@ -32,7 +32,7 @@ const MyComponent = () => {
     "/blogposts/{post_id}",
     {
       params: {
-        path: { post_id: 5 },
+        path: { post_id: "5" },
       },
     },
   );
@@ -90,7 +90,7 @@ const MyComponent = () => {
     "/blogposts/{post_id}",
     {
       params: {
-        path: { post_id: 5 },
+        path: { post_id: "5" },
       },
     },
   );

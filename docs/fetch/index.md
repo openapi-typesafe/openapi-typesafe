@@ -46,7 +46,7 @@ Notice there are no generics, and no manual typing. Your endpoint’s request an
 - No manual typing of your API
 - Eliminates `any` types that hide bugs
 - Also eliminates `as` type overrides that can also hide bugs
-- All of this in a **8 kB** client package
+- All of this in an **8 kB** client package
 
 ## Setup
 
@@ -110,7 +110,7 @@ const { data, error } = await client.GET("/blogposts/{post_id}", {
   },
 });
 
-const { data, error } = await client.PUT("/blogposts", {
+const { data: updated, error: updateError } = await client.PUT("/blogposts", {
   body: {
     title: "New Post",
     body: "<p>New post body</p>",
@@ -144,7 +144,7 @@ This library also supports the **label** and **matrix** serialization styles as 
 
 The `GET()` request shown needed the `params` object that groups [parameters by type](https://spec.openapis.org/oas/latest.html#parameter-object) (`path` or `query`). If a required param is missing, or the wrong type, a type error will be thrown.
 
-The `POST()` request required a `body` object that provided all necessary [requestBody](https://spec.openapis.org/oas/latest.html#request-body-object) data.
+The `PUT()` request required a `body` object that provided all necessary [requestBody](https://spec.openapis.org/oas/latest.html#request-body-object) data.
 
 ### Response
 

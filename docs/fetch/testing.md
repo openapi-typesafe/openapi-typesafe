@@ -28,7 +28,7 @@ test("my request", async () => {
   const reqBody = { name: "test" };
   await client.PUT("/tag", { body: reqBody });
 
-  const req = mockFetch.mock.calls[0][0];
+  const req = mockFetch.mock.calls[0]![0];
   expect(req.url).toBe("https://my-site.com/api/v1/tag");
   expect(await req.json()).toEqual(reqBody);
 });
@@ -54,13 +54,8 @@ const server = setupServer();
 beforeAll(() => {
   // NOTE: server.listen must be called before `createClient` is used to ensure
   // the msw can inject its version of `fetch` to intercept the requests.
-  server.listen({
-    onUnhandledRequest: (request) => {
-      throw new Error(
-        `No request handler found for ${request.method} ${request.url}`
-      );
-    },
-  });
+  // Fail on a request no handler matches (msw 3; in msw 2 the option is `onUnhandledRequest`).
+  server.listen({ onUnhandledFrame: "error" });
 });
 
 afterEach(() => server.resetHandlers());
