@@ -189,6 +189,16 @@ export type MethodResponse<
     ? NonNullable<FetchResponse<Paths[Path][Method], Options, Media>["data"]>
     : never;
 
+/**
+ * Throw the error of a failed fetch result. `if (error)` missed two failures: a non-OK response with
+ * an empty body (`error` is `undefined`, upstream #2070, #2829) and a falsy error body such as `0`.
+ */
+function throwIfFailed(result: { error?: unknown; response: Response }): void {
+  if (result.error !== undefined || !result.response.ok) {
+    throw result.error;
+  }
+}
+
 // TODO: Add the ability to bring queryClient as argument
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
   client: FetchClient<Paths, Media>,
@@ -199,10 +209,9 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   }: QueryFunctionContext<QueryKey<Paths, Method, Path>>) => {
     const mth = method.toUpperCase() as Uppercase<typeof method>;
     const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
-    const { data, error, response } = await fn(path, { signal, ...(init as any) }); // TODO: find a way to avoid as any
-    if (error) {
-      throw error;
-    }
+    const result = await fn(path, { signal, ...(init as any) }); // TODO: find a way to avoid as any
+    throwIfFailed(result);
+    const { data, response } = result;
     if (response.status === 204 || response.headers.get("Content-Length") === "0") {
       return data ?? null;
     }
@@ -247,11 +256,9 @@ export default function createClient<Paths extends {}, Media extends MediaType =
               },
             };
 
-            const { data, error } = await fn(path, mergedInit as any);
-            if (error) {
-              throw error;
-            }
-            return data;
+            const result = await fn(path, mergedInit as any);
+            throwIfFailed(result);
+            return result.data;
           },
           ...restOptions,
         },
@@ -265,10 +272,9 @@ export default function createClient<Paths extends {}, Media extends MediaType =
           mutationFn: async (init) => {
             const mth = method.toUpperCase() as Uppercase<typeof method>;
             const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
-            const { data, error } = await fn(path, init as InitWithUnknowns<typeof init>);
-            if (error) {
-              throw error;
-            }
+            const result = await fn(path, init as InitWithUnknowns<typeof init>);
+            throwIfFailed(result);
+            const { data } = result;
 
             return data as Exclude<typeof data, undefined>;
           },

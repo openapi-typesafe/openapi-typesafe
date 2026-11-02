@@ -170,6 +170,20 @@ const { data, error, response } = await client.GET("/url");
 | `error`    | `5xx`, `4xx`, or `default` response if not OK; otherwise `undefined`                                                        |
 | `response` | [The original Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) which contains `status`, `headers`, etc. |
 
+::: warning
+
+A `4xx` / `5xx` response without a body has `error: undefined`, so `if (error)` alone does not catch it.
+Check `response.ok` too:
+
+```ts
+const { data, error, response } = await client.GET("/url");
+if (error !== undefined || !response.ok) {
+  // handle the failure
+}
+```
+
+:::
+
 ### Path-property style
 
 If you prefer selecting the path as a property, you can create a path based client:
