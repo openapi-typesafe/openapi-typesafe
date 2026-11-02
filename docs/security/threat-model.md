@@ -88,14 +88,17 @@ This matters in CI and on servers that generate types from user-supplied documen
 
 ### T5. Unsafe requests from the fetch client — Controlled
 
-User-supplied path parameters move the request to another path (`..`), or query and header
-values break the request.
+User-supplied path parameters move the request to another path (`..`), query and header values
+break the request, or keys of an object parameter (data from `additionalProperties`) add a
+parameter or a path segment.
 
 - Controls: path values are always percent-encoded, and query values unless the parameter sets
   `allowReserved`; a path value that would form a `.` or `..` segment makes the call throw
-  (`Dot path segment in …`, ADR-013), because percent-encoding keeps dots; headers go through the
-  platform `Headers` class, which rejects line breaks.
-- Tests: the fetch client's serializer tests.
+  (`Dot path segment in …`, ADR-013), because percent-encoding keeps dots; query parameter names
+  and object keys are percent-encoded too, except `[ ] $ : @ ,` (ADR-013, decision 9); headers go
+  through the platform `Headers` class, which rejects line breaks.
+- Tests: the fetch client's serializer tests, `test/common/path-dot-segments.test.ts` and
+  `test/common/param-name-encoding.test.ts`.
 
 ### T6. Supply chain — Controlled from Phase 9
 
@@ -107,6 +110,10 @@ A compromised dependency, GitHub Action or npm token publishes a malicious versi
   bots (9.7); Scorecard (9.6); branch rulesets at publication (9.8).
 - Known: `@redocly/openapi-core` 1.x pulls in dependencies with published advisories
   (research/backlog.md, item 2); ADR-005 keeps 1.x for 1.0, and its review trigger covers this.
+  The latest review (GHSA-g3hv-75wg-m249, minimatch) is in ADR-005, "Reviews".
+- Known, development only: the docs site's `vitepress` 1.6.4 (latest stable) pins `vite` 5, which
+  has GHSA-587h-7wmj-h5pm (the dev server's open-in-editor check, Windows only). It does not reach
+  any published package; it is fixed when vitepress 2 is stable.
 
 ### T7. Trusted inputs used as an attack path — Accepted
 
