@@ -1,5 +1,5 @@
 {
-  "//": "Layered code (domain, application, adapters, cli, api) and its tests compile with full strictness (ADR-006). Inherited code in src/lib and src/transform keeps tsconfig.json until it is ported.",
+  "//": "Layered code (domain, application, adapters, cli, api) and its tests compile with full strictness (ADR-006). Inherited code in src/transform keeps tsconfig.json until it is ported.",
   "extends": "../../tsconfig.strict.json",
   "compilerOptions": {
     "lib": ["ESNext"],
@@ -17,6 +17,7 @@
     "test/application",
     "test/adapters",
     "test/fakes",
+    "test/cli",
     "scripts/bench-printer"
   ]
 }

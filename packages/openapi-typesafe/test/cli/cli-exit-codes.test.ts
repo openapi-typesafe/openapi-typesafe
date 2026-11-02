@@ -126,6 +126,27 @@ describe("CLI exit codes", () => {
   );
 
   it(
+    "cli --check with several Redocly APIs exits with 1 when any output is stale",
+    async () => {
+      const project = path.join(workDir, "apis");
+      fs.mkdirSync(project, { recursive: true });
+      fs.copyFileSync(SIMPLE_SCHEMA, path.join(project, "schema.yaml"));
+      const apis = ["fresh", "stale"].map(
+        (name) => `  ${name}:\n    root: ./schema.yaml\n    x-openapi-ts:\n      output: ./${name}.ts\n`,
+      );
+      fs.writeFileSync(path.join(project, "redocly.yaml"), `apis:\n${apis.join("")}`);
+      await runCli([], project);
+      fs.writeFileSync(path.join(project, "stale.ts"), "export type Old = 1;\n");
+
+      const { exitCode, stderr } = await runCli(["--check"], project);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("(OUTPUT_STALE)");
+    },
+    TIMEOUT,
+  );
+
+  it(
     "cli with an output path under a file exits with 4 and OUTPUT_WRITE_FAILED",
     async () => {
       const blocker = workFile("blocker", "a file, not a directory");

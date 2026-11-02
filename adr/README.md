@@ -25,3 +25,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [009](./009-react-query-exact-optional-property-types.md) | `exactOptionalPropertyTypes` is off for openapi-typesafe-react-query | Accepted |
 | [010](./010-cli-prints-ir-before-node-api.md) | The CLI prints with our printer before the Node API switches to IR | Superseded by ADR-004 |
 | [011](./011-typed-errors-and-exit-codes.md) | Typed errors with stable codes, and CLI exit codes | Accepted |
+| [012](./012-composition-roots-and-ports.md) | Composition roots and ports for the CLI and the Node API | Accepted |

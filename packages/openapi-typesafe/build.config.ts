@@ -9,8 +9,8 @@ import { defineBuildConfig } from "unbuild";
 const ACCEPTED_ROLLUP_WARNING_CODES = new Set(["MIXED_EXPORTS"]);
 
 export default defineBuildConfig({
-  // The CLI error table is not part of the public API; bin/cli.js imports it from dist/cli/.
-  entries: ["./src/index.ts", "./src/cli/cli-errors.ts"],
+  // The CLI is not part of the public API; bin/cli.js imports dist/cli/main.mjs.
+  entries: ["./src/index.ts", "./src/cli/main.ts"],
   declaration: "compatible",
   clean: true,
   sourcemap: true,

@@ -4,8 +4,8 @@
  *   cli/, api/  ->  application/  ->  domain/
  *   adapters/   ->  application/ ports, domain/
  *
- * Legacy files (src/lib, src/transform, src/index.ts, src/types.ts) are outside the layers and are not
- * constrained until they are ported (Phase 5). The rules below apply from the first file in each layer.
+ * Legacy files (src/transform, src/index.ts, src/types.ts, src/types/) are outside the layers and are
+ * not constrained until they are ported. The rules below apply from the first file in each layer.
  */
 
 /** Only the optional legacy bridge may load the TypeScript compiler (ADR-002, ADR-004). */
@@ -43,11 +43,20 @@ module.exports = {
       to: { path: "^src/(cli|api)/" },
     },
     {
+      name: "adapters-only-in-composition-roots",
+      comment:
+        "Only the composition roots (api/, cli/, the package entry) and other adapters may load " +
+        "an adapter (ENGINEERING_PLAN 7.3, ADR-012). Everything else gets it injected through a port.",
+      severity: "error",
+      from: { path: "^src/", pathNot: ["^src/(adapters|api|cli)/", "^src/index\\.ts$"] },
+      to: { path: "^src/adapters/", dependencyTypesNot: ["type-only"] },
+    },
+    {
       name: "layers-do-not-import-legacy-code",
       comment: "Ported code must not depend on unported legacy modules (it would keep them alive).",
       severity: "error",
       from: { path: "^src/(domain|application|adapters|cli|api)/" },
-      to: { path: "^src/(lib|transform)/" },
+      to: { path: "^src/transform/" },
     },
     {
       name: "typescript-only-in-bridge",
