@@ -51,3 +51,12 @@ documents with Redocly 1.34.22 (current lockfile), Redocly 2.72.1 and json-schem
 
 Any of: Redocly announces the end of 1.x patches; a security advisory for 1.x without a 1.x fix; work on
 openapi-typesafe 2.0 starts; the harness shows a 1.34.x patch changing generated output.
+
+## Reviews
+
+- 2026-11-02 (pre-beta test plan 10.5): GHSA-g3hv-75wg-m249 (minimatch below 11.0.1, published
+  2026-10-27) reaches us through `@redocly/openapi-core` 1.34.22, which pins `minimatch` 5.1.9, and has
+  no 5.x fix. The denial of service needs an attacker-chosen glob pattern. Redocly 1.x calls `minimatch`
+  only to match a URL against the `resolve.http.headers[].matches` patterns of the Redocly config, which
+  is a trusted input (threat model T7); a document controls only the URL. The advisory is not reachable
+  from a document, so the decision stands. It is listed in `research/backlog.md`, item 2.

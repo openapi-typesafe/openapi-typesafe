@@ -601,7 +601,7 @@ are over all listed items.
 | # | Theme | Items | Pkg | Cat | Reactions (thumbs-up) | Effort | Output change | Notes |
 |---:|---|---|---|---|---:|---|---|---|
 | 1 | TS 6 / 7 install and run | #2723, #2550, #2841, #2774, #2818, #2872, #2867, #2877, #2815, #2862 | generator | ts7 | 308 (257) | L | No | The core of Phases 4–6; listed for traceability. #2872 and #2877 propose a compiler-free generator, like our IR plan. #2815 (`exports.types`) is a small packaging fix to take as is |
-| 2 | Vulnerable `@redocly/openapi-core` 1.x (minimatch, js-yaml, brace-expansion) | #2644, #2846, #2848, #2707 | generator | security | 28 (28) | M | No (verify on corpus) | Decided by task 3.5 / ADR-005. Upstream will not patch (#2874) |
+| 2 | Vulnerable `@redocly/openapi-core` 1.x (minimatch, js-yaml, brace-expansion) | #2644, #2846, #2848, #2707 | generator | security | 28 (28) | M | No (verify on corpus) | Decided by task 3.5 / ADR-005. Upstream will not patch (#2874). GHSA-g3hv-75wg-m249 (2026-10-27) reviewed in ADR-005: pattern-only, not reachable from a document |
 | 3 | CLI hangs when kebab-case boolean flags come before the schema path | #2523, #1651, #2764, #2694 | generator | bug | 7 (7) | S | No | Root cause: `BOOLEAN_FLAGS` registered in camelCase. Fixed for free by the TS CLI port (7.3); add a test per flag |
 | 4 | `--no-lint` flag to skip Redocly lint | #2840, #2845 | generator | feature | 1 (0) | S | No | New opt-in flag; also speeds up large schemas |
 | 5 | Crash on `%` in a property name | #2251, #2828 | generator | bug | 1 (1) | S | Invalid only | `URIError` from JSON Pointer decoding |
