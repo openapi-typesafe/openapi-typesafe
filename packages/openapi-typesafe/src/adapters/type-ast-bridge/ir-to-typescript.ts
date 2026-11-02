@@ -6,6 +6,7 @@ import type {
   IrKeyword,
   IrMember,
   IrPropertyName,
+  IrPropertySignature,
   IrTupleElement,
   IrType,
 } from "../../domain/ir/nodes.js";
@@ -119,15 +120,15 @@ export function toTypeNode(type: IrType): ts.TypeNode {
   }
 }
 
-function withComment<T extends ts.Node>(node: T, comment: IrComment | null): T {
-  if (comment === null) {
-    return node;
+function withComments<T extends ts.Node>(node: T, comments: readonly IrComment[]): T {
+  for (const comment of comments) {
+    const kind =
+      comment.kind === "block"
+        ? ts.SyntaxKind.MultiLineCommentTrivia
+        : ts.SyntaxKind.SingleLineCommentTrivia;
+    ts.addSyntheticLeadingComment(node, kind, comment.text, true);
   }
-  const kind =
-    comment.kind === "block"
-      ? ts.SyntaxKind.MultiLineCommentTrivia
-      : ts.SyntaxKind.SingleLineCommentTrivia;
-  return ts.addSyntheticLeadingComment(node, kind, comment.text, true);
+  return node;
 }
 
 function toPropertyName(name: IrPropertyName): ts.PropertyName {
@@ -147,20 +148,25 @@ function readonlyModifiers(isReadonly: boolean): ts.Modifier[] | undefined {
   return isReadonly ? [factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)] : undefined;
 }
 
+/** Convert one property signature (for callbacks that receive a `ts.PropertySignature`). */
+export function toPropertySignature(property: IrPropertySignature): ts.PropertySignature {
+  const questionToken = property.isOptional
+    ? factory.createToken(ts.SyntaxKind.QuestionToken)
+    : undefined;
+  const signature = factory.createPropertySignature(
+    readonlyModifiers(property.isReadonly),
+    toPropertyName(property.name),
+    questionToken,
+    toTypeNode(property.type),
+  );
+  return withComments(signature, property.comments);
+}
+
 function toTypeElement(member: IrMember): ts.TypeElement {
-  const modifiers = readonlyModifiers(member.isReadonly);
   if (member.kind === "property") {
-    const questionToken = member.isOptional
-      ? factory.createToken(ts.SyntaxKind.QuestionToken)
-      : undefined;
-    const signature = factory.createPropertySignature(
-      modifiers,
-      toPropertyName(member.name),
-      questionToken,
-      toTypeNode(member.type),
-    );
-    return withComment(signature, member.comment);
+    return toPropertySignature(member);
   }
+  const modifiers = readonlyModifiers(member.isReadonly);
   const parameter = factory.createParameterDeclaration(
     undefined,
     undefined,
@@ -168,9 +174,9 @@ function toTypeElement(member: IrMember): ts.TypeElement {
     undefined,
     toTypeNode(member.parameterType),
   );
-  return withComment(
+  return withComments(
     factory.createIndexSignature(modifiers, [parameter], toTypeNode(member.type)),
-    member.comment,
+    member.comments,
   );
 }
 
@@ -206,7 +212,7 @@ export function toStatement(declaration: IrDeclaration): ts.Statement {
         undefined,
         members,
       );
-      return withComment(node, declaration.comment);
+      return withComments(node, declaration.comments);
     }
     case "typeAlias": {
       const node = factory.createTypeAliasDeclaration(
@@ -215,26 +221,26 @@ export function toStatement(declaration: IrDeclaration): ts.Statement {
         undefined,
         toTypeNode(declaration.type),
       );
-      return withComment(node, declaration.comment);
+      return withComments(node, declaration.comments);
     }
     case "enum": {
       const members = declaration.members.map((member) =>
-        withComment(
+        withComments(
           factory.createEnumMember(member.name, toValueExpression(member.value)),
-          member.comment,
+          member.comments,
         ),
       );
-      return withComment(
+      return withComments(
         factory.createEnumDeclaration(
           exportModifiers(declaration.isExported),
           declaration.name,
           members,
         ),
-        declaration.comment,
+        declaration.comments,
       );
     }
     case "constArray":
-      return withComment(toConstArrayStatement(declaration), declaration.comment);
+      return withComments(toConstArrayStatement(declaration), declaration.comments);
     case "rawDeclaration":
       return ts.createSourceFile("raw.ts", declaration.text, ts.ScriptTarget.ESNext)
         .statements[0] as ts.Statement;

@@ -8,8 +8,8 @@ import type {
   IrType,
 } from "../../../src/domain/ir/nodes.js";
 
-function alias(type: IrType, comment: IrComment | null = null): IrDeclaration {
-  return { kind: "typeAlias", name: "A", isExported: true, type, comment };
+function alias(type: IrType, comments: readonly IrComment[] = []): IrDeclaration {
+  return { kind: "typeAlias", name: "A", isExported: true, type, comments };
 }
 
 describe("printNodes", () => {
@@ -56,6 +56,6 @@ describe("printNodes", () => {
   it("printNodes with an unknown comment kind throws", () => {
     const comment = { kind: "doc", text: "x" } as unknown as IrComment;
 
-    expect(() => printNodes([alias(irKeyword("string"), comment)])).toThrow("Unexpected variant");
+    expect(() => printNodes([alias(irKeyword("string"), [comment])])).toThrow("Unexpected variant");
   });
 });

@@ -20,10 +20,10 @@ function printValue(value: string | number): string {
 
 function writeHead(
   writer: TextWriter,
-  declaration: { comment: IrComment | null; isExported: boolean },
+  declaration: { comments: readonly IrComment[]; isExported: boolean },
 ): void {
-  if (declaration.comment) {
-    writeLeadingComment(writer, declaration.comment);
+  for (const comment of declaration.comments) {
+    writeLeadingComment(writer, comment);
   }
   if (declaration.isExported) {
     writer.write("export ");
@@ -50,8 +50,8 @@ function writeTypeAlias(writer: TextWriter, declaration: IrTypeAliasDeclaration)
 }
 
 function writeEnumMember(writer: TextWriter, member: IrEnumMember): void {
-  if (member.comment) {
-    writeLeadingComment(writer, member.comment);
+  for (const comment of member.comments) {
+    writeLeadingComment(writer, comment);
   }
   writer.write(`${member.name} = ${printValue(member.value)}`);
 }

@@ -1,7 +1,11 @@
 import type { OasRef, Referenced } from "@redocly/openapi-core";
-import { parseRef } from "@redocly/openapi-core/lib/ref-utils.js";
 import ts, { type LiteralTypeNode, type TypeLiteralNode } from "typescript";
+import { toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import { literalType } from "../application/transform/literal-type.js";
+import { refType } from "../application/transform/ref-type.js";
+import { schemaComment } from "../application/transform/schema-comment.js";
 import type { ParameterObject } from "../types.js";
+import { injectWithRequiredHelper } from "./footer-helpers.js";
 
 export const JS_PROPERTY_INDEX_RE = /^[A-Za-z_$][A-Za-z_$0-9]*$/;
 export const JS_ENUM_INVALID_CHARS_RE = /[^A-Za-z_$0-9]+(.)?/g;
@@ -21,9 +25,6 @@ export const STRING = ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeywo
 export const TRUE = ts.factory.createLiteralTypeNode(ts.factory.createTrue());
 export const UNDEFINED = ts.factory.createKeywordTypeNode(ts.SyntaxKind.UndefinedKeyword);
 export const UNKNOWN = ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword);
-
-const LB_RE = /\r?\n/g;
-const COMMENT_RE = /\*\//g;
 
 export interface AnnotatedSchemaObject {
   const?: unknown; // jsdoc without value
@@ -46,82 +47,10 @@ export interface AnnotatedSchemaObject {
  * @returns void if not comments or jsdoc format comment string
  */
 export function addJSDocComment(schemaObject: AnnotatedSchemaObject, node: ts.PropertySignature): void {
-  if (!schemaObject || typeof schemaObject !== "object" || Array.isArray(schemaObject)) {
-    return;
-  }
-  const output: string[] = [];
-
-  // Not JSDoc tags: [title, format]
-  if (schemaObject.title) {
-    output.push(schemaObject.title.trim().replace(LB_RE, "\n *     "));
-  }
-  if (schemaObject.summary) {
-    output.push(schemaObject.summary.trim().replace(LB_RE, "\n *     "));
-  }
-  if (schemaObject.format) {
-    output.push(`Format: ${schemaObject.format}`);
-  }
-
-  // JSDoc tags without value
-  // 'Deprecated' without value
-  if (schemaObject.deprecated) {
-    output.push("@deprecated");
-  }
-
-  // JSDoc tags with value
-  const supportedJsDocTags = ["description", "default", "example"] as const;
-  for (const field of supportedJsDocTags) {
-    const allowEmptyString = field === "default" || field === "example";
-    if (schemaObject[field] === undefined) {
-      continue;
-    }
-    if (schemaObject[field] === "" && !allowEmptyString) {
-      continue;
-    }
-    const serialized =
-      typeof schemaObject[field] === "object" ? JSON.stringify(schemaObject[field], null, 2) : schemaObject[field];
-    output.push(`@${field} ${String(serialized).trim().replace(LB_RE, "\n *     ")}`);
-  }
-
-  if (Array.isArray(schemaObject.examples)) {
-    for (const example of schemaObject.examples) {
-      const serialized = typeof example === "object" ? JSON.stringify(example, null, 2) : example;
-      output.push(`@example ${String(serialized).trim().replace(LB_RE, "\n *     ")}`);
-    }
-  }
-
-  // JSDoc 'Constant' without value
-  if ("const" in schemaObject) {
-    output.push("@constant");
-  }
-
-  // JSDoc 'Enum' with type
-  if (schemaObject.enum) {
-    let type = "unknown";
-    if (Array.isArray(schemaObject.type)) {
-      type = schemaObject.type.join("|");
-    } else if (typeof schemaObject.type === "string") {
-      type = schemaObject.type;
-    }
-    output.push(`@enum {${type}${schemaObject.nullable ? "|null" : ""}}`);
-  }
-
-  // attach comment if it has content
-
-  if (output.length) {
-    // Check if any output item contains multi-line content (has internal line breaks)
-    const hasMultiLineContent = output.some((item) => item.includes("\n"));
-
-    let text =
-      output.length === 1 && !hasMultiLineContent ? `* ${output.join("\n")} ` : `*\n * ${output.join("\n * ")}\n `;
-    text = text.replace(COMMENT_RE, "*\\/"); // prevent inner comments from leaking
-
-    ts.addSyntheticLeadingComment(
-      /* node               */ node,
-      /* kind               */ ts.SyntaxKind.MultiLineCommentTrivia, // note: MultiLine just refers to a "/* */" comment
-      /* text               */ text,
-      /* hasTrailingNewLine */ true,
-    );
+  // Ported to IR (ENGINEERING_PLAN Phase 5, step 2); attached as a synthetic comment until then.
+  const comment = schemaComment(schemaObject);
+  if (comment) {
+    ts.addSyntheticLeadingComment(node, ts.SyntaxKind.MultiLineCommentTrivia, comment.text, true);
   }
 }
 
@@ -132,37 +61,6 @@ type OapiRefResolved = Referenced<ParameterObject>;
 
 function isParameterObject(obj: OapiRefResolved | undefined): obj is ParameterObject {
   return Boolean(obj && !isOasRef(obj) && obj.in);
-}
-
-function addIndexedAccess(node: ts.TypeNode, ...segments: readonly string[]) {
-  return segments.reduce<ts.TypeNode>((acc, segment) => {
-    return ts.factory.createIndexedAccessTypeNode(
-      acc,
-      ts.factory.createLiteralTypeNode(
-        typeof segment === "number"
-          ? ts.factory.createNumericLiteral(segment)
-          : ts.factory.createStringLiteral(segment),
-      ),
-    );
-  }, node);
-}
-
-/**
- * Wrap a type with Extract<T, { propertyName: unknown }> to narrow a union type
- * before accessing a property that only exists on some variants.
- */
-function wrapWithExtract(type: ts.TypeNode, propertyName: string): ts.TypeNode {
-  return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Extract"), [
-    type,
-    ts.factory.createTypeLiteralNode([
-      ts.factory.createPropertySignature(
-        /* modifiers     */ undefined,
-        /* name          */ ts.factory.createIdentifier(propertyName),
-        /* questionToken */ undefined,
-        /* type          */ ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword),
-      ),
-    ]),
-  ]);
 }
 
 export interface OapiRefOptions {
@@ -193,50 +91,14 @@ export interface OapiRefOptions {
  *       we use Extract<> to narrow the type before each property access.
  **/
 export function oapiRef(path: string, resolved?: OapiRefResolved, options: OapiRefOptions = {}): ts.TypeNode {
-  const { pointer } = parseRef(path);
-  if (pointer.length === 0) {
-    throw new Error(`Error parsing $ref: ${path}. Is this a valid $ref?`);
-  }
-
-  const parametersObject = isParameterObject(resolved);
-  const extractSet = new Set(options.extractProperties ?? []);
-
-  // Initial segments are handled in a fixed , then remaining segments are treated
-  // according to heuristics based on the initial segments
-  const initialSegment = pointer[0];
-  const leadingSegments = pointer.slice(1, 3);
-  const restSegments = pointer.slice(3);
-
-  const leadingType = addIndexedAccess(
-    ts.factory.createTypeReferenceNode(
-      ts.factory.createIdentifier(
-        options.deep ? `FlattenedDeepRequired<${String(initialSegment)}>` : String(initialSegment),
-      ),
-    ),
-    ...leadingSegments,
+  // Ported to IR (ENGINEERING_PLAN Phase 5, step 1); converted back until the parents are ported.
+  return toTypeNode(
+    refType(path, {
+      isDeep: options.deep ?? false,
+      extractProperties: options.extractProperties ?? [],
+      parameter: isParameterObject(resolved) ? { in: resolved.in, name: resolved.name } : null,
+    }),
   );
-
-  return restSegments.reduce<ts.TypeNode>((acc, segment, index, original) => {
-    // Skip `properties` items when in the middle of the pointer
-    // See: https://github.com/openapi-ts/openapi-typescript/issues/1742
-    if (segment === "properties") {
-      return acc;
-    }
-
-    if (parametersObject && index === original.length - 1) {
-      return addIndexedAccess(acc, resolved.in, resolved.name);
-    }
-
-    // If this segment is in the extractProperties list,
-    // wrap the current type with Extract<T, { segment: unknown }> before accessing.
-    // This narrows union types to variants that have this property.
-    if (extractSet.has(segment)) {
-      const narrowedType = wrapWithExtract(acc, segment);
-      return addIndexedAccess(narrowedType, segment);
-    }
-
-    return addIndexedAccess(acc, segment);
-  }, leadingType);
 }
 
 export interface AstToStringOptions {
@@ -478,47 +340,8 @@ export function tsIsPrimitive(type: ts.TypeNode): boolean {
 
 /** Create a literal type */
 export function tsLiteral(value: unknown): ts.TypeNode {
-  if (typeof value === "string") {
-    // workaround for UTF-8: https://github.com/microsoft/TypeScript/issues/36174
-    return ts.factory.createIdentifier(JSON.stringify(value)) as unknown as ts.TypeNode;
-  }
-  if (typeof value === "number") {
-    const literal =
-      value < 0
-        ? ts.factory.createPrefixUnaryExpression(
-            ts.SyntaxKind.MinusToken,
-            ts.factory.createNumericLiteral(Math.abs(value)),
-          )
-        : ts.factory.createNumericLiteral(value);
-    return ts.factory.createLiteralTypeNode(literal);
-  }
-  if (typeof value === "boolean") {
-    return value === true ? TRUE : FALSE;
-  }
-  if (value === null) {
-    return NULL;
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return ts.factory.createArrayTypeNode(NEVER);
-    }
-    return ts.factory.createTupleTypeNode(value.map((v: unknown) => tsLiteral(v)));
-  }
-  if (typeof value === "object") {
-    const keys: ts.TypeElement[] = [];
-    for (const [k, v] of Object.entries(value)) {
-      keys.push(
-        ts.factory.createPropertySignature(
-          /* modifiers     */ undefined,
-          /* name          */ tsPropertyIndex(k),
-          /* questionToken */ undefined,
-          /* type          */ tsLiteral(v),
-        ),
-      );
-    }
-    return keys.length ? ts.factory.createTypeLiteralNode(keys) : tsRecord(STRING, NEVER);
-  }
-  return UNKNOWN;
+  // Ported to IR (ENGINEERING_PLAN Phase 5, step 1); converted back until the parents are ported.
+  return toTypeNode(literalType(value));
 }
 
 /** Modifiers (readonly) */
@@ -585,12 +408,7 @@ export function tsWithRequired(
     return type;
   }
 
-  // inject helper, if needed
-  if (!injectFooter.some((node) => ts.isTypeAliasDeclaration(node) && node?.name?.escapedText === "WithRequired")) {
-    const helper = stringToAST("type WithRequired<T, K extends keyof T> = T & { [P in K]-?: T[P] };")[0] as any;
-    injectFooter.push(helper);
-  }
-
+  injectWithRequiredHelper(injectFooter);
   return ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("WithRequired"), [
     type,
     tsUnion(keys.map((k) => tsLiteral(k))),

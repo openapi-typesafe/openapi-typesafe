@@ -186,16 +186,16 @@ export function toIrType(node: ts.TypeNode): IrType {
 }
 
 /**
- * The comment as the generator synthesized it. In the file every line after the first is indented
- * to the comment's column; removing that column gives back the synthetic text (` * line`).
+ * The comments as the generator synthesized them. In the file every line after the first is
+ * indented to the comment's column; removing that column gives back the synthetic text (` * line`).
  */
-function toComment(node: ts.Node): IrComment | null {
+function toComments(node: ts.Node): IrComment[] {
   const source = node.getSourceFile();
   const ranges = ts.getLeadingCommentRanges(source.text, node.getFullStart()) ?? [];
-  const range = ranges.at(-1);
-  if (range === undefined) {
-    return null;
-  }
+  return ranges.map((range) => toComment(source, range));
+}
+
+function toComment(source: ts.SourceFile, range: ts.CommentRange): IrComment {
   const text = source.text.slice(range.pos, range.end);
   if (range.kind === ts.SyntaxKind.SingleLineCommentTrivia) {
     return { kind: "line", text: text.slice(2) };
@@ -233,7 +233,7 @@ function toIndexSignature(member: ts.IndexSignatureDeclaration): IrMember {
     parameterType: toIrType(parameter.type),
     type: toIrType(member.type),
     isReadonly: hasModifier(member, ts.SyntaxKind.ReadonlyKeyword),
-    comment: toComment(member),
+    comments: toComments(member),
   };
 }
 
@@ -250,7 +250,7 @@ function toMember(member: ts.TypeElement): IrMember {
     type: toIrType(member.type),
     isOptional: member.questionToken !== undefined,
     isReadonly: hasModifier(member, ts.SyntaxKind.ReadonlyKeyword),
-    comment: toComment(member),
+    comments: toComments(member),
   };
 }
 
@@ -260,7 +260,7 @@ function toEnumMember(member: ts.EnumMember): IrEnumMember {
     throw new UnsupportedSyntaxError(member);
   }
   const value = ts.isStringLiteral(initializer) ? initializer.text : toNumber(initializer);
-  return { name: member.name.getText(), value, comment: toComment(member) };
+  return { name: member.name.getText(), value, comments: toComments(member) };
 }
 
 function toConstArray(statement: ts.VariableStatement): IrDeclaration {
@@ -281,7 +281,7 @@ function toConstArray(statement: ts.VariableStatement): IrDeclaration {
     isExported: hasModifier(statement, ts.SyntaxKind.ExportKeyword),
     type: toIrType(variable.type),
     values,
-    comment: toComment(statement),
+    comments: toComments(statement),
   };
 }
 
@@ -322,7 +322,7 @@ export function toIrDeclaration(statement: ts.Statement): IrDeclaration {
   const base = {
     name: supported.name.text,
     isExported: hasModifier(supported, ts.SyntaxKind.ExportKeyword),
-    comment: toComment(supported),
+    comments: toComments(supported),
   };
   switch (supported.kind) {
     case ts.SyntaxKind.InterfaceDeclaration:

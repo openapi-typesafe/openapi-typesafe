@@ -36,14 +36,17 @@ export const arbitraryIdentifier = fc.stringMatching(/^[A-Za-z_$][A-Za-z_$0-9]{0
 
 const arbitraryNumber = fc.double({ noNaN: true, noDefaultInfinity: true });
 
-const arbitraryComment: fc.Arbitrary<IrComment | null> = fc.option(
-  fc.oneof(
-    arbitraryText
-      .filter((text) => !text.includes("*/"))
-      .map((text): IrComment => ({ kind: "block", text: `*${text}` })),
-    arbitraryText.map((text): IrComment => ({ kind: "line", text })),
-  ),
-  { nil: null, freq: 3 },
+const arbitraryComment: fc.Arbitrary<IrComment> = fc.oneof(
+  arbitraryText
+    .filter((text) => !text.includes("*/"))
+    .map((text): IrComment => ({ kind: "block", text: `*${text}` })),
+  arbitraryText.map((text): IrComment => ({ kind: "line", text })),
+);
+
+/** Mostly no comment; sometimes one or two, which TypeScript prints in order. */
+const arbitraryComments: fc.Arbitrary<readonly IrComment[]> = fc.oneof(
+  { weight: 3, arbitrary: fc.constant([]) },
+  { weight: 1, arbitrary: fc.array(arbitraryComment, { minLength: 1, maxLength: 2 }) },
 );
 
 const arbitraryPropertyName: fc.Arbitrary<IrPropertyName> = fc.oneof(
@@ -105,7 +108,7 @@ const { type: arbitraryType, member: arbitraryMember } = fc.letrec<{
       type: tie("type"),
       isOptional: fc.boolean(),
       isReadonly: fc.boolean(),
-      comment: arbitraryComment,
+      comments: arbitraryComments,
     }),
     fc.record({
       kind: fc.constant("indexSignature" as const),
@@ -113,7 +116,7 @@ const { type: arbitraryType, member: arbitraryMember } = fc.letrec<{
       parameterType: tie("type"),
       type: tie("type"),
       isReadonly: fc.boolean(),
-      comment: arbitraryComment,
+      comments: arbitraryComments,
     }),
   ) as fc.Arbitrary<IrMember>,
 }));
@@ -128,26 +131,26 @@ const arbitraryDeclaration: fc.Arbitrary<IrDeclaration> = fc.oneof(
     name: arbitraryIdentifier,
     isExported: fc.boolean(),
     members: fc.array(arbitraryMember, { maxLength: 3 }),
-    comment: arbitraryComment,
+    comments: arbitraryComments,
   }),
   fc.record({
     kind: fc.constant("typeAlias" as const),
     name: arbitraryIdentifier,
     isExported: fc.boolean(),
     type: arbitraryType,
-    comment: arbitraryComment,
+    comments: arbitraryComments,
   }),
   fc.record({
     kind: fc.constant("enum" as const),
     name: arbitraryIdentifier,
     isExported: fc.boolean(),
     members: fc.array(
-      fc.record({ name: arbitraryIdentifier, value: arbitraryValue, comment: arbitraryComment }),
+      fc.record({ name: arbitraryIdentifier, value: arbitraryValue, comments: arbitraryComments }),
       {
         maxLength: 3,
       },
     ),
-    comment: arbitraryComment,
+    comments: arbitraryComments,
   }),
   fc.record({
     kind: fc.constant("constArray" as const),
@@ -155,7 +158,7 @@ const arbitraryDeclaration: fc.Arbitrary<IrDeclaration> = fc.oneof(
     isExported: fc.boolean(),
     type: arbitraryType,
     values: fc.array(arbitraryValue, { maxLength: 3 }),
-    comment: arbitraryComment,
+    comments: arbitraryComments,
   }),
 );
 

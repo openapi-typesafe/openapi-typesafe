@@ -81,7 +81,7 @@ describe("property keys", () => {
             kind: "typeAlias",
             name: "T",
             isExported: false,
-            comment: null,
+            comments: [],
             type: irObject([irProperty(toPropertyName(index), irKeyword("never"))]),
           },
         ]);

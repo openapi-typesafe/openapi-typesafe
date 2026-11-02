@@ -10,6 +10,7 @@
       "test/**",
       "scripts/bench-printer/**",
       "!**/fixtures/**/*",
+      "!test/print-parity/original",
       "!**/dist",
       "!**/coverage"
     ]
@@ -20,10 +21,14 @@
         "src/domain/**",
         "src/application/**",
         "src/adapters/**",
+        "src/lib/schema-context.ts",
+        "src/lib/footer-helpers.ts",
         "test/domain/**",
         "test/application/**",
         "test/adapters/**",
         "test/print-parity/**",
+        "test/fakes/**",
+        "test/lib/schema-context.test.ts",
         "scripts/bench-printer/**"
       ],
       "formatter": { "lineWidth": 100 }

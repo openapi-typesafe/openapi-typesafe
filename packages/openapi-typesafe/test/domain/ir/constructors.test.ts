@@ -80,24 +80,24 @@ describe("IR constructors", () => {
     expect(irRaw("B | 2")).toEqual({ kind: "raw", text: "B | 2" });
   });
 
-  it("irProperty defaults flags to false and the comment to null", () => {
+  it("irProperty defaults flags to false and comments to none", () => {
     const name = { kind: "identifier", text: "id" } as const;
 
     expect(irObject([irProperty(name, STRING)]).members).toEqual([
-      { kind: "property", name, type: STRING, isOptional: false, isReadonly: false, comment: null },
+      { kind: "property", name, type: STRING, isOptional: false, isReadonly: false, comments: [] },
     ]);
   });
 
-  it("irProperty keeps the given flags and comment", () => {
+  it("irProperty keeps the given flags and comments", () => {
     const name = { kind: "identifier", text: "id" } as const;
     const comment = { kind: "line", text: " note" } as const;
 
-    expect(irProperty(name, STRING, { isOptional: true, isReadonly: true, comment })).toMatchObject(
-      {
-        isOptional: true,
-        isReadonly: true,
-        comment,
-      },
-    );
+    expect(
+      irProperty(name, STRING, { isOptional: true, isReadonly: true, comments: [comment] }),
+    ).toMatchObject({
+      isOptional: true,
+      isReadonly: true,
+      comments: [comment],
+    });
   });
 });

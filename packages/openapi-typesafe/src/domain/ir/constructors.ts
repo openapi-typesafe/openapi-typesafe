@@ -92,11 +92,11 @@ export function irRaw(text: string): IrRawType {
   return { kind: "raw", text };
 }
 
-/** Options of a property signature; omitted flags are false and the comment is absent. */
+/** Options of a property signature; omitted flags are false and there are no comments. */
 export interface IrPropertyOptions {
   readonly isOptional?: boolean;
   readonly isReadonly?: boolean;
-  readonly comment?: IrComment | null;
+  readonly comments?: readonly IrComment[];
 }
 
 export function irProperty(
@@ -110,7 +110,7 @@ export function irProperty(
     type,
     isOptional: options.isOptional ?? false,
     isReadonly: options.isReadonly ?? false,
-    comment: options.comment ?? null,
+    comments: options.comments ?? [],
   };
 }
 

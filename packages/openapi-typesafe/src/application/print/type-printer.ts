@@ -113,8 +113,8 @@ function writeIndexSignatureParameter(writer: TextWriter, name: string, type: Ir
 
 /** Write one member of an interface or object type, with its comment and trailing semicolon. */
 export function writeMember(writer: TextWriter, member: IrMember): void {
-  if (member.comment) {
-    writeLeadingComment(writer, member.comment);
+  for (const comment of member.comments) {
+    writeLeadingComment(writer, comment);
   }
   if (member.isReadonly) {
     writer.write("readonly ");

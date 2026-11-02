@@ -124,7 +124,7 @@ export type IrType =
   | IrReadonlyType
   | IrRawType;
 
-/** A comment printed on its own line before a node. */
+/** A comment printed on its own line before a node; a node may have several, printed in order. */
 export type IrComment =
   /** `/*text*\/`: `text` is the comment body, for example `* @description Hello `. */
   | { readonly kind: "block"; readonly text: string }
@@ -143,7 +143,7 @@ export interface IrPropertySignature {
   readonly type: IrType;
   readonly isOptional: boolean;
   readonly isReadonly: boolean;
-  readonly comment: IrComment | null;
+  readonly comments: readonly IrComment[];
 }
 
 /** `[parameterName: parameterType]: type`. */
@@ -153,7 +153,7 @@ export interface IrIndexSignature {
   readonly parameterType: IrType;
   readonly type: IrType;
   readonly isReadonly: boolean;
-  readonly comment: IrComment | null;
+  readonly comments: readonly IrComment[];
 }
 
 export type IrMember = IrPropertySignature | IrIndexSignature;
@@ -163,7 +163,7 @@ export interface IrInterfaceDeclaration {
   readonly name: string;
   readonly isExported: boolean;
   readonly members: readonly IrMember[];
-  readonly comment: IrComment | null;
+  readonly comments: readonly IrComment[];
 }
 
 export interface IrTypeAliasDeclaration {
@@ -171,14 +171,14 @@ export interface IrTypeAliasDeclaration {
   readonly name: string;
   readonly isExported: boolean;
   readonly type: IrType;
-  readonly comment: IrComment | null;
+  readonly comments: readonly IrComment[];
 }
 
 /** `name` is printed as given (already sanitized or quoted by the enum naming rules). */
 export interface IrEnumMember {
   readonly name: string;
   readonly value: string | number;
-  readonly comment: IrComment | null;
+  readonly comments: readonly IrComment[];
 }
 
 export interface IrEnumDeclaration {
@@ -186,7 +186,7 @@ export interface IrEnumDeclaration {
   readonly name: string;
   readonly isExported: boolean;
   readonly members: readonly IrEnumMember[];
-  readonly comment: IrComment | null;
+  readonly comments: readonly IrComment[];
 }
 
 /** `const name: type = [values];` (the `--enum-values` and `--make-paths-enum` arrays). */
@@ -196,7 +196,7 @@ export interface IrConstArrayDeclaration {
   readonly isExported: boolean;
   readonly type: IrType;
   readonly values: readonly (string | number)[];
-  readonly comment: IrComment | null;
+  readonly comments: readonly IrComment[];
 }
 
 /** A declaration printed as is: footer helpers and injected code. */

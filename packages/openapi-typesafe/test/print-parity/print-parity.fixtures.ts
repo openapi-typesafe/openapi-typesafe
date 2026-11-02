@@ -20,12 +20,12 @@ import { toPropertyName } from "../../src/domain/ir/property-name.js";
 
 /** Hand-written IR cases for the printer parity test; each one targets one printing rule. */
 
-const alias = (name: string, type: IrType, comment: IrComment | null = null): IrDeclaration => ({
+const alias = (name: string, type: IrType, comments: readonly IrComment[] = []): IrDeclaration => ({
   kind: "typeAlias",
   name,
   isExported: true,
   type,
-  comment,
+  comments,
 });
 
 const block = (text: string): IrComment => ({ kind: "block", text });
@@ -106,54 +106,59 @@ export const TYPE_CASES: Readonly<Record<string, IrType>> = {
       parameterType: STRING,
       type: irUnion([STRING, irKeyword("undefined")]),
       isReadonly: true,
-      comment: null,
+      comments: [],
     },
   ]),
   "member comments": irObject([
-    irProperty(toPropertyName("a"), STRING, { comment: block("* Format: int64 ") }),
+    irProperty(toPropertyName("a"), STRING, { comments: [block("* Format: int64 ")] }),
     irProperty(toPropertyName("b"), STRING, {
-      comment: block("*\n * @description Line one\n *     line two\n *\n *     \tafter blank\n "),
+      comments: [
+        block("*\n * @description Line one\n *     line two\n *\n *     \tafter blank\n "),
+      ],
     }),
     irProperty(
       toPropertyName("c"),
-      irObject([irProperty(toPropertyName("d"), STRING, { comment: block("* deep ") })]),
+      irObject([irProperty(toPropertyName("d"), STRING, { comments: [block("* deep ")] })]),
     ),
     irProperty(toPropertyName("e"), STRING, {
-      comment: block("* carriage\r return and   separator "),
+      comments: [block("* carriage\r return and   separator ")],
     }),
-    irProperty(toPropertyName("f"), STRING, { comment: block("*\n\n\t  \n * blank lines\n ") }),
-    irProperty(toPropertyName("g"), STRING, { comment: line(" line comment") }),
+    irProperty(toPropertyName("f"), STRING, { comments: [block("*\n\n\t  \n * blank lines\n ")] }),
+    irProperty(toPropertyName("g"), STRING, { comments: [line(" line comment")] }),
+    irProperty(toPropertyName("h"), STRING, {
+      comments: [block("*\n * @minimum 0\n "), block("* Format: int32 ")],
+    }),
   ]),
 };
 
 export const DECLARATION_CASES: Readonly<Record<string, readonly IrDeclaration[]>> = {
   "empty file": [],
   "interfaces, empty and with members": [
-    { kind: "interface", name: "paths", isExported: true, members: [], comment: null },
+    { kind: "interface", name: "paths", isExported: true, members: [], comments: [] },
     {
       kind: "interface",
       name: "components",
       isExported: false,
       members: [irProperty(toPropertyName("schemas"), irObject([]))],
-      comment: block("* top-level comment "),
+      comments: [block("* top-level comment ")],
     },
   ],
   "type aliases": [
     alias("webhooks", irRecord(STRING, irKeyword("never"))),
-    alias("$defs", STRING, line(" note")),
+    alias("$defs", STRING, [line(" note")]),
   ],
   enums: [
-    { kind: "enum", name: "Empty", isExported: true, members: [], comment: null },
+    { kind: "enum", name: "Empty", isExported: true, members: [], comments: [] },
     {
       kind: "enum",
       name: "Status",
       isExported: true,
-      comment: null,
+      comments: [],
       members: [
-        { name: "Active", value: "active", comment: null },
-        { name: "ValueMinus1", value: -1, comment: line(" minus one") },
-        { name: '"quoted name"', value: "ünïcode", comment: line(" multi\nline") },
-        { name: "Value2", value: 2.5, comment: null },
+        { name: "Active", value: "active", comments: [] },
+        { name: "ValueMinus1", value: -1, comments: [line(" minus one")] },
+        { name: '"quoted name"', value: "ünïcode", comments: [line(" multi\nline")] },
+        { name: "Value2", value: 2.5, comments: [] },
       ],
     },
   ],
@@ -164,7 +169,7 @@ export const DECLARATION_CASES: Readonly<Record<string, readonly IrDeclaration[]
       isExported: true,
       type: irArray(STRING),
       values: ["a", "ü"],
-      comment: null,
+      comments: [],
     },
     {
       kind: "constArray",
@@ -172,7 +177,7 @@ export const DECLARATION_CASES: Readonly<Record<string, readonly IrDeclaration[]
       isExported: false,
       type: irReadonly(irArray(NUMBER)),
       values: [1, -2],
-      comment: null,
+      comments: [],
     },
     {
       kind: "constArray",
@@ -180,7 +185,7 @@ export const DECLARATION_CASES: Readonly<Record<string, readonly IrDeclaration[]
       isExported: true,
       type: irArray(irKeyword("never")),
       values: [],
-      comment: null,
+      comments: [],
     },
   ],
 };
