@@ -3,6 +3,14 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FetchHttpClient } from "../../src/adapters/fetch-http-client.ts";
 
+/**
+ * Normal requests get a generous timeout, so a loaded CI machine does not fail them. The timeout
+ * test needs only that the server is much slower than the client's limit.
+ */
+const NORMAL_TIMEOUT_MS = 5_000;
+const SHORT_TIMEOUT_MS = 100;
+const SLOW_RESPONSE_MS = 2_000;
+
 let server: Server;
 let baseUrl: string;
 const seenUserAgents: string[] = [];
@@ -11,7 +19,7 @@ beforeAll(async () => {
   server = createServer((request, response) => {
     seenUserAgents.push(request.headers["user-agent"] ?? "");
     if (request.url === "/slow") {
-      setTimeout(() => response.end("late"), 500);
+      setTimeout(() => response.end("late"), SLOW_RESPONSE_MS);
       return;
     }
     response.statusCode = request.url === "/missing" ? 404 : 200;
@@ -27,7 +35,11 @@ afterAll(async () => {
 });
 
 describe("FetchHttpClient", () => {
-  const client = new FetchHttpClient({ timeoutMs: 100, userAgent: "harness-test" });
+  const client = new FetchHttpClient({ timeoutMs: NORMAL_TIMEOUT_MS, userAgent: "harness-test" });
+  const impatientClient = new FetchHttpClient({
+    timeoutMs: SHORT_TIMEOUT_MS,
+    userAgent: "harness-test",
+  });
 
   it("getText returns the status and body and sends the user agent", async () => {
     expect(await client.getText(`${baseUrl}/ok`)).toEqual({ status: 200, body: "document" });
@@ -39,6 +51,8 @@ describe("FetchHttpClient", () => {
   });
 
   it("getText rejects when the server is slower than the timeout", async () => {
-    await expect(client.getText(`${baseUrl}/slow`)).rejects.toMatchObject({ name: "TimeoutError" });
+    await expect(impatientClient.getText(`${baseUrl}/slow`)).rejects.toMatchObject({
+      name: "TimeoutError",
+    });
   });
 });

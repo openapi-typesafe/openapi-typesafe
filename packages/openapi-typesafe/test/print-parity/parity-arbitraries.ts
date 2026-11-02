@@ -20,8 +20,14 @@ import {
  */
 
 export const RUNS = Number(process.env.PARITY_RUNS ?? 3_000);
-// About 0.1 ms per run; the budget leaves room for slow machines and a large PARITY_RUNS.
-export const TIMEOUT_MS = Math.max(5_000, RUNS);
+/**
+ * The slowest single-node parity test takes about 1.1 ms per run with coverage on (measured
+ * 2026-11-02: 3351 ms for 3000 runs). 4 ms per run leaves room for a loaded CI machine running the
+ * packages in parallel, where 5 s in total was not enough.
+ */
+const MS_PER_RUN_BUDGET = 4;
+const MIN_TIMEOUT_MS = 5_000;
+export const TIMEOUT_MS = Math.max(MIN_TIMEOUT_MS, RUNS * MS_PER_RUN_BUDGET);
 export const KEYS = ["a", "b", "c-d", "1", "$x", "é"] as const;
 export const REFS = [
   "#/components/schemas/A",
