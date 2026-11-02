@@ -6,7 +6,8 @@ import { performance } from "node:perf_hooks";
 import { createConfig, findConfig, loadConfig } from "@redocly/openapi-core";
 import { kebabCase } from "scule";
 import parser from "yargs-parser";
-import openapiTS, { astToString, COMMENT_HEADER, c, error, formatTime, warn } from "../dist/index.mjs";
+import { generateTypes } from "../dist/generate.mjs";
+import { COMMENT_HEADER, c, error, formatTime, warn } from "../dist/index.mjs";
 
 const HELP = `Usage
   $ openapi-typesafe [input] [options]
@@ -142,7 +143,8 @@ function checkStaleOutput(current, outputPath) {
  * @param {@type import('@redocly/openapi-core').Config} config
  */
 async function generateSchema(schema, config) {
-  return `${COMMENT_HEADER}${astToString(await openapiTS(schema, config))}`;
+  // Printed by our printer, not the TypeScript printer (ADR-010).
+  return `${COMMENT_HEADER}${await generateTypes(schema, config)}`;
 }
 
 /** pretty-format error message but also throw */

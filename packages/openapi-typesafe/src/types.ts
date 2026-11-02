@@ -2,6 +2,7 @@ import type { PathLike } from "node:fs";
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import type ts from "typescript";
 import type { DocumentFooter } from "./application/transform/transform-context.js";
+import type { LegacyFooterSink } from "./lib/footer-sink.js";
 
 // Many types allow for true “any” for inheritance to work
 
@@ -689,6 +690,12 @@ export interface OpenAPITSOptions {
   readWriteMarkers?: boolean;
 }
 
+/** @internal The footer of one run and the sink that holds its nodes. */
+export interface RunFooterState {
+  readonly footer: DocumentFooter;
+  readonly sink: LegacyFooterSink;
+}
+
 /** Context passed to all submodules */
 export interface GlobalContext {
   // user options
@@ -710,10 +717,10 @@ export interface GlobalContext {
   immutable: boolean;
   injectFooter: ts.Node[];
   /**
-   * @internal Footer state of this run (enum registry and enum naming), created on first use by
-   * the transform context adapter. Not an option; do not set it.
+   * @internal Footer state of this run (enum registry, enum naming, and the IR of the footer
+   * nodes), created on first use by the transform context adapter. Not an option; do not set it.
    */
-  runFooter?: DocumentFooter;
+  runFooter?: RunFooterState;
   pathParamsAsTypes: boolean;
   postTransform: OpenAPITSOptions["postTransform"];
   propertiesRequiredByDefault: boolean;

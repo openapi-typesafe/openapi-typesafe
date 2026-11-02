@@ -9,7 +9,7 @@ import type { ParameterObject, ReferenceObject, TransformNodeOptions } from "../
  * PathItemObject.
  *
  * Ported to IR (ENGINEERING_PLAN Phase 5, step 3); this keeps the original signature for the
- * unported parents.
+ * deep imports of this module.
  */
 export function transformParametersArray(
   parametersArray: (ParameterObject | ReferenceObject)[],

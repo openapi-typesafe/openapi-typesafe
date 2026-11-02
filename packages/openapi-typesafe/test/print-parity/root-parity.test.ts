@@ -2,7 +2,10 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { astToString } from "../../src/lib/ts.js";
 import transformSchema from "../../src/transform/index.js";
-import { componentsArbitrary, pathsArbitrary, webhooksArbitrary } from "./document-arbitraries.js";
+import {
+  documentArbitrary as document,
+  injectArbitrary as inject,
+} from "./document-arbitraries.js";
 import originalTransformSchema from "./original/index.js";
 import {
   type ContextInput,
@@ -10,7 +13,6 @@ import {
   createContext,
   RUNS,
   resetLegacyEnumState,
-  schemaArbitrary,
   TIMEOUT_MS,
 } from "./parity-arbitraries.js";
 
@@ -19,19 +21,6 @@ import {
  * fork base produced: helper types, injected code, the four root types with the `--root-types`
  * aliases, the footer, the `operations` fallback and the `--make-paths-enum` enum.
  */
-
-const root = <T>(arbitrary: fc.Arbitrary<T>) =>
-  fc.oneof({ weight: 4, arbitrary }, fc.constantFrom(null, "text", {}));
-const document = fc.record(
-  {
-    paths: root(pathsArbitrary),
-    webhooks: root(webhooksArbitrary),
-    components: root(componentsArbitrary),
-    $defs: root(schemaArbitrary()),
-  },
-  { requiredKeys: [] },
-);
-const inject = fc.constantFrom(undefined, "", "type A = 1;\n// note\nexport const b = 2;");
 
 /** A run transforms a whole document, several times the work of one node per run. */
 const DOCUMENT_TIMEOUT_MS = TIMEOUT_MS * 4;

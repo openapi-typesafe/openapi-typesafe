@@ -8,7 +8,7 @@ import type { HeaderObject, TransformNodeOptions } from "../types.js";
  * @see https://spec.openapis.org/oas/v3.1.0#header-object
  *
  * Ported to IR (ENGINEERING_PLAN Phase 5, step 3); this keeps the original signature for the
- * unported parents and the public API.
+ * public API and for users who call it from callbacks.
  */
 export default function transformHeaderObject(headerObject: HeaderObject, options: TransformNodeOptions): ts.TypeNode {
   const context = createTransformContext(options.ctx);

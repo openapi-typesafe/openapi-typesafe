@@ -15,7 +15,7 @@ export const singularizeComponentKey = singularizeComponentKind;
  * @see https://spec.openapis.org/oas/latest.html#components-object
  *
  * Ported to IR (ENGINEERING_PLAN Phase 5, step 6); this keeps the original signature for the
- * unported root transform and the public API: the `components` type, then the root type aliases.
+ * public API: the `components` type, then the root type aliases.
  */
 export default function transformComponentsObject(componentsObject: ComponentsObject, ctx: GlobalContext): ts.Node[] {
   const { type, rootTypes } = componentsType(componentsObject, createTransformContext(ctx));

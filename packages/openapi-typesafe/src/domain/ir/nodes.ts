@@ -111,8 +111,8 @@ export interface IrRawType {
   readonly kind: "raw";
   readonly text: string;
   /**
-   * The outside node the text was printed from, opaque to the IR. While unported parents still
-   * print with TypeScript (Phase 5), the bridge hands this node back unchanged, exactly as the
+   * The outside node the text was printed from, opaque to the IR. While the Node API still
+   * returns `ts.Node`s (until Phase 6), the bridge hands this node back unchanged, exactly as the
    * original did. Removed with the reverse bridge in Phase 6.
    */
   readonly origin?: unknown;

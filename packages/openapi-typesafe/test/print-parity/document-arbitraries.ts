@@ -119,3 +119,23 @@ export const componentsArbitrary = fc.record(
   },
   { requiredKeys: [] },
 );
+
+/** A root value: usually a generated object, sometimes missing, empty or not an object. */
+const root = <T>(arbitrary: fc.Arbitrary<T>) =>
+  fc.oneof({ weight: 4, arbitrary }, fc.constantFrom(null, "text", {}));
+export const documentArbitrary = fc.record(
+  {
+    paths: root(pathsArbitrary),
+    webhooks: root(webhooksArbitrary),
+    components: root(componentsArbitrary),
+    $defs: root(schemaArbitrary()),
+  },
+  { requiredKeys: [] },
+);
+
+/** The Node API `inject` option: none, empty, or code with a comment between statements. */
+export const injectArbitrary = fc.constantFrom(
+  undefined,
+  "",
+  "type A = 1;\n// note\nexport const b = 2;",
+);

@@ -1,16 +1,12 @@
 import { performance } from "node:perf_hooks";
 import * as changeCase from "change-case";
-import ts from "typescript";
-import {
-  toPropertySignature,
-  toStatement,
-  toTypeNode,
-} from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import type ts from "typescript";
+import { toPropertySignature, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
 import {
   fromPropertySignature,
   fromTypeNode,
 } from "../adapters/type-ast-bridge/typescript-to-ir.js";
-import { type FooterSink, RunFooter } from "../application/transform/footer/document-footer.js";
+import { RunFooter } from "../application/transform/footer/document-footer.js";
 import type {
   CustomType,
   SchemaCallbacks,
@@ -18,7 +14,6 @@ import type {
 } from "../application/transform/schema/schema-context.js";
 import { UNKNOWN_TYPE } from "../application/transform/shared-types.js";
 import type {
-  DocumentFooter,
   NameCasing,
   TemplateLiteralParser,
   TransformContext,
@@ -28,19 +23,19 @@ import type {
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
 import type {
   GlobalContext,
+  RunFooterState,
   SchemaObject,
   TransformNodeOptions,
   TransformObject,
 } from "../types.js";
-import { injectOperation } from "./footer-helpers.js";
+import { LegacyFooterSink } from "./footer-sink.js";
 import { stringToAST, UNKNOWN } from "./ts.js";
 import { debug } from "./utils.js";
 
 /**
- * Temporary adapter (ENGINEERING_PLAN Phase 5): the ported transformers work on IR, while their
- * unported parents, the footer and the user callbacks still use `ts.Node`. This builds their
- * context from the original `GlobalContext`. It goes away when the parents are ported (Phase 5,
- * step 6).
+ * Temporary adapter (ENGINEERING_PLAN Phase 5): the transformers work on IR, while the public
+ * transformer signatures, the footer and the user callbacks still use `ts.Node`. This builds
+ * their context from the original `GlobalContext`. It goes away with the `ts.Node` API in Phase 6.
  */
 
 export class UnreadablePropertyError extends Error {
@@ -85,23 +80,12 @@ function transformOptions(ctx: GlobalContext): TransformOptions {
   };
 }
 
-/** The legacy footer list as the sink of the run footer; user callbacks may add to it too. */
-function footerSink(injectFooter: ts.Node[]): FooterSink {
-  return {
-    hasTypeAlias: (name) =>
-      injectFooter.some((node) => ts.isTypeAliasDeclaration(node) && node.name.text === name),
-    add: (declaration) => {
-      injectFooter.push(toStatement(declaration));
-    },
-    addOperation: (build) => {
-      injectOperation(injectFooter, () => toPropertySignature(build()));
-    },
-  };
-}
-
 /** One footer per run: it holds the enum registry, so it lives on the run's context. */
-function runFooter(ctx: GlobalContext): DocumentFooter {
-  ctx.runFooter ??= new RunFooter(footerSink(ctx.injectFooter), ctx.dedupeEnums);
+export function runFooterState(ctx: GlobalContext): RunFooterState {
+  if (!ctx.runFooter) {
+    const sink = new LegacyFooterSink(ctx.injectFooter);
+    ctx.runFooter = { footer: new RunFooter(sink, ctx.dedupeEnums), sink };
+  }
   return ctx.runFooter;
 }
 
@@ -189,7 +173,7 @@ export function createTransformContext(ctx: GlobalContext): TransformContext {
       objectAt: (ref) => ctx.discriminators.objects[ref],
       isHandled: (ref) => ctx.discriminators.refsHandled.includes(ref),
     },
-    footer: runFooter(ctx),
+    footer: runFooterState(ctx).footer,
     callbacks: callbacks(ctx),
     templates: TEMPLATES,
     diagnostics: DIAGNOSTICS,

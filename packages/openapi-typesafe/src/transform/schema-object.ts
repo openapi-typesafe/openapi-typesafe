@@ -8,7 +8,7 @@ import type { ReferenceObject, SchemaObject, TransformNodeOptions } from "../typ
  * @see https://spec.openapis.org/oas/v3.1.0#schema-object
  *
  * Ported to IR (ENGINEERING_PLAN Phase 5, step 2): the work happens in
- * `application/transform/schema`; this keeps the original signature for unported parents and for
+ * `application/transform/schema`; this keeps the original signature for the public API and for
  * users who call it from callbacks.
  */
 export default function transformSchemaObject(

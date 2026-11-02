@@ -1,11 +1,10 @@
 import { performance } from "node:perf_hooks";
 import type { Readable } from "node:stream";
-import { createConfig } from "@redocly/openapi-core";
 import type ts from "typescript";
-import { validateAndBundle } from "./lib/redoc.js";
-import { debug, resolveRef, scanDiscriminators } from "./lib/utils.js";
+import { createDocumentRun } from "./lib/document-run.js";
+import { debug } from "./lib/utils.js";
 import transformSchema from "./transform/index.js";
-import type { GlobalContext, OpenAPI3, OpenAPITSOptions } from "./types.js";
+import type { OpenAPI3, OpenAPITSOptions } from "./types.js";
 
 export * from "./lib/ts.js";
 export * from "./lib/utils.js";
@@ -45,61 +44,7 @@ export default async function openapiTS(
   source: string | URL | OpenAPI3 | Buffer | Readable,
   options: OpenAPITSOptions = {} as Partial<OpenAPITSOptions>,
 ): Promise<ts.Node[]> {
-  if (!source) {
-    throw new Error("Empty schema. Please specify a URL, file path, or Redocly Config");
-  }
-
-  const redoc =
-    options.redocly ??
-    (await createConfig(
-      {
-        rules: {
-          "operation-operationId-unique": { severity: "error" }, // throw error on duplicate operationIDs
-        },
-      },
-      { extends: ["minimal"] },
-    ));
-
-  const schema = await validateAndBundle(source, {
-    redoc,
-    cwd: options.cwd instanceof URL ? options.cwd : new URL(`file://${options.cwd ?? process.cwd()}/`),
-    silent: options.silent ?? false,
-  });
-
-  const ctx: GlobalContext = {
-    additionalProperties: options.additionalProperties ?? false,
-    alphabetize: options.alphabetize ?? false,
-    arrayLength: options.arrayLength ?? false,
-    defaultNonNullable: options.defaultNonNullable ?? true,
-    discriminators: scanDiscriminators(schema, options),
-    emptyObjectsUnknown: options.emptyObjectsUnknown ?? false,
-    enum: options.enum ?? false,
-    enumValues: options.enumValues ?? false,
-    conditionalEnums: options.conditionalEnums ?? false,
-    dedupeEnums: options.dedupeEnums ?? false,
-    excludeDeprecated: options.excludeDeprecated ?? false,
-    exportType: options.exportType ?? false,
-    immutable: options.immutable ?? false,
-    rootTypes: options.rootTypes ?? false,
-    rootTypesNoSchemaPrefix: options.rootTypesNoSchemaPrefix ?? false,
-    rootTypesKeepCasing: options.rootTypesKeepCasing ?? false,
-    injectFooter: [],
-    pathParamsAsTypes: options.pathParamsAsTypes ?? false,
-    postTransform: typeof options.postTransform === "function" ? options.postTransform : undefined,
-    propertiesRequiredByDefault: options.propertiesRequiredByDefault ?? false,
-    redoc,
-    silent: options.silent ?? false,
-    inject: options.inject ?? undefined,
-    transform: typeof options.transform === "function" ? options.transform : undefined,
-    transformProperty: typeof options.transformProperty === "function" ? options.transformProperty : undefined,
-    makePathsEnum: options.makePathsEnum ?? false,
-    generatePathParams: options.generatePathParams ?? false,
-    readWriteMarkers: options.readWriteMarkers ?? false,
-    resolve($ref) {
-      return resolveRef(schema, $ref, { silent: options.silent ?? false });
-    },
-  };
-
+  const { schema, ctx } = await createDocumentRun(source, options);
   const transformT = performance.now();
   const result = transformSchema(schema, ctx);
   debug("Completed AST transformation for entire document", "ts", performance.now() - transformT);

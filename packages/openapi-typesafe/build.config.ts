@@ -9,7 +9,8 @@ import { defineBuildConfig } from "unbuild";
 const ACCEPTED_ROLLUP_WARNING_CODES = new Set(["MIXED_EXPORTS"]);
 
 export default defineBuildConfig({
-  entries: ["./src/index.ts"],
+  // `generate` is internal: the CLI prints with our printer through it (ADR-010).
+  entries: ["./src/index.ts", "./src/generate.ts"],
   declaration: "compatible",
   clean: true,
   sourcemap: true,
