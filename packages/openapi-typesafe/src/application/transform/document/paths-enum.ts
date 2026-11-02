@@ -1,13 +1,16 @@
+import type { IrEnumDeclaration } from "../../../domain/ir/nodes.js";
 import type { OperationObject } from "../../../domain/openapi/operation-object.js";
 import {
   HTTP_METHODS,
   type HttpMethod,
   type PathsObject,
 } from "../../../domain/openapi/path-item-object.js";
+import { EnumNaming, enumDeclaration } from "../footer/enum-naming.js";
 import type { EnumMemberMetadata } from "../schema/schema-context.js";
 
 /** Characters not allowed in an enum key, or a `{param}` / `:param` part (first match only). */
 const INVALID_KEY_PART_RE = /{.*}|:.*|[^a-zA-Z\d_]+/;
+const API_PATHS_NAME = "ApiPaths";
 const METHODS: ReadonlySet<string> = new Set<HttpMethod>(HTTP_METHODS);
 
 /** The members of the `ApiPaths` enum (`--make-paths-enum`). */
@@ -46,4 +49,13 @@ export function apiPathsEnum(paths: PathsObject): ApiPathsEnum {
     }
   }
   return { values, metadata };
+}
+
+/**
+ * The `ApiPaths` enum declaration. Its own naming state is equivalent to the run's: the name is a
+ * valid identifier, and member names only reset the state, never read it.
+ */
+export function apiPathsEnumDeclaration(paths: PathsObject): IrEnumDeclaration {
+  const naming = new EnumNaming();
+  return enumDeclaration(naming.enumName(API_PATHS_NAME), apiPathsEnum(paths), naming);
 }

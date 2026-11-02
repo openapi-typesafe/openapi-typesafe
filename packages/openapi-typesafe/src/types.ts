@@ -1,6 +1,7 @@
 import type { PathLike } from "node:fs";
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import type ts from "typescript";
+import type { DocumentFooter } from "./application/transform/transform-context.js";
 
 // Many types allow for true “any” for inheritance to work
 
@@ -708,6 +709,11 @@ export interface GlobalContext {
   exportType: boolean;
   immutable: boolean;
   injectFooter: ts.Node[];
+  /**
+   * @internal Footer state of this run (enum registry and enum naming), created on first use by
+   * the transform context adapter. Not an option; do not set it.
+   */
+  runFooter?: DocumentFooter;
   pathParamsAsTypes: boolean;
   postTransform: OpenAPITSOptions["postTransform"];
   propertiesRequiredByDefault: boolean;

@@ -1,11 +1,16 @@
 import { performance } from "node:perf_hooks";
 import * as changeCase from "change-case";
 import ts from "typescript";
-import { toPropertySignature, toTypeNode } from "../adapters/type-ast-bridge/ir-to-typescript.js";
+import {
+  toPropertySignature,
+  toStatement,
+  toTypeNode,
+} from "../adapters/type-ast-bridge/ir-to-typescript.js";
 import {
   fromPropertySignature,
   fromTypeNode,
 } from "../adapters/type-ast-bridge/typescript-to-ir.js";
+import { type FooterSink, RunFooter } from "../application/transform/footer/document-footer.js";
 import type {
   CustomType,
   SchemaCallbacks,
@@ -27,8 +32,8 @@ import type {
   TransformNodeOptions,
   TransformObject,
 } from "../types.js";
-import { injectOperation, injectWithRequiredHelper } from "./footer-helpers.js";
-import { stringToAST, tsArrayLiteralExpression, tsEnum, UNKNOWN } from "./ts.js";
+import { injectOperation } from "./footer-helpers.js";
+import { stringToAST, UNKNOWN } from "./ts.js";
 import { debug } from "./utils.js";
 
 /**
@@ -77,32 +82,24 @@ function transformOptions(ctx: GlobalContext): TransformOptions {
   };
 }
 
-function footer(ctx: GlobalContext): DocumentFooter {
+/** The legacy footer list as the sink of the run footer; user callbacks may add to it too. */
+function footerSink(injectFooter: ts.Node[]): FooterSink {
   return {
-    addEnum({ name, values, metadata }) {
-      const declaration = tsEnum(name, [...values], [...metadata], {
-        shouldCache: ctx.dedupeEnums,
-        export: true,
-      });
-      // With --dedupe-enums the cache returns a declaration that may be in the footer already.
-      if (!ctx.injectFooter.includes(declaration)) {
-        ctx.injectFooter.push(declaration);
-      }
-      return ts.idText(declaration.name);
+    hasTypeAlias: (name) =>
+      injectFooter.some((node) => ts.isTypeAliasDeclaration(node) && node.name.text === name),
+    add: (declaration) => {
+      injectFooter.push(toStatement(declaration));
     },
-    addEnumValues({ name, type, values }) {
-      const options = { export: true, readonly: true, injectFooter: ctx.injectFooter };
-      ctx.injectFooter.push(
-        tsArrayLiteralExpression(name, toLegacyType(type), [...values], options),
-      );
-    },
-    requireWithRequired() {
-      injectWithRequiredHelper(ctx.injectFooter);
-    },
-    addOperation(build) {
-      injectOperation(ctx.injectFooter, () => toPropertySignature(build()));
+    addOperation: (build) => {
+      injectOperation(injectFooter, () => toPropertySignature(build()));
     },
   };
+}
+
+/** One footer per run: it holds the enum registry, so it lives on the run's context. */
+function runFooter(ctx: GlobalContext): DocumentFooter {
+  ctx.runFooter ??= new RunFooter(footerSink(ctx.injectFooter), ctx.dedupeEnums);
+  return ctx.runFooter;
 }
 
 /** Reads the text like the original: the expression of the first statement `stringToAST` parses. */
@@ -189,7 +186,7 @@ export function createTransformContext(ctx: GlobalContext): TransformContext {
       objectAt: (ref) => ctx.discriminators.objects[ref],
       isHandled: (ref) => ctx.discriminators.refsHandled.includes(ref),
     },
-    footer: footer(ctx),
+    footer: runFooter(ctx),
     callbacks: callbacks(ctx),
     templates: TEMPLATES,
     diagnostics: DIAGNOSTICS,
