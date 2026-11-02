@@ -1,0 +1,74 @@
+# Compatibility harness (ENGINEERING_PLAN 2.6): the generator output must match the fork base.
+# - Every pull request and push to main: the 200-entry corpus subset with the default options.
+# - Nightly and on demand: the full corpus with the whole option matrix. Scheduled runs start once
+#   the repository is public (ENGINEERING_PLAN 1.7); until then the full run is done locally with
+#   tools/compat-harness/scripts/run-compat.sh before every release.
+# The corpus documents are cached between runs and verified against corpus/manifest.json hashes.
+name: compat
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compat-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "0"
+
+jobs:
+  compat:
+    name: compatibility (${{ github.event_name == 'pull_request' && 'subset' || 'full' }})
+    if: ${{ github.event_name != 'schedule' || !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    # The full matrix is 3 generators x 23 option sets x ~1,800 documents.
+    timeout-minutes: 240
+    env:
+      CORPUS: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && '200' || 'all' }}
+      OPTION_SETS: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 'default' || 'all' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The fork-base tag is needed for the golden generator worktree.
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter openapi-typesafe run build
+      - name: restore corpus documents
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: tools/compat-harness/.cache/compat/documents
+          key: compat-corpus-${{ env.CORPUS }}-${{ hashFiles('tools/compat-harness/corpus/manifest.json') }}
+          restore-keys: compat-corpus-${{ env.CORPUS }}-
+      - name: prepare golden generators
+        working-directory: tools/compat-harness
+        run: scripts/prepare-generators.sh
+      - name: fetch corpus
+        working-directory: tools/compat-harness
+        run: node src/cli/main.ts fetch --corpus "$CORPUS"
+      - name: generate, compare, report
+        working-directory: tools/compat-harness
+        run: scripts/run-compat.sh "$CORPUS" "$OPTION_SETS"
+      - name: upload reports and logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: compat-${{ env.CORPUS }}
+          path: |
+            tools/compat-harness/.cache/compat/reports/
+            .logs/harness/
+          retention-days: 30

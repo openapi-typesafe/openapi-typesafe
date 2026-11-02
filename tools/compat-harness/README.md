@@ -21,17 +21,29 @@ pnpm harness compare --golden fork-base --candidate current --types
 pnpm harness report --golden fork-base --candidate current
 ```
 
-| Option | Meaning |
-|---|---|
-| `--corpus <n\|all>` | Deterministic subset of `n` entries (all curated + evenly spread APIs.guru), or the full corpus |
-| `--option-sets <ids\|all>` | Comma-separated option set ids (`default`, `enum`, `root-types+root-types-keep-casing`, …) |
-| `--types` | Also run the strict type-identity check on outputs whose text differs |
-| `--update-hashes` | Accept changed documents and record their new hashes (refreshing the corpus on purpose) |
-| `--concurrency <n>` / `--timeout-ms <n>` | Worker count; per-run generator timeout |
-| `--cache-dir <path>` / `--log-dir <path>` | Defaults: `.cache/compat`, `../../.logs/harness` |
+| Option                                    | Meaning                                                                                         |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `--corpus <n\|all>`                       | Deterministic subset of `n` entries (all curated + evenly spread APIs.guru), or the full corpus |
+| `--option-sets <ids\|all>`                | Comma-separated option set ids (`default`, `enum`, `root-types+root-types-keep-casing`, …)      |
+| `--types`                                 | Also run the strict type-identity check on outputs whose text differs                           |
+| `--update-hashes`                         | Accept changed documents and record their new hashes (refreshing the corpus on purpose)         |
+| `--concurrency <n>` / `--timeout-ms <n>`  | Worker count; per-run generator timeout                                                         |
+| `--cache-dir <path>` / `--log-dir <path>` | Defaults: `.cache/compat`, `../../.logs/harness`                                                |
 
 Exit codes: `0` passed, `1` the command found problems (failed downloads, mismatches), `2` invalid
 arguments.
+
+## Scripts
+
+- `scripts/prepare-generators.sh` builds the two golden generators of task 2.2 in
+  `.cache/compat/generators`: `fork-base` (a git worktree of the `fork-base` tag, built with its own
+  lockfile) and `upstream-7.13.0` (the published `openapi-typescript@7.13.0` from npm), both with
+  TypeScript 5.9.3. Remove the worktree with `git worktree remove .cache/compat/generators/fork-base`.
+- `scripts/run-compat.sh [corpus] [option-sets]` generates with both goldens and the current build,
+  then compares and reports `fork-base` vs `current` (the release gate, exit code 1 on a mismatch)
+  and `upstream-7.13.0` vs `fork-base` (documentation of unreleased upstream changes).
+- CI (`.github/workflows/compat.yml`) runs the 200-entry subset with default options on every pull
+  request and the full matrix nightly once the repository is public.
 
 ## Logs and outputs
 

@@ -1,4 +1,5 @@
 import type { CorpusEntry } from "../../domain/corpus-entry.ts";
+import { extractErrorExcerpt } from "../../domain/error-excerpt.ts";
 import type { GeneratorOptionSet } from "../../domain/option-matrix.ts";
 import { type GenerationResult, GenerationStatus } from "../../domain/run-result.ts";
 import { encodeJson } from "../codecs.ts";
@@ -21,16 +22,7 @@ export interface GenerateOutputsOptions {
   readonly timeoutMs: number;
 }
 
-/**
- * Keep reports readable: the first lines of stderr carry the error, the rest is usually a stack
- * trace.
- */
-const ERROR_EXCERPT_LINE_COUNT = 5;
 const MISSING_DOCUMENT_EXCERPT = "corpus document is not in the cache; run the fetch command first";
-
-function toErrorExcerpt(stderr: string): string {
-  return stderr.trim().split("\n").slice(0, ERROR_EXCERPT_LINE_COUNT).join("\n");
-}
 
 function toStatus(outcome: GeneratorRunOutcome, isOutputWritten: boolean): GenerationStatus {
   if (outcome.isTimedOut) {
@@ -69,7 +61,7 @@ async function generateCase(
     timeoutMs: options.timeoutMs,
   });
   const status = toStatus(outcome, await dependencies.cache.exists(output));
-  const errorExcerpt = status === GenerationStatus.Ok ? "" : toErrorExcerpt(outcome.stderr);
+  const errorExcerpt = status === GenerationStatus.Ok ? "" : extractErrorExcerpt(outcome.stderr);
   return { ...base, status, durationMs: outcome.durationMs, errorExcerpt };
 }
 
