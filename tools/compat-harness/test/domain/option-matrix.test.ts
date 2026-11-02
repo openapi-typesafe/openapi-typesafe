@@ -12,7 +12,7 @@ describe("buildOptionMatrix", () => {
 
     expect(matrix[0]).toEqual({ id: DEFAULT_OPTION_SET_ID, flags: [] });
     expect(new Set(matrix.map((set) => set.id)).size).toBe(matrix.length);
-    expect(matrix).toHaveLength(23);
+    expect(matrix).toHaveLength(28);
   });
 
   it("buildOptionMatrix names combined flags with a plus sign", () => {

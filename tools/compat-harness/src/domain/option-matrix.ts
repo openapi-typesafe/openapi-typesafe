@@ -24,6 +24,8 @@ const SINGLE_FLAGS = [
   "--additional-properties",
   "--empty-objects-unknown",
   "--default-non-nullable",
+  // The default is true, so only the negative form changes output.
+  "--default-non-nullable=false",
   "--properties-required-by-default",
   "--array-length",
   "--path-params-as-types",
@@ -36,11 +38,15 @@ const SINGLE_FLAGS = [
   "--generate-path-params",
 ] as const;
 
-/** Flags that only have an effect together with another flag. */
+/** Flags that only have an effect together with another flag, or that change each other. */
 const DEPENDENT_FLAG_SETS: readonly (readonly string[])[] = [
   ["--root-types", "--root-types-no-schema-prefix"],
   ["--root-types", "--root-types-keep-casing"],
   ["--enum", "--dedupe-enums"],
+  ["--enum", "--enum-values"],
+  ["--enum", "--conditional-enums"],
+  ["--immutable", "--read-write-markers"],
+  ["--export-type", "--root-types"],
 ];
 
 function toOptionSetId(flags: readonly string[]): string {
