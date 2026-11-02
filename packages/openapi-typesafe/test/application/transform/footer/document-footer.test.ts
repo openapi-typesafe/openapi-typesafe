@@ -55,14 +55,27 @@ describe("RunFooter", () => {
     expect(sink.declarations).toHaveLength(1);
   });
 
-  it("addEnum without --dedupe-enums adds every enum", () => {
+  it("addEnum without --dedupe-enums adds every enum with other members", () => {
     const sink = new InMemorySink();
     const footer = new RunFooter(sink, false);
 
     footer.addEnum(STATUS);
-    footer.addEnum(STATUS);
+    footer.addEnum({ ...STATUS, name: "other", values: ["b", "a"] });
 
     expect(sink.declarations).toHaveLength(2);
+  });
+
+  it("addEnum adds the same declaration once, so it does not repeat its members", () => {
+    // A discriminator patched by both a parent mapping and a `oneOf` asked for its enum twice,
+    // and the file failed with "Duplicate identifier".
+    const sink = new InMemorySink();
+    const footer = new RunFooter(sink, false);
+
+    const first = footer.addEnum(STATUS);
+    const second = footer.addEnum(STATUS);
+
+    expect([first, second]).toEqual(["Status", "Status"]);
+    expect(sink.declarations).toHaveLength(1);
   });
 
   it("addEnumValues adds the helper types once, then a readonly array", () => {

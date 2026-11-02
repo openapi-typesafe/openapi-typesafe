@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import openapiTS, { astToString, type OpenAPITSOptions } from "../src/index.js";
 import type { TestCase } from "./test-helpers.js";
+import { typeErrorsOf } from "./typescript-diagnostics.js";
 
 describe("3.1 discriminators", () => {
   const tests: TestCase<any, OpenAPITSOptions>[] = [
@@ -643,4 +644,31 @@ export type operations = Record<string, never>;`,
       ci?.timeout,
     );
   }
+});
+
+describe("discriminator enums", () => {
+  it("a schema mapped by its parent and listed in a discriminated oneOf gets one enum", async () => {
+    const pet = {
+      type: "object",
+      required: ["kind"],
+      properties: { kind: { type: "string" } },
+      discriminator: { propertyName: "kind", mapping: { Cat: "#/components/schemas/Cat" } },
+    };
+    const cat = { allOf: [{ $ref: "#/components/schemas/Pet" }, { type: "object" }] };
+    const anyPet = {
+      oneOf: [{ $ref: "#/components/schemas/Cat" }],
+      discriminator: { propertyName: "kind" },
+    };
+    const document = {
+      openapi: "3.1.0",
+      info: { title: "test", version: "1.0" },
+      paths: {},
+      components: { schemas: { Pet: pet, Cat: cat, AnyPet: anyPet } },
+    };
+
+    const output = astToString(await openapiTS(document as never, { enum: true, silent: true }));
+
+    expect(output.match(/^export enum CatKind/gm)).toHaveLength(1);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
 });

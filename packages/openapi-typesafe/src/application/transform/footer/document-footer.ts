@@ -43,6 +43,11 @@ function metadataKey(value: string, metadata: EnumMemberMetadata | undefined): s
   return `${metadata?.name ?? value}:${metadata?.description || ""}`;
 }
 
+/** The whole declaration: an equal key means the same enum, member for member. */
+function declarationKey(name: string, request: EnumDeclarationRequest): string {
+  return JSON.stringify([name, request.values, request.metadata]);
+}
+
 /**
  * The footer of one run: enums (deduplicated with `--dedupe-enums`), `--enum-values` arrays, the
  * helper types they need, and the `operations` interface. Replaces the original's module-level
@@ -51,6 +56,8 @@ function metadataKey(value: string, metadata: EnumMemberMetadata | undefined): s
 export class RunFooter implements DocumentFooter {
   private readonly naming = new EnumNaming();
   private readonly enumNamesByKey = new Map<string, string>();
+  /** Declarations added already: the same one twice fails with "Duplicate identifier". */
+  private readonly declaredEnums = new Set<string>();
   private readonly sink: FooterSink;
   private readonly isDedupingEnums: boolean;
 
@@ -66,6 +73,14 @@ export class RunFooter implements DocumentFooter {
     const known = key === null ? undefined : this.enumNamesByKey.get(key);
     if (known !== undefined) {
       return known;
+    }
+    // Only a repeated member fails to compile; two empty declarations merge, so they stay.
+    const declared = request.values.length > 0 ? declarationKey(name, request) : null;
+    if (declared !== null && this.declaredEnums.has(declared)) {
+      return name;
+    }
+    if (declared !== null) {
+      this.declaredEnums.add(declared);
     }
     this.sink.add(enumDeclaration(name, request, this.naming));
     if (key !== null) {
