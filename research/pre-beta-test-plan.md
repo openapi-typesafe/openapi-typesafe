@@ -453,7 +453,7 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 - [ ] 12.2 A user of openapi-typescript 7 upgrades a real project.
 - [x] 12.3 Hostile and odd schemas: empty document, only `components`, no `paths`,
       duplicated `operationId`, 10,000 operations, non-ASCII everywhere.
-- [ ] 12.4 Error messages: trigger each error on purpose and judge whether a user can fix the
+- [x] 12.4 Error messages: trigger each error on purpose and judge whether a user can fix the
       problem from the message alone.
 
 **§12.1 result.** An agent with only the docs and the beta.2 tarballs built a Node todo client
@@ -464,6 +464,16 @@ works, typed 404/400 errors included. Findings went to PB-42. Log `.logs/pre-bet
 non-ASCII names, no `paths`, only `components`, only `webhooks`, only `openapi`, OpenAPI 3.0 and 3.2
 pass; `{}`, Swagger 2.0 and OpenAPI 4.0 fail with SCHEMA_VERSION_UNSUPPORTED. A repeated
 `operationId` (PB-40) and an empty file (PB-41) were fixed. Log `.logs/pre-beta/explore/12.3.log`.
+
+**§12.4 result.** Every generator and CLI error code was triggered (CLI for 21, the Node API for
+`SCHEMA_SOURCE_INVALID`, `SCHEMA_TOO_DEEP` and `CALLBACK_RESULT_UNREADABLE`; `TYPESCRIPT_NOT_FOUND`
+by its unit test). Each message names the file, `$ref`, flag or path and the code, and the exit
+codes match docs/cli.md. Fixed: `fetch failed` without a reason and the YAML depth limit without a
+fix (PB-43), callbacks returning a non-node crashing the printer (PB-44). The fetch client
+messages (middleware results, nested query values, nested form values, dot path segments) say what
+to change; the dot-segment text stays short for the 8 kB limit (104 bytes left). The migrate CLI
+reports unknown options, positional arguments, an empty project and an unreadable `package.json`
+clearly. Log `.logs/pre-beta/explore/12.4.log`.
 
 ## 13. Findings
 
@@ -511,6 +521,8 @@ pass; `{}`, Swagger 2.0 and OpenAPI 4.0 fail with SCHEMA_VERSION_UNSUPPORTED. A 
 | PB-40 | CLI | S2 | a repeated `operationId` gave CLI output that does not compile (duplicate `operations` member), with no message; the Node API already fails with SCHEMA_INVALID | fixed: the CLI default lint config warns (`operation-operationId-unique: warn`); output and exit code unchanged |
 | PB-41 | Generator | S2 | an empty schema file or a `null` root crashed with `TypeError: Cannot read properties of undefined (reading 'openapi')`, exit 70 (inherited) | fixed: `assertOpenAPI3` checks the root is an object first; SCHEMA_VERSION_UNSUPPORTED, exit 3; test/defensive/non-object-root.test.ts |
 | PB-42 | Docs | S3 | §12.1 new user: no word on running under Node without a bundler (`Bundler` type-checks, Node fails on imports without an extension; `"type": "module"`); wrong-path type errors read as `Expected 2 arguments` / `never`; CLI output sample outdated; "100% match your schema" overpromises (`minLength` is not typed) | fixed: tips in fetch/index.md (Node.js without a bundler, Reading type errors), cli.md output, wording; install of helpers is covered by the beta notes and `pnpm -r` publish order; dead GitHub links wait for 11.2; Redocly minimatch audit note is in ADR-005 |
+| PB-43 | CLI | S3 | §12.4: an unreachable remote schema printed only `fetch failed` (Redocly's `ResolveError` hid the network reason); YAML past the parser depth printed `nesting exceeded maxDepth (100)` with no way out | fixed: the loader unwraps `ResolveError`, the CLI adds the reason and URL; the CLI adds a `components` + `$ref` hint; Node API messages unchanged |
+| PB-44 | Node API | S3 | §12.4: a JS `transform` / `postTransform` / `transformProperty` returning a non-node (plain object, text, index signature) crashed with `Debug Failure. Unhandled SyntaxKind` or a `TypeError` (inherited) | fixed: results are checked at the callback boundary; CALLBACK_RESULT_UNREADABLE with the callback and path; `transform` text keeps the original tolerance. IR callbacks (`irCallbacks: true`) are typed and not checked deeply |
 
 ## 14. Exit criteria (before inviting testers)
 
