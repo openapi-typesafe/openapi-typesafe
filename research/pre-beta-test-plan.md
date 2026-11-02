@@ -5,7 +5,8 @@
 > way a user meets it: installed from the beta tarballs, run on real schemas, read from the docs.
 > The goal is to find every defect a tester would hit first, and fix it properly.
 
-**Status:** not started. **Target:** `1.0.0-beta.2`, then invite testers.
+**Status:** started; PB-1 found while checking this plan. **Target:** `1.0.0-beta.2`, then
+invite testers.
 
 ## 1. Rules for every finding
 
@@ -20,7 +21,10 @@
    - then the fix at the root cause, not a special case for the repro;
    - then a changeset for user-visible changes;
    - an ADR when the fix changes a contract or a systemic decision.
-3. A difference from openapi-typescript 7.13 is a defect unless it is a documented bug fix.
+3. A difference in the generated types from openapi-typescript 7.13 (the type-identity check
+   of the compat harness) is a defect unless it is a documented bug fix. A byte-only difference
+   with identical types is classified and explained, and counts against the ≥ 99% byte target
+   of §14.
 4. Verify locally (`VERIFY_FAIL_ON_WARNINGS=1 scripts/verify.sh build lint test size coverage
    types`, plus `npx node@22` / `npx node@24` for the affected suites). Push several fixes at
    once to save CI minutes.
@@ -33,7 +37,7 @@ workspace never resolves anything for them.
 
 | Axis | Values |
 |---|---|
-| Node.js | 22 (lowest supported), 24, 26 |
+| Node.js | 22.12.0 (the generator's lowest, `engines`), latest 22, 24, 26 |
 | Package manager | npm, pnpm, Yarn (berry, `nodeLinker: node-modules` and PnP), Bun |
 | TypeScript (consumer) | 5.4, 5.9, 6.0, 7.0, 7.1-beta |
 | Module system | ESM (`"type": "module"`), CommonJS |
@@ -62,9 +66,11 @@ Follow `RELEASE_NOTES.md` of `beta-1.0.0-beta.1` word by word, as a tester would
       and [`publint`](https://publint.dev) on each tarball (check the latest versions first).
 - [ ] 3.6 Tarball contents: no tests, fixtures, source maps to missing files, `.logs`, or
       personal files; `LICENSE` and `README.md` present; `bin` files have a shebang and run.
-- [ ] 3.7 `peerDependencies` ranges: install with the lowest and the highest allowed version
-      (TypeScript for the generator, `@tanstack/react-query` `^5.80.0` for the React Query
-      client); no peer warnings.
+- [ ] 3.7 `peerDependencies` ranges: install with the lowest and the highest allowed version;
+      no peer warnings. `@tanstack/react-query` `^5.80.0` for the React Query client. The
+      generator's optional `typescript` peer says `>=5.0.0`, while ADR-006 supports 5.4+ and
+      ADR-004 tests the legacy callbacks with 5.9 and 6.x: test 5.0 and 5.4 with those
+      callbacks, then fix the range or the docs.
 - [ ] 3.8 The migration path from the notes: `openapi-typesafe-migrate --write`, then replace
       `^1.0.0-beta.1` with the `file:` paths. Check that the notes are enough on their own.
 
@@ -78,7 +84,7 @@ webhooks.
 - [ ] 4.1 Full compat run, all option sets, locally (from `tools/compat-harness`):
       `scripts/prepare-generators.sh`, `node src/cli/main.ts fetch --corpus all`, then
       `scripts/run-compat.sh all all`. Every difference from openapi-typescript 7.13 is
-      classified: documented fix, or defect.
+      classified: documented fix, byte-only difference with identical types, or defect.
 - [ ] 4.2 Generated output type-checks with every strict flag of §2: the whole corpus with
       the default options under TypeScript 5.4 and 7.0, and every option set on the example
       schemas under every TypeScript version (the type matrix covers a sample today).
@@ -219,6 +225,6 @@ Time-boxed sessions without a script, one per area, writing what was tried:
 ## 14. Exit criteria (before inviting testers)
 
 - All S1 and S2 findings fixed; S3 findings fixed or filed as issues with a reason.
-- §3 passes with every package manager on Node.js 22 and 26.
+- §3 passes with every package manager on every Node.js version of §2.
 - §4.1 compat report: ≥ 99% byte match, 100% type identity, every difference classified.
 - `1.0.0-beta.2` packed from the fixed `main` and the private release updated.
