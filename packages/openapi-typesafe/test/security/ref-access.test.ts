@@ -120,6 +120,19 @@ describe("local $ref root (R1)", () => {
     expect(error.code).toBe("SCHEMA_REF_FORBIDDEN");
   });
 
+  it.each([
+    ["an absolute path", () => path.join(workDir, "secrets", "person.json")],
+    ["a file: URL", () => pathToFileURL(path.join(workDir, "secrets", "person.json")).href],
+    ["a percent-encoded `..`", () => "%2e%2e/secrets/person.json"],
+    ["a `..` after a directory inside the root", () => "shared/../../secrets/person.json"],
+  ])("%s that leads outside the root is refused", async (_, ref) => {
+    const root = await writeRoot("api/escape.json", ref());
+
+    const error = await loadFailure(root, { localRoot: localRoot() });
+
+    expect(error.code).toBe("SCHEMA_REF_FORBIDDEN");
+  });
+
   it("the root document itself may be outside the root", async () => {
     const root = await writeRoot("outer-root.json", "./api/shared/person.json");
 
@@ -171,6 +184,18 @@ describe("remote $ref hosts (R2)", () => {
       code: "SCHEMA_REF_FORBIDDEN",
       details: { reason: "host-not-allowed", allowedHosts: ["127.0.0.1"] },
     });
+  });
+
+  it.each([
+    ["a listed host as user info", () => otherHostURL.replace("//", "//127.0.0.1@")],
+    ["a listed host after `#@`", () => `${otherHostURL}#@127.0.0.1`],
+    ["a listed host after `\\@`", () => `${otherHostURL}\\@127.0.0.1`],
+  ])("%s does not make another host allowed", async (_, prefix) => {
+    const root = await writeRoot("api/remote-trick.json", `${prefix()}/person.json`);
+
+    const error = await loadFailure(root, { remoteHosts: ["127.0.0.1"] });
+
+    expect(error.code).toBe("SCHEMA_REF_FORBIDDEN");
   });
 
   it("an empty list refuses every remote $ref and says so", async () => {

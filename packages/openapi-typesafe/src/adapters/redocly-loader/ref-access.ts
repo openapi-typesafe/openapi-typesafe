@@ -11,6 +11,7 @@ import {
 import type { RefAccess } from "../../application/ports/schema-loader.js";
 import { ERROR_CODES, type OpenAPITypesafeError } from "../../domain/errors.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
+import { isHostAllowed } from "./allowed-hosts.js";
 import { refForbiddenError } from "./schema-load-errors.js";
 
 /**
@@ -23,12 +24,6 @@ type ResolveConfig = RedoclyConfig["resolve"];
 /** Redocly treats only these prefixes as remote; any other `$ref` is a local file path. */
 function isRemoteRef(absoluteRef: string): boolean {
   return absoluteRef.startsWith("http://") || absoluteRef.startsWith("https://");
-}
-
-/** Whether the URL's host is listed, by host name alone or with its port. */
-export function isHostAllowed(url: URL, hosts: readonly string[]): boolean {
-  const listed = new Set(hosts.map((host) => host.trim().toLowerCase()));
-  return listed.has(url.hostname.toLowerCase()) || listed.has(url.host.toLowerCase());
 }
 
 /** Whether `target` is `root` or below it; both are absolute paths. */

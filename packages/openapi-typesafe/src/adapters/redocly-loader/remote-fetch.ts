@@ -1,6 +1,6 @@
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import type { RefAccess } from "../../application/ports/schema-loader.js";
-import { isHostAllowed } from "./ref-access.js";
+import { isHostAllowed } from "./allowed-hosts.js";
 import { refForbiddenError } from "./schema-load-errors.js";
 
 /** How the loader fetches remote documents: a time limit, and the host limit on redirects. */

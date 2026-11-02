@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  isHostAllowed,
-  isInsideDirectory,
-} from "../../../src/adapters/redocly-loader/ref-access.js";
+import { isHostAllowed } from "../../../src/adapters/redocly-loader/allowed-hosts.js";
+import { isInsideDirectory } from "../../../src/adapters/redocly-loader/ref-access.js";
 import {
   fetchWithCheckedRedirects,
   MAX_CHECKED_REDIRECTS,
@@ -42,6 +40,27 @@ describe("isHostAllowed", () => {
     ["https://api.example.com/a.yaml", ["api.example.com:8443"], false],
     ["https://evil.example.com/a.yaml", [" API.example.com "], false],
     ["http://169.254.169.254/latest", [], false],
+    // A listed default port matches a URL that leaves it out, and the other way round.
+    ["https://api.example.com/a.yaml", ["api.example.com:443"], true],
+    ["https://api.example.com:443/a.yaml", ["api.example.com:443"], true],
+    ["http://api.example.com/a.yaml", ["api.example.com:443"], false],
+    // IPv6 addresses, written with or without brackets.
+    ["http://[::1]:8080/a.yaml", ["::1"], true],
+    ["http://[::1]:8080/a.yaml", ["[::1]"], true],
+    ["http://[::1]:8080/a.yaml", ["[0:0::1]:8080"], true],
+    ["http://[::1]:8080/a.yaml", ["[::1]:9090"], false],
+    ["http://[::2]/a.yaml", ["::1"], false],
+    // The fully qualified form with a trailing dot names the same host.
+    ["https://api.example.com./a.yaml", ["api.example.com"], true],
+    ["https://api.example.com/a.yaml", ["api.example.com."], true],
+    ["https://api.example.com.evil.example/a.yaml", ["api.example.com."], false],
+    // Hosts are compared as the URL parser writes them: Punycode, dotted IPv4.
+    ["https://bücher.example/a.yaml", ["BÜCHER.example"], true],
+    ["http://2130706433/a.yaml", ["127.0.0.1"], true],
+    ["http://127.0.0.1/a.yaml", ["0x7f.1"], true],
+    // An entry that is not a host never matches, even a URL without a host.
+    ["file:///etc/hosts", [""], false],
+    ["https://api.example.com/a.yaml", ["api.example.com/path"], false],
   ])("isHostAllowed(%s, %j) is %s", (url, hosts, expected) => {
     expect(isHostAllowed(new URL(url), hosts)).toBe(expected);
   });
