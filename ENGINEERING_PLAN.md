@@ -158,7 +158,8 @@ A small, closed, immutable set of nodes that describes TypeScript **types and de
   An export-list snapshot test fails if any export disappears.
 - Only runtime dependency: `openapi-typesafe-helpers` → evaluate inlining it to reach zero.
 - Bundle size budget enforced by `size-limit`. Inherited budget: 7.5 kB for `dist/index.mjs`, measured **bundled and
-  minified by esbuild, uncompressed** (`brotli: false`). Baseline: 7.2 kB (`research/baseline.md`). Keep or lower.
+  minified by size-limit, uncompressed** (`brotli: false`). Baseline: 7.2 kB with size-limit 12 (esbuild) and 7.41 kB
+  with size-limit 14 (rolldown) for the same code (`research/baseline.md`). Only 90 bytes of headroom: keep or lower.
   The inherited `pnpm size` script never ran the check (baseline defect B4); CI runs `size-limit` directly.
 - Source language: today JS + hand-written `.d.ts`. ADR-008 decides whether to convert to TypeScript; a conversion must
   keep the emitted bundle within budget and the public `.d.ts` identical (checked with `attw` and a type-identity test).

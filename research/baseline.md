@@ -47,7 +47,7 @@ Branch coverage is below the 90% target in every package (task 7.5).
 
 | File | Raw size | Size-limit measurement |
 |---|---|---|
-| `openapi-fetch/dist/index.mjs` | 17.3 kB | **7.2 kB** of 7.5 kB budget (esbuild-bundled, minified, with dependencies, uncompressed) |
+| `openapi-fetch/dist/index.mjs` | 17.3 kB | **7.2 kB** of 7.5 kB budget (size-limit 12: esbuild-bundled, minified, with dependencies, uncompressed). After the upgrade to size-limit 14 (rolldown) the same code measures **7.41 kB** |
 | `openapi-react-query/dist/index.mjs` | 2.5 kB | not budgeted |
 | `openapi-typescript/dist/index.mjs` | 4.7 kB entry chunk (84.6 kB total) | not budgeted |
 
