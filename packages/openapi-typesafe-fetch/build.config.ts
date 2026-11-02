@@ -8,5 +8,8 @@ export default defineBuildConfig({
   rollup: {
     // Ship CommonJS-compatible bundle
     emitCJS: true,
+    // `exports: "named"` states what Rollup already picks for a module with both named and default
+    // exports (`require()` returns `{ default, ...named }`); being explicit removes the build warning.
+    output: { exports: "named" },
   },
 });

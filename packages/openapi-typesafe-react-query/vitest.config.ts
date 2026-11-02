@@ -6,5 +6,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    // Node 25+ exposes its own experimental localStorage and warns when it is not configured.
+    // Tests use the jsdom localStorage, so the Node one is turned off.
+    execArgv: ["--no-experimental-webstorage"],
   },
 });
