@@ -132,7 +132,7 @@ The following flags are supported in the CLI:
 | `--generate-path-params`           |       | `false`  | Generate path parameters for all paths where they are undefined by schema                                           |
 | `--read-write-markers`             |       | `false`  | Generate `$Read<T>`/`$Write<T>` markers for readOnly/writeOnly properties                                           |
 | `--no-lint`                        |       | `false`  | Skip the Redocly lint. Bundling errors (for example a broken `$ref`) still fail                                     |
-| `--local-ref-root [dir]`           |       |          | Load local `$ref` files only from this directory and below it (see [Untrusted documents](/advanced#untrusted-documents)) |
+| `--local-ref-root [dir]`           |       |          | Load local `$ref` files only from this directory and below it; without a value, the working directory (see [Untrusted documents](/advanced#untrusted-documents)) |
 | `--remote-ref-hosts [hosts]`       |       |          | Load remote `$ref` documents only from these comma-separated hosts; an empty value allows none                        |
 
 `--content-never` is accepted for compatibility with openapi-typescript and has no effect.
