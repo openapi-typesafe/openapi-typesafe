@@ -10,9 +10,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": ["src", "../../../packages/openapi-typesafe/examples/*.ts"],
-  "exclude": [
-    "../../../packages/openapi-typesafe/examples/digital-ocean-api.ts",
-    "../../../packages/openapi-typesafe/examples/enum-root-types.ts"
-  ]
+  "include": ["src", "../../../packages/openapi-typesafe/examples/*.ts"]
 }

@@ -1,5 +1,8 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["examples"],
-  "exclude": ["examples/digital-ocean-api.ts", "examples/enum-root-types.ts"]
+  "compilerOptions": {
+    // `--enum` output declares TypeScript enums, which erasable-only syntax refuses.
+    "erasableSyntaxOnly": false
+  },
+  "include": ["examples"]
 }

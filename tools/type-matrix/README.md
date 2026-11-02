@@ -8,8 +8,7 @@ Type-checks the generated examples and the clients as a consumer does, with ever
 | `strict`       | `consumer/tsconfig.json`              | `strict`, `skipLibCheck: false` (the published `.d.ts` files are checked too)         |
 | `strict-flags` | `consumer/tsconfig.strict-flags.json` | also `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax` |
 
-The consumer project includes `packages/openapi-typesafe/examples/*.ts` (the two examples that the inherited
-`tsconfig.examples.json` excludes stay excluded) and `consumer/src/`, which calls the fetch client, the react-query
+The consumer project includes every `packages/openapi-typesafe/examples/*.ts` and `consumer/src/`, which calls the fetch client, the react-query
 client and the marker helpers through their built `dist`.
 
 | Version                | Package                                         | Blocking                          |
