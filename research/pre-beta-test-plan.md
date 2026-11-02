@@ -137,14 +137,14 @@ webhooks.
       (`--default-non-nullable`) need their negative form (`--default-non-nullable=false`).
       Compare flags that exist in `fork-base` with it; test the new flags (`--no-lint`,
       `--local-ref-root`, `--remote-ref-hosts`) against their docs and ADR-017.
-- [ ] 4.7 `--check`: up to date, out of date, missing output. Every row of the exit-code table
+- [x] 4.7 `--check`: up to date, out of date, missing output. Every row of the exit-code table
       in `docs/cli.md` (0, 1, 2, 3, 4) is reached with the listed error codes. With several
       APIs in `redocly.yaml`, the others still run when one fails, and the exit code is the
       first failure's. `--check` with no output (see PB-4).
 - [ ] 4.8 Performance: time and peak memory on the largest documents (GitHub, Stripe,
       Kubernetes), 5 runs each, median. Budget: at most 10% slower than openapi-typescript
       7.13 (users notice more than that in watch scripts and CI).
-- [ ] 4.9 Paths: spaces, Unicode, symlinks, relative to `cwd` vs to the config file; output
+- [x] 4.9 Paths: spaces, Unicode, symlinks, relative to `cwd` vs to the config file; output
       into a missing directory.
 
 **§4 results** (logs: `.logs/pre-beta/generator/`):
@@ -163,6 +163,13 @@ webhooks.
   header also reaches `$ref`ed files on that host. Relative, absolute, remote and circular `$ref`s
   work; `~0`, `~1` and `%25` gave PB-14. Several APIs: each one is generated, a broken one does
   not stop the others and sets the exit code, `--check` finds a stale one (PB-15).
+- 4.7: every code of the exit-code table has a test (`test/cli/`, `test/api/`); the mapping is a
+  `Record` over all error codes, so a new code without an exit code does not compile. Up to date,
+  stale and missing output, and several APIs with one failing were run by hand (see 4.5).
+- 4.9: spaces and Unicode in input, `$ref` and output paths, an absolute path, a `file://` URL
+  with escapes, and output into missing directories work. A config's `root` and `output` are
+  relative to the config, also when run from another directory. A symlinked root resolves
+  relative `$ref`s next to the link, as `fork-base` does (RFC 3986); `docs/cli.md` says so now.
 
 ## 5. Node API
 
