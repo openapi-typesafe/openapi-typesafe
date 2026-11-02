@@ -5,7 +5,7 @@ description: A type-safe fetch client for OpenAPI, with typed paths, parameters,
 
 # openapi-typesafe-fetch
 
-openapi-typesafe-fetch is a type-safe fetch client that pulls in your OpenAPI schema. It weighs about **7.5 kB** minified, has virtually zero runtime, and works with React, Vue, Svelte, or vanilla JS. It is a drop-in successor to [openapi-fetch](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch) 0.17: change the import and nothing else.
+openapi-typesafe-fetch is a type-safe fetch client that pulls in your OpenAPI schema. It weighs about **8 kB** minified, has virtually zero runtime, and works with React, Vue, Svelte, or vanilla JS. It is a drop-in successor to [openapi-fetch](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch) 0.17: change the import and nothing else.
 
 The syntax is inspired by popular libraries like react-query or Apollo client, but without all the bells and whistles and in a small package.
 
@@ -46,7 +46,7 @@ Notice there are no generics, and no manual typing. Your endpoint’s request an
 - No manual typing of your API
 - Eliminates `any` types that hide bugs
 - Also eliminates `as` type overrides that can also hide bugs
-- All of this in a **7.5 kB** client package
+- All of this in a **8 kB** client package
 
 ## Setup
 

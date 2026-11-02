@@ -25,6 +25,13 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
    counter would give two clients that share one middleware the same ids.
 5. **`TRACE`.** The client offers `TRACE`, but the Fetch standard forbids it in `new Request()`, so every
    `TRACE` call rejects with a `TypeError` from the platform.
+6. **Raw bodies (pre-beta test plan §6, PB-19).** `defaultBodySerializer` JSON-encoded every body that is not
+   `FormData`. A `Blob`, `File`, `ArrayBuffer` or typed array became `{}`, so a `format: binary` upload lost
+   its data without an error, and a `URLSearchParams` body became `{}` too.
+7. **Nested form values (PB-20).** For `application/x-www-form-urlencoded`, `new URLSearchParams(body)` wrote
+   a nested object as `[object Object]`. Form encoding has no standard for nesting: servers read `a[b]`,
+   `a.b` or a JSON string.
+8. **Query on a path with `?` (PB-21).** A path such as `/search?v=2` with `params.query` got a second `?`.
 
 ## Decision
 
@@ -40,6 +47,11 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
    state of the client.
 5. `TRACE` stays: removing a method is a breaking change, and the rejection is the platform's, with a clear
    message.
+6. `FormData`, `Blob` (and `File`), `URLSearchParams`, `ArrayBuffer` and typed arrays or `DataView` are sent
+   as they are, without the JSON `Content-Type`; the platform sets the right one (or none).
+7. A form body with a nested object value throws and names `bodySerializer()`. Arrays and primitives keep the
+   `URLSearchParams` encoding. The client does not pick one of the server conventions.
+8. The query is joined with `&` when the path already has a `?`.
 
 ## Alternatives
 
@@ -52,12 +64,18 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
 | Status text in `error` (upstream #2762) | `if (error)` works | Runtime value no longer matches the declared error type; breaks `error === undefined` checks |
 | Keep `error: undefined`, fix react-query (chosen) | Types stay true; the hook layer, which owns success/failure, is fixed | `if (error)` in user code still misses empty error bodies (documented) |
 | Per-client id counter | No shared module state | Ids collide across clients that share a middleware |
+| Send raw bodies as they are (chosen) | Uploads work; matches what `fetch` does with them | A user who relied on `{}` (no one can) sees a change |
+| Encode nested form values as `a[b]` | Works for PHP and Rails style servers | Silently wrong for servers that read `a.b` or JSON |
+| Throw on nested form values (chosen) | No silent `[object Object]`; the fix is one `bodySerializer` | A request that used to go out (broken) now rejects |
 
 ## Consequences
 
 - Behavior changes are listed in the changesets as fixes with their upstream issues.
 - The size budget holds: 7.47 kB after the changes. The dead Node.js version check in `supportsRequestInitExt`
   (every supported Node.js ships undici) was removed to pay for them.
+- Decisions 6 to 8 add about 0.3 kB, and there is nothing left to remove without losing a behavior, so the
+  budget rises from 7.5 kB to 8 kB (7.77 kB after the changes). Correctness ranks above size
+  (CODING_PRINCIPLES §1); openapi-fetch 0.17.0 is about the same size without these fixes.
 
 ## Review trigger
 

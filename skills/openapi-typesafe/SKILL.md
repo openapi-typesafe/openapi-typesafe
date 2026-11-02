@@ -13,7 +13,7 @@ version number:
 | Package | Role | Replaces |
 | :-- | :-- | :-- |
 | `openapi-typesafe` | Generator: CLI and Node API (dev dependency) | `openapi-typescript` |
-| `openapi-typesafe-fetch` | Typed `fetch` client, about 7.5 kB | `openapi-fetch` |
+| `openapi-typesafe-fetch` | Typed `fetch` client, about 8 kB | `openapi-fetch` |
 | `openapi-typesafe-react-query` | TanStack Query v5 hooks on top of the client | `openapi-react-query` |
 | `openapi-typesafe-helpers` | Shared utility types | `openapi-typescript-helpers` |
 

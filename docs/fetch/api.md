@@ -43,6 +43,14 @@ client.GET("/my-url", options);
 | `middleware`      | `Middleware[]`                                                    | [See docs](/fetch/middleware-auth)                                                                                                                                                                                        |
 | (Fetch options)   |                                                                   | Any valid fetch option (`headers`, `mode`, `cache`, `signal`, …) ([docs](https://developer.mozilla.org/en-US/docs/Web/API/fetch#options))                                                                                         |
 
+::: info Cookie parameters
+
+`params.cookie` is typed but not sent, as in openapi-fetch. Browsers do not let scripts set the
+`Cookie` header; they send their own cookies when `credentials` allows it. On a server, set the
+`Cookie` header in `headers` yourself.
+
+:::
+
 ## wrapAsPathBasedClient
 
 **wrapAsPathBasedClient** wraps the result of `createClient()` to return a [Proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy)-based client that allows path-indexed calls:
@@ -186,8 +194,9 @@ const { data, error } = await client.PUT("/submit", {
 ::: tip
 
 For convenience, `openapi-typesafe-fetch` sets `Content-Type` to `application/json` automatically
-for any request that provides value for the `body` parameter. When the `bodySerializer` returns an instance of `FormData`,
-`Content-Type` is omitted, allowing the browser to set it automatically with the correct message part boundary.
+for any request that provides value for the `body` parameter. When the body (or the `bodySerializer` result) is a
+`FormData`, `Blob`, `File`, `URLSearchParams`, `ArrayBuffer` or typed array, `Content-Type` is omitted, allowing the
+platform to set it automatically (for `FormData`, with the correct message part boundary).
 
 You can also set `Content-Type` manually through `headers` object either in the fetch options,
 or when instantiating the client.
@@ -206,6 +215,19 @@ const { data, error } = await client.POST("/notes", {
 });
 ```
 
+### Binary body
+
+A `Blob`, `File`, `ArrayBuffer` or typed array (the usual type for a `format: binary` schema) is sent as
+is. Set `Content-Type` yourself when the server needs one; a `Blob` with a `type` gets it from the platform.
+
+```ts
+const { data, error } = await client.PUT("/files/{name}", {
+  params: { path: { name: "photo.png" } },
+  body: file,
+  headers: { "Content-Type": "image/png" },
+});
+```
+
 ### URL-encoded body
 
 To send a body request in `application/x-www-form-urlencoded` format, which is commonly used to transmit key-value pairs in APIs like OAuth 2.0, pass the appropriate header and body as an object. `openapi-typesafe-fetch` will automatically encode the body to the correct format.
@@ -221,6 +243,10 @@ const { data, error } = await client.POST("/tokens", {
   },
 });
 ```
+
+Form encoding has no standard for nested objects (servers read `a[b]`, `a.b` or JSON), so a nested
+object value throws an error instead of being sent as `[object Object]`. Arrays become repeated keys.
+For nested values, write a `bodySerializer` in the format your server reads.
 
 ## pathSerializer
 

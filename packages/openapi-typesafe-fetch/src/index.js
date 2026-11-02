@@ -106,8 +106,8 @@ export default function createClient(clientOptions) {
     const finalHeaders = mergeHeaders(
       // with no body, we should not to set Content-Type
       serializedBody === undefined ||
-        // if serialized body is FormData; browser will correctly set Content-Type & boundary expression
-        serializedBody instanceof FormData
+        // a raw body (FormData, Blob, ...) gets its Content-Type from the platform, or none
+        isRawBody(serializedBody)
         ? {}
         : {
             "Content-Type": "application/json",
@@ -635,11 +635,38 @@ export function defaultPathSerializer(pathname, pathParams) {
 }
 
 /**
+ * Bodies `fetch` sends as they are, with their own `Content-Type` (FormData, Blob, URLSearchParams)
+ * or none. JSON-encoding a Blob or an ArrayBuffer sent `{}` (ADR-013, decision 6).
+ */
+function isRawBody(body) {
+  return (
+    body instanceof FormData ||
+    body instanceof Blob ||
+    body instanceof URLSearchParams ||
+    body instanceof ArrayBuffer ||
+    ArrayBuffer.isView(body)
+  );
+}
+
+/**
+ * A form body. A nested object has no standard form encoding (servers read `a[b]`, `a.b` or JSON),
+ * and `URLSearchParams` wrote it as `[object Object]` (ADR-013, decision 7).
+ */
+function formBody(body) {
+  for (const value of Object.values(body)) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      throw new Error("Nested form values need your own `bodySerializer()`.");
+    }
+  }
+  return new URLSearchParams(body).toString();
+}
+
+/**
  * Serialize body object to string
  * @type {import("./index.js").defaultBodySerializer}
  */
 export function defaultBodySerializer(body, headers) {
-  if (body instanceof FormData) {
+  if (isRawBody(body)) {
     return body;
   }
   const contentType = headers
@@ -650,7 +677,7 @@ export function defaultBodySerializer(body, headers) {
       : (headers["Content-Type"] ?? headers["content-type"])
     : undefined;
   if (contentType === FORM_MEDIA_TYPE) {
-    return new URLSearchParams(body).toString();
+    return formBody(body);
   }
   // A string for a non-JSON media type (`text/plain`, ...) is the body itself; JSON-encoding it
   // added quotes (upstream #2555, #2382). For JSON, a string is a JSON string value (ADR-013).
@@ -674,7 +701,8 @@ export function createFinalURL(pathname, options) {
     search = search.substring(1);
   }
   if (search) {
-    finalURL += `?${search}`;
+    // A path may already have a query string.
+    finalURL += `${finalURL.includes("?") ? "&" : "?"}${search}`;
   }
   return finalURL;
 }
