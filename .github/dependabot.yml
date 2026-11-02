@@ -1,0 +1,37 @@
+# Dependency updates (ENGINEERING_PLAN 9.7, ADR-003). Minor and patch updates come grouped, one
+# pull request per group and week; every major update gets its own pull request (ADR-003, rule 4).
+# Commit messages follow Conventional Commits: build(deps) for packages, ci(deps) for actions.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # A new version waits three days: longer than pnpm's 24-hour minimumReleaseAge, which would
+    # reject it anyway, and enough for most compromised releases to be found and pulled.
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: build
+      include: scope
+    open-pull-requests-limit: 10
+    groups:
+      production:
+        dependency-type: production
+        update-types: [minor, patch]
+      development:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        update-types: [minor, patch]
