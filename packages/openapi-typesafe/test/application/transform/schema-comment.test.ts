@@ -71,3 +71,22 @@ describe("schemaComment", () => {
     expect(commentText(schema)).toBe(text);
   });
 });
+
+// Upstream #2349: a property schema named `summary` written without `properties:` made `summary`
+// an object, and the comment crashed on it.
+describe("schemaComment with a title or summary that is not a string", () => {
+  it.each([
+    [{ summary: { type: "array" } }],
+    [{ title: { type: "string" } }],
+    [{ title: 42, summary: ["a"] }],
+  ])("schemaComment(%j) ignores the field", (schema) => {
+    expect(schemaComment(schema)).toBeNull();
+  });
+
+  it("schemaComment keeps the other lines when summary is not a string", () => {
+    expect(schemaComment({ summary: { type: "array" }, format: "uuid" })).toEqual({
+      kind: "block",
+      text: "* Format: uuid ",
+    });
+  });
+});

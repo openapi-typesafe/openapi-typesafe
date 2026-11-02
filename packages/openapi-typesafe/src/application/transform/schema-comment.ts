@@ -33,7 +33,9 @@ function formatValue(value: unknown): string {
 function plainLines(schema: AnnotatedSchema): string[] {
   const lines: string[] = [];
   for (const text of [schema.title, schema.summary]) {
-    if (text) {
+    // The document is not validated against the schema dialect: a property named `summary`
+    // written without `properties:` makes `summary` an object (upstream #2349).
+    if (typeof text === "string" && text) {
       lines.push(text.trim().replace(LINE_BREAK_RE, CONTINUATION));
     }
   }
