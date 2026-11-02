@@ -19,13 +19,29 @@ New to OpenAPI? Speakeasy’s [Intro to OpenAPI](https://www.speakeasyapi.dev/op
 
 ## Features
 
-- Supports OpenAPI 3.0 and 3.1 (including advanced features like [discriminators](https://spec.openapis.org/oas/v3.1.0#discriminator-object)); OpenAPI 3.2 documents are accepted
+- Supports OpenAPI 3.0 and 3.1 (including advanced features like [discriminators](https://spec.openapis.org/oas/v3.1.0#discriminator-object)); OpenAPI 3.2 documents are accepted (see [OpenAPI 3.2 features](#openapi-3-2-support))
 - Generates **runtime-free types**
 - Loads documents from YAML or JSON, locally or remotely
 - Generates types for large documents in milliseconds
 - Works with TypeScript 5.4 and newer, including 6 and 7; the generator itself needs no TypeScript package
 
 OpenAPI 2.x (Swagger) is not supported.
+
+<a id="openapi-3-2-support"></a>
+
+### OpenAPI 3.2 features
+
+A 3.2 document generates the same types as a 3.1 document with the same content. These 3.2
+features are not in the generated types yet; each use prints a warning with its JSON Pointer:
+
+- the `query` operation and `additionalOperations` of a path item: the operation is not in
+  `paths` or `operations`;
+- `in: querystring` parameters: the parameter is not in `parameters`;
+- `itemSchema` (streamed media types such as `application/jsonl`): the media type has no type.
+
+Other 3.2 additions do not change types and are ignored: `$self`, tag `parent` and `kind`, and
+`discriminator.defaultMapping` (the default schema still gets its own name as the discriminator
+value).
 
 ## Examples
 

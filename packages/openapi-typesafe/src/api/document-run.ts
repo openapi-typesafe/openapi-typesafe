@@ -8,6 +8,7 @@ import { withStackOverflowReported } from "../application/stack-overflow.js";
 import type { GeneratorOptions, GlobalContext, OpenAPI3, SchemaSource } from "../types.js";
 import { findDiscriminators } from "./discriminator-scan.js";
 import { resolveDocumentRef } from "./document-refs.js";
+import { warnUnsupportedFeatures } from "./unsupported-feature-warnings.js";
 
 /** The ports of one generator run, wired by the Node API or the CLI (ENGINEERING_PLAN 4.5). */
 export interface GeneratorPorts {
@@ -112,6 +113,7 @@ export async function createDocumentRun(
     shouldLint: options.lint ?? true,
     refAccess: refAccessOf(options, cwd),
   });
+  withStackOverflowReported("transform", () => warnUnsupportedFeatures(schema, logger));
   const ctx: GlobalContext = {
     ...contextFlags(options),
     // The scan walks every schema before the transform does, so on a larger stack, where loading
