@@ -25,6 +25,13 @@ export function defaultLogger(silent: boolean): Logger {
   });
 }
 
+/**
+ * How long one remote `$ref` (or a remote source) may take to load. Large documents (the 27 MB
+ * Cloudflare spec) download in seconds; a minute covers slow hosts, while Node's own fetch would
+ * wait five minutes for a server that never answers (ENGINEERING_PLAN 8.5).
+ */
+export const REMOTE_REF_TIMEOUT_MS = 60_000;
+
 /** A monotonic clock in milliseconds, for debug durations. */
 export function monotonicNow(): number {
   return performance.now();

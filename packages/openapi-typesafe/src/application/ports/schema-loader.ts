@@ -11,7 +11,8 @@ export interface SchemaLoadRequest {
 /**
  * Read, validate and bundle an OpenAPI 3 document into one document (ENGINEERING_PLAN 4.5).
  * Fails with a typed error (ADR-011): `SCHEMA_SOURCE_*`, `SCHEMA_LOAD_FAILED`,
- * `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED` or `SCHEMA_INVALID`.
+ * `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`,
+ * `SCHEMA_TOO_DEEP` or `SCHEMA_KEY_UNSUPPORTED`.
  */
 export interface SchemaLoader {
   load(request: SchemaLoadRequest): Promise<OpenAPI3>;

@@ -455,3 +455,26 @@ So be wary about where you define `$defs` as they may go missing in your final g
 When in doubt, you can always define `$defs` at the root schema level.
 
 :::
+
+## Limits
+
+openapi-typesafe fails with a typed error (`err.code`, CLI exit code `3`) instead of crashing or
+hanging when a document reaches one of these limits.
+
+| Limit | What happens | Error code |
+| :-- | :-- | :-- |
+| A YAML or JSON file nested more than 100 levels deep | The YAML parser stops. A document passed as an object or as JSON text skips this limit | `SCHEMA_PARSE_FAILED` |
+| About 550 levels of inline schemas, or a chain of about 900 `$ref`s where each schema refers to the next | The call stack runs out. The numbers are for the default Node.js stack and vary a little between runs and runtimes | `SCHEMA_TOO_DEEP` |
+| A `$ref` that points at itself, or two `$ref`s that point at each other, with no schema in between | The cycle has no type | `SCHEMA_REF_INVALID` |
+| A key named `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `valueOf` or one of the `__define…` / `__lookup…` methods, where the schema loader reads keys | The schema loader (Redocly 1.x) cannot read it; the error lists every such key | `SCHEMA_KEY_UNSUPPORTED` |
+| A remote `$ref` or remote document that does not answer within 60 seconds | The fetch stops. A `customFetch` in your Redocly config replaces this limit | `SCHEMA_INVALID` (a `$ref`) or `SCHEMA_LOAD_FAILED` (the document) |
+
+Cyclic schemas are fine when the cycle goes through an object property
+(`Node: { properties: { next: { $ref: Node } } }`): they generate recursive types. A cycle with no
+object on it, such as two arrays of each other or two `allOf`s of each other, generates types that
+TypeScript rejects with “is referenced directly or indirectly in its own type annotation”, as in
+openapi-typescript.
+
+Names need no care: reserved words (`class`, `default`, `constructor`), TypeScript global names,
+`__proto__`, Unicode, quotes, backslashes and line breaks in schema, property, enum, path and
+parameter names all generate valid TypeScript.

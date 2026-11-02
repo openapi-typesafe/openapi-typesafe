@@ -1,7 +1,13 @@
 import { createRedoclySchemaLoader } from "../adapters/redocly-loader/redocly-schema-loader.js";
+import { withStackOverflowReported } from "../application/stack-overflow.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { GeneratorOptions, SchemaSource } from "../types.js";
-import { defaultLogger, defaultRedoclyConfig, monotonicNow } from "./default-ports.js";
+import {
+  defaultLogger,
+  defaultRedoclyConfig,
+  monotonicNow,
+  REMOTE_REF_TIMEOUT_MS,
+} from "./default-ports.js";
 import { createDocumentRun, type GeneratorPorts } from "./document-run.js";
 import transformSchema from "./transform-schema.js";
 
@@ -18,7 +24,7 @@ export async function generateDeclarations(
 ): Promise<IrDeclaration[]> {
   const { schema, ctx } = await createDocumentRun(source, options, ports);
   const startedAt = ports.now();
-  const result = transformSchema(schema, ctx);
+  const result = withStackOverflowReported("transform", () => transformSchema(schema, ctx));
   ports.logger.debug(
     "Completed AST transformation for entire document",
     "ts",
@@ -31,7 +37,12 @@ export async function generateDeclarations(
 export async function defaultGeneratorPorts(options: GeneratorOptions): Promise<GeneratorPorts> {
   const logger = defaultLogger(options.silent ?? false);
   const redoc = options.redocly ?? (await defaultRedoclyConfig());
-  const loader = createRedoclySchemaLoader({ redoc, logger, now: monotonicNow });
+  const loader = createRedoclySchemaLoader({
+    redoc,
+    logger,
+    now: monotonicNow,
+    remoteRefTimeoutMs: REMOTE_REF_TIMEOUT_MS,
+  });
   return { loader, logger, redoc, now: monotonicNow };
 }
 

@@ -71,3 +71,13 @@ export function schemaInvalidError(problems: readonly string[]): OpenAPITypesafe
     details: { problems: [...problems] },
   });
 }
+
+/** A `$ref` chain points back to itself with no schema in between (`A: $ref B`, `B: $ref A`). */
+export function refCycleError(cause: Error): OpenAPITypesafeError {
+  return new OpenAPITypesafeError({
+    code: ERROR_CODES.SCHEMA_REF_INVALID,
+    message: cause.message,
+    details: { reason: "cycle" },
+    cause,
+  });
+}

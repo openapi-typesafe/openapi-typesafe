@@ -13,15 +13,22 @@ import {
 import parseJson from "parse-json";
 import type { Logger } from "../../application/ports/logger.js";
 import type { SchemaLoader, SchemaLoadRequest } from "../../application/ports/schema-loader.js";
+import { withStackOverflowReportedAsync } from "../../application/stack-overflow.js";
 import type { OpenAPI3 } from "../../types.js";
 import {
   loadFailedError,
   parseFailedError,
+  refCycleError,
   schemaInvalidError,
   sourceEmptyError,
   sourceInvalidError,
   versionUnsupportedError,
 } from "./schema-load-errors.js";
+import {
+  findUnsupportedKeys,
+  type LoadedDocument,
+  unsupportedKeysError,
+} from "./unsupported-keys.js";
 
 /**
  * The SchemaLoader port on Redocly 1.34 (ADR-005): parse any inherited source type, then lint and
@@ -32,6 +39,8 @@ export interface RedoclySchemaLoaderOptions {
   readonly logger: Logger;
   /** A monotonic time in milliseconds, for the debug durations. */
   readonly now: () => number;
+  /** Time limit of one remote fetch, unless the Redocly config brings its own `customFetch`. */
+  readonly remoteRefTimeoutMs: number;
 }
 
 interface ParseSchemaOptions {
@@ -162,6 +171,58 @@ function sourceAbsoluteRef(source: unknown, cwd: URL): string {
   return fileURLToPath(cwd);
 }
 
+type ResolveConfig = RedoclyConfig["resolve"];
+
+/**
+ * Give remote fetches a time limit: without one, a server that never answers keeps the generator
+ * waiting for Node's five-minute default. A `customFetch` of the Redocly config is kept as it is.
+ */
+function resolveConfigWithTimeout(resolve: ResolveConfig, timeoutMs: number): ResolveConfig {
+  if (resolve.http.customFetch !== undefined) {
+    return resolve;
+  }
+  const customFetch = (input: string, init: RequestInit = {}): Promise<Response> =>
+    fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) }).catch((cause: unknown) => {
+      const isTimeout = cause instanceof Error && cause.name === "TimeoutError";
+      throw isTimeout ? new Error(`Timed out after ${timeoutMs} ms loading ${input}`) : cause;
+    });
+  return { ...resolve, http: { ...resolve.http, customFetch } };
+}
+
+/** Redocly throws a plain Error for a `$ref` chain that points back to itself. */
+const REF_CYCLE_MESSAGE = "Self-referencing circular pointer";
+
+/**
+ * The root document and every other document the resolver loaded, as far as they parsed. A root
+ * read from a file or URL is in the resolver cache too, and is listed once.
+ */
+async function loadedDocuments(root: Document, resolver: BaseResolver): Promise<LoadedDocument[]> {
+  const cached = await Promise.all(resolver.cache.values());
+  const bySource = new Map<string, unknown>([[root.source.absoluteRef, root.parsed]]);
+  for (const document of cached) {
+    if ("parsed" in document && !bySource.has(document.source.absoluteRef)) {
+      bySource.set(document.source.absoluteRef, document.parsed);
+    }
+  }
+  return [...bySource].map(([source, parsed]) => ({ source, parsed }));
+}
+
+/** Report the document problems Redocly throws as typed errors; anything else passes through. */
+async function rethrowDocumentError(
+  error: unknown,
+  root: Document,
+  resolver: BaseResolver,
+): Promise<never> {
+  if (error instanceof Error && error.message === REF_CYCLE_MESSAGE) {
+    throw refCycleError(error);
+  }
+  if (error instanceof TypeError) {
+    const keys = findUnsupportedKeys(await loadedDocuments(root, resolver));
+    throw keys.length === 0 ? error : unsupportedKeysError(keys, error);
+  }
+  throw error;
+}
+
 class RedoclySchemaLoader implements SchemaLoader {
   readonly #options: RedoclySchemaLoaderOptions;
 
@@ -175,14 +236,19 @@ class RedoclySchemaLoader implements SchemaLoader {
     logger.debug("Loaded Redoc config", "redoc", now() - configLoadedAt);
     const parseStartedAt = now();
     const absoluteRef = sourceAbsoluteRef(request.source, request.cwd);
-    const resolver = new BaseResolver(redoc.resolve);
+    const resolver = new BaseResolver(
+      resolveConfigWithTimeout(redoc.resolve, this.#options.remoteRefTimeoutMs),
+    );
     const document = await parseSchema(request.source, { absoluteRef, resolver });
     logger.debug("Parsed schema", "redoc", now() - parseStartedAt);
     assertOpenAPI3(document.parsed);
-    if (request.shouldLint) {
-      await this.#lint(document, resolver);
-    }
-    return this.#bundle(document);
+    const rethrow = (error: unknown) => rethrowDocumentError(error, document, resolver);
+    return withStackOverflowReportedAsync("load", async () => {
+      if (request.shouldLint) {
+        await this.#lint(document, resolver).catch(rethrow);
+      }
+      return this.#bundle(document, resolver).catch(rethrow);
+    });
   }
 
   async #lint(document: Document, resolver: BaseResolver): Promise<void> {
@@ -196,12 +262,14 @@ class RedoclySchemaLoader implements SchemaLoader {
     this.#options.logger.debug("Linted schema", "lint", this.#options.now() - startedAt);
   }
 
-  async #bundle(document: Document): Promise<OpenAPI3> {
+  async #bundle(document: Document, resolver: BaseResolver): Promise<OpenAPI3> {
     const startedAt = this.#options.now();
+    // The lint resolver: documents it already loaded are not fetched again.
     const bundled = await bundle({
       config: this.#options.redoc,
       dereference: false,
       doc: document,
+      externalRefResolver: resolver,
     });
     this.#report(bundled.problems);
     this.#options.logger.debug("Bundled schema", "bundle", this.#options.now() - startedAt);

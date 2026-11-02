@@ -10,6 +10,7 @@ import {
 } from "../adapters/type-ast-bridge/print-typescript.js";
 import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import { type IrPrintable, printFragments } from "../application/print/print-nodes.js";
+import { withStackOverflowReported } from "../application/stack-overflow.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 
 export type { AstToStringOptions } from "../adapters/type-ast-bridge/print-typescript.js";
@@ -40,6 +41,10 @@ function isIrDeclarationKind(node: IrPrintable): node is IrDeclaration {
  * through the TypeScript printer as before (ADR-004, decision 1).
  */
 export function astToString(ast: AstToStringInput, options?: AstToStringOptions): string {
+  return withStackOverflowReported("print", () => printNodes(ast, options));
+}
+
+function printNodes(ast: AstToStringInput, options: AstToStringOptions | undefined): string {
   const nodes: readonly (IrPrintable | ts.Node)[] = Array.isArray(ast)
     ? ast
     : [ast as IrPrintable | ts.Node];
