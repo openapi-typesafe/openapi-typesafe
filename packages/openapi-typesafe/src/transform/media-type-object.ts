@@ -1,6 +1,6 @@
+import { createTransformContext, schemaLocation } from "../api/transform-context.js";
 import { mediaTypeType } from "../application/transform/document/media-type.js";
 import type { IrType } from "../domain/ir/nodes.js";
-import { createTransformContext, schemaLocation } from "../lib/transform-context.js";
 import type { MediaTypeObject, TransformNodeOptions } from "../types.js";
 
 /**

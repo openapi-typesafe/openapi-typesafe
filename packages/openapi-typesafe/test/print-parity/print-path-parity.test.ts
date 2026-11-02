@@ -3,8 +3,8 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { toStatements } from "../../src/adapters/type-ast-bridge/ir-declarations-to-typescript.js";
 import { printWithTypeScript } from "../../src/adapters/type-ast-bridge/print-typescript.js";
+import transformSchema from "../../src/api/transform-schema.js";
 import { printNodes } from "../../src/application/print/print-nodes.js";
-import transformSchema from "../../src/transform/index.js";
 import type { OpenAPI3 } from "../../src/types.js";
 import { documentArbitrary, injectArbitrary } from "./document-arbitraries.js";
 import {

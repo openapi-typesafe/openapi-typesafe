@@ -1,10 +1,13 @@
 import type { PathLike } from "node:fs";
+import type { Readable } from "node:stream";
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
+import type { FooterEntry } from "../api/footer-entry.js";
+import type { Logger } from "../application/ports/logger.js";
 import type { DocumentFooter } from "../application/transform/transform-context.js";
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
-import type { FooterEntry } from "../lib/footer-entry.js";
 import type { ReferenceObject } from "./openapi-common.js";
+import type { OpenAPI3 } from "./openapi-document.js";
 import type { DiscriminatorObject, SchemaObject } from "./openapi-schema.js";
 
 export interface TransformObject {
@@ -12,6 +15,12 @@ export interface TransformObject {
   schema: IrType | ts.TypeNode;
   questionToken: boolean;
 }
+
+/**
+ * Every source type `openapiTS` accepts: YAML or JSON text, a URL, a parsed document, bytes or a
+ * stream.
+ */
+export type SchemaSource = string | URL | OpenAPI3 | Buffer | Readable;
 
 /** The generator options other than the schema callbacks. */
 export interface OpenAPITSBaseOptions {
@@ -193,6 +202,11 @@ export interface GlobalContext {
    * option; do not set it.
    */
   legacyCallbackWarnings?: Set<LegacyCallbackName>;
+  /**
+   * @internal Where this run reports warnings and debug output. Not an option; a context without
+   * it logs to the terminal.
+   */
+  logger?: Logger;
   pathParamsAsTypes: boolean;
   /** Whether the callbacks below take IR (`OpenAPITSIrOptions`) or TypeScript nodes. */
   irCallbacks: boolean;

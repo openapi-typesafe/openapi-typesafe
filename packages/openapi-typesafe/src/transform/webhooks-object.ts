@@ -1,6 +1,6 @@
+import { createTransformContext } from "../api/transform-context.js";
 import { webhooksType } from "../application/transform/document/webhooks.js";
 import type { IrType } from "../domain/ir/nodes.js";
-import { createTransformContext } from "../lib/transform-context.js";
 import type { GlobalContext, WebhooksObject } from "../types.js";
 
 /**

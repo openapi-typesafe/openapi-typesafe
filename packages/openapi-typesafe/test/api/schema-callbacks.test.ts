@@ -1,5 +1,8 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { createDocumentRun } from "../../src/api/document-run.js";
+import { defaultGeneratorPorts } from "../../src/api/openapi-ts.js";
+import transformSchema from "../../src/api/transform-schema.js";
 import openapiTS, {
   astToString,
   type GeneratorOptions,
@@ -9,8 +12,6 @@ import openapiTS, {
   type OpenAPITSIrOptions,
   tsUnion,
 } from "../../src/index.js";
-import { createDocumentRun } from "../../src/lib/document-run.js";
-import transformSchema from "../../src/transform/index.js";
 
 const DOCUMENT: OpenAPI3 = {
   openapi: "3.1.0",
@@ -104,7 +105,9 @@ describe("IR callbacks (irCallbacks: true)", () => {
 
 /** The deprecated forms each run warned about (recorded also when `silent`). */
 async function warningsOf(options: GeneratorOptions): Promise<string[]> {
-  const { schema, ctx } = await createDocumentRun(DOCUMENT, { silent: true, ...options });
+  const runOptions = { silent: true, ...options };
+  const ports = await defaultGeneratorPorts(runOptions);
+  const { schema, ctx } = await createDocumentRun(DOCUMENT, runOptions, ports);
   transformSchema(schema, ctx);
   return [...(ctx.legacyCallbackWarnings ?? [])];
 }

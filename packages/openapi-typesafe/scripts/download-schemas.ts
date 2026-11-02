@@ -3,7 +3,7 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import degit from "degit";
-import { error } from "../src/lib/utils.js";
+import { error } from "../src/api/legacy-utils.js";
 import { multiFile, singleFile } from "./schemas.js";
 
 const ONE_DAY = 1000 * 60 * 60 * 24;

@@ -1,6 +1,6 @@
+import { createTransformContext } from "../api/transform-context.js";
 import { pathsType } from "../application/transform/document/paths.js";
 import type { IrType } from "../domain/ir/nodes.js";
-import { createTransformContext } from "../lib/transform-context.js";
 import type { GlobalContext, PathsObject } from "../types.js";
 
 /**

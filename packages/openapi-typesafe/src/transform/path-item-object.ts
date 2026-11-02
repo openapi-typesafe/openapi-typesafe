@@ -1,7 +1,7 @@
+import { createTransformContext, schemaLocation } from "../api/transform-context.js";
 import { pathItemType } from "../application/transform/document/path-item.js";
 import type { IrType } from "../domain/ir/nodes.js";
 import type { HttpMethod } from "../domain/openapi/path-item-object.js";
-import { createTransformContext, schemaLocation } from "../lib/transform-context.js";
 import type { PathItemObject, TransformNodeOptions } from "../types.js";
 
 export type Method = HttpMethod;

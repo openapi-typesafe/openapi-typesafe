@@ -1,11 +1,11 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-declarations-to-typescript.js";
+import type { FooterEntry } from "../../src/api/footer-entry.js";
+import { ContextFooterSink } from "../../src/api/footer-sink.js";
 import { irProperty, irReference } from "../../src/domain/ir/constructors.js";
 import type { IrDeclaration } from "../../src/domain/ir/nodes.js";
 import { astToString } from "../../src/index.js";
-import type { FooterEntry } from "../../src/lib/footer-entry.js";
-import { ContextFooterSink } from "../../src/lib/footer-sink.js";
 
 const ALIAS: IrDeclaration = {
   kind: "typeAlias",

@@ -1,4 +1,4 @@
-import { ERROR_CODES, OpenAPITypesafeError } from "../domain/errors.js";
+import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
 
 /**
  * The typed errors of loading, validating and bundling a document (ADR-011). Messages are the

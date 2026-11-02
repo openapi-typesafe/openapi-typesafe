@@ -2,12 +2,10 @@ import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import { documentBody, documentClosing } from "../application/transform/document/document.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
-import { documentDeclarations, type TransformedDocument } from "../lib/document-declarations.js";
-import { type FooterEntry, isIrDeclaration } from "../lib/footer-entry.js";
-import { createTransformContext } from "../lib/transform-context.js";
 import type { GlobalContext, OpenAPI3 } from "../types.js";
-
-export type { TransformedDocument } from "../lib/document-declarations.js";
+import { documentDeclarations, type TransformedDocument } from "./document-declarations.js";
+import { type FooterEntry, isIrDeclaration } from "./footer-entry.js";
+import { createTransformContext } from "./transform-context.js";
 
 const OPERATIONS_NAME = "operations";
 

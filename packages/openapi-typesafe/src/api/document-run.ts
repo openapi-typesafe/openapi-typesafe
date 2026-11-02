@@ -1,10 +1,20 @@
-import type { Readable } from "node:stream";
-import { createConfig, type Config as RedoclyConfig } from "@redocly/openapi-core";
-import type { GeneratorOptions, GlobalContext, OpenAPI3 } from "../types.js";
+import type { Config as RedoclyConfig } from "@redocly/openapi-core";
+import { sourceEmptyError } from "../adapters/redocly-loader/schema-load-errors.js";
+import type { Logger } from "../application/ports/logger.js";
+import type { SchemaLoader } from "../application/ports/schema-loader.js";
+import type { GeneratorOptions, GlobalContext, OpenAPI3, SchemaSource } from "../types.js";
 import { scanDiscriminators } from "./discriminator-scan.js";
-import { validateAndBundle } from "./redoc.js";
-import { sourceEmptyError } from "./schema-load-errors.js";
-import { resolveRef } from "./utils.js";
+import { resolveRef } from "./legacy-utils.js";
+
+/** The ports of one generator run, wired by the Node API or the CLI (ENGINEERING_PLAN 4.5). */
+export interface GeneratorPorts {
+  readonly loader: SchemaLoader;
+  readonly logger: Logger;
+  /** The Redocly config the loader uses; the run's context exposes it as `ctx.redoc`. */
+  readonly redoc: RedoclyConfig;
+  /** A monotonic time in milliseconds, for debug durations. */
+  readonly now: () => number;
+}
 
 /** A validated, bundled document and the context of one generator run. */
 export interface DocumentRun {
@@ -15,14 +25,14 @@ export interface DocumentRun {
 /** The context fields that are user flags, with the original defaults. */
 type ContextFlags = Omit<
   GlobalContext,
-  "discriminators" | "injectFooter" | "redoc" | "resolve" | "runFooter" | "legacyCallbackWarnings"
+  | "discriminators"
+  | "injectFooter"
+  | "redoc"
+  | "resolve"
+  | "runFooter"
+  | "legacyCallbackWarnings"
+  | "logger"
 >;
-
-/** The default Redocly config: minimal rules, and duplicate operation IDs are an error. */
-function defaultRedoclyConfig(): Promise<RedoclyConfig> {
-  const rules = { "operation-operationId-unique": { severity: "error" as const } };
-  return createConfig({ rules }, { extends: ["minimal"] });
-}
 
 function sourceCwd(options: GeneratorOptions): URL {
   return options.cwd instanceof URL
@@ -60,7 +70,7 @@ function contextFlags(options: GeneratorOptions): ContextFlags {
     pathParamsAsTypes: options.pathParamsAsTypes ?? false,
     propertiesRequiredByDefault: options.propertiesRequiredByDefault ?? false,
     silent: options.silent ?? false,
-    inject: options.inject ?? undefined,
+    ...(options.inject === undefined ? {} : { inject: options.inject }),
     makePathsEnum: options.makePathsEnum ?? false,
     generatePathParams: options.generatePathParams ?? false,
     readWriteMarkers: options.readWriteMarkers ?? false,
@@ -68,23 +78,25 @@ function contextFlags(options: GeneratorOptions): ContextFlags {
   };
 }
 
-/** Validate and bundle the source, then build the run's context from the options. */
+/** Load the source through the ports, then build the run's context from the options. */
 export async function createDocumentRun(
-  source: string | URL | OpenAPI3 | Buffer | Readable,
+  source: SchemaSource,
   options: GeneratorOptions,
+  ports: GeneratorPorts,
 ): Promise<DocumentRun> {
   if (!source) {
     throw sourceEmptyError("Empty schema. Please specify a URL, file path, or Redocly Config");
   }
-  const redoc = options.redocly ?? (await defaultRedoclyConfig());
+  const { logger } = ports;
   const silent = options.silent ?? false;
-  const schema = await validateAndBundle(source, { redoc, cwd: sourceCwd(options), silent });
+  const schema = await ports.loader.load({ source, cwd: sourceCwd(options) });
   const ctx: GlobalContext = {
     ...contextFlags(options),
-    discriminators: scanDiscriminators(schema, options),
+    discriminators: scanDiscriminators(schema, options, logger),
     injectFooter: [],
-    redoc,
-    resolve: ($ref) => resolveRef(schema, $ref, { silent }),
+    redoc: ports.redoc,
+    resolve: ($ref) => resolveRef(schema, $ref, { silent, logger }),
+    logger,
   };
   return { schema, ctx };
 }

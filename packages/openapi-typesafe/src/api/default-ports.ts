@@ -1,0 +1,37 @@
+import { performance } from "node:perf_hooks";
+import { createConfig, type Config as RedoclyConfig } from "@redocly/openapi-core";
+import supportsColor from "supports-color";
+import { createTerminalLogger } from "../adapters/terminal-logger/terminal-logger.js";
+import type { Logger } from "../application/ports/logger.js";
+
+/**
+ * The default adapters of the Node API (ENGINEERING_PLAN 4.5): this module and the CLI's
+ * composition root are where the process environment is read.
+ */
+
+/** Colors when the terminal supports them, as the original decided. */
+export function terminalSupportsColor(): boolean {
+  const stdout = supportsColor.stdout;
+  return Boolean(stdout) && stdout !== false && stdout.hasBasic !== false;
+}
+
+/** The terminal logger with `DEBUG` from the environment, writing to the console. */
+export function defaultLogger(silent: boolean): Logger {
+  return createTerminalLogger({
+    silent,
+    debugFilter: process.env.DEBUG,
+    useColors: terminalSupportsColor(),
+    sink: console,
+  });
+}
+
+/** A monotonic clock in milliseconds, for debug durations. */
+export function monotonicNow(): number {
+  return performance.now();
+}
+
+/** The default Redocly config: minimal rules, and duplicate operation IDs are an error. */
+export function defaultRedoclyConfig(): Promise<RedoclyConfig> {
+  const rules = { "operation-operationId-unique": { severity: "error" as const } };
+  return createConfig({ rules }, { extends: ["minimal"] });
+}

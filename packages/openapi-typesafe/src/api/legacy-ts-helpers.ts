@@ -113,7 +113,7 @@ export function tsEnum(
 ) {
   const ts = loadTypeScript();
   let enumName = sanitizeMemberName(name);
-  enumName = `${enumName[0].toUpperCase()}${enumName.substring(1)}`;
+  enumName = `${enumName.charAt(0).toUpperCase()}${enumName.substring(1)}`;
   let key = "";
   if (options?.shouldCache) {
     key = `${members
@@ -148,7 +148,7 @@ export function tsArrayLiteralExpression(
 ) {
   const ts = loadTypeScript();
   let variableName = sanitizeMemberName(name);
-  variableName = `${variableName[0].toLowerCase()}${variableName.substring(1)}`;
+  variableName = `${variableName.charAt(0).toLowerCase()}${variableName.substring(1)}`;
 
   if (options?.injectFooter) {
     requireHelper(options.injectFooter, HELPER_TYPES.flattenedDeepRequired);
@@ -178,7 +178,8 @@ export function tsArrayLiteralExpression(
 
 function sanitizeMemberName(name: string) {
   let sanitizedName = name.replace(JS_ENUM_INVALID_CHARS_RE, (c) => {
-    const last = c[c.length - 1];
+    // The pattern matches at least one character, so `last` is always a character.
+    const last = c.at(-1) ?? "";
     return JS_PROPERTY_INDEX_INVALID_CHARS_RE.test(last) ? "" : last.toUpperCase();
   });
   if (Number(name[0]) >= 0) {

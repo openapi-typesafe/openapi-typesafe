@@ -1,5 +1,5 @@
 import type { GlobalContext, LegacyCallbackName } from "../types.js";
-import { warn } from "./utils.js";
+import { defaultLogger } from "./default-ports.js";
 
 /** Where the IR callbacks are documented; the warning points users there. */
 export const IR_CALLBACKS_GUIDE_URL =
@@ -25,5 +25,5 @@ export function warnLegacyCallback(ctx: GlobalContext, name: LegacyCallbackName)
     return;
   }
   ctx.legacyCallbackWarnings.add(name);
-  warn(message(name), ctx.silent);
+  (ctx.logger ?? defaultLogger(ctx.silent)).warn(message(name));
 }

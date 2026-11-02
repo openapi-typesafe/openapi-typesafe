@@ -1,4 +1,3 @@
-import { performance } from "node:perf_hooks";
 import * as changeCase from "change-case";
 import { RunFooter } from "../application/transform/footer/document-footer.js";
 import type { SchemaLocation } from "../application/transform/schema/schema-context.js";
@@ -10,9 +9,9 @@ import type {
   TransformOptions,
 } from "../application/transform/transform-context.js";
 import type { GlobalContext, TransformNodeOptions } from "../types.js";
+import { defaultLogger, monotonicNow } from "./default-ports.js";
 import { ContextFooterSink } from "./footer-sink.js";
 import { schemaCallbacks } from "./schema-callbacks.js";
-import { debug } from "./utils.js";
 
 /**
  * Builds the ported transformers' context from the original `GlobalContext`: options, refs,
@@ -53,11 +52,16 @@ function runFooter(ctx: GlobalContext): DocumentFooter {
 
 const CASING: NameCasing = { pascalCase: (text) => changeCase.pascalCase(text) };
 
-/** `performance.now()` and the original `debug` logger, in the "ts" group. */
-const DIAGNOSTICS: TransformDiagnostics = {
-  now: () => performance.now(),
-  debug: (message, durationMs) => debug(message, "ts", durationMs),
-};
+/**
+ * A monotonic clock and the run's logger (the default one for a user's own context), "ts" group.
+ */
+function diagnostics(ctx: GlobalContext): TransformDiagnostics {
+  const logger = ctx.logger ?? defaultLogger(ctx.silent);
+  return {
+    now: monotonicNow,
+    debug: (message, durationMs) => logger.debug(message, "ts", durationMs),
+  };
+}
 
 /** The ported transformers' context for one call from a legacy transformer. */
 export function createTransformContext(ctx: GlobalContext): TransformContext {
@@ -70,7 +74,7 @@ export function createTransformContext(ctx: GlobalContext): TransformContext {
     },
     footer: runFooter(ctx),
     callbacks: schemaCallbacks(ctx),
-    diagnostics: DIAGNOSTICS,
+    diagnostics: diagnostics(ctx),
     casing: CASING,
   };
 }

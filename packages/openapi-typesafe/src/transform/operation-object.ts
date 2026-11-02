@@ -1,8 +1,8 @@
+import { createTransformContext, schemaLocation } from "../api/transform-context.js";
 import { operationMembers } from "../application/transform/document/operation.js";
 import { irObject, irProperty } from "../domain/ir/constructors.js";
 import type { IrMember } from "../domain/ir/nodes.js";
 import { toPropertyName } from "../domain/ir/property-name.js";
-import { createTransformContext, schemaLocation } from "../lib/transform-context.js";
 import type { OperationObject, TransformNodeOptions } from "../types.js";
 
 /**

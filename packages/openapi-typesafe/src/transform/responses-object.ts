@@ -1,6 +1,6 @@
+import { createTransformContext, schemaLocation } from "../api/transform-context.js";
 import { responsesType } from "../application/transform/document/responses.js";
 import type { IrType } from "../domain/ir/nodes.js";
-import { createTransformContext, schemaLocation } from "../lib/transform-context.js";
 import type { ResponsesObject, TransformNodeOptions } from "../types.js";
 
 /**

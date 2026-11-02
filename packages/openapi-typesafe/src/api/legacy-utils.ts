@@ -1,20 +1,22 @@
 import { escapePointer, parseRef } from "@redocly/openapi-core/lib/ref-utils.js";
 import c from "ansi-colors";
-import supportsColor from "supports-color";
+import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
+import type { DebugGroup, Logger } from "../application/ports/logger.js";
 import { discriminatorProperty } from "../application/transform/schema/discriminator-property.js";
 import type { IrPropertySignature } from "../domain/ir/nodes.js";
 import type { DiscriminatorObject } from "../types.js";
+import { defaultLogger, terminalSupportsColor } from "./default-ports.js";
 
-if (!supportsColor.stdout || supportsColor.stdout.hasBasic === false) {
+/**
+ * The original's exported utilities, kept for 1.x (ADR-004, decision 9). The generator itself
+ * logs through the Logger port; `debug`, `warn` and `error` here write through the default one.
+ */
+
+// The exported `c` is the shared ansi-colors instance, switched off at import when the terminal has
+// no colors, as the original did. The generator's own logger uses a separate instance.
+if (!terminalSupportsColor()) {
   c.enabled = false;
 }
-
-const DEBUG_GROUPS: Record<string, c.StyleFunction | undefined> = {
-  redoc: c.cyanBright,
-  lint: c.yellowBright,
-  bundle: c.magentaBright,
-  ts: c.blueBright,
-};
 
 export { c };
 
@@ -50,42 +52,18 @@ export function createRef(parts: (number | string | undefined | null)[]): string
 
 /** Print debug message (cribbed from the `debug` package, but without all the bells & whistles */
 export function debug(msg: string, group?: string, time?: number) {
-  if (
-    process.env.DEBUG &&
-    (!group ||
-      process.env.DEBUG === "*" ||
-      process.env.DEBUG === "openapi-ts:*" ||
-      process.env.DEBUG.toLocaleLowerCase() === `openapi-ts:${group.toLocaleLowerCase()}`)
-  ) {
-    const groupColor = (group && DEBUG_GROUPS[group]) || c.whiteBright;
-    const groupName = groupColor(`openapi-ts:${group ?? "info"}`);
-    let timeFormatted = "";
-    if (typeof time === "number") {
-      timeFormatted = c.green(` ${formatTime(time)} `);
-    }
-    // biome-ignore lint/suspicious/noConsole: this is a CLI
-    console.debug(`  ${c.bold(groupName)}${timeFormatted}${msg}`);
-  }
+  // Any group name was accepted; one the logger does not know prints in white, as before.
+  defaultLogger(false).debug(msg, group as DebugGroup | undefined, time);
 }
 
 /** Print error message */
 export function error(msg: string) {
-  // biome-ignore lint/suspicious/noConsole: this is a CLI
-  console.error(c.red(` ✘  ${msg}`));
+  defaultLogger(false).error(msg);
 }
 
 /** Format a performance log in a friendly format */
 export function formatTime(t: number) {
-  if (typeof t === "number") {
-    if (t < 1000) {
-      return `${Math.round(10 * t) / 10}ms`;
-    }
-    if (t < 60000) {
-      return `${Math.round(t / 100) / 10}s`;
-    }
-    return `${Math.round(t / 6000) / 10}m`;
-  }
-  return t;
+  return typeof t === "number" ? formatDuration(t) : t;
 }
 
 /** Call Object.entries() and optionally sort */
@@ -108,12 +86,21 @@ export function getEntries<T>(
   return entries;
 }
 
+export interface ResolveRefOptions {
+  silent: boolean;
+  visited?: string[];
+  /** @internal Where warnings go; the default terminal logger (respecting `silent`) if absent. */
+  logger?: Logger;
+}
+
 /** resolve a $ref in a schema */
 export function resolveRef<T>(
   schema: any,
   $ref: string,
-  { silent = false, visited = [] }: { silent: boolean; visited?: string[] },
+  options: ResolveRefOptions,
 ): T | undefined {
+  const { visited = [] } = options;
+  const logger = options.logger ?? defaultLogger(options.silent ?? false);
   const { pointer } = parseRef($ref);
   if (!pointer.length) {
     return undefined;
@@ -123,7 +110,7 @@ export function resolveRef<T>(
     if (node && typeof node === "object" && node[key]) {
       node = node[key];
     } else {
-      warn(`Could not resolve $ref "${$ref}"`, silent);
+      logger.warn(`Could not resolve $ref "${$ref}"`);
       return undefined;
     }
   }
@@ -131,13 +118,10 @@ export function resolveRef<T>(
   // if this is also a $ref, keep tracing
   if (node && typeof node === "object" && node.$ref) {
     if (visited.includes(node.$ref)) {
-      warn(`Could not resolve circular $ref "${$ref}"`, silent);
+      logger.warn(`Could not resolve circular $ref "${$ref}"`);
       return undefined;
     }
-    return resolveRef(schema, node.$ref, {
-      silent,
-      visited: [...visited, node.$ref],
-    });
+    return resolveRef(schema, node.$ref, { ...options, logger, visited: [...visited, node.$ref] });
   }
 
   return node;
@@ -166,8 +150,5 @@ export function walk(
 
 /** Print warning message */
 export function warn(msg: string, silent = false) {
-  if (!silent) {
-    // biome-ignore lint/suspicious/noConsole: this is a CLI
-    console.warn(c.yellow(` ⚠  ${msg}`));
-  }
+  defaultLogger(silent).warn(msg);
 }

@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
+import { loadFailedError, schemaInvalidError } from "../../src/adapters/redocly-loader/schema-load-errors.js";
 import openapiTS, { type OpenAPITypesafeError } from "../../src/index.js";
-import { loadFailedError, schemaInvalidError } from "../../src/lib/schema-load-errors.js";
 
 const INFO = { title: "Test", version: "1.0" };
 

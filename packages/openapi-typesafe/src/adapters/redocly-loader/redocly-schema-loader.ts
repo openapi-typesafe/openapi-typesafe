@@ -1,4 +1,3 @@
-import { performance } from "node:perf_hooks";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import {
@@ -12,7 +11,9 @@ import {
   Source,
 } from "@redocly/openapi-core";
 import parseJson from "parse-json";
-import type { OpenAPI3 } from "../types.js";
+import type { Logger } from "../../application/ports/logger.js";
+import type { SchemaLoader, SchemaLoadRequest } from "../../application/ports/schema-loader.js";
+import type { OpenAPI3 } from "../../types.js";
 import {
   loadFailedError,
   parseFailedError,
@@ -21,12 +22,16 @@ import {
   sourceInvalidError,
   versionUnsupportedError,
 } from "./schema-load-errors.js";
-import { debug, error, warn } from "./utils.js";
 
-export interface ValidateAndBundleOptions {
-  redoc: RedoclyConfig;
-  silent: boolean;
-  cwd?: URL;
+/**
+ * The SchemaLoader port on Redocly 1.34 (ADR-005): parse any inherited source type, then lint and
+ * bundle with the given Redocly config. Problems go to the logger; errors fail the load.
+ */
+export interface RedoclySchemaLoaderOptions {
+  readonly redoc: RedoclyConfig;
+  readonly logger: Logger;
+  /** A monotonic time in milliseconds, for the debug durations. */
+  readonly now: () => number;
 }
 
 interface ParseSchemaOptions {
@@ -125,26 +130,6 @@ export async function parseSchema(schema: unknown, options: ParseSchemaOptions):
   return parseSchemaObject(schema, options.absoluteRef);
 }
 
-/** Report every problem; then throw if any of them is an error. */
-function processProblems(problems: NormalizedProblem[], options: { silent: boolean }): void {
-  const errorMessages: string[] = [];
-  for (const problem of problems) {
-    const problemLocation = problem.location?.[0].pointer;
-    const problemMessage = problemLocation
-      ? `${problem.message} at ${problemLocation}`
-      : problem.message;
-    if (problem.severity === "error") {
-      errorMessages.push(problemMessage);
-      error(problemMessage);
-    } else {
-      warn(problemMessage, options.silent);
-    }
-  }
-  if (errorMessages.length > 0) {
-    throw schemaInvalidError(errorMessages);
-  }
-}
-
 /** Accept OpenAPI 3.x only; Swagger 2 and other formats get their own message. */
 function assertOpenAPI3(parsed: Record<string, unknown>): void {
   const openapiVersion = Number.parseFloat(parsed.openapi as string);
@@ -170,51 +155,81 @@ function assertOpenAPI3(parsed: Record<string, unknown>): void {
 }
 
 /** The base for relative `$ref`s: the source file or URL itself, else the working directory. */
-function sourceAbsoluteRef(source: unknown, cwd: URL | undefined): string {
+function sourceAbsoluteRef(source: unknown, cwd: URL): string {
   if (source instanceof URL) {
     return source.protocol === "file:" ? fileURLToPath(source) : source.href;
   }
-  return fileURLToPath(new URL(cwd ?? `file://${process.cwd()}/`));
+  return fileURLToPath(cwd);
 }
 
-async function lintSchema(
-  document: Document,
-  resolver: BaseResolver,
-  options: ValidateAndBundleOptions,
-): Promise<void> {
-  const startedAt = performance.now();
-  const problems = await lintDocument({
-    document,
-    config: options.redoc.styleguide,
-    externalRefResolver: resolver,
-  });
-  processProblems(problems, options);
-  debug("Linted schema", "lint", performance.now() - startedAt);
+class RedoclySchemaLoader implements SchemaLoader {
+  readonly #options: RedoclySchemaLoaderOptions;
+
+  constructor(options: RedoclySchemaLoaderOptions) {
+    this.#options = options;
+  }
+
+  async load(request: SchemaLoadRequest): Promise<OpenAPI3> {
+    const { logger, now, redoc } = this.#options;
+    const configLoadedAt = now();
+    logger.debug("Loaded Redoc config", "redoc", now() - configLoadedAt);
+    const parseStartedAt = now();
+    const absoluteRef = sourceAbsoluteRef(request.source, request.cwd);
+    const resolver = new BaseResolver(redoc.resolve);
+    const document = await parseSchema(request.source, { absoluteRef, resolver });
+    logger.debug("Parsed schema", "redoc", now() - parseStartedAt);
+    assertOpenAPI3(document.parsed);
+    await this.#lint(document, resolver);
+    return this.#bundle(document);
+  }
+
+  async #lint(document: Document, resolver: BaseResolver): Promise<void> {
+    const startedAt = this.#options.now();
+    const problems = await lintDocument({
+      document,
+      config: this.#options.redoc.styleguide,
+      externalRefResolver: resolver,
+    });
+    this.#report(problems);
+    this.#options.logger.debug("Linted schema", "lint", this.#options.now() - startedAt);
+  }
+
+  async #bundle(document: Document): Promise<OpenAPI3> {
+    const startedAt = this.#options.now();
+    const bundled = await bundle({
+      config: this.#options.redoc,
+      dereference: false,
+      doc: document,
+    });
+    this.#report(bundled.problems);
+    this.#options.logger.debug("Bundled schema", "bundle", this.#options.now() - startedAt);
+    return bundled.bundle.parsed;
+  }
+
+  /** Report every problem; then throw if any of them is an error. */
+  #report(problems: readonly NormalizedProblem[]): void {
+    const errorMessages: string[] = [];
+    for (const problem of problems) {
+      const message = problemMessage(problem);
+      if (problem.severity === "error") {
+        errorMessages.push(message);
+        this.#options.logger.error(message);
+      } else {
+        this.#options.logger.warn(message);
+      }
+    }
+    if (errorMessages.length > 0) {
+      throw schemaInvalidError(errorMessages);
+    }
+  }
 }
 
-async function bundleSchema(document: Document, options: ValidateAndBundleOptions) {
-  const startedAt = performance.now();
-  const bundled = await bundle({ config: options.redoc, dereference: false, doc: document });
-  processProblems(bundled.problems, options);
-  debug("Bundled schema", "bundle", performance.now() - startedAt);
-  return bundled.bundle.parsed;
+function problemMessage(problem: NormalizedProblem): string {
+  const location = problem.location?.[0]?.pointer;
+  return location ? `${problem.message} at ${location}` : problem.message;
 }
 
-/**
- * Validate an OpenAPI schema and flatten into a single schema using Redocly CLI
- */
-export async function validateAndBundle(
-  source: string | URL | OpenAPI3 | Readable | Buffer,
-  options: ValidateAndBundleOptions,
-) {
-  const configLoadedAt = performance.now();
-  debug("Loaded Redoc config", "redoc", performance.now() - configLoadedAt);
-  const parseStartedAt = performance.now();
-  const absoluteRef = sourceAbsoluteRef(source, options.cwd);
-  const resolver = new BaseResolver(options.redoc.resolve);
-  const document = await parseSchema(source, { absoluteRef, resolver });
-  debug("Parsed schema", "redoc", performance.now() - parseStartedAt);
-  assertOpenAPI3(document.parsed);
-  await lintSchema(document, resolver, options);
-  return bundleSchema(document, options);
+/** A schema loader with one Redocly config and logger, for one or more loads. */
+export function createRedoclySchemaLoader(options: RedoclySchemaLoaderOptions): SchemaLoader {
+  return new RedoclySchemaLoader(options);
 }

@@ -1,5 +1,5 @@
 import { createConfig } from "@redocly/openapi-core";
-import { resolveRef } from "../src/lib/utils.js";
+import { resolveRef } from "../src/api/legacy-utils.js";
 import type { GlobalContext, TransformNodeOptions } from "../src/types.js";
 
 /** Default options for all transform* functions */

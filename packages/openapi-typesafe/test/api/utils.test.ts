@@ -1,4 +1,4 @@
-import { createRef, getEntries } from "../../src/lib/utils.js";
+import { createRef, getEntries } from "../../src/api/legacy-utils.js";
 
 describe("getEntries", () => {
   test("operates like Object.entries()", () => {

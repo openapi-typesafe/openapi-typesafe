@@ -1,7 +1,7 @@
+import { createTransformContext } from "../api/transform-context.js";
 import { componentsType } from "../application/transform/document/components.js";
 import type { IrType, IrTypeAliasDeclaration } from "../domain/ir/nodes.js";
 import { isEnumSchema, singularizeComponentKind } from "../domain/openapi/components-object.js";
-import { createTransformContext } from "../lib/transform-context.js";
 import type { ComponentsObject, GlobalContext } from "../types.js";
 
 export { isEnumSchema };

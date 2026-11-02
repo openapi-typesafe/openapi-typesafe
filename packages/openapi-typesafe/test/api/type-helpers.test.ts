@@ -1,8 +1,7 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { parseStatements } from "../../src/adapters/type-ast-bridge/ir-declarations-to-typescript.js";
-import { astToString } from "../../src/index.js";
-import type { FooterEntry } from "../../src/lib/footer-entry.js";
+import type { FooterEntry } from "../../src/api/footer-entry.js";
 import {
   BOOLEAN,
   NULL,
@@ -16,7 +15,8 @@ import {
   tsRecord,
   tsUnion,
   tsWithRequired,
-} from "../../src/lib/type-helpers.js";
+} from "../../src/api/type-helpers.js";
+import { astToString } from "../../src/index.js";
 
 const TS_DATE = ts.factory.createTypeReferenceNode("Date");
 const WITH_REQUIRED = "type WithRequired<T, K extends keyof T> = T & {\n    [P in K]-?: T[P];\n};";

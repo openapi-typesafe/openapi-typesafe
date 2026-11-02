@@ -1,3 +1,4 @@
+import type { Logger } from "../application/ports/logger.js";
 import type {
   DiscriminatorObject,
   GeneratorOptions,
@@ -6,7 +7,8 @@ import type {
   ReferenceObject,
   SchemaObject,
 } from "../types.js";
-import { createRef, resolveRef, walk, warn } from "./utils.js";
+import { defaultLogger } from "./default-ports.js";
+import { createRef, resolveRef, walk } from "./legacy-utils.js";
 
 /**
  * The inherited discriminator pre-pass. It finds every discriminator in the bundled document and
@@ -19,7 +21,8 @@ type DiscriminatorMapping = Record<string, { inferred?: string; defined?: string
 /** What the two passes share: the document they patch and what they found so far. */
 interface ScanState {
   readonly schema: OpenAPI3;
-  readonly options: GeneratorOptions;
+  readonly silent: boolean;
+  readonly logger: Logger;
   readonly objects: Record<string, DiscriminatorObject>;
   readonly refsHandled: string[];
 }
@@ -79,8 +82,8 @@ function isObjectSchema(schema: unknown): schema is SchemaObject & ObjectSubtype
  * warning, when that schema is neither an `allOf` nor an object schema.
  */
 function patchDiscriminatorEnum(state: ScanState, patch: EnumPatch): boolean {
-  const silent = state.options.silent ?? false;
-  const resolved = resolveRef<SchemaObject>(state.schema, patch.ref, { silent });
+  const { silent, logger } = state;
+  const resolved = resolveRef<SchemaObject>(state.schema, patch.ref, { silent, logger });
   if (resolved?.allOf) {
     patchAllOf(resolved.allOf, patch);
     return true;
@@ -89,16 +92,15 @@ function patchDiscriminatorEnum(state: ScanState, patch: EnumPatch): boolean {
     patchObjectSchema(resolved, patch);
     return true;
   }
-  warnInvalidMapping(patch, state.options.silent);
+  warnInvalidMapping(patch, state.logger);
   return false;
 }
 
-function warnInvalidMapping(patch: EnumPatch, silent: boolean | undefined): void {
+function warnInvalidMapping(patch: EnumPatch, logger: Logger): void {
   const mapped = `${patch.ref} => ${patch.values.join(", ")}`;
-  warn(
+  logger.warn(
     "Discriminator mapping has an invalid schema (neither an object schema nor an allOf array): " +
       `${mapped} (Discriminator: ${patch.discriminatorRef})`,
-    silent,
   );
 }
 
@@ -218,12 +220,17 @@ function inheritDiscriminators(
   }
 }
 
-/** Return a key–value map of discriminator objects found in a schema */
+/**
+ * Return a key–value map of discriminator objects found in a schema. Warnings go to `logger`;
+ * without one, to the default terminal logger, as the original did.
+ */
 export function scanDiscriminators(
   schema: OpenAPI3,
   options: GeneratorOptions,
+  logger: Logger = defaultLogger(options.silent ?? false),
 ): { objects: Record<string, DiscriminatorObject>; refsHandled: string[] } {
-  const state: ScanState = { schema, options, objects: {}, refsHandled: [] };
+  const silent = options.silent ?? false;
+  const state: ScanState = { schema, silent, logger, objects: {}, refsHandled: [] };
   walk(schema, (value, path) => collectDiscriminator(state, value, path));
   // A second pass, because an `allOf` may name a discriminator that is defined later.
   walk(schema, (value, path) => inheritDiscriminators(state, value, path));
