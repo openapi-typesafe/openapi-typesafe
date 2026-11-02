@@ -1,4 +1,4 @@
 {
-  "compilerOptions": { "strict": true, "noEmit": true, "types": [] },
+  "compilerOptions": { "strict": true, "noEmit": true, "lib": ["es5"], "types": [] },
   "files": ["answer.ts"]
 }

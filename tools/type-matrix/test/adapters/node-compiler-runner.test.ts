@@ -6,10 +6,13 @@ const STAND_IN = fileURLToPath(new URL("../fixtures/stand-in-tsc.mjs", import.me
 const CONSUMER_DIR = fileURLToPath(new URL("../fixtures", import.meta.url));
 const NORMAL_TIMEOUT_MS = 10_000;
 /**
- * The test with a real compiler waits for the runner's own limit, not vitest's 5 s default: a cold
- * `tsc` start on a busy CI runner took longer than 5 s, while the runner allows 10 s.
+ * The real compiler shares the CI runner with the other packages' test suites, which turbo runs in
+ * parallel. There a cold `tsc` start took more than 10 s, while it takes under 2 s alone. The test
+ * checks how the compiler is found, not how fast it runs, so it allows one minute.
  */
-const REAL_COMPILER_TEST_TIMEOUT_MS = NORMAL_TIMEOUT_MS + 2_000;
+const REAL_COMPILER_TIMEOUT_MS = 60_000;
+/** vitest waits a little longer than the runner, so a slow compiler fails with the runner's reason. */
+const REAL_COMPILER_TEST_TIMEOUT_MS = REAL_COMPILER_TIMEOUT_MS + 2_000;
 const SHORT_TIMEOUT_MS = 200;
 
 function runner(timeoutMs: number): NodeCompilerRunner {
@@ -52,7 +55,7 @@ describe("NodeCompilerRunner", () => {
     async () => {
       const real = new NodeCompilerRunner({
         consumerDir: CONSUMER_DIR,
-        timeoutMs: NORMAL_TIMEOUT_MS,
+        timeoutMs: REAL_COMPILER_TIMEOUT_MS,
       });
 
       const outcome = await real.run({
