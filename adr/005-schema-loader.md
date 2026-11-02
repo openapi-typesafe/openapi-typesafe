@@ -17,7 +17,9 @@ documents with Redocly 1.34.22 (current lockfile), Redocly 2.72.1 and json-schem
 - json-schema-ref-parser bundles 120 documents differently, is about 2× slower, and has no linting or
   Redocly config support.
 - Redocly 1.34.6 (the fork base) rejects OpenAPI 3.2; 1.34.22 and 2.x accept it. The 1.x line is still
-  patched (1.34.22 released 2026-10-22, dist-tag `v1-archive`).
+  patched (1.34.22 released 2026-10-22, dist-tag `v1-archive`). The first 1.x release that accepts
+  3.2 is 1.34.15 (measured 2026-11-02), so the dependency range starts at `^1.34.22`, the version
+  the tests run with; `test/api/dependency-ranges.test.ts` keeps it from going lower.
 
 ## Decision
 
