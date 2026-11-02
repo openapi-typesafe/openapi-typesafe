@@ -12,6 +12,11 @@ Options
   --log <file>   The JSON Lines log file (default: a new file in the temporary directory)
   --help, -h     Show this help
   --version, -v  Show the version
+
+Exit codes
+  0  Done
+  1  The migration failed (the message and the log say why)
+  2  Unknown option or argument
 `;
 
 export const usageError = (message: string): string =>

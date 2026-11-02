@@ -47,6 +47,7 @@ describe("runCli", () => {
 
     expect(await runCli(["--help"], dependencies)).toBe(EXIT_CODES.success);
     expect(output.stdout).toBe(HELP_TEXT);
+    expect(output.stdout).toContain("Exit codes");
   });
 
   it("runCli prints the version", async () => {
