@@ -87,6 +87,10 @@ so a node can only be read with the same `typescript` module that created it.
   TypeScript indents a nested node. Known limit: that also indents the continuation lines of a template
   literal type that spans lines, which TypeScript keeps verbatim. Step 7 lists it in the compatibility
   report's known differences.
+- A root type (`$defs`) is written as an interface only when its IR type is an object with members. If the
+  `transform` callback returns a type literal for the `$defs` root that the bridge keeps as `raw` (members
+  the IR has no node for), the root becomes `Record<string, never>` instead of an interface with those
+  members. No sampled project does this; the Phase 8 check confirms it.
 
 ## Review trigger
 

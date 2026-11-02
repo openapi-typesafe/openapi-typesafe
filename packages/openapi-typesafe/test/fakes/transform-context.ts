@@ -36,6 +36,9 @@ export const DEFAULT_TRANSFORM_OPTIONS: TransformOptions = {
   rootTypes: false,
   rootTypesNoSchemaPrefix: false,
   rootTypesKeepCasing: false,
+  exportType: false,
+  inject: undefined,
+  makePathsEnum: false,
 };
 
 /** Records footer requests; enum names are the requested names with a capital letter. */

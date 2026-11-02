@@ -204,6 +204,17 @@ function toConstArrayStatement(
   return factory.createVariableStatement(exportModifiers(declaration.isExported), list);
 }
 
+function parseStatements(text: string): readonly ts.Statement[] {
+  return ts.createSourceFile("raw.ts", text, ts.ScriptTarget.ESNext).statements;
+}
+
+/** Convert one IR declaration; a raw declaration gives every statement its text holds. */
+export function toStatements(declaration: IrDeclaration): ts.Statement[] {
+  return declaration.kind === "rawDeclaration"
+    ? [...parseStatements(declaration.text)]
+    : [toStatement(declaration)];
+}
+
 /** Convert one IR declaration. A raw declaration is parsed, like the original's `stringToAST`. */
 export function toStatement(declaration: IrDeclaration): ts.Statement {
   switch (declaration.kind) {
@@ -246,8 +257,7 @@ export function toStatement(declaration: IrDeclaration): ts.Statement {
     case "constArray":
       return withComments(toConstArrayStatement(declaration), declaration.comments);
     case "rawDeclaration":
-      return ts.createSourceFile("raw.ts", declaration.text, ts.ScriptTarget.ESNext)
-        .statements[0] as ts.Statement;
+      return parseStatements(declaration.text)[0] as ts.Statement;
     default:
       return assertNever(declaration);
   }

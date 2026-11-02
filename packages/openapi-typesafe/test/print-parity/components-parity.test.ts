@@ -3,18 +3,15 @@ import type ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { astToString } from "../../src/lib/ts.js";
 import transformComponentsObject from "../../src/transform/components-object.js";
+import { componentsArbitrary as components } from "./document-arbitraries.js";
 import originalTransformComponentsObject from "./original/components-object.js";
 import {
   type ContextInput,
-  contentArbitrary,
   contextInput,
   createContext,
-  headerArbitrary,
   RUNS,
   resetLegacyEnumState,
-  schemaArbitrary,
   TIMEOUT_MS,
-  text,
 } from "./parity-arbitraries.js";
 
 /**
@@ -22,30 +19,6 @@ import {
  * the fork base produced: the `components` type, the `--root-types` aliases (names, conflicts,
  * casing options) and the footer.
  */
-
-const NAMES = ["Pet", "pet", "pet-store", "Pet_2", "1", "a b", "PetStore", "pet_store"] as const;
-const name = fc.constantFrom(...NAMES);
-const schema = schemaArbitrary();
-const components = fc.record(
-  {
-    schemas: fc.dictionary(name, schema, { maxKeys: 4 }),
-    responses: fc.dictionary(name, fc.record({ content: contentArbitrary, description: text }), {
-      maxKeys: 2,
-    }),
-    parameters: fc.dictionary(
-      name,
-      fc.record({ name: fc.constant("q"), in: fc.constant("query"), schema }),
-      {
-        maxKeys: 2,
-      },
-    ),
-    requestBodies: fc.dictionary(name, fc.record({ content: contentArbitrary }), { maxKeys: 2 }),
-    headers: fc.dictionary(name, headerArbitrary, { maxKeys: 2 }),
-    pathItems: fc.dictionary(name, fc.constant({}), { maxKeys: 1 }),
-    examples: fc.constant({ Ignored: {} }),
-  },
-  { requiredKeys: [] },
-);
 
 type Transform = typeof transformComponentsObject;
 

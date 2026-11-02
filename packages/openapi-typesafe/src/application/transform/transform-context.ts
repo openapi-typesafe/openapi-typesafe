@@ -13,6 +13,12 @@ export interface TransformOptions extends SchemaOptions {
   readonly rootTypesNoSchemaPrefix: boolean;
   /** `--root-types-keep-casing`: keep schema names as written instead of PascalCase. */
   readonly rootTypesKeepCasing: boolean;
+  /** `--export-type`: root types are type aliases instead of interfaces. */
+  readonly exportType: boolean;
+  /** Code added as is after the helper types (Node API `inject`). */
+  readonly inject: string | undefined;
+  /** `--make-paths-enum`: add the `ApiPaths` enum of all operation URLs. */
+  readonly makePathsEnum: boolean;
 }
 
 /** Name casing for generated identifiers (the original uses the `change-case` package). */

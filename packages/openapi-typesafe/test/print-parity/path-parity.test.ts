@@ -10,6 +10,12 @@ import makeApiPathsEnum from "../../src/transform/paths-enum.js";
 import transformPathsObject from "../../src/transform/paths-object.js";
 import transformWebhooksObject from "../../src/transform/webhooks-object.js";
 import type { TransformNodeOptions } from "../../src/types.js";
+import {
+  operationArbitrary as operation,
+  pathItemArbitrary as pathItem,
+  pathsArbitrary as paths,
+  webhooksArbitrary as webhooks,
+} from "./document-arbitraries.js";
 import originalTransformOperationObject, {
   injectOperationObject as originalInjectOperationObject,
 } from "./original/operation-object.js";
@@ -19,16 +25,11 @@ import originalTransformPathsObject from "./original/paths-object.js";
 import originalTransformWebhooksObject from "./original/webhooks-object.js";
 import {
   type ContextInput,
-  contentArbitrary,
   contextInput,
-  headerArbitrary,
-  key,
   RUNS,
   resetLegacyEnumState,
   runLegacy,
-  schemaArbitrary,
   TIMEOUT_MS,
-  text,
 } from "./parity-arbitraries.js";
 
 /**
@@ -36,94 +37,6 @@ import {
  * enum transformers must produce exactly what the fork base produced, including the `operations`
  * interface and other footer declarations, debug-free output, and errors.
  */
-
-const schema = schemaArbitrary();
-const parameter = fc.oneof(
-  {
-    weight: 3,
-    arbitrary: fc.record(
-      {
-        name: fc.oneof(key, fc.constantFrom("id", "count", "flag")),
-        in: fc.constantFrom("query", "path", "header"),
-        required: fc.boolean(),
-        deprecated: fc.boolean(),
-        schema: fc.oneof(
-          schema,
-          fc.record({ type: fc.constantFrom("integer", "boolean", "number") }),
-        ),
-        description: text,
-      },
-      { requiredKeys: ["in"] },
-    ),
-  },
-  fc.record({
-    $ref: fc.constantFrom(
-      "#/components/parameters/Id",
-      "#/components/parameters/Count",
-      "#/components/parameters/Missing",
-    ),
-  }),
-);
-const response = fc.record(
-  {
-    headers: fc.dictionary(key, headerArbitrary, { maxKeys: 2 }),
-    content: contentArbitrary,
-    description: text,
-  },
-  { requiredKeys: [] },
-);
-const operation = fc.record(
-  {
-    operationId: fc.constantFrom("listItems", "a#b", "", "getNew"),
-    deprecated: fc.boolean(),
-    description: text,
-    parameters: fc.array(parameter, { maxLength: 3 }),
-    requestBody: fc.oneof(
-      fc.record(
-        { required: fc.boolean(), content: contentArbitrary, description: text },
-        { requiredKeys: [] },
-      ),
-      fc.record({
-        $ref: fc.constantFrom(
-          "#/components/requestBodies/Body",
-          "#/components/requestBodies/Optional",
-        ),
-      }),
-    ),
-    responses: fc.dictionary(fc.constantFrom("200", "default"), response, { maxKeys: 2 }),
-  },
-  { requiredKeys: [] },
-);
-const operationOrReference = fc.oneof(
-  { weight: 4, arbitrary: operation },
-  fc.record({ $ref: fc.constantFrom("#/paths/~1old/get", "#/paths/~1new/get") }),
-);
-const pathItem = fc.record(
-  {
-    parameters: fc.array(parameter, { maxLength: 3 }),
-    get: operationOrReference,
-    post: operationOrReference,
-    trace: operationOrReference,
-    description: text,
-  },
-  { requiredKeys: [] },
-);
-const paths = fc.dictionary(
-  fc.constantFrom("/items", "/items/{id}", "/a/{count}/{flag}/{count}", "/b/{open", "/c/{id}`x"),
-  fc.oneof(
-    { weight: 6, arbitrary: pathItem },
-    fc.record({ $ref: fc.constant("#/components/pathItems/P") }),
-    fc.constantFrom(null, "text"),
-  ),
-  { maxKeys: 3 },
-);
-const webhooks = fc.dictionary(
-  key,
-  fc.oneof({ weight: 4, arbitrary: pathItem }, fc.constant(null)),
-  {
-    maxKeys: 2,
-  },
-);
 
 type Build = (options: TransformNodeOptions) => ts.TypeNode;
 

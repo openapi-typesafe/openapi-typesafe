@@ -79,6 +79,9 @@ function transformOptions(ctx: GlobalContext): TransformOptions {
     rootTypes: ctx.rootTypes,
     rootTypesNoSchemaPrefix: ctx.rootTypesNoSchemaPrefix,
     rootTypesKeepCasing: ctx.rootTypesKeepCasing,
+    exportType: ctx.exportType,
+    inject: ctx.inject,
+    makePathsEnum: ctx.makePathsEnum,
   };
 }
 

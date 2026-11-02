@@ -282,6 +282,8 @@ export const OPTION_KEYS = [
   "rootTypes",
   "rootTypesNoSchemaPrefix",
   "rootTypesKeepCasing",
+  "exportType",
+  "makePathsEnum",
 ] as const;
 
 export const contextInput = fc.record({
