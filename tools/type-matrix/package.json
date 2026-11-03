@@ -18,11 +18,11 @@
   },
   "devDependencies": {
     "@tanstack/react-query": "5.105.1",
-    "@types/react": "18.3.31",
+    "@types/react": "19.3.0",
     "openapi-typesafe-fetch": "workspace:*",
     "openapi-typesafe-helpers": "workspace:*",
     "openapi-typesafe-react-query": "workspace:*",
-    "react": "18.3.1",
+    "react": "19.3.1",
     "typescript": "catalog:",
     "typescript-5.4": "npm:typescript@5.4.5",
     "typescript-5.9": "npm:typescript@5.9.3",
