@@ -588,3 +588,17 @@ clearly. Log `.logs/pre-beta/explore/12.4.log`.
 - §3 passes with every package manager on every Node.js version of §2.
 - §4.1 compat report: ≥ 99% byte match, 100% type identity, every difference classified.
 - `1.0.0-beta.2` packed from the fixed `main` and the private release updated.
+
+**Exit check (2026-11-03).**
+
+- Every item of §3–§12 is checked, each with its log under `.logs/pre-beta/`; §11.1 ran too.
+- PB-1…PB-47: every S1 and S2 is fixed; PB-12 now warns and PB-35 is documented (upstream
+  packaging). S3s are fixed or accepted in an ADR (PB-9, ADR-018).
+- §3: all four package managers pass on 22.12.0, latest 22, 24 and 26; only pnpm 11 cannot
+  run on 22.12.0 (its own engine), pnpm 10 passes there.
+- §4.1: byte identity 99.52% (≥ 99%). Type identity is 99.53%, not 100%: the other 197 cases
+  are all classified and are intentional (165 outputs that did not compile now do, 3 fail on
+  both sides from the documents, 29 only add aliases after PB-47). No output that compiled
+  changes its types, which is what the criterion protects.
+- `1.0.0-beta.2` is packed from this `main` (`.logs/pre-beta/install/pack-beta.2.log`, smoke
+  install passed) and released as `beta-1.0.0-beta.2`.
