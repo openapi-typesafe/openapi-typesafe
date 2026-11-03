@@ -148,7 +148,7 @@ and asks.
 
 ### R5. How opt-in output fixes are exposed (ADR)
 
-- [ ] R5.1 Six fixes below change valid output. One flag each would grow `--help` by six flags
+- [x] R5.1 Six fixes below change valid output. One flag each would grow `--help` by six flags
   that mean "fix this bug". Compare: one flag per fix; one option with a list
   (`--fix allof-required,anyof-properties` and `--fix all`); and how each choice flips to the
   default in 2.0. Write the ADR, then use it in R6, R8, R9, R11, R12 and R13.
@@ -200,6 +200,7 @@ and asks.
 | R2 | 2026-11-03 | see `git log --grep "3.2"` | OpenAPI 3.2 typed by default (ADR-020): `query`, `additionalOperations`, `itemContent`, `querystring`, `components.mediaTypes`; `QUERY` in the clients. Full corpus × 28 sets: 3.0/3.1 byte-identical; 3.2 documents gain types, lose none. See `research/roadmap/R2.md` |
 | R3 | 2026-11-03 | `docs(cli)` commit | Won't do: `default` does not promise the field is sent, so the correct type is optional, which `--default-non-nullable=false` already gives; a marker or split types encode a wrong assumption. Documented in `docs/cli.md#defaultnonnullable` and the skill. See `research/roadmap/R3.md` |
 | R4 | 2026-11-03 | `build(deps)` and `chore(examples)` commits | Workspace compiler on TypeScript 6 (not 7: no JavaScript compiler API for `unbuild` and the legacy bridge); `dist` byte-identical; SvelteKit 3 example; two Dependabot ignores dropped; ADR-006 decision 4 updated. See `research/roadmap/R4.md` |
+| R5 | 2026-11-03 | `docs(adr)` commit | ADR-021: one `fix` option with named fixes (`--fix allof-required,…`, `--fix all`), unknown names fail, `redocly.yaml` per API replaces the CLI list, every fix becomes the default in 2.0. See `research/roadmap/R5.md` |
 
 ## 7. Exit criteria
 
