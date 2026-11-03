@@ -17,10 +17,10 @@
   "devDependencies": {
     "@tsconfig/node20": "^20.1.9",
     "@vitejs/plugin-vue": "^6.0.10",
-    "@vue/tsconfig": "^0.5.1",
+    "@vue/tsconfig": "^0.9.1",
     "openapi-typesafe": "workspace:^",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vue-tsc": "^2.2.12"
+    "vue-tsc": "^3.3.14"
   }
 }
