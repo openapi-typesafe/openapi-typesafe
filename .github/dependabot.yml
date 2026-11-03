@@ -15,6 +15,11 @@ updates:
       prefix: build
       include: scope
     open-pull-requests-limit: 10
+    ignore:
+      # Undici 8 dispatchers fit only the fetch of Node.js 26; the fetch tests pass a dispatcher
+      # to the global fetch on Node.js 22 and 24 too (PB-50). Drop this when 26 is the lowest.
+      - dependency-name: undici
+        update-types: [version-update:semver-major]
     groups:
       production:
         dependency-type: production
