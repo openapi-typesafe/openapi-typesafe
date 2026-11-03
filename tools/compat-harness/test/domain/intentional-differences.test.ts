@@ -48,6 +48,46 @@ describe("INTENTIONAL_DIFFERENCES", () => {
     }
   });
 
+  it("an enum name that starts with a digit gets the Value prefix where a type name stands", () => {
+    const golden = [
+      "export enum 500ErrorCode {",
+      "            code?: 500ErrorCode;",
+      "            status: 401_UNAUTHORIZEDStatus[];",
+      " * @description 3D models; 500 errors",
+      '    value: "200OK";',
+    ].join("\n");
+
+    const { text, appliedIds } = applyIntentionalDifferences(golden, INTENTIONAL_DIFFERENCES);
+
+    expect(text.split("\n")).toEqual([
+      "export enum Value500ErrorCode {",
+      "            code?: Value500ErrorCode;",
+      "            status: Value401_UNAUTHORIZEDStatus[];",
+      " * @description 3D models; 500 errors",
+      '    value: "200OK";',
+    ]);
+    expect(appliedIds).toEqual(["enum-name-leading-digit"]);
+  });
+
+  it("a kept-casing root type name gets _ for each character that cannot be in an identifier", () => {
+    const golden = [
+      "export type SchemaAddress-3 = components['schemas']['Address-3'];",
+      "export type Schemaaaa.audit-logs = components['schemas']['aaa.audit-logs'];",
+      "export type SchemaPet = components['schemas']['Pet'];",
+      "export type Box<T> = { value: T };",
+    ].join("\n");
+
+    const { text, appliedIds } = applyIntentionalDifferences(golden, INTENTIONAL_DIFFERENCES);
+
+    expect(text.split("\n")).toEqual([
+      "export type SchemaAddress_3 = components['schemas']['Address-3'];",
+      "export type Schemaaaa_audit_logs = components['schemas']['aaa.audit-logs'];",
+      "export type SchemaPet = components['schemas']['Pet'];",
+      "export type Box<T> = { value: T };",
+    ]);
+    expect(appliedIds).toEqual(["root-type-name-identifier-characters"]);
+  });
+
   it("the empty enum member gets a quoted name", () => {
     const golden = 'export enum A {\n     = "",\n    b = "b"\n}\nexport enum B {\n     = ""\n}';
 
