@@ -16,7 +16,7 @@ Checked against the npm registry on 2026-11-02. Each update landed in its own co
 | size-limit, @size-limit/preset-small-lib | 12.1.0 | **14.3.0** | Measures with rolldown: fetch client 7.2 kB → 7.41 kB for the same code |
 | @playwright/test | 1.59.1 | 1.64.1 | |
 | prettier | 3.8.3 | 3.9.10 | Used only by docs tooling |
-| @types/node | 25.9.8 | 22.20.5 | Matches the lowest supported Node (`engines >= 22`) so newer Node APIs cannot slip in |
+| @types/node | 25.9.8 | 22.20.5 | Matches the lowest supported Node (`engines >= 22`) so newer Node APIs cannot slip in. Majors are ignored in Dependabot |
 | vite (catalog) | ^7.3.1 | **^8.3.5** | |
 | execa (catalog) | ^9.6.1 | **^10.2.1** | |
 | vite-node | 5.3.0 | **6.0.0** | |
