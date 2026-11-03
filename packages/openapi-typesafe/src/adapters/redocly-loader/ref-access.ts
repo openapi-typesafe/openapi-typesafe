@@ -36,12 +36,16 @@ export function isInsideDirectory(target: string, root: string): boolean {
 
 /** The real path, so a link inside the root that points outside it is caught. */
 async function realPathOrSelf(file: string): Promise<string> {
+  const absolute = path.resolve(file);
   try {
-    return await realpath(file);
+    return await realpath(absolute);
   } catch (error) {
-    // A missing file is never read, and Redocly reports it; check the path as written instead.
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return path.resolve(file);
+    // A missing file is never read, and Redocly reports it. Resolve its nearest existing
+    // directory instead, so it compares with the root's real path: the root may be reached
+    // through a link (macOS `/tmp` is one), and the missing file must not look outside it.
+    const parent = path.dirname(absolute);
+    if ((error as NodeJS.ErrnoException).code === "ENOENT" && parent !== absolute) {
+      return path.join(await realPathOrSelf(parent), path.basename(absolute));
     }
     throw error;
   }

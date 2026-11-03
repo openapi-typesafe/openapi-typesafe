@@ -122,8 +122,6 @@ describe("local $ref root (R1)", () => {
 
   it.each([
     ["an absolute path", () => path.join(workDir, "secrets", "person.json")],
-    ["a file: URL", () => pathToFileURL(path.join(workDir, "secrets", "person.json")).href],
-    ["a percent-encoded `..`", () => "%2e%2e/secrets/person.json"],
     ["a `..` after a directory inside the root", () => "shared/../../secrets/person.json"],
   ])("%s that leads outside the root is refused", async (_, ref) => {
     const root = await writeRoot("api/escape.json", ref());
@@ -131,6 +129,32 @@ describe("local $ref root (R1)", () => {
     const error = await loadFailure(root, { localRoot: localRoot() });
 
     expect(error.code).toBe("SCHEMA_REF_FORBIDDEN");
+  });
+
+  // Redocly reads both as plain relative file names, so they name missing files inside the root
+  // and never reach `secrets/`.
+  it.each([
+    ["a file: URL", () => pathToFileURL(path.join(workDir, "secrets", "person.json")).href],
+    ["a percent-encoded `..`", () => "%2e%2e/secrets/person.json"],
+  ])("%s is read as a file name inside the root", async (_, ref) => {
+    const root = await writeRoot("api/literal.json", ref());
+
+    const error = await loadFailure(root, { localRoot: localRoot() });
+
+    expect(error.code).toBe("SCHEMA_INVALID");
+    expect(error.message).toContain(`${path.sep}api${path.sep}`);
+    expect(error.message).toContain("ENOENT");
+  });
+
+  it("a missing file inside a root reached through a link is not found, not refused", async () => {
+    const linkedRoot = path.join(workDir, "api-link");
+    await symlink(path.join(workDir, "api"), linkedRoot);
+    const root = await writeRoot("api-link/missing-inside.json", "./nowhere.json");
+
+    const error = await loadFailure(root, { localRoot: pathToFileURL(linkedRoot) });
+
+    expect(error.code).toBe("SCHEMA_INVALID");
+    expect(error.message).toContain("ENOENT");
   });
 
   it("the root document itself may be outside the root", async () => {
