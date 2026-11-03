@@ -175,7 +175,22 @@ When serializing yourself, the string will be kept exactly as-authored, so you�
 
 ## bodySerializer
 
-Similar to [querySerializer](#queryserializer), bodySerializer allows you to customize how the requestBody is serialized if you don’t want the default [JSON.stringify()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify) behavior. You probably only need this when using `multipart/form-data`:
+Similar to [querySerializer](#queryserializer), bodySerializer allows you to customize how the requestBody is serialized if you don’t want the default [JSON.stringify()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify) behavior.
+
+A `multipart/form-data` body needs no serializer: set the header and pass the object. Each field
+becomes a part (a `Blob` or `File` a file part, an array one part per item, `null` and `undefined`
+left out), and the platform sets the boundary. Generate the types with
+[`--binary-as-blob`](/cli#binaryasblob) so file fields are typed `Blob`.
+
+```ts
+const { data, error } = await client.POST("/avatars", {
+  headers: { "Content-Type": "multipart/form-data" },
+  body: { file: new File([bytes], "avatar.png"), description: "Me" },
+});
+```
+
+A nested object in such a body throws, because a part with JSON needs its own content type and
+servers differ. For that, or any other format, write a `bodySerializer`:
 
 ```ts
 const { data, error } = await client.PUT("/submit", {
@@ -198,7 +213,8 @@ const { data, error } = await client.PUT("/submit", {
 For convenience, `openapi-typesafe-fetch` sets `Content-Type` to `application/json` automatically
 for any request that provides value for the `body` parameter. When the body (or the `bodySerializer` result) is a
 `FormData`, `Blob`, `File`, `URLSearchParams`, `ArrayBuffer` or typed array, `Content-Type` is omitted, allowing the
-platform to set it automatically (for `FormData`, with the correct message part boundary).
+platform to set it automatically (for `FormData`, with the correct message part boundary). A
+`Content-Type` without a `boundary` that you set for a `FormData` body is dropped for the same reason.
 
 You can also set `Content-Type` manually through `headers` object either in the fetch options,
 or when instantiating the client.

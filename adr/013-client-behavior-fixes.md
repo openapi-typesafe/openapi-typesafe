@@ -35,6 +35,9 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
 9. **Parameter names and object keys (pre-beta test plan 10.4, PB-33).** Values were percent-encoded,
    names and object keys were not. The keys of an `additionalProperties` query object are data, so a key
    `a&admin` added a query parameter, and a path object key `a/b` added a path segment.
+10. **Multipart bodies (roadmap R1; upstream #1214).** With `Content-Type: multipart/form-data`, an object
+   body was JSON-encoded, so a file upload needed a hand-written `bodySerializer`. A `FormData` body with that
+   header set by hand went out without the `boundary` parameter, and the server could not split the parts.
 
 ## Decision
 
@@ -59,6 +62,12 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
    except `[`, `]`, `$`, `:`, `@` and `,`, which are common in names (`filter[status]`, `$filter`) and do
    not split a URL. Names made of letters, digits and `-_.!~*'()` are unchanged. `allowReserved` still
    applies to values only, as in the OpenAPI specification.
+10. With a `multipart/form-data` `Content-Type`, an object body becomes `FormData`: a `Blob` (or `File`) is a
+    file part, a string as is, a number, boolean or bigint as its string, an array one part per item, and `null`
+    or `undefined` is left out. A nested object throws and names `bodySerializer()`: a part with JSON needs its
+    own content type, which the client does not guess (as in decision 7). For a `FormData` body, a
+    `Content-Type` without a `boundary` parameter is removed, so the platform sets its own; one with a
+    `boundary` is the user's and stays.
 
 ## Alternatives
 
@@ -74,6 +83,8 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
 | Send raw bodies as they are (chosen) | Uploads work; matches what `fetch` does with them | A user who relied on `{}` (no one can) sees a change |
 | Encode nested form values as `a[b]` | Works for PHP and Rails style servers | Silently wrong for servers that read `a.b` or JSON |
 | Throw on nested form values (chosen) | No silent `[object Object]`; the fix is one `bodySerializer` | A request that used to go out (broken) now rejects |
+| Multipart object bodies as `FormData` (chosen) | Uploads typed by `--binary-as-blob` work with one header | A request that was sent as JSON under a multipart header (which no server reads) changes |
+| Keep JSON, document a `bodySerializer` (upstream) | No change | Every upload needs the same hand-written serializer |
 | Encode names except name characters (chosen) | Closes parameter and segment injection; usual names unchanged | A name with `&`, `=`, `#`, `+`, `/`, `?`, `;`, `%` or a space is sent encoded |
 | Encode names fully (`encodeURIComponent`) | Simplest | `filter[status]` and `$filter` change on the wire; some servers match the raw form |
 | Keep names raw | No change | Data in keys can add parameters or path segments |
@@ -87,6 +98,9 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
   budget rises from 7.5 kB to 8 kB (7.77 kB after the changes). Correctness ranks above size
   (CODING_PRINCIPLES §1); openapi-fetch 0.17.0 is about the same size without these fixes.
 - Decision 9 adds about 0.13 kB (7.9 kB of 8 kB).
+- Decision 10 adds about 0.39 kB (8.29 kB), so the budget rises to 8.5 kB. The code was already cut down
+  (one shared error message, two regular expressions instead of a media type parser); the rest is the
+  behavior itself.
 
 ## Review trigger
 

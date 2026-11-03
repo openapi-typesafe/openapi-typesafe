@@ -58,3 +58,8 @@ apis:
     x-openapi-ts:
       output: ./read-write-visibility/schemas/read-write.d.ts
       read-write-markers: true
+  e2e:
+    root: ./e2e/app/schemas/e2e.yaml
+    x-openapi-ts:
+      output: ./e2e/app/schemas/e2e.d.ts
+      binary-as-blob: true

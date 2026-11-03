@@ -119,6 +119,7 @@ These are off by default, so the output does not change until you turn one on.
 - Middleware request ids come from a counter instead of `Math.random()`.
 - A `Blob`, `File`, `ArrayBuffer`, typed array or `URLSearchParams` body is sent as is; before, it was JSON-encoded to `{}`.
 - A nested object in an `application/x-www-form-urlencoded` body throws instead of being sent as `[object Object]`; write a `bodySerializer` for the format your server reads.
+- An object body with `Content-Type: multipart/form-data` is sent as `FormData` (one part per field), not as JSON, and a `multipart/form-data` header without a boundary no longer breaks a `FormData` upload.
 - A path that already has a query string gets `&` before `params.query`, not a second `?`.
 - `Readable` and `Writable` keep function types, so a `Blob` or `Date` in response data keeps its methods (`data.file.arrayBuffer()`).
 

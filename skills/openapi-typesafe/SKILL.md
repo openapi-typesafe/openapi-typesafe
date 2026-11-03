@@ -86,8 +86,10 @@ const created = await client.POST("/pets", {
   - text: `body: notes, headers: { "Content-Type": "text/plain" }`; a string is then sent as is
     (with a JSON type it would be a JSON string, in quotes);
   - form: `headers: { "Content-Type": "application/x-www-form-urlencoded" }` with a plain object;
-  - files (`multipart/form-data`): pass the typed object as `body` and a `bodySerializer` that
-    builds a `FormData` from it; set no `Content-Type`, so `fetch` adds the multipart boundary.
+  - files (`multipart/form-data`): generate with `--binary-as-blob` (file fields become `Blob`),
+    set `headers: { "Content-Type": "multipart/form-data" }` and pass the typed object as `body`;
+    the client builds the `FormData` and `fetch` adds the boundary. Nested objects need a
+    `bodySerializer`.
 - The second argument is required only when the operation has required parameters or a required
   body.
 - Do not pass generics to `GET` / `POST` and do not cast the result. Everything is inferred from

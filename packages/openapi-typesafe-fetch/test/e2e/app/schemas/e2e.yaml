@@ -65,6 +65,7 @@ paths:
           multipart/form-data:
             schema:
               type: object
+              required: [file]
               properties:
                 message:
                   type: string
@@ -92,3 +93,13 @@ paths:
                 properties:
                   message:
                     type: string
+  /download:
+    get:
+      responses:
+        200:
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary

@@ -26,13 +26,15 @@ async function testPost() {
 }
 
 /**
- * Test 3: PUT /api/v1/multi-form
+ * Test 3: POST /api/v1/multi-form, a file upload. With `--binary-as-blob` the file field is a
+ * `Blob`, and the client turns the object into `FormData` with the platform's boundary.
  */
 async function testMultiForm() {
   const { data } = await client.POST("/multi-form", {
+    headers: { "Content-Type": "multipart/form-data" },
     body: {
       message: "Form",
-      file: new File(["Hello, World!"], "hello.txt") as unknown as string,
+      file: new File(["Hello, World!"], "hello.txt", { type: "text/plain" }),
     },
   });
   if (!data) {
@@ -40,9 +42,20 @@ async function testMultiForm() {
   }
 }
 
+/**
+ * Test 4: GET /api/v1/download, a binary response read as a `Blob`.
+ */
+async function testDownload() {
+  const { data } = await client.GET("/download", { parseAs: "blob" });
+  const bytes = data === undefined ? [] : [...new Uint8Array(await data.arrayBuffer())];
+  if (bytes.join(",") !== "1,2,255") {
+    throw new Error(`/download: unexpected bytes ${bytes.join(",")}`);
+  }
+}
+
 // run all tests immediately on load
 (async () => {
-  await Promise.all([testGet(), testPost(), testMultiForm()]);
+  await Promise.all([testGet(), testPost(), testMultiForm(), testDownload()]);
 
   // add element Playwright is waiting for
   const div = document.createElement("div");

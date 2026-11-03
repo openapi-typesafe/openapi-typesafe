@@ -5,6 +5,11 @@ const DOT_SEGMENT_RE = /(^|\/)\.\.?(\/|$)/;
 /** Any JSON media type: `application/json`, `application/problem+json`, with or without parameters. */
 const JSON_MEDIA_TYPE_RE = /json/i;
 const FORM_MEDIA_TYPE = "application/x-www-form-urlencoded";
+/** `multipart/form-data`, with or without parameters. */
+const MULTIPART_MEDIA_TYPE_RE = /^multipart\/form-data(;|$)/i;
+const NESTED_FORM_VALUE_MESSAGE = "Nested form values need your own `bodySerializer()`.";
+/** The `boundary` parameter of a multipart `Content-Type`; only the platform knows its value. */
+const BOUNDARY_PARAMETER_RE = /;\s*boundary=/i;
 
 /**
  * Whether `fetch` is Node.js undici, which takes `requestInitExt` as a second argument. A Node.js
@@ -116,6 +121,12 @@ export default function createClient(clientOptions) {
       headers,
       params.header,
     );
+    // `fetch` sends a FormData as multipart with a boundary only it knows. A `Content-Type` without
+    // that boundary, set by hand, replaced the platform's, and the server could not split the parts
+    // (upstream #1214), so it goes and the platform sets its own (ADR-013, decision 10).
+    if (serializedBody instanceof FormData && !BOUNDARY_PARAMETER_RE.test(finalHeaders.get("Content-Type"))) {
+      finalHeaders.delete("Content-Type");
+    }
 
     // Client level middleware take priority over request-level middleware
     const finalMiddlewares = [...globalMiddlewares, ...requestMiddlewares];
@@ -664,10 +675,32 @@ function isRawBody(body) {
 function formBody(body) {
   for (const value of Object.values(body)) {
     if (value && typeof value === "object" && !Array.isArray(value)) {
-      throw new Error("Nested form values need your own `bodySerializer()`.");
+      throw new Error(NESTED_FORM_VALUE_MESSAGE);
     }
   }
   return new URLSearchParams(body).toString();
+}
+
+/**
+ * A `multipart/form-data` body: one part per field, one per item of an array. A `Blob` (or `File`)
+ * is a file part, other primitives are text, `null` and `undefined` are left out. A nested object
+ * would need a part content type such as JSON, which the client does not guess (ADR-013,
+ * decision 10).
+ */
+function multipartBody(body) {
+  const formData = new FormData();
+  for (const [name, value] of Object.entries(body)) {
+    for (const item of [value].flat()) {
+      if (item instanceof Blob) {
+        formData.append(name, item);
+      } else if (item && typeof item === "object") {
+        throw new Error(NESTED_FORM_VALUE_MESSAGE);
+      } else if (item != null) {
+        formData.append(name, String(item));
+      }
+    }
+  }
+  return formData;
 }
 
 /**
@@ -687,6 +720,9 @@ export function defaultBodySerializer(body, headers) {
     : undefined;
   if (contentType === FORM_MEDIA_TYPE) {
     return formBody(body);
+  }
+  if (body && typeof body === "object" && MULTIPART_MEDIA_TYPE_RE.test(contentType)) {
+    return multipartBody(body);
   }
   // A string for a non-JSON media type (`text/plain`, ...) is the body itself; JSON-encoding it
   // added quotes (upstream #2555, #2382). For JSON, a string is a JSON string value (ADR-013).
