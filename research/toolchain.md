@@ -47,7 +47,7 @@ commitlint (21.2.4), lefthook (2.2.2), fast-check (4.10.2), tsdown (not adopted)
 
 ## Example apps (not published)
 
-SvelteKit example: @sveltejs/kit ^2.70.3, @sveltejs/vite-plugin-svelte ^7.3.1, svelte ^5.57.3.
+SvelteKit example: @sveltejs/kit ^2.70.3 (3.x needs TypeScript 6 as a peer, so it waits for the workspace move to TS 6), @sveltejs/vite-plugin-svelte ^7.3.1, svelte ^5.57.3.
 Vue example: @vitejs/plugin-vue ^6.0.10, vue ^3.5.44. Both build with vite 8 without warnings. The Next.js example
 stays on Next 15 (Next 16 is a major upgrade of a demo app; it is reviewed with the docs in Phase 10).
 
