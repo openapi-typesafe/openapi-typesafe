@@ -25,12 +25,15 @@ repository is public.
 - [x] Turn on 2FA enforcement for the npm organization.
 - [x] Reserve the npm names: `scripts/release/reserve-names.sh`, then the commands it prints
       (npm account with 2FA). All five names hold a deprecated, code-free `0.0.0` (2026-11-02).
-- [x] Pack the beta: `scripts/release/pack-beta.sh 1.0.0-beta.1` (smoke install passed).
-- [x] Our own deep testing first: [research/pre-beta-test-plan.md](research/pre-beta-test-plan.md);
-      then pack `1.0.0-beta.2`. Done 2026-11-03: private prerelease `beta-1.0.0-beta.3`.
+- [x] Our own deep testing first: [research/pre-beta-test-plan.md](research/pre-beta-test-plan.md)
+      (done 2026-11-03).
+- [x] Pack the beta from the tested `main`: `scripts/release/pack-beta.sh 1.0.0-beta.3` (smoke
+      install passed), then run the `gh release create` command it prints: private prerelease
+      `beta-1.0.0-beta.3` with the five tarballs and `SHA256SUMS`. Checked as a tester would:
+      checksums, install, generate, type-check, ESM and CJS with npm, pnpm, Yarn and Bun, and
+      the migration command. The earlier `beta.1` and `beta.2` releases, which nobody had, were
+      deleted so testers see one beta.
 - [ ] Add 10–20 testers as read-only collaborators.
-- [x] Run the `gh release create` command the script prints: private prerelease
-      `beta-1.0.0-beta.1` with the five tarballs and `SHA256SUMS` (2026-11-02).
 - [ ] Triage tester reports as issues; fix with changesets; pack `beta.<n+1>` when needed.
 
 ## 2. Make the repository public (11.2)
