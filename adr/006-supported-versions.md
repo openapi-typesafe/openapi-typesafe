@@ -21,7 +21,8 @@
 3. **TypeScript for the generator:** until Phase 6 the generator still needs the compiler API at runtime, so it keeps
    working only with TypeScript ≤ 6. After Phase 6 it needs no TypeScript at all; `typescript` becomes an optional
    peer used only by the legacy bridge (ADR-004).
-4. **Development compiler:** TypeScript 5.9 (latest 5.x) until Phase 6, then re-evaluated.
+4. **Development compiler:** TypeScript 6 (re-evaluated after Phase 6, roadmap R4, 2026-11-03; it was 5.9 before).
+   Not 7: TypeScript 7 has no JavaScript compiler API, which `unbuild` declarations and the legacy bridge use.
 5. **Strict flags rollout:** new layered directories (`domain/`, `application/`, `adapters/`, `cli/`, `api/`) compile
    with full strictness (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`,
    `verbatimModuleSyntax`) from their first commit. Legacy files keep the inherited config and move to the strict
@@ -45,4 +46,5 @@
 
 ## Review trigger
 
-Node 22 end of life (2027-04-30): raise the floor to 24. A TypeScript release that breaks the consumer matrix.
+Node 22 end of life (2027-04-30): raise the floor to 24. A TypeScript release that breaks the consumer matrix. A
+build tool that no longer needs the JavaScript compiler API (backlog item 31): move the development compiler to 7.

@@ -5,12 +5,21 @@ packages:
 
 catalog:
   execa: ^10.2.1
-  typescript: ^5.9.3
+  typescript: ^6.0.3
   vite: ^8.3.5
 
 # Supply-chain policy: never install a version published less than 24 hours ago (most malicious
 # releases are detected and unpublished within that window). Value is in minutes.
 minimumReleaseAge: 1440
+
+# unbuild 3.6.1 (its latest release) declares an optional peer `typescript@^5.9.2`. Its builds are
+# byte-identical on TypeScript 6 (roadmap R4, `.logs/roadmap/R4/`). The peer bump waits in
+# https://github.com/unjs/unbuild/pull/573; unbuild itself is no longer developed
+# (https://github.com/unjs/unbuild/issues/566). Moving to a successor is backlog item 31
+# (`research/backlog.md`).
+peerDependencyRules:
+  allowedVersions:
+    unbuild>typescript: "6"
 
 # pnpm 11+ blocks dependency build scripts unless listed here (true = allowed to run, false = skipped).
 allowBuilds:

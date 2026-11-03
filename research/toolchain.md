@@ -24,7 +24,7 @@ Checked against the npm registry on 2026-11-02. Each update landed in its own co
 | jsdom | undeclared (20.0.3 via peer) | 30.1.3 | Declared in react-query, which uses it as test environment |
 | unbuild | 3.6.1 | 3.6.1 (latest) | Last release 2025-08-15. Kept: works with zero warnings; the alternative `tsdown` is pre-1.0 (0.23.4). Review trigger: a build defect without an upstream fix, or tsdown 1.0 |
 | @arethetypeswrong/cli | 0.18.5 | 0.18.5 (latest) | Pins `typescript@5.6.1-rc` internally |
-| typescript (workspace) | 5.9.3 | 5.9.3 | Latest 5.x. Development compiler stays on 5.x until Phase 6 removes the compiler API; TS 6 / 7 are test targets (ADR-006) |
+| typescript (workspace) | 5.9.3 | **^6.0.3** | Moved in roadmap R4 (`research/roadmap/R4.md`). Not 7.x: TS 7 has no JavaScript compiler API, which `unbuild` declarations and the legacy bridge use. 5.4–7.1 stay test targets (ADR-006) |
 | linkinator (docs) | — | 8.1.0 | Added in Phase 10.2 for the docs link check (links, anchors); repository links are checked against the working tree by `docs/scripts/check-repository-links.mjs` while the repository is private |
 | react-dom (react-query) | undeclared (picked by peer) | 19.3.1 | Declared in react-query: `@testing-library/react` needs it, and without the declaration pnpm resolved it to a version next to another React. React, React DOM and their types move together (Dependabot group `react`, 2026-11-03) |
 | vitepress-plugin-llms (docs) | — | 1.14.0 | Added in Phase 10.5: `llms.txt`, `llms-full.txt` and a Markdown copy of every page |
@@ -47,7 +47,8 @@ commitlint (21.2.4), lefthook (2.2.2), fast-check (4.10.2), tsdown (not adopted)
 
 ## Example apps (not published)
 
-SvelteKit example: @sveltejs/kit ^2.70.3 (3.x needs TypeScript 6 as a peer, so it waits for the workspace move to TS 6), @sveltejs/vite-plugin-svelte ^7.3.1, svelte ^5.57.3.
+SvelteKit example: @sveltejs/kit ^3.1.1, @sveltejs/adapter-auto ^8.0.0, @sveltejs/vite-plugin-svelte ^7.3.1, svelte ^5.57.3
+(roadmap R4: configuration in `vite.config.ts`, `#lib` subpath imports instead of `$lib`).
 Vue example: @vitejs/plugin-vue ^6.0.10, vue ^3.5.44. Both build with vite 8 without warnings. The Next.js example
 stays on Next 15 (Next 16 is a major upgrade of a demo app; it is reviewed with the docs in Phase 10).
 

@@ -45,7 +45,7 @@
     "test:exports": "pnpm run build && ../../scripts/check-exports.sh"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "catalog:"
   },
   "engines": {
     "node": ">=22"

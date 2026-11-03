@@ -139,11 +139,11 @@ and asks.
 
 ### R4. Workspace on TypeScript 6
 
-- [ ] R4.1 Research: what still pins the workspace compiler to 5.9 (`research/toolchain.md`,
+- [x] R4.1 Research: what still pins the workspace compiler to 5.9 (`research/toolchain.md`,
   ADR-006, compiler-API users: the type checks in the harness, the type matrix, legacy callbacks).
-- [ ] R4.2 Move the catalog `typescript` to 6.x; fix every error and warning; the consumer matrix
+- [x] R4.2 Move the catalog `typescript` to 6.x; fix every error and warning; the consumer matrix
   still covers 5.4 to 7.1.
-- [ ] R4.3 SvelteKit 3 and adapter-auto 8 in the example; drop their two ignore rules from
+- [x] R4.3 SvelteKit 3 and adapter-auto 8 in the example; drop their two ignore rules from
   `.github/dependabot.yml`; update `research/toolchain.md` and ADR-006.
 
 ### R5. How opt-in output fixes are exposed (ADR)
@@ -199,6 +199,7 @@ and asks.
 | R1 | 2026-11-03 | `693f59b2`..`b87c3599` | `--binary-as-blob`; `Readable`/`Writable` keep functions; multipart object bodies as `FormData`; harness checks opt-in flags. Opt-in: 7,280 cases, 0 regressions; compat 200 × 28: 0 mismatches; type matrix pass. See `research/roadmap/R1.md` |
 | R2 | 2026-11-03 | see `git log --grep "3.2"` | OpenAPI 3.2 typed by default (ADR-020): `query`, `additionalOperations`, `itemContent`, `querystring`, `components.mediaTypes`; `QUERY` in the clients. Full corpus × 28 sets: 3.0/3.1 byte-identical; 3.2 documents gain types, lose none. See `research/roadmap/R2.md` |
 | R3 | 2026-11-03 | `docs(cli)` commit | Won't do: `default` does not promise the field is sent, so the correct type is optional, which `--default-non-nullable=false` already gives; a marker or split types encode a wrong assumption. Documented in `docs/cli.md#defaultnonnullable` and the skill. See `research/roadmap/R3.md` |
+| R4 | 2026-11-03 | `build(deps)` and `chore(examples)` commits | Workspace compiler on TypeScript 6 (not 7: no JavaScript compiler API for `unbuild` and the legacy bridge); `dist` byte-identical; SvelteKit 3 example; two Dependabot ignores dropped; ADR-006 decision 4 updated. See `research/roadmap/R4.md` |
 
 ## 7. Exit criteria
 
