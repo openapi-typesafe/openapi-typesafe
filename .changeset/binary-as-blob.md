@@ -8,3 +8,6 @@ Raw binary is `format: binary` (OpenAPI 3.0), or a `contentMediaType` that is no
 `contentEncoding` (3.1, also without `type`). `format: byte`, encoded strings and text media types
 (`text/*`, JSON, XML, YAML) stay `string`. Off by default, so the output does not change. The
 names follow openapi-typescript PR #2878 by @joaodibba; closes openapi-typescript#1214.
+
+The `SchemaObject` type of the Node API gains the OpenAPI 3.1 keywords `contentMediaType` and
+`contentEncoding`.
