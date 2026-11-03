@@ -40,6 +40,9 @@ async function generateSchemas() {
         ]);
         args.push([`./examples/${name}${ext}`, "--root-types", "-o", `./examples/${name}-root-types.ts`]);
       }
+      if (name === "stripe-api") {
+        args.push([`./examples/${name}${ext}`, "--binary-as-blob", "-o", `./examples/${name}-binary-as-blob.ts`]);
+      }
 
       await Promise.all(args.map((a) => execa("./bin/cli.js", a, { cwd })));
 
