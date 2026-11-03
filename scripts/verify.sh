@@ -2,7 +2,7 @@
 # Run the local quality gate (build, lint, test, size) and write one log file per step.
 #
 # Usage: scripts/verify.sh [step ...]   (default: build lint test size)
-#        Steps: build, lint, test, size, coverage, types, e2e.
+#        Steps: build, lint, test, size, coverage, types, skills, e2e.
 # Logs:  .logs/verify/<UTC timestamp>/<step>.log, plus summary.log with exit codes and durations.
 #
 # Each step runs even if an earlier one failed, so one run shows every problem; the script exits
@@ -27,6 +27,8 @@ command_for_step() {
     coverage) echo "pnpm -r run --if-present test:coverage" ;;
     # Every supported TypeScript on the built packages (ENGINEERING_PLAN 8.1); needs `build` first.
     types) echo "pnpm --filter @openapi-typesafe/type-matrix matrix" ;;
+    # The agent-skill tasks against their reference solutions, as CI does; needs `build` first.
+    skills) echo "pnpm --filter @openapi-typesafe/skill-evals validate" ;;
     e2e) echo "pnpm test-e2e" ;;
     *) echo "" ;;
   esac

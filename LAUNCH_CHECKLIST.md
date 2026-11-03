@@ -66,5 +66,6 @@ repository is public.
 ## Working rules
 
 - CI minutes on the private repository are limited: verify locally first
-  (`VERIFY_FAIL_ON_WARNINGS=1 scripts/verify.sh build lint test size coverage types`, plus the
-  tests on Node.js 22 and 24 with `npx node@22` / `npx node@24`), and push several fixes at once.
+  (`VERIFY_FAIL_ON_WARNINGS=1 scripts/verify.sh build lint test size coverage types skills`,
+  plus the tests on Node.js 22 and 24 with `npx node@22` / `npx node@24`), and push several
+  fixes at once.

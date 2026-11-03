@@ -29,7 +29,7 @@ invite testers.
    openapi-typescript 7.13 (what users run today) is the reference for performance (§4.8) and
    for what users see change when they migrate (§8).
 4. Verify locally (`VERIFY_FAIL_ON_WARNINGS=1 scripts/verify.sh build lint test size coverage
-   types`, plus `npx node@22` / `npx node@24` for the affected suites). Push several fixes at
+   types skills`, plus `npx node@22` / `npx node@24` for the affected suites). Push several fixes at
    once to save CI minutes.
 5. Every run writes its log to `.logs/pre-beta/<area>/`. A test is "passed" only with a log.
 6. Exit code 70 (an unexpected error with a stack trace) is always a finding, at least S2: the
