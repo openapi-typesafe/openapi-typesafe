@@ -56,6 +56,8 @@ repository is public.
 - [ ] `pnpm exec changeset pre enter rc`, major changesets, merge the version pull request.
 - [ ] Approve the `publish` job; check provenance on npm for `1.0.0-rc.0` (`next` tag).
 - [ ] Publish the compatibility report: ≥ 99% byte match, 100% type identity.
+  The page is `docs/compatibility.md` (numbers from the 2026-11-03 full run); refresh it from the
+  full run of the release candidate before the docs site goes live.
 
 ## 4. Stable release (11.4)
 
