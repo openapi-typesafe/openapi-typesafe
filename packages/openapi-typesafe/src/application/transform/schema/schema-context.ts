@@ -11,6 +11,8 @@ export interface SchemaOptions {
   readonly additionalProperties: boolean;
   readonly alphabetize: boolean;
   readonly arrayLength: boolean;
+  /** `--binary-as-blob`: raw binary strings become `Blob`. */
+  readonly binaryAsBlob: boolean;
   readonly conditionalEnums: boolean;
   readonly dedupeEnums: boolean;
   readonly defaultNonNullable: boolean;

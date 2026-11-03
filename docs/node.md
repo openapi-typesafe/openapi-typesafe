@@ -215,6 +215,12 @@ updated_at?: Date; // [!code ++]
 
 #### Example: `Blob` types
 
+::: tip
+[`binaryAsBlob: true`](/cli#binaryasblob) (`--binary-as-blob`) does this without a `transform`, also for
+OpenAPI 3.1 `contentMediaType` and nullable schemas. The example below still shows how a `transform`
+works.
+:::
+
 Another common transformation is for file uploads, where the `body` of a request is a `multipart/form-data` with some `Blob` fields. Here's an example schema:
 
 ::: code-group

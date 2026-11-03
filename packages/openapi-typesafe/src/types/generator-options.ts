@@ -31,6 +31,12 @@ export interface OpenAPITSBaseOptions {
   /** (optional) Generate tuples using array minItems / maxItems */
   arrayLength?: boolean;
   /**
+   * Type raw binary strings as `Blob` instead of `string` (default: false): `format: binary`
+   * (OpenAPI 3.0), or a `contentMediaType` that is not text and has no `contentEncoding` (3.1).
+   * `Blob` is a global type of the DOM lib and `@types/node`.
+   */
+  binaryAsBlob?: boolean;
+  /**
    * Allow schema objects with no specified properties to have additional properties if not
    * expressly forbidden? (default: false)
    */
@@ -189,6 +195,7 @@ export interface GlobalContext {
   additionalProperties: boolean;
   alphabetize: boolean;
   arrayLength: boolean;
+  binaryAsBlob: boolean;
   defaultNonNullable: boolean;
   discriminators: {
     objects: Record<string, DiscriminatorObject>;

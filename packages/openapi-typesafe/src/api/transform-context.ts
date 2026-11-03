@@ -23,6 +23,7 @@ function transformOptions(ctx: GlobalContext): TransformOptions {
     additionalProperties: ctx.additionalProperties,
     alphabetize: ctx.alphabetize,
     arrayLength: ctx.arrayLength,
+    binaryAsBlob: ctx.binaryAsBlob,
     conditionalEnums: ctx.conditionalEnums,
     dedupeEnums: ctx.dedupeEnums,
     defaultNonNullable: ctx.defaultNonNullable,

@@ -30,6 +30,9 @@ export interface SchemaObject {
   readonly const?: unknown;
   readonly enum?: readonly unknown[];
   readonly nullable?: boolean;
+  readonly format?: string;
+  readonly contentMediaType?: string;
+  readonly contentEncoding?: string;
   readonly properties?: Readonly<Record<string, Schema>>;
   readonly required?: readonly string[];
   readonly additionalProperties?: Schema | Readonly<Record<string, never>>;

@@ -1,5 +1,6 @@
-import { irKeyword, irUnion } from "../../../domain/ir/constructors.js";
+import { irKeyword, irReference, irUnion } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
+import { isRawBinarySchema } from "../../../domain/openapi/binary-content.js";
 import type {
   Schema,
   SchemaObject,
@@ -49,7 +50,7 @@ function multipleTypes(schema: SchemaObject, request: SchemaRequest): IrType {
 function keywordRule(
   name: string,
   typeNames: readonly string[],
-  keyword: "null" | "string" | "number" | "boolean",
+  keyword: "null" | "number" | "boolean",
 ): SchemaRule {
   return {
     name,
@@ -58,10 +59,21 @@ function keywordRule(
   };
 }
 
+/** The global type of raw binary data with `--binary-as-blob` (DOM lib, `@types/node`). */
+const BLOB_TYPE_NAME = "Blob";
+
+function isBinaryAsBlob(schema: SchemaObject, request: SchemaRequest): boolean {
+  return request.context.options.binaryAsBlob && isRawBinarySchema(schema);
+}
+
+function stringType(schema: SchemaObject, request: SchemaRequest): IrType {
+  return isBinaryAsBlob(schema, request) ? irReference(BLOB_TYPE_NAME) : irKeyword("string");
+}
+
 /** Rules for schemas with a `type`, in the original order. */
 const TYPED_RULES: readonly SchemaRule[] = [
   keywordRule("null", ["null"], "null"),
-  keywordRule("string", ["string"], "string"),
+  { name: "string", matches: (schema) => schema.type === "string", transform: stringType },
   keywordRule("number", ["number", "integer"], "number"),
   keywordRule("boolean", ["boolean"], "boolean"),
   { name: "array", matches: (schema) => schema.type === "array", transform: arrayType },
@@ -82,8 +94,9 @@ function customType(schema: SchemaObject, request: SchemaRequest): IrType | null
 }
 
 /**
- * The schema without composition keywords: the `transform` callback, then a typed rule, then the
- * object keywords. Null means the schema has no type of its own.
+ * The schema without composition keywords: the `transform` callback, then a typed rule, then raw
+ * binary without `type` (OpenAPI 3.1 allows leaving it out), then the object keywords. Null means
+ * the schema has no type of its own.
  */
 export function coreType(schema: SchemaObject, request: SchemaRequest): IrType | null {
   if ("type" in schema && schema.type) {
@@ -95,6 +108,8 @@ export function coreType(schema: SchemaObject, request: SchemaRequest): IrType |
     if (rule !== undefined) {
       return rule.transform(schema, request);
     }
+  } else if (isBinaryAsBlob(schema, request)) {
+    return irReference(BLOB_TYPE_NAME);
   }
   return objectType(schema, request);
 }

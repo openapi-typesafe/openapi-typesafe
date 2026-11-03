@@ -19,6 +19,7 @@ export const DEFAULT_TRANSFORM_OPTIONS: TransformOptions = {
   additionalProperties: false,
   alphabetize: false,
   arrayLength: false,
+  binaryAsBlob: false,
   conditionalEnums: false,
   dedupeEnums: false,
   defaultNonNullable: true,

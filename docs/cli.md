@@ -113,6 +113,7 @@ The following flags are supported in the CLI:
 | `--additional-properties`          |       | `false`  | Allow arbitrary properties for all schema objects without `additionalProperties: false`                             |
 | `--alphabetize`                    |       | `false`  | Sort types alphabetically                                                                                           |
 | `--array-length`                   |       | `false`  | Generate tuples using array `minItems` / `maxItems`                                                                 |
+| `--binary-as-blob`                 |       | `false`  | Type raw binary strings (`format: binary`, or a `contentMediaType` that is not text) as `Blob`. See [binaryAsBlob](#binaryasblob) |
 | `--default-non-nullable`           |       |  `true`  | Treat schema objects with default values as non-nullable (with the exception of parameters)                         |
 | `--properties-required-by-default` |       | `false`  | Treat schema objects without `required` as having all properties required.                                          |
 | `--empty-objects-unknown`          |       | `false`  | Allow arbitrary properties for schema objects with no specified properties, and no specified `additionalProperties` |
@@ -249,6 +250,69 @@ The output is kept so that existing types do not change. Only `minItems` alone
 _Note: this has a reasonable limit, so for example `maxItems: 100` would simply flatten back down to `string[];`_
 
 _Thanks, [@kgtkr](https://github.com/kgtkr)!_
+
+### binaryAsBlob
+
+By default a binary string is typed `string`, as in openapi-typescript. With `--binary-as-blob`, a
+string that holds raw bytes is typed `Blob`, so a file upload takes a `Blob` or `File` and a
+download is typed like `response.blob()`. These count as raw bytes, as in the OpenAPI
+specification's [Working with Binary Data](https://spec.openapis.org/oas/v3.1.1.html#working-with-binary-data):
+
+- OpenAPI 3.0: `type: string` with `format: binary`;
+- OpenAPI 3.1: a `contentMediaType` without `contentEncoding`, with or without `type: string`.
+
+These stay `string`: `format: byte`, any `contentEncoding` (such as `base64`), and media types
+whose contents are text: `text/*`, JSON, XML and YAML (also as a suffix, such as
+`application/problem+json` or `image/svg+xml`), and a few others such as `application/x-ndjson`.
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+paths:
+  /avatars:
+    post:
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                description:
+                  type: string
+```
+
+:::
+
+```ts
+file: string; // [!code --]
+file: Blob; // [!code ++]
+```
+
+`Blob` is a global type. It comes with the `"dom"` lib and with `@types/node`, and Deno and Bun
+have it too. A project with neither (for example `lib: ["es2022"]` and no Node.js types) gets
+`Cannot find name 'Blob'`; add `"dom"` to `lib` or install `@types/node`.
+
+With [openapi-typesafe-fetch](/fetch/), send the object with the `multipart/form-data` header: the
+client builds the `FormData` and lets the platform set the boundary. Read a binary response with
+`parseAs: "blob"`.
+
+```ts
+const { data, error } = await client.POST("/avatars", {
+  headers: { "Content-Type": "multipart/form-data" },
+  body: { file: new File([bytes], "avatar.png", { type: "image/png" }), description: "Me" },
+});
+
+const { data: image } = await client.GET("/avatars/{id}", {
+  params: { path: { id: 1 } },
+  parseAs: "blob", // data: Blob
+});
+```
+
+_Thanks, [@joaodibba](https://github.com/joaodibba), for the design in [openapi-typescript#2878](https://github.com/openapi-ts/openapi-typescript/pull/2878)!_
 
 ### makePathsEnum
 

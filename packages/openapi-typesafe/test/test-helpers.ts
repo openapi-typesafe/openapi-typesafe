@@ -7,6 +7,7 @@ export const DEFAULT_CTX: GlobalContext = {
   additionalProperties: false,
   alphabetize: false,
   arrayLength: false,
+  binaryAsBlob: false,
   defaultNonNullable: true,
   discriminators: {
     objects: {},

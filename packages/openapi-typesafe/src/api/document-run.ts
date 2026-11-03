@@ -72,6 +72,7 @@ function contextFlags(options: GeneratorOptions): ContextFlags {
     additionalProperties: options.additionalProperties ?? false,
     alphabetize: options.alphabetize ?? false,
     arrayLength: options.arrayLength ?? false,
+    binaryAsBlob: options.binaryAsBlob ?? false,
     defaultNonNullable: options.defaultNonNullable ?? true,
     emptyObjectsUnknown: options.emptyObjectsUnknown ?? false,
     enum: options.enum ?? false,

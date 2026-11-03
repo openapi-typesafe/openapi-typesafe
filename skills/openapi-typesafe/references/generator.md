@@ -28,6 +28,7 @@ Common flags (all default to off unless noted):
 | `--properties-required-by-default` | Properties without `required` are required |
 | `--path-params-as-types` | Template-literal path keys: `paths[\`/pets/${string}\`]` |
 | `--array-length` | Tuples from `minItems` / `maxItems` |
+| `--binary-as-blob` | `format: binary` and binary `contentMediaType` strings become `Blob` (file uploads and downloads); needs the DOM lib or `@types/node` |
 | `--exclude-deprecated` | Drop deprecated fields |
 | `--make-paths-enum` | Export an `ApiPaths` enum |
 | `--read-write-markers` | Mark `readOnly` / `writeOnly` with `$Read<T>` / `$Write<T>`; the client strips them from request and response types |

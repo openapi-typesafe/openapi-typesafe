@@ -9,6 +9,7 @@ export const GENERATOR_FLAGS = [
   "additionalProperties",
   "alphabetize",
   "arrayLength",
+  "binaryAsBlob",
   "conditionalEnums",
   "dedupeEnums",
   "defaultNonNullable",

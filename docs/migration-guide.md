@@ -103,6 +103,14 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
 
 All other output is byte-identical.
 
+### New options
+
+These are off by default, so the output does not change until you turn one on.
+
+- [`--binary-as-blob`](/cli#binaryasblob) (`binaryAsBlob`): raw binary strings (`format: binary`, or
+  a `contentMediaType` that is not text) become `Blob` instead of `string`. It replaces the `Blob`
+  `transform` recipe; the names follow openapi-typescript PR #2878.
+
 ### Client fixes
 
 - A string body with a non-JSON `Content-Type` such as `text/plain` is sent as is, not JSON-encoded.
@@ -112,5 +120,6 @@ All other output is byte-identical.
 - A `Blob`, `File`, `ArrayBuffer`, typed array or `URLSearchParams` body is sent as is; before, it was JSON-encoded to `{}`.
 - A nested object in an `application/x-www-form-urlencoded` body throws instead of being sent as `[object Object]`; write a `bodySerializer` for the format your server reads.
 - A path that already has a query string gets `&` before `params.query`, not a second `?`.
+- `Readable` and `Writable` keep function types, so a `Blob` or `Date` in response data keeps its methods (`data.file.arrayBuffer()`).
 
 The full list, with the upstream issues each change closes, is in the [changelog](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/packages/openapi-typesafe/CHANGELOG.md).

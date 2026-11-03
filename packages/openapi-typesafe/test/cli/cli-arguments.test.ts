@@ -84,6 +84,13 @@ describe("parseCliArguments", () => {
     expect(args.input).toBe("schema.yaml");
   });
 
+  it("parseCliArguments reads --binary-as-blob as a flag and keeps the input", () => {
+    const args = parseCliArguments(["--binary-as-blob", "schema.yaml"]);
+
+    expect(args.generatorFlags).toEqual({ binaryAsBlob: true });
+    expect(args.input).toBe("schema.yaml");
+  });
+
   it("parseCliArguments reads --help and --version", () => {
     expect(parseCliArguments(["--help"]).isHelp).toBe(true);
     expect(parseCliArguments(["--version"]).isVersion).toBe(true);
