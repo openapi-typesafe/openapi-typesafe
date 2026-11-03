@@ -4,8 +4,8 @@ import { defaultGeneratorPorts } from "../../src/api/openapi-ts.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
 
 /**
- * OpenAPI 3.2 features that the types leave out must be reported, not dropped in silence
- * (pre-beta test plan, PB-12).
+ * OpenAPI 3.2 uses that the types leave out must be reported, not dropped in silence
+ * (pre-beta test plan, PB-12). Since ADR-020 only a querystring next to query parameters is left.
  */
 
 const OPENAPI_3_2_DOCUMENT = `
@@ -17,6 +17,7 @@ paths:
       responses: { "204": { description: none } }
     get:
       parameters:
+        - { name: limit, in: query, schema: { type: integer } }
         - { name: filter, in: querystring, content: { text/plain: { schema: { type: string } } } }
       responses:
         "200":
@@ -32,14 +33,12 @@ async function warningsOf(source: string): Promise<string[]> {
 }
 
 describe("unsupported feature warnings", () => {
-  it("createDocumentRun with OpenAPI 3.2 features warns once per use with its pointer", async () => {
+  it("createDocumentRun warns once for a querystring next to query parameters, with its pointer", async () => {
     const warnings = await warningsOf(OPENAPI_3_2_DOCUMENT);
 
-    expect(warnings).toHaveLength(3);
-    expect(warnings[0]).toContain('#/paths/~1items uses the OpenAPI 3.2 "query" keyword');
-    expect(warnings[1]).toContain('"querystring" keyword');
-    expect(warnings[2]).toContain("application~1jsonl");
-    expect(warnings[2]).toContain("docs/introduction.md#openapi-3-2-support");
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('#/paths/~1items/get/parameters/1 is an "in: querystring" parameter');
+    expect(warnings[0]).toContain("docs/introduction.md#openapi-3-2-support");
   });
 
   it("createDocumentRun with a 3.1 document does not warn", async () => {

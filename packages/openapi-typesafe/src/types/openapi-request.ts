@@ -18,10 +18,10 @@ export interface ParameterObject extends Extensable {
    */
   name: string;
   /**
-   * REQUIRED. The location of the parameter. Possible values are "query", "header", "path" or
-   * "cookie".
+   * REQUIRED. The location of the parameter. Possible values are "query", "header", "path",
+   * "cookie", or "querystring" (OpenAPI 3.2: the whole query string, described by `content`).
    */
-  in: "query" | "header" | "path" | "cookie";
+  in: "query" | "header" | "path" | "cookie" | "querystring";
   /**
    * A brief description of the parameter. This could contain examples of use. CommonMark syntax MAY
    * be used for rich text representation.
@@ -100,6 +100,11 @@ export interface RequestBodyObject extends Extensable {
 export interface MediaTypeObject extends Extensable {
   /** The schema defining the content of the request, response, or parameter. */
   schema?: SchemaObject | ReferenceObject;
+  /**
+   * The schema of each item of a sequential media type such as `application/jsonl` or
+   * `text/event-stream` (OpenAPI 3.2).
+   */
+  itemSchema?: SchemaObject | ReferenceObject;
   /**
    * Example of the media type. The example object SHOULD be in the correct format as specified by
    * the media type. The example field is mutually exclusive of the examples field. Furthermore, if

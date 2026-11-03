@@ -8,6 +8,7 @@ import type { CallbackObject, PathItemObject } from "./openapi-path-item.js";
 import type {
   ExampleObject,
   HeaderObject,
+  MediaTypeObject,
   ParameterObject,
   RequestBodyObject,
 } from "./openapi-request.js";
@@ -156,6 +157,8 @@ export interface ComponentsObject extends Extensable {
   callbacks?: Record<string, CallbackObject | ReferenceObject>;
   /** An object to hold reusable Path Item Objects. */
   pathItems?: Record<string, PathItemObject | ReferenceObject>;
+  /** An object to hold reusable Media Type Objects (OpenAPI 3.2). */
+  mediaTypes?: Record<string, MediaTypeObject | ReferenceObject>;
 }
 
 /**

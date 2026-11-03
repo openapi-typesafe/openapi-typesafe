@@ -85,7 +85,7 @@ As in openapi-typescript 7, the old spellings fail with an error that names the 
 
 Failures now exit with a documented code: `1` stale output with `--check` (as before), `2` usage or configuration, `3` input document, `4` output files, `70` unexpected error. Before, every failure exited with `1`. See [exit codes](/cli#exit-codes). `--check` without `--output` (and without `apis` in `redocly.yaml`) now fails with `2` and `CLI_CHECK_OUTPUT_MISSING`; before, it printed the types and passed without checking anything.
 
-The generator warns on stderr about OpenAPI 3.2 features that the output leaves out (`query` and `additionalOperations` operations, `itemSchema`, `in: querystring` parameters); see [OpenAPI 3.2 support](/introduction#openapi-3-2-support).
+OpenAPI 3.2 documents get types for `query` and `additionalOperations` operations, `itemSchema` (an `itemContent` map next to `content`), `in: querystring` parameters and `components.mediaTypes`; openapi-typescript leaves them out. `HttpMethod` from `openapi-typesafe-helpers` includes `"query"`, and the fetch client has `QUERY()`. A `Record<HttpMethod, …>` you write yourself needs a `query` entry. The path-based client no longer offers `PARAMETERS()`, which was typed but always failed. See [OpenAPI 3.2 support](/introduction#openapi-3-2-support).
 
 Errors thrown by the Node API are `OpenAPITypesafeError`s with a stable `code` (see [errors](/node#errors)). The messages are unchanged. A file system error is kept as `cause`: check `error.cause.code` instead of `error.code === "ENOENT"`.
 

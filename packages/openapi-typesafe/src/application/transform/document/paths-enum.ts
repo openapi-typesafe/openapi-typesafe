@@ -1,9 +1,11 @@
 import type { IrEnumDeclaration } from "../../../domain/ir/nodes.js";
 import type { OperationObject } from "../../../domain/openapi/operation-object.js";
 import {
+  ADDITIONAL_OPERATIONS_KEY,
   HTTP_METHODS,
-  type HttpMethod,
+  type PathItemMethod,
   type PathsObject,
+  QUERY_METHOD,
 } from "../../../domain/openapi/path-item-object.js";
 import { EnumNaming, enumDeclaration } from "../footer/enum-naming.js";
 import type { EnumMemberMetadata } from "../schema/schema-context.js";
@@ -13,7 +15,7 @@ const PARAMETER_SEGMENT_RE = /^(?:{(.+)}|:(.+))$/;
 /** Characters not allowed in an enum key, or a `{param}` / `:param` part (first match only). */
 const INVALID_KEY_PART_RE = /{.*}|:.*|[^a-zA-Z\d_]+/;
 const API_PATHS_NAME = "ApiPaths";
-const METHODS: ReadonlySet<string> = new Set<HttpMethod>(HTTP_METHODS);
+const METHODS: ReadonlySet<string> = new Set<PathItemMethod>([...HTTP_METHODS, QUERY_METHOD]);
 
 /** The members of the `ApiPaths` enum (`--make-paths-enum`). */
 export interface ApiPathsEnum {
@@ -56,14 +58,25 @@ interface PathOperation {
   readonly operationId: string | undefined;
 }
 
+/**
+ * The operations of one path item in document order; `additionalOperations` (OpenAPI 3.2) adds
+ * its methods where the key stands.
+ */
+function pathItemEntries(pathItem: object): [string, unknown][] {
+  return Object.entries(pathItem).flatMap(([key, value]): [string, unknown][] => {
+    if (key === ADDITIONAL_OPERATIONS_KEY) {
+      return typeof value === "object" && value !== null ? Object.entries(value) : [];
+    }
+    return METHODS.has(key) ? [[key, value]] : [];
+  });
+}
+
 function pathOperations(paths: PathsObject): PathOperation[] {
   return Object.entries(paths).flatMap(([url, pathItem]) =>
-    Object.entries(pathItem)
-      .filter(([method]) => METHODS.has(method))
-      .map(([method, operation]) => {
-        const operationId = (operation as OperationObject).operationId || undefined;
-        return { url, method, operationId };
-      }),
+    pathItemEntries(pathItem).map(([method, operation]) => {
+      const operationId = (operation as OperationObject).operationId || undefined;
+      return { url, method, operationId };
+    }),
   );
 }
 

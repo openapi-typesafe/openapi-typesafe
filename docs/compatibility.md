@@ -52,8 +52,8 @@ identity **99.99%**, type identity **100%**, and **100%** of the golden types ar
 
 These 6 documents fail in every option set (6 × 28 = 168 cases):
 
-- 3 are OpenAPI 3.2 documents. The golden generator rejects 3.2; openapi-typesafe loads them, and
-  its output matches the published `openapi-typescript@7.13.0` apart from the fixes listed below.
+- 3 are OpenAPI 3.2 documents. The golden generator rejects 3.2; openapi-typesafe loads them and
+  types the [3.2 features](/introduction#openapi-3-2-support) as well.
 - 3 point to files or URLs that cannot be downloaded (a relative `$ref` outside the document, and
   a URL that returns HTTP 400). Both generators stop on them.
 

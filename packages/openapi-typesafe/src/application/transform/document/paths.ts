@@ -9,9 +9,9 @@ import type {
   ParameterOrReference,
 } from "../../../domain/openapi/parameter-object.js";
 import {
-  HTTP_METHODS,
   type PathItemObject,
   type PathsObject,
+  pathItemOperations,
 } from "../../../domain/openapi/path-item-object.js";
 import type { ReferenceSchema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { documentEntries } from "../document-entries.js";
@@ -64,11 +64,7 @@ function pathParameters(
 ): Map<string, ParameterObject> {
   const byName = new Map<string, ParameterObject>();
   addPathParameters(pathItem.parameters ?? [], byName, context);
-  for (const method of HTTP_METHODS) {
-    if (!(method in pathItem)) {
-      continue;
-    }
-    const entry = pathItem[method] as OperationObject | ReferenceSchema;
+  for (const { operation: entry } of pathItemOperations(pathItem)) {
     const operation = (entry as ReferenceSchema).$ref
       ? (context.refs.resolve((entry as ReferenceSchema).$ref) as OperationObject | undefined)
       : (entry as OperationObject);

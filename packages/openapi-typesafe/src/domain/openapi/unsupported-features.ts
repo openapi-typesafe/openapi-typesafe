@@ -1,15 +1,15 @@
-import { createRef } from "./json-pointer.js";
+import { createRef, parseRefPointer } from "./json-pointer.js";
+import { QUERYSTRING_LOCATION } from "./parameter-object.js";
+import { type PathItemObject, pathItemOperations } from "./path-item-object.js";
 
 /**
- * OpenAPI 3.2 features the generator does not turn into types yet. Without a warning they would
- * disappear from the output: the operations are not in `paths`, a streamed media type has no
- * content type, and an `in: querystring` parameter is not in `parameters`.
+ * OpenAPI 3.2 uses that the generated types leave out, so each one gets a warning. The 3.2
+ * features are typed (ADR-020); what is left is an `in: querystring` parameter next to
+ * `in: query` parameters of the same operation, which 3.2 does not allow: the `query`
+ * parameters keep their types and the `querystring` parameter is not in the output.
  */
 export const UnsupportedFeature = {
-  QUERY_OPERATION: "query",
-  ADDITIONAL_OPERATIONS: "additionalOperations",
-  ITEM_SCHEMA: "itemSchema",
-  QUERYSTRING_PARAMETER: "querystring",
+  QUERYSTRING_NEXT_TO_QUERY: "querystring",
 } as const;
 export type UnsupportedFeature = (typeof UnsupportedFeature)[keyof typeof UnsupportedFeature];
 
@@ -20,26 +20,8 @@ export interface UnsupportedFeatureUse {
   readonly pointer: string;
 }
 
-const PATH_ITEM_FEATURES = [
-  UnsupportedFeature.QUERY_OPERATION,
-  UnsupportedFeature.ADDITIONAL_OPERATIONS,
-] as const;
-
-/**
- * Keys whose values are schemas or example data, never path items or media types. The walk does
- * not enter them, so a schema property named `content` or `itemSchema` is not reported.
- */
-const DATA_KEYS: ReadonlySet<string> = new Set([
-  "schema",
-  "schemas",
-  "itemSchema",
-  "$defs",
-  "example",
-  "examples",
-  "default",
-  "const",
-  "enum",
-]);
+const QUERY_LOCATION = "query";
+const LOCAL_REF_PREFIX = "#/";
 
 type JsonObject = Readonly<Record<string, unknown>>;
 
@@ -47,71 +29,111 @@ function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function pathItemUses(pathItems: unknown, root: readonly string[]): UnsupportedFeatureUse[] {
+/** The value at a local `$ref` (`#/...`) of the document; null for other or broken `$ref`s. */
+function resolveLocal(document: JsonObject, value: unknown): unknown {
+  if (!isObject(value) || typeof value.$ref !== "string") {
+    return value;
+  }
+  if (!value.$ref.startsWith(LOCAL_REF_PREFIX)) {
+    return null;
+  }
+  let node: unknown = document;
+  for (const segment of parseRefPointer(value.$ref)) {
+    node = isObject(node) || Array.isArray(node) ? (node as JsonObject)[segment] : undefined;
+  }
+  return node ?? null;
+}
+
+/** A parameter where it is written, with the object its `$ref` points to. */
+interface LocatedParameter {
+  readonly pointer: string;
+  readonly parameter: JsonObject;
+}
+
+function locatedParameters(
+  document: JsonObject,
+  parameters: unknown,
+  segments: readonly string[],
+): LocatedParameter[] {
+  if (!Array.isArray(parameters)) {
+    return [];
+  }
+  return parameters.flatMap((entry, index) => {
+    const parameter = resolveLocal(document, entry);
+    const pointer = createRef([...segments, String(index)]);
+    return isObject(parameter) ? [{ pointer, parameter }] : [];
+  });
+}
+
+/** Path item parameters, then the operation's, which replace those of the same `in` and name. */
+function mergedParameters(
+  shared: readonly LocatedParameter[],
+  own: readonly LocatedParameter[],
+): LocatedParameter[] {
+  const byKey = new Map<string, LocatedParameter>();
+  for (const located of [...shared, ...own]) {
+    byKey.set(`${String(located.parameter.in)}-${String(located.parameter.name)}`, located);
+  }
+  return [...byKey.values()];
+}
+
+/** The `querystring` parameters of one operation that has `in: query` parameters as well. */
+function querystringPointers(parameters: readonly LocatedParameter[]): string[] {
+  const hasQuery = parameters.some(({ parameter }) => parameter.in === QUERY_LOCATION);
+  return hasQuery
+    ? parameters
+        .filter(({ parameter }) => parameter.in === QUERYSTRING_LOCATION)
+        .map(({ pointer }) => pointer)
+    : [];
+}
+
+/** Pointers of `querystring` parameters next to `query` ones in the operations of a path item. */
+function pathItemPointers(
+  document: JsonObject,
+  pathItem: JsonObject,
+  segments: readonly string[],
+): string[] {
+  const shared = locatedParameters(document, pathItem.parameters, [...segments, "parameters"]);
+  return pathItemOperations(pathItem as PathItemObject).flatMap((entry) => {
+    const operation = resolveLocal(document, entry.operation);
+    if (!isObject(operation)) {
+      return [];
+    }
+    const operationSegments = [...segments, ...entry.segments, "parameters"];
+    const own = locatedParameters(document, operation.parameters, operationSegments);
+    return querystringPointers(mergedParameters(shared, own));
+  });
+}
+
+function pathItemsPointers(
+  document: JsonObject,
+  pathItems: unknown,
+  root: readonly string[],
+): string[] {
   if (!isObject(pathItems)) {
     return [];
   }
   return Object.entries(pathItems).flatMap(([key, pathItem]) =>
-    PATH_ITEM_FEATURES.filter((feature) => isObject(pathItem) && feature in pathItem).map(
-      (feature) => ({ feature, pointer: createRef([...root, key]) }),
-    ),
+    isObject(pathItem) ? pathItemPointers(document, pathItem, [...root, key]) : [],
   );
 }
 
-/** The media types of one `content` map that have an `itemSchema`. */
-function contentUses(content: unknown, segments: readonly string[]): UnsupportedFeatureUse[] {
-  if (!isObject(content)) {
-    return [];
-  }
-  return Object.entries(content)
-    .filter(([, media]) => isObject(media) && UnsupportedFeature.ITEM_SCHEMA in media)
-    .map(([mediaType]) => ({
-      feature: UnsupportedFeature.ITEM_SCHEMA,
-      pointer: createRef([...segments, mediaType]),
-    }));
-}
-
-/** A parameter object with `in: querystring`. */
-function querystringUses(node: JsonObject, segments: readonly string[]): UnsupportedFeatureUse[] {
-  return node.in === UnsupportedFeature.QUERYSTRING_PARAMETER && typeof node.name === "string"
-    ? [{ feature: UnsupportedFeature.QUERYSTRING_PARAMETER, pointer: createRef(segments) }]
-    : [];
-}
-
 /**
- * Media types with `itemSchema` (the values of a `content` map) and `in: querystring` parameters,
- * outside schemas, examples and extensions.
+ * Every use of a feature in `UnsupportedFeature`, once per pointer, in document order: `paths`,
+ * then `webhooks`, then `components.pathItems`.
  */
-function nestedUses(node: unknown, segments: readonly string[]): UnsupportedFeatureUse[] {
-  if (Array.isArray(node)) {
-    return node.flatMap((item, index) => nestedUses(item, [...segments, String(index)]));
-  }
-  if (!isObject(node)) {
-    return [];
-  }
-  const uses = querystringUses(node, segments);
-  for (const [key, value] of Object.entries(node)) {
-    if (DATA_KEYS.has(key) || key.startsWith("x-")) {
-      continue;
-    }
-    if (key === "content") {
-      uses.push(...contentUses(value, [...segments, key]));
-    }
-    uses.push(...nestedUses(value, [...segments, key]));
-  }
-  return uses;
-}
-
-/** Every use of a feature in `UnsupportedFeature`, in document order of each kind. */
 export function findUnsupportedFeatures(document: unknown): UnsupportedFeatureUse[] {
   if (!isObject(document)) {
     return [];
   }
   const components = isObject(document.components) ? document.components : {};
-  return [
-    ...pathItemUses(document.paths, ["paths"]),
-    ...pathItemUses(document.webhooks, ["webhooks"]),
-    ...pathItemUses(components.pathItems, ["components", "pathItems"]),
-    ...nestedUses(document, []),
+  const pointers = [
+    ...pathItemsPointers(document, document.paths, ["paths"]),
+    ...pathItemsPointers(document, document.webhooks, ["webhooks"]),
+    ...pathItemsPointers(document, components.pathItems, ["components", "pathItems"]),
   ];
+  return [...new Set(pointers)].map((pointer) => ({
+    feature: UnsupportedFeature.QUERYSTRING_NEXT_TO_QUERY,
+    pointer,
+  }));
 }

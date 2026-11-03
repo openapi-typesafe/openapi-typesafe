@@ -77,6 +77,14 @@ describe("CLI", () => {
       },
     ],
     [
+      "snapshot > OpenAPI 3.2 features",
+      {
+        given: ["./examples/openapi-3-2.yaml"],
+        want: new URL("./examples/openapi-3-2.ts", root),
+        ci: { timeout: TIMEOUT },
+      },
+    ],
+    [
       "snapshot > enum root types filtering",
       {
         given: ["./examples/enum-root-types.yaml", "--root-types", "--root-types-no-schema-prefix", "--enum"],

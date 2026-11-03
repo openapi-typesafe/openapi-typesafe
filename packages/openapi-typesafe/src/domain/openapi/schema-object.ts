@@ -21,7 +21,8 @@ export type SchemaTypeName =
   | "object";
 
 export interface SchemaDiscriminator {
-  readonly propertyName: string;
+  /** Optional since OpenAPI 3.2; a discriminator without it adds no property type. */
+  readonly propertyName?: string;
   readonly mapping?: Readonly<Record<string, string>>;
 }
 

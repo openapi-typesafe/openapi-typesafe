@@ -19,7 +19,7 @@ New to OpenAPI? Speakeasy’s [Intro to OpenAPI](https://www.speakeasyapi.dev/op
 
 ## Features
 
-- Supports OpenAPI 3.0 and 3.1 (including advanced features like [discriminators](https://spec.openapis.org/oas/v3.1.0#discriminator-object)); OpenAPI 3.2 documents are accepted (see [OpenAPI 3.2 features](#openapi-3-2-support))
+- Supports OpenAPI 3.0, 3.1 and 3.2 (including advanced features like [discriminators](https://spec.openapis.org/oas/v3.1.0#discriminator-object); see [OpenAPI 3.2 features](#openapi-3-2-support))
 - Generates **runtime-free types**
 - Loads documents from YAML or JSON, locally or remotely
 - Generates types for large documents in milliseconds
@@ -31,17 +31,45 @@ OpenAPI 2.x (Swagger) is not supported.
 
 ### OpenAPI 3.2 features
 
-A 3.2 document generates the same types as a 3.1 document with the same content. These 3.2
-features are not in the generated types yet; each use prints a warning with its JSON Pointer:
+A 3.2 document generates the same types as a 3.1 document with the same content, plus types for
+the 3.2 additions. A document that uses none of them gets the same output as before.
 
-- the `query` operation and `additionalOperations` of a path item: the operation is not in
-  `paths` or `operations`;
-- `in: querystring` parameters: the parameter is not in `parameters`;
-- `itemSchema` (streamed media types such as `application/jsonl`): the media type has no type.
+| 3.2 feature | Generated types |
+| --- | --- |
+| `query` operation | a `query` member after `trace`, only in path items that have one; `client.QUERY()` calls it |
+| `additionalOperations` | an `additionalOperations` member keyed by the exact method name (`SUBSCRIBE`); the operations are typed, the clients do not call them |
+| `itemSchema` | an `itemContent` map next to `content`, with the type of one item per media type; `content` keeps the `schema` type (or `unknown`) |
+| `in: querystring` | the schema of its `content` becomes `parameters.query` |
+| `components.mediaTypes` | a `mediaTypes` member of `components`, and `content` entries that reference it |
 
-Other 3.2 additions do not change types and are ignored: `$self`, tag `parent` and `kind`, and
-`discriminator.defaultMapping` (the default schema still gets its own name as the discriminator
-value).
+```ts
+"/trips": {
+  // …
+  trace?: never;
+  additionalOperations: {
+    SUBSCRIBE: operations["subscribe-trip"];
+  };
+};
+// operations["subscribe-trip"]["responses"][200]
+{
+  headers: { [name: string]: unknown };
+  content: { "application/jsonl": unknown };
+  itemContent: { "application/jsonl": components["schemas"]["TripUpdate"] };
+}
+```
+
+`itemContent` is not the response `data`: a stream such as `application/jsonl` is read with
+`parseAs: "stream"` and split into items by your code, which can use the item type.
+
+A `querystring` parameter is sent with the client's `querySerializer`, which writes form fields
+(`application/x-www-form-urlencoded`). For another media type, such as JSON in the query string,
+pass your own [`querySerializer`](/fetch/api#queryserializer). 3.2 does not allow `in: query`
+parameters next to a `querystring` parameter; if a document has both, the `query` parameters are
+typed, and the generator warns about the `querystring` parameter with its JSON Pointer.
+
+Other 3.2 additions do not change types: `$self`, `itemEncoding`, `prefixEncoding`, tag `parent`
+and `kind`, and `discriminator.defaultMapping` (the default schema still gets its own name as the
+discriminator value). A discriminator without `propertyName` adds no property type.
 
 ## Examples
 

@@ -7,6 +7,7 @@ import {
   type ParameterLocation,
   type ParameterObject,
   type ParameterOrReference,
+  QUERYSTRING_LOCATION,
 } from "../../../domain/openapi/parameter-object.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { refType } from "../ref-type.js";
@@ -106,21 +107,51 @@ function referencedParameterType(ref: string, resolved: ParameterObject): IrType
   return refType(ref, { parameter });
 }
 
-function parameterMember(
+function entryType(
   { original, resolved }: ResolvedEntry,
   location: SchemaLocation,
   context: TransformContext,
-): IrPropertySignature {
+): IrType {
   const path = createRef([location.path, "parameters", resolved.in, resolved.name]);
-  const type =
-    "$ref" in original
-      ? referencedParameterType(original.$ref, resolved)
-      : parameterType(resolved, { ...location, path }, context);
-  const property = irProperty(parameterName(resolved.name), type, {
+  return "$ref" in original
+    ? referencedParameterType(original.$ref, resolved)
+    : parameterType(resolved, { ...location, path }, context);
+}
+
+function parameterMember(
+  entry: ResolvedEntry,
+  location: SchemaLocation,
+  context: TransformContext,
+): IrPropertySignature {
+  const { resolved } = entry;
+  const property = irProperty(parameterName(resolved.name), entryType(entry, location, context), {
     isOptional: resolved.in !== "path" && !resolved.required,
     isReadonly: context.options.immutable,
   });
   return withSchemaComment(property, resolved);
+}
+
+/**
+ * The `query` member typed by an `in: querystring` parameter (OpenAPI 3.2, ADR-020): the parameter
+ * is the whole query string. Null when there is none, or when `in: query` parameters sit next to
+ * it, which 3.2 does not allow; those keep their types, and a warning names the parameter.
+ */
+function querystringMember(
+  entries: readonly ParameterEntry[],
+  location: SchemaLocation,
+  context: TransformContext,
+): IrPropertySignature | null {
+  const querystring = entries.find(
+    (entry): entry is ResolvedEntry => entry.resolved?.in === QUERYSTRING_LOCATION,
+  );
+  if (!querystring || entries.some((entry) => entry.resolved?.in === "query")) {
+    return null;
+  }
+  const property = irProperty(toPropertyName("query"), entryType(querystring, location, context), {
+    isOptional: !querystring.resolved.required,
+    isReadonly: context.options.immutable,
+  });
+  return withSchemaComment(property, querystring.resolved);
 }
 
 /** One location's parameters; optional when all of them are, and `never` when there are none. */
@@ -157,8 +188,11 @@ export function parametersMember(
     withPathTemplateParameters(parameters, location, context),
     context,
   );
+  const querystring = querystringMember(entries, location, context);
   const members = PARAMETER_LOCATIONS.map((parameterIn) =>
-    locationMember(parameterIn, entries, location, context),
+    parameterIn === "query" && querystring
+      ? querystring
+      : locationMember(parameterIn, entries, location, context),
   );
   return irProperty(toPropertyName("parameters"), irObject(members), {
     isReadonly: context.options.immutable,

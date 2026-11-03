@@ -1,3 +1,4 @@
+import type { ContentMap } from "./media-type-object.js";
 import type { ReferenceSchema, Schema } from "./schema-object.js";
 
 export type ParameterLocation = "query" | "header" | "path" | "cookie";
@@ -10,13 +11,20 @@ export const PARAMETER_LOCATIONS: readonly ParameterLocation[] = Object.freeze([
   "cookie",
 ]);
 
-/** The parts of a Parameter Object the generator reads (OpenAPI 3.1 §4.8.12). */
+/**
+ * The OpenAPI 3.2 location of a parameter that is the whole query string, described by `content`.
+ * Its type becomes the `query` member of `parameters` (ADR-020).
+ */
+export const QUERYSTRING_LOCATION = "querystring";
+
+/** The parts of a Parameter Object the generator reads (OpenAPI 3.2 §4.8.12). */
 export interface ParameterObject {
   readonly name: string;
-  readonly in: ParameterLocation;
+  readonly in: ParameterLocation | typeof QUERYSTRING_LOCATION;
   readonly required?: boolean;
   readonly deprecated?: boolean;
   readonly schema?: Schema;
+  readonly content?: ContentMap;
 }
 
 export type ParameterOrReference = ParameterObject | ReferenceSchema;

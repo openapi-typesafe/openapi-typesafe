@@ -1,0 +1,125 @@
+openapi: 3.2.0
+info:
+  title: OpenAPI 3.2 features
+  version: 1.0.0
+paths:
+  /flights/search:
+    query:
+      operationId: searchFlights
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FlightSearch"
+      responses:
+        "200":
+          description: Matching flights
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /flights/inline:
+    query:
+      responses:
+        "204":
+          description: Nothing found
+  /trips:
+    get:
+      responses:
+        "200":
+          description: The trips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TripUpdate"
+            application/jsonl:
+              schema:
+                type: string
+              itemSchema:
+                $ref: "#/components/schemas/TripUpdate"
+    additionalOperations:
+      SUBSCRIBE:
+        operationId: subscribe-trip
+        responses:
+          "200":
+            description: A stream of trip updates
+            content:
+              text/event-stream:
+                itemSchema:
+                  type: object
+                  required: [data]
+                  properties:
+                    event:
+                      type: string
+                    data:
+                      type: string
+                      contentMediaType: application/json
+                      contentSchema:
+                        $ref: "#/components/schemas/TripUpdate"
+      purge:
+        responses:
+          "204":
+            description: Purged
+  /search:
+    get:
+      operationId: search
+      parameters:
+        - name: filter
+          in: querystring
+          required: true
+          content:
+            application/x-www-form-urlencoded:
+              schema:
+                $ref: "#/components/schemas/Filter"
+        - name: X-Trace
+          in: header
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/Updates"
+  /uploads:
+    post:
+      requestBody:
+        content:
+          application/jsonl:
+            $ref: "#/components/mediaTypes/TripUpdates"
+      responses:
+        "204":
+          description: Stored
+components:
+  schemas:
+    FlightSearch:
+      type: object
+      required: [origin]
+      properties:
+        origin:
+          type: string
+    TripUpdate:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+    Filter:
+      type: object
+      properties:
+        status:
+          type: string
+        limit:
+          type: integer
+  responses:
+    Updates:
+      description: Updates
+      content:
+        application/jsonl:
+          $ref: "#/components/mediaTypes/TripUpdates"
+  mediaTypes:
+    TripUpdates:
+      itemSchema:
+        $ref: "#/components/schemas/TripUpdate"

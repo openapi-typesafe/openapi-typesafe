@@ -1,68 +1,92 @@
 import { describe, expect, it } from "vitest";
 import { findUnsupportedFeatures } from "../../../src/domain/openapi/unsupported-features.js";
 
-const RESPONSE_WITH_STREAM = {
-  responses: {
-    "200": { description: "ok", content: { "application/jsonl": { itemSchema: {} } } },
-  },
-};
+const QUERYSTRING = { name: "filter", in: "querystring", content: {} };
+const QUERY = { name: "limit", in: "query" };
+
+function use(pointer: string): { feature: "querystring"; pointer: string } {
+  return { feature: "querystring", pointer };
+}
 
 describe("findUnsupportedFeatures", () => {
-  it("findUnsupportedFeatures with a query operation reports its path item", () => {
-    const document = { paths: { "/items": { query: { responses: {} } } } };
+  it("findUnsupportedFeatures with typed 3.2 features reports nothing", () => {
+    const document = {
+      paths: {
+        "/items": {
+          query: { responses: {} },
+          additionalOperations: { LOCK: { parameters: [QUERYSTRING] } },
+          get: { responses: { 200: { content: { "application/jsonl": { itemSchema: {} } } } } },
+        },
+      },
+    };
 
-    expect(findUnsupportedFeatures(document)).toEqual([
-      { feature: "query", pointer: "#/paths/~1items" },
-    ]);
+    expect(findUnsupportedFeatures(document)).toEqual([]);
   });
 
-  it("findUnsupportedFeatures with additionalOperations reports webhooks and path item components", () => {
+  it("findUnsupportedFeatures with a querystring next to a query parameter reports the querystring", () => {
+    const document = { paths: { "/items": { get: { parameters: [QUERY, QUERYSTRING] } } } };
+
+    expect(findUnsupportedFeatures(document)).toEqual([use("#/paths/~1items/get/parameters/1")]);
+  });
+
+  it("findUnsupportedFeatures merges path item parameters into each operation, once per pointer", () => {
     const document = {
-      webhooks: { purge: { additionalOperations: {} } },
-      components: { pathItems: { Shared: { additionalOperations: {} } } },
+      paths: {
+        "/items": {
+          parameters: [QUERYSTRING],
+          get: { parameters: [QUERY] },
+          query: { parameters: [QUERY] },
+          post: {},
+        },
+      },
+    };
+
+    expect(findUnsupportedFeatures(document)).toEqual([use("#/paths/~1items/parameters/0")]);
+  });
+
+  it("findUnsupportedFeatures reports the operation parameter that replaces the path item one", () => {
+    const document = {
+      paths: { "/items": { parameters: [QUERYSTRING], get: { parameters: [QUERYSTRING, QUERY] } } },
+    };
+
+    expect(findUnsupportedFeatures(document)).toEqual([use("#/paths/~1items/get/parameters/0")]);
+  });
+
+  it("findUnsupportedFeatures follows local $refs to parameters and operations", () => {
+    const document = {
+      paths: { "/items": { get: { $ref: "#/components/x-operations/List" } } },
+      components: {
+        parameters: { Filter: QUERYSTRING },
+        "x-operations": {
+          List: { parameters: [{ $ref: "#/components/parameters/Filter" }, QUERY] },
+        },
+      },
+    };
+
+    expect(findUnsupportedFeatures(document)).toEqual([use("#/paths/~1items/get/parameters/0")]);
+  });
+
+  it("findUnsupportedFeatures reports additional operations, webhooks and path item components", () => {
+    const pathItem = { additionalOperations: { LOCK: { parameters: [QUERYSTRING, QUERY] } } };
+    const document = {
+      webhooks: { purge: pathItem },
+      components: { pathItems: { Shared: pathItem } },
     };
 
     expect(findUnsupportedFeatures(document)).toEqual([
-      { feature: "additionalOperations", pointer: "#/webhooks/purge" },
-      { feature: "additionalOperations", pointer: "#/components/pathItems/Shared" },
+      use("#/webhooks/purge/additionalOperations/LOCK/parameters/0"),
+      use("#/components/pathItems/Shared/additionalOperations/LOCK/parameters/0"),
     ]);
   });
 
-  it("findUnsupportedFeatures with an itemSchema reports its media type", () => {
-    const document = { paths: { "/s": { get: RESPONSE_WITH_STREAM } } };
-
-    expect(findUnsupportedFeatures(document)).toEqual([
-      {
-        feature: "itemSchema",
-        pointer: "#/paths/~1s/get/responses/200/content/application~1jsonl",
-      },
-    ]);
-  });
-
-  it("findUnsupportedFeatures looks into parameter arrays", () => {
-    const parameter = { name: "f", in: "query", content: { "text/plain": { itemSchema: {} } } };
-    const document = { paths: { "/p": { get: { parameters: [parameter] } } } };
-
-    expect(findUnsupportedFeatures(document)).toEqual([
-      { feature: "itemSchema", pointer: "#/paths/~1p/get/parameters/0/content/text~1plain" },
-    ]);
-  });
-
-  it("findUnsupportedFeatures with an in: querystring parameter reports the parameter", () => {
-    const parameter = { name: "filter", in: "querystring", content: {} };
-    const document = { components: { parameters: { Filter: parameter } } };
-
-    expect(findUnsupportedFeatures(document)).toEqual([
-      { feature: "querystring", pointer: "#/components/parameters/Filter" },
-    ]);
-  });
-
-  it("findUnsupportedFeatures ignores schemas, examples and extensions named like the features", () => {
-    const content = { "application/json": { itemSchema: {} } };
-    const schema = { type: "object", properties: { content: { properties: content } } };
+  it("findUnsupportedFeatures skips remote, broken and non-object entries", () => {
     const document = {
-      components: { schemas: { Stream: schema }, examples: { E: { value: { content } } } },
-      paths: { "/x": { "x-meta": { content }, get: { responses: {} } } },
+      paths: {
+        "/a": { get: { $ref: "other.yaml#/List" } },
+        "/b": { get: { parameters: [{ $ref: "#/components/parameters/Missing" }, QUERY, "text"] } },
+        "/c": "text",
+        "/d": { get: { parameters: "text" } },
+      },
     };
 
     expect(findUnsupportedFeatures(document)).toEqual([]);

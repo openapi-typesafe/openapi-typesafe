@@ -109,19 +109,19 @@ and asks.
 
 ### R2. OpenAPI 3.2 baseline (backlog 17; upstream #2577, PRs #2683, #2853, #2844)
 
-- [ ] R2.1 Research: the 3.2 changes that affect types (`query` operations,
+- [x] R2.1 Research: the 3.2 changes that affect types (`query` operations,
   `additionalOperations`, `itemSchema` for streamed media types, `in: querystring`, and any other
   type-relevant change in the 3.2 changelog). One design note covers all four.
-- [ ] R2.2 ADR: on by default for 3.2 documents (§2.3); how `itemSchema` sits next to `schema`
+- [x] R2.2 ADR: on by default for 3.2 documents (§2.3); how `itemSchema` sits next to `schema`
   (both types are kept; upstream PR #2683 replaced `schema`, which loses the complete-payload
   type); where `querystring` goes in `parameters`.
-- [ ] R2.3 Generator: emit each part; remove its warning from `unsupported-features.ts` (keep the
+- [x] R2.3 Generator: emit each part; remove its warning from `unsupported-features.ts` (keep the
   warning for anything still left out).
-- [ ] R2.4 Clients: `QUERY` in `openapi-typesafe-helpers` (`HttpMethod`), `openapi-typesafe-fetch`
+- [x] R2.4 Clients: `QUERY` in `openapi-typesafe-helpers` (`HttpMethod`), `openapi-typesafe-fetch`
   (`client.QUERY`, with a body) and `openapi-typesafe-react-query`; a custom method from
   `additionalOperations` through a typed `request(method, …)` if the design keeps it simple,
   otherwise documented as not supported.
-- [ ] R2.5 Gates of §4; the 3 curated 3.2 documents gain types and lose no type; 3.0 and 3.1
+- [x] R2.5 Gates of §4; the 3 curated 3.2 documents gain types and lose no type; 3.0 and 3.1
   output byte-identical.
 
 ### R3. Properties and parameters with `default` (backlog 25; upstream #2012, #2319, #1957, #1903)
@@ -197,6 +197,7 @@ and asks.
 | Step | Date | Commits | Result |
 |---|---|---|---|
 | R1 | 2026-11-03 | `693f59b2`..`b87c3599` | `--binary-as-blob`; `Readable`/`Writable` keep functions; multipart object bodies as `FormData`; harness checks opt-in flags. Opt-in: 7,280 cases, 0 regressions; compat 200 × 28: 0 mismatches; type matrix pass. See `research/roadmap/R1.md` |
+| R2 | 2026-11-03 | see `git log --grep "3.2"` | OpenAPI 3.2 typed by default (ADR-020): `query`, `additionalOperations`, `itemContent`, `querystring`, `components.mediaTypes`; `QUERY` in the clients. Full corpus × 28 sets: 3.0/3.1 byte-identical; 3.2 documents gain types, lose none. See `research/roadmap/R2.md` |
 
 ## 7. Exit criteria
 

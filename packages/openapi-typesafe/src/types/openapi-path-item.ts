@@ -31,6 +31,13 @@ export interface PathItemObject extends Extensable {
   patch?: OperationObject | ReferenceObject;
   /** A definition of a TRACE operation on this path. */
   trace?: OperationObject | ReferenceObject;
+  /** A definition of a QUERY operation on this path (OpenAPI 3.2). */
+  query?: OperationObject | ReferenceObject;
+  /**
+   * Operations for other HTTP methods, keyed by the method name exactly as it is sent
+   * (OpenAPI 3.2). The fixed methods above must not appear here.
+   */
+  additionalOperations?: Record<string, OperationObject | ReferenceObject>;
   /** An alternative server array to service all operations in this path. */
   servers?: ServerObject[];
   /**

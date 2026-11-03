@@ -86,7 +86,7 @@ function allOfTypes(
     const discriminator =
       (isRef && request.context.discriminators.objectAt(item.$ref)) ||
       (item as SchemaObject).discriminator;
-    return discriminator ? omitKeys(type, [discriminator.propertyName]) : type;
+    return discriminator?.propertyName ? omitKeys(type, [discriminator.propertyName]) : type;
   });
 }
 

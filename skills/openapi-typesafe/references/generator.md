@@ -38,6 +38,11 @@ Common flags (all default to off unless noted):
 
 Flags can also go under `x-openapi-ts` per API in `redocly.yaml`.
 
+OpenAPI 3.2 needs no flag. A path item's `query` operation is a `query` member (only where
+declared); `additionalOperations` keeps exact method names; `itemSchema` adds an `itemContent` map
+next to `content` (read item types from there, not from `content`); an `in: querystring`
+parameter is `parameters.query`; `components.mediaTypes` is a `components` member when present.
+
 Exit codes: `0` ok, `1` stale with `--check`, `2` usage or configuration, `3` the document cannot
 be read or converted, `4` an output file cannot be read or written, `70` unexpected (a bug).
 

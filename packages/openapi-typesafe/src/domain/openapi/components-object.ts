@@ -1,4 +1,9 @@
-/** The component maps the generator writes types for, in output order (OpenAPI 3.1 §4.8.7). */
+import { MEDIA_TYPES_COMPONENT_KIND } from "./media-type-object.js";
+
+/**
+ * The component maps the generator always writes, in output order (OpenAPI 3.1 §4.8.7); a kind the
+ * document lacks is `never`.
+ */
 export const COMPONENT_KINDS = Object.freeze([
   "schemas",
   "responses",
@@ -8,7 +13,15 @@ export const COMPONENT_KINDS = Object.freeze([
   "pathItems",
 ] as const);
 
-export type ComponentKind = (typeof COMPONENT_KINDS)[number];
+/**
+ * OpenAPI 3.2 component maps, written after `COMPONENT_KINDS` and only when the document has them,
+ * so documents without them keep their output (ADR-020).
+ */
+export const DECLARED_COMPONENT_KINDS = Object.freeze([MEDIA_TYPES_COMPONENT_KIND] as const);
+
+export type ComponentKind =
+  | (typeof COMPONENT_KINDS)[number]
+  | (typeof DECLARED_COMPONENT_KINDS)[number];
 
 /** Components by kind and name; entries are read by each kind's transformer. */
 export type ComponentsObject = {

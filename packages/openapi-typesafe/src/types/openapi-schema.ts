@@ -121,10 +121,15 @@ export interface ObjectSubtype {
  * document of an alternative schema based on the value associated with it.
  */
 export interface DiscriminatorObject {
-  /** REQUIRED. The name of the property in the payload that will hold the discriminator value. */
+  /**
+   * The name of the property in the payload that will hold the discriminator value. Required
+   * before OpenAPI 3.2; typed as required so existing readers keep a `string`.
+   */
   propertyName: string;
   /** An object to hold mappings between payload values and schema names or references. */
   mapping?: Record<string, string>;
+  /** The schema for payloads without the property or with an unmapped value (OpenAPI 3.2). */
+  defaultMapping?: string;
   /** If this exists, then a discriminator type should be added to objects matching this path */
   oneOf?: string[];
 }

@@ -6,7 +6,7 @@ import type { RequestBodyObject } from "../../../domain/openapi/request-body-obj
 import { documentEntries } from "../document-entries.js";
 import type { SchemaContext, SchemaLocation } from "../schema/schema-context.js";
 import { documentMember } from "./document-member.js";
-import { contentEntryType } from "./media-type.js";
+import { contentEntryType, itemContentMember } from "./media-type.js";
 
 /** Stands in for the media types of a body that defines none: `"*\/*"?: never`. */
 const ANY_MEDIA_TYPE = "*/*";
@@ -24,7 +24,10 @@ function contentMembers(
   });
 }
 
-/** A request body (OpenAPI 3.1 §4.8.13): `{ content: { [mediaType]: T } }`. */
+/**
+ * A request body (OpenAPI 3.2 §4.8.13): `{ content: { [mediaType]: T } }`, and `itemContent` when a
+ * media type has an `itemSchema`.
+ */
 export function requestBodyType(
   requestBody: RequestBodyObject,
   location: SchemaLocation,
@@ -36,7 +39,12 @@ export function requestBodyType(
     isOptional: true,
   });
   const content = irObject(members.length > 0 ? members : [placeholder]);
+  const isReadonly = context.options.immutable;
+  const itemContent = itemContentMember(requestBody.content ?? {}, location, context, {
+    isReadonly,
+  });
   return irObject([
-    irProperty(toPropertyName("content"), content, { isReadonly: context.options.immutable }),
+    irProperty(toPropertyName("content"), content, { isReadonly }),
+    ...(itemContent ? [itemContent] : []),
   ]);
 }

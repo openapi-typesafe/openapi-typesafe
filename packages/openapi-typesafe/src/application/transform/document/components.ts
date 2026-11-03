@@ -10,6 +10,7 @@ import {
   COMPONENT_KINDS,
   type ComponentKind,
   type ComponentsObject,
+  DECLARED_COMPONENT_KINDS,
   isEnumSchema,
   singularizeComponentKind,
 } from "../../../domain/openapi/components-object.js";
@@ -20,6 +21,7 @@ import { transformSchema } from "../schema/schema-transform.js";
 import { withSchemaComment } from "../schema-comment.js";
 import type { TransformContext } from "../transform-context.js";
 import { headerType } from "./header.js";
+import { contentEntryType } from "./media-type.js";
 import { parameterType } from "./parameter.js";
 import { pathItemType } from "./path-item.js";
 import { requestBodyType } from "./request-body.js";
@@ -39,6 +41,7 @@ const COMPONENT_TRANSFORMS: Readonly<Record<ComponentKind, ComponentTransform>> 
   requestBodies: requestBodyType,
   headers: headerType,
   pathItems: pathItemType,
+  mediaTypes: contentEntryType,
 };
 
 /** The `components` type and the `--root-types` aliases. */
@@ -147,6 +150,9 @@ export function componentsType(
   // A plain object, as in the original: its key order (integer-like names first) is the
   // output order.
   const aliases: Record<string, IrTypeAliasDeclaration> = {};
-  const members = COMPONENT_KINDS.map((kind) => kindMember(kind, components, aliases, context));
+  const declaredKinds = DECLARED_COMPONENT_KINDS.filter((kind) => components[kind] !== undefined);
+  const members = [...COMPONENT_KINDS, ...declaredKinds].map((kind) =>
+    kindMember(kind, components, aliases, context),
+  );
   return { type: irObject(members), rootTypes: Object.values(aliases) };
 }
