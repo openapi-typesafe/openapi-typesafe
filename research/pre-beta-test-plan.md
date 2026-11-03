@@ -471,11 +471,18 @@ client does not touch `Object.prototype` (new tests); found PB-34 on the way.
 
 ## 11. Agent skill
 
-- [ ] 11.1 CI runs only `validate` (the reference solutions). Run
+- [x] 11.1 CI runs only `validate` (the reference solutions). Run
       `pnpm --filter @openapi-typesafe/skill-evals eval` once with a real agent (Claude Code,
       with `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`); it costs money, so agree the
       budget first.
 - [x] 11.2 Every command and API name in `skills/openapi-typesafe/` exists and matches the docs.
+
+**§11.1 result** (`.logs/pre-beta/skill/11.1-eval.log`, transcripts in
+`.logs/skill-evals/2026-11-03T01-05-18.497Z-eval/`): Claude Code 2.1.316 with Sonnet 5.5 and the
+skill passed 34 of 34 tasks (every category full), with the skill loaded in every task; about
+$2.25 in all. First `validate` failed on the react-query tasks: two `@tanstack/query-core` copies
+after the client's dev bump; fixed by aligning the tools on 5.105.1, and `scripts/verify.sh` got a
+`skills` step so the local gate runs it as CI does.
 
 **§11.2 result.** A script compared the skill's flags with `--help` (only the old
 `--immutable-types` and `--support-array-length`, named as removed, and the migrate `--write` are
