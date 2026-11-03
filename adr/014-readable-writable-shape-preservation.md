@@ -32,6 +32,11 @@ Fix the two types so that a type without markers comes out unchanged, and keep t
    (`packages/openapi-typesafe/test/api/read-write-marker-types.test.ts`). The compatibility report lists the
    changed output as the intentional difference `read-write-marker-helpers`.
 5. #2726 (root types with markers) is not fixed: it needs resolved root type variants, which is a feature.
+6. Function types are returned as they are (roadmap R1). Mapping one drops its call signatures, so a `Blob`
+   (from `--binary-as-blob` or a `transform` callback) or a `Date` lost its methods in response data
+   (`data.file.arrayBuffer()` did not type check). Schemas never produce function types, so the types of
+   generated output without them do not change; the helper text of `--read-write-markers` output gains one
+   line.
 
 ## Alternatives
 

@@ -281,6 +281,12 @@ export type $Write<T> = { readonly $write: T };
 type ReadWritePrimitive = string | number | boolean | bigint | symbol | null | undefined;
 
 /**
+ * Types that stay unmapped. Mapping a function type drops its call signatures, so a `Blob` from
+ * `--binary-as-blob` lost its methods (`arrayBuffer()`, `text()`, ...) in response data.
+ */
+type ReadWriteLeaf = ReadWritePrimitive | ((...args: never) => unknown);
+
+/**
  * Keys of `T` whose value is a `Marker`. A key whose value is only `null` or `undefined` is not
  * marked: `NonNullable` of it is `never`, and `never` extends every marker (upstream #2717). The
  * checks are not distributive (`NonNullable<T[K]>` is not a type parameter), so `never` is seen.
@@ -317,14 +323,15 @@ type ReadWriteResolve<T, Resolved extends "read" | "write"> = Resolved extends "
  * Resolve type for reading (responses): strips $Write properties, unwraps $Read
  * - $Read<T> → T (readable), continues recursion
  * - $Write<T> → never (excluded from response)
- * - primitives (also branded), arrays and tuples keep their shape; objects resolve recursively
+ * - primitives (also branded), functions, arrays and tuples keep their shape; objects resolve
+ *   recursively
  */
 export type Readable<T> =
   T extends $Write<any>
     ? never
     : T extends $Read<infer U>
       ? Readable<U>
-      : T extends ReadWritePrimitive
+      : T extends ReadWriteLeaf
         ? T
         : T extends readonly unknown[]
           ? ReadWriteResolveArray<T, "read">
@@ -340,14 +347,15 @@ export type Readable<T> =
  * Resolve type for writing (requests): strips $Read properties, unwraps $Write
  * - $Write<T> → T (writable), continues recursion
  * - $Read<T> → never (excluded from request)
- * - primitives (also branded), arrays and tuples keep their shape; objects resolve recursively
+ * - primitives (also branded), functions, arrays and tuples keep their shape; objects resolve
+ *   recursively
  */
 export type Writable<T> =
   T extends $Read<any>
     ? never
     : T extends $Write<infer U>
       ? Writable<U>
-      : T extends ReadWritePrimitive
+      : T extends ReadWriteLeaf
         ? T
         : T extends readonly unknown[]
           ? ReadWriteResolveArray<T, "write">

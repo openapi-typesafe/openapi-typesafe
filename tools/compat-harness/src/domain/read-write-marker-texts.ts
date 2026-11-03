@@ -24,6 +24,7 @@ export const FORK_BASE_READ_WRITE_TYPES = lines(
 /** The fixed helpers and `Readable` / `Writable` as the candidate prints them. */
 export const FIXED_READ_WRITE_TYPES = lines(
   "type ReadWritePrimitive = string | number | boolean | bigint | symbol | null | " + "undefined;",
+  "type ReadWriteLeaf = ReadWritePrimitive | ((...args: never) => unknown);",
   "type ReadWriteMarkedKeys<T, Marker> = {",
   "    [K in keyof T]-?: NonNullable<T[K]> extends never ? never : NonNullable<T[K]> " +
     "extends Marker ? K : never;",
@@ -37,13 +38,13 @@ export const FIXED_READ_WRITE_TYPES = lines(
   'type ReadWriteResolve<T, Resolved extends "read" | "write"> = Resolved extends ' +
     '"read" ? Readable<T> : Writable<T>;',
   "export type Readable<T> = T extends $Write<any> ? never : T extends $Read<infer U> " +
-    "? Readable<U> : T extends ReadWritePrimitive ? T : T extends readonly unknown[] ? " +
+    "? Readable<U> : T extends ReadWriteLeaf ? T : T extends readonly unknown[] ? " +
     'ReadWriteResolveArray<T, "read"> : T extends object ? {',
   "    [K in keyof T as K extends ReadWriteMarkedKeys<T, $Write<any>> ? never : K]: " +
     "Readable<T[K]>;",
   "} : T;",
   "export type Writable<T> = T extends $Read<any> ? never : T extends $Write<infer U> " +
-    "? Writable<U> : T extends ReadWritePrimitive ? T : T extends readonly unknown[] ? " +
+    "? Writable<U> : T extends ReadWriteLeaf ? T : T extends readonly unknown[] ? " +
     'ReadWriteResolveArray<T, "write"> : T extends object ? {',
   "    [K in keyof T as K extends ReadWriteMarkedKeys<T, $Read<any>> ? never : K]: " +
     "Writable<T[K]>;",

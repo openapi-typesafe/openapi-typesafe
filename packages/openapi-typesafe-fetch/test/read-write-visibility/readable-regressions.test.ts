@@ -31,6 +31,19 @@ describe("Readable without markers", () => {
     expectTypeOf<Readable<{ id: UserId }>>().toEqualTypeOf<{ id: UserId }>();
   });
 
+  it("keeps function types, so a Blob keeps its methods (--binary-as-blob, upstream #1214)", () => {
+    expectTypeOf<Readable<{ read: () => Promise<string> }>>().toEqualTypeOf<{
+      read: () => Promise<string>;
+    }>();
+    expectTypeOf<Readable<{ file: Blob }>["file"]>().toExtend<Blob>();
+    expectTypeOf<Readable<{ file: Blob }>["file"]["arrayBuffer"]>().toEqualTypeOf<Blob["arrayBuffer"]>();
+  });
+
+  it("Writable accepts a File where the schema has a Blob", () => {
+    expectTypeOf<File>().toExtend<Writable<{ file: Blob }>["file"]>();
+    expectTypeOf<Writable<{ files: Blob[] }>["files"][number]>().toExtend<Blob>();
+  });
+
   it("keeps the elements of intersected arrays, so unions still narrow (upstream #2620)", () => {
     const data = {} as Readable<Foo | Bar>;
 
