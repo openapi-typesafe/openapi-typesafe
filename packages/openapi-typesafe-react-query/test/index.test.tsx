@@ -715,7 +715,8 @@ describe("client", () => {
 
         result.current.mutate({ body: { message: "Hello", replied_at: 0 } });
 
-        await waitFor(() => expect(result.current.isPending).toBe(false));
+        // `isPending` is false before the mutation starts too, so wait for the settled state.
+        await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
         const { data, error } = result.current;
 
@@ -741,7 +742,7 @@ describe("client", () => {
 
         result.current.mutate({ body: { message: "Hello", replied_at: 0 } });
 
-        await waitFor(() => expect(result.current.isPending).toBe(false));
+        await waitFor(() => expect(result.current.isError).toBe(true));
 
         const { data, error } = result.current;
 
@@ -765,7 +766,7 @@ describe("client", () => {
 
         result.current.mutate({ body: { message: "Hello", replied_at: 0 } });
 
-        await waitFor(() => expect(result.current.isPending).toBe(false));
+        await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
         const { data, error } = result.current;
 
@@ -789,7 +790,7 @@ describe("client", () => {
 
         result.current.mutate({ body: { message: "Hello", replied_at: 0 } });
 
-        await waitFor(() => expect(result.current.isPending).toBe(false));
+        await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
         const { data, error } = result.current;
 
