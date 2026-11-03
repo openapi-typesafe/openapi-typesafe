@@ -114,7 +114,7 @@ The following flags are supported in the CLI:
 | `--alphabetize`                    |       | `false`  | Sort types alphabetically                                                                                           |
 | `--array-length`                   |       | `false`  | Generate tuples using array `minItems` / `maxItems`                                                                 |
 | `--binary-as-blob`                 |       | `false`  | Type raw binary strings (`format: binary`, or a `contentMediaType` that is not text) as `Blob`. See [binaryAsBlob](#binaryasblob) |
-| `--default-non-nullable`           |       |  `true`  | Treat schema objects with default values as non-nullable (with the exception of parameters)                         |
+| `--default-non-nullable`           |       |  `true`  | A property with a `default` is required, except in parameters and inline request bodies; see [defaultNonNullable](#defaultnonnullable) |
 | `--properties-required-by-default` |       | `false`  | Treat schema objects without `required` as having all properties required.                                          |
 | `--empty-objects-unknown`          |       | `false`  | Allow arbitrary properties for schema objects with no specified properties, and no specified `additionalProperties` |
 | `--enum`                           |       | `false`  | Generate true [TS enums](https://www.typescriptlang.org/docs/handbook/enums.html) rather than string unions.        |
@@ -154,6 +154,35 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 For `SCHEMA_INVALID`, every lint or bundle error is printed first, then a summary line.
 
 With several APIs in `redocly.yaml`, every API is generated (or checked, with `--check`) even when another one fails. Each failure prints its own line, and the exit code is the one of the first failing API, in the order of the config.
+
+### defaultNonNullable
+
+On by default, as in openapi-typescript 7: a property with a `default` is required, so its type
+says the value is always there. Two places are exceptions: parameters, and properties of a schema
+written inline under a request body.
+
+| Schema | default | `--default-non-nullable=false` |
+| --- | --- | --- |
+| a query parameter with `default` | optional | optional |
+| a property of an inline request body | optional | optional |
+| a property of an inline response | required | optional |
+| a property of a component (`$ref`), in requests and responses | required | optional |
+
+The last row is the common surprise (openapi-typescript issues #2012, #1957, #1903): a component
+used as a request body makes the client send a field the server would fill in. The rule cannot
+tell that a `$ref`'d component is a request body.
+
+`default` is the value the receiver assumes when the field is absent; it does not promise that the
+field is sent, in a request or in a response. If your API omits such fields, turn the option off:
+
+```bash
+npx openapi-typesafe schema.yaml -o schema.d.ts --default-non-nullable=false
+```
+
+(`defaultNonNullable: false` in the Node API, `default-non-nullable: false` under `x-openapi-ts`
+in `redocly.yaml`.) Every property with a `default` is then optional, as its schema says without
+the default. A required parameter with a `default` (openapi-typescript #2319) is not offered: the
+caller may always omit it.
 
 ### pathParamsAsTypes
 

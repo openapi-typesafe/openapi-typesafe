@@ -126,14 +126,14 @@ and asks.
 
 ### R3. Properties and parameters with `default` (backlog 25; upstream #2012, #2319, #1957, #1903)
 
-- [ ] R3.1 Research and decide. Today a property with `default` is required unless it sits in a
+- [x] R3.1 Research and decide. Today a property with `default` is required unless it sits in a
   request body or parameter path (`INPUT_PATH_PARTS` in `object-type.ts`), and
   `--default-non-nullable=false` makes them all optional. Reproduce each issue: which ones are
   already solved by these two rules, and which need one shared component schema to be optional
   in requests and required in responses. Compare designs: a flag that treats `default` as
   optional in every component; reuse of the read/write split of `--read-write-markers`; separate
   request and response component types.
-- [ ] R3.2 If a design keeps the output simple and correct, ADR + implement + gates. If none
+- [x] R3.2 If a design keeps the output simple and correct, ADR + implement + gates. If none
   does, write the reasoning in the design note, document the existing options in `docs/cli.md`
   as the answer, and close the step as "won't do".
 
@@ -198,6 +198,7 @@ and asks.
 |---|---|---|---|
 | R1 | 2026-11-03 | `693f59b2`..`b87c3599` | `--binary-as-blob`; `Readable`/`Writable` keep functions; multipart object bodies as `FormData`; harness checks opt-in flags. Opt-in: 7,280 cases, 0 regressions; compat 200 × 28: 0 mismatches; type matrix pass. See `research/roadmap/R1.md` |
 | R2 | 2026-11-03 | see `git log --grep "3.2"` | OpenAPI 3.2 typed by default (ADR-020): `query`, `additionalOperations`, `itemContent`, `querystring`, `components.mediaTypes`; `QUERY` in the clients. Full corpus × 28 sets: 3.0/3.1 byte-identical; 3.2 documents gain types, lose none. See `research/roadmap/R2.md` |
+| R3 | 2026-11-03 | `docs(cli)` commit | Won't do: `default` does not promise the field is sent, so the correct type is optional, which `--default-non-nullable=false` already gives; a marker or split types encode a wrong assumption. Documented in `docs/cli.md#defaultnonnullable` and the skill. See `research/roadmap/R3.md` |
 
 ## 7. Exit criteria
 

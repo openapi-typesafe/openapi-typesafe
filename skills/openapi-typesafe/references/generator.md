@@ -24,7 +24,7 @@ Common flags (all default to off unless noted):
 | `--alphabetize` | Sort keys |
 | `--additional-properties` | Allow extra properties unless `additionalProperties: false` |
 | `--empty-objects-unknown` | Objects with no properties accept anything |
-| `--default-non-nullable` | On by default: a schema with a `default` is not optional (parameters excepted) |
+| `--default-non-nullable` | On by default: a property with a `default` is required, also in `$ref`'d components used as request bodies (parameters and inline request bodies excepted); `--default-non-nullable=false` makes them all optional, the fix for "the client must send a field that has a default" |
 | `--properties-required-by-default` | Properties without `required` are required |
 | `--path-params-as-types` | Template-literal path keys: `paths[\`/pets/${string}\`]` |
 | `--array-length` | Tuples from `minItems` / `maxItems` |
