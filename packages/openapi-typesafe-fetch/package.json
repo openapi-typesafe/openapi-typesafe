@@ -81,7 +81,7 @@
     "openapi-typesafe": "workspace:^",
     "openapi-typescript-fetch": "2.2.1",
     "typescript": "catalog:",
-    "undici": "8.12.3",
+    "undici": "7.30.1",
     "vite": "catalog:"
   },
   "engines": {
