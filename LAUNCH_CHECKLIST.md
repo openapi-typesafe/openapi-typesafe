@@ -26,8 +26,8 @@ repository is public.
 - [x] Reserve the npm names: `scripts/release/reserve-names.sh`, then the commands it prints
       (npm account with 2FA). All five names hold a deprecated, code-free `0.0.0` (2026-11-02).
 - [x] Pack the beta: `scripts/release/pack-beta.sh 1.0.0-beta.1` (smoke install passed).
-- [ ] Our own deep testing first: [research/pre-beta-test-plan.md](research/pre-beta-test-plan.md);
-      then pack `1.0.0-beta.2`.
+- [x] Our own deep testing first: [research/pre-beta-test-plan.md](research/pre-beta-test-plan.md);
+      then pack `1.0.0-beta.2`. Done 2026-11-03: private prerelease `beta-1.0.0-beta.2`.
 - [ ] Add 10–20 testers as read-only collaborators.
 - [x] Run the `gh release create` command the script prints: private prerelease
       `beta-1.0.0-beta.1` with the five tarballs and `SHA256SUMS` (2026-11-02).
