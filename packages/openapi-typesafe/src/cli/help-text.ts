@@ -28,6 +28,8 @@ export const HELP_TEXT = [
   "  --array-length             Generate tuples using array minItems / maxItems",
   "  --binary-as-blob           Type raw binary strings (format: binary," +
     " contentMediaType) as Blob",
+  "  --fix [names]              Turn on output fixes, comma-separated, or" +
+    ' "all" (see docs/cli.md#fix)',
   "  --path-params-as-types     Convert paths to template literal types",
   "  --generate-path-params     Generate path parameters for all paths where they are" +
     " undefined by schema",

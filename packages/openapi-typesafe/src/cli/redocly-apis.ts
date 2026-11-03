@@ -1,16 +1,21 @@
 import { kebabCase } from "scule";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
+import type { OutputFixName } from "../domain/output-fixes.js";
 import type { GeneratorOptions } from "../types.js";
 import { GENERATOR_FLAGS, type GeneratorFlags } from "./cli-arguments.js";
 import { cliError } from "./cli-errors.js";
 import { type CliRun, emitOutput, resolveFileUrl } from "./cli-output.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
+import { fixNamesOf, fixOption } from "./fix-option.js";
 import { refLimitOptions } from "./ref-limits.js";
 
 /** The `apis` of a Redocly config: each API is generated into its `x-openapi-ts.output`. */
 
 /** The key of an API's openapi-typesafe settings in `redocly.yaml`. */
 const REDOCLY_CONFIG_KEY = "x-openapi-ts";
+
+/** The setting of an API that lists its output fixes. */
+const FIX_SETTING = "fix";
 
 type ApiSettings = Readonly<Record<string, unknown>>;
 
@@ -43,6 +48,11 @@ function apiFlags(settings: ApiSettings): GeneratorFlags {
   return flags;
 }
 
+/** The API's `fix` names; they replace the CLI's `--fix`, as its boolean settings win (ADR-021). */
+function apiFixNames(settings: ApiSettings): readonly OutputFixName[] | undefined {
+  return fixNamesOf(settings[FIX_SETTING]);
+}
+
 /** Paths in the config are relative to the config file; without a file, to the working dir. */
 function configRootOf(redocly: RedoclyConfig, cwd: URL): URL {
   return redocly.configFile ? resolveFileUrl(redocly.configFile, cwd) : cwd;
@@ -62,6 +72,7 @@ async function generateApi(run: CliRun, redocly: RedoclyConfig, api: RedoclyApi)
     ...run.args.generatorFlags,
     ...apiFlags(api.settings),
     ...refLimitOptions(run.args, run.deps.cwd),
+    ...fixOption(apiFixNames(api.settings) ?? run.args.fix),
     redocly,
   };
   const contents = await run.deps.generate(new URL(api.root, configRoot), options);

@@ -111,6 +111,10 @@ These are off by default, so the output does not change until you turn one on.
   a `contentMediaType` that is not text) become `Blob` instead of `string`. It replaces the `Blob`
   `transform` recipe; the names follow openapi-typescript PR #2878.
 
+- [`--fix`](/cli#fix) (`fix`): opt-in fixes of the output of valid schemas, by name or `all`.
+  They become the default in 2.0. The first one, `allof-required`, makes the keys of an `allOf`
+  member with only `required` required instead of adding `Record<string, never>`.
+
 ### Client fixes
 
 - A string body with a non-JSON `Content-Type` such as `text/plain` is sent as is, not JSON-encoded.

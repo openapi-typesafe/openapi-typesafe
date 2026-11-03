@@ -127,6 +127,7 @@ The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plu
 | `cwd`              | `string \| URL` | `process.cwd()` | (optional) Provide the current working directory to help resolve remote `$ref`s (if needed). |
 | `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd` |
 | `remoteRefHosts`   |   `string[]`    |                 | Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` allows none |
+| `fix`              | `OutputFixName[]` |               | Opt-in fixes of the output, by name, or `["all"]`; see [fix](/cli#fix). `OUTPUT_FIXES` lists them |
 | `inject`           |    `string`     |                 | Inject arbitrary TypeScript types into the start of the file                                 |
 | `redocly`          |     `Config`    |                 | A Redocly config object; see [Redoc config](#redoc-config). Without it, the built-in `minimal` config; the Node API does not look for `redocly.yaml`
 | `version`          |     `number`    |                 | Accepted for compatibility with openapi-typescript; no code reads it

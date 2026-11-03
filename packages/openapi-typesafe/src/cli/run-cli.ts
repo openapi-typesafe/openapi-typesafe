@@ -5,6 +5,7 @@ import type { CliDependencies } from "./cli-dependencies.js";
 import { cliError, describeCliFailure, EXIT_CODES, type ExitCode } from "./cli-errors.js";
 import { type CliRun, emitOutput, resolveFileUrl } from "./cli-output.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
+import { fixOption } from "./fix-option.js";
 import { HELP_TEXT } from "./help-text.js";
 import { generateRedoclyApis, hasRedoclyApis } from "./redocly-apis.js";
 import { refLimitOptions } from "./ref-limits.js";
@@ -45,6 +46,7 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
   const options = {
     ...run.args.generatorFlags,
     ...refLimitOptions(run.args, run.deps.cwd),
+    ...fixOption(run.args.fix),
     redocly,
     silent: !output,
   };

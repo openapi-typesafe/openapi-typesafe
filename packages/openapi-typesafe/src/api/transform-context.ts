@@ -31,6 +31,7 @@ function transformOptions(ctx: GlobalContext): TransformOptions {
     enum: ctx.enum,
     enumValues: ctx.enumValues,
     excludeDeprecated: ctx.excludeDeprecated,
+    fixes: new Set(ctx.fix ?? []),
     immutable: ctx.immutable,
     propertiesRequiredByDefault: ctx.propertiesRequiredByDefault,
     readWriteMarkers: ctx.readWriteMarkers,

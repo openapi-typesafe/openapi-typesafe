@@ -6,6 +6,7 @@ import type { FooterEntry } from "../api/footer-entry.js";
 import type { Logger } from "../application/ports/logger.js";
 import type { DocumentFooter } from "../application/transform/transform-context.js";
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
+import type { OutputFix, OutputFixName } from "../domain/output-fixes.js";
 import type { ReferenceObject } from "./openapi-common.js";
 import type { OpenAPI3 } from "./openapi-document.js";
 import type { DiscriminatorObject, SchemaObject } from "./openapi-schema.js";
@@ -57,6 +58,13 @@ export interface OpenAPITSBaseOptions {
   defaultNonNullable?: boolean;
   /** Exclude deprecated fields from types? (default: false) */
   excludeDeprecated?: boolean;
+  /**
+   * Opt-in fixes of the output of valid schemas (default: none), ADR-021. `"all"` turns on every
+   * fix of the installed version, so a minor update can change the output; list the names to keep
+   * it stable. An unknown name fails with `OPTION_FIX_UNKNOWN`.
+   * @see https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/cli.md#fix
+   */
+  fix?: readonly OutputFixName[];
   /** Add readonly properties and readonly arrays? (default: false) */
   immutable?: boolean;
   /**
@@ -208,6 +216,8 @@ export interface GlobalContext {
   dedupeEnums: boolean;
   excludeDeprecated: boolean;
   exportType: boolean;
+  /** The opt-in output fixes of this run, `all` expanded (ADR-021). Unset: none. */
+  fix?: readonly OutputFix[];
   immutable: boolean;
   /**
    * Declarations written after the main types, in order. The generator adds IR declarations;

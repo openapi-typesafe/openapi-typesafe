@@ -77,6 +77,14 @@ describe("CLI", () => {
       },
     ],
     [
+      "snapshot > DigitalOcean (all output fixes)",
+      {
+        given: ["./examples/digital-ocean-api/DigitalOcean-public.v2.yaml", "--fix", "all"],
+        want: new URL("./examples/digital-ocean-api-fix-all.ts", root),
+        ci: { timeout: TIMEOUT },
+      },
+    ],
+    [
       "snapshot > OpenAPI 3.2 features",
       {
         given: ["./examples/openapi-3-2.yaml"],

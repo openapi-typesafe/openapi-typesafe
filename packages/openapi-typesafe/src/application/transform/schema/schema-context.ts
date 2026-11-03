@@ -1,4 +1,5 @@
 import type { IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
+import type { OutputFix } from "../../../domain/output-fixes.js";
 
 /**
  * Everything the schema transformer needs from outside, as explicit dependencies (ENGINEERING_PLAN
@@ -20,6 +21,8 @@ export interface SchemaOptions {
   readonly enum: boolean;
   readonly enumValues: boolean;
   readonly excludeDeprecated: boolean;
+  /** `--fix`: the opt-in output fixes of this run (ADR-021). */
+  readonly fixes: ReadonlySet<OutputFix>;
   readonly immutable: boolean;
   readonly propertiesRequiredByDefault: boolean;
   readonly readWriteMarkers: boolean;

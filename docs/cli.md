@@ -114,6 +114,7 @@ The following flags are supported in the CLI:
 | `--alphabetize`                    |       | `false`  | Sort types alphabetically                                                                                           |
 | `--array-length`                   |       | `false`  | Generate tuples using array `minItems` / `maxItems`                                                                 |
 | `--binary-as-blob`                 |       | `false`  | Type raw binary strings (`format: binary`, or a `contentMediaType` that is not text) as `Blob`. See [binaryAsBlob](#binaryasblob) |
+| `--fix [names]`                    |       |          | Turn on opt-in fixes of the output, comma-separated, or `all`. See [fix](#fix) |
 | `--default-non-nullable`           |       |  `true`  | A property with a `default` is required, except in parameters and inline request bodies; see [defaultNonNullable](#defaultnonnullable) |
 | `--properties-required-by-default` |       | `false`  | Treat schema objects without `required` as having all properties required.                                          |
 | `--empty-objects-unknown`          |       | `false`  | Allow arbitrary properties for schema objects with no specified properties, and no specified `additionalProperties` |
@@ -146,7 +147,7 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 | :--: | :------ | :---------- |
 | `0` | Success; with `--check`, the output is up to date | |
 | `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
-| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
 | `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 | `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |
@@ -342,6 +343,89 @@ const { data: image } = await client.GET("/avatars/{id}", {
 ```
 
 _Thanks, [@joaodibba](https://github.com/joaodibba), for the design in [openapi-typescript#2878](https://github.com/openapi-ts/openapi-typescript/pull/2878)!_
+
+### fix
+
+Some fixes change the output of valid schemas, so a project that upgrades from openapi-typescript
+would get other types. They are off by default in 1.x and you turn them on by name
+([ADR-021](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/adr/021-opt-in-output-fixes.md)):
+
+::: code-group
+
+```bash [CLI]
+npx openapi-typesafe schema.yaml -o schema.ts --fix allof-required
+```
+
+```yaml [redocly.yaml]
+apis:
+  core@v2:
+    root: ./openapi/openapi.yaml
+    x-openapi-ts:
+      output: ./openapi/openapi.ts
+      fix: [allof-required]
+```
+
+```ts [Node.js]
+const ast = await openapiTS(schema, { fix: ["allof-required"] });
+```
+
+:::
+
+- Names are comma-separated (`--fix a,b`) and `--fix` may be repeated.
+- `all` turns on every fix of the installed version. A minor update that adds a fix then changes
+  your output; list the names to keep it stable.
+- An unknown name fails with `OPTION_FIX_UNKNOWN` (exit code 2), so a typo does not give the old
+  output silently.
+- A `fix` setting of an API in `redocly.yaml` replaces `--fix` for that API.
+- In 2.0 every fix becomes the default.
+
+| Name | What changes | Upstream | Since |
+| :--- | :----------- | :------- | :---- |
+| `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
+
+#### allof-required
+
+A common way to reuse an object and make some of its properties required:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Info:
+      type: object
+      properties:
+        name: { type: string }
+        note: { type: string }
+    NamedInfo:
+      allOf:
+        - $ref: "#/components/schemas/Info"
+        - type: object
+          required: [name]
+```
+
+:::
+
+```ts
+NamedInfo: components["schemas"]["Info"] & Record<string, never>; // [!code --]
+NamedInfo: WithRequired<components["schemas"]["Info"], "name">; // [!code ++]
+```
+
+`Record<string, never>` allows no keys, so no value fits the first type. With the fix, a member
+that has only `required`, `type: object` and annotations (`title`, `description`, `$comment`,
+`deprecated`, `example`, `examples`, `x-` extensions), inline or behind a `$ref`, is left out and
+its keys become required in the other members, as a `required` next to `allOf` already does. An
+empty `type: object` member, or one with only annotations, is left out too, so no `& unknown`
+remains.
+
+The fix leaves these as they are:
+
+- a member with any other keyword, such as `properties`, `nullable`, `default`, `readOnly` or
+  `minProperties`, or a `$ref` with sibling keywords;
+- an `allOf` whose members are all required-only (there is no other member to carry the keys);
+- a key that no other member defines in its `properties` (it is dropped, as for a `required` next
+  to `allOf`);
+- `properties` next to the `allOf`.
 
 ### makePathsEnum
 

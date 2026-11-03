@@ -88,6 +88,13 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
     flag: "--binary-as-blob",
     with: [[], ["--immutable"], ["--read-write-markers"], ["--array-length"]],
   },
+  // Output fixes (ADR-021). `allof-required` rewrites `required` the way the parent's `required`
+  // does, so it is checked with the flags that change required keys and `WithRequired`.
+  {
+    flag: "--fix=allof-required",
+    with: [[], ["--immutable"], ["--properties-required-by-default"], ["--empty-objects-unknown"]],
+  },
+  { flag: "--fix=all", with: [[]] },
 ];
 
 /** Every opt-in option set, in a deterministic order. */

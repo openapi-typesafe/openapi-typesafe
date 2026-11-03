@@ -1,0 +1,47 @@
+import { ERROR_CODES, OpenAPITypesafeError } from "./errors.js";
+
+/**
+ * Opt-in fixes of the output of valid schemas (ADR-021). Each one changes only the cases it names;
+ * without any, the output is the same as openapi-typescript 7.13 gives. In 2.0 they become the
+ * default.
+ */
+export const OutputFix = {
+  /** An `allOf` member with only `required` makes those properties of the others required. */
+  ALLOF_REQUIRED: "allof-required",
+} as const;
+export type OutputFix = (typeof OutputFix)[keyof typeof OutputFix];
+
+/** Every fix of this version, in the order the docs list them. */
+export const OUTPUT_FIXES: readonly OutputFix[] = Object.values(OutputFix);
+
+/** The name that turns on every fix of the installed version. */
+export const ALL_OUTPUT_FIXES = "all";
+
+/** A name the `fix` option accepts: one fix, or `all`. */
+export type OutputFixName = OutputFix | typeof ALL_OUTPUT_FIXES;
+
+const KNOWN_NAMES: ReadonlySet<string> = new Set<string>([...OUTPUT_FIXES, ALL_OUTPUT_FIXES]);
+
+function isOutputFixName(value: unknown): value is OutputFixName {
+  return typeof value === "string" && KNOWN_NAMES.has(value);
+}
+
+/** The fix names as given; fails with `OPTION_FIX_UNKNOWN` for any other value. */
+export function outputFixNamesOf(values: readonly unknown[]): readonly OutputFixName[] {
+  const unknown = values.filter((value) => !isOutputFixName(value));
+  if (unknown.length > 0) {
+    const names = unknown.map((value) => JSON.stringify(value)).join(", ");
+    const known = [...KNOWN_NAMES].join(", ");
+    throw new OpenAPITypesafeError({
+      code: ERROR_CODES.OPTION_FIX_UNKNOWN,
+      message: `Unknown fix ${names}. Known fixes: ${known}.`,
+      details: { unknown, known: [...KNOWN_NAMES] },
+    });
+  }
+  return values as readonly OutputFixName[];
+}
+
+/** The fixes the names turn on; `all` stands for every fix of this version. */
+export function resolveOutputFixes(names: readonly OutputFixName[]): ReadonlySet<OutputFix> {
+  return new Set(names.flatMap((name) => (name === ALL_OUTPUT_FIXES ? OUTPUT_FIXES : [name])));
+}

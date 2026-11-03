@@ -155,9 +155,9 @@ and asks.
 
 ### R6. `allOf` member with only `required` (backlog 18; #1474, #1520, #2165, #2850, #2858)
 
-- [ ] R6.1 Research and design: a member `{ required: [...] }` with no properties should make the
+- [x] R6.1 Research and design: a member `{ required: [...] }` with no properties should make the
   named properties of the other members required, instead of adding `Record<string, never>`.
-- [ ] R6.2 Implement behind the R5 mechanism; gates of §4.
+- [x] R6.2 Implement behind the R5 mechanism; gates of §4.
 
 ### R7. react-query type fixes (backlog 23)
 
@@ -201,6 +201,7 @@ and asks.
 | R3 | 2026-11-03 | `docs(cli)` commit | Won't do: `default` does not promise the field is sent, so the correct type is optional, which `--default-non-nullable=false` already gives; a marker or split types encode a wrong assumption. Documented in `docs/cli.md#defaultnonnullable` and the skill. See `research/roadmap/R3.md` |
 | R4 | 2026-11-03 | `build(deps)` and `chore(examples)` commits | Workspace compiler on TypeScript 6 (not 7: no JavaScript compiler API for `unbuild` and the legacy bridge); `dist` byte-identical; SvelteKit 3 example; two Dependabot ignores dropped; ADR-006 decision 4 updated. See `research/roadmap/R4.md` |
 | R5 | 2026-11-03 | `docs(adr)` commit | ADR-021: one `fix` option with named fixes (`--fix allof-required,…`, `--fix all`), unknown names fail, `redocly.yaml` per API replaces the CLI list, every fix becomes the default in 2.0. See `research/roadmap/R5.md` |
+| R6 | 2026-11-03 | `feat(generator)` commit | `--fix` option (ADR-021) with `allof-required`: presence-only `allOf` members are left out and their keys become required (`WithRequired`). Opt-in: 9,100 cases, 0 regressions; compat 200 × 28: 0 mismatches; type matrix pass. See `research/roadmap/R6.md` |
 
 ## 7. Exit criteria
 

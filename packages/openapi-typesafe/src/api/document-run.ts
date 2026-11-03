@@ -5,6 +5,7 @@ import { sourceEmptyError } from "../adapters/redocly-loader/schema-load-errors.
 import type { Logger } from "../application/ports/logger.js";
 import type { RefAccess, SchemaLoader } from "../application/ports/schema-loader.js";
 import { withStackOverflowReported } from "../application/stack-overflow.js";
+import { type OutputFix, outputFixNamesOf, resolveOutputFixes } from "../domain/output-fixes.js";
 import type { GeneratorOptions, GlobalContext, OpenAPI3, SchemaSource } from "../types.js";
 import { findDiscriminators } from "./discriminator-scan.js";
 import { resolveDocumentRef } from "./document-refs.js";
@@ -36,6 +37,7 @@ type ContextFlags = Omit<
   | "runFooter"
   | "legacyCallbackWarnings"
   | "logger"
+  | "fix"
 >;
 
 function sourceCwd(options: GeneratorOptions): URL {
@@ -96,7 +98,15 @@ function contextFlags(options: GeneratorOptions): ContextFlags {
   };
 }
 
-/** Load the source through the ports, then build the run's context from the options. */
+/** The fixes of the options, `all` expanded; fails with `OPTION_FIX_UNKNOWN` for another name. */
+function outputFixesOf(options: GeneratorOptions): readonly OutputFix[] {
+  return [...resolveOutputFixes(outputFixNamesOf(options.fix ?? []))];
+}
+
+/**
+ * Load the source through the ports, then build the run's context from the options. The fix names
+ * are checked first, so a typo fails before the document is read.
+ */
 export async function createDocumentRun(
   source: SchemaSource,
   options: GeneratorOptions,
@@ -105,6 +115,7 @@ export async function createDocumentRun(
   if (!source) {
     throw sourceEmptyError("Empty schema. Please specify a URL, file path, or Redocly Config");
   }
+  const fix = outputFixesOf(options);
   const { logger } = ports;
   const silent = options.silent ?? false;
   const cwd = sourceCwd(options);
@@ -117,6 +128,7 @@ export async function createDocumentRun(
   withStackOverflowReported("transform", () => warnUnsupportedFeatures(schema, logger));
   const ctx: GlobalContext = {
     ...contextFlags(options),
+    fix,
     // The scan walks every schema before the transform does, so on a larger stack, where loading
     // passed, it is the first step to run out.
     discriminators: withStackOverflowReported("transform", () =>

@@ -42,6 +42,12 @@ export {
   OpenAPITypesafeError,
 } from "./domain/errors.js";
 export type * from "./domain/ir/nodes.js";
+export {
+  ALL_OUTPUT_FIXES,
+  OUTPUT_FIXES,
+  OutputFix,
+  type OutputFixName,
+} from "./domain/output-fixes.js";
 export { default as transformComponentsObject } from "./transform/components-object.js";
 export { default as transformHeaderObject } from "./transform/header-object.js";
 export { default as transformMediaTypeObject } from "./transform/media-type-object.js";

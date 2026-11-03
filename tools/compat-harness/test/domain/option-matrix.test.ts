@@ -45,12 +45,19 @@ describe("selectOptionSets", () => {
     expect(ids).toEqual([
       "default",
       "immutable",
+      "empty-objects-unknown",
+      "properties-required-by-default",
       "array-length",
       "read-write-markers",
       "binary-as-blob",
       "binary-as-blob+immutable",
       "binary-as-blob+read-write-markers",
       "binary-as-blob+array-length",
+      "fix=allof-required",
+      "fix=allof-required+immutable",
+      "fix=allof-required+properties-required-by-default",
+      "fix=allof-required+empty-objects-unknown",
+      "fix=all",
     ]);
   });
 

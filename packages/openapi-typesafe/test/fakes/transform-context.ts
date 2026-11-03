@@ -27,6 +27,7 @@ export const DEFAULT_TRANSFORM_OPTIONS: TransformOptions = {
   enum: false,
   enumValues: false,
   excludeDeprecated: false,
+  fixes: new Set(),
   immutable: false,
   propertiesRequiredByDefault: false,
   readWriteMarkers: false,

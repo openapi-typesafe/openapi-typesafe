@@ -12,6 +12,7 @@ import {
   withRequiredKeys,
 } from "../type-combinators.js";
 import { coreType } from "./core-type.js";
+import { allOfMembers } from "./presence-members.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
 /** `anyOf` / `oneOf` variants; the position is part of the path so nested names stay unique. */
@@ -108,7 +109,12 @@ function oneOfVariants(schema: SchemaObject): readonly Schema[] {
 function combinedType(schema: SchemaObject, request: SchemaRequest): IrType | null {
   let type: IrType | null = null;
   const core = coreType(schema, request);
-  const allOf = allOfTypes(schema.allOf ?? [], schema.required ?? [], request);
+  const { members, required } = allOfMembers(schema.allOf ?? [], request);
+  const allOf = allOfTypes(
+    members,
+    [...new Set([...(schema.required ?? []), ...required])],
+    request,
+  );
   if (core !== null || allOf.length > 0) {
     const allOfType = allOf.length > 0 ? [intersectionOf(allOf)] : [];
     type = intersectionOf([...(core === null ? [] : [core]), ...allOfType]);

@@ -1,6 +1,8 @@
 import { kebabCase } from "scule";
 import parser from "yargs-parser";
+import type { OutputFixName } from "../domain/output-fixes.js";
 import { cliError } from "./cli-errors.js";
+import { fixNamesOf } from "./fix-option.js";
 
 /** The CLI's arguments, parsed as the original CLI parsed them (yargs-parser). */
 
@@ -62,6 +64,8 @@ export interface CliArguments {
   readonly isVersion: boolean;
   readonly generatorFlags: GeneratorFlags;
   readonly refLimits: CliRefLimits;
+  /** `--fix`, comma-separated and repeatable (ADR-021); unset when the flag is not given. */
+  readonly fix: readonly OutputFixName[] | undefined;
   /** Flags the CLI does not know, as written on the command line (`--bogus`, `-x`). */
   readonly unknownFlags: readonly string[];
 }
@@ -143,6 +147,7 @@ function refLimitsOf(parsed: parser.Arguments): CliRefLimits {
 const STRING_FLAGS = [
   "output",
   "redocly",
+  "fix",
   ...["localRefRoot", "remoteRefHosts"].flatMap((flag) => [flag, kebabCase(flag)]),
 ];
 
@@ -167,7 +172,10 @@ function unknownFlagsOf(parsed: parser.Arguments): string[] {
   return [...new Set(names)];
 }
 
-/** Parse the arguments after `node cli.js`. Fails with `CLI_FLAG_REMOVED` for an old flag. */
+/**
+ * Parse the arguments after `node cli.js`. Fails with `CLI_FLAG_REMOVED` for an old flag and with
+ * `OPTION_FIX_UNKNOWN` for an unknown `--fix` name.
+ */
 export function parseCliArguments(argv: readonly string[]): CliArguments {
   rejectRemovedFlags(argv);
   const parsed = parser([...argv], {
@@ -184,6 +192,7 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
     isVersion: "version" in parsed,
     generatorFlags: generatorFlagsOf(parsed),
     refLimits: refLimitsOf(parsed),
+    fix: fixNamesOf(parsed.fix),
     unknownFlags: unknownFlagsOf(parsed),
   };
 }

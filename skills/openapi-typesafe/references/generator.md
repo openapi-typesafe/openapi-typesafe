@@ -29,6 +29,7 @@ Common flags (all default to off unless noted):
 | `--path-params-as-types` | Template-literal path keys: `paths[\`/pets/${string}\`]` |
 | `--array-length` | Tuples from `minItems` / `maxItems` |
 | `--binary-as-blob` | `format: binary` and binary `contentMediaType` strings become `Blob` (file uploads and downloads); needs the DOM lib or `@types/node` |
+| `--fix <names>` | Opt-in fixes of valid-schema output, comma-separated, or `all` (`fix: [...]` in `redocly.yaml` and the Node API); unknown names fail. `allof-required`: an `allOf` member with only `required` (`Base & Record<string, never>`) becomes `WithRequired<Base, "key">` |
 | `--exclude-deprecated` | Drop deprecated fields |
 | `--make-paths-enum` | Export an `ApiPaths` enum |
 | `--read-write-markers` | Mark `readOnly` / `writeOnly` with `$Read<T>` / `$Write<T>`; the client strips them from request and response types |
