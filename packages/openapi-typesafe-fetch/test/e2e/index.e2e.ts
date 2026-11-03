@@ -46,14 +46,18 @@ async function mockAPI(page: Page) {
   ]);
 }
 
-/** Whether the request is the app's file upload, with a boundary the browser set. */
+/**
+ * Whether the request is the app's file upload: a boundary the browser set, the text field, and
+ * the `File` sent as a file part. The file's bytes are not checked: WebKit leaves blob-backed
+ * contents out of the body it hands to Playwright (https://github.com/microsoft/playwright/pull/41888),
+ * and a file part with a `filename` already shows the client appended the `File` itself.
+ */
 function isMultipartUpload(request: Request): boolean {
   const contentType = request.headers()["content-type"] ?? "";
   const body = request.postData() ?? "";
   return (
     /^multipart\/form-data; boundary=/.test(contentType) &&
-    body.includes('filename="hello.txt"') &&
-    body.includes("Hello, World!") &&
-    body.includes('name="message"')
+    body.includes('name="message"\r\n\r\nForm\r\n') &&
+    body.includes('name="file"; filename="hello.txt"')
   );
 }
