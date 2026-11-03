@@ -6,6 +6,7 @@ import { decodeDependentsManifest } from "../application/dependents-codecs.ts";
 import { REPOSITORY_PATHS } from "../application/layout.ts";
 import { buildManifest } from "../application/use-cases/build-manifest.ts";
 import { checkDependents } from "../application/use-cases/check-dependents.ts";
+import { checkOptInOutputs } from "../application/use-cases/check-opt-in-outputs.ts";
 import { compareOutputs } from "../application/use-cases/compare-outputs.ts";
 import { FetchStatus, fetchCorpus } from "../application/use-cases/fetch-corpus.ts";
 import { generateOutputs } from "../application/use-cases/generate-outputs.ts";
@@ -18,7 +19,8 @@ import { DependentStatus, summarizeDependents } from "../domain/dependent-result
 import { HarnessError, HarnessErrorCode } from "../domain/errors.ts";
 import { INTENTIONAL_DIFFERENCES } from "../domain/intentional-differences.ts";
 import type { CorpusManifest } from "../domain/manifest.ts";
-import { selectOptionSets } from "../domain/option-matrix.ts";
+import { isOptInRegression, summarizeOptInChecks } from "../domain/opt-in-check.ts";
+import { buildOptInOptionSets, selectOptionSets } from "../domain/option-matrix.ts";
 import { ComparisonStatus, GenerationStatus } from "../domain/run-result.ts";
 import type { HarnessContainer } from "./container.ts";
 import { HARNESS_DEFAULTS, HarnessCommand, requireOption } from "./settings.ts";
@@ -133,6 +135,30 @@ async function runCompare(container: HarnessContainer): Promise<ExitCode> {
   return mismatches === 0 ? 0 : 1;
 }
 
+/** Every opt-in option set found in the label's results is checked; `--option-sets` is not read. */
+async function runCheckOptIn(container: HarnessContainer): Promise<ExitCode> {
+  const { settings } = container;
+  const checks = await checkOptInOutputs(
+    {
+      cache: container.cache,
+      logger: container.logger,
+      outputCompiler: new TypeScriptOutputCompiler(),
+    },
+    {
+      label: requireOption(settings.label, "label", HarnessCommand.CheckOptIn),
+      optionSets: buildOptInOptionSets(),
+      concurrency: settings.concurrency ?? HARNESS_DEFAULTS.workConcurrency,
+    },
+  );
+  for (const [optionSetId, counts] of summarizeOptInChecks(checks)) {
+    const parts = Object.entries(counts).map(([status, count]) => `${status}=${count}`);
+    printLine(`Opt-in ${optionSetId}: ${parts.join(" ")}`);
+  }
+  const regressions = checks.filter((check) => isOptInRegression(check.status)).length;
+  printLine(`Check opt-in: ${checks.length} cases, ${regressions} regressions`);
+  return regressions === 0 ? 0 : 1;
+}
+
 async function runReport(container: HarnessContainer): Promise<ExitCode> {
   const report = await renderReport(
     { ...container, intentionalDifferences: INTENTIONAL_DIFFERENCES },
@@ -197,6 +223,7 @@ export const COMMANDS: Readonly<
   [HarnessCommand.Fetch]: runFetch,
   [HarnessCommand.Generate]: runGenerate,
   [HarnessCommand.Compare]: runCompare,
+  [HarnessCommand.CheckOptIn]: runCheckOptIn,
   [HarnessCommand.Report]: runReport,
   [HarnessCommand.Dependents]: runDependents,
 };

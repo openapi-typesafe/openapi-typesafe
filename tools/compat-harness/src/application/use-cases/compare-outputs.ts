@@ -1,4 +1,3 @@
-import { HarnessError, HarnessErrorCode } from "../../domain/errors.ts";
 import type { IntentionalDifference } from "../../domain/intentional-differences.ts";
 import {
   type ComparisonResult,
@@ -7,10 +6,11 @@ import {
   GenerationStatus,
 } from "../../domain/run-result.ts";
 import { compareGeneratedTexts } from "../../domain/text-comparison.ts";
-import { decodeGenerationResults, encodeJson } from "../codecs.ts";
+import { encodeJson } from "../codecs.ts";
 import { mapWithConcurrency } from "../concurrency.ts";
-import { comparisonResultsPath, generationResultsPath, outputPath } from "../layout.ts";
+import { comparisonResultsPath, outputPath } from "../layout.ts";
 import type { FileStore, Logger, OutputCompiler, TypeIdentityChecker } from "../ports.ts";
+import { caseKey, readGenerationResults, readOutput } from "../stored-outputs.ts";
 
 export interface CompareOutputsDependencies {
   readonly cache: FileStore;
@@ -33,33 +33,6 @@ export interface CompareOutputsOptions {
   readonly goldenLabel: string;
   readonly candidateLabel: string;
   readonly concurrency: number;
-}
-
-const caseKey = (result: GenerationResult): string => `${result.optionSetId}/${result.entryId}`;
-
-async function readGenerationResults(cache: FileStore, label: string): Promise<GenerationResult[]> {
-  const text = await cache.readText(generationResultsPath(label));
-  if (text === undefined) {
-    const message = `No generation results for "${label}"; run the generate command first`;
-    throw new HarnessError(HarnessErrorCode.StoredFileInvalid, message);
-  }
-  return decodeGenerationResults(text);
-}
-
-async function readOutput(
-  cache: FileStore,
-  label: string,
-  result: GenerationResult,
-): Promise<string> {
-  const path = outputPath(label, result.optionSetId, result.entryId);
-  const text = await cache.readText(path);
-  if (text === undefined) {
-    throw new HarnessError(
-      HarnessErrorCode.StoredFileInvalid,
-      `Output recorded as ok is missing: ${path}`,
-    );
-  }
-  return text;
 }
 
 type TypeVerdict = Pick<ComparisonResult, "status" | "differentTypeNames">;

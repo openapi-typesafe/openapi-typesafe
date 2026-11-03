@@ -8,6 +8,7 @@ export const HarnessCommand = {
   Fetch: "fetch",
   Generate: "generate",
   Compare: "compare",
+  CheckOptIn: "check-opt-in",
   Report: "report",
   Dependents: "dependents",
 } as const;

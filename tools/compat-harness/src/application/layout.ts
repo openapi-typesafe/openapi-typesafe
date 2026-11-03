@@ -37,6 +37,11 @@ export function comparisonResultsPath(goldenLabel: string, candidateLabel: strin
   return `results/${goldenLabel}__vs__${candidateLabel}.comparison.json`;
 }
 
+/** Opt-in check results of one generator label. */
+export function optInResultsPath(label: string): string {
+  return `results/${label}.opt-in.json`;
+}
+
 /** Rendered report files of one comparison. */
 export function reportPaths(
   goldenLabel: string,

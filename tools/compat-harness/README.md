@@ -18,6 +18,8 @@ pnpm harness fetch --corpus 200           # download the CI subset (or --corpus 
 pnpm harness generate --label fork-base --cli <path/to/bin/cli.js> --option-sets all
 pnpm harness generate --label current --cli ../../packages/openapi-typesafe/bin/cli.js --option-sets all
 pnpm harness compare --golden fork-base --candidate current --types
+pnpm harness generate --label current-opt-in --cli ../../packages/openapi-typesafe/bin/cli.js --option-sets opt-in
+pnpm harness check-opt-in --label current-opt-in   # opt-in flags against their own baselines
 pnpm harness dependents                   # real projects (ENGINEERING_PLAN 8.4), before `report`
 pnpm harness report --golden fork-base --candidate current
 ```
@@ -25,7 +27,7 @@ pnpm harness report --golden fork-base --candidate current
 | Option                                    | Meaning                                                                                                         |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `--corpus <n\|all>`                       | Deterministic subset of `n` entries (all curated + evenly spread APIs.guru), or the full corpus                 |
-| `--option-sets <ids\|all>`                | Comma-separated option set ids (`default`, `enum`, `root-types+root-types-keep-casing`, …)                      |
+| `--option-sets <ids\|all\|opt-in>`         | Comma-separated option set ids (`default`, `enum`, `root-types+root-types-keep-casing`, …); `opt-in` selects the opt-in sets and their baselines |
 | `--types`                                 | Also run the strict type-identity check on outputs whose text differs                                           |
 | `--update-hashes`                         | Accept changed documents and record their new hashes (refreshing the corpus on purpose)                         |
 | `--concurrency <n>` / `--timeout-ms <n>`  | Worker count; per-run generator timeout (per step for `dependents`, default 10 minutes)                         |
@@ -78,6 +80,13 @@ arguments.
   default. With more errors it stays `different`.
 - Cases where the golden generator fails or its output does not compile are excluded from the
   identity rates.
+- **Opt-in flags** (`--binary-as-blob`, ...): flags the golden generators do not have, off by
+  default. They are not in the matrix. Each opt-in option set has a baseline, the matrix option
+  set with the same flags without the opt-in one (`binary-as-blob+immutable` → `immutable`), and
+  `check-opt-in` compares the two outputs of the same label: the same text is `unchanged`; other
+  output must compile (`compiles`) or have no more errors than the baseline (`no-new-errors`).
+  `more-errors` and `candidate-failed` fail the command. Results go to
+  `.cache/compat/results/<label>.opt-in.json`.
 
 ## Real projects
 

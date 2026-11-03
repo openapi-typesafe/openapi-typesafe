@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { HarnessErrorCode } from "../../src/domain/errors.ts";
 import {
+  buildOptInOptionSets,
   buildOptionMatrix,
   DEFAULT_OPTION_SET_ID,
   selectOptionSets,
@@ -34,9 +35,49 @@ describe("selectOptionSets", () => {
     expect(selectOptionSets(["enum", "default"]).map((set) => set.id)).toEqual(["enum", "default"]);
   });
 
+  it("selectOptionSets with all and an id returns the matrix once", () => {
+    expect(selectOptionSets(["all", "enum"])).toEqual(buildOptionMatrix());
+  });
+
+  it("selectOptionSets with opt-in returns the baselines first, then the opt-in sets", () => {
+    const ids = selectOptionSets(["opt-in"]).map((set) => set.id);
+
+    expect(ids).toEqual([
+      "default",
+      "immutable",
+      "array-length",
+      "read-write-markers",
+      "binary-as-blob",
+      "binary-as-blob+immutable",
+      "binary-as-blob+read-write-markers",
+      "binary-as-blob+array-length",
+    ]);
+  });
+
+  it("selectOptionSets with an opt-in id returns that option set only", () => {
+    expect(selectOptionSets(["binary-as-blob+immutable"])).toEqual([
+      {
+        id: "binary-as-blob+immutable",
+        flags: ["--binary-as-blob", "--immutable"],
+        baselineOptionSetId: "immutable",
+      },
+    ]);
+  });
+
   it("selectOptionSets with an unknown id throws UNKNOWN_OPTION_SET", () => {
     expect(() => selectOptionSets(["no-such-flag"])).toThrow(
       expect.objectContaining({ code: HarnessErrorCode.UnknownOptionSet }),
     );
+  });
+});
+
+describe("buildOptInOptionSets", () => {
+  it("buildOptInOptionSets has a matrix option set as every baseline and no matrix id", () => {
+    const matrixIds = new Set(buildOptionMatrix().map((set) => set.id));
+
+    for (const optInSet of buildOptInOptionSets()) {
+      expect(matrixIds.has(optInSet.baselineOptionSetId)).toBe(true);
+      expect(matrixIds.has(optInSet.id)).toBe(false);
+    }
   });
 });

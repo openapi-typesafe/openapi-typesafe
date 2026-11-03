@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Full compatibility run (ENGINEERING_PLAN 2.2-2.5): generate with the two golden generators and the
-# current workspace build, compare, and render the reports.
+# current workspace build, compare, and render the reports. With option sets "all", the opt-in
+# flags are checked too (roadmap plan §4): their output must not compile worse than without them.
 #
 # Usage: scripts/run-compat.sh [corpus] [option-sets]    defaults: 200 all  (corpus: a number or "all")
 # Needs: scripts/prepare-generators.sh, `pnpm harness fetch --corpus <corpus>`, and a built
@@ -34,4 +35,11 @@ harness report --golden fork-base --candidate current
 # Documentation only: changes between the fork base and the last published upstream release.
 harness compare --golden upstream-7.13.0 --candidate fork-base --types || true
 harness report --golden upstream-7.13.0 --candidate fork-base
+# Opt-in flags: the golden generators do not have them, so the current build is checked against its
+# own output without the flag. Only with the whole matrix, to keep the per-PR run short.
+if [[ "${OPTION_SETS}" == "all" ]]; then
+  harness generate --label current-opt-in --cli ../../packages/openapi-typesafe/bin/cli.js \
+    --corpus "${CORPUS}" --option-sets opt-in
+  harness check-opt-in --label current-opt-in || status=1
+fi
 exit "${status}"
