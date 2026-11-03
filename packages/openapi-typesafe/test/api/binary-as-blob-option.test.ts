@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import openapiTS, { astToString, type OpenAPI3, type OpenAPITSOptions } from "../../src/index.js";
+import openapiTS, { astToString, type OpenAPI3, type OpenAPITSOptions, type SchemaObject } from "../../src/index.js";
 
 /** `binaryAsBlob` types raw binary strings as `Blob` (roadmap R1; upstream #1214, PR #2878). */
 
-const UPLOAD_SCHEMA = {
+const UPLOAD_SCHEMA: SchemaObject = {
   type: "object",
   required: ["file"],
   properties: {
@@ -12,7 +12,7 @@ const UPLOAD_SCHEMA = {
     pair: { type: "array", items: { type: "string", format: "binary" }, minItems: 2, maxItems: 2 },
     checksum: { type: "string", format: "byte", readOnly: true },
   },
-} as const;
+};
 
 const DOCUMENT_3_0: OpenAPI3 = {
   openapi: "3.0.3",
@@ -44,7 +44,8 @@ const DOCUMENT_3_1: OpenAPI3 = {
   paths: {},
   components: {
     schemas: {
-      Avatar: { contentMediaType: "image/png" },
+      // OpenAPI 3.1 allows a binary schema without `type`; the inherited SchemaObject type does not.
+      Avatar: { contentMediaType: "image/png" } as SchemaObject,
       Form: {
         type: "object",
         required: ["image", "metadata"],

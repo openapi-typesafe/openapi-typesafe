@@ -24,16 +24,16 @@ pnpm harness dependents                   # real projects (ENGINEERING_PLAN 8.4)
 pnpm harness report --golden fork-base --candidate current
 ```
 
-| Option                                    | Meaning                                                                                                         |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `--corpus <n\|all>`                       | Deterministic subset of `n` entries (all curated + evenly spread APIs.guru), or the full corpus                 |
-| `--option-sets <ids\|all\|opt-in>`         | Comma-separated option set ids (`default`, `enum`, `root-types+root-types-keep-casing`, …); `opt-in` selects the opt-in sets and their baselines |
-| `--types`                                 | Also run the strict type-identity check on outputs whose text differs                                           |
-| `--update-hashes`                         | Accept changed documents and record their new hashes (refreshing the corpus on purpose)                         |
-| `--concurrency <n>` / `--timeout-ms <n>`  | Worker count; per-run generator timeout (per step for `dependents`, default 10 minutes)                         |
-| `--projects <ids>` / `--work-dir <path>`  | `dependents` only: comma-separated project ids; work directory (default: system temp)                           |
-| `--switch names\|migrate`                 | `dependents` only: rename by package name (default), or run `openapi-typesafe-migrate --write` (build it first) |
-| `--cache-dir <path>` / `--log-dir <path>` | Defaults: `.cache/compat`, `../../.logs/harness`                                                                |
+| Option                                    | Meaning                                                                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--corpus <n\|all>`                       | Deterministic subset of `n` entries (all curated + evenly spread APIs.guru), or the full corpus                                                  |
+| `--option-sets <ids\|all\|opt-in>`        | Comma-separated option set ids (`default`, `enum`, `root-types+root-types-keep-casing`, …); `opt-in` selects the opt-in sets and their baselines |
+| `--types`                                 | Also run the strict type-identity check on outputs whose text differs                                                                            |
+| `--update-hashes`                         | Accept changed documents and record their new hashes (refreshing the corpus on purpose)                                                          |
+| `--concurrency <n>` / `--timeout-ms <n>`  | Worker count; per-run generator timeout (per step for `dependents`, default 10 minutes)                                                          |
+| `--projects <ids>` / `--work-dir <path>`  | `dependents` only: comma-separated project ids; work directory (default: system temp)                                                            |
+| `--switch names\|migrate`                 | `dependents` only: rename by package name (default), or run `openapi-typesafe-migrate --write` (build it first)                                  |
+| `--cache-dir <path>` / `--log-dir <path>` | Defaults: `.cache/compat`, `../../.logs/harness`                                                                                                 |
 
 Exit codes: `0` passed, `1` the command found problems (failed downloads, mismatches), `2` invalid
 arguments.
