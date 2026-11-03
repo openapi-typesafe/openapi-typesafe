@@ -26,12 +26,6 @@ updates:
       # The types match the lowest supported Node.js, so newer APIs cannot slip in (ADR-006).
       - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
-      # SvelteKit 3 needs TypeScript 6 as a peer; the workspace compiler stays on 5.x until the
-      # compiler API is gone (research/toolchain.md). adapter-auto 8 needs SvelteKit 3.
-      - dependency-name: "@sveltejs/kit"
-        update-types: [version-update:semver-major]
-      - dependency-name: "@sveltejs/adapter-auto"
-        update-types: [version-update:semver-major]
     groups:
       # React and its type packages only work at one major version, so they move together.
       react:

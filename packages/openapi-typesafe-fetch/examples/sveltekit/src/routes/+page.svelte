@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import client from "$lib/api/index.js";
+  import client from "#lib/api/index.js";
 
   let fact: Awaited<ReturnType<typeof getFact>> | undefined = $state(undefined);
 

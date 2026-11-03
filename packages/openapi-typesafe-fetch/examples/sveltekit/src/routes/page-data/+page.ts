@@ -1,6 +1,6 @@
 import type { PageLoad } from "./$types";
 
-import client from "$lib/api/index.js";
+import client from "#lib/api/index.js";
 
 // Note: this uses Svelte’s custom fetcher as an example, but Node’s
 // native fetch works, too. See Svelte’s docs to learn the difference:

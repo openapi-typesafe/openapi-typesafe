@@ -2,19 +2,23 @@
   "name": "@example/openapi-typesafe-fetch-sveltekit",
   "private": true,
   "type": "module",
+  "imports": {
+    "#lib": "./src/lib",
+    "#lib/*": "./src/lib/*"
+  },
   "scripts": {
     "dev": "vite dev",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
   },
   "devDependencies": {
-    "@sveltejs/adapter-auto": "^6.1.1",
-    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/adapter-auto": "^8.0.0",
+    "@sveltejs/kit": "^3.1.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "openapi-typesafe-fetch": "workspace:^",
     "openapi-typesafe": "workspace:^",
     "svelte": "^5.57.3",
-    "svelte-check": "^4.3.6",
+    "svelte-check": "^4.7.8",
     "typescript": "catalog:",
     "vite": "catalog:"
   }
