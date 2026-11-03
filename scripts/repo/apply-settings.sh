@@ -35,16 +35,23 @@ api() {
 }
 
 # Rulesets, secret scanning and provenance all need a public repository; stop before changing
-# anything on a private one.
+# anything on a private one. A dry run still prints the plan, so it can be reviewed beforehand.
 visibility="$(gh api "repos/${REPOSITORY}" --jq .visibility)"
 if [[ "${visibility}" != "public" ]]; then
-  log "${REPOSITORY} is ${visibility}; make it public first (ENGINEERING_PLAN 11.2)"
-  exit 1
+  if [[ "${IS_APPLY}" == "1" ]]; then
+    log "${REPOSITORY} is ${visibility}; make it public first (ENGINEERING_PLAN 11.2)"
+    exit 1
+  fi
+  log "${REPOSITORY} is ${visibility}; printing the plan only, --apply needs a public repository"
 fi
 
 for ruleset in ruleset-main.json ruleset-release-tags.json; do
   name="$(node -p "require('${SETTINGS_DIR}/${ruleset}').name")"
-  existing="$(gh api "repos/${REPOSITORY}/rulesets" --jq ".[] | select(.name == \"${name}\") | .id")"
+  existing=""
+  # A private repository on the free plan cannot have rulesets, and reading them fails with 403.
+  if [[ "${visibility}" == "public" ]]; then
+    existing="$(gh api "repos/${REPOSITORY}/rulesets" --jq ".[] | select(.name == \"${name}\") | .id")"
+  fi
   if [[ -n "${existing}" ]]; then
     api --method PUT "repos/${REPOSITORY}/rulesets/${existing}" --input "${SETTINGS_DIR}/${ruleset}"
   else
