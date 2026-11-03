@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TypeScriptIdentityChecker } from "../../src/adapters/typescript-identity-checker.ts";
+import type { TypeDifferences } from "../../src/application/ports.ts";
 import { HarnessErrorCode } from "../../src/domain/errors.ts";
 import { useTemporaryDirectory } from "./temporary-directory.ts";
 
@@ -14,13 +15,19 @@ const createDirectory = useTemporaryDirectory();
  */
 const COMPILER_TEST_TIMEOUT_MS = 30_000;
 
-async function findDifferences(golden: string, candidate: string): Promise<readonly string[]> {
+async function findTypeDifferences(golden: string, candidate: string): Promise<TypeDifferences> {
   const directory = await createDirectory();
   const goldenPath = join(directory, "golden.ts");
   const candidatePath = join(directory, "candidate.ts");
   await writeFile(goldenPath, golden);
   await writeFile(candidatePath, candidate);
   return new TypeScriptIdentityChecker().findDifferentTypes(goldenPath, candidatePath);
+}
+
+/** Every name that is not identical, changed or added, as the older tests expect. */
+async function findDifferences(golden: string, candidate: string): Promise<readonly string[]> {
+  const { changed, added } = await findTypeDifferences(golden, candidate);
+  return [...changed, ...added].sort();
 }
 
 describe("TypeScriptIdentityChecker", { timeout: COMPILER_TEST_TIMEOUT_MS }, () => {
@@ -47,6 +54,17 @@ describe("TypeScriptIdentityChecker", { timeout: COMPILER_TEST_TIMEOUT_MS }, () 
     const candidate = "export type Kept = string;\nexport type Added = boolean;";
 
     expect(await findDifferences(golden, candidate)).toEqual(["Added", "Removed"]);
+  });
+
+  it("findDifferentTypes tells changed golden names from names only the candidate adds", async () => {
+    const golden = "export type Kept = string;\nexport type Changed = number;";
+    const candidate =
+      "export type Kept = string;\nexport type Changed = string;\nexport type Kept_2 = string;";
+
+    expect(await findTypeDifferences(golden, candidate)).toEqual({
+      changed: ["Changed"],
+      added: ["Kept_2"],
+    });
   });
 
   it("findDifferentTypes compares enums and generic types by declaration text", async () => {

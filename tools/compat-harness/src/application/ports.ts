@@ -66,12 +66,18 @@ export interface GeneratorRunner {
   run(run: GeneratorRun): Promise<GeneratorRunOutcome>;
 }
 
+/** Exported type names of a candidate file that are not identical to the golden file. */
+export interface TypeDifferences {
+  /** Golden names the candidate lacks or declares with another type. */
+  readonly changed: readonly string[];
+  /** Names only the candidate exports. */
+  readonly added: readonly string[];
+}
+
 /** Checks that two generated files export identical types (ENGINEERING_PLAN 2.4). */
 export interface TypeIdentityChecker {
-  /**
-   * Return the names of exported types that differ; empty when every exported type is identical.
-   */
-  findDifferentTypes(goldenPath: string, candidatePath: string): Promise<readonly string[]>;
+  /** Both lists are empty when every exported type is identical. */
+  findDifferentTypes(goldenPath: string, candidatePath: string): Promise<TypeDifferences>;
 }
 
 /** One command run in a child process without a shell; `command[0]` is the executable. */

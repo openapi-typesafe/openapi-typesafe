@@ -25,7 +25,14 @@ function tableRow(cells: readonly (string | number)[]): string {
 }
 
 function summaryTable(rows: readonly (readonly [string, ComparisonSummary])[]): string[] {
-  const header = ["Option set", "Cases", ...STATUS_COLUMNS, "Byte identity", "Type identity"];
+  const header = [
+    "Option set",
+    "Cases",
+    ...STATUS_COLUMNS,
+    "Byte identity",
+    "Type identity",
+    "Kept types",
+  ];
   return [
     tableRow(header),
     tableRow(header.map(() => "---")),
@@ -36,6 +43,7 @@ function summaryTable(rows: readonly (readonly [string, ComparisonSummary])[]): 
         ...STATUS_COLUMNS.map((status) => summary.byStatus[status]),
         formatRate(summary.byteIdentityRate),
         formatRate(summary.typeIdentityRate),
+        formatRate(summary.keptTypeRate),
       ]),
     ),
   ];

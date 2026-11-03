@@ -24,6 +24,11 @@ export const ComparisonStatus = {
   Identical: "identical",
   /** Text differs, exported types are identical. */
   TypeIdentical: "type-identical",
+  /**
+   * Text differs, every type the golden file exports is identical in the candidate, and the
+   * candidate exports more names (for example a numbered alias for a clashing root type).
+   */
+  TypesAdded: "types-added",
   /** Text differs and types differ (or were not checked). */
   Different: "different",
   /** The golden run failed too, so the case is not comparable. */
@@ -40,7 +45,10 @@ export interface ComparisonResult {
   readonly status: ComparisonStatus;
   readonly firstDifferentLine: number | null;
   readonly differentLineCount: number;
-  /** Names of exported types that are not identical; empty when not checked or identical. */
+  /**
+   * Names of exported types that are not identical, or for `types-added` the names only the
+   * candidate exports; empty when not checked or identical.
+   */
   readonly differentTypeNames: readonly string[];
   /** Intentional differences applied to the golden text (`IntentionalDifference.id`). */
   readonly intentionalDifferenceIds: readonly string[];
@@ -54,6 +62,11 @@ export interface ComparisonSummary {
   readonly byteIdentityRate: number;
   /** Identical text or identical types among comparable cases, from 0 to 1. */
   readonly typeIdentityRate: number;
+  /**
+   * Cases where every golden type is kept identical, new names allowed, among comparable
+   * cases, from 0 to 1: what an existing user of the golden output can rely on.
+   */
+  readonly keptTypeRate: number;
 }
 
 /** Aggregate comparison results. Cases where the golden run failed are excluded from the rates. */
@@ -66,12 +79,13 @@ export function summarizeComparisons(results: readonly ComparisonResult[]): Comp
   }
   const comparable = results.length - byStatus[ComparisonStatus.GoldenFailed];
   const rate = (count: number): number => (comparable === 0 ? 1 : count / comparable);
+  const typeIdentical =
+    byStatus[ComparisonStatus.Identical] + byStatus[ComparisonStatus.TypeIdentical];
   return {
     total: results.length,
     byStatus,
     byteIdentityRate: rate(byStatus[ComparisonStatus.Identical]),
-    typeIdentityRate: rate(
-      byStatus[ComparisonStatus.Identical] + byStatus[ComparisonStatus.TypeIdentical],
-    ),
+    typeIdentityRate: rate(typeIdentical),
+    keptTypeRate: rate(typeIdentical + byStatus[ComparisonStatus.TypesAdded]),
   };
 }

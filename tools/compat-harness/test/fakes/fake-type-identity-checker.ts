@@ -1,16 +1,23 @@
-import type { TypeIdentityChecker } from "../../src/application/ports.ts";
+import type { TypeDifferences, TypeIdentityChecker } from "../../src/application/ports.ts";
 
-/** TypeIdentityChecker that returns scripted type names per candidate path and records its calls. */
+const NO_DIFFERENCES: TypeDifferences = { changed: [], added: [] };
+
+/** TypeIdentityChecker that returns scripted differences per candidate path and records its calls. */
 export class FakeTypeIdentityChecker implements TypeIdentityChecker {
   readonly calls: { goldenPath: string; candidatePath: string }[] = [];
-  readonly #differences: ReadonlyMap<string, readonly string[]>;
+  readonly #differences: ReadonlyMap<string, TypeDifferences>;
 
-  constructor(differencesByCandidatePath: Readonly<Record<string, readonly string[]>> = {}) {
-    this.#differences = new Map(Object.entries(differencesByCandidatePath));
+  constructor(differencesByCandidatePath: Readonly<Record<string, Partial<TypeDifferences>>> = {}) {
+    this.#differences = new Map(
+      Object.entries(differencesByCandidatePath).map(([path, found]) => [
+        path,
+        { ...NO_DIFFERENCES, ...found },
+      ]),
+    );
   }
 
-  async findDifferentTypes(goldenPath: string, candidatePath: string): Promise<readonly string[]> {
+  async findDifferentTypes(goldenPath: string, candidatePath: string): Promise<TypeDifferences> {
     this.calls.push({ goldenPath, candidatePath });
-    return this.#differences.get(candidatePath) ?? [];
+    return this.#differences.get(candidatePath) ?? NO_DIFFERENCES;
   }
 }

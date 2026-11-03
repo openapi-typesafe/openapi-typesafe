@@ -131,8 +131,11 @@ async function runReport(container: HarnessContainer): Promise<ExitCode> {
     { ...container, intentionalDifferences: INTENTIONAL_DIFFERENCES },
     readLabels(container, HarnessCommand.Report),
   );
-  const { byteIdentityRate, typeIdentityRate } = report.summary;
-  printLine(`Report: byte identity ${byteIdentityRate}, type identity ${typeIdentityRate}`);
+  const { byteIdentityRate, typeIdentityRate, keptTypeRate } = report.summary;
+  printLine(
+    `Report: byte identity ${byteIdentityRate}, type identity ${typeIdentityRate},` +
+      ` kept types ${keptTypeRate}`,
+  );
   return 0;
 }
 

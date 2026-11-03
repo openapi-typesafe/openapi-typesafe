@@ -85,15 +85,18 @@ describe("compareOutputs", () => {
     expect(decodeComparisonResults(written)).toEqual(results);
   });
 
-  it("compareOutputs with a type checker separates type-identical from different", async () => {
+  it("compareOutputs with a type checker separates type-identical, added and different", async () => {
     const cache = setUp({
       reordered: { golden: "a", candidate: "b" },
       drifted: { golden: "a", candidate: "c" },
+      extended: { golden: "a", candidate: "d" },
     });
-    const driftedPath = cache.resolve(
-      outputPath("candidate", "default", "drifted" as CorpusEntryId),
-    );
-    const typeChecker = new FakeTypeIdentityChecker({ [driftedPath]: ["paths"] });
+    const candidatePath = (id: string) =>
+      cache.resolve(outputPath("candidate", "default", id as CorpusEntryId));
+    const typeChecker = new FakeTypeIdentityChecker({
+      [candidatePath("drifted")]: { changed: ["paths"], added: ["Extra"] },
+      [candidatePath("extended")]: { added: ["Extra"] },
+    });
 
     const results = await compareOutputs(
       { cache, logger: new RecordingLogger(), typeChecker },
@@ -103,8 +106,9 @@ describe("compareOutputs", () => {
     expect(results.map((r) => [r.status, r.differentTypeNames])).toEqual([
       [ComparisonStatus.TypeIdentical, []],
       [ComparisonStatus.Different, ["paths"]],
+      [ComparisonStatus.TypesAdded, ["Extra"]],
     ]);
-    expect(typeChecker.calls).toHaveLength(2);
+    expect(typeChecker.calls).toHaveLength(3);
   });
 
   it("compareOutputs rewrites the golden text with the intentional differences", async () => {

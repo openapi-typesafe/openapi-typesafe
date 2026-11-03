@@ -63,6 +63,7 @@ export async function renderReport(
     total: report.summary.total,
     byteIdentityRate: report.summary.byteIdentityRate,
     typeIdentityRate: report.summary.typeIdentityRate,
+    keptTypeRate: report.summary.keptTypeRate,
   });
   return report;
 }

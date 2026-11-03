@@ -94,15 +94,17 @@ async function compareCase(
   if (!dependencies.typeChecker) {
     return { ...base, ...lines, status: ComparisonStatus.Different };
   }
-  const differentTypeNames = await dependencies.typeChecker.findDifferentTypes(
+  const { changed, added } = await dependencies.typeChecker.findDifferentTypes(
     dependencies.cache.resolve(outputPath(options.goldenLabel, golden.optionSetId, golden.entryId)),
     dependencies.cache.resolve(
       outputPath(options.candidateLabel, candidate.optionSetId, candidate.entryId),
     ),
   );
-  const status =
-    differentTypeNames.length === 0 ? ComparisonStatus.TypeIdentical : ComparisonStatus.Different;
-  return { ...base, ...lines, status, differentTypeNames };
+  if (changed.length > 0) {
+    return { ...base, ...lines, status: ComparisonStatus.Different, differentTypeNames: changed };
+  }
+  const status = added.length === 0 ? ComparisonStatus.TypeIdentical : ComparisonStatus.TypesAdded;
+  return { ...base, ...lines, status, differentTypeNames: added };
 }
 
 /**

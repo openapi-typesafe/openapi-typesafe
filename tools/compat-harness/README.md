@@ -65,7 +65,9 @@ arguments.
 - **Types:** every exported type must be identical under
   `(<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)`. This catches `readonly`
   and `any` differences that mutual assignability misses. Enums and generic types are compared by
-  declaration text.
+  declaration text. A case where every golden type is identical and the candidate only exports
+  more names is `types-added`: it counts for the **kept types** rate (what an existing user of the
+  golden output can rely on), not for type identity.
 - **Intentional differences:** bug fixes that change output on purpose (ENGINEERING_PLAN 7.4) are
   listed in `src/domain/intentional-differences.ts`, each with its upstream issues and a rewrite of
   the golden text. The comparison applies the rewrites to the golden text first, so a case that

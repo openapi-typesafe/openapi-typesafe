@@ -1,5 +1,5 @@
 import ts from "typescript";
-import type { TypeIdentityChecker } from "../application/ports.ts";
+import type { TypeDifferences, TypeIdentityChecker } from "../application/ports.ts";
 import { HarnessError, HarnessErrorCode } from "../domain/errors.ts";
 
 /** Exported declarations of one generated file, split by how they can be compared. */
@@ -145,23 +145,23 @@ export class TypeScriptIdentityChecker implements TypeIdentityChecker {
     this.#readText = readText;
   }
 
-  async findDifferentTypes(goldenPath: string, candidatePath: string): Promise<readonly string[]> {
+  async findDifferentTypes(goldenPath: string, candidatePath: string): Promise<TypeDifferences> {
     const golden = readExportedDeclarations(goldenPath, this.#readText(goldenPath));
     const candidate = readExportedDeclarations(candidatePath, this.#readText(candidatePath));
     const goldenNames = new Set([...golden.structural.keys(), ...golden.textual.keys()]);
     const candidateNames = new Set([...candidate.structural.keys(), ...candidate.textual.keys()]);
-    const onlyInOne = [
-      ...[...goldenNames].filter((name) => !candidateNames.has(name)),
-      ...[...candidateNames].filter((name) => !goldenNames.has(name)),
-    ];
     const shared = [...golden.structural.keys()].filter((name) => candidate.structural.has(name));
     const different = new Set([
-      ...onlyInOne,
+      ...[...goldenNames].filter((name) => !candidateNames.has(name)),
       // Both directions, so a name that is generic in one file and not in the other is caught.
       ...differentTextualNames(golden.textual, candidate.textual),
       ...differentTextualNames(candidate.textual, golden.textual),
       ...checkStructuralIdentity(goldenPath, candidatePath, shared),
     ]);
-    return [...different].sort();
+    const added = [...candidateNames].filter((name) => !goldenNames.has(name));
+    return {
+      changed: [...different].filter((name) => goldenNames.has(name)).sort(),
+      added: added.sort(),
+    };
   }
 }

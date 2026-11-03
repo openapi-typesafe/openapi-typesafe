@@ -32,6 +32,7 @@ describe("summarizeComparisons", () => {
     expect(summary.byStatus).toEqual({
       identical: 1,
       "type-identical": 1,
+      "types-added": 0,
       different: 1,
       "golden-failed": 1,
       "candidate-failed": 1,
@@ -45,5 +46,18 @@ describe("summarizeComparisons", () => {
 
     expect(summary.byteIdentityRate).toBe(1);
     expect(summary.typeIdentityRate).toBe(1);
+    expect(summary.keptTypeRate).toBe(1);
+  });
+
+  it("summarizeComparisons counts added types as kept, but not as type identity", () => {
+    const summary = summarizeComparisons([
+      comparison(ComparisonStatus.TypeIdentical),
+      comparison(ComparisonStatus.TypesAdded),
+      comparison(ComparisonStatus.Different),
+      comparison(ComparisonStatus.Different),
+    ]);
+
+    expect(summary.typeIdentityRate).toBe(0.25);
+    expect(summary.keptTypeRate).toBe(0.5);
   });
 });
