@@ -582,6 +582,7 @@ clearly. Log `.logs/pre-beta/explore/12.4.log`.
 | PB-47 | Generator | S2 | §4.1: `--root-types-no-schema-prefix` with `Void` and `void` schemas: openapi-typescript exported `Void` for the later schema only; ours made `Void` the earlier one and `Void_2` the later, so valid output silently changed meaning (29 corpus documents) | fixed: the shared name keeps its old meaning, earlier schemas get numbered aliases; those documents now differ from fork-base only by added lines; test/api/root-type-name-clashes.test.ts; migration guide lists the root-type fixes |
 | PB-48 | Generator | S3 | CI (Linux): `--local-ref-root` compared a missing file's path as written with the root's real path, so under a linked root (macOS `/tmp`) a missing file inside it was refused as outside; on Linux the test showed that `file:` URLs and `%2e%2e` are plain file names to Redocly, never an escape | fixed: the nearest existing directory is resolved; the test expects those refs to fail as missing files inside the root; `test/security/ref-access.test.ts` |
 | PB-49 | Tests, CI | S3 | CI: four `useMutation` tests waited for `isPending` to be false, which is true before the mutation starts; with TanStack Query 5.105 on Linux they read `data` too early. `turbo run test` stopped at that package, so the generator suite did not run | fixed: the tests wait for `isSuccess` / `isError`; `test` and `lint` run with `--continue` |
+| PB-50 | Tests | S3 | CI, once `--continue` let every suite run: the fetch `requestInitExt` e2e test failed on Node.js 22 and 24 (`invalid onRequestStart method`) since the dev bump to undici 8, whose dispatchers only fit the `fetch` of Node.js 26 | fixed: the dev dependency is undici 7.30.1 (the maintained `seven` line), which passes on 22, 24 and 26; all suites were run on Node.js 22 and 24 locally (`.logs/pre-beta/verify/node22-24.log`) |
 
 ## 14. Exit criteria (before inviting testers)
 
@@ -594,7 +595,7 @@ clearly. Log `.logs/pre-beta/explore/12.4.log`.
 **Exit check (2026-11-03).**
 
 - Every item of §3–§12 is checked, each with its log under `.logs/pre-beta/`; §11.1 ran too.
-- PB-1…PB-49: every S1 and S2 is fixed; PB-12 now warns and PB-35 is documented (upstream
+- PB-1…PB-50: every S1 and S2 is fixed; PB-12 now warns and PB-35 is documented (upstream
   packaging). S3s are fixed or accepted in an ADR (PB-9, ADR-018).
 - §3: all four package managers pass on 22.12.0, latest 22, 24 and 26; only pnpm 11 cannot
   run on 22.12.0 (its own engine), pnpm 10 passes there.
