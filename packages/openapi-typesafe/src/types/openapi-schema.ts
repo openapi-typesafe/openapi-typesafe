@@ -36,7 +36,7 @@ export type SchemaObject = {
   const?: unknown;
   default?: unknown;
   format?: string;
-  /** The media type of the string's contents (OpenAPI 3.1, JSON Schema 2020-12), e.g. `image/png`. */
+  /** Media type of the string contents (OpenAPI 3.1, JSON Schema 2020-12), e.g. `image/png`. */
   contentMediaType?: string;
   /** How the string's contents are encoded (OpenAPI 3.1, JSON Schema 2020-12), e.g. `base64`. */
   contentEncoding?: string;
