@@ -297,9 +297,6 @@ importers:
         specifier: ^22.0.0
         version: 22.0.0
     devDependencies:
-      '@types/degit':
-        specifier: 2.8.6
-        version: 2.8.6
       '@types/js-yaml':
         specifier: 4.0.9
         version: 4.0.9
@@ -310,8 +307,8 @@ importers:
         specifier: 6.0.2
         version: 6.0.2
       degit:
-        specifier: 2.8.6
-        version: 2.8.6
+        specifier: 3.10.1
+        version: 3.10.1
       dependency-cruiser:
         specifier: 18.7.0
         version: 18.7.0
@@ -2195,9 +2192,6 @@ packages:
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
 
-  '@types/degit@2.8.6':
-    resolution: {integrity: sha512-y0M7sqzsnHB6cvAeTCBPrCQNQiZe8U4qdzf8uBVmOWYap5MMTN/gB2iEqrIqFiYcsyvP74GnGD5tgsHttielFw==}
-
   '@types/estree@1.0.10':
     resolution: {integrity: sha512-lTyOMnOcmRBzdCv6/4zUZCrEhV0xrqQiUZBZtVcbmLHBXKLnN8q89v/wKRF/Q0HbwVsqbIG3o5HDoFl9sduM+g==}
 
@@ -3121,9 +3115,9 @@ packages:
   defu@6.1.7:
     resolution: {integrity: sha512-7z22QmUWiQ/2d0KkdYmANbRUVABpZ9SNYyH5vx6PZ+nE5bcC0l7uFvEfHlyld/HcGBFTL536ClDt3DEcSlEJAQ==}
 
-  degit@2.8.6:
-    resolution: {integrity: sha512-UzjEf67itNZtQF4ZFSNYT+JY78VKtkRJPnksn1tVDAX74Ar0zMqnB5UvsiAjIOBiIHv3BbAPCEJDn/zasbV5rw==}
-    engines: {node: '>=8.0.0'}
+  degit@3.10.1:
+    resolution: {integrity: sha512-uk/EzGpCqFG7EYggYyz2SbLovBSok+dxzuKJywJ7VV77/20k/+P4CxG2qTNLTZOQ6snLsY/0mcipP40OLL2pBg==}
+    engines: {node: '>=20.0.0'}
     hasBin: true
 
   delayed-stream@1.0.0:
@@ -6662,8 +6656,6 @@ snapshots:
 
   '@types/deep-eql@4.0.2': {}
 
-  '@types/degit@2.8.6': {}
-
   '@types/estree@1.0.10': {}
 
   '@types/hast@3.0.5':
@@ -7464,7 +7456,7 @@ snapshots:
 
   defu@6.1.7: {}
 
-  degit@2.8.6: {}
+  degit@3.10.1: {}
 
   delayed-stream@1.0.0: {}
 

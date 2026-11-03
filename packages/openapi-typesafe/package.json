@@ -101,11 +101,10 @@
     "yargs-parser": "^22.0.0"
   },
   "devDependencies": {
-    "@types/degit": "2.8.6",
     "@types/js-yaml": "4.0.9",
     "@types/yargs-parser": "21.0.3",
     "@typescript/typescript6": "6.0.2",
-    "degit": "2.8.6",
+    "degit": "3.10.1",
     "dependency-cruiser": "18.7.0",
     "execa": "catalog:",
     "fast-check": "4.10.2",
