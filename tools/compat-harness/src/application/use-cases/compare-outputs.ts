@@ -10,7 +10,7 @@ import { compareGeneratedTexts } from "../../domain/text-comparison.ts";
 import { decodeGenerationResults, encodeJson } from "../codecs.ts";
 import { mapWithConcurrency } from "../concurrency.ts";
 import { comparisonResultsPath, generationResultsPath, outputPath } from "../layout.ts";
-import type { FileStore, Logger, TypeIdentityChecker } from "../ports.ts";
+import type { FileStore, Logger, OutputCompiler, TypeIdentityChecker } from "../ports.ts";
 
 export interface CompareOutputsDependencies {
   readonly cache: FileStore;
@@ -20,6 +20,11 @@ export interface CompareOutputsDependencies {
    * slow).
    */
   readonly typeChecker?: TypeIdentityChecker;
+  /**
+   * Tells a fix of golden output that does not compile from a type change; without it every
+   * changed type is a difference.
+   */
+  readonly outputCompiler?: OutputCompiler;
   /** Rewrites of the golden text for fixes made on purpose; none when absent. */
   readonly intentionalDifferences?: readonly IntentionalDifference[];
 }
@@ -57,6 +62,41 @@ async function readOutput(
   return text;
 }
 
+type TypeVerdict = Pick<ComparisonResult, "status" | "differentTypeNames">;
+
+/** A changed golden type is a fix when the golden file does not compile and ours is no worse. */
+async function changedTypesStatus(
+  compiler: OutputCompiler | undefined,
+  goldenPath: string,
+  candidatePath: string,
+): Promise<ComparisonResult["status"]> {
+  const goldenErrors = compiler === undefined ? 0 : await compiler.countErrors(goldenPath);
+  if (compiler === undefined || goldenErrors === 0) {
+    return ComparisonStatus.Different;
+  }
+  const candidateErrors = await compiler.countErrors(candidatePath);
+  return candidateErrors <= goldenErrors
+    ? ComparisonStatus.GoldenInvalid
+    : ComparisonStatus.Different;
+}
+
+async function compareTypes(
+  dependencies: CompareOutputsDependencies & { readonly typeChecker: TypeIdentityChecker },
+  goldenPath: string,
+  candidatePath: string,
+): Promise<TypeVerdict> {
+  const { changed, added } = await dependencies.typeChecker.findDifferentTypes(
+    goldenPath,
+    candidatePath,
+  );
+  if (changed.length > 0) {
+    const status = await changedTypesStatus(dependencies.outputCompiler, goldenPath, candidatePath);
+    return { status, differentTypeNames: changed };
+  }
+  const status = added.length === 0 ? ComparisonStatus.TypeIdentical : ComparisonStatus.TypesAdded;
+  return { status, differentTypeNames: added };
+}
+
 async function compareCase(
   dependencies: CompareOutputsDependencies,
   options: CompareOutputsOptions,
@@ -91,20 +131,18 @@ async function compareCase(
   if (text.isIdentical) {
     return { ...base, ...lines, status: ComparisonStatus.Identical };
   }
-  if (!dependencies.typeChecker) {
+  const { typeChecker } = dependencies;
+  if (!typeChecker) {
     return { ...base, ...lines, status: ComparisonStatus.Different };
   }
-  const { changed, added } = await dependencies.typeChecker.findDifferentTypes(
+  const verdict = await compareTypes(
+    { ...dependencies, typeChecker },
     dependencies.cache.resolve(outputPath(options.goldenLabel, golden.optionSetId, golden.entryId)),
     dependencies.cache.resolve(
       outputPath(options.candidateLabel, candidate.optionSetId, candidate.entryId),
     ),
   );
-  if (changed.length > 0) {
-    return { ...base, ...lines, status: ComparisonStatus.Different, differentTypeNames: changed };
-  }
-  const status = added.length === 0 ? ComparisonStatus.TypeIdentical : ComparisonStatus.TypesAdded;
-  return { ...base, ...lines, status, differentTypeNames: added };
+  return { ...base, ...lines, ...verdict };
 }
 
 /**

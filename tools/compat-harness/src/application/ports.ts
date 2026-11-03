@@ -80,6 +80,12 @@ export interface TypeIdentityChecker {
   findDifferentTypes(goldenPath: string, candidatePath: string): Promise<TypeDifferences>;
 }
 
+/** Type-checks one generated file on its own, as a user's strict project would. */
+export interface OutputCompiler {
+  /** The number of TypeScript errors, syntax errors included; 0 when the file compiles. */
+  countErrors(path: string): Promise<number>;
+}
+
 /** One command run in a child process without a shell; `command[0]` is the executable. */
 export interface CommandRun {
   /** Absolute working directory. */

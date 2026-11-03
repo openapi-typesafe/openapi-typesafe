@@ -187,7 +187,9 @@ describe("renderMarkdownReport", () => {
     const markdown = renderMarkdownReport(buildCompatibilityReport(INPUT));
 
     expect(markdown).toContain("# Compatibility report: current vs fork-base");
-    expect(markdown).toContain("| all | 7 | 1 | 1 | 0 | 2 | 1 | 2 | 16.67% | 33.33% | 33.33% |");
+    expect(markdown).toContain(
+      "| all | 7 | 1 | 1 | 0 | 2 | 1 | 0 | 2 | 16.67% | 33.33% | 33.33% |",
+    );
     expect(markdown).toContain("Error: unsupported \\| keyword");
     expect(markdown.endsWith("\n")).toBe(true);
   });

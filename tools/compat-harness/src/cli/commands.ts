@@ -1,5 +1,6 @@
 import { CliGeneratorRunner } from "../adapters/cli-generator-runner.ts";
 import { TypeScriptIdentityChecker } from "../adapters/typescript-identity-checker.ts";
+import { TypeScriptOutputCompiler } from "../adapters/typescript-output-compiler.ts";
 import { decodeManifest } from "../application/codecs.ts";
 import { decodeDependentsManifest } from "../application/dependents-codecs.ts";
 import { REPOSITORY_PATHS } from "../application/layout.ts";
@@ -107,7 +108,12 @@ async function runCompare(container: HarnessContainer): Promise<ExitCode> {
       cache: container.cache,
       logger: container.logger,
       intentionalDifferences: INTENTIONAL_DIFFERENCES,
-      ...(settings.isTypeCheckEnabled ? { typeChecker: new TypeScriptIdentityChecker() } : {}),
+      ...(settings.isTypeCheckEnabled
+        ? {
+            typeChecker: new TypeScriptIdentityChecker(),
+            outputCompiler: new TypeScriptOutputCompiler(),
+          }
+        : {}),
     },
     {
       ...readLabels(container, HarnessCommand.Compare),
@@ -118,6 +124,7 @@ async function runCompare(container: HarnessContainer): Promise<ExitCode> {
     ComparisonStatus.Identical,
     ComparisonStatus.TypeIdentical,
     ComparisonStatus.GoldenFailed,
+    ComparisonStatus.GoldenInvalid,
   ];
   const mismatches = comparisons.filter(
     (comparison) => !matching.includes(comparison.status),

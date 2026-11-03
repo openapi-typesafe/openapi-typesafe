@@ -95,6 +95,14 @@ export const INTENTIONAL_DIFFERENCES: readonly IntentionalDifference[] = [
     golden: /^export type (Schema[^\s=<]*[^\p{ID_Continue}$\s=<][^\s=<]*) = /gmu,
     candidate: (_match, name) => `export type ${name.replace(NON_IDENTIFIER_CHARACTER, "_")} = `,
   },
+  {
+    id: "root-type-name-leading-digit",
+    issues: [`${LEGACY_BUGS} item 16`],
+    description:
+      "`--root-types-no-schema-prefix`: a schema name that starts with a digit keeps its prefix",
+    golden: /^export type (\d[^\s=<]*) = (?=components\['schemas'\])/gm,
+    candidate: "export type Schema$1 = ",
+  },
 ];
 
 export interface RewrittenGolden {

@@ -68,6 +68,7 @@ const EXAMPLE_COUNT = 5;
 const DIFFERENT_TYPES_REASON = "exported types differ";
 const DIFFERENT_TEXT_REASON = "text differs (types not checked)";
 const TYPES_ADDED_REASON = "every golden type kept; new exported types";
+const GOLDEN_INVALID_REASON = "golden output does not compile; candidate has no more errors";
 const UNKNOWN_REASON = "no error output";
 
 const caseKey = (result: { optionSetId: string; entryId: string }): string =>
@@ -87,6 +88,8 @@ function reasonOf(
       return undefined;
     case ComparisonStatus.TypesAdded:
       return TYPES_ADDED_REASON;
+    case ComparisonStatus.GoldenInvalid:
+      return GOLDEN_INVALID_REASON;
     case ComparisonStatus.Different:
       return comparison.differentTypeNames.length > 0
         ? DIFFERENT_TYPES_REASON

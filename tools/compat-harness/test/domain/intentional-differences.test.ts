@@ -88,6 +88,21 @@ describe("INTENTIONAL_DIFFERENCES", () => {
     expect(appliedIds).toEqual(["root-type-name-identifier-characters"]);
   });
 
+  it("a root type name without the prefix that starts with a digit gets the prefix back", () => {
+    const golden = [
+      "export type 400 = components['schemas']['400'];",
+      "export type Pet = components['schemas']['Pet'];",
+    ].join("\n");
+
+    const { text, appliedIds } = applyIntentionalDifferences(golden, INTENTIONAL_DIFFERENCES);
+
+    expect(text.split("\n")).toEqual([
+      "export type Schema400 = components['schemas']['400'];",
+      "export type Pet = components['schemas']['Pet'];",
+    ]);
+    expect(appliedIds).toEqual(["root-type-name-leading-digit"]);
+  });
+
   it("the empty enum member gets a quoted name", () => {
     const golden = 'export enum A {\n     = "",\n    b = "b"\n}\nexport enum B {\n     = ""\n}';
 

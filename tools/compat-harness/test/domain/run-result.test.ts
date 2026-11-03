@@ -35,6 +35,7 @@ describe("summarizeComparisons", () => {
       "types-added": 0,
       different: 1,
       "golden-failed": 1,
+      "golden-invalid": 0,
       "candidate-failed": 1,
     });
     expect(summary.byteIdentityRate).toBe(0.25);
@@ -47,6 +48,16 @@ describe("summarizeComparisons", () => {
     expect(summary.byteIdentityRate).toBe(1);
     expect(summary.typeIdentityRate).toBe(1);
     expect(summary.keptTypeRate).toBe(1);
+  });
+
+  it("summarizeComparisons leaves golden output that does not compile out of the rates", () => {
+    const summary = summarizeComparisons([
+      comparison(ComparisonStatus.Identical),
+      comparison(ComparisonStatus.GoldenInvalid),
+    ]);
+
+    expect(summary.byteIdentityRate).toBe(1);
+    expect(summary.typeIdentityRate).toBe(1);
   });
 
   it("summarizeComparisons counts added types as kept, but not as type identity", () => {

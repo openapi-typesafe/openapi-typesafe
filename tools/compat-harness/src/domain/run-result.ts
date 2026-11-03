@@ -33,6 +33,11 @@ export const ComparisonStatus = {
   Different: "different",
   /** The golden run failed too, so the case is not comparable. */
   GoldenFailed: "golden-failed",
+  /**
+   * Types differ, but the golden output does not compile and the candidate has no more errors:
+   * a fix of invalid output, which the backlog policy ships by default. Not comparable either.
+   */
+  GoldenInvalid: "golden-invalid",
   /** The golden run succeeded and the candidate run failed. */
   CandidateFailed: "candidate-failed",
 } as const;
@@ -69,7 +74,10 @@ export interface ComparisonSummary {
   readonly keptTypeRate: number;
 }
 
-/** Aggregate comparison results. Cases where the golden run failed are excluded from the rates. */
+/**
+ * Aggregate comparison results. Cases where the golden run failed or its output does not compile
+ * are excluded from the rates.
+ */
 export function summarizeComparisons(results: readonly ComparisonResult[]): ComparisonSummary {
   const byStatus = Object.fromEntries(
     Object.values(ComparisonStatus).map((status) => [status, 0]),
@@ -77,7 +85,10 @@ export function summarizeComparisons(results: readonly ComparisonResult[]): Comp
   for (const result of results) {
     byStatus[result.status]++;
   }
-  const comparable = results.length - byStatus[ComparisonStatus.GoldenFailed];
+  const comparable =
+    results.length -
+    byStatus[ComparisonStatus.GoldenFailed] -
+    byStatus[ComparisonStatus.GoldenInvalid];
   const rate = (count: number): number => (comparable === 0 ? 1 : count / comparable);
   const typeIdentical =
     byStatus[ComparisonStatus.Identical] + byStatus[ComparisonStatus.TypeIdentical];

@@ -72,7 +72,12 @@ arguments.
   listed in `src/domain/intentional-differences.ts`, each with its upstream issues and a rewrite of
   the golden text. The comparison applies the rewrites to the golden text first, so a case that
   differs only by them counts as identical; the report lists every rewrite with the cases it changed.
-- Cases where the golden generator fails are excluded from the identity rates.
+- **Golden output that does not compile:** with `--types`, a case whose golden types differ is
+  `golden-invalid` when the golden file does not compile on its own (strict, no ambient types) and
+  the candidate has no more errors: a fix of invalid output, which the backlog policy ships by
+  default. With more errors it stays `different`.
+- Cases where the golden generator fails or its output does not compile are excluded from the
+  identity rates.
 
 ## Real projects
 

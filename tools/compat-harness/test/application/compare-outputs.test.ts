@@ -13,6 +13,7 @@ import {
   type GenerationResult,
   GenerationStatus,
 } from "../../src/domain/run-result.ts";
+import { FakeOutputCompiler } from "../fakes/fake-output-compiler.ts";
 import { FakeTypeIdentityChecker } from "../fakes/fake-type-identity-checker.ts";
 import { InMemoryFileStore } from "../fakes/in-memory-file-store.ts";
 import { RecordingLogger } from "../fakes/recording-logger.ts";
@@ -109,6 +110,38 @@ describe("compareOutputs", () => {
       [ComparisonStatus.TypesAdded, ["Extra"]],
     ]);
     expect(typeChecker.calls).toHaveLength(3);
+  });
+
+  it("compareOutputs calls a type change of golden output that does not compile a fix", async () => {
+    const cache = setUp({
+      fixed: { golden: "a", candidate: "b" },
+      worse: { golden: "a", candidate: "c" },
+      changed: { golden: "a", candidate: "d" },
+    });
+    const path = (label: string, id: string) =>
+      cache.resolve(outputPath(label, "default", id as CorpusEntryId));
+    const typeChecker = new FakeTypeIdentityChecker({
+      [path("candidate", "fixed")]: { changed: ["paths"] },
+      [path("candidate", "worse")]: { changed: ["paths"] },
+      [path("candidate", "changed")]: { changed: ["paths"] },
+    });
+    const outputCompiler = new FakeOutputCompiler({
+      [path("golden", "fixed")]: 3,
+      [path("candidate", "fixed")]: 0,
+      [path("golden", "worse")]: 1,
+      [path("candidate", "worse")]: 2,
+    });
+
+    const results = await compareOutputs(
+      { cache, logger: new RecordingLogger(), typeChecker, outputCompiler },
+      OPTIONS,
+    );
+
+    expect(results.map((r) => [r.entryId, r.status])).toEqual([
+      ["fixed", ComparisonStatus.GoldenInvalid],
+      ["worse", ComparisonStatus.Different],
+      ["changed", ComparisonStatus.Different],
+    ]);
   });
 
   it("compareOutputs rewrites the golden text with the intentional differences", async () => {
