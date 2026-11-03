@@ -79,17 +79,14 @@ describe("componentsType", () => {
     );
   });
 
-  // The original exported only the later schema under the shared name; it keeps that meaning,
-  // and the earlier schema, which had no alias, gets a numbered one.
-  it("componentsType without the schema prefix keeps the shared name for the later schema", () => {
+  // As in the original: the later schema takes the shared name and the earlier one has no alias.
+  // That output is valid, so numbering the earlier alias would change it (backlog 30).
+  it("componentsType without the schema prefix gives the shared name to the later schema", () => {
     const options = { rootTypes: true, rootTypesNoSchemaPrefix: true };
 
     const { rootTypes } = transform({ schemas: { PetStore: {}, petStore: {} } }, { options });
 
-    expect(rootTypes).toBe(
-      "export type PetStore = components['schemas']['petStore'];\n" +
-        "export type PetStore_2 = components['schemas']['PetStore'];\n",
-    );
+    expect(rootTypes).toBe("export type PetStore = components['schemas']['petStore'];\n");
   });
 
   it("componentsType without the schema prefix never exports one name twice", () => {
@@ -97,10 +94,7 @@ describe("componentsType", () => {
 
     const { rootTypes } = transform({ schemas: { "1": {}, Schema1: {} } }, { options });
 
-    expect(rootTypes).toBe(
-      "export type Schema1 = components['schemas']['Schema1'];\n" +
-        "export type Schema1_2 = components['schemas']['1'];\n",
-    );
+    expect(rootTypes).toBe("export type Schema1 = components['schemas']['Schema1'];\n");
   });
 
   it("componentsType with --root-types-keep-casing writes invalid characters as _ (legacy bug 16)", () => {

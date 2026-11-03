@@ -4,8 +4,8 @@ import { typeErrorsOf } from "../typescript-diagnostics.js";
 
 /**
  * `--root-types --root-types-no-schema-prefix` with schemas of one PascalCase name (`Void`,
- * `void`, `void-`): openapi-typescript exported only the last one as `Void`. That name keeps its
- * meaning, and the earlier schemas get numbered aliases (pre-beta test plan PB-47).
+ * `void`, `void-`): openapi-typescript exports only the last one, as `Void`. That output is valid,
+ * so it stays the same (pre-beta test plan PB-47, backlog 30).
  */
 
 const DOCUMENT: OpenAPI3 = {
@@ -16,16 +16,13 @@ const DOCUMENT: OpenAPI3 = {
 };
 
 describe("root type aliases of schemas with one PascalCase name", () => {
-  it("openapiTS keeps the shared name for the last schema and numbers the earlier ones", async () => {
+  it("openapiTS exports only the last schema under the shared name", async () => {
     const options = { silent: true, rootTypes: true, rootTypesNoSchemaPrefix: true };
 
     const output = astToString(await openapiTS(structuredClone(DOCUMENT), options));
 
-    expect(output).toContain(
-      "export type Void = components['schemas']['void-'];\n" +
-        "export type Void_2 = components['schemas']['Void'];\n" +
-        "export type Void_3 = components['schemas']['void'];\n",
-    );
+    expect(output).toContain("export type Void = components['schemas']['void-'];\n");
+    expect(output).not.toMatch(/export type Void_\d/);
     expect(typeErrorsOf(output)).toEqual([]);
   });
 });

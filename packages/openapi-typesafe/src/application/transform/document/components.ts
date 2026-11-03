@@ -66,8 +66,8 @@ function componentMember(
 
 /**
  * The root alias name: `SchemaPet`, `ResponseNotFound`, … A taken name gets `_2`, `_3`, … The
- * original checks for conflicts before it removes the schema prefix, and so does this; a clash
- * of exported names is handled by `addRootAlias`.
+ * original checks for conflicts before it removes the schema prefix, and so does this; for a clash
+ * of exported names see `addRootAlias`.
  *
  * The original could build a name that is no identifier, so the generated file did not parse
  * (research/legacy-bugs.md, item 16): a kept casing keeps spaces and symbols, which become `_`;
@@ -99,9 +99,8 @@ function rootTypeName(
 
 /**
  * Add a root alias. When its exported name is taken (two schemas of one PascalCase name without
- * the prefix), the original overwrote the earlier alias, so the name meant the later schema.
- * The name keeps that meaning, and the earlier schema moves to the next free `Name_2`, `Name_3`, …
- * instead of losing its alias.
+ * the prefix), the later schema takes the name and the earlier one has no alias, as in the
+ * original. That output is valid, so a number for the earlier alias would change it (backlog 30).
  */
 function addRootAlias(
   aliases: Record<string, IrTypeAliasDeclaration>,
@@ -109,14 +108,6 @@ function addRootAlias(
   kind: ComponentKind,
   name: string,
 ): void {
-  const earlier = aliases[alias];
-  if (earlier !== undefined) {
-    let moved = `${alias}_2`;
-    for (let counter = 3; aliases[moved] !== undefined; counter++) {
-      moved = `${alias}_${counter}`;
-    }
-    aliases[moved] = { ...earlier, name: moved };
-  }
   aliases[alias] = rootTypeAlias(alias, kind, name);
 }
 
