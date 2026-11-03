@@ -92,20 +92,20 @@ and asks.
 
 ### R1. `--binary-as-blob` (backlog 16; upstream #1214, PR #2878)
 
-- [ ] R1.1 Research: #1214 and its duplicates, PR #2878. Cases: OpenAPI 3.0 `type: string,
+- [x] R1.1 Research: #1214 and its duplicates, PR #2878. Cases: OpenAPI 3.0 `type: string,
   format: binary`; 3.1 `contentMediaType` without `contentEncoding`; `format: byte` and
   `contentEncoding: base64` stay `string`; textual media types (`text/*`, JSON, XML) stay
   `string`; binary inside `multipart/form-data` objects, in arrays, in `oneOf`, in parameters and
   in responses.
-- [ ] R1.2 `Blob` needs a global type: it exists in the DOM lib and in `@types/node`. Check the
+- [x] R1.2 `Blob` needs a global type: it exists in the DOM lib and in `@types/node`. Check the
   output under `lib: ["es2022"]` with neither, and document what the user needs. Decide whether
   the flag also accepts `File` (it extends `Blob`, so `Blob` is enough for uploads).
-- [ ] R1.3 Implement in the schema transform, with `--immutable`, `--read-write-markers` and
+- [x] R1.3 Implement in the schema transform, with `--immutable`, `--read-write-markers` and
   `--array-length`.
-- [ ] R1.4 Client: `openapi-typesafe-fetch` sends a `Blob` in a `multipart/form-data` body
+- [x] R1.4 Client: `openapi-typesafe-fetch` sends a `Blob` in a `multipart/form-data` body
   (`FormData` serializer) and types it; a binary response is read with `parseAs: "blob"`. Add a
   runtime test and a browser e2e upload test.
-- [ ] R1.5 Gates of §4; docs show an upload example.
+- [x] R1.5 Gates of §4; docs show an upload example.
 
 ### R2. OpenAPI 3.2 baseline (backlog 17; upstream #2577, PRs #2683, #2853, #2844)
 
@@ -196,6 +196,7 @@ and asks.
 
 | Step | Date | Commits | Result |
 |---|---|---|---|
+| R1 | 2026-11-03 | `693f59b2`..`b87c3599` | `--binary-as-blob`; `Readable`/`Writable` keep functions; multipart object bodies as `FormData`; harness checks opt-in flags. Opt-in: 7,280 cases, 0 regressions; compat 200 × 28: 0 mismatches; type matrix pass. See `research/roadmap/R1.md` |
 
 ## 7. Exit criteria
 
