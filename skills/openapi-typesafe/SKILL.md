@@ -76,7 +76,9 @@ const created = await client.POST("/pets", {
 });
 ```
 
-- Methods are upper-case: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`.
+- Methods are upper-case: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`,
+  and `QUERY` for OpenAPI 3.2 `query` operations (it takes a `body` like `POST`). Methods under
+  `additionalOperations` (3.2) are typed but not callable through the client.
 - Parameters go under `params`, grouped by location: `path`, `query`, `header`, `cookie`.
   Never put a path or query value at the top level of the options.
 - The request body is `body`, a plain object for JSON. The client serializes it; do not call

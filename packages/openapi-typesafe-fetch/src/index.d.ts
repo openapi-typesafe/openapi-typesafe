@@ -221,8 +221,11 @@ export type ClientRequestMethod<Paths extends Record<string, Record<HttpMethod, 
   ...init: InitParam<Init>
 ) => Promise<FetchResponse<Paths[Path][Method], Init, Media>>;
 
+// Only HTTP method keys become calls: `parameters` and `additionalOperations` are not methods.
 export type ClientForPath<PathInfo extends Record<string | number, any>, Media extends MediaType> = {
-  [Method in keyof PathInfo as Uppercase<string & Method>]: <Init extends MaybeOptionalInit<PathInfo, Method>>(
+  [Method in keyof PathInfo as Method extends HttpMethod ? Uppercase<Method> : never]: <
+    Init extends MaybeOptionalInit<PathInfo, Method>,
+  >(
     ...init: InitParam<Init>
   ) => Promise<FetchResponse<PathInfo[Method], Init, Media>>;
 };
@@ -245,6 +248,8 @@ export interface Client<Paths extends {}, Media extends MediaType = MediaType> {
   PATCH: ClientMethod<Paths, "patch", Media>;
   /** Call a TRACE endpoint */
   TRACE: ClientMethod<Paths, "trace", Media>;
+  /** Call a QUERY endpoint (OpenAPI 3.2) */
+  QUERY: ClientMethod<Paths, "query", Media>;
   /** Register middleware */
   use(...middleware: Middleware[]): void;
   /** Unregister middleware */

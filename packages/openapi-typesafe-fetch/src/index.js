@@ -339,6 +339,10 @@ export default function createClient(clientOptions) {
     TRACE(url, init) {
       return coreFetch(url, { ...init, method: "TRACE" });
     },
+    /** Call a QUERY endpoint (OpenAPI 3.2) */
+    QUERY(url, init) {
+      return coreFetch(url, { ...init, method: "QUERY" });
+    },
     /** Register middleware */
     use(...middleware) {
       for (const m of middleware) {
@@ -392,6 +396,9 @@ class PathCallForwarder {
   };
   TRACE = (init) => {
     return this.client.TRACE(this.url, init);
+  };
+  QUERY = (init) => {
+    return this.client.QUERY(this.url, init);
   };
 }
 

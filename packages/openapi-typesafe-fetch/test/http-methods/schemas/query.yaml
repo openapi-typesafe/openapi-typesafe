@@ -1,0 +1,51 @@
+openapi: 3.2.0
+info:
+  title: openapi-typesafe-fetch
+  version: "1.0"
+paths:
+  /posts/search:
+    query:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostSearch"
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+  /posts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+components:
+  schemas:
+    PostSearch:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+        limit:
+          type: integer
+    Post:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string

@@ -56,7 +56,7 @@
     "lint": "pnpm run lint:js && pnpm run lint:ts",
     "lint:js": "biome check .",
     "lint:ts": "tsc --noEmit",
-    "generate-types": "openapi-typesafe test/fixtures/api.yaml -o test/fixtures/api.d.ts",
+    "generate-types": "openapi-typesafe test/fixtures/api.yaml -o test/fixtures/api.d.ts && openapi-typesafe test/fixtures/query.yaml -o test/fixtures/query.d.ts",
     "prepack": "pnpm run build",
     "test": "pnpm run generate-types && pnpm run test:js && pnpm run test:exports",
     "test:js": "vitest run",
