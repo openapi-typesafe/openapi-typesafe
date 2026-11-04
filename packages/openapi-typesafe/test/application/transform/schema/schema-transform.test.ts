@@ -119,6 +119,7 @@ describe("transformSchema", () => {
     expect(footer.enums).toEqual([
       {
         name: "/Root",
+        isComponentSchema: true,
         values: ["a", "b"],
         metadata: [
           { name: undefined, description: undefined },

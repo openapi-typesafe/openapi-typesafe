@@ -1,4 +1,4 @@
-import { irKeyword, irRecord } from "../../../domain/ir/constructors.js";
+import { irKeyword, irObject, irRecord } from "../../../domain/ir/constructors.js";
 import type {
   IrDeclaration,
   IrIntersectionType,
@@ -12,9 +12,10 @@ import type { PathsObject } from "../../../domain/openapi/path-item-object.js";
 import { READ_WRITE_MARKER_TYPES } from "../helper-types.js";
 import type { TransformContext, TransformOptions } from "../transform-context.js";
 import { componentsType } from "./components.js";
+import { type DeclaredTypeLookup, declaredTypeLookup } from "./declared-types.js";
 import { defsRootType } from "./defs-root.js";
 import { keptDeprecatedComponents } from "./kept-deprecated.js";
-import { pathsType } from "./paths.js";
+import { pathMembers, pathsObjectType } from "./paths.js";
 import { apiPathsEnumDeclaration } from "./paths-enum.js";
 import { webhooksType } from "./webhooks.js";
 
@@ -30,6 +31,11 @@ const EMPTY_ROOT_TYPE = irRecord(irKeyword("string"), irKeyword("never"));
 interface RootResult {
   readonly type: IrType;
   readonly aliases: readonly IrTypeAliasDeclaration[];
+  /**
+   * The root's final type, for a root that reads the types the whole file declares (`paths`, whose
+   * overlap check follows references). `type` then only tells whether the root has members.
+   */
+  readonly withDeclaredTypes?: (lookup: DeclaredTypeLookup) => IrType;
 }
 
 type RootTransform = (
@@ -46,7 +52,14 @@ function keptDeprecated(document: DocumentObject, context: TransformContext): Re
 }
 
 const ROOT_TRANSFORMS: Readonly<Record<RootKey, RootTransform>> = {
-  paths: (node, context) => ({ type: pathsType(node as PathsObject, context), aliases: [] }),
+  paths: (node, context) => {
+    const members = pathMembers(node as PathsObject, context);
+    return {
+      type: irObject(members.map(({ member }) => member)),
+      aliases: [],
+      withDeclaredTypes: (lookup) => pathsObjectType(members, lookup),
+    };
+  },
   webhooks: (node, context) => ({ type: webhooksType(node as PathsObject, context), aliases: [] }),
   components: (node, context, document) => {
     const kept = keptDeprecated(document, context);
@@ -85,6 +98,15 @@ function rootDeclaration(
 }
 
 /**
+ * The declarations of one root: its type, then its aliases. `finish` gives the root's declaration
+ * again from the types the whole file declares, for a root with `withDeclaredTypes`.
+ */
+interface RootDeclarations {
+  readonly declarations: readonly IrDeclaration[];
+  readonly finish?: (lookup: DeclaredTypeLookup) => IrDeclaration;
+}
+
+/**
  * The declarations of one root. A root that is missing, or whose type has no members, is
  * `Record<string, never>`. Only an object type (or the `paths` intersection) counts as having
  * members: a callback type the IR keeps as raw text does not (ADR-004).
@@ -93,21 +115,51 @@ function rootDeclarations(
   root: RootKey,
   document: DocumentObject,
   context: TransformContext,
-): IrDeclaration[] {
+): RootDeclarations {
   const node: unknown = document[root];
   if (!node || typeof node !== "object") {
     context.diagnostics.debug(`${root} done (skipped)`, 0);
-    return [emptyAlias(root)];
+    return { declarations: [emptyAlias(root)] };
   }
   const startedAt = context.diagnostics.now();
-  const { type, aliases } = ROOT_TRANSFORMS[root](node, context, document);
+  const { type, aliases, withDeclaredTypes } = ROOT_TRANSFORMS[root](node, context, document);
   if (!isRootBody(type)) {
     context.diagnostics.debug(`${root} done (skipped)`, 0);
-    return [emptyAlias(root), ...aliases];
+    return { declarations: [emptyAlias(root), ...aliases] };
   }
   const declaration = rootDeclaration(root, type, context.options);
   context.diagnostics.debug(`${root} done`, context.diagnostics.now() - startedAt);
-  return [declaration, ...aliases];
+  const finish =
+    withDeclaredTypes &&
+    ((lookup: DeclaredTypeLookup) => {
+      const finished = withDeclaredTypes(lookup);
+      return isRootBody(finished) ? rootDeclaration(root, finished, context.options) : declaration;
+    });
+  return { declarations: [declaration, ...aliases], ...(finish ? { finish } : {}) };
+}
+
+/**
+ * Every root's declarations in output order. A root with `finish` gets its declaration from the
+ * types of the other roots and of the footer (the `operations` interface), which exist only once
+ * every root is transformed.
+ */
+function rootsDeclarations(
+  document: DocumentObject,
+  context: TransformContext,
+  footer: () => readonly IrDeclaration[],
+): IrDeclaration[] {
+  const roots = ROOT_KEYS.map((root) => rootDeclarations(root, document, context));
+  const transformed = roots.flatMap(({ declarations }) => declarations);
+  if (roots.every(({ finish }) => finish === undefined)) {
+    return transformed;
+  }
+  const lookup = declaredTypeLookup([...transformed, ...footer()]);
+  return roots.flatMap(({ declarations, finish }) => {
+    const [declaration, ...aliases] = declarations;
+    return finish === undefined || declaration === undefined
+      ? declarations
+      : [finish(lookup), ...aliases];
+  });
 }
 
 /**
@@ -118,11 +170,19 @@ function withoutBlankLinesAround(text: string): string {
   return text.replace(/^(?:[ \t]*\r?\n)+/, "").trimEnd();
 }
 
+/** No footer declarations: the roots' references to `operations` stay unresolved. */
+const NO_FOOTER = (): readonly IrDeclaration[] => [];
+
 /**
  * The document's declarations before the footer: helper types, injected code, then one root type
- * per root key with the aliases that follow it.
+ * per root key with the aliases that follow it. `footer` reads the footer's declarations once the
+ * roots are transformed.
  */
-export function documentBody(document: DocumentObject, context: TransformContext): IrDeclaration[] {
+export function documentBody(
+  document: DocumentObject,
+  context: TransformContext,
+  footer: () => readonly IrDeclaration[] = NO_FOOTER,
+): IrDeclaration[] {
   const declarations: IrDeclaration[] = [];
   if (context.options.readWriteMarkers) {
     declarations.push({ kind: "rawDeclaration", text: READ_WRITE_MARKER_TYPES });
@@ -131,9 +191,7 @@ export function documentBody(document: DocumentObject, context: TransformContext
   if (inject !== "") {
     declarations.push({ kind: "rawDeclaration", text: inject });
   }
-  for (const root of ROOT_KEYS) {
-    declarations.push(...rootDeclarations(root, document, context));
-  }
+  declarations.push(...rootsDeclarations(document, context, footer));
   return declarations;
 }
 

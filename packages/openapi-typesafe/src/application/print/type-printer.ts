@@ -135,6 +135,12 @@ function writeTupleElement(writer: TextWriter, element: IrTupleElement): void {
   if (element.isRest) {
     writer.write("...");
   }
+  if (element.isOptional) {
+    // TypeScript parenthesizes an optional element as a postfix operand (`(A | B)?`).
+    writeTypeIn(writer, element.type, needsParensAsPostfixOperand);
+    writer.write("?");
+    return;
+  }
   writeType(writer, element.type);
 }
 

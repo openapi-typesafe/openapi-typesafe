@@ -26,7 +26,7 @@ describe("outputFixNamesOf", () => {
     expect(error).toMatchObject({
       code: "OPTION_FIX_UNKNOWN",
       message:
-        'Unknown fix "nope", 1. Known fixes: allof-discriminated-union, allof-required, anyof-properties, array-length-tuples, discriminator-member-required, discriminator-values, root-type-numbering, unevaluated-properties, all.',
+        'Unknown fix "nope", 1. Known fixes: allof-discriminated-union, allof-required, anyof-oneof-descriptions, anyof-properties, array-length-tuples, dedupe-enum-names, discriminator-member-required, discriminator-values, exploded-query-objects, nullable-enums, prefix-items, read-write-refs, root-type-numbering, unevaluated-properties, all.',
       details: { unknown: ["nope", 1], known: [...OUTPUT_FIXES, ALL_OUTPUT_FIXES] },
     });
   });
@@ -56,6 +56,15 @@ describe("ineffectiveFixNotices", () => {
 
     expect(ineffectiveFixNotices(["root-type-numbering"], isOn)).toEqual([
       'Fix "root-type-numbering" has no effect without rootTypesNoSchemaPrefix (--root-types-no-schema-prefix)',
+    ]);
+  });
+
+  it("ineffectiveFixNotices with the enum fixes and --enum off names --enum", () => {
+    const isOn = (option: string) => option === "dedupeEnums";
+
+    expect(ineffectiveFixNotices(["nullable-enums", "dedupe-enum-names"], isOn)).toEqual([
+      'Fix "nullable-enums" has no effect without enum (--enum)',
+      'Fix "dedupe-enum-names" has no effect without enum (--enum)',
     ]);
   });
 

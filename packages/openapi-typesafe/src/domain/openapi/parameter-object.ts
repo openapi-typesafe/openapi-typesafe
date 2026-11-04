@@ -23,6 +23,10 @@ export interface ParameterObject {
   readonly in: ParameterLocation | typeof QUERYSTRING_LOCATION;
   readonly required?: boolean;
   readonly deprecated?: boolean;
+  /** How the value is serialized; `form` for `in: query` when absent (§4.8.12.4). */
+  readonly style?: string;
+  /** Whether an array or object value is sent as several values; true for `form` when absent. */
+  readonly explode?: boolean;
   readonly schema?: Schema;
   readonly content?: ContentMap;
 }

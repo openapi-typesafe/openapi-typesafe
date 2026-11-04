@@ -6,6 +6,7 @@ import type {
   IrMember,
   IrPropertyName,
   IrPropertySignature,
+  IrTupleElement,
   IrType,
 } from "../../domain/ir/nodes.js";
 import type { TypeScriptModule } from "./load-typescript.js";
@@ -83,20 +84,31 @@ function fromReference(ts: TypeScriptModule, node: ts.TypeReferenceNode): IrType
   return { kind: "reference", name: ts.idText(node.typeName), typeArguments };
 }
 
+function fromTupleElement(
+  ts: TypeScriptModule,
+  element: ts.TypeNode,
+  convert: (node: ts.TypeNode) => IrType,
+): IrTupleElement {
+  if (ts.isRestTypeNode(element)) {
+    return { type: convert(element.type), isRest: true, isOptional: false };
+  }
+  if (ts.isOptionalTypeNode(element)) {
+    // The `?` is the parent of the type: it decides which parentheses the factory put in.
+    return { type: fromTypeNode(ts, element.type, element), isRest: false, isOptional: true };
+  }
+  return { type: convert(element), isRest: false, isOptional: false };
+}
+
+/** A tuple of plain, rest and optional elements; one with named members stays text. */
 function fromTuple(ts: TypeScriptModule, node: ts.TupleTypeNode): IrType | null {
-  const isPlain = node.elements.every(
-    (element) => !ts.isNamedTupleMember(element) && !ts.isOptionalTypeNode(element),
-  );
-  if (!isPlain) {
+  if (node.elements.some((element) => ts.isNamedTupleMember(element))) {
     return null;
   }
   const convert = childrenOf(ts, node);
-  const elements = node.elements.map((element) =>
-    ts.isRestTypeNode(element)
-      ? { type: convert(element.type), isRest: true }
-      : { type: convert(element), isRest: false },
-  );
-  return { kind: "tuple", elements };
+  return {
+    kind: "tuple",
+    elements: node.elements.map((element) => fromTupleElement(ts, element, convert)),
+  };
 }
 
 /**
@@ -237,8 +249,9 @@ function fromStructure(ts: TypeScriptModule, node: ts.TypeNode): IrType | null {
 
 /**
  * Whether the factory's parenthesizer put these parentheses in (same rules as the IR printer):
- * unions, intersections and `readonly` types as array elements, indexed objects and `readonly`
- * operands; unions and intersections as members of other unions or intersections.
+ * unions, intersections and `readonly` types as array elements, indexed objects, optional tuple
+ * elements and `readonly` operands; unions and intersections as members of other unions or
+ * intersections.
  */
 function isFactoryParenthesis(
   ts: TypeScriptModule,
@@ -252,6 +265,7 @@ function isFactoryParenthesis(
   const isPostfixOrReadonlyParent =
     ts.isArrayTypeNode(parent) ||
     ts.isIndexedAccessTypeNode(parent) ||
+    ts.isOptionalTypeNode(parent) ||
     ts.isTypeOperatorNode(parent);
   if (isPostfixOrReadonlyParent) {
     return isComposite || ts.isTypeOperatorNode(inner);

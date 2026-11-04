@@ -1,4 +1,10 @@
-import { irKeyword, irObject, irProperty } from "../../../domain/ir/constructors.js";
+import {
+  irIntersection,
+  irKeyword,
+  irObject,
+  irProperty,
+  irReference,
+} from "../../../domain/ir/constructors.js";
 import type { IrPropertyName, IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
@@ -10,10 +16,12 @@ import {
   QUERYSTRING_LOCATION,
 } from "../../../domain/openapi/parameter-object.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { OutputFix } from "../../../domain/output-fixes.js";
 import { refType } from "../ref-type.js";
 import type { SchemaLocation } from "../schema/schema-context.js";
 import { withSchemaComment } from "../schema-comment.js";
 import type { TransformContext } from "../transform-context.js";
+import { isExplodedQueryObject } from "./exploded-query.js";
 import { parameterType } from "./parameter.js";
 
 const PATH_TEMPLATE_RE = /\{([^}]+)\}/g;
@@ -154,6 +162,66 @@ function querystringMember(
   return withSchemaComment(property, querystring.resolved);
 }
 
+/** With `exploded-query-objects`, whether the parameter's object keys are keys of `query`. */
+function isExplodedEntry(entry: ResolvedEntry, context: TransformContext): boolean {
+  return (
+    context.options.fixes.has(OutputFix.EXPLODED_QUERY_OBJECTS) &&
+    isExplodedQueryObject(entry.resolved, context.refs)
+  );
+}
+
+/**
+ * An exploded object parameter's part of `query`: its object type. A parameter that may be left
+ * out sends none of its keys then, so they are optional: `Partial<…>`.
+ */
+function explodedPart(
+  entry: ResolvedEntry,
+  location: SchemaLocation,
+  context: TransformContext,
+): IrType {
+  const type = entryType(entry, location, context);
+  return entry.resolved.required ? type : irReference("Partial", [type]);
+}
+
+/** A location's parameters as members, and the object types of its exploded parameters. */
+interface LocationParts {
+  readonly members: readonly IrPropertySignature[];
+  readonly exploded: readonly IrType[];
+  readonly isOptional: boolean;
+}
+
+/** Each parameter in document order, so the declarations they add keep their order. */
+function locationParts(
+  entries: readonly ResolvedEntry[],
+  location: SchemaLocation,
+  context: TransformContext,
+): LocationParts {
+  const members: IrPropertySignature[] = [];
+  const exploded: IrType[] = [];
+  let isOptional = true;
+  for (const entry of entries) {
+    if (isExplodedEntry(entry, context)) {
+      exploded.push(explodedPart(entry, location, context));
+      isOptional &&= !entry.resolved.required;
+      continue;
+    }
+    const member = parameterMember(entry, location, context);
+    members.push(member);
+    isOptional &&= member.isOptional;
+  }
+  return { members, exploded, isOptional };
+}
+
+/** The members' object, intersected with the exploded parameters' types; `never` for none. */
+function locationType({ members, exploded }: LocationParts): IrType {
+  const types = [...(members.length > 0 ? [irObject(members)] : []), ...exploded];
+  const [first] = types;
+  if (first === undefined) {
+    return irKeyword("never");
+  }
+  return types.length === 1 ? first : irIntersection(types);
+}
+
 /** One location's parameters; optional when all of them are, and `never` when there are none. */
 function locationMember(
   parameterIn: ParameterLocation,
@@ -161,17 +229,14 @@ function locationMember(
   location: SchemaLocation,
   context: TransformContext,
 ): IrPropertySignature {
-  const members = entries
-    .filter((entry): entry is ResolvedEntry => entry.resolved?.in === parameterIn)
-    .map((entry) => parameterMember(entry, location, context));
-  return irProperty(
-    toPropertyName(parameterIn),
-    members.length > 0 ? irObject(members) : irKeyword("never"),
-    {
-      isOptional: members.every((member) => member.isOptional),
-      isReadonly: context.options.immutable,
-    },
+  const located = entries.filter(
+    (entry): entry is ResolvedEntry => entry.resolved?.in === parameterIn,
   );
+  const parts = locationParts(located, location, context);
+  return irProperty(toPropertyName(parameterIn), locationType(parts), {
+    isOptional: parts.isOptional,
+    isReadonly: context.options.immutable,
+  });
 }
 
 /**

@@ -1,6 +1,12 @@
-import { irArray, irReadonly, irTuple, irTupleElement } from "../../../domain/ir/constructors.js";
-import type { IrType } from "../../../domain/ir/nodes.js";
-import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
+import {
+  irArray,
+  irOptionalTupleElement,
+  irReadonly,
+  irTuple,
+  irTupleElement,
+} from "../../../domain/ir/constructors.js";
+import type { IrTupleElement, IrType } from "../../../domain/ir/nodes.js";
+import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { OutputFix } from "../../../domain/output-fixes.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { unionOf } from "../type-combinators.js";
@@ -12,15 +18,69 @@ import type { SchemaRequest } from "./schema-rule.js";
  */
 const MAX_LENGTH_TUPLE_ELEMENTS = 30;
 
-/** The tuple of `prefixItems` (or of an `items` list); null without either. */
+/**
+ * The tuple of `prefixItems` (or of an `items` list); null without either. The original closes a
+ * `prefixItems` tuple and requires every element; the `prefix-items` fix does not.
+ */
 function prefixTupleType(schema: SchemaObject, request: SchemaRequest): IrType | null {
   const { items } = schema;
+  if (schema.prefixItems && isPrefixItemsFixed(schema, request)) {
+    return prefixItemsTupleType(schema.prefixItems, schema, request);
+  }
   if (!schema.prefixItems && !Array.isArray(items)) {
     return null;
   }
   const prefixItems = schema.prefixItems ?? (items as SchemaObject[]);
   return irTuple(
     prefixItems.map((item) => irTupleElement(request.transformNested(item, request.location))),
+  );
+}
+
+/** The type of the items after the prefix, or null when there may be none (`false`). */
+function restItemType(schema: Schema, request: SchemaRequest): IrType | null {
+  return schema === false ? null : request.transformNested(schema, request.location);
+}
+
+/**
+ * The type of the items after a `prefixItems` tuple (JSON Schema 2020-12 §10.3.1): `items`, else
+ * `unevaluatedItems`, which does not apply to the items `contains` matches, else any item. Null
+ * when no item may follow. An `items` list is not a schema in 2020-12, so it allows any item.
+ */
+function prefixRestType(schema: SchemaObject, request: SchemaRequest): IrType | null {
+  const { items, unevaluatedItems, contains } = schema;
+  if (items !== undefined && !Array.isArray(items)) {
+    return restItemType(items as Schema, request);
+  }
+  if (unevaluatedItems === undefined || items !== undefined) {
+    return UNKNOWN_TYPE;
+  }
+  const unevaluated = restItemType(unevaluatedItems, request);
+  const matched = contains === undefined ? null : restItemType(contains, request);
+  const types = [unevaluated, matched].filter((type): type is IrType => type !== null);
+  return types.length === 0 ? null : unionOf(types);
+}
+
+/**
+ * The `prefix-items` tuple of `prefixItems`: an array may end before the prefix does, so the
+ * elements from `minItems` on are optional (`T?`), and a rest element types the items after it.
+ */
+function prefixItemsTupleType(
+  prefixItems: readonly Schema[],
+  schema: SchemaObject,
+  request: SchemaRequest,
+): IrType {
+  const { min } = lengthBounds(schema);
+  const elements = prefixItems.map((item, index): IrTupleElement => {
+    const type = request.transformNested(item, request.location);
+    return index < min ? irTupleElement(type) : irOptionalTupleElement(type);
+  });
+  const rest = prefixRestType(schema, request);
+  return irTuple(rest === null ? elements : [...elements, irTupleElement(irArray(rest), true)]);
+}
+
+function isPrefixItemsFixed(schema: SchemaObject, request: SchemaRequest): boolean {
+  return (
+    schema.prefixItems !== undefined && request.context.options.fixes.has(OutputFix.PREFIX_ITEMS)
   );
 }
 
@@ -143,7 +203,8 @@ export function arrayType(schema: SchemaObject, request: SchemaRequest): IrType 
   }
   const item = itemType(schema, request);
   const bounds = lengthBounds(schema);
-  if (isLengthTupleWanted(bounds, request)) {
+  // A `prefix-items` tuple has its own lengths, so `--array-length` adds no tuples around it.
+  if (!isPrefixItemsFixed(schema, request) && isLengthTupleWanted(bounds, request)) {
     return lengthTupleType(schema, item, bounds);
   }
   // A tuple or an array item is used as the array type itself.

@@ -8,7 +8,12 @@ import {
   fromTypeNode,
 } from "../../src/adapters/type-ast-bridge/typescript-to-ir.js";
 import { printNodes } from "../../src/application/print/print-nodes.js";
-import { irKeyword } from "../../src/domain/ir/constructors.js";
+import {
+  irIntersection,
+  irKeyword,
+  irOptionalTupleElement,
+  irTuple,
+} from "../../src/domain/ir/constructors.js";
 import type { IrType } from "../../src/domain/ir/nodes.js";
 import { arbitraryType } from "./ir-arbitraries.js";
 import { NULL, STRING, stringToAST, tsLiteral, tsUnion } from "./original/lib/ts.js";
@@ -16,6 +21,8 @@ import { alias } from "./print-parity.fixtures.js";
 
 const factory = ts.factory;
 const RUNS = 2_000;
+const STRING_IR = irKeyword("string");
+const NUMBER_IR = irKeyword("number");
 
 /** What the original prints for a type node in an alias: `type T = <node>;`. */
 function printOriginal(node: ts.TypeNode): string {
@@ -160,6 +167,14 @@ describe("fromTypeNode", () => {
 
     expect(type.kind).toBe("raw");
     expect(toTypeNode(ts, type)).toBe(node);
+  });
+
+  it("fromTypeNode of an optional element the factory parenthesized converts its type", () => {
+    const optional = irTuple([irOptionalTupleElement(irIntersection([STRING_IR, NUMBER_IR]))]);
+
+    const type = fromTypeNode(ts, toTypeNode(ts, optional));
+
+    expect(type).toEqual(optional);
   });
 
   it("fromTypeNode keeps IR nodes found inside a TypeScript tree", () => {

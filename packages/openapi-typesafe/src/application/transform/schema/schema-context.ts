@@ -74,6 +74,8 @@ export interface EnumMemberMetadata {
 
 export interface EnumDeclarationRequest {
   readonly name: string;
+  /** Whether the schema is a component schema itself (`#/components/schemas/Name`). */
+  readonly isComponentSchema: boolean;
   readonly values: readonly (string | number)[];
   readonly metadata: readonly EnumMemberMetadata[];
 }

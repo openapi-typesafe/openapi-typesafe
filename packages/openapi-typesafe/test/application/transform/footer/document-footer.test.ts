@@ -32,7 +32,7 @@ class InMemorySink implements FooterSink {
   }
 }
 
-const STATUS = { name: "status", values: ["a", "b"], metadata: [] };
+const STATUS = { name: "status", isComponentSchema: false, values: ["a", "b"], metadata: [] };
 
 describe("RunFooter", () => {
   it("addEnum adds an enum and returns its name", () => {

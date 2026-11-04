@@ -10,10 +10,14 @@ export const OutputFix = {
   ALLOF_DISCRIMINATED_UNION: "allof-discriminated-union",
   /** An `allOf` member with only `required` makes those properties of the others required. */
   ALLOF_REQUIRED: "allof-required",
+  /** The JSDoc of a schema lists the descriptions of its `anyOf` and `oneOf` members. */
+  ANYOF_ONEOF_DESCRIPTIONS: "anyof-oneof-descriptions",
   /** `anyOf` next to object keywords or `allOf` is intersected with them, not added to a union. */
   ANYOF_PROPERTIES: "anyof-properties",
   /** `--array-length` tuples have `min` to `max` items, nest right and follow `--immutable`. */
   ARRAY_LENGTH_TUPLES: "array-length-tuples",
+  /** `--dedupe-enums` names a shared enum by all of its schemas, not by the first one. */
+  DEDUPE_ENUM_NAMES: "dedupe-enum-names",
   /** `required` next to an `allOf` `$ref` to a discriminator member still gives `WithRequired`. */
   DISCRIMINATOR_MEMBER_REQUIRED: "discriminator-member-required",
   /**
@@ -22,6 +26,14 @@ export const OutputFix = {
    * declares it, and with `--enum` a member of the owner's enum.
    */
   DISCRIMINATOR_VALUES: "discriminator-values",
+  /** An exploded object query parameter's properties are keys of `query`, as they are sent. */
+  EXPLODED_QUERY_OBJECTS: "exploded-query-objects",
+  /** `--enum` declares an enum that lists `null` without it, and the type adds `| null`. */
+  NULLABLE_ENUMS: "nullable-enums",
+  /** A `prefixItems` tuple is open unless `items` or `unevaluatedItems` closes it (2020-12). */
+  PREFIX_ITEMS: "prefix-items",
+  /** `readOnly` and `writeOnly` of the schema a `$ref` names, or of `allOf` members, count. */
+  READ_WRITE_REFS: "read-write-refs",
   /** Schemas of one root type name without the prefix each get an alias, the earlier numbered. */
   ROOT_TYPE_NUMBERING: "root-type-numbering",
   /** `unevaluatedProperties` types the keys no other keyword declares (an index signature). */
@@ -66,11 +78,12 @@ export function resolveOutputFixes(names: readonly OutputFixName[]): ReadonlySet
 
 /** A generator option that a fix works with; without it, the fix changes nothing (ADR-021). */
 export interface OutputFixRequirement {
-  readonly option: "arrayLength" | "rootTypes" | "rootTypesNoSchemaPrefix";
+  readonly option: "arrayLength" | "dedupeEnums" | "enum" | "rootTypes" | "rootTypesNoSchemaPrefix";
   readonly flag: string;
 }
 
 const ROOT_TYPES = { option: "rootTypes", flag: "--root-types" } as const;
+const ENUM = { option: "enum", flag: "--enum" } as const;
 const NO_SCHEMA_PREFIX = {
   option: "rootTypesNoSchemaPrefix",
   flag: "--root-types-no-schema-prefix",
@@ -79,6 +92,8 @@ const NO_SCHEMA_PREFIX = {
 /** The options each fix needs, by fix name; `all` has none. */
 const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, readonly OutputFixRequirement[]>>> = {
   [OutputFix.ARRAY_LENGTH_TUPLES]: [{ option: "arrayLength", flag: "--array-length" }],
+  [OutputFix.DEDUPE_ENUM_NAMES]: [ENUM, { option: "dedupeEnums", flag: "--dedupe-enums" }],
+  [OutputFix.NULLABLE_ENUMS]: [ENUM],
   [OutputFix.ROOT_TYPE_NUMBERING]: [ROOT_TYPES, NO_SCHEMA_PREFIX],
 };
 

@@ -11,9 +11,10 @@ import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { documentEntries } from "../document-entries.js";
 import { pointerType } from "../pointer-type.js";
-import { withSchemaComment } from "../schema-comment.js";
+import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
+import { type AccessFlags, propertyAccessFlags } from "./access-flags.js";
 import { discriminatorProperty } from "./discriminator-property.js";
 import { ownerEnumMembersType } from "./enum-rule.js";
 import type { Discriminator, SchemaOptions } from "./schema-context.js";
@@ -43,11 +44,6 @@ function withReadWriteMarker(type: IrType, flags: AccessFlags, options: SchemaOp
   return irReference(flags.isReadOnly ? "$Read" : "$Write", [type]);
 }
 
-interface AccessFlags {
-  readonly isReadOnly: boolean;
-  readonly isWriteOnly: boolean;
-}
-
 /** Apply `transformProperty`, then the schema's JSDoc. */
 function finishProperty(
   property: IrPropertySignature,
@@ -59,7 +55,11 @@ function finishProperty(
   const transformed =
     request.context.callbacks.transformProperty(property, schema, location) ?? property;
   // The original adds the schema's comment after any comment the callback set.
-  return withSchemaComment(transformed, schema);
+  return withSchemaComment(
+    transformed,
+    schema,
+    schemaCommentOptionsOf(request.context.options.fixes),
+  );
 }
 
 /** What the property loop reads from a property schema, in the original order. */
@@ -69,16 +69,13 @@ interface PropertyFacts {
   readonly hasDefault: boolean;
 }
 
-function propertyFacts(value: Schema): PropertyFacts {
+function propertyFacts(value: Schema, request: SchemaRequest): PropertyFacts {
   if (typeof value !== "object") {
     return { ref: undefined, flags: { isReadOnly: false, isWriteOnly: false }, hasDefault: false };
   }
   // `in` throws for a null value, as in the original (which also reads `$ref` first).
   const ref = "$ref" in value && value.$ref ? value.$ref : undefined;
-  const flags = {
-    isReadOnly: Boolean("readOnly" in value && value.readOnly),
-    isWriteOnly: Boolean("writeOnly" in value && value.writeOnly),
-  };
+  const flags = propertyAccessFlags(value, request.context);
   return { ref, flags, hasDefault: "default" in value && value.default !== undefined };
 }
 
@@ -140,7 +137,7 @@ function propertyMember(
   if ((typeof value !== "object" && typeof value !== "boolean") || Array.isArray(value)) {
     throw new InvalidPropertyError(request.location.path, key, value);
   }
-  const facts = propertyFacts(value);
+  const facts = propertyFacts(value, request);
   if (isExcluded(value, facts, request)) {
     return null;
   }
@@ -181,10 +178,7 @@ function defsMember(
   const { options } = request.context;
   const members = Object.entries(defs).map(([key, value]) => {
     const path = createRef([request.location.path, "$defs", key]);
-    const flags = {
-      isReadOnly: "readOnly" in value && !!value.readOnly,
-      isWriteOnly: "writeOnly" in value && !!value.writeOnly,
-    };
+    const flags = propertyAccessFlags(value, request.context);
     const type = withReadWriteMarker(
       request.transformNested(value, { ...request.location, path }),
       flags,

@@ -23,7 +23,7 @@ import { OutputFix } from "../../../domain/output-fixes.js";
 import { type DeprecatedEntryFilter, documentEntries } from "../document-entries.js";
 import type { SchemaLocation } from "../schema/schema-context.js";
 import { transformSchema } from "../schema/schema-transform.js";
-import { withSchemaComment } from "../schema-comment.js";
+import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js";
 import type { TransformContext } from "../transform-context.js";
 import { headerType } from "./header.js";
 import { contentEntryType } from "./media-type.js";
@@ -69,7 +69,7 @@ function componentMember(
     isOptional: custom?.isOptional ?? false,
     isReadonly: context.options.immutable,
   });
-  return withSchemaComment(property, item);
+  return withSchemaComment(property, item, schemaCommentOptionsOf(context.options.fixes));
 }
 
 /**
