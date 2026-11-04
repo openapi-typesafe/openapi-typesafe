@@ -116,6 +116,14 @@ describe("CLI", () => {
         ci: { timeout: TIMEOUT },
       },
     ],
+    [
+      "snapshot > overlapping --path-params-as-types keys",
+      {
+        given: ["./examples/path-params-overlaps.yaml", "--path-params-as-types"],
+        want: new URL("./examples/path-params-overlaps.ts", root),
+        ci: { timeout: TIMEOUT },
+      },
+    ],
   ];
 
   for (const [testName, { given, want, ci }] of tests) {

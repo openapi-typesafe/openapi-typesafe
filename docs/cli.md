@@ -230,6 +230,16 @@ type UserResponses = paths[typeof url]["get"]["responses"]; // matches `paths["/
 
 Though this is a contrived example, you could use this feature to automatically infer typing based on the URL in a fetch client or in some other useful place in your application.
 
+::: info Paths that a template also matches
+`${string}` matches `/` too, so `` `/user/${string}` `` also matches `/user/settings` and
+`` `/user/${string}/keys` ``. TypeScript then requires those paths' types to fit the template's
+type, and the output does not compile (TS2411, TS2413). When that happens, `paths` is written as
+an intersection, `` export type paths = { … } & { [path: `/user/${string}`]: … } ``, with each such
+template in an object of its own. Every path keeps its type: `paths["/user/settings"]` and
+`` paths[`/user/${string}`] `` are the same as before. Only an `interface paths` you extend with
+declaration merging needs a change; a schema without such paths keeps `export interface paths`.
+:::
+
 _Thanks, [@Powell-v2](https://github.com/Powell-v2)!_
 
 ### arrayLength

@@ -1,0 +1,65 @@
+openapi: 3.1.0
+info:
+  title: Overlapping --path-params-as-types keys
+  version: 1.0.0
+  description: >-
+    A path template such as /apps/{app_id} also matches /apps/regions and /apps/{app_id}/restart
+    (roadmap R10.2); generated with --path-params-as-types.
+paths:
+  /apps/{app_id}:
+    get:
+      operationId: getApp
+      parameters:
+        - { name: app_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: An app.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/App" }
+  /apps/{app_id}/restart:
+    post:
+      operationId: restartApp
+      parameters:
+        - { name: app_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The new deployment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Deployment" }
+  /apps/regions:
+    get:
+      operationId: listRegions
+      responses:
+        "200":
+          description: The regions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: string }
+  /apps/{app_id}/logs/{line}:
+    get:
+      operationId: getLogLine
+      parameters:
+        - { name: app_id, in: path, required: true, schema: { type: string } }
+        - { name: line, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: One log line.
+          content:
+            text/plain:
+              schema: { type: string }
+components:
+  schemas:
+    App:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+    Deployment:
+      type: object
+      required: [deployment_id]
+      properties:
+        deployment_id: { type: string }

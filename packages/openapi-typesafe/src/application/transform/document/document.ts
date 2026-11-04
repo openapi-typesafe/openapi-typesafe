@@ -1,6 +1,7 @@
 import { irKeyword, irRecord } from "../../../domain/ir/constructors.js";
 import type {
   IrDeclaration,
+  IrIntersectionType,
   IrObjectType,
   IrType,
   IrTypeAliasDeclaration,
@@ -62,21 +63,31 @@ function emptyAlias(name: string): IrTypeAliasDeclaration {
   return { kind: "typeAlias", name, isExported: true, type: EMPTY_ROOT_TYPE, comments: [] };
 }
 
-/** A root with members: an interface, or a type alias with `--export-type`. */
+/** A root type that declares something: an object with members, or an intersection of them. */
+type RootBodyType = IrObjectType | IrIntersectionType;
+
+function isRootBody(type: IrType): type is RootBodyType {
+  return (type.kind === "object" && type.members.length > 0) || type.kind === "intersection";
+}
+
+/**
+ * A root with members: an interface, or a type alias with `--export-type`. An intersection (the
+ * `paths` of overlapping `--path-params-as-types` keys) can only be a type alias.
+ */
 function rootDeclaration(
   name: RootKey,
-  type: IrObjectType,
+  type: RootBodyType,
   options: TransformOptions,
 ): IrDeclaration {
-  return options.exportType
+  return options.exportType || type.kind === "intersection"
     ? { kind: "typeAlias", name, isExported: true, type, comments: [] }
     : { kind: "interface", name, isExported: true, members: type.members, comments: [] };
 }
 
 /**
  * The declarations of one root. A root that is missing, or whose type has no members, is
- * `Record<string, never>`. Only an object type counts as having members: a callback type the IR
- * keeps as raw text does not (ADR-004).
+ * `Record<string, never>`. Only an object type (or the `paths` intersection) counts as having
+ * members: a callback type the IR keeps as raw text does not (ADR-004).
  */
 function rootDeclarations(
   root: RootKey,
@@ -90,7 +101,7 @@ function rootDeclarations(
   }
   const startedAt = context.diagnostics.now();
   const { type, aliases } = ROOT_TRANSFORMS[root](node, context, document);
-  if (type.kind !== "object" || type.members.length === 0) {
+  if (!isRootBody(type)) {
     context.diagnostics.debug(`${root} done (skipped)`, 0);
     return [emptyAlias(root), ...aliases];
   }
