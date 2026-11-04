@@ -131,13 +131,13 @@ These are off by default, so the output does not change until you turn one on.
   root name an alias: the later keeps the name, the earlier get `_2`, `_3`, instead of none.
   `unevaluated-properties` types the keys that no other keyword declares with the
   `unevaluatedProperties` schema, instead of ignoring it.
-  Five fixes for discriminators: `allof-discriminated-union` types an `allOf` `$ref` to a
-  discriminated union as the union, without `Omit` or an invented value;
-  `discriminator-own-mapping` keeps a schema's own `mapping` when it also inherits a
-  discriminator; `discriminator-member-required` keeps `WithRequired` next to an `allOf` `$ref` to
-  a discriminator member; `discriminator-declared-value` adds no second property to a member that
-  declares its value; `discriminator-enum-members` (with `--enum`) types a member's value as a
-  member of the owner's enum (`PetType.Cat`).
+  `discriminator-values` also keeps a schema's own `mapping` when it inherits a discriminator,
+  adds no second property to a member that declares its value, and with `--enum` types the value
+  as a member of the owner's enum (`PetType.Cat`).
+  `allof-discriminated-union` types an `allOf` `$ref` to a discriminated union as the union,
+  without `Omit` or an invented value.
+  `discriminator-member-required` keeps `WithRequired` next to an `allOf` `$ref` to a
+  discriminator member.
 
 ### Client fixes
 
