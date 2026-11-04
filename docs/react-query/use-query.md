@@ -12,7 +12,8 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
 - `data` and `error` are fully typed.
 - A successful response without a body (a 204, an empty body, any HEAD response) gives
   `data: null`: TanStack Query does not accept `undefined` query data. `useSuspenseQuery` and
-  `queryOptions` do the same.
+  `queryOptions` do the same, and the types say so: the data of an operation with a 204 is
+  `Body | null`, and `select` gets `null` too.
 - You can pass query options as fourth parameter. Query options in the third parameter (the fetch
   options) are not read: `useQuery("get", "/me", { retry: false })` sends a request and keeps the
   default `retry`. Write `useQuery("get", "/me", undefined, { retry: false })`.

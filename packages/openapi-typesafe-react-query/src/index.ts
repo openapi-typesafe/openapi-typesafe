@@ -31,6 +31,12 @@ import type { HttpMethod, MediaType, PathsWithMethod } from "openapi-typesafe-he
 // Helper type to dynamically infer the type from the `select` property
 type InferSelectReturnType<TData, TSelect> = TSelect extends (data: TData) => infer R ? R : TData;
 
+/**
+ * Query data of a response type: a success without a body is `undefined` in the fetch client and
+ * `null` in the query, as `queryFn` resolves it (upstream #2234, #2464).
+ */
+type QueryData<Data> = undefined extends Data ? Exclude<Data, undefined> | null : Data;
+
 type InitWithUnknowns<Init> = Init & { [key: string]: unknown };
 
 /**
@@ -69,9 +75,9 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
   Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
   Options extends Omit<
     UseQueryOptions<
-      Response["data"],
+      QueryData<Response["data"]>,
       Response["error"],
-      InferSelectReturnType<Response["data"], Options["select"]>,
+      InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
       QueryKey<Paths, Method, Path>
     >,
     "queryKey" | "queryFn"
@@ -83,19 +89,19 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
 ) => NoInfer<
   Omit<
     UseQueryOptions<
-      Response["data"],
+      QueryData<Response["data"]>,
       Response["error"],
-      InferSelectReturnType<Response["data"], Options["select"]>,
+      InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
       QueryKey<Paths, Method, Path>
     >,
     "queryFn" | "queryKey"
   > & {
-    queryKey: DataTag<QueryKey<Paths, Method, Path>, Response["data"], Response["error"]>;
+    queryKey: DataTag<QueryKey<Paths, Method, Path>, QueryData<Response["data"]>, Response["error"]>;
     queryFn: Exclude<
       UseQueryOptions<
-        Response["data"],
+        QueryData<Response["data"]>,
         Response["error"],
-        InferSelectReturnType<Response["data"], Options["select"]>,
+        InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
         QueryKey<Paths, Method, Path>
       >["queryFn"],
       SkipToken | undefined
@@ -110,9 +116,9 @@ export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
   Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
   Options extends Omit<
     UseQueryOptions<
-      Response["data"],
+      QueryData<Response["data"]>,
       Response["error"],
-      InferSelectReturnType<Response["data"], Options["select"]>,
+      InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
       QueryKey<Paths, Method, Path>
     >,
     "queryKey" | "queryFn"
@@ -121,7 +127,7 @@ export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
   method: Method,
   url: Path,
   ...[init, options, queryClient]: InitArguments<Init, [Options?, QueryClient?]>
-) => UseQueryResult<InferSelectReturnType<Response["data"], Options["select"]>, Response["error"]>;
+) => UseQueryResult<InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>, Response["error"]>;
 
 export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
@@ -158,9 +164,9 @@ export type UseSuspenseQueryMethod<Paths extends {}, Media extends MediaType> = 
   Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
   Options extends Omit<
     UseSuspenseQueryOptions<
-      Response["data"],
+      QueryData<Response["data"]>,
       Response["error"],
-      InferSelectReturnType<Response["data"], Options["select"]>,
+      InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
       QueryKey<Paths, Method, Path>
     >,
     "queryKey" | "queryFn"
@@ -169,7 +175,7 @@ export type UseSuspenseQueryMethod<Paths extends {}, Media extends MediaType> = 
   method: Method,
   url: Path,
   ...[init, options, queryClient]: InitArguments<Init, [Options?, QueryClient?]>
-) => UseSuspenseQueryResult<InferSelectReturnType<Response["data"], Options["select"]>, Response["error"]>;
+) => UseSuspenseQueryResult<InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>, Response["error"]>;
 
 export type UseMutationMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,

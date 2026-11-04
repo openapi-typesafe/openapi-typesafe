@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import createFetchClient from "openapi-typesafe-fetch";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import createClient from "../src/index.js";
 
 /**
@@ -62,5 +62,50 @@ describe("successful responses without a body", () => {
     const data = await createQueryClient().fetchQuery(client.queryOptions("get", "/items"));
 
     expect(data).toEqual({ id: 1 });
+  });
+});
+
+/**
+ * The query data types say `null` where `queryFn` gives it: a 204 was typed `undefined`, a value
+ * the query never holds (upstream #2464). Type checks: `tsc` runs them, the hooks are not called.
+ */
+describe("query data types of responses without a body", () => {
+  type Paths = {
+    "/items": { get: Operation };
+    "/ping": { get: { responses: { 204: { content?: never } } } };
+    "/item": { get: { responses: { 200: { content: { "application/json": Item } } } } };
+  };
+  const $api = createClient(createFetchClient<Paths>({ baseUrl: BASE_URL }));
+
+  it("queryOptions data of a 200 or 204 operation is the body or null", () => {
+    const query = createQueryClient().fetchQuery($api.queryOptions("get", "/items"));
+
+    expectTypeOf(query).toEqualTypeOf<Promise<Item | null>>();
+  });
+
+  it("useQuery and useSuspenseQuery data of a 204 operation is null", () => {
+    const query = () => $api.useQuery("get", "/ping");
+    const suspense = () => $api.useSuspenseQuery("get", "/ping");
+
+    expectTypeOf<ReturnType<typeof query>["data"]>().toEqualTypeOf<null | undefined>();
+    expectTypeOf<ReturnType<typeof suspense>["data"]>().toEqualTypeOf<null>();
+  });
+
+  it("useQuery data of a 200 operation has no null", () => {
+    const query = () => $api.useQuery("get", "/item");
+
+    expectTypeOf<ReturnType<typeof query>["data"]>().toEqualTypeOf<Item | undefined>();
+  });
+
+  it("select of a 200 or 204 operation gets the body or null", () => {
+    const query = () =>
+      $api.useQuery("get", "/items", undefined, {
+        select: (data) => {
+          expectTypeOf(data).toEqualTypeOf<Item | null>();
+          return data?.id;
+        },
+      });
+
+    expectTypeOf<ReturnType<typeof query>["data"]>().toEqualTypeOf<number | undefined>();
   });
 });
