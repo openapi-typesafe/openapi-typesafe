@@ -84,7 +84,7 @@ describe("RunFooter", () => {
     const request = { name: "StatusValues", type: irReference("T"), values: ["a"] };
 
     footer.addEnumValues(request);
-    footer.addEnumValues(request);
+    footer.addEnumValues({ ...request, name: "OtherValues" });
 
     expect(sink.declarations.map((declaration) => declaration.kind)).toEqual([
       "rawDeclaration",
@@ -95,6 +95,22 @@ describe("RunFooter", () => {
       name: "statusValues",
       type: irReference("ReadonlyArray", [irReference("T")]),
     });
+  });
+
+  it("addEnumValues adds the same array once, so it is not declared twice", () => {
+    // A discriminated union's own keywords are typed again in each member that inherits them.
+    const sink = new InMemorySink(["ReadonlyArray", "FlattenedDeepRequired"]);
+    const footer = new RunFooter(sink, false);
+    const request = { name: "StatusValues", type: irReference("T"), values: ["a"] };
+
+    footer.addEnumValues(request);
+    footer.addEnumValues(request);
+    footer.addEnumValues({ ...request, values: ["a", "b"] });
+
+    expect(sink.declarations.map((declaration) => declaration.kind)).toEqual([
+      "constArray",
+      "constArray",
+    ]);
   });
 
   it("requireWithRequired adds the helper only when it is not declared", () => {

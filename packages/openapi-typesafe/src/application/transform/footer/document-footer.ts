@@ -58,6 +58,8 @@ export class RunFooter implements DocumentFooter {
   private readonly enumNamesByKey = new Map<string, string>();
   /** Declarations added already: the same one twice fails with "Duplicate identifier". */
   private readonly declaredEnums = new Set<string>();
+  /** `--enum-values` arrays added already, by name, type and values. */
+  private readonly declaredEnumValues = new Set<string>();
   private readonly sink: FooterSink;
   private readonly isDedupingEnums: boolean;
 
@@ -91,6 +93,12 @@ export class RunFooter implements DocumentFooter {
 
   addEnumValues(request: EnumValuesRequest): void {
     const name = this.naming.arrayName(request.name);
+    // The same array twice fails with "Cannot redeclare"; a schema typed twice adds it twice.
+    const declared = JSON.stringify([name, request.type, request.values]);
+    if (this.declaredEnumValues.has(declared)) {
+      return;
+    }
+    this.declaredEnumValues.add(declared);
     this.require(HELPER_TYPES.flattenedDeepRequired);
     this.require(HELPER_TYPES.readonlyArray);
     this.sink.add({

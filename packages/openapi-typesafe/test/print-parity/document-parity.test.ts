@@ -15,6 +15,7 @@ import {
   type ContextInput,
   contextInput,
   hasDuplicateEnumMembers,
+  hasRedeclaredConstArrays,
   headerArbitrary,
   key,
   mediaTypeArbitrary,
@@ -67,7 +68,7 @@ function expectSameOutput(
   path: string | undefined,
 ): void {
   const expected = runLegacy(original, input, path);
-  fc.pre(!hasDuplicateEnumMembers(expected));
+  fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
   expect(runLegacy(build, input, path)).toBe(expected);
 }
 

@@ -436,6 +436,16 @@ export function reachesFixedLegacyBug(value: unknown, input: ContextInput): bool
 
 const ENUM_BLOCK_RE = /^export (?:declare )?(?:const )?enum (\S+) \{\n([\s\S]*?)^\}/gm;
 const ENUM_MEMBER_NAME_RE = /^\s+(\S+) = /gm;
+const CONST_ARRAY_NAME_RE = /^export const (\S+): /gm;
+
+/**
+ * Whether the original output declares an `--enum-values` array twice (a schema typed twice):
+ * that output does not compile (TS2451). The new footer adds the same array once.
+ */
+export function hasRedeclaredConstArrays(output: string): boolean {
+  const names = [...output.matchAll(CONST_ARRAY_NAME_RE)].map((match) => match[1] ?? "");
+  return new Set(names).size !== names.length;
+}
 
 /**
  * Whether an enum of the original output repeats a member name, also across declarations of the

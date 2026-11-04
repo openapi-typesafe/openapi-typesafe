@@ -46,3 +46,15 @@ describe("--enum-values helper types", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 });
+
+describe("enum values arrays declared once", () => {
+  it("openapiTS with enumValues declares an array once when a schema is typed twice", async () => {
+    const pair = { type: "array", prefixItems: [{ enum: ["a", "b"] }, { enum: ["a", "b"] }] };
+    const document = { ...DOCUMENT, components: { schemas: { Pair: pair } } } as OpenAPI3;
+
+    const output = astToString(await openapiTS(document, { silent: true, enumValues: true }));
+
+    expect(output.match(/export const pairValues/g)).toHaveLength(1);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
