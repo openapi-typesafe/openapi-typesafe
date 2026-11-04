@@ -7603,6 +7603,9 @@ export interface components {
             instance_count: number;
             /**
              * @description The instance size to use for this component. Default: `apps-s-1vcpu-0.5gb`
+             *     One of:
+             *     - Deprecated size slugs for legacy plans. We strongly encourage customers
+             *       to use the new plans when creating or upgrading apps.
              * @example apps-s-1vcpu-0.5gb
              */
             instance_size_slug?: ("apps-s-1vcpu-0.5gb" | "apps-s-1vcpu-1gb-fixed" | "apps-s-1vcpu-1gb" | "apps-s-1vcpu-2gb" | "apps-s-2vcpu-4gb" | "apps-d-1vcpu-0.5gb" | "apps-d-1vcpu-1gb" | "apps-d-1vcpu-2gb" | "apps-d-1vcpu-4gb" | "apps-d-2vcpu-4gb" | "apps-d-2vcpu-8gb" | "apps-d-4vcpu-8gb" | "apps-d-4vcpu-16gb" | "apps-d-8vcpu-32gb") | ("basic-xxs" | "basic-xs" | "basic-s" | "basic-m" | "professional-xs" | "professional-s" | "professional-m" | "professional-1l" | "professional-l" | "professional-xl");
@@ -12875,6 +12878,8 @@ export interface components {
             region?: components["schemas"]["region"];
             /**
              * @description The Droplet that the floating IP has been assigned to. When you query a floating IP, if it is assigned to a Droplet, the entire Droplet object will be returned. If it is not assigned, the value will be null.
+             *     Any of:
+             *     - If the floating IP is not assigned to a Droplet, the value will be null.
              * @example null
              */
             droplet?: (Record<string, never> | null) | components["schemas"]["droplet"];
@@ -14843,6 +14848,8 @@ export interface components {
             region?: components["schemas"]["region"];
             /**
              * @description The Droplet that the reserved IP has been assigned to. When you query a reserved IP, if it is assigned to a Droplet, the entire Droplet object will be returned. If it is not assigned, the value will be null.
+             *     Any of:
+             *     - If the reserved IP is not assigned to a Droplet, the value will be null.
              * @example null
              */
             droplet?: (Record<string, never> | null) | components["schemas"]["droplet"];

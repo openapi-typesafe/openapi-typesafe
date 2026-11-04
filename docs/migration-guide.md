@@ -128,6 +128,7 @@ These are off by default, so the output does not change until you turn one on.
   root name an alias: the later keeps the name, the earlier get `_2`, `_3`, instead of none.
   `unevaluated-properties` types the keys that no other keyword declares with the
   `unevaluatedProperties` schema, instead of ignoring it.
+  `anyof-oneof-descriptions` lists the descriptions of `anyOf` and `oneOf` members in the JSDoc.
   `dedupe-enum-names` (with `--enum --dedupe-enums`) names a shared enum by a rule that does not
   depend on the document order.
   `exploded-query-objects` makes the properties of an exploded object query parameter keys of

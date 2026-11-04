@@ -11,7 +11,7 @@ import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { documentEntries } from "../document-entries.js";
 import { refType } from "../ref-type.js";
-import { withSchemaComment } from "../schema-comment.js";
+import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import { type AccessFlags, propertyAccessFlags } from "./access-flags.js";
@@ -54,7 +54,11 @@ function finishProperty(
   const transformed =
     request.context.callbacks.transformProperty(property, schema, location) ?? property;
   // The original adds the schema's comment after any comment the callback set.
-  return withSchemaComment(transformed, schema);
+  return withSchemaComment(
+    transformed,
+    schema,
+    schemaCommentOptionsOf(request.context.options.fixes),
+  );
 }
 
 /** What the property loop reads from a property schema, in the original order. */

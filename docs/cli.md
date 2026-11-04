@@ -404,6 +404,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | Name | What changes | Upstream | Since |
 | :--- | :----------- | :------- | :---- |
 | `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
+| `anyof-oneof-descriptions` | The JSDoc of a schema lists the descriptions of its `anyOf` and `oneOf` members, which were dropped | [#2142](https://github.com/openapi-ts/openapi-typescript/issues/2142), [#2143](https://github.com/openapi-ts/openapi-typescript/pull/2143) | 1.0 |
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
 | `dedupe-enum-names` | With `--enum --dedupe-enums`, a shared enum is named by a rule that does not depend on the document order, instead of after the first schema in the document; needs both flags | [#1683](https://github.com/openapi-ts/openapi-typescript/issues/1683) | 1.0 |
@@ -458,6 +459,46 @@ The fix leaves these as they are:
 - a key that no other member defines in its `properties` (it is dropped, as for a `required` next
   to `allOf`);
 - `properties` next to the `allOf`.
+
+#### anyof-oneof-descriptions
+
+A member of `anyOf` or `oneOf` may have its own `description`. The member is a union member in
+TypeScript, and a union member has no JSDoc an editor shows, so without the fix the descriptions
+are lost. With it the JSDoc of the property or schema lists them under its own description, by
+keyword:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+item:
+  description: The item.
+  oneOf:
+    - type: boolean
+      description: Description 1
+    - type: string
+      description: Description 2
+```
+
+:::
+
+```ts
+/** @description The item. */ // [!code --]
+/** // [!code ++]
+ * @description The item. // [!code ++]
+ *     One of: // [!code ++]
+ *     - Description 1 // [!code ++]
+ *     - Description 2 // [!code ++]
+ */ // [!code ++]
+item: boolean | string;
+```
+
+- A member's description holds only where that member applies, so each one is a bullet of its
+  own, not joined into one sentence.
+- A member's own `description` counts, also one next to a `$ref`. A member with only a `$ref` has
+  none: the schema it names is documented where it is declared.
+- Members without a description are left out. With both keywords, `Any of:` comes before
+  `One of:`.
+- It applies to properties and to component schemas.
 
 #### anyof-properties
 

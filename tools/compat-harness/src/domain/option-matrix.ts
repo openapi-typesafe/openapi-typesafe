@@ -112,6 +112,8 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
     flag: "--fix=root-type-numbering",
     with: [["--root-types", "--root-types-no-schema-prefix"]],
   },
+  // `anyof-oneof-descriptions` changes JSDoc only, which no flag changes.
+  { flag: "--fix=anyof-oneof-descriptions", with: [[]] },
   // `dedupe-enum-names` does nothing without `--enum --dedupe-enums`, the only matrix set it changes.
   { flag: "--fix=dedupe-enum-names", with: [["--enum", "--dedupe-enums"]] },
   // `exploded-query-objects` moves keys into `query`: `--immutable` makes them readonly.
