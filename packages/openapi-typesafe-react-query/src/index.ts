@@ -329,6 +329,8 @@ export default function createClient<Paths extends {}, Media extends MediaType =
           queryFn: async ({ pageParam, signal }) => {
             const result = await fn(path, pageInit(init, { pageParamName, pageParam, signal }) as any);
             throwIfFailed(result);
+            // An empty page stays `undefined`, as in upstream: TanStack Query rejects only
+            // `undefined` query data, and the infinite query data is the `{ pages }` object.
             return result.data;
           },
           ...restOptions,
@@ -345,8 +347,11 @@ export default function createClient<Paths extends {}, Media extends MediaType =
             const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
             const result = await fn(path, init as InitWithUnknowns<typeof init>);
             throwIfFailed(result);
+            // TanStack Query accepts `undefined` mutation data, so a success without a body stays
+            // `undefined`, as in upstream; only query data needs `null` (upstream #2234). The cast
+            // only bridges the generic types: `Response["data"]` still has `undefined` for an
+            // operation with a response without a body.
             const { data } = result;
-
             return data as Exclude<typeof data, undefined>;
           },
           ...options,
