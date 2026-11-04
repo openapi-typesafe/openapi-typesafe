@@ -13,6 +13,7 @@ import {
   withRequiredKeys,
 } from "../type-combinators.js";
 import { coreType } from "./core-type.js";
+import { containingUnion, unionOwnKeywords } from "./discriminated-union.js";
 import { allOfMembers } from "./presence-members.js";
 import type { SchemaRequest } from "./schema-rule.js";
 import { unevaluatedPropertiesType } from "./unevaluated-properties.js";
@@ -75,22 +76,45 @@ function inlineItemType(item: Schema, required: readonly string[], request: Sche
   );
 }
 
-/** `allOf` items; an item with a discriminator omits that property (the parent redefines it). */
+/**
+ * The union's own keywords at the union's location, so nested names (enums) stay the union's.
+ * Null when the union has none.
+ */
+function ownKeywordsType(own: SchemaObject, ref: string, request: SchemaRequest): IrType | null {
+  return combinedType(own, { ...request, location: { ...request.location, path: ref } });
+}
+
+/** An `allOf` item; one with a discriminator omits that property (the parent redefines it). */
+function allOfItemType(
+  item: Schema,
+  required: readonly string[],
+  request: SchemaRequest,
+): IrType | null {
+  const isRef = isRefItem(item);
+  const discriminator =
+    (isRef && request.context.discriminators.objectAt(item.$ref)) ||
+    (item as SchemaObject).discriminator;
+  const propertyName = discriminator?.propertyName;
+  if (isRef && propertyName) {
+    const union = containingUnion(item.$ref, request);
+    if (union !== undefined) {
+      // The union contains this schema: intersecting it would refer to itself (#1665).
+      const own = unionOwnKeywords(union, propertyName, required);
+      return ownKeywordsType(own, item.$ref, request);
+    }
+  }
+  const type = isRef
+    ? refItemType(item, required, request)
+    : inlineItemType(item, required, request);
+  return propertyName ? omitKeys(type, [propertyName]) : type;
+}
+
 function allOfTypes(
   items: readonly Schema[],
   required: readonly string[],
   request: SchemaRequest,
 ): IrType[] {
-  return items.map((item) => {
-    const isRef = isRefItem(item);
-    const type = isRef
-      ? refItemType(item, required, request)
-      : inlineItemType(item, required, request);
-    const discriminator =
-      (isRef && request.context.discriminators.objectAt(item.$ref)) ||
-      (item as SchemaObject).discriminator;
-    return discriminator?.propertyName ? omitKeys(type, [discriminator.propertyName]) : type;
-  });
+  return items.flatMap((item) => allOfItemType(item, required, request) ?? []);
 }
 
 function oneOfType(previous: IrType | null, variants: readonly IrType[]): IrType {
