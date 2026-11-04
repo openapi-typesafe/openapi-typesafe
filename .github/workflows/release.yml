@@ -88,8 +88,9 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
+          # No registry-url: it writes an .npmrc that reads NODE_AUTH_TOKEN, which is unset under
+          # trusted publishing, and pnpm warns about it on every run, which fails verify.sh.
           cache: pnpm
-          registry-url: https://registry.npmjs.org
       - run: npm install --global "npm@${NPM_VERSION}"
       - run: pnpm install --frozen-lockfile
       - run: scripts/verify.sh build lint test size
@@ -102,7 +103,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-logs
-          path: .logs/release/
+          path: |
+            .logs/release/
+            .logs/verify/
           if-no-files-found: ignore
 
   dry-run:
@@ -127,5 +130,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-dry-run-logs
-          path: .logs/release/
+          path: |
+            .logs/release/
+            .logs/verify/
           if-no-files-found: ignore

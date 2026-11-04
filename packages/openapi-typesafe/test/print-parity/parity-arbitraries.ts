@@ -23,10 +23,10 @@ import {
 export const RUNS = Number(process.env.PARITY_RUNS ?? 3_000);
 /**
  * The slowest single-node parity test takes about 1.1 ms per run with coverage on (measured
- * 2026-11-02: 3351 ms for 3000 runs). 4 ms per run leaves room for a loaded CI machine running the
- * packages in parallel, where 5 s in total was not enough.
+ * 2026-11-02: 3351 ms for 3000 runs). The hosted Intel macOS runner is the slowest CI machine:
+ * up to 7.8 ms per run (2026-11-04: 23376 ms for 3000 runs). 10 ms per run leaves room above it.
  */
-const MS_PER_RUN_BUDGET = 4;
+const MS_PER_RUN_BUDGET = 10;
 const MIN_TIMEOUT_MS = 5_000;
 export const TIMEOUT_MS = Math.max(MIN_TIMEOUT_MS, RUNS * MS_PER_RUN_BUDGET);
 export const KEYS = ["a", "b", "c-d", "1", "$x", "é"] as const;
