@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import openapiTS, { astToString, type OpenAPI3, type OpenAPITSOptions } from "../../src/index.js";
 import { typeErrorsOf } from "../typescript-diagnostics.js";
 
-/** The `discriminator-declared-value` fix (ADR-024, upstream #2124). */
+/** The `discriminator-values` fix: no second value where a member declares it (ADR-024, #2124). */
 
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 const ADDED = "discriminator enum property added by openapi-typesafe";
@@ -32,14 +32,14 @@ async function generate(schemas: Record<string, unknown>, options: OpenAPITSOpti
 }
 
 async function fixed(schemas: Record<string, unknown>, options: OpenAPITSOptions = {}): Promise<string> {
-  return generate(schemas, { fix: ["discriminator-declared-value"], ...options });
+  return generate(schemas, { fix: ["discriminator-values"], ...options });
 }
 
 function countOf(output: string, text: string): number {
   return output.split(text).length - 1;
 }
 
-describe("discriminator-declared-value fix", () => {
+describe("discriminator-values fix, declared value", () => {
   it("openapiTS without the fix adds the declared value a second time", async () => {
     const output = await generate(SCHEMAS);
 
@@ -102,13 +102,13 @@ describe("discriminator-declared-value fix", () => {
     expect(countOf(await fixed(schemas), 'type: "CAT";')).toBe(1);
   });
 
-  it("openapiTS with discriminator-values counts a declared value as mapped", async () => {
+  it("openapiTS with the fix counts a declared value as mapped", async () => {
     const shelter = {
       properties: { resident: { oneOf: [ref("ImageTypeAgent")], discriminator: { propertyName: "type" } } },
     };
     const schemas = { ...SCHEMAS, Shelter: shelter };
 
-    const output = await fixed(schemas, { fix: ["discriminator-declared-value", "discriminator-values"] });
+    const output = await fixed(schemas);
 
     expect(output).not.toContain(ADDED);
     expect(countOf(output, 'type: "agent";')).toBe(1);

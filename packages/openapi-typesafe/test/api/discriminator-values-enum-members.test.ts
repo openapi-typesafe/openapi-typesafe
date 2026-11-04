@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import openapiTS, { astToString, type OpenAPI3, type OpenAPITSOptions } from "../../src/index.js";
 import { typeErrorsOf } from "../typescript-diagnostics.js";
 
-/** The `discriminator-enum-members` fix (ADR-024, upstream #1700). */
+/** The `discriminator-values` fix: `--enum` values are owner enum members (ADR-024, #1700). */
 
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 const MAPPING = { Dog: ref("Dog").$ref, Cat: ref("Cat").$ref, "hot-dog": ref("HotDog").$ref, "+": ref("Plus").$ref };
@@ -43,7 +43,7 @@ async function generate(schemas: Record<string, unknown>, options: OpenAPITSOpti
 }
 
 async function fixed(schemas: Record<string, unknown>, options: OpenAPITSOptions = {}): Promise<string> {
-  return generate(schemas, { fix: ["discriminator-enum-members"], ...options });
+  return generate(schemas, { fix: ["discriminator-values"], ...options });
 }
 
 /** The types of the `petType` properties the scan added, in order; the owner's own comes first. */
@@ -51,7 +51,7 @@ function petTypesOf(output: string): string[] {
   return [...output.matchAll(/^ {12}petType: ([^;]+);$/gm)].map((match) => match[1] ?? "").slice(1);
 }
 
-describe("discriminator-enum-members fix", () => {
+describe("discriminator-values fix, enum members", () => {
   it("openapiTS without the fix declares an enum per member", async () => {
     const output = await generate(SCHEMAS);
 
@@ -129,7 +129,7 @@ const dog: components["schemas"]["Cat"] = { petType: PetType.Dog };`;
   });
 });
 
-describe("discriminator-enum-members fix without a mapping", () => {
+describe("discriminator-values fix, enum members without a mapping", () => {
   const KINDS = { type: "string", enum: ["Cat", "Dog", "Kitten"] };
   const OWNER = { type: "object", required: ["petType"], properties: { petType: ref("PetType") } };
   /** No mapping and no `oneOf`: each member's value is its schema name, typed by the transformer. */

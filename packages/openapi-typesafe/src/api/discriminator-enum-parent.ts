@@ -3,7 +3,7 @@ import type { SchemaObject } from "../types.js";
 import type { EnumPatch } from "./discriminator-enum.js";
 
 /**
- * The `discriminator-enum-members` fix (#1700). With `--enum`, the enum the scan adds to a member
+ * The `discriminator-values` fix (#1700). With `--enum`, the enum the scan adds to a member
  * (`petType: "Cat"`) is declared as an enum of its own (`CatPetType`), which is not assignable to
  * the parent's enum (`PetType`). The parent's enum is found here, so the member's property can be
  * typed with its members (`PetType.Cat`).

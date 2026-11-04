@@ -90,7 +90,7 @@ function requiresValues(schema: unknown, name: string, values: readonly string[]
 
 /**
  * Whether `schema`, or an inline `allOf` item of it, already requires the discriminator property
- * with exactly the patch's values (the `discriminator-declared-value` fix). Then a patch would
+ * with exactly the patch's values (the `discriminator-values` fix). Then a patch would
  * only repeat it (#2124).
  */
 export function declaresValues(schema: SchemaObject | undefined, patch: EnumPatch): boolean {

@@ -93,7 +93,7 @@ function enumMemberType(enumName: string, member: string): IrType {
 }
 
 /**
- * The `discriminator-enum-members` fix: a member's discriminator value is typed with members of
+ * The `discriminator-values` fix: a member's discriminator value is typed with members of
  * the owner's enum (`PetType.Cat`), so the member is one of the owner's type (#1700). `key` is the
  * enum the scan added or the inherited discriminator object. Null when the fix is off, or the
  * owner's property is no TypeScript enum with every value.
@@ -105,7 +105,7 @@ export function ownerEnumMembersType(
 ): IrType | null {
   const { options, discriminators, footer } = request.context;
   const parent: DiscriminatorEnumParent | undefined = options.fixes.has(
-    OutputFix.DISCRIMINATOR_ENUM_MEMBERS,
+    OutputFix.DISCRIMINATOR_VALUES,
   )
     ? discriminators.enumParentOf(key)
     : undefined;

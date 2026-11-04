@@ -33,9 +33,9 @@ export interface ScanState extends DiscriminatorScanOptions {
   readonly patchedEnums: Map<string, SchemaObject>;
   /** With the fix: schema-name values, applied after both passes where no mapping names one. */
   readonly inferredPatches: EnumPatch[];
-  /** With `discriminator-declared-value`: the enum keys that a schema declares itself. */
+  /** With `discriminator-values`: the enum keys that a schema declares itself. */
   readonly declaredKeys: Set<string>;
-  /** With `discriminator-enum-members`: the owner's enum of each added enum, by that enum. */
+  /** With `discriminator-values`: the owner's enum of each added enum, by that enum. */
   readonly enumParents: Map<object, EnumParent>;
 }
 
@@ -50,22 +50,22 @@ function patchedSchema(state: ScanState, patch: EnumPatch): SchemaObject | undef
 }
 
 /**
- * With `discriminator-declared-value`: the schema at `patch.ref` requires the property with
+ * With `discriminator-values`: the schema at `patch.ref` requires the property with
  * exactly these values already, so a patch would only repeat it (#2124).
  */
 function isDeclared(state: ScanState, patch: EnumPatch): boolean {
   return (
-    state.fixes.has(OutputFix.DISCRIMINATOR_DECLARED_VALUE) &&
+    state.fixes.has(OutputFix.DISCRIMINATOR_VALUES) &&
     declaresValues(patchedSchema(state, patch), patch)
   );
 }
 
 /**
- * With `discriminator-enum-members`: the enum of the owner's property, for `key`: an enum the scan
+ * With `discriminator-values`: the enum of the owner's property, for `key`: an enum the scan
  * added, or a discriminator object that a schema inherited.
  */
 export function recordEnumParent(state: ScanState, owner: DiscriminatorOwner, key: object): void {
-  if (!state.fixes.has(OutputFix.DISCRIMINATOR_ENUM_MEMBERS)) {
+  if (!state.fixes.has(OutputFix.DISCRIMINATOR_VALUES)) {
     return;
   }
   const { silent, logger } = state;

@@ -14,15 +14,13 @@ export const OutputFix = {
   ANYOF_PROPERTIES: "anyof-properties",
   /** `--array-length` tuples have `min` to `max` items, nest right and follow `--immutable`. */
   ARRAY_LENGTH_TUPLES: "array-length-tuples",
-  /** A discriminator member that requires its property with exactly its values gets no second. */
-  DISCRIMINATOR_DECLARED_VALUE: "discriminator-declared-value",
-  /** `--enum`: a discriminator member's value is a member of the parent's enum, not a new enum. */
-  DISCRIMINATOR_ENUM_MEMBERS: "discriminator-enum-members",
   /** `required` next to an `allOf` `$ref` to a discriminator member still gives `WithRequired`. */
   DISCRIMINATOR_MEMBER_REQUIRED: "discriminator-member-required",
-  /** A schema's own discriminator is kept when it also inherits one, so its mapping applies. */
-  DISCRIMINATOR_OWN_MAPPING: "discriminator-own-mapping",
-  /** A schema two discriminators name gets one enum of their values, a mapping before its name. */
+  /**
+   * The value a discriminator member gets: one enum of every discriminator's values, a mapping
+   * before the schema name, a schema's own mapping before an inherited one, none where the member
+   * declares it, and with `--enum` a member of the owner's enum.
+   */
   DISCRIMINATOR_VALUES: "discriminator-values",
   /** Schemas of one root type name without the prefix each get an alias, the earlier numbered. */
   ROOT_TYPE_NUMBERING: "root-type-numbering",
@@ -68,7 +66,7 @@ export function resolveOutputFixes(names: readonly OutputFixName[]): ReadonlySet
 
 /** A generator option that a fix works with; without it, the fix changes nothing (ADR-021). */
 export interface OutputFixRequirement {
-  readonly option: "arrayLength" | "enum" | "rootTypes" | "rootTypesNoSchemaPrefix";
+  readonly option: "arrayLength" | "rootTypes" | "rootTypesNoSchemaPrefix";
   readonly flag: string;
 }
 
@@ -81,7 +79,6 @@ const NO_SCHEMA_PREFIX = {
 /** The options each fix needs, by fix name; `all` has none. */
 const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, readonly OutputFixRequirement[]>>> = {
   [OutputFix.ARRAY_LENGTH_TUPLES]: [{ option: "arrayLength", flag: "--array-length" }],
-  [OutputFix.DISCRIMINATOR_ENUM_MEMBERS]: [{ option: "enum", flag: "--enum" }],
   [OutputFix.ROOT_TYPE_NUMBERING]: [ROOT_TYPES, NO_SCHEMA_PREFIX],
 };
 

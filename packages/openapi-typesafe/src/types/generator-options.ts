@@ -209,7 +209,7 @@ export interface GlobalContext {
     objects: Record<string, DiscriminatorObject>;
     refsHandled: string[];
     /**
-     * @internal With the `discriminator-enum-members` fix: for each enum the scan added to a
+     * @internal With the `discriminator-values` fix: for each enum the scan added to a
      * member and each inherited discriminator object, the enum of the owner's property and the
      * location it is typed at.
      */

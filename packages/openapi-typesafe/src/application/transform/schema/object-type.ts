@@ -242,7 +242,7 @@ function discriminatorMembers(schema: SchemaObject, request: SchemaRequest): IrM
   if (!discriminator) {
     return [];
   }
-  // With `discriminator-enum-members`, the value is a member of the owner's enum (#1700).
+  // With `discriminator-values`, the value is a member of the owner's enum (#1700).
   const valueType = (value: string | undefined) =>
     ownerEnumMembersType(discriminator, [value], request);
   return [discriminatorProperty(discriminator, path, options.immutable, valueType)];

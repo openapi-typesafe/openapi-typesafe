@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import openapiTS, { astToString, type OpenAPI3, type OpenAPITSOptions } from "../../src/index.js";
 import { typeErrorsOf } from "../typescript-diagnostics.js";
 
-/** The `discriminator-own-mapping` fix (ADR-024, upstream #2200). */
+/** The `discriminator-values` fix: a schema keeps its own mapping (ADR-024, #2200). */
 
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 const CONTENT_TYPE = { contentType: { type: "string" } };
@@ -36,7 +36,7 @@ async function generate(schemas: Record<string, unknown>, options: OpenAPITSOpti
 }
 
 async function fixed(schemas: Record<string, unknown>, options: OpenAPITSOptions = {}): Promise<string> {
-  return generate(schemas, { fix: ["discriminator-own-mapping"], ...options });
+  return generate(schemas, { fix: ["discriminator-values"], ...options });
 }
 
 /** The literal `contentType` values of the output, in order. */
@@ -44,7 +44,7 @@ function valuesOf(output: string): string[] {
   return [...output.matchAll(/contentType: ("[^"]*");/g)].map((match) => match[1] ?? "");
 }
 
-describe("discriminator-own-mapping fix", () => {
+describe("discriminator-values fix, own mapping", () => {
   it("openapiTS without the fix loses the mapping for schemas after the owner", async () => {
     expect(valuesOf(await generate(SCHEMAS))).toEqual(['"article"', '"Video"']);
   });

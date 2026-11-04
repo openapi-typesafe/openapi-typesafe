@@ -128,10 +128,10 @@ function inheritsDiscriminator(state: ScanState, parentRef: string, ref: string)
 }
 
 /**
- * The schema at `ref` inherits `discriminator`. With `discriminator-own-mapping`, a schema that
+ * The schema at `ref` inherits `discriminator`. With `discriminator-values`, a schema that
  * defines a discriminator keeps it: the inherited one replaced its mapping, so the members walked
  * after this schema got their schema name instead of the mapped value (#2200). `ownerRef` is the
- * schema that declares the discriminator property, for `discriminator-enum-members`.
+ * schema that declares the discriminator property, whose enum `--enum` values use (#1700).
  */
 function recordInherited(
   state: ScanState,
@@ -139,7 +139,7 @@ function recordInherited(
   discriminator: DiscriminatorObject,
   ownerRef: string,
 ): void {
-  if (state.fixes.has(OutputFix.DISCRIMINATOR_OWN_MAPPING) && state.owners.has(ref)) {
+  if (state.fixes.has(OutputFix.DISCRIMINATOR_VALUES) && state.owners.has(ref)) {
     return;
   }
   const inherited = { ...discriminator };
@@ -193,7 +193,7 @@ function inheritDiscriminators(
 export interface DiscriminatorScan {
   objects: Record<string, DiscriminatorObject>;
   refsHandled: string[];
-  /** With `discriminator-enum-members`: the owner's enum of each enum the scan added. */
+  /** With `discriminator-values`: the owner's enum of each enum the scan added. */
   enumParents: ReadonlyMap<object, EnumParent>;
 }
 
