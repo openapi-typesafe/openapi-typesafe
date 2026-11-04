@@ -13,7 +13,7 @@ import {
   withRequiredKeys,
 } from "../type-combinators.js";
 import { coreType } from "./core-type.js";
-import { containingUnion, unionOwnKeywords } from "./discriminated-union.js";
+import { unionItemOf, unionOwnKeywords } from "./discriminated-union.js";
 import { allOfMembers } from "./presence-members.js";
 import type { SchemaRequest } from "./schema-rule.js";
 import { unevaluatedPropertiesType } from "./unevaluated-properties.js";
@@ -84,7 +84,12 @@ function ownKeywordsType(own: SchemaObject, ref: string, request: SchemaRequest)
   return combinedType(own, { ...request, location: { ...request.location, path: ref } });
 }
 
-/** An `allOf` item; one with a discriminator omits that property (the parent redefines it). */
+/**
+ * An `allOf` item; one with a discriminator omits that property (the parent redefines it). A
+ * `$ref` to a discriminated union is not such a parent: for a member of the union it is the
+ * union's own keywords, since the union contains the member (#1665); with
+ * `allof-discriminated-union` it is the union, since `Omit` on a union drops keys (#1464).
+ */
 function allOfItemType(
   item: Schema,
   required: readonly string[],
@@ -95,18 +100,18 @@ function allOfItemType(
     (isRef && request.context.discriminators.objectAt(item.$ref)) ||
     (item as SchemaObject).discriminator;
   const propertyName = discriminator?.propertyName;
-  if (isRef && propertyName) {
-    const union = containingUnion(item.$ref, request);
-    if (union !== undefined) {
-      // The union contains this schema: intersecting it would refer to itself (#1665).
-      const own = unionOwnKeywords(union, propertyName, required);
-      return ownKeywordsType(own, item.$ref, request);
-    }
+  const unionItem = isRef && propertyName ? unionItemOf(item.$ref, request) : undefined;
+  if (isRef && propertyName && unionItem?.isMember) {
+    const own = unionOwnKeywords(unionItem.union, propertyName, required);
+    return ownKeywordsType(own, item.$ref, request);
   }
   const type = isRef
     ? refItemType(item, required, request)
     : inlineItemType(item, required, request);
-  return propertyName ? omitKeys(type, [propertyName]) : type;
+  const isUnion =
+    unionItem !== undefined &&
+    request.context.options.fixes.has(OutputFix.ALLOF_DISCRIMINATED_UNION);
+  return propertyName && !isUnion ? omitKeys(type, [propertyName]) : type;
 }
 
 function allOfTypes(

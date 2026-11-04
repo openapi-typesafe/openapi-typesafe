@@ -6,6 +6,8 @@ import { ERROR_CODES, OpenAPITypesafeError } from "./errors.js";
  * default.
  */
 export const OutputFix = {
+  /** An `allOf` `$ref` to a discriminated union is the union, without `Omit` or a schema name. */
+  ALLOF_DISCRIMINATED_UNION: "allof-discriminated-union",
   /** An `allOf` member with only `required` makes those properties of the others required. */
   ALLOF_REQUIRED: "allof-required",
   /** `anyOf` next to object keywords or `allOf` is intersected with them, not added to a union. */

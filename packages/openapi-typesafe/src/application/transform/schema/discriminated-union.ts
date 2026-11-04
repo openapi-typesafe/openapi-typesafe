@@ -8,17 +8,25 @@ import type { SchemaRequest } from "./schema-rule.js";
  * `Omit<Union, "kind">`.
  */
 
-/**
- * The union at `ref` when its type contains the schema being transformed. Intersecting it would
- * make the schema refer to itself, which does not compile (TS2502, upstream #1665).
- */
-export function containingUnion(ref: string, request: SchemaRequest): SchemaObject | undefined {
+/** The union an `allOf` item refers to, and whether the union's type contains this schema. */
+export interface UnionItem {
+  readonly union: SchemaObject;
+  /**
+   * The schema is one of the union's members: intersecting the union would make it refer to
+   * itself, which does not compile (TS2502, upstream #1665).
+   */
+  readonly isMember: boolean;
+}
+
+/** The union at `ref`, if the schema there is one. */
+export function unionItemOf(ref: string, request: SchemaRequest): UnionItem | undefined {
   const path = request.location.path;
   const resolve = (target: string) => request.context.refs.resolve(target);
   const union = unionAt(ref, resolve);
-  return union !== undefined && path !== undefined && unionReaches(union, path, resolve)
-    ? union
-    : undefined;
+  if (union === undefined) {
+    return undefined;
+  }
+  return { union, isMember: path !== undefined && unionReaches(union, path, resolve) };
 }
 
 function withoutKey<T>(record: Readonly<Record<string, T>>, key: string): Record<string, T> {

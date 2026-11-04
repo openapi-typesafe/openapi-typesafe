@@ -1,4 +1,6 @@
 import type { Logger } from "../application/ports/logger.js";
+import { unionAt, unionReaches } from "../domain/openapi/discriminated-union.js";
+import { OutputFix } from "../domain/output-fixes.js";
 import type {
   DiscriminatorObject,
   GeneratorOptions,
@@ -16,7 +18,7 @@ import {
   patchDiscriminatorEnum,
   type ScanState,
 } from "./discriminator-patch.js";
-import { walkDocument } from "./document-refs.js";
+import { resolveDocumentRef, walkDocument } from "./document-refs.js";
 import { createRef } from "./legacy-utils.js";
 
 /**
@@ -109,6 +111,20 @@ function valuesMappedTo(discriminator: DiscriminatorObject, ref: string): string
 }
 
 /**
+ * Whether the schema at `ref` takes the discriminator of its `allOf` parent at `parentRef`. With
+ * `allof-discriminated-union`, a schema that `allOf`s a discriminated union that does not contain
+ * it is that union, not one of its members, so it gets no value of its own (#1464, #1690).
+ */
+function inheritsDiscriminator(state: ScanState, parentRef: string, ref: string): boolean {
+  if (!state.fixes.has(OutputFix.ALLOF_DISCRIMINATED_UNION)) {
+    return true;
+  }
+  const resolve = (target: string) => resolveDocumentRef(state.schema, target, state);
+  const union = unionAt(parentRef, resolve);
+  return union === undefined || unionReaches(union, ref, resolve);
+}
+
+/**
  * An `allOf` item that is a `$ref` to a discriminator owner: the schema at `ref` inherits the
  * discriminator, and gets its enum when the parent's mapping names it. Returns false when the
  * `$ref` owns no discriminator, which ends the scan of this `allOf` (as in the original).
@@ -123,7 +139,9 @@ function inheritFromRef(state: ScanState, parentRef: string, ref: string): boole
   if (values.length > 0 && patchDiscriminatorEnum(state, patch)) {
     markHandled(state, ref);
   }
-  state.objects[ref] = { ...discriminator };
+  if (inheritsDiscriminator(state, parentRef, ref)) {
+    state.objects[ref] = { ...discriminator };
+  }
   return true;
 }
 
