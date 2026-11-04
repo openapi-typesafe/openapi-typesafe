@@ -129,6 +129,40 @@ export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
   ...[init, options, queryClient]: InitArguments<Init, [Options?, QueryClient?]>
 ) => UseQueryResult<InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>, Response["error"]>;
 
+/**
+ * The type of the page params: the initial one and the ones `getNextPageParam` and
+ * `getPreviousPageParam` return (upstream #2458). It was `unknown`. It stays `unknown` when a
+ * return type is untyped, so code that compiled still compiles (roadmap §3): TypeScript cannot
+ * infer the return type of a callback that computes it from an unannotated `lastPageParam`,
+ * whose type depends on that return type, and gives `never` or `unknown`.
+ */
+type PageParam<Options, Initial, Next, Previous> =
+  IsUntyped<Next> extends true
+    ? unknown
+    : "getPreviousPageParam" extends keyof Options
+      ? IsUntyped<Previous> extends true
+        ? unknown
+        : NullishToUnknown<Initial | NonNullable<Next> | NonNullable<Previous>>
+      : NullishToUnknown<Initial | NonNullable<Next>>;
+
+type IsUntyped<T> = [T] extends [never] ? true : unknown extends T ? true : false;
+
+/** Only `undefined` or `null` names no type: a cursor API's `initialPageParam: undefined`. */
+type NullishToUnknown<T> = [T] extends [undefined | null] ? unknown : T;
+
+/** Read only for the return type; `never` arguments add no inference for TanStack's page param. */
+type PageParamFunction<Result> = (...args: never) => Result;
+
+/**
+ * Inference sites of the page param types. Intersected before `Options`, so TanStack's own
+ * inference in the implementation reads the full signatures of `Options`.
+ */
+interface PageParamSources<Initial, Next, Previous> {
+  initialPageParam: Initial;
+  getNextPageParam: PageParamFunction<Next>;
+  getPreviousPageParam?: PageParamFunction<Previous>;
+}
+
 export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
@@ -138,22 +172,28 @@ export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = 
     UseInfiniteQueryOptions<
       Response["data"],
       Response["error"],
-      InferSelectReturnType<InfiniteData<Response["data"]>, Options["select"]>,
+      InferSelectReturnType<
+        InfiniteData<Response["data"], PageParam<Options, Initial, Next, Previous>>,
+        Options["select"]
+      >,
       InfiniteQueryKey<Paths, Method, Path>,
-      unknown
+      PageParam<Options, Initial, Next, Previous>
     >,
     "queryKey" | "queryFn"
   > & {
     pageParamName?: string;
   },
+  Initial = unknown,
+  Next = never,
+  Previous = never,
 >(
   method: Method,
   url: Path,
   init: InitWithUnknowns<Init>,
-  options: Options,
+  options: PageParamSources<Initial, Next, Previous> & Options,
   queryClient?: QueryClient,
 ) => UseInfiniteQueryResult<
-  InferSelectReturnType<InfiniteData<Response["data"]>, Options["select"]>,
+  InferSelectReturnType<InfiniteData<Response["data"], PageParam<Options, Initial, Next, Previous>>, Options["select"]>,
   Response["error"]
 >;
 
