@@ -1,4 +1,5 @@
 import type { IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
+import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import type { OutputFix } from "../../../domain/output-fixes.js";
 
 /**
@@ -43,11 +44,22 @@ export interface Discriminator {
   readonly mapping?: Readonly<Record<string, string>> | undefined;
 }
 
+/** The enum of a discriminator owner's property, and the location it is typed at. */
+export interface DiscriminatorEnumParent {
+  readonly schema: SchemaObject;
+  readonly path: string;
+}
+
 export interface Discriminators {
   /** The discriminator that applies to the schema at this `$ref`, if any. */
   objectAt(ref: string): Discriminator | undefined;
   /** Whether the discriminator property of this `$ref` was already added. */
   isHandled(ref: string): boolean;
+  /**
+   * With `discriminator-values`: the owner's enum that a member's value narrows, found by
+   * the enum schema the discriminator scan added or by the discriminator object of `objectAt`.
+   */
+  enumParentOf(schema: object): DiscriminatorEnumParent | undefined;
 }
 
 export interface RefResolver {
@@ -76,6 +88,8 @@ export interface EnumValuesRequest {
 export interface FooterDeclarations {
   /** Add (or reuse) an enum declaration and return the name it was declared with. */
   addEnum(request: EnumDeclarationRequest): string;
+  /** The member names of the enum declared with this name, by value; empty for another name. */
+  enumMembers(name: string): ReadonlyMap<string | number, string>;
   /** Add an exported, readonly array of enum values (`--enum-values`). */
   addEnumValues(request: EnumValuesRequest): void;
   /** Make sure the `WithRequired` helper type is declared. */

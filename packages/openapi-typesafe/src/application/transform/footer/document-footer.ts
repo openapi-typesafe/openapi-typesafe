@@ -1,5 +1,10 @@
 import { irReference } from "../../../domain/ir/constructors.js";
-import type { IrDeclaration, IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
+import type {
+  IrDeclaration,
+  IrEnumDeclaration,
+  IrPropertySignature,
+  IrType,
+} from "../../../domain/ir/nodes.js";
 import { HELPER_TYPES, type HelperType } from "../helper-types.js";
 import type {
   EnumDeclarationRequest,
@@ -7,7 +12,12 @@ import type {
   EnumValuesRequest,
 } from "../schema/schema-context.js";
 import type { DocumentFooter } from "../transform-context.js";
-import { EnumNaming, enumDeclaration } from "./enum-naming.js";
+import {
+  type DeclaredMembers,
+  EnumNaming,
+  enumDeclaration,
+  withoutDeclaredMembers,
+} from "./enum-naming.js";
 
 /** Where footer declarations go, in order: the run's `ctx.injectFooter`, open to user code. */
 export interface FooterSink {
@@ -43,6 +53,9 @@ function metadataKey(value: string, metadata: EnumMemberMetadata | undefined): s
   return `${metadata?.name ?? value}:${metadata?.description || ""}`;
 }
 
+/** Separates a repeated `--enum-values` array name from its number, as root type aliases do. */
+const ENUM_VALUES_NUMBER_SEPARATOR = "_";
+
 /** The whole declaration: an equal key means the same enum, member for member. */
 function declarationKey(name: string, request: EnumDeclarationRequest): string {
   return JSON.stringify([name, request.values, request.metadata]);
@@ -58,6 +71,14 @@ export class RunFooter implements DocumentFooter {
   private readonly enumNamesByKey = new Map<string, string>();
   /** Declarations added already: the same one twice fails with "Duplicate identifier". */
   private readonly declaredEnums = new Set<string>();
+  /** The member names of each declared enum, by value. */
+  private readonly membersByEnum = new Map<string, Map<string | number, string>>();
+  /** The members of each declared enum name, by member name. */
+  private readonly declaredMembers = new Map<string, Map<string, string | number>>();
+  /** `--enum-values` arrays added already: their declared name by name, type and values. */
+  private readonly declaredEnumValues = new Map<string, string>();
+  /** The declared `--enum-values` array names. */
+  private readonly enumValuesNames = new Set<string>();
   private readonly sink: FooterSink;
   private readonly isDedupingEnums: boolean;
 
@@ -82,15 +103,56 @@ export class RunFooter implements DocumentFooter {
     if (declared !== null) {
       this.declaredEnums.add(declared);
     }
-    this.sink.add(enumDeclaration(name, request, this.naming));
+    const declaration = this.withoutRepeats(enumDeclaration(name, request, this.naming));
+    if (declaration !== null) {
+      this.record(declaration);
+      this.sink.add(declaration);
+    }
     if (key !== null) {
       this.enumNamesByKey.set(key, name);
     }
     return name;
   }
 
+  /** The declaration without members an earlier one of the name has; null when none is left. */
+  private withoutRepeats(declaration: IrEnumDeclaration): IrEnumDeclaration | null {
+    const earlier: DeclaredMembers | undefined = this.declaredMembers.get(declaration.name);
+    if (earlier === undefined) {
+      return declaration;
+    }
+    const merged = withoutDeclaredMembers(declaration, earlier);
+    // Two empty declarations merge into one empty enum, which compiles, so the second stays.
+    return merged.members.length === 0 && declaration.members.length > 0 ? null : merged;
+  }
+
+  /** The members of a declaration; the first member of a value names it. */
+  private record(declaration: IrEnumDeclaration): void {
+    const byName = this.declaredMembers.get(declaration.name) ?? new Map();
+    const byValue = this.membersByEnum.get(declaration.name) ?? new Map();
+    for (const member of declaration.members) {
+      byName.set(member.name, member.value);
+      if (!byValue.has(member.value)) {
+        byValue.set(member.value, member.name);
+      }
+    }
+    this.declaredMembers.set(declaration.name, byName);
+    this.membersByEnum.set(declaration.name, byValue);
+  }
+
+  enumMembers(name: string): ReadonlyMap<string | number, string> {
+    return this.membersByEnum.get(name) ?? new Map();
+  }
+
   addEnumValues(request: EnumValuesRequest): void {
-    const name = this.naming.arrayName(request.name);
+    const baseName = this.naming.arrayName(request.name);
+    // The same array twice fails with "Cannot redeclare"; a schema typed twice adds it twice.
+    const declared = JSON.stringify([baseName, request.type, request.values]);
+    if (this.declaredEnumValues.has(declared)) {
+      return;
+    }
+    const name = this.freeEnumValuesName(baseName);
+    this.declaredEnumValues.set(declared, name);
+    this.enumValuesNames.add(name);
     this.require(HELPER_TYPES.flattenedDeepRequired);
     this.require(HELPER_TYPES.readonlyArray);
     this.sink.add({
@@ -101,6 +163,20 @@ export class RunFooter implements DocumentFooter {
       values: request.values,
       comments: [],
     });
+  }
+
+  /**
+   * Another array may have the name: `Discount/type` and `discount/type`, or a property and an
+   * inline `allOf` item of one schema, typed at one location. A redeclared `const` does not
+   * compile, so a later one gets the next number (`discountTypeValues_2`). Every unnumbered name
+   * ends with `Values`, so a number never takes a name that a later array needs.
+   */
+  private freeEnumValuesName(name: string): string {
+    let candidate = name;
+    for (let count = 2; this.enumValuesNames.has(candidate); count++) {
+      candidate = `${name}${ENUM_VALUES_NUMBER_SEPARATOR}${count}`;
+    }
+    return candidate;
   }
 
   requireWithRequired(): void {

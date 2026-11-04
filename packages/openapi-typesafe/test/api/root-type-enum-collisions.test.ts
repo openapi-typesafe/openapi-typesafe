@@ -65,3 +65,39 @@ describe("root type aliases that collide with a helper type", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 });
+
+describe("root type aliases that shadow a TypeScript global type", () => {
+  const ROOT_OPTIONS = { silent: true, rootTypes: true, rootTypesNoSchemaPrefix: true };
+
+  function documentWith(schemas: Record<string, object>): OpenAPI3 {
+    return {
+      openapi: "3.1.0",
+      info: { title: "Test", version: "1.0.0" },
+      paths: {},
+      components: { schemas },
+    } as OpenAPI3;
+  }
+
+  it("openapiTS renames the alias of a schema named Record, which the output uses", async () => {
+    const document = documentWith({
+      Record: { type: "object", properties: { id: { type: "string" } } },
+    });
+
+    const output = astToString(await openapiTS(document, ROOT_OPTIONS));
+
+    expect(output).toContain("export type Record_2 = components['schemas']['Record'];");
+    expect(output).toContain("Record<string, never>");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS keeps the alias of a global type name that the output does not use", async () => {
+    const document = documentWith({
+      Omit: { type: "object", properties: { id: { type: "string" } } },
+    });
+
+    const output = astToString(await openapiTS(document, ROOT_OPTIONS));
+
+    expect(output).toContain("export type Omit = components['schemas']['Omit'];");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});

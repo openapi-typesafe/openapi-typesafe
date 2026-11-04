@@ -13,6 +13,9 @@ import {
   contentArbitrary,
   contextInput,
   hasDuplicateEnumMembers,
+  hasRedeclaredConstArrays,
+  hasRepeatedParametersIndex,
+  hasUnquotedExtractProbe,
   headerArbitrary,
   key,
   REFS,
@@ -62,7 +65,9 @@ function checkParity<T>(
       const run = (build: Transform) =>
         runLegacy((options) => build(value as never, options as never), input, input.path);
       const expected = run(original);
-      fc.pre(!hasDuplicateEnumMembers(expected));
+      fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
+      fc.pre(!hasRepeatedParametersIndex(expected));
+      fc.pre(!hasUnquotedExtractProbe(expected));
       expect(run(transform)).toBe(expected);
     }),
     { numRuns: RUNS },

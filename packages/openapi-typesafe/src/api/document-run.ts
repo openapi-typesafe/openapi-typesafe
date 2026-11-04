@@ -7,7 +7,7 @@ import type { RefAccess, SchemaLoader } from "../application/ports/schema-loader
 import { withStackOverflowReported } from "../application/stack-overflow.js";
 import {
   ineffectiveFixNotices,
-  OutputFix,
+  type OutputFix,
   outputFixNamesOf,
   resolveOutputFixes,
 } from "../domain/output-fixes.js";
@@ -154,7 +154,7 @@ export async function createDocumentRun(
       findDiscriminators(schema, {
         silent,
         logger,
-        fixesValueConflicts: fix.includes(OutputFix.DISCRIMINATOR_VALUES),
+        fixes: new Set(fix),
       }),
     ),
     injectFooter: [],

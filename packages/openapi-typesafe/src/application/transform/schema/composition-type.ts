@@ -13,6 +13,7 @@ import {
   withRequiredKeys,
 } from "../type-combinators.js";
 import { coreType } from "./core-type.js";
+import { unionItemOf, unionOwnKeywords } from "./discriminated-union.js";
 import { allOfMembers } from "./presence-members.js";
 import type { SchemaRequest } from "./schema-rule.js";
 import { unevaluatedPropertiesType } from "./unevaluated-properties.js";
@@ -39,6 +40,28 @@ function isRefItem(item: Schema): item is { readonly $ref: string } {
   return "$ref" in (item as object);
 }
 
+/**
+ * The parent's `required` keys that the target at `ref` defines. A target that the discriminator
+ * scan gave its property got none: the scan made that property required, but the other keys were
+ * lost too. With `discriminator-member-required` only keys the target requires already are left
+ * out (#2162).
+ */
+function keysToRequire(
+  ref: string,
+  target: SchemaObject,
+  required: readonly string[],
+  request: SchemaRequest,
+): readonly string[] {
+  const defined = required.filter((key) => Boolean(target.properties?.[key]));
+  if (!request.context.discriminators.isHandled(ref)) {
+    return defined;
+  }
+  if (!request.context.options.fixes.has(OutputFix.DISCRIMINATOR_MEMBER_REQUIRED)) {
+    return [];
+  }
+  return defined.filter((key) => !target.required?.includes(key));
+}
+
 /** A `$ref` item gets the parent's `required` keys that its target defines (`WithRequired`). */
 function refItemType(
   item: { readonly $ref: string },
@@ -46,19 +69,13 @@ function refItemType(
   request: SchemaRequest,
 ): IrType {
   const type = request.transformNested(item, request.location);
-  const { refs, discriminators, footer } = request.context;
-  const resolved = refs.resolve(item.$ref) as SchemaObject | undefined;
-  const isEligible =
-    resolved &&
-    typeof resolved === "object" &&
-    "properties" in resolved &&
-    !discriminators.isHandled(item.$ref);
-  if (!isEligible) {
+  const resolved = request.context.refs.resolve(item.$ref) as SchemaObject | undefined;
+  if (!resolved || typeof resolved !== "object" || !("properties" in resolved)) {
     return type;
   }
-  const keys = required.filter((key) => Boolean(resolved.properties?.[key]));
+  const keys = keysToRequire(item.$ref, resolved, required, request);
   if (keys.length > 0) {
-    footer.requireWithRequired();
+    request.context.footer.requireWithRequired();
   }
   return withRequiredKeys(type, keys);
 }
@@ -75,22 +92,50 @@ function inlineItemType(item: Schema, required: readonly string[], request: Sche
   );
 }
 
-/** `allOf` items; an item with a discriminator omits that property (the parent redefines it). */
+/**
+ * The union's own keywords at the union's location, so nested names (enums) stay the union's.
+ * Null when the union has none.
+ */
+function ownKeywordsType(own: SchemaObject, ref: string, request: SchemaRequest): IrType | null {
+  return combinedType(own, { ...request, location: { ...request.location, path: ref } });
+}
+
+/**
+ * An `allOf` item; one with a discriminator omits that property (the parent redefines it). A
+ * `$ref` to a discriminated union is not such a parent: for a member of the union it is the
+ * union's own keywords, since the union contains the member (#1665); with
+ * `allof-discriminated-union` it is the union, since `Omit` on a union drops keys (#1464).
+ */
+function allOfItemType(
+  item: Schema,
+  required: readonly string[],
+  request: SchemaRequest,
+): IrType | null {
+  const isRef = isRefItem(item);
+  const discriminator =
+    (isRef && request.context.discriminators.objectAt(item.$ref)) ||
+    (item as SchemaObject).discriminator;
+  const propertyName = discriminator?.propertyName;
+  const unionItem = isRef && propertyName ? unionItemOf(item.$ref, request) : undefined;
+  if (isRef && propertyName && unionItem?.isMember) {
+    const own = unionOwnKeywords(unionItem.union, propertyName, required);
+    return ownKeywordsType(own, item.$ref, request);
+  }
+  const type = isRef
+    ? refItemType(item, required, request)
+    : inlineItemType(item, required, request);
+  const isUnion =
+    unionItem !== undefined &&
+    request.context.options.fixes.has(OutputFix.ALLOF_DISCRIMINATED_UNION);
+  return propertyName && !isUnion ? omitKeys(type, [propertyName]) : type;
+}
+
 function allOfTypes(
   items: readonly Schema[],
   required: readonly string[],
   request: SchemaRequest,
 ): IrType[] {
-  return items.map((item) => {
-    const isRef = isRefItem(item);
-    const type = isRef
-      ? refItemType(item, required, request)
-      : inlineItemType(item, required, request);
-    const discriminator =
-      (isRef && request.context.discriminators.objectAt(item.$ref)) ||
-      (item as SchemaObject).discriminator;
-    return discriminator?.propertyName ? omitKeys(type, [discriminator.propertyName]) : type;
-  });
+  return items.flatMap((item) => allOfItemType(item, required, request) ?? []);
 }
 
 function oneOfType(previous: IrType | null, variants: readonly IrType[]): IrType {

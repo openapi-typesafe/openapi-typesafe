@@ -3,14 +3,21 @@ import {
   irKeyword,
   irObject,
   irReference,
+  irString,
 } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import { createRef, parseRefPointer } from "../../../domain/openapi/json-pointer.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { OutputFix } from "../../../domain/output-fixes.js";
 import { literalType } from "../literal-type.js";
 import { refType } from "../ref-type.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
-import type { EnumMemberMetadata, SchemaOptions } from "./schema-context.js";
+import type {
+  DiscriminatorEnumParent,
+  EnumDeclarationRequest,
+  EnumMemberMetadata,
+  SchemaOptions,
+} from "./schema-context.js";
 import type { SchemaRequest, SchemaRule } from "./schema-rule.js";
 
 /** Removed from generated names, so `#/components/schemas/Status` gives `Status`. */
@@ -69,13 +76,58 @@ function withOtherStrings(type: IrType, schema: SchemaObject): IrType {
   return unionOf([type, intersectionOf([irKeyword("string"), irObject([])])]);
 }
 
-function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
-  // `isTsEnum` admits only strings and numbers, so there is no null member to split off.
-  const name = request.context.footer.addEnum({
-    name: nameFromPath(request.location.path),
+/** The enum declaration of `schema` typed at `path`; its values are strings and numbers. */
+function enumRequest(schema: SchemaObject, path: string | undefined): EnumDeclarationRequest {
+  return {
+    name: nameFromPath(path),
     values: (schema.enum ?? []) as (string | number)[],
     metadata: enumMetadata(schema),
-  });
+  };
+}
+
+/** One member's type; a quoted member cannot follow a dot, `typeof E["+"]` is the same type. */
+function enumMemberType(enumName: string, member: string): IrType {
+  return member.startsWith('"')
+    ? irIndexedAccess(irReference(`typeof ${enumName}`), irString(JSON.parse(member), "escaped"))
+    : irReference(`${enumName}.${member}`);
+}
+
+/**
+ * The `discriminator-values` fix: a member's discriminator value is typed with members of
+ * the owner's enum (`PetType.Cat`), so the member is one of the owner's type (#1700). `key` is the
+ * enum the scan added or the inherited discriminator object. Null when the fix is off, or the
+ * owner's property is no TypeScript enum with every value.
+ */
+export function ownerEnumMembersType(
+  key: object,
+  values: readonly unknown[],
+  request: SchemaRequest,
+): IrType | null {
+  const { options, discriminators, footer } = request.context;
+  const parent: DiscriminatorEnumParent | undefined = options.fixes.has(
+    OutputFix.DISCRIMINATOR_VALUES,
+  )
+    ? discriminators.enumParentOf(key)
+    : undefined;
+  if (parent === undefined || !isTsEnum(parent.schema, options)) {
+    return null;
+  }
+  const name = footer.addEnum(enumRequest(parent.schema, parent.path));
+  const members = footer.enumMembers(name);
+  const names = values.map((value) => members.get(value as string | number));
+  if (names.length === 0 || names.some((member) => member === undefined)) {
+    return null;
+  }
+  return unionOf(names.map((member) => enumMemberType(name, member as string)));
+}
+
+function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
+  const members = ownerEnumMembersType(schema, schema.enum ?? [], request);
+  if (members !== null) {
+    return members;
+  }
+  // `isTsEnum` admits only strings and numbers, so there is no null member to split off.
+  const name = request.context.footer.addEnum(enumRequest(schema, request.location.path));
   return withOtherStrings(irReference(name), schema);
 }
 
@@ -84,13 +136,35 @@ function isUnionPosition(pointer: readonly string[], index: number): boolean {
   return UNION_KEYWORDS.has(pointer[index] as string) && next !== undefined && INDEX_RE.test(next);
 }
 
+const PARAMETERS = "parameters";
+
+/** Where the `parameters` of a path item sit in its pointer: `paths/<key>/…`, `components/…`. */
+function pathItemParametersIndex(pointer: readonly string[]): number | null {
+  if (pointer[0] === "paths" || pointer[0] === "webhooks") {
+    return 2;
+  }
+  return pointer[0] === "components" && pointer[1] === "pathItems" ? 3 : null;
+}
+
+/**
+ * The location of a path item parameter repeats `parameters` (`paths/~1a/parameters/parameters/
+ * path/id`), which keeps the generated names as they were. The generated type has the segment
+ * once: `paths["/a"]["parameters"]["path"]["id"]`.
+ */
+function withSingleParametersSegment(pointer: readonly string[]): readonly string[] {
+  const index = pathItemParametersIndex(pointer);
+  const isRepeated =
+    index !== null && pointer[index] === PARAMETERS && pointer[index + 1] === PARAMETERS;
+  return isRepeated ? [...pointer.slice(0, index), ...pointer.slice(index + 1)] : pointer;
+}
+
 /**
  * The pointer of `--enum-values` arrays without union positions (`anyOf/0`), so names stay
  * stable. Every property after the first union position is narrowed with `Extract`: a no-op where
  * all variants have it, and the needed narrowing where only some do.
  */
 function enumValuesPointer(path: string | undefined): { ref: string; extract: string[] } {
-  const pointer = parseRefPointer(path ?? "");
+  const pointer = withSingleParametersSegment(parseRefPointer(path ?? ""));
   const kept: string[] = [];
   let firstVariantStart: number | null = null;
   for (let index = 0; index < pointer.length; index++) {
