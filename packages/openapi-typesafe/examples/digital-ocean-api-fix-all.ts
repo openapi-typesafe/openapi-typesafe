@@ -7003,8 +7003,8 @@ export interface components {
          */
         ssh_key_name: string;
         sshKeys: {
-            id?: components["schemas"]["ssh_key_id"];
-            fingerprint?: components["schemas"]["ssh_key_fingerprint"];
+            readonly id?: components["schemas"]["ssh_key_id"];
+            readonly fingerprint?: components["schemas"]["ssh_key_fingerprint"];
             /**
              * @description The entire public key string that was uploaded. Embedded into the root user's `authorized_keys` file if you include this key during Droplet creation.
              * @example ssh-rsa AEXAMPLEaC1yc2EAAAADAQABAAAAQQDDHr/jh2Jy4yALcK4JyWbVkPRaWmhck3IgCoeOO3z1e2dBowLh64QAM+Qb72pxekALga2oi4GvT+TlWNhzPH4V example
@@ -8296,7 +8296,7 @@ export interface components {
              * @example 9e7bc2ac-205a-45d6-919c-e1ac5e73f962
              */
             id?: string;
-            status?: components["schemas"]["apps_dedicated_egress_ip_status"];
+            readonly status?: components["schemas"]["apps_dedicated_egress_ip_status"];
         };
         /** @description An application's configuration and status. */
         app: {
@@ -9753,13 +9753,13 @@ export interface components {
              */
             readonly db_names?: string[] | null;
             /** @description The connection details for OpenSearch dashboard. */
-            ui_connection?: components["schemas"]["opensearch_connection"] & unknown;
-            connection?: components["schemas"]["database_connection"] & unknown;
-            private_connection?: components["schemas"]["database_connection"] & unknown;
-            standby_connection?: components["schemas"]["database_connection"] & unknown;
-            standby_private_connection?: components["schemas"]["database_connection"] & unknown;
+            readonly ui_connection?: components["schemas"]["opensearch_connection"] & unknown;
+            readonly connection?: components["schemas"]["database_connection"] & unknown;
+            readonly private_connection?: components["schemas"]["database_connection"] & unknown;
+            readonly standby_connection?: components["schemas"]["database_connection"] & unknown;
+            readonly standby_private_connection?: components["schemas"]["database_connection"] & unknown;
             readonly users?: components["schemas"]["database_user"][] | null;
-            maintenance_window?: components["schemas"]["database_maintenance_window"] & unknown;
+            readonly maintenance_window?: components["schemas"]["database_maintenance_window"] & unknown;
             /**
              * Format: uuid
              * @description The ID of the project that the database cluster is assigned to. If excluded when creating a new database cluster, it will be assigned to your default project.
@@ -10997,8 +10997,8 @@ export interface components {
              * @example 9423cbad-9211-442f-820b-ef6915e99b5f
              */
             private_network_uuid?: string;
-            connection?: unknown & components["schemas"]["database_connection"];
-            private_connection?: unknown & components["schemas"]["database_connection"];
+            readonly connection?: unknown & components["schemas"]["database_connection"];
+            readonly private_connection?: unknown & components["schemas"]["database_connection"];
             /**
              * @description Additional storage added to the cluster, in MiB. If null, no additional storage is added to the cluster, beyond what is provided as a base amount from the 'size' and any previously added additional storage.
              * @example 61440
@@ -11062,10 +11062,10 @@ export interface components {
              * @example doadmin
              */
             user?: string;
-            connection?: components["schemas"]["database_connection"] & unknown;
-            private_connection?: components["schemas"]["database_connection"] & unknown;
-            standby_connection?: components["schemas"]["database_connection"] & unknown;
-            standby_private_connection?: components["schemas"]["database_connection"] & unknown;
+            readonly connection?: components["schemas"]["database_connection"] & unknown;
+            readonly private_connection?: components["schemas"]["database_connection"] & unknown;
+            readonly standby_connection?: components["schemas"]["database_connection"] & unknown;
+            readonly standby_private_connection?: components["schemas"]["database_connection"] & unknown;
         };
         connection_pools: {
             /** @description An array of connection pool objects. */
@@ -14581,7 +14581,7 @@ export interface components {
              * @example 2020-11-04T21:39:49.530562231Z
              */
             readonly storage_usage_bytes_updated_at?: string;
-            subscription?: unknown & components["schemas"]["subscription"];
+            readonly subscription?: unknown & components["schemas"]["subscription"];
         };
         registry_create: {
             /**

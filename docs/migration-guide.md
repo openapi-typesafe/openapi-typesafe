@@ -131,6 +131,7 @@ These are off by default, so the output does not change until you turn one on.
   `exploded-query-objects` makes the properties of an exploded object query parameter keys of
   `query`, as they are sent.
   `prefix-items` makes a `prefixItems` tuple open, with the elements after `minItems` optional.
+  `read-write-refs` makes a property `readonly` when the schema it references is `readOnly`.
 
 ### Client fixes
 

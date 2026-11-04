@@ -74,6 +74,9 @@ describe("selectOptionSets", () => {
       "fix=prefix-items",
       "fix=prefix-items+array-length",
       "fix=prefix-items+immutable",
+      "fix=read-write-refs",
+      "fix=read-write-refs+immutable",
+      "fix=read-write-refs+read-write-markers",
       "fix=all",
       "fix=all+array-length",
     ]);

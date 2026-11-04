@@ -117,6 +117,8 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   // `prefix-items` replaces the tuple that `--array-length` would wrap and `--immutable` makes
   // readonly.
   { flag: "--fix=prefix-items", with: [[], ["--array-length"], ["--immutable"]] },
+  // `read-write-refs` adds `readonly` and the `$Read` / `$Write` markers.
+  { flag: "--fix=read-write-refs", with: [[], ["--immutable"], ["--read-write-markers"]] },
   { flag: "--fix=all", with: [[], ["--array-length"]] },
 ];
 

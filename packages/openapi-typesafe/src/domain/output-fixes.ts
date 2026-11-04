@@ -18,6 +18,8 @@ export const OutputFix = {
   EXPLODED_QUERY_OBJECTS: "exploded-query-objects",
   /** A `prefixItems` tuple is open unless `items` or `unevaluatedItems` closes it (2020-12). */
   PREFIX_ITEMS: "prefix-items",
+  /** `readOnly` and `writeOnly` of the schema a `$ref` names, or of `allOf` members, count. */
+  READ_WRITE_REFS: "read-write-refs",
   /** Schemas of one root type name without the prefix each get an alias, the earlier numbered. */
   ROOT_TYPE_NUMBERING: "root-type-numbering",
   /** `unevaluatedProperties` types the keys no other keyword declares (an index signature). */

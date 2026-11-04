@@ -409,6 +409,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `discriminator-values` | A schema that a discriminator `mapping` names gets the mapped value only, not also its schema name from a discriminated `oneOf` without a mapping, which made the property `never` | none (found in our own tests) | 1.0 |
 | `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
 | `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
+| `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
 | `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
 
@@ -641,6 +642,41 @@ prefixItems: [{ type: number }, { type: string }]
 - `unevaluatedItems` next to `items` changes nothing: `items` evaluates every further item.
 - With `--array-length` the fixed tuple gets no length tuples around it; with `--immutable` it is
   `readonly`.
+
+#### read-write-refs
+
+`readOnly` and `writeOnly` are annotations of a schema. A property whose schema is a `$ref` to a
+`readOnly` schema is read-only too: in OpenAPI 3.0 the reference is the property's definition, and
+in 3.1 the annotations of the referenced schema apply to the value. Without the fix only the flags
+written on the property itself count. With it the flags of the `$ref` target and of `allOf`
+members count too:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+ParticipantType:
+  type: string
+  readOnly: true
+  enum: [MAIN, CO]
+Participant:
+  type: object
+  properties:
+    kind:
+      $ref: "#/components/schemas/ParticipantType"
+```
+
+:::
+
+```ts
+kind?: components["schemas"]["ParticipantType"]; // [!code --]
+readonly kind?: components["schemas"]["ParticipantType"]; // [!code ++]
+```
+
+- A `$ref` to a `$ref` and nested `allOf` members are followed; recursion stops at a schema seen
+  before.
+- `anyOf` and `oneOf` members are not read: only one of them may apply.
+- With `--read-write-markers` the property gets `$Read<T>` or `$Write<T>`, so `Readable` and
+  `Writable` drop it where it is not sent; a property both flags reach gets no marker.
 
 #### root-type-numbering
 
