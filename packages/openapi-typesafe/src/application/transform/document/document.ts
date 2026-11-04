@@ -12,6 +12,7 @@ import { READ_WRITE_MARKER_TYPES } from "../helper-types.js";
 import type { TransformContext, TransformOptions } from "../transform-context.js";
 import { componentsType } from "./components.js";
 import { defsRootType } from "./defs-root.js";
+import { keptDeprecatedComponents } from "./kept-deprecated.js";
 import { pathsType } from "./paths.js";
 import { apiPathsEnumDeclaration } from "./paths-enum.js";
 import { webhooksType } from "./webhooks.js";
@@ -30,13 +31,25 @@ interface RootResult {
   readonly aliases: readonly IrTypeAliasDeclaration[];
 }
 
-const ROOT_TRANSFORMS: Readonly<
-  Record<RootKey, (node: object, context: TransformContext) => RootResult>
-> = {
+type RootTransform = (
+  node: object,
+  context: TransformContext,
+  document: DocumentObject,
+) => RootResult;
+
+/** Without `--exclude-deprecated` nothing is left out, so the scan is skipped. */
+function keptDeprecated(document: DocumentObject, context: TransformContext): ReadonlySet<object> {
+  return context.options.excludeDeprecated
+    ? keptDeprecatedComponents(document, context.refs)
+    : new Set();
+}
+
+const ROOT_TRANSFORMS: Readonly<Record<RootKey, RootTransform>> = {
   paths: (node, context) => ({ type: pathsType(node as PathsObject, context), aliases: [] }),
   webhooks: (node, context) => ({ type: webhooksType(node as PathsObject, context), aliases: [] }),
-  components: (node, context) => {
-    const { type, rootTypes } = componentsType(node as ComponentsObject, context);
+  components: (node, context, document) => {
+    const kept = keptDeprecated(document, context);
+    const { type, rootTypes } = componentsType(node as ComponentsObject, context, kept);
     return { type, aliases: rootTypes };
   },
   $defs: (node, context) => ({
@@ -76,7 +89,7 @@ function rootDeclarations(
     return [emptyAlias(root)];
   }
   const startedAt = context.diagnostics.now();
-  const { type, aliases } = ROOT_TRANSFORMS[root](node, context);
+  const { type, aliases } = ROOT_TRANSFORMS[root](node, context, document);
   if (type.kind !== "object" || type.members.length === 0) {
     context.diagnostics.debug(`${root} done (skipped)`, 0);
     return [emptyAlias(root), ...aliases];

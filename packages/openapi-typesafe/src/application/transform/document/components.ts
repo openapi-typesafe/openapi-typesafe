@@ -15,7 +15,7 @@ import {
   singularizeComponentKind,
 } from "../../../domain/openapi/components-object.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
-import { documentEntries } from "../document-entries.js";
+import { type DeprecatedEntryFilter, documentEntries } from "../document-entries.js";
 import type { SchemaLocation } from "../schema/schema-context.js";
 import { transformSchema } from "../schema/schema-transform.js";
 import { withSchemaComment } from "../schema-comment.js";
@@ -120,15 +120,22 @@ function hasRootType(kind: ComponentKind, item: unknown, context: TransformConte
   return options.rootTypes && !(options.enum && kind === "schemas" && isEnumSchema(item));
 }
 
+/** The components of one run, and the deprecated ones that kept output still references. */
+interface ComponentsRequest {
+  readonly components: ComponentsObject;
+  readonly isKept: DeprecatedEntryFilter;
+  readonly aliases: Record<string, IrTypeAliasDeclaration>;
+}
+
 function kindMember(
   kind: ComponentKind,
-  components: ComponentsObject,
-  aliases: Record<string, IrTypeAliasDeclaration>,
+  request: ComponentsRequest,
   context: TransformContext,
 ): IrPropertySignature {
+  const { components, isKept, aliases } = request;
   const startedAt = context.diagnostics.now();
   const items: IrPropertySignature[] = [];
-  for (const [name, item] of documentEntries(components[kind] ?? {}, context.options)) {
+  for (const [name, item] of documentEntries(components[kind] ?? {}, context.options, isKept)) {
     items.push(componentMember(kind, name, item, context));
     if (hasRootType(kind, item, context)) {
       addRootAlias(aliases, rootTypeName(kind, name, aliases, context), kind, name);
@@ -142,17 +149,23 @@ function kindMember(
   return irProperty(toPropertyName(kind), type);
 }
 
-/** The `components` interface body (OpenAPI 3.1 §4.8.7), one member per component kind. */
+/**
+ * The `components` interface body (OpenAPI 3.1 §4.8.7), one member per component kind. With
+ * `--exclude-deprecated`, `kept` holds the deprecated components that kept output references
+ * (`keptDeprecatedComponents`); they stay, so no reference names a missing key.
+ */
 export function componentsType(
   components: ComponentsObject,
   context: TransformContext,
+  kept: ReadonlySet<object> = new Set(),
 ): ComponentsResult {
   // A plain object, as in the original: its key order (integer-like names first) is the
   // output order.
   const aliases: Record<string, IrTypeAliasDeclaration> = {};
+  const request = { components, isKept: (item: unknown) => kept.has(item as object), aliases };
   const declaredKinds = DECLARED_COMPONENT_KINDS.filter((kind) => components[kind] !== undefined);
   const members = [...COMPONENT_KINDS, ...declaredKinds].map((kind) =>
-    kindMember(kind, components, aliases, context),
+    kindMember(kind, request, context),
   );
   return { type: irObject(members), rootTypes: Object.values(aliases) };
 }
