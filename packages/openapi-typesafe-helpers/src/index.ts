@@ -179,11 +179,19 @@ export type OperationRequestBodyContent<T> =
     ? FilterKeys<NonNullable<OperationRequestBodyMediaContent<T>>, MediaType> | undefined
     : FilterKeys<OperationRequestBodyMediaContent<T>, MediaType>;
 
-/** Return all 2XX responses from a Response Object Map */
+/**
+ * The statuses of success responses in a Response Object Map: the 2XX statuses, or `default` when
+ * no 2XX status is declared. `default` covers every status the operation does not declare (OpenAPI
+ * Responses Object), so then it covers every success (upstream #1862). With a 2XX status declared,
+ * `default` is left to the errors, as before.
+ */
+type SuccessStatus<T> = [Extract<keyof T, OkStatus>] extends [never] ? "default" : OkStatus;
+
+/** Return all 2XX responses from a Response Object Map, or `default` if it declares no 2XX one */
 export type SuccessResponse<
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = GetResponseContent<T, Media, OkStatus>;
+> = GetResponseContent<T, Media, SuccessStatus<T>>;
 
 export type GetResponseContent<
   T extends Record<string | number, any>,

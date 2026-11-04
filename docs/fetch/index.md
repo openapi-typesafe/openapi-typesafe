@@ -181,6 +181,10 @@ const { data, error, response } = await client.GET("/url");
 | `error`    | `5xx`, `4xx`, or `default` response if not OK; otherwise `undefined`                                                        |
 | `response` | [The original Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) which contains `status`, `headers`, etc. |
 
+`default` describes every status the operation does not declare. So when an operation declares no
+`2xx` response, `data` has the type of `default` (and `error` too): a success can only be a
+`default` one. With a `2xx` response declared, `default` types only `error`.
+
 ::: warning
 
 A `4xx` / `5xx` response without a body has `error: undefined`, so `if (error)` alone does not catch it.
