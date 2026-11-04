@@ -32,6 +32,24 @@ export interface ClientOptions extends Omit<RequestInit, "headers"> {
   requestInitExt?: Record<string, unknown>;
 }
 
+/**
+ * `ClientOptions` for a Fetch API implementation with its own types, such as the `undici` package
+ * (upstream #2562). TypeScript cannot relate its `Request` and `Response` to the DOM lib's (`duplex`,
+ * `RequestDestination`, `BodyInit` differ), so only what the client needs is checked: a `fetch`
+ * that returns a promise and a `Request` class that takes a URL. Pass the `fetch` and the `Request`
+ * of the same implementation; middleware and results still use the DOM types. The `createClient`
+ * overload with `ClientOptions` comes first, so an inline `fetch` gets a typed `Request` input.
+ */
+export interface OtherFetchClientOptions extends Omit<ClientOptions, "fetch" | "Request"> {
+  /** `fetch` of another implementation (for example `fetch` from `undici`) */
+  fetch?: (input: never, init?: never) => PromiseLike<object>;
+  /** `Request` of the same implementation (for example `Request` from `undici`) */
+  Request?: new (
+    input: string,
+    init: never,
+  ) => object;
+}
+
 export type HeadersOptions =
   | Required<RequestInit>["headers"]
   | Record<string, string | number | boolean | (string | number | boolean)[] | null | undefined>;
@@ -98,13 +116,20 @@ export type ParamsOption<T> = T extends {
     : { params: T["parameters"] }
   : DefaultParamsOption;
 
-// Writable<T> strips $Read markers (readOnly properties excluded from request body)
+/** `true` for `any`: the operation of `createClient<any>()`, which says nothing about its body. */
+type IsAny<T> = 0 extends 1 & T ? true : false;
+
+// Writable<T> strips $Read markers (readOnly properties excluded from request body).
+// An `any` operation is checked first: a conditional type on `any` takes both branches, which
+// gave `{ body?: never } | { body: any }` and so a required init (upstream #2526).
 export type RequestBodyOption<T> =
-  Writable<OperationRequestBodyContent<T>> extends never
-    ? { body?: never }
-    : IsOperationRequestBodyOptional<T> extends true
-      ? { body?: Writable<OperationRequestBodyContent<T>> }
-      : { body: Writable<OperationRequestBodyContent<T>> };
+  IsAny<T> extends true
+    ? { body?: any }
+    : Writable<OperationRequestBodyContent<T>> extends never
+      ? { body?: never }
+      : IsOperationRequestBodyOptional<T> extends true
+        ? { body?: Writable<OperationRequestBodyContent<T>> }
+        : { body: Writable<OperationRequestBodyContent<T>> };
 
 export type FetchOptions<T> = RequestOptions<T> & Omit<RequestInit, "body" | "headers">;
 
@@ -189,29 +214,67 @@ export type Middleware =
       onError: MiddlewareOnError;
     };
 
-/** This type helper makes the 2nd function param required if params/requestBody are required; otherwise, optional */
-export type MaybeOptionalInit<Params, Location extends keyof Params> =
-  RequiredKeysOf<FetchOptions<FilterKeys<Params, Location>>> extends never
-    ? FetchOptions<FilterKeys<Params, Location>> | undefined
-    : FetchOptions<FilterKeys<Params, Location>>;
+/** The init of one operation, `undefined` too when nothing in it is required. */
+type OperationInit<Operation> =
+  RequiredKeysOf<FetchOptions<Operation>> extends never ? FetchOptions<Operation> | undefined : FetchOptions<Operation>;
+
+/**
+ * This type helper makes the 2nd function param required if params/requestBody are required;
+ * otherwise, optional. `Location` is any key: with `Paths extends {}` a method is not known to be a
+ * key of `Paths[Path]` (upstream #2267). For a union of operations, the union of their inits, each
+ * with its own optionality: TypeScript uses that union where the path is not known yet, as in
+ * `Parameters<typeof client.request>` (upstream #2178).
+ */
+export type MaybeOptionalInit<Params, Location extends PropertyKey> =
+  FilterKeys<Params, Location> extends infer Operation
+    ? Operation extends unknown
+      ? OperationInit<Operation>
+      : never
+    : never;
+
+/**
+ * `true` when the init may be left out: nothing in it is required. For a union of inits, where the
+ * path is not known yet (`Parameters<typeof client.request>`), when one of them may be left out
+ * (upstream #2178); a union whose required keys are merged would require every init.
+ */
+export type IsInitOptional<Init> = true extends (
+  Init extends unknown
+    ? RequiredKeysOf<Init> extends never
+      ? true
+      : false
+    : never
+)
+  ? true
+  : false;
 
 // The final init param to accept.
 // - Determines if the param is optional or not.
 // - Performs arbitrary [key: string] addition.
 // Note: the addition MUST happen after all the inference happens (otherwise TS can’t infer if init is required or not).
 type InitParam<Init> =
-  RequiredKeysOf<Init> extends never ? [(Init & { [key: string]: unknown })?] : [Init & { [key: string]: unknown }];
+  IsInitOptional<Init> extends true ? [(Init & { [key: string]: unknown })?] : [Init & { [key: string]: unknown }];
 
-export type ClientMethod<
-  Paths extends Record<string, Record<HttpMethod, {}>>,
-  Method extends HttpMethod,
-  Media extends MediaType,
-> = <Path extends PathsWithMethod<Paths, Method>, Init extends MaybeOptionalInit<Paths[Path], Method>>(
+/**
+ * The operation of `Method` on `Path`. Not `Paths[Path][Method]`: `Paths` is only `{}`, because
+ * the generated `interface paths` has no index signature and failed a `Record<string, …>`
+ * constraint with TS2344 (upstream #2267), so TypeScript does not know `Method` is a key. For a
+ * union of paths or methods, the union of their operations; a method a path lacks (`put?: never`)
+ * adds none.
+ */
+export type PathOperation<Paths, Path, Method> = Extract<
+  FilterKeys<Paths[Path & keyof Paths], Method>,
+  Record<string | number, any>
+>;
+
+export type ClientMethod<Paths extends {}, Method extends HttpMethod, Media extends MediaType> = <
+  Path extends PathsWithMethod<Paths, Method>,
+  Init extends MaybeOptionalInit<Paths[Path], Method>,
+>(
   url: Path,
   ...init: InitParam<Init>
-) => Promise<FetchResponse<Paths[Path][Method], Init, Media>>;
+) => Promise<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>;
 
-export type ClientRequestMethod<Paths extends Record<string, Record<HttpMethod, {}>>, Media extends MediaType> = <
+export type ClientRequestMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
@@ -219,7 +282,7 @@ export type ClientRequestMethod<Paths extends Record<string, Record<HttpMethod, 
   method: Method,
   url: Path,
   ...init: InitParam<Init>
-) => Promise<FetchResponse<Paths[Path][Method], Init, Media>>;
+) => Promise<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>;
 
 // Only HTTP method keys become calls: `parameters` and `additionalOperations` are not methods.
 export type ClientForPath<PathInfo extends Record<string | number, any>, Media extends MediaType> = {
@@ -272,6 +335,9 @@ export type MethodResponse<
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
   clientOptions?: ClientOptions,
 ): Client<Paths, Media>;
+export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
+  clientOptions?: OtherFetchClientOptions,
+): Client<Paths, Media>;
 
 export type PathBasedClient<Paths extends Record<string | number, any>, Media extends MediaType = MediaType> = {
   [Path in keyof Paths]: ClientForPath<Paths[Path], Media>;
@@ -283,6 +349,9 @@ export declare function wrapAsPathBasedClient<Paths extends {}, Media extends Me
 
 export declare function createPathBasedClient<Paths extends {}, Media extends MediaType = MediaType>(
   clientOptions?: ClientOptions,
+): PathBasedClient<Paths, Media>;
+export declare function createPathBasedClient<Paths extends {}, Media extends MediaType = MediaType>(
+  clientOptions?: OtherFetchClientOptions,
 ): PathBasedClient<Paths, Media>;
 
 /** Serialize primitive params to string */

@@ -94,6 +94,33 @@ export const $api = createClient(fetchClient);
 
 :::
 
+### A helper that takes the same arguments
+
+`Parameters<typeof $api.queryOptions>` takes the arguments of any operation, so a helper can pass
+them on. TypeScript does not relate the method, the path and the init in it: it checks the path
+against every path, and the init is optional when some operation needs none.
+
+```ts [src/use-invalidate-query.ts]
+import { useQueryClient } from "@tanstack/react-query";
+import { $api } from "./api";
+
+export function useInvalidateQuery(...args: Parameters<typeof $api.queryOptions>) {
+  const queryClient = useQueryClient();
+  const { queryKey } = $api.queryOptions(...args);
+  return () => queryClient.invalidateQueries({ queryKey });
+}
+```
+
+With TypeScript 7 and a schema with hundreds of paths, this `Parameters` type is over the
+compiler's limit (TS2859, excessive complexity): it relates every method to every path. List
+the arguments of the paths the helper takes instead, such as
+`(path: "/users/{user_id}", init: ...)`.
+
+`ReturnType<typeof $api.queryOptions>` is still `any`, as for the hooks: TypeScript does not match
+these generic signatures against the `(...args: any) => infer R` pattern of `ReturnType`, and
+`ReturnType` then falls back to `any`. Take the arguments, as above, or the `QueryKey` type,
+instead of the result.
+
 ## Api
 
 ```tsx
