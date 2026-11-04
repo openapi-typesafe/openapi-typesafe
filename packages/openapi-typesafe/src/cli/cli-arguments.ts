@@ -165,11 +165,21 @@ const KNOWN_FLAGS = new Set<string>([
  * Flags that no code reads. The original CLI ignored them silently, so a typo such as
  * `--alphabetise` gave other output with no hint; they still do not fail the run.
  */
-function unknownFlagsOf(parsed: parser.Arguments): string[] {
+function unknownFlagsOf(parsed: parser.Arguments, argv: readonly string[]): string[] {
   const names = Object.keys(parsed)
     .filter((key) => key !== "_" && key !== "--" && !KNOWN_FLAGS.has(key))
-    .map((key) => (key.length === 1 ? `-${key}` : `--${kebabCase(key)}`));
+    .map((key) => writtenFlagName(key, argv));
   return [...new Set(names)];
+}
+
+/** The flag as the user wrote it: yargs-parser reads `--no-x` as `x: false`. */
+function writtenFlagName(key: string, argv: readonly string[]): string {
+  if (key.length === 1) {
+    return `-${key}`;
+  }
+  const negated = `--no-${kebabCase(key)}`;
+  const isNegated = argv.some((arg) => arg === negated || arg.startsWith(`${negated}=`));
+  return isNegated ? negated : `--${kebabCase(key)}`;
 }
 
 /**
@@ -193,6 +203,6 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
     generatorFlags: generatorFlagsOf(parsed),
     refLimits: refLimitsOf(parsed),
     fix: fixNamesOf(parsed.fix),
-    unknownFlags: unknownFlagsOf(parsed),
+    unknownFlags: unknownFlagsOf(parsed, argv),
   };
 }
