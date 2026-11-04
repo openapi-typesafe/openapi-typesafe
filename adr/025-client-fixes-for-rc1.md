@@ -32,7 +32,9 @@ not a contract: what shipped only in rc.0 may change (maintainer decision, 2026-
 3. **#2464:** `QueryData` maps `undefined` to `null` in the data, `select` and `DataTag` types of
    `useQuery`, `useSuspenseQuery` and `queryOptions`. This is a 1.x change although it is a type change:
    upstream's `useQuery` of such a response always failed at runtime, so no working code depends on
-   `undefined`. Infinite queries and mutations are unchanged.
+   `undefined`. Infinite query pages and mutation data stay `undefined` at runtime and in the
+   types, as in upstream: TanStack Query accepts them (it rejects `undefined` only as query data),
+   so `null` there would only break working code.
 4. **#2526:** `RequestBodyOption` checks `IsAny` first and gives `{ body?: any }`.
 5. **#2562:** a second overload of `createClient` and `createPathBasedClient` takes any `fetch` and
    `Request` constructor (`OtherFetchClientOptions`); the DOM overload stays first.
