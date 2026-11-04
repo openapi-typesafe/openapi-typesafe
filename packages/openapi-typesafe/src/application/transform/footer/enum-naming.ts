@@ -1,5 +1,6 @@
 import { ERROR_CODES, OpenAPITypesafeError } from "../../../domain/errors.js";
 import type { IrComment, IrEnumDeclaration } from "../../../domain/ir/nodes.js";
+import { withNumberedRepeats } from "../numbered-names.js";
 
 const IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z_$0-9]*$/;
 /** A run of invalid characters and the character after it, which starts the next word. */
@@ -141,24 +142,40 @@ export interface EnumMembers {
   readonly metadata: readonly (EnumMemberNaming | undefined)[];
 }
 
-/** An exported enum with an already built `name`; member names advance the naming state. */
+/** Separates a repeated member name from its number: `reactions_1` → `reactions_1_2`. */
+const MEMBER_NUMBER_SEPARATOR = "_";
+
+/** The `count`-th use of a member name; a quoted name gets the number inside the quotes. */
+function numberedMemberName(name: string, count: number): string {
+  const isQuoted = name.startsWith('"');
+  const raw = isQuoted ? (JSON.parse(name) as string) : name;
+  const numbered = `${raw}${MEMBER_NUMBER_SEPARATOR}${count}`;
+  return isQuoted ? quotedMemberName(numbered) : numbered;
+}
+
+/**
+ * An exported enum with an already built `name`; member names advance the naming state. Values
+ * whose names come out the same (`reactions-+1` and `reactions--1` are both `reactions_1`) would
+ * not compile, so a repeated name gets a number (`reactions_1_2`).
+ */
 export function enumDeclaration(
   name: string,
   members: EnumMembers,
   naming: EnumNaming,
 ): IrEnumDeclaration {
+  const names = members.values.map((value, index) =>
+    naming.memberName(value, members.metadata[index]),
+  );
+  const uniqueNames = withNumberedRepeats(names, numberedMemberName);
   return {
     kind: "enum",
     name,
     isExported: true,
-    members: members.values.map((value, index) => {
-      const metadata = members.metadata[index];
-      return {
-        name: naming.memberName(value, metadata),
-        value,
-        comments: enumMemberComments(metadata),
-      };
-    }),
+    members: members.values.map((value, index) => ({
+      name: uniqueNames[index] as string,
+      value,
+      comments: enumMemberComments(members.metadata[index]),
+    })),
     comments: [],
   };
 }

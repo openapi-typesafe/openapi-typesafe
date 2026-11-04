@@ -8,6 +8,7 @@ import {
   QUERY_METHOD,
 } from "../../../domain/openapi/path-item-object.js";
 import { EnumNaming, enumDeclaration } from "../footer/enum-naming.js";
+import { withNumberedRepeats } from "../numbered-names.js";
 import type { EnumMemberMetadata } from "../schema/schema-context.js";
 
 /** A path segment that is one parameter: `{user_id}` or `:user_id`. */
@@ -100,22 +101,7 @@ function uniqueNames(operations: readonly PathOperation[]): string[] {
       op.operationId === undefined && (counts.get(keys[index] as string) ?? 0) > 1;
     return isCollidingUrlKey ? keyWithParameters(op.method, op.url) : (keys[index] as string);
   });
-  return withNumberedRepeats(named);
-}
-
-/** Each repeat of a name gets the lowest number from 2 that no member is named already. */
-function withNumberedRepeats(names: readonly string[]): string[] {
-  const written = new Set(names);
-  const taken = new Set<string>();
-  return names.map((name) => {
-    let unique = name;
-    for (let suffix = 2; taken.has(unique); suffix += 1) {
-      const candidate = `${name}${suffix}`;
-      unique = written.has(candidate) ? unique : candidate;
-    }
-    taken.add(unique);
-    return unique;
-  });
+  return withNumberedRepeats(named, (name, count) => `${name}${count}`);
 }
 
 /**
