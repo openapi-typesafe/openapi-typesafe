@@ -222,6 +222,23 @@ client["/blogposts/{post_id}"].GET({
 Note that this has performance implications and does not allow to attach middlewares directly.
 See [`wrapAsPathBasedClient`](/fetch/api#wrapaspathbasedclient) for more.
 
+### Large schemas
+
+A schema with hundreds of paths works with both styles. Until the path you type is a known path,
+TypeScript checks the call against every path of the method, so a wrong path is reported on the
+path (`Argument of type '"/nope"' is not assignable…`) and the editor completes paths. Before
+1.0, the init type of all those operations at once was too deep for TypeScript 5.4 to 6.0: a wrong
+path gave `Type instantiation is excessively deep and possibly infinite` (TS2589) and no
+completion (upstream #1882). The init is now computed per operation.
+
+When every operation of the method requires an init (path or query parameters, or a body), a call
+with a wrong path and no init reports the missing init first (`Expected 2 arguments`), as for any
+overload TypeScript checks the argument count before the argument types.
+
+With TypeScript 7, `Parameters<typeof client.request>` over hundreds of paths exceeds the
+compiler's limit (TS2859, excessive complexity). Use the method of the call instead, as in
+`Parameters<typeof client.GET>`.
+
 ## Support
 
 | Platform       | Support                                                                                                                                            |

@@ -111,6 +111,11 @@ export function useInvalidateQuery(...args: Parameters<typeof $api.queryOptions>
 }
 ```
 
+With TypeScript 7 and a schema with hundreds of paths, this `Parameters` type is over the
+compiler's limit (TS2859, excessive complexity): it relates every method to every path. List
+the arguments of the paths the helper takes instead, such as
+`(path: "/users/{user_id}", init: ...)`.
+
 `ReturnType<typeof $api.queryOptions>` is still `any`, as for the hooks: TypeScript does not match
 these generic signatures against the `(...args: any) => infer R` pattern of `ReturnType`, and
 `ReturnType` then falls back to `any`. Take the arguments, as above, or the `QueryKey` type,
