@@ -245,12 +245,10 @@ export default function createClient<Paths extends {}, Media extends MediaType =
     const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
     const result = await fn(path, { signal, ...(init as any) }); // TODO: find a way to avoid as any
     throwIfFailed(result);
-    const { data, response } = result;
-    if (response.status === 204 || response.headers.get("Content-Length") === "0") {
-      return data ?? null;
-    }
-
-    return data;
+    // TanStack Query rejects `undefined` query data. The fetch client gives `undefined` for every
+    // success without a body: a 204, `Content-Length: 0`, an empty chunked body, a HEAD request
+    // (upstream #2234). A parsed body is never `undefined`, so this changes nothing else.
+    return result.data ?? null;
   };
 
   const queryOptions: QueryOptionsFunction<Paths, Media> = (method, path, ...[init, options]) => ({
