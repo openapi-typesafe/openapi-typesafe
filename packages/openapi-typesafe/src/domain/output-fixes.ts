@@ -16,6 +16,8 @@ export const OutputFix = {
   DISCRIMINATOR_VALUES: "discriminator-values",
   /** An exploded object query parameter's properties are keys of `query`, as they are sent. */
   EXPLODED_QUERY_OBJECTS: "exploded-query-objects",
+  /** `--enum` declares an enum that lists `null` without it, and the type adds `| null`. */
+  NULLABLE_ENUMS: "nullable-enums",
   /** A `prefixItems` tuple is open unless `items` or `unevaluatedItems` closes it (2020-12). */
   PREFIX_ITEMS: "prefix-items",
   /** `readOnly` and `writeOnly` of the schema a `$ref` names, or of `allOf` members, count. */
@@ -64,11 +66,12 @@ export function resolveOutputFixes(names: readonly OutputFixName[]): ReadonlySet
 
 /** A generator option that a fix works with; without it, the fix changes nothing (ADR-021). */
 export interface OutputFixRequirement {
-  readonly option: "arrayLength" | "rootTypes" | "rootTypesNoSchemaPrefix";
+  readonly option: "arrayLength" | "enum" | "rootTypes" | "rootTypesNoSchemaPrefix";
   readonly flag: string;
 }
 
 const ROOT_TYPES = { option: "rootTypes", flag: "--root-types" } as const;
+const ENUM = { option: "enum", flag: "--enum" } as const;
 const NO_SCHEMA_PREFIX = {
   option: "rootTypesNoSchemaPrefix",
   flag: "--root-types-no-schema-prefix",
@@ -77,6 +80,7 @@ const NO_SCHEMA_PREFIX = {
 /** The options each fix needs, by fix name; `all` has none. */
 const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, readonly OutputFixRequirement[]>>> = {
   [OutputFix.ARRAY_LENGTH_TUPLES]: [{ option: "arrayLength", flag: "--array-length" }],
+  [OutputFix.NULLABLE_ENUMS]: [ENUM],
   [OutputFix.ROOT_TYPE_NUMBERING]: [ROOT_TYPES, NO_SCHEMA_PREFIX],
 };
 

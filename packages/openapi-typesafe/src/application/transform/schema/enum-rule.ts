@@ -7,6 +7,7 @@ import {
 import type { IrType } from "../../../domain/ir/nodes.js";
 import { createRef, parseRefPointer } from "../../../domain/openapi/json-pointer.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { OutputFix } from "../../../domain/output-fixes.js";
 import { literalType } from "../literal-type.js";
 import { refType } from "../ref-type.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
@@ -39,23 +40,57 @@ function hasEnumMetadata(schema: SchemaObject): boolean {
 }
 
 /**
+ * The values a TypeScript enum declares, with their positions in `enum`. With the
+ * `nullable-enums` fix a `null` value is left out (upstream #1872): an enum member cannot be
+ * `null`, so the type adds it as `| null` instead (`tsEnumType`).
+ */
+function tsEnumEntries(schema: SchemaObject, options: SchemaOptions): [unknown, number][] {
+  const entries = (schema.enum ?? []).map((value, index): [unknown, number] => [value, index]);
+  return options.fixes.has(OutputFix.NULLABLE_ENUMS)
+    ? entries.filter(([value]) => value !== null)
+    : entries;
+}
+
+/**
  * `--enum`: string and number enums become TypeScript enums. The original meant to allow `null`
- * too, but tested `typeof value` against `null`, so an enum containing null stays a union.
+ * too, but tested `typeof value` against `null`, so an enum containing null stays a union; the
+ * `nullable-enums` fix declares its other values.
  */
 function isTsEnum(schema: SchemaObject, options: SchemaOptions): boolean {
   if (!options.enum || !schema.enum) {
     return false;
   }
-  const isSupported = schema.enum.every((value) => ["string", "number"].includes(typeof value));
+  const entries = tsEnumEntries(schema, options);
+  // An empty `enum` stays an empty TypeScript enum, as the original made it; an enum of only
+  // `null` has no member left once the fix drops `null`, so it stays a union.
+  const isOnlyNull = entries.length === 0 && schema.enum.length > 0;
+  const isSupported =
+    !isOnlyNull && entries.every(([value]) => ["string", "number"].includes(typeof value));
   // `--conditional-enums` converts only enums that carry x-enum-* metadata.
   return isSupported && (!options.conditionalEnums || hasEnumMetadata(schema));
 }
 
-function enumMetadata(schema: SchemaObject): EnumMemberMetadata[] {
-  return (schema.enum ?? []).map((_, index) => ({
+function enumMetadata(
+  schema: SchemaObject,
+  entries: readonly [unknown, number][],
+): EnumMemberMetadata[] {
+  return entries.map(([, index]) => ({
     name: schema["x-enum-varnames"]?.[index] ?? schema["x-enumNames"]?.[index],
     description: schema["x-enum-descriptions"]?.[index] ?? schema["x-enumDescriptions"]?.[index],
   }));
+}
+
+/**
+ * Whether `null` is a valid value: it is in `enum` and the schema's type admits it (`type`
+ * absent or listing `"null"`, or OpenAPI 3.0 `nullable: true`). Both keywords must pass.
+ */
+function isNullAllowed(schema: SchemaObject): boolean {
+  const { type } = schema;
+  const isTypeNullable =
+    type === undefined ||
+    (Array.isArray(type) && type.includes("null")) ||
+    Boolean(schema.nullable);
+  return (schema.enum ?? []).includes(null) && isTypeNullable;
 }
 
 /**
@@ -70,13 +105,18 @@ function withOtherStrings(type: IrType, schema: SchemaObject): IrType {
 }
 
 function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
-  // `isTsEnum` admits only strings and numbers, so there is no null member to split off.
+  const { options } = request.context;
+  // `isTsEnum` admits only strings and numbers, and the fix leaves `null` out of the members.
+  const entries = tsEnumEntries(schema, options);
   const name = request.context.footer.addEnum({
     name: nameFromPath(request.location.path),
-    values: (schema.enum ?? []) as (string | number)[],
-    metadata: enumMetadata(schema),
+    values: entries.map(([value]) => value as string | number),
+    metadata: enumMetadata(schema, entries),
   });
-  return withOtherStrings(irReference(name), schema);
+  const type = withOtherStrings(irReference(name), schema);
+  return options.fixes.has(OutputFix.NULLABLE_ENUMS) && isNullAllowed(schema)
+    ? unionOf([type, irKeyword("null")])
+    : type;
 }
 
 function isUnionPosition(pointer: readonly string[], index: number): boolean {

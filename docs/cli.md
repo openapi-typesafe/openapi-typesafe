@@ -408,6 +408,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
 | `discriminator-values` | A schema that a discriminator `mapping` names gets the mapped value only, not also its schema name from a discriminated `oneOf` without a mapping, which made the property `never` | none (found in our own tests) | 1.0 |
 | `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
+| `nullable-enums` | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum` | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872) | 1.0 |
 | `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
 | `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
 | `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
@@ -617,6 +618,41 @@ query?: Partial<components["schemas"]["GetPosts"]>; // [!code ++]
 - `style: deepObject`, `explode: false`, other styles and other locations keep the name.
 - The default `querySerializer` of `openapi-typesafe-fetch` sends top-level primitive values as
   `key=value`, which is this format, so the client needs no other option.
+
+#### nullable-enums
+
+`--enum` makes string and number enums TypeScript enums. An enum member cannot be `null`, so an
+enum that lists `null` stays a union without the fix (the original meant to allow it, but tested
+`typeof null`). With it the other values become the enum, and `null` is added to the type where the
+schema allows it:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+Values:
+  type: [string, "null"]
+  enum: [VALUE1, VALUE2, null]
+```
+
+:::
+
+```ts
+Values: "VALUE1" | "VALUE2" | null; // [!code --]
+Values: Values | null; // [!code ++]
+export enum Values { // [!code ++]
+  VALUE1 = "VALUE1", // [!code ++]
+  VALUE2 = "VALUE2", // [!code ++]
+} // [!code ++]
+```
+
+- `null` is added only when the type also admits it: `type` absent or listing `"null"`, or
+  OpenAPI 3.0 `nullable: true`. A value must pass both keywords, so `type: string` with `null` in
+  `enum` gives just the enum.
+- `x-enum-varnames` and `x-enum-descriptions` keep their positions: the entry for `null` is
+  skipped.
+- An enum of only `null` stays `null`.
+- It needs `--enum` and changes nothing without it; naming it without it prints a notice (`--fix
+  all` does not).
 
 #### prefix-items
 
