@@ -176,9 +176,9 @@ export default function createClient(clientOptions) {
             id,
           });
           if (result) {
-            if (result instanceof Request) {
+            if (isRequest(result)) {
               request = result;
-            } else if (result instanceof Response) {
+            } else if (isResponse(result)) {
               response = result;
               break;
             } else {
@@ -211,7 +211,7 @@ export default function createClient(clientOptions) {
               });
               if (result) {
                 // if error is handled by returning a response, skip remaining middleware
-                if (result instanceof Response) {
+                if (isResponse(result)) {
                   errorAfterMiddleware = undefined;
                   response = result;
                   break;
@@ -249,7 +249,7 @@ export default function createClient(clientOptions) {
               id,
             });
             if (result) {
-              if (!(result instanceof Response)) {
+              if (!isResponse(result)) {
                 throw new Error("onResponse: must return new Response() when modifying the response");
               }
               response = result;
@@ -450,6 +450,23 @@ export function createPathBasedClient(clientOptions) {
 }
 
 // utils
+
+// Fetch API objects are recognized by the members the client uses, not by `instanceof`: that is
+// bound to one realm's class, and a Request from the `undici` package, another realm (an iframe,
+// an Electron host) or a custom `Request` option is not an instance of it (upstream #1847). The
+// same rule as for headers in `defaultBodySerializer` (upstream #2637).
+
+function isHeaders(value) {
+  return typeof value?.get === "function";
+}
+
+function isRequest(value) {
+  return typeof value?.method === "string" && typeof value.url === "string";
+}
+
+function isResponse(value) {
+  return typeof value?.status === "number" && isHeaders(value.headers);
+}
 
 // Parameter names and object keys can be data (an `additionalProperties` object). They are encoded
 // like values, except for characters common in names that do not split a URL (ADR-013, decision 9).
@@ -769,7 +786,7 @@ export function mergeHeaders(...allHeaders) {
     if (!h || typeof h !== "object") {
       continue;
     }
-    const iterator = h instanceof Headers ? h.entries() : Object.entries(h);
+    const iterator = isHeaders(h) ? h.entries() : Object.entries(h);
     for (const [k, v] of iterator) {
       if (v === null) {
         finalHeaders.delete(k);

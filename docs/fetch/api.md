@@ -381,6 +381,11 @@ Each middleware callback can return:
 - **onResponse**: Either a `Response` to modify the response, or `undefined` to leave it untouched (skip)
 - **onError**: Either an `Error` to modify the error that is thrown, a `Response` which means that the `fetch` call will proceed as successful, or `undefined` to leave the error untouched (skip)
 
+A `Request` is recognized by its `method`, `url` and `headers`, a `Response` by its `status` and
+`headers`, not by its class. So one from the `undici` package, from another realm (an iframe, an
+Electron host) or of a custom `Request` class works too. A plain copy such as `{ ...request }` has
+none of them and throws.
+
 ### Ejecting middleware
 
 To remove middleware, call `client.eject(middleware)`:
