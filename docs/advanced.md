@@ -505,7 +505,11 @@ Cyclic schemas are fine when the cycle goes through an object property
 (`Node: { properties: { next: { $ref: Node } } }`): they generate recursive types. A cycle with no
 object on it, such as two arrays of each other or two `allOf`s of each other, generates types that
 TypeScript rejects with “is referenced directly or indirectly in its own type annotation”, as in
-openapi-typescript.
+openapi-typescript. The common case is a JSON value schema whose `anyOf` or `oneOf` holds an array
+of itself (`JSONValue: anyOf: [string, number, { type: array, items: { $ref: JSONValue } }]`). It
+gives `JSONValue: components["schemas"]["JSONValue"][] | string | number`, and TypeScript defers
+an array of itself only in a type alias, not in an interface property (TS2502). An array that sits
+in an object property (`{ type: object, properties: { items: { type: array, … } } }`) is fine.
 
 Names need no care: reserved words (`class`, `default`, `constructor`), TypeScript global names,
 `__proto__`, Unicode, quotes, backslashes and line breaks in schema, property, enum, path and
