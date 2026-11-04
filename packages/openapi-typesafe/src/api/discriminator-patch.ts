@@ -21,6 +21,8 @@ export interface DiscriminatorScanOptions {
 export interface ScanState extends DiscriminatorScanOptions {
   readonly schema: OpenAPI3;
   readonly objects: Record<string, DiscriminatorObject>;
+  /** The schemas that define a discriminator themselves (pass 1), not by inheritance. */
+  readonly owners: Set<string>;
   readonly refsHandled: string[];
   /** With the fix: the enum added to each schema, by schema and property, so values merge. */
   readonly patchedEnums: Map<string, SchemaObject>;

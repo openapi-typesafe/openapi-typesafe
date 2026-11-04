@@ -93,6 +93,7 @@ function collectDiscriminator(
   }
   const discriminatorRef = createRef(path);
   state.objects[discriminatorRef] = discriminator;
+  state.owners.add(discriminatorRef);
   if (!Array.isArray(value.oneOf)) {
     return;
   }
@@ -125,6 +126,18 @@ function inheritsDiscriminator(state: ScanState, parentRef: string, ref: string)
 }
 
 /**
+ * The schema at `ref` inherits `discriminator`. With `discriminator-own-mapping`, a schema that
+ * defines a discriminator keeps it: the inherited one replaced its mapping, so the members walked
+ * after this schema got their schema name instead of the mapped value (#2200).
+ */
+function recordInherited(state: ScanState, ref: string, discriminator: DiscriminatorObject): void {
+  if (state.fixes.has(OutputFix.DISCRIMINATOR_OWN_MAPPING) && state.owners.has(ref)) {
+    return;
+  }
+  state.objects[ref] = { ...discriminator };
+}
+
+/**
  * An `allOf` item that is a `$ref` to a discriminator owner: the schema at `ref` inherits the
  * discriminator, and gets its enum when the parent's mapping names it. Returns false when the
  * `$ref` owns no discriminator, which ends the scan of this `allOf` (as in the original).
@@ -140,7 +153,7 @@ function inheritFromRef(state: ScanState, parentRef: string, ref: string): boole
     markHandled(state, ref);
   }
   if (inheritsDiscriminator(state, parentRef, ref)) {
-    state.objects[ref] = { ...discriminator };
+    recordInherited(state, ref, discriminator);
   }
   return true;
 }
@@ -160,7 +173,7 @@ function inheritDiscriminators(
         return;
       }
     } else if (item.discriminator?.propertyName) {
-      state.objects[createRef(path)] = { ...item.discriminator };
+      recordInherited(state, createRef(path), item.discriminator);
     }
   }
 }
@@ -193,6 +206,7 @@ export function findDiscriminators(
     ...options,
     schema,
     objects: {},
+    owners: new Set(),
     refsHandled: [],
     patchedEnums: new Map(),
     inferredPatches: [],
