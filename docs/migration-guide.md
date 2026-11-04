@@ -104,6 +104,9 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
 - `--exclude-deprecated`: a deprecated schema that kept output still references (an array's `items`, a kept operation's response) was left out, so the output named a missing `components["schemas"]` key. It is kept now; a deprecated schema that only dropped parts reference is still left out.
 - `--path-params-as-types`: a template key such as `` `/apps/${string}` `` also matches `/apps/regions` and `` `/apps/${string}/restart` ``, and that output did not compile (TS2411, TS2413) when their types do not fit the template's. When a path surely does not fit (a method or a parameter location one has and the other has not), `paths` is now an intersection type alias, `` { … } & { [path: `/apps/${string}`]: … } ``, and every path keeps its type. Output that compiled stays the same, `export interface paths` included.
 - JSON Schema `$defs` (OpenAPI 3.1): a schema's `$defs` member is optional (`$defs?: { … }`), and a `$ref` into it reads `NonNullable<components["schemas"]["Foo"]["$defs"]>["bar"]`. The root `export type $defs` has one member per subschema; before, it was `Record<string, never>` and `#/$defs/<name>` refs were `never`.
+- A schema that `allOf`s a discriminated union which lists that schema (`Cat: { allOf: [Pet] }`,
+  `Pet: { oneOf: [Cat, Dog] }`) referred to itself through `Omit<Pet>` and did not compile
+  (TS2502, upstream #1665). It is now typed with the keywords of `Pet` itself, without the union.
 
 All other output is byte-identical.
 
@@ -128,6 +131,13 @@ These are off by default, so the output does not change until you turn one on.
   root name an alias: the later keeps the name, the earlier get `_2`, `_3`, instead of none.
   `unevaluated-properties` types the keys that no other keyword declares with the
   `unevaluatedProperties` schema, instead of ignoring it.
+  Five fixes for discriminators: `allof-discriminated-union` types an `allOf` `$ref` to a
+  discriminated union as the union, without `Omit` or an invented value;
+  `discriminator-own-mapping` keeps a schema's own `mapping` when it also inherits a
+  discriminator; `discriminator-member-required` keeps `WithRequired` next to an `allOf` `$ref` to
+  a discriminator member; `discriminator-declared-value` adds no second property to a member that
+  declares its value; `discriminator-enum-members` (with `--enum`) types a member's value as a
+  member of the owner's enum (`PetType.Cat`).
 
 ### Client fixes
 

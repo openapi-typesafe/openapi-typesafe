@@ -396,8 +396,13 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | Name | What changes | Upstream | Since |
 | :--- | :----------- | :------- | :---- |
 | `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
+| `allof-discriminated-union` | An `allOf` `$ref` to a discriminated union is the union, not `Omit` of it with the schema's own name as the discriminator value | [#1464](https://github.com/openapi-ts/openapi-typescript/issues/1464), [#1690](https://github.com/openapi-ts/openapi-typescript/issues/1690) | 1.0 |
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
+| `discriminator-declared-value` | A discriminator member that requires its property with exactly its values gets no second, added property | [#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124) | 1.0 |
+| `discriminator-enum-members` | With `--enum`, the value added to a discriminator member is a member of the owner's enum (`PetType.Cat`), not a new enum; needs `--enum` | [#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700) | 1.0 |
+| `discriminator-member-required` | `required` next to an `allOf` `$ref` to a discriminator member gives `WithRequired` instead of being dropped | [#2162](https://github.com/openapi-ts/openapi-typescript/issues/2162) | 1.0 |
+| `discriminator-own-mapping` | A schema's own discriminator, with its `mapping`, is kept when the schema also inherits a discriminator through `allOf` | [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200) | 1.0 |
 | `discriminator-values` | A schema that a discriminator `mapping` names gets the mapped value only, not also its schema name from a discriminated `oneOf` without a mapping, which made the property `never` | none (found in our own tests) | 1.0 |
 | `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
@@ -445,6 +450,42 @@ The fix leaves these as they are:
 - a key that no other member defines in its `properties` (it is dropped, as for a `required` next
   to `allOf`);
 - `properties` next to the `allOf`.
+
+#### allof-discriminated-union
+
+A schema that reuses a discriminated union through `allOf`:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Pet:
+      oneOf:
+        - $ref: "#/components/schemas/Cat"
+        - $ref: "#/components/schemas/Dog"
+      discriminator:
+        propertyName: kind
+    Response:
+      allOf:
+        - $ref: "#/components/schemas/Pet"
+```
+
+:::
+
+```ts
+Response: { kind: "Response" } & Omit<components["schemas"]["Pet"], "kind">; // [!code --]
+Response: components["schemas"]["Pet"]; // [!code ++]
+```
+
+Without the fix, `Response` is treated as one more member of `Pet`: its own name becomes the
+`kind` value, which no `Cat` or `Dog` has, and `Omit` on a union keeps only the keys that every
+member has. With the fix, a `$ref` to a union in `allOf` is the union, and a schema that only
+reuses a union gets no discriminator value. A schema that the union lists (`Cat`) keeps its value.
+
+- An `allOf` `$ref` to a discriminated union that lists the schema itself is typed with the
+  union's own keywords by default, fix or not, because that output referred to itself and did not
+  compile (TS2502, [#1665](https://github.com/openapi-ts/openapi-typescript/issues/1665)).
 
 #### anyof-properties
 
@@ -523,6 +564,170 @@ Rows: [string[]]; // [!code ++]
 
 The fix needs `--array-length` and changes nothing without it; naming it without that flag prints a
 notice (`--fix all` does not). Arrays with too many possible tuples stay `T[]`, as before.
+
+#### discriminator-declared-value
+
+A member that declares its discriminator value itself:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Image:
+      oneOf:
+        - $ref: "#/components/schemas/AgentImage"
+      discriminator:
+        propertyName: type
+        mapping:
+          agent: "#/components/schemas/AgentImage"
+    AgentImage:
+      allOf:
+        - $ref: "#/components/schemas/ImageBase"
+        - type: object
+          required: [type]
+          properties:
+            type: { type: string, enum: [agent] }
+```
+
+:::
+
+```ts
+AgentImage: components["schemas"]["ImageBase"] & { type: "agent" } & { type: "agent" }; // [!code --]
+AgentImage: components["schemas"]["ImageBase"] & { type: "agent" }; // [!code ++]
+```
+
+The added property has the same type, so the output is right but noisy. With the fix, a member
+that requires the property, in its own keywords or an inline `allOf` item, with an `enum` or
+`const` of exactly its discriminator values gets no added property. A member that declares other
+values, or does not require the property, still gets it.
+
+#### discriminator-enum-members
+
+With [`--enum`](#enum), a discriminator owner whose property is an enum:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    PetType:
+      type: string
+      enum: [Dog, Cat]
+    Pet:
+      type: object
+      required: [petType]
+      properties:
+        petType: { $ref: "#/components/schemas/PetType" }
+      discriminator:
+        propertyName: petType
+        mapping:
+          Cat: "#/components/schemas/Cat"
+    Cat:
+      allOf:
+        - $ref: "#/components/schemas/Pet"
+        - type: object
+          properties:
+            name: { type: string }
+```
+
+:::
+
+```ts
+Cat: Omit<components["schemas"]["Pet"], "petType"> & { name?: string } & { petType: CatPetType }; // [!code --]
+Cat: Omit<components["schemas"]["Pet"], "petType"> & { name?: string } & { petType: PetType.Cat }; // [!code ++]
+```
+
+Without the fix each member declares an enum of its own (`export enum CatPetType { Cat = "Cat" }`),
+which is not assignable to `PetType`, so a `Cat` is not a `Pet`. With the fix the added value is a
+member of the owner's enum and no new enum is declared. A member without a mapping gets its
+schema name as the value, as the string `"Cat"`, which `PetType` does not accept either; with the
+fix it is `PetType.Cat` too.
+
+- The owner's enum may be a `$ref`, inline, or inherited through `allOf`.
+- Members use the names `--enum` gives: `PetType.hot_dog` for `hot-dog`, and
+  `typeof PetType["+"]` for a quoted member.
+- A value that the owner's enum lacks keeps the old output.
+- The fix needs `--enum` and changes nothing without it; naming it without that flag prints a
+  notice (`--fix all` does not).
+
+#### discriminator-member-required
+
+`required` next to an `allOf` `$ref`, where the referenced schema is a discriminator member:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    CatProps:
+      type: object
+      properties:
+        kittens: { type: number }
+    Cat:
+      type: object
+      required: [kittens]
+      allOf:
+        - $ref: "#/components/schemas/CatProps"
+    UpdatePet:
+      oneOf:
+        - $ref: "#/components/schemas/CatProps"
+      discriminator:
+        propertyName: sound
+        mapping:
+          meow: "#/components/schemas/CatProps"
+```
+
+:::
+
+```ts
+Cat: components["schemas"]["CatProps"]; // [!code --]
+Cat: WithRequired<components["schemas"]["CatProps"], "kittens">; // [!code ++]
+```
+
+Without the fix every key is dropped, because the discriminator property of a member must not be
+required twice. With the fix only the keys that the member already requires are left out.
+
+#### discriminator-own-mapping
+
+A schema with its own discriminator that also inherits one:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Element:
+      type: object
+      properties:
+        contentType: { type: string }
+      discriminator:
+        propertyName: contentType
+    Content:
+      type: object
+      required: [contentType]
+      allOf:
+        - $ref: "#/components/schemas/Element"
+      discriminator:
+        propertyName: contentType
+        mapping:
+          video: "#/components/schemas/Video"
+    Video:
+      allOf:
+        - $ref: "#/components/schemas/Content"
+```
+
+:::
+
+```ts
+Video: Omit<components["schemas"]["Content"], "contentType"> & { contentType: "Video" }; // [!code --]
+Video: Omit<components["schemas"]["Content"], "contentType"> & { contentType: "video" }; // [!code ++]
+```
+
+Without the fix the inherited discriminator replaces `Content`'s own, with its `mapping`, so the
+mapped values are lost for the schemas that come after `Content` in the document. With the fix a
+schema keeps its own discriminator, and the result does not depend on the order of the schemas.
+A schema without one still inherits its parent's.
 
 #### discriminator-values
 
