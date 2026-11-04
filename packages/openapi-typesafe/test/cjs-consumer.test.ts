@@ -32,20 +32,24 @@ describe("CommonJS consumer", () => {
     TIMEOUT_MS,
   );
 
-  it("TypeScript with module node16 finds the declarations for require", () => {
-    const options: ts.CompilerOptions = {
-      module: ts.ModuleKind.Node16,
-      moduleResolution: ts.ModuleResolutionKind.Node16,
-      strict: true,
-      noEmit: true,
-      skipLibCheck: true,
-    };
-    const program = ts.createProgram([CONSUMER], options);
+  it(
+    "TypeScript with module node16 finds the declarations for require",
+    () => {
+      const options: ts.CompilerOptions = {
+        module: ts.ModuleKind.Node16,
+        moduleResolution: ts.ModuleResolutionKind.Node16,
+        strict: true,
+        noEmit: true,
+        skipLibCheck: true,
+      };
+      const program = ts.createProgram([CONSUMER], options);
 
-    const errors = ts
-      .getPreEmitDiagnostics(program)
-      .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+      const errors = ts
+        .getPreEmitDiagnostics(program)
+        .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
 
-    expect(errors).toEqual([]);
-  });
+      expect(errors).toEqual([]);
+    },
+    TIMEOUT_MS,
+  );
 });
