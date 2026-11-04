@@ -98,13 +98,20 @@ export type ParamsOption<T> = T extends {
     : { params: T["parameters"] }
   : DefaultParamsOption;
 
-// Writable<T> strips $Read markers (readOnly properties excluded from request body)
+/** `true` for `any`: the operation of `createClient<any>()`, which says nothing about its body. */
+type IsAny<T> = 0 extends 1 & T ? true : false;
+
+// Writable<T> strips $Read markers (readOnly properties excluded from request body).
+// An `any` operation is checked first: a conditional type on `any` takes both branches, which
+// gave `{ body?: never } | { body: any }` and so a required init (upstream #2526).
 export type RequestBodyOption<T> =
-  Writable<OperationRequestBodyContent<T>> extends never
-    ? { body?: never }
-    : IsOperationRequestBodyOptional<T> extends true
-      ? { body?: Writable<OperationRequestBodyContent<T>> }
-      : { body: Writable<OperationRequestBodyContent<T>> };
+  IsAny<T> extends true
+    ? { body?: any }
+    : Writable<OperationRequestBodyContent<T>> extends never
+      ? { body?: never }
+      : IsOperationRequestBodyOptional<T> extends true
+        ? { body?: Writable<OperationRequestBodyContent<T>> }
+        : { body: Writable<OperationRequestBodyContent<T>> };
 
 export type FetchOptions<T> = RequestOptions<T> & Omit<RequestInit, "body" | "headers">;
 
