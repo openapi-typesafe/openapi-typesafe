@@ -30,6 +30,9 @@ function nameFromPath(path: string | undefined): string {
     .replace(COMPONENT_SCHEMAS_PREFIX, "");
 }
 
+/** `#/components/schemas/Name`, and no deeper pointer. */
+const COMPONENT_SCHEMA_RE = /^#\/components\/schemas\/[^/]+$/;
+
 function hasEnumMetadata(schema: SchemaObject): boolean {
   return [
     schema["x-enum-varnames"],
@@ -110,6 +113,7 @@ function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
   const entries = tsEnumEntries(schema, options);
   const name = request.context.footer.addEnum({
     name: nameFromPath(request.location.path),
+    isComponentSchema: COMPONENT_SCHEMA_RE.test(request.location.path ?? ""),
     values: entries.map(([value]) => value as string | number),
     metadata: enumMetadata(schema, entries),
   });

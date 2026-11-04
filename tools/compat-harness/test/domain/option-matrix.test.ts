@@ -70,6 +70,7 @@ describe("selectOptionSets", () => {
       "fix=discriminator-values",
       "fix=discriminator-values+enum",
       "fix=root-type-numbering+root-types+root-types-no-schema-prefix",
+      "fix=dedupe-enum-names+enum+dedupe-enums",
       "fix=exploded-query-objects",
       "fix=exploded-query-objects+immutable",
       "fix=nullable-enums+enum",

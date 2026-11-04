@@ -8,6 +8,7 @@ import type {
 } from "../schema/schema-context.js";
 import type { DocumentFooter } from "../transform-context.js";
 import { EnumNaming, enumDeclaration } from "./enum-naming.js";
+import { FIRST_SCHEMA_NAMES, type SharedEnumNames } from "./shared-enum-names.js";
 
 /** Where footer declarations go, in order: the run's `ctx.injectFooter`, open to user code. */
 export interface FooterSink {
@@ -60,16 +61,24 @@ export class RunFooter implements DocumentFooter {
   private readonly declaredEnums = new Set<string>();
   private readonly sink: FooterSink;
   private readonly isDedupingEnums: boolean;
+  private readonly sharedNames: SharedEnumNames;
 
-  constructor(sink: FooterSink, isDedupingEnums: boolean) {
+  constructor(
+    sink: FooterSink,
+    isDedupingEnums: boolean,
+    sharedNames: SharedEnumNames = FIRST_SCHEMA_NAMES,
+  ) {
     this.sink = sink;
     this.isDedupingEnums = isDedupingEnums;
+    this.sharedNames = sharedNames;
   }
 
   addEnum(request: EnumDeclarationRequest): string {
     // The name is built before the cache lookup: it advances the naming state either way.
-    const name = this.naming.enumName(request.name);
+    const ownName = this.naming.enumName(request.name);
     const key = this.isDedupingEnums ? dedupeKey(request) : null;
+    // Every schema of a shared enum goes to `sharedNames`, the later ones too.
+    const name = key === null ? ownName : this.sharedNames.nameOf(key, ownName, request);
     const known = key === null ? undefined : this.enumNamesByKey.get(key);
     if (known !== undefined) {
       return known;

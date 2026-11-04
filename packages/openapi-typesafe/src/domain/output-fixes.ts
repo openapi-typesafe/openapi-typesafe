@@ -12,6 +12,8 @@ export const OutputFix = {
   ANYOF_PROPERTIES: "anyof-properties",
   /** `--array-length` tuples have `min` to `max` items, nest right and follow `--immutable`. */
   ARRAY_LENGTH_TUPLES: "array-length-tuples",
+  /** `--dedupe-enums` names a shared enum by all of its schemas, not by the first one. */
+  DEDUPE_ENUM_NAMES: "dedupe-enum-names",
   /** A schema two discriminators name gets one enum of their values, a mapping before its name. */
   DISCRIMINATOR_VALUES: "discriminator-values",
   /** An exploded object query parameter's properties are keys of `query`, as they are sent. */
@@ -66,7 +68,7 @@ export function resolveOutputFixes(names: readonly OutputFixName[]): ReadonlySet
 
 /** A generator option that a fix works with; without it, the fix changes nothing (ADR-021). */
 export interface OutputFixRequirement {
-  readonly option: "arrayLength" | "enum" | "rootTypes" | "rootTypesNoSchemaPrefix";
+  readonly option: "arrayLength" | "dedupeEnums" | "enum" | "rootTypes" | "rootTypesNoSchemaPrefix";
   readonly flag: string;
 }
 
@@ -80,6 +82,7 @@ const NO_SCHEMA_PREFIX = {
 /** The options each fix needs, by fix name; `all` has none. */
 const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, readonly OutputFixRequirement[]>>> = {
   [OutputFix.ARRAY_LENGTH_TUPLES]: [{ option: "arrayLength", flag: "--array-length" }],
+  [OutputFix.DEDUPE_ENUM_NAMES]: [ENUM, { option: "dedupeEnums", flag: "--dedupe-enums" }],
   [OutputFix.NULLABLE_ENUMS]: [ENUM],
   [OutputFix.ROOT_TYPE_NUMBERING]: [ROOT_TYPES, NO_SCHEMA_PREFIX],
 };

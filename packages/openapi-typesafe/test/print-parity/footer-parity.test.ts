@@ -56,7 +56,7 @@ type FooterInput = typeof input extends fc.Arbitrary<infer T> ? T : never;
 function apply(footer: DocumentFooter, step: FooterOperation): string {
   switch (step.kind) {
     case "enum":
-      return footer.addEnum(step);
+      return footer.addEnum({ ...step, isComponentSchema: false });
     case "enumValues":
       footer.addEnumValues({ ...step, type: irReference("T") });
       return "";

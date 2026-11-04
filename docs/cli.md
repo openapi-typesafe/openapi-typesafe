@@ -406,6 +406,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
+| `dedupe-enum-names` | With `--enum --dedupe-enums`, a shared enum is named by a rule that does not depend on the document order, instead of after the first schema in the document; needs both flags | [#1683](https://github.com/openapi-ts/openapi-typescript/issues/1683) | 1.0 |
 | `discriminator-values` | A schema that a discriminator `mapping` names gets the mapped value only, not also its schema name from a discriminated `oneOf` without a mapping, which made the property `never` | none (found in our own tests) | 1.0 |
 | `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
 | `nullable-enums` | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum` | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872) | 1.0 |
@@ -535,6 +536,33 @@ Rows: [string[]]; // [!code ++]
 
 The fix needs `--array-length` and changes nothing without it; naming it without that flag prints a
 notice (`--fix all` does not). Arrays with too many possible tuples stay `T[]`, as before.
+
+#### dedupe-enum-names
+
+`--dedupe-enums` declares one enum for schemas with the same members. Without the fix it takes the
+name of the first of them in the document, so adding a schema before it renames the enum, and code
+that uses it breaks. With the fix the name is chosen from all of them, by this rule:
+
+1. A component schema that is the enum itself (`#/components/schemas/Status`) wins.
+2. Then the shortest name.
+3. Then the first name in code-unit order (as `Array.prototype.sort` compares strings).
+
+```ts
+// Alpha.mode comes first in the document, Pet.state after it, with the same values.
+export enum AlphaMode { // [!code --]
+export enum PetState { // [!code ++]
+```
+
+- No step depends on the document order. A new schema changes the name only when it ranks first,
+  for example a new component schema with these values.
+- Two enums with other members whose best names are the same (`Pet` and `Pet-` both give
+  `PetState`) are resolved in the order of their values: the later one takes its next name.
+- The names are built as without the fix (`PetState` for `Pet.state`).
+- The schemas are known only at the end, so the document is transformed twice; `transform`,
+  `transformProperty` and `postTransform` callbacks run in both passes.
+- It needs `--enum` and `--dedupe-enums` and changes nothing without them; naming it without them
+  prints a notice (`--fix all` does not).
+- An `x-enum-name` extension is not read: no tool of the ecosystem defines it.
 
 #### discriminator-values
 
