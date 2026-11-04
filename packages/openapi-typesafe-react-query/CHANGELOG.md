@@ -2,6 +2,36 @@
 
 This package is a fork of `openapi-react-query`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-react-query` versions.
 
+## 1.0.0-rc.0
+
+### Minor Changes
+
+- [`551c058`](https://github.com/openapi-typesafe/openapi-typesafe/commit/551c05889d32eaf1d328111e5c4d167e0337e5a4) Thanks [@fedorello](https://github.com/fedorello)! - The OpenAPI 3.2 `QUERY` method: `HttpMethod` includes `"query"`, the fetch client has
+  `client.QUERY(url, { body })` (also through `request("query", …)` and the path-based client), and
+  the react-query hooks accept `"query"`. A `Record<HttpMethod, …>` written by hand needs a `query`
+  entry. The path-based client maps only HTTP method keys, so `parameters` no longer shows up as a
+  `PARAMETERS()` call that always failed.
+
+- [`d094aa4`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d094aa498157bb8b898b4d97100391058a72d9b9) Thanks [@fedorello](https://github.com/fedorello)! - `useInfiniteQuery` gets its own query key, `[...queryKey, "infinite"]` (type
+  `InfiniteQueryKey`), so `useQuery` and `useInfiniteQuery` for the
+  same request no longer share a cache entry and crash (openapi-typescript [#2184](https://github.com/openapi-typesafe/openapi-typesafe/issues/2184)). `[method, path]`
+  and the `queryOptions` key still match it as a prefix in `invalidateQueries`; code that reads or
+  writes the infinite entry with the exact `queryOptions` key must append `"infinite"`.
+
+  An `undefined` page param, such as the first page with `initialPageParam: undefined`, is left out
+  of the request instead of being sent as `0` (openapi-typescript [#2715](https://github.com/openapi-typesafe/openapi-typesafe/issues/2715), [#2340](https://github.com/openapi-typesafe/openapi-typesafe/issues/2340)). ADR-022.
+
+### Patch Changes
+
+- [`e49344a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e49344a208fb3bb38cd86f62c1395f8f7ca950f6) Thanks [@fedorello](https://github.com/fedorello)! - Packages contain only their build output, sources for source maps, the CLI, and the README, license and changelog. Coverage reports, local logs and tool configs are no longer packed.
+
+- [`ac9d082`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ac9d0821aba779b8effc6cf71efb0583cfaaaad6) Thanks [@freshgiammi](https://github.com/freshgiammi)! - Tag generated querykeys with `DataTag`, allowing us to infer the return type (data/error) associated with a given queryKey, making methods like `queryClient.setQueryData()` type-safe.
+
+- [`dd39753`](https://github.com/openapi-typesafe/openapi-typesafe/commit/dd3975356a6ac13075fe7e64c1f8c357dbc658d7) Thanks [@fedorello](https://github.com/fedorello)! - Queries, infinite queries and mutations fail on every non-OK response. Before, a 4xx/5xx response without a body (`error: undefined`) or with a falsy body such as `0` counted as success (ADR-013). Fixes upstream [#2070](https://github.com/openapi-typesafe/openapi-typesafe/issues/2070), [#2531](https://github.com/openapi-typesafe/openapi-typesafe/issues/2531) (as [#2829](https://github.com/openapi-typesafe/openapi-typesafe/issues/2829) proposed).
+- Updated dependencies [[`16f572f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/16f572fd582fbabe058abad2604ffb3299ddc97a), [`2b3671f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2b3671f126f78e24ead7ad785a55b79540ae9092), [`e49344a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e49344a208fb3bb38cd86f62c1395f8f7ca950f6), [`b775891`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b775891e2ac748aeab4cb3106c1df44a0b7ddf30), [`bb9d754`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bb9d754cbb4133ac1ae09f1a340af455f9482ecc), [`4091466`](https://github.com/openapi-typesafe/openapi-typesafe/commit/40914664dd3d9aba10c2720a78d226ba9355e5ba), [`3786df3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/3786df3482727d6b728b7409ebc9ee8b66f3b97c), [`551c058`](https://github.com/openapi-typesafe/openapi-typesafe/commit/551c05889d32eaf1d328111e5c4d167e0337e5a4), [`77e1425`](https://github.com/openapi-typesafe/openapi-typesafe/commit/77e1425ac5b45833f2a69e12448056292f71803f), [`63275f8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/63275f86ff7ba855338f09f87fb9567c8ed91300), [`d5dcbb3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d5dcbb3f38e4d583334977c50db92461085d4a11), [`4ddbce1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/4ddbce1079976752abb426e79d27a744f9fe1cb3), [`f8ac0d6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f8ac0d6e8f35d317ccb41758b7a2f3dc1ecf1f87)]:
+  - openapi-typesafe-fetch@1.0.0-rc.0
+  - openapi-typesafe-helpers@1.0.0-rc.0
+
 ## 0.5.4
 
 ### Patch Changes

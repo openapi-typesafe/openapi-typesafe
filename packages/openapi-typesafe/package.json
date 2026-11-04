@@ -1,7 +1,7 @@
 {
   "name": "openapi-typesafe",
   "description": "Convert OpenAPI 3.0 & 3.1 schemas to TypeScript",
-  "version": "0.0.0",
+  "version": "1.0.0-rc.0",
   "author": {
     "name": "Fedor Chishchin",
     "url": "https://github.com/fedorello"

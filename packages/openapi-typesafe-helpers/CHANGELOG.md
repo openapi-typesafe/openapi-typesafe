@@ -2,6 +2,27 @@
 
 This package is a fork of `openapi-typescript-helpers`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-typescript-helpers` versions.
 
+## 1.0.0-rc.0
+
+### Minor Changes
+
+- [`551c058`](https://github.com/openapi-typesafe/openapi-typesafe/commit/551c05889d32eaf1d328111e5c4d167e0337e5a4) Thanks [@fedorello](https://github.com/fedorello)! - The OpenAPI 3.2 `QUERY` method: `HttpMethod` includes `"query"`, the fetch client has
+  `client.QUERY(url, { body })` (also through `request("query", …)` and the path-based client), and
+  the react-query hooks accept `"query"`. A `Record<HttpMethod, …>` written by hand needs a `query`
+  entry. The path-based client maps only HTTP method keys, so `parameters` no longer shows up as a
+  `PARAMETERS()` call that always failed.
+
+### Patch Changes
+
+- [`e49344a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e49344a208fb3bb38cd86f62c1395f8f7ca950f6) Thanks [@fedorello](https://github.com/fedorello)! - Packages contain only their build output, sources for source maps, the CLI, and the README, license and changelog. Coverage reports, local logs and tool configs are no longer packed.
+
+- [`63275f8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/63275f86ff7ba855338f09f87fb9567c8ed91300) Thanks [@fedorello](https://github.com/fedorello)! - `Readable` and `Writable` keep function types as they are. Before, they mapped a `Blob` or a `Date`
+  in response data into an object whose methods could not be called, so `data.file.arrayBuffer()`
+  did not type check. The helper types that `--read-write-markers` writes into the output change the
+  same way. See ADR-014, decision 6.
+
+- [`d5dcbb3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d5dcbb3f38e4d583334977c50db92461085d4a11) Thanks [@fedorello](https://github.com/fedorello)! - `Readable` and `Writable` keep the shape of types without markers: readonly arrays stay arrays, tuples stay tuples, branded primitives (`string & { __brand }`) stay as they are, `allOf` arrays keep the properties of every member (so unions narrow again), and an optional `null` property is no longer dropped from request bodies. The `--read-write-markers` output carries the same fixed helpers (ADR-014). Fixes upstream [#2615](https://github.com/openapi-typesafe/openapi-typesafe/issues/2615), [#2620](https://github.com/openapi-typesafe/openapi-typesafe/issues/2620), [#2632](https://github.com/openapi-typesafe/openapi-typesafe/issues/2632), [#2717](https://github.com/openapi-typesafe/openapi-typesafe/issues/2717), [#2765](https://github.com/openapi-typesafe/openapi-typesafe/issues/2765).
+
 ## 0.1.0
 
 ### Minor Changes
