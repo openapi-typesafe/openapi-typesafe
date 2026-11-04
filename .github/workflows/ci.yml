@@ -292,7 +292,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        # Intel macOS: hosted arm64 macOS runners were not handed out for hours in November 2026,
+        # and this check is required. The packages are plain JavaScript, so the CPU does not change
+        # what the tests check.
+        os: [macos-15-intel, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
