@@ -26,7 +26,7 @@ describe("outputFixNamesOf", () => {
     expect(error).toMatchObject({
       code: "OPTION_FIX_UNKNOWN",
       message:
-        'Unknown fix "nope", 1. Known fixes: allof-discriminated-union, allof-required, anyof-properties, array-length-tuples, discriminator-member-required, discriminator-own-mapping, discriminator-values, root-type-numbering, unevaluated-properties, all.',
+        'Unknown fix "nope", 1. Known fixes: allof-discriminated-union, allof-required, anyof-properties, array-length-tuples, discriminator-declared-value, discriminator-member-required, discriminator-own-mapping, discriminator-values, root-type-numbering, unevaluated-properties, all.',
       details: { unknown: ["nope", 1], known: [...OUTPUT_FIXES, ALL_OUTPUT_FIXES] },
     });
   });

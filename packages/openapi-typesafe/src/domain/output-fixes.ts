@@ -14,6 +14,8 @@ export const OutputFix = {
   ANYOF_PROPERTIES: "anyof-properties",
   /** `--array-length` tuples have `min` to `max` items, nest right and follow `--immutable`. */
   ARRAY_LENGTH_TUPLES: "array-length-tuples",
+  /** A discriminator member that requires its property with exactly its values gets no second. */
+  DISCRIMINATOR_DECLARED_VALUE: "discriminator-declared-value",
   /** `required` next to an `allOf` `$ref` to a discriminator member still gives `WithRequired`. */
   DISCRIMINATOR_MEMBER_REQUIRED: "discriminator-member-required",
   /** A schema's own discriminator is kept when it also inherits one, so its mapping applies. */

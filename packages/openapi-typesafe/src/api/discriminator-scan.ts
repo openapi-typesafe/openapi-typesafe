@@ -189,7 +189,8 @@ export interface DiscriminatorScan {
  * Every enum patched so far came from a mapping, since schema-name values wait for this step.
  */
 function applyInferredPatches(state: ScanState): void {
-  const mapped = new Set(state.patchedEnums.keys());
+  // A value that a schema declares itself came from a mapping as well.
+  const mapped = new Set([...state.patchedEnums.keys(), ...state.declaredKeys]);
   for (const patch of state.inferredPatches) {
     if (!mapped.has(enumKey(patch)) && patchDiscriminatorEnum(state, patch)) {
       markHandled(state, patch.ref);
@@ -210,6 +211,7 @@ export function findDiscriminators(
     refsHandled: [],
     patchedEnums: new Map(),
     inferredPatches: [],
+    declaredKeys: new Set(),
   };
   walkDocument(schema, (value, path) => collectDiscriminator(state, value, path));
   // A second pass, because an `allOf` may name a discriminator that is defined later.

@@ -1,7 +1,7 @@
 import type { Logger } from "../application/ports/logger.js";
 import { OutputFix } from "../domain/output-fixes.js";
 import type { DiscriminatorObject, OpenAPI3, SchemaObject } from "../types.js";
-import { addEnumProperty, type EnumPatch } from "./discriminator-enum.js";
+import { addEnumProperty, declaresValues, type EnumPatch } from "./discriminator-enum.js";
 import { resolveDocumentRef } from "./document-refs.js";
 
 /**
@@ -28,6 +28,8 @@ export interface ScanState extends DiscriminatorScanOptions {
   readonly patchedEnums: Map<string, SchemaObject>;
   /** With the fix: schema-name values, applied after both passes where no mapping names one. */
   readonly inferredPatches: EnumPatch[];
+  /** With `discriminator-declared-value`: the enum keys that a schema declares itself. */
+  readonly declaredKeys: Set<string>;
 }
 
 /** Whether `discriminator-values` is on: values of two discriminators merge into one enum. */
@@ -35,11 +37,25 @@ export function mergesValues(state: ScanState): boolean {
   return state.fixes.has(OutputFix.DISCRIMINATOR_VALUES);
 }
 
+function patchedSchema(state: ScanState, patch: EnumPatch): SchemaObject | undefined {
+  const { silent, logger } = state;
+  return resolveDocumentRef<SchemaObject>(state.schema, patch.ref, { silent, logger });
+}
+
+/**
+ * With `discriminator-declared-value`: the schema at `patch.ref` requires the property with
+ * exactly these values already, so a patch would only repeat it (#2124).
+ */
+function isDeclared(state: ScanState, patch: EnumPatch): boolean {
+  return (
+    state.fixes.has(OutputFix.DISCRIMINATOR_DECLARED_VALUE) &&
+    declaresValues(patchedSchema(state, patch), patch)
+  );
+}
+
 /** The enum the schema at `patch.ref` gets, or null (with a warning) for another kind of schema. */
 function addDiscriminatorEnum(state: ScanState, patch: EnumPatch): SchemaObject | null {
-  const { silent, logger } = state;
-  const resolved = resolveDocumentRef<SchemaObject>(state.schema, patch.ref, { silent, logger });
-  const added = addEnumProperty(resolved, patch);
+  const added = addEnumProperty(patchedSchema(state, patch), patch);
   if (added === null) {
     warnInvalidMapping(patch, state.logger);
   }
@@ -68,6 +84,10 @@ function mergeIntoPatchedEnum(state: ScanState, key: string, values: readonly st
  * patch adds a property, so two discriminators with different values intersect to `never`.
  */
 export function patchDiscriminatorEnum(state: ScanState, patch: EnumPatch): boolean {
+  if (isDeclared(state, patch)) {
+    state.declaredKeys.add(enumKey(patch));
+    return true;
+  }
   if (!mergesValues(state)) {
     return addDiscriminatorEnum(state, patch) !== null;
   }
