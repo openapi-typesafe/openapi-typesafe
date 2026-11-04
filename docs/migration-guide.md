@@ -130,6 +130,7 @@ These are off by default, so the output does not change until you turn one on.
   `unevaluatedProperties` schema, instead of ignoring it.
   `exploded-query-objects` makes the properties of an exploded object query parameter keys of
   `query`, as they are sent.
+  `prefix-items` makes a `prefixItems` tuple open, with the elements after `minItems` optional.
 
 ### Client fixes
 

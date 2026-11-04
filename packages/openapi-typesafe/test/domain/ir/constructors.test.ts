@@ -7,6 +7,7 @@ import {
   irKeyword,
   irNumber,
   irObject,
+  irOptionalTupleElement,
   irProperty,
   irRaw,
   irReadonly,
@@ -55,9 +56,17 @@ describe("IR constructors", () => {
     expect(irTuple([irTupleElement(STRING), irTupleElement(NUMBER, true)])).toEqual({
       kind: "tuple",
       elements: [
-        { type: STRING, isRest: false },
-        { type: NUMBER, isRest: true },
+        { type: STRING, isRest: false, isOptional: false },
+        { type: NUMBER, isRest: true, isOptional: false },
       ],
+    });
+  });
+
+  it("irOptionalTupleElement is an optional element that is not a rest", () => {
+    expect(irOptionalTupleElement(STRING)).toEqual({
+      type: STRING,
+      isRest: false,
+      isOptional: true,
     });
   });
 

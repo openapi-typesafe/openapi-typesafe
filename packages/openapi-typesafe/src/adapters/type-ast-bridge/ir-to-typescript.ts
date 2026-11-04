@@ -74,6 +74,9 @@ function toStringLiteralType(
 
 function toTupleElement(ts: TypeScriptModule, element: IrTupleElement): ts.TypeNode {
   const type = toTypeNode(ts, element.type);
+  if (element.isOptional) {
+    return ts.factory.createOptionalTypeNode(type);
+  }
   return element.isRest ? ts.factory.createRestTypeNode(type) : type;
 }
 

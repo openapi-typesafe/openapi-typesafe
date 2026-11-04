@@ -408,6 +408,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
 | `discriminator-values` | A schema that a discriminator `mapping` names gets the mapped value only, not also its schema name from a discriminated `oneOf` without a mapping, which made the property `never` | none (found in our own tests) | 1.0 |
 | `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
+| `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
 | `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
 
@@ -615,6 +616,31 @@ query?: Partial<components["schemas"]["GetPosts"]>; // [!code ++]
 - `style: deepObject`, `explode: false`, other styles and other locations keep the name.
 - The default `querySerializer` of `openapi-typesafe-fetch` sends top-level primitive values as
   `key=value`, which is this format, so the client needs no other option.
+
+#### prefix-items
+
+In JSON Schema 2020-12, `prefixItems` types the first items only. More items are allowed unless
+`items` or `unevaluatedItems` is `false`, and `minItems` sets how many are required (none by
+default). Without the fix the tuple is closed and every element required. With it:
+
+```yaml
+type: array
+prefixItems: [{ type: number }, { type: string }]
+```
+
+| Next to `prefixItems` | Without the fix | With the fix |
+| :-- | :-- | :-- |
+| nothing | `[number, string]` | `[number?, string?, ...unknown[]]` |
+| `minItems: 2` | `[number, string]` | `[number, string, ...unknown[]]` |
+| `minItems: 1, items: { type: number }` | `[number, string]` | `[number, string?, ...number[]]` |
+| `minItems: 2, items: false` | `[number, string]` | `[number, string]` |
+
+- Further items have the `items` type. Without `items`, `unevaluatedItems` types them, with the
+  `contains` type added (`contains` evaluates the items it matches); without either they are
+  `unknown`.
+- `unevaluatedItems` next to `items` changes nothing: `items` evaluates every further item.
+- With `--array-length` the fixed tuple gets no length tuples around it; with `--immutable` it is
+  `readonly`.
 
 #### root-type-numbering
 

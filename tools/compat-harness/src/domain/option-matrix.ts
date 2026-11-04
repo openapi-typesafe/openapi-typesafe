@@ -114,6 +114,9 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   },
   // `exploded-query-objects` moves keys into `query`: `--immutable` makes them readonly.
   { flag: "--fix=exploded-query-objects", with: [[], ["--immutable"]] },
+  // `prefix-items` replaces the tuple that `--array-length` would wrap and `--immutable` makes
+  // readonly.
+  { flag: "--fix=prefix-items", with: [[], ["--array-length"], ["--immutable"]] },
   { flag: "--fix=all", with: [[], ["--array-length"]] },
 ];
 

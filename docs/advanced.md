@@ -260,12 +260,15 @@ minItems: 2
 
 ```yaml
 type: array
-items:
-  type: number
+items: false
+minItems: 2
 prefixItems:
   - type: number
   - type: number
 ```
+
+(`items: false` closes the tuple and `minItems` requires both elements, as the
+[`prefix-items`](cli.md#prefix-items) fix reads them)
 
 </td>
       <td>

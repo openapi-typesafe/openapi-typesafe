@@ -71,6 +71,9 @@ describe("selectOptionSets", () => {
       "fix=root-type-numbering+root-types+root-types-no-schema-prefix",
       "fix=exploded-query-objects",
       "fix=exploded-query-objects+immutable",
+      "fix=prefix-items",
+      "fix=prefix-items+array-length",
+      "fix=prefix-items+immutable",
       "fix=all",
       "fix=all+array-length",
     ]);

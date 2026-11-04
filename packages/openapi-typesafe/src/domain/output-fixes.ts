@@ -16,6 +16,8 @@ export const OutputFix = {
   DISCRIMINATOR_VALUES: "discriminator-values",
   /** An exploded object query parameter's properties are keys of `query`, as they are sent. */
   EXPLODED_QUERY_OBJECTS: "exploded-query-objects",
+  /** A `prefixItems` tuple is open unless `items` or `unevaluatedItems` closes it (2020-12). */
+  PREFIX_ITEMS: "prefix-items",
   /** Schemas of one root type name without the prefix each get an alias, the earlier numbered. */
   ROOT_TYPE_NUMBERING: "root-type-numbering",
   /** `unevaluatedProperties` types the keys no other keyword declares (an index signature). */

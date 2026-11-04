@@ -42,6 +42,8 @@ export interface SchemaObject {
   readonly $defs?: Readonly<Record<string, SchemaObject>>;
   readonly items?: Schema | readonly Schema[];
   readonly prefixItems?: readonly Schema[];
+  readonly unevaluatedItems?: Schema;
+  readonly contains?: Schema;
   readonly minItems?: number;
   readonly maxItems?: number;
   readonly allOf?: readonly Schema[];
