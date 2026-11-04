@@ -23,6 +23,7 @@ import type {
   Client as FetchClient,
   FetchResponse,
   MaybeOptionalInit,
+  PathOperation,
 } from "openapi-typesafe-fetch";
 import type { HttpMethod, MediaType, PathsWithMethod, RequiredKeysOf } from "openapi-typesafe-helpers";
 
@@ -32,7 +33,7 @@ type InferSelectReturnType<TData, TSelect> = TSelect extends (data: TData) => in
 type InitWithUnknowns<Init> = Init & { [key: string]: unknown };
 
 export type QueryKey<
-  Paths extends Record<string, Record<HttpMethod, {}>>,
+  Paths extends {},
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init = MaybeOptionalInit<Paths[Path], Method>,
@@ -47,16 +48,16 @@ export type QueryKey<
 const INFINITE_QUERY_KEY_MARKER = "infinite";
 
 export type InfiniteQueryKey<
-  Paths extends Record<string, Record<HttpMethod, {}>>,
+  Paths extends {},
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
 > = readonly [...QueryKey<Paths, Method, Path>, typeof INFINITE_QUERY_KEY_MARKER];
 
-export type QueryOptionsFunction<Paths extends Record<string, Record<HttpMethod, {}>>, Media extends MediaType> = <
+export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
-  Response extends Required<FetchResponse<Paths[Path][Method], Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
+  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
   Options extends Omit<
     UseQueryOptions<
       Response["data"],
@@ -95,11 +96,11 @@ export type QueryOptionsFunction<Paths extends Record<string, Record<HttpMethod,
   }
 >;
 
-export type UseQueryMethod<Paths extends Record<string, Record<HttpMethod, {}>>, Media extends MediaType> = <
+export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
-  Response extends Required<FetchResponse<Paths[Path][Method], Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
+  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
   Options extends Omit<
     UseQueryOptions<
       Response["data"],
@@ -117,11 +118,11 @@ export type UseQueryMethod<Paths extends Record<string, Record<HttpMethod, {}>>,
     : [InitWithUnknowns<Init>, Options?, QueryClient?]
 ) => UseQueryResult<InferSelectReturnType<Response["data"], Options["select"]>, Response["error"]>;
 
-export type UseInfiniteQueryMethod<Paths extends Record<string, Record<HttpMethod, {}>>, Media extends MediaType> = <
+export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
-  Response extends Required<FetchResponse<Paths[Path][Method], Init, Media>>,
+  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>,
   Options extends Omit<
     UseInfiniteQueryOptions<
       Response["data"],
@@ -145,11 +146,11 @@ export type UseInfiniteQueryMethod<Paths extends Record<string, Record<HttpMetho
   Response["error"]
 >;
 
-export type UseSuspenseQueryMethod<Paths extends Record<string, Record<HttpMethod, {}>>, Media extends MediaType> = <
+export type UseSuspenseQueryMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
-  Response extends Required<FetchResponse<Paths[Path][Method], Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
+  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
   Options extends Omit<
     UseSuspenseQueryOptions<
       Response["data"],
@@ -167,11 +168,11 @@ export type UseSuspenseQueryMethod<Paths extends Record<string, Record<HttpMetho
     : [InitWithUnknowns<Init>, Options?, QueryClient?]
 ) => UseSuspenseQueryResult<InferSelectReturnType<Response["data"], Options["select"]>, Response["error"]>;
 
-export type UseMutationMethod<Paths extends Record<string, Record<HttpMethod, {}>>, Media extends MediaType> = <
+export type UseMutationMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
-  Response extends Required<FetchResponse<Paths[Path][Method], Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
+  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
   TOnMutateResult = unknown,
 >(
   method: Method,

@@ -214,8 +214,12 @@ export type Middleware =
       onError: MiddlewareOnError;
     };
 
-/** This type helper makes the 2nd function param required if params/requestBody are required; otherwise, optional */
-export type MaybeOptionalInit<Params, Location extends keyof Params> =
+/**
+ * This type helper makes the 2nd function param required if params/requestBody are required;
+ * otherwise, optional. `Location` is any key: with `Paths extends {}` a method is not known to be a
+ * key of `Paths[Path]` (upstream #2267).
+ */
+export type MaybeOptionalInit<Params, Location extends PropertyKey> =
   RequiredKeysOf<FetchOptions<FilterKeys<Params, Location>>> extends never
     ? FetchOptions<FilterKeys<Params, Location>> | undefined
     : FetchOptions<FilterKeys<Params, Location>>;
@@ -227,16 +231,25 @@ export type MaybeOptionalInit<Params, Location extends keyof Params> =
 type InitParam<Init> =
   RequiredKeysOf<Init> extends never ? [(Init & { [key: string]: unknown })?] : [Init & { [key: string]: unknown }];
 
-export type ClientMethod<
-  Paths extends Record<string, Record<HttpMethod, {}>>,
-  Method extends HttpMethod,
-  Media extends MediaType,
-> = <Path extends PathsWithMethod<Paths, Method>, Init extends MaybeOptionalInit<Paths[Path], Method>>(
+/**
+ * The operation of `Method` on `Path`. Not `Paths[Path][Method]`: `Paths` is only `{}`, because
+ * the generated `interface paths` has no index signature and failed a `Record<string, …>`
+ * constraint with TS2344 (upstream #2267), so TypeScript does not know `Method` is a key.
+ */
+export type PathOperation<Paths, Path, Method> =
+  FilterKeys<Paths[Path & keyof Paths], Method> extends infer Operation extends Record<string | number, any>
+    ? Operation
+    : never;
+
+export type ClientMethod<Paths extends {}, Method extends HttpMethod, Media extends MediaType> = <
+  Path extends PathsWithMethod<Paths, Method>,
+  Init extends MaybeOptionalInit<Paths[Path], Method>,
+>(
   url: Path,
   ...init: InitParam<Init>
-) => Promise<FetchResponse<Paths[Path][Method], Init, Media>>;
+) => Promise<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>;
 
-export type ClientRequestMethod<Paths extends Record<string, Record<HttpMethod, {}>>, Media extends MediaType> = <
+export type ClientRequestMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
@@ -244,7 +257,7 @@ export type ClientRequestMethod<Paths extends Record<string, Record<HttpMethod, 
   method: Method,
   url: Path,
   ...init: InitParam<Init>
-) => Promise<FetchResponse<Paths[Path][Method], Init, Media>>;
+) => Promise<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>;
 
 // Only HTTP method keys become calls: `parameters` and `additionalOperations` are not methods.
 export type ClientForPath<PathInfo extends Record<string | number, any>, Media extends MediaType> = {
