@@ -8,6 +8,7 @@ import {
   irString,
 } from "../../domain/ir/constructors.js";
 import type { IrType } from "../../domain/ir/nodes.js";
+import { toPropertyName } from "../../domain/ir/property-name.js";
 import { parseRefPointer } from "../../domain/openapi/json-pointer.js";
 
 /** Where a referenced parameter lives in the generated `parameters` type. */
@@ -44,9 +45,13 @@ function indexBy(type: IrType, ...segments: readonly string[]): IrType {
   );
 }
 
-/** `Extract<T, { name: unknown }>`; the name is written as an identifier, as in the original. */
+/**
+ * `Extract<T, { name: unknown }>`. The original wrote the name as an identifier even when it is
+ * not one (`{ content-type: unknown }`), which is a syntax error; it is now quoted like any other
+ * property name, and an identifier stays as it was.
+ */
 function extractVariantsWith(type: IrType, propertyName: string): IrType {
-  const probe = irProperty({ kind: "identifier", text: propertyName }, irKeyword("unknown"));
+  const probe = irProperty(toPropertyName(propertyName), irKeyword("unknown"));
   return irReference("Extract", [type, irObject([probe])]);
 }
 

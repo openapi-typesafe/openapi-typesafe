@@ -54,6 +54,14 @@ describe("refType", () => {
     ).toBe('Extract<components["schemas"]["Pet"], {\n    cat: unknown;\n}>["cat"]');
   });
 
+  it("refType with extractProperties quotes a property name that is not an identifier", () => {
+    const ref = "#/components/schemas/Pet/properties/content-type";
+
+    expect(printRef(ref, { extractProperties: ["content-type"] })).toBe(
+      'Extract<components["schemas"]["Pet"], {\n    "content-type": unknown;\n}>["content-type"]',
+    );
+  });
+
   it("refType without a pointer throws InvalidRefError with the original message", () => {
     expect(() => refType("other.yaml")).toThrow(new InvalidRefError("other.yaml").message);
     expect(() => refType("#/")).toThrow(InvalidRefError);
