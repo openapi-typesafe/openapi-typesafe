@@ -8,6 +8,8 @@ import { ERROR_CODES, OpenAPITypesafeError } from "./errors.js";
 export const OutputFix = {
   /** An `allOf` member with only `required` makes those properties of the others required. */
   ALLOF_REQUIRED: "allof-required",
+  /** `anyOf` next to object keywords or `allOf` is intersected with them, not added to a union. */
+  ANYOF_PROPERTIES: "anyof-properties",
 } as const;
 export type OutputFix = (typeof OutputFix)[keyof typeof OutputFix];
 

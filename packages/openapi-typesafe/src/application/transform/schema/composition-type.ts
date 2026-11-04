@@ -2,6 +2,7 @@ import { irKeyword, irRecord } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { OutputFix } from "../../../domain/output-fixes.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import {
   intersectionOf,
@@ -99,6 +100,27 @@ function oneOfType(previous: IrType | null, variants: readonly IrType[]): IrType
     : intersectionOf([...before, unionOf(variants)]);
 }
 
+/**
+ * `anyOf` is a union: TypeScript unions are not exclusive, which matches anyOf better than oneOf.
+ * By default the sibling type is one more member, as in the original. With `anyof-properties` it
+ * is intersected with the union, so it applies to every variant (#2380); for a `type` list, each
+ * listed type has applied `anyOf` already (`multipleTypes`), so the list is the whole type.
+ */
+function anyOfType(
+  previous: IrType | null,
+  schema: SchemaObject,
+  request: SchemaRequest,
+): IrType | null {
+  const variants = variantTypes(schema.anyOf ?? [], "anyOf", request);
+  if (variants.length === 0 || previous === null) {
+    return variants.length === 0 ? previous : unionOf(variants);
+  }
+  if (!request.context.options.fixes.has(OutputFix.ANYOF_PROPERTIES)) {
+    return unionOf([previous, ...variants]);
+  }
+  return Array.isArray(schema.type) ? previous : intersectionOf([previous, unionOf(variants)]);
+}
+
 /** Object enums are written as `oneOf` over their values. */
 function oneOfVariants(schema: SchemaObject): readonly Schema[] {
   const objectEnum =
@@ -124,11 +146,7 @@ function combinedType(schema: SchemaObject, request: SchemaRequest): IrType | nu
     const allOfType = allOf.length > 0 ? [intersectionOf(allOf)] : [];
     type = intersectionOf([...(core === null ? [] : [core]), ...allOfType]);
   }
-  // anyOf is a union: TypeScript unions are not exclusive, which matches anyOf better than oneOf.
-  const anyOf = variantTypes(schema.anyOf ?? [], "anyOf", request);
-  if (anyOf.length > 0) {
-    type = unionOf([...(type === null ? [] : [type]), ...anyOf]);
-  }
+  type = anyOfType(type, schema, request);
   const oneOf = variantTypes(oneOfVariants(schema), "oneOf", request);
   return oneOf.length > 0 ? oneOfType(type, oneOf) : type;
 }

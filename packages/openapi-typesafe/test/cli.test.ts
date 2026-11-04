@@ -100,6 +100,14 @@ describe("CLI", () => {
         ci: { timeout: TIMEOUT },
       },
     ],
+    [
+      "snapshot > anyOf with sibling properties (anyof-properties fix)",
+      {
+        given: ["./examples/anyof-properties.yaml", "--fix", "anyof-properties"],
+        want: new URL("./examples/anyof-properties.ts", root),
+        ci: { timeout: TIMEOUT },
+      },
+    ],
   ];
 
   for (const [testName, { given, want, ci }] of tests) {

@@ -57,6 +57,8 @@ describe("selectOptionSets", () => {
       "fix=allof-required+immutable",
       "fix=allof-required+properties-required-by-default",
       "fix=allof-required+empty-objects-unknown",
+      "fix=anyof-properties",
+      "fix=anyof-properties+empty-objects-unknown",
       "fix=all",
     ]);
   });

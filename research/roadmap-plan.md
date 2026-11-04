@@ -168,7 +168,7 @@ and asks.
 
 ### R8. `anyOf` with sibling `properties` (backlog 19; #2380, #2608)
 
-- [ ] R8.1 Intersection of the sibling object with the `anyOf` union, behind R5; gates of §4.
+- [x] R8.1 Intersection of the sibling object with the `anyOf` union, behind R5; gates of §4.
 
 ### R9. `--array-length` tuples (backlog 21; #2048, #2330, #2546)
 
@@ -203,6 +203,7 @@ and asks.
 | R5 | 2026-11-03 | `docs(adr)` commit | ADR-021: one `fix` option with named fixes (`--fix allof-required,…`, `--fix all`), unknown names fail, `redocly.yaml` per API replaces the CLI list, every fix becomes the default in 2.0. See `research/roadmap/R5.md` |
 | R6 | 2026-11-03 | `feat(generator)` commit | `--fix` option (ADR-021) with `allof-required`: presence-only `allOf` members are left out and their keys become required (`WithRequired`). Opt-in: 9,100 cases, 0 regressions; compat 200 × 28: 0 mismatches; type matrix pass. See `research/roadmap/R6.md` |
 | R7 | 2026-11-03 | `fix(react-query)` commit | ADR-022: `useInfiniteQuery` gets its own key (`[...queryKey, "infinite"]`, #2184) and leaves out an `undefined` page param (#2715, #2340); `select` (#2852) not reproduced, type test added; stricter init and param types (#2642, #2864) planned for 2.0 (backlog 32, 33). See `research/roadmap/R7.md` |
+| R8 | 2026-11-04 | `feat(generator)` commit | Output fix `anyof-properties` (ADR-021): `anyOf` next to `properties`, `allOf` or a single `type` is intersected with the union (#2380); a `type` list keeps its `null`. Corpus: 0 regressions, 445 intersections, 123 `\| unknown` removed. Also fixed an R6 parity break (duplicate `required` keys). See `research/roadmap/R8.md` |
 
 ## 7. Exit criteria
 

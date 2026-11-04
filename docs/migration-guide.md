@@ -114,6 +114,8 @@ These are off by default, so the output does not change until you turn one on.
 - [`--fix`](/cli#fix) (`fix`): opt-in fixes of the output of valid schemas, by name or `all`.
   They become the default in 2.0. The first one, `allof-required`, makes the keys of an `allOf`
   member with only `required` required instead of adding `Record<string, never>`.
+  `anyof-properties` intersects `anyOf` with its sibling `properties` instead of adding them to the
+  union.
 
 ### Client fixes
 

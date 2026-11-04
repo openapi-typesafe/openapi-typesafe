@@ -382,6 +382,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | Name | What changes | Upstream | Since |
 | :--- | :----------- | :------- | :---- |
 | `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
+| `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 
 #### allof-required
 
@@ -426,6 +427,42 @@ The fix leaves these as they are:
 - a key that no other member defines in its `properties` (it is dropped, as for a `required` next
   to `allOf`);
 - `properties` next to the `allOf`.
+
+#### anyof-properties
+
+Properties shared by every variant, next to the variants:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Contact:
+      type: object
+      properties:
+        name: { type: string }
+      anyOf:
+        - $ref: "#/components/schemas/Email"
+        - $ref: "#/components/schemas/Phone"
+```
+
+:::
+
+```ts
+Contact: { name?: string } | components["schemas"]["Email"] | components["schemas"]["Phone"]; // [!code --]
+Contact: { name?: string } & (components["schemas"]["Email"] | components["schemas"]["Phone"]); // [!code ++]
+```
+
+A value must match the sibling keywords and at least one `anyOf` variant. The union accepts
+`{ name: "Ann" }`, which matches no variant, and when a variant is `unknown` (one with only
+`required`, for example) the whole union is `unknown`. With the fix, the type that the sibling keywords give
+(`properties`, `additionalProperties`, `allOf`, or a `type` such as `string`) is intersected with
+the `anyOf` union, as `oneOf` already is: `type: string` with `anyOf` of enums becomes
+`string & ("a" | "b")` instead of `string | "a" | "b"`, which is just `string`.
+
+- An `anyOf` with no sibling type stays a plain union.
+- With a `type` list such as `[object, "null"]`, each listed type is intersected with the
+  `anyOf` union and `null` is kept: `({ name?: string } & (Email | Phone)) | null`.
 
 ### makePathsEnum
 
