@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import ts from "typescript";
 import type { OutputCompiler } from "../application/ports.ts";
 import { HarnessError, HarnessErrorCode } from "../domain/errors.ts";
+import { runChecker } from "./checker-limit.ts";
 
 /** A strict project with no ambient types, so only the generated file itself is checked. */
 const COMPILER_OPTIONS: ts.CompilerOptions = {
@@ -23,7 +24,9 @@ export class TypeScriptOutputCompiler implements OutputCompiler {
         `Generated file is missing: ${path}`,
       );
     }
-    const program = ts.createProgram([path], COMPILER_OPTIONS);
-    return ts.getPreEmitDiagnostics(program).length;
+    return runChecker(path, () => {
+      const program = ts.createProgram([path], COMPILER_OPTIONS);
+      return ts.getPreEmitDiagnostics(program).length;
+    });
   }
 }

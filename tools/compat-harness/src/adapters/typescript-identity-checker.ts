@@ -1,6 +1,7 @@
 import ts from "typescript";
 import type { TypeDifferences, TypeIdentityChecker } from "../application/ports.ts";
 import { HarnessError, HarnessErrorCode } from "../domain/errors.ts";
+import { runChecker } from "./checker-limit.ts";
 
 /** Exported declarations of one generated file, split by how they can be compared. */
 interface ExportedDeclarations {
@@ -156,7 +157,9 @@ export class TypeScriptIdentityChecker implements TypeIdentityChecker {
       // Both directions, so a name that is generic in one file and not in the other is caught.
       ...differentTextualNames(golden.textual, candidate.textual),
       ...differentTextualNames(candidate.textual, golden.textual),
-      ...checkStructuralIdentity(goldenPath, candidatePath, shared),
+      ...runChecker(candidatePath, () =>
+        checkStructuralIdentity(goldenPath, candidatePath, shared),
+      ),
     ]);
     const added = [...candidateNames].filter((name) => !goldenNames.has(name));
     return {

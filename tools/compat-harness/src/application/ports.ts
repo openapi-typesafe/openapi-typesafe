@@ -76,13 +76,19 @@ export interface TypeDifferences {
 
 /** Checks that two generated files export identical types (ENGINEERING_PLAN 2.4). */
 export interface TypeIdentityChecker {
-  /** Both lists are empty when every exported type is identical. */
+  /**
+   * Both lists are empty when every exported type is identical. Throws CHECKER_LIMIT when
+   * TypeScript cannot finish the check.
+   */
   findDifferentTypes(goldenPath: string, candidatePath: string): Promise<TypeDifferences>;
 }
 
 /** Type-checks one generated file on its own, as a user's strict project would. */
 export interface OutputCompiler {
-  /** The number of TypeScript errors, syntax errors included; 0 when the file compiles. */
+  /**
+   * The number of TypeScript errors, syntax errors included; 0 when the file compiles. Throws
+   * CHECKER_LIMIT when TypeScript cannot finish the check.
+   */
   countErrors(path: string): Promise<number>;
 }
 

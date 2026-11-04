@@ -8,8 +8,15 @@ import {
 import { compareGeneratedTexts } from "../../domain/text-comparison.ts";
 import { encodeJson } from "../codecs.ts";
 import { mapWithConcurrency } from "../concurrency.ts";
+import { countErrorsOrStop, isCheckerLimit } from "../error-counts.ts";
 import { comparisonResultsPath, outputPath } from "../layout.ts";
-import type { FileStore, Logger, OutputCompiler, TypeIdentityChecker } from "../ports.ts";
+import type {
+  FileStore,
+  Logger,
+  OutputCompiler,
+  TypeDifferences,
+  TypeIdentityChecker,
+} from "../ports.ts";
 import { caseKey, readGenerationResults, readOutput } from "../stored-outputs.ts";
 
 export interface CompareOutputsDependencies {
@@ -37,20 +44,44 @@ export interface CompareOutputsOptions {
 
 type TypeVerdict = Pick<ComparisonResult, "status" | "differentTypeNames">;
 
-/** A changed golden type is a fix when the golden file does not compile and ours is no worse. */
+/**
+ * A changed golden type is a fix when the golden file does not compile and ours is no worse. A file
+ * TypeScript stops on counts as worse than any error count, so ours may stop only where it does.
+ */
 async function changedTypesStatus(
-  compiler: OutputCompiler | undefined,
+  dependencies: CompareOutputsDependencies,
   goldenPath: string,
   candidatePath: string,
 ): Promise<ComparisonResult["status"]> {
-  const goldenErrors = compiler === undefined ? 0 : await compiler.countErrors(goldenPath);
-  if (compiler === undefined || goldenErrors === 0) {
+  const { outputCompiler: compiler, logger } = dependencies;
+  if (compiler === undefined) {
     return ComparisonStatus.Different;
   }
-  const candidateErrors = await compiler.countErrors(candidatePath);
+  const goldenErrors = await countErrorsOrStop(compiler, logger, goldenPath);
+  if (goldenErrors === 0) {
+    return ComparisonStatus.Different;
+  }
+  const candidateErrors = await countErrorsOrStop(compiler, logger, candidatePath);
   return candidateErrors <= goldenErrors
     ? ComparisonStatus.GoldenInvalid
     : ComparisonStatus.Different;
+}
+
+/** The changed and added type names; null when TypeScript cannot finish the identity check. */
+async function differentTypes(
+  dependencies: CompareOutputsDependencies & { readonly typeChecker: TypeIdentityChecker },
+  goldenPath: string,
+  candidatePath: string,
+): Promise<TypeDifferences | null> {
+  try {
+    return await dependencies.typeChecker.findDifferentTypes(goldenPath, candidatePath);
+  } catch (error) {
+    if (!isCheckerLimit(error)) {
+      throw error;
+    }
+    dependencies.logger.warn("checker_limit", { path: candidatePath, message: error.message });
+    return null;
+  }
 }
 
 async function compareTypes(
@@ -58,14 +89,13 @@ async function compareTypes(
   goldenPath: string,
   candidatePath: string,
 ): Promise<TypeVerdict> {
-  const { changed, added } = await dependencies.typeChecker.findDifferentTypes(
-    goldenPath,
-    candidatePath,
-  );
-  if (changed.length > 0) {
-    const status = await changedTypesStatus(dependencies.outputCompiler, goldenPath, candidatePath);
-    return { status, differentTypeNames: changed };
+  const differences = await differentTypes(dependencies, goldenPath, candidatePath);
+  // Without the identity check every type may have changed; only the compile check can clear it.
+  if (differences === null || differences.changed.length > 0) {
+    const status = await changedTypesStatus(dependencies, goldenPath, candidatePath);
+    return { status, differentTypeNames: differences?.changed ?? [] };
   }
+  const { added } = differences;
   const status = added.length === 0 ? ComparisonStatus.TypeIdentical : ComparisonStatus.TypesAdded;
   return { status, differentTypeNames: added };
 }

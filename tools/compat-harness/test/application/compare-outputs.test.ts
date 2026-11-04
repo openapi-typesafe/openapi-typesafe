@@ -13,7 +13,7 @@ import {
   type GenerationResult,
   GenerationStatus,
 } from "../../src/domain/run-result.ts";
-import { FakeOutputCompiler } from "../fakes/fake-output-compiler.ts";
+import { CHECKER_LIMIT, FakeOutputCompiler } from "../fakes/fake-output-compiler.ts";
 import { FakeTypeIdentityChecker } from "../fakes/fake-type-identity-checker.ts";
 import { InMemoryFileStore } from "../fakes/in-memory-file-store.ts";
 import { RecordingLogger } from "../fakes/recording-logger.ts";
@@ -142,6 +142,72 @@ describe("compareOutputs", () => {
       ["worse", ComparisonStatus.Different],
       ["changed", ComparisonStatus.Different],
     ]);
+  });
+
+  it("compareOutputs counts a file TypeScript stops on as worse than any error count", async () => {
+    const cache = setUp({
+      both: { golden: "a", candidate: "b" },
+      ours: { golden: "a", candidate: "c" },
+      golden: { golden: "a", candidate: "d" },
+    });
+    const path = (label: string, id: string) =>
+      cache.resolve(outputPath(label, "default", id as CorpusEntryId));
+    const typeChecker = new FakeTypeIdentityChecker({}, [
+      path("candidate", "both"),
+      path("candidate", "ours"),
+      path("candidate", "golden"),
+    ]);
+    const outputCompiler = new FakeOutputCompiler({
+      [path("golden", "both")]: CHECKER_LIMIT,
+      [path("candidate", "both")]: CHECKER_LIMIT,
+      [path("golden", "ours")]: 4,
+      [path("candidate", "ours")]: CHECKER_LIMIT,
+      [path("golden", "golden")]: CHECKER_LIMIT,
+      [path("candidate", "golden")]: 0,
+    });
+    const logger = new RecordingLogger();
+
+    const results = await compareOutputs({ cache, logger, typeChecker, outputCompiler }, OPTIONS);
+
+    expect(results.map((r) => [r.entryId, r.status, r.differentTypeNames])).toEqual([
+      ["both", ComparisonStatus.GoldenInvalid, []],
+      ["ours", ComparisonStatus.Different, []],
+      ["golden", ComparisonStatus.GoldenInvalid, []],
+    ]);
+    const limits = logger.records.filter((record) => record.event === "checker_limit");
+    expect(limits.map((record) => record.level)).toEqual(Array(7).fill("warn"));
+  });
+
+  it("compareOutputs calls a type change a difference when TypeScript stops only on ours", async () => {
+    const cache = setUp({ changed: { golden: "a", candidate: "b" } });
+    const path = (label: string) =>
+      cache.resolve(outputPath(label, "default", "changed" as CorpusEntryId));
+    const typeChecker = new FakeTypeIdentityChecker({}, [path("candidate")]);
+
+    const results = await compareOutputs(
+      {
+        cache,
+        logger: new RecordingLogger(),
+        typeChecker,
+        outputCompiler: new FakeOutputCompiler(),
+      },
+      OPTIONS,
+    );
+
+    expect(results.map((r) => r.status)).toEqual([ComparisonStatus.Different]);
+  });
+
+  it("compareOutputs passes on errors other than the checker limit", async () => {
+    const cache = setUp({ changed: { golden: "a", candidate: "b" } });
+    const typeChecker = {
+      findDifferentTypes: async () => {
+        throw new Error("broken");
+      },
+    };
+
+    const run = compareOutputs({ cache, logger: new RecordingLogger(), typeChecker }, OPTIONS);
+
+    await expect(run).rejects.toThrow("broken");
   });
 
   it("compareOutputs rewrites the golden text with the intentional differences", async () => {
