@@ -96,7 +96,7 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
 - `--enum` and `--enum-values` output that did not compile now does.
 - `--root-types` with `--enum`: a root type alias that had the same name as an enum gets a suffix (`ClusterState_2`).
 - `--root-types`: a root type alias that had the same name as a helper type of the file (a schema named `WithRequired` with `--root-types-no-schema-prefix`) gets the same suffix (`WithRequired_2`).
-- `--root-types` names that were not identifiers now are: `--root-types-keep-casing` writes characters such as `-` as `_` (`SchemaAddress_3`), and `--root-types-no-schema-prefix` keeps the prefix before a digit (`Schema1`).
+- `--root-types` names that were not identifiers now are: `--root-types-keep-casing` writes characters such as `-` as `_` (`SchemaAddress_3`), and `--root-types-no-schema-prefix` keeps the prefix before a digit (`Schema1`) and before a name that TypeScript reserves, which only `--root-types-keep-casing` can give (`Schemavoid`, not `void`).
 - Names and URLs from the document are escaped where they reach code (`--root-types`, `--path-params-as-types`), so a document can no longer add code to the generated file.
 - The `inject` option is printed as written, so comments in it are kept.
 - `--make-paths-enum`: `ApiPaths` members whose names collided (`GetUser` for both `/user` and `/user/{user_id}`) did not compile. Colliding names built from the URL now name the path parameters (`GetUserByUserId`); names that still collide, such as a repeated `operationId`, get a number (`listItems2`). Names that did not collide stay the same.

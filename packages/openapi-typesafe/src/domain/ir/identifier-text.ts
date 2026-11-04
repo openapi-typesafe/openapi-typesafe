@@ -27,3 +27,23 @@ export function hasIdentifierStart(text: string): boolean {
 export function withIdentifierParts(text: string): string {
   return text.replace(INVALID_IDENTIFIER_PART_RE, "_");
 }
+
+/**
+ * The names TypeScript does not accept as a type alias name: reserved words, strict mode and
+ * module reserved words, and predefined type names (`void`, `string`, …). Checked with the
+ * TypeScript 6.0 compiler on `export type <name> = 1;` in a module.
+ */
+const RESERVED_TYPE_NAMES: ReadonlySet<string> = new Set(
+  (
+    "any as await bigint boolean break case catch class const continue debugger default delete " +
+    "do else enum export extends false finally for function if implements import in instanceof " +
+    "interface let never new null number object package private protected public return static " +
+    "string super switch symbol this throw true try typeof undefined unknown var void while with " +
+    "yield"
+  ).split(" "),
+);
+
+/** Whether TypeScript rejects the text as the name of a type alias. */
+export function isReservedTypeName(text: string): boolean {
+  return RESERVED_TYPE_NAMES.has(text);
+}

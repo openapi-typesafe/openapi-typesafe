@@ -1,5 +1,9 @@
 import { irKeyword, irObject, irProperty } from "../../../domain/ir/constructors.js";
-import { hasIdentifierStart, withIdentifierParts } from "../../../domain/ir/identifier-text.js";
+import {
+  hasIdentifierStart,
+  isReservedTypeName,
+  withIdentifierParts,
+} from "../../../domain/ir/identifier-text.js";
 import type {
   IrPropertySignature,
   IrType,
@@ -74,7 +78,9 @@ function componentMember(
  *
  * The original could build a name that is no identifier, so the generated file did not parse
  * (research/legacy-bugs.md, item 16): a kept casing keeps spaces and symbols, which become `_`;
- * and a name without the prefix can start with a digit, so it keeps the prefix (`Schema1`).
+ * and a name without the prefix can start with a digit, so it keeps the prefix (`Schema1`). A
+ * kept casing without the prefix can also give a reserved name (`void`, `class`), which keeps the
+ * prefix too (`Schemavoid`).
  */
 function rootTypeName(
   kind: ComponentKind,
@@ -91,7 +97,8 @@ function rootTypeName(
   const exportedName = (alias: string): string => {
     const unprefixed = alias.replace(prefix, "");
     const isUnprefixed = options.rootTypesNoSchemaPrefix && isSchema;
-    return isUnprefixed && hasIdentifierStart(unprefixed) ? unprefixed : alias;
+    const isTypeName = hasIdentifierStart(unprefixed) && !isReservedTypeName(unprefixed);
+    return isUnprefixed && isTypeName ? unprefixed : alias;
   };
   let alias = `${prefix}${base}`;
   for (let counter = 2; aliases[alias] !== undefined; counter++) {

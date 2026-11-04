@@ -97,6 +97,18 @@ describe("componentsType", () => {
     expect(rootTypes).toBe("export type Schema1 = components['schemas']['Schema1'];\n");
   });
 
+  it("componentsType without the schema prefix keeps it before a reserved name", () => {
+    const options = { rootTypes: true, rootTypesKeepCasing: true, rootTypesNoSchemaPrefix: true };
+
+    const { rootTypes } = transform({ schemas: { void: {}, class: {}, voids: {} } }, { options });
+
+    expect(rootTypes).toBe(
+      "export type Schemavoid = components['schemas']['void'];\n" +
+        "export type Schemaclass = components['schemas']['class'];\n" +
+        "export type voids = components['schemas']['voids'];\n",
+    );
+  });
+
   it("componentsType with --root-types-keep-casing writes invalid characters as _ (legacy bug 16)", () => {
     const options = { rootTypes: true, rootTypesKeepCasing: true };
 
