@@ -214,32 +214,57 @@ export type Middleware =
       onError: MiddlewareOnError;
     };
 
+/** The init of one operation, `undefined` too when nothing in it is required. */
+type OperationInit<Operation> =
+  RequiredKeysOf<FetchOptions<Operation>> extends never ? FetchOptions<Operation> | undefined : FetchOptions<Operation>;
+
 /**
  * This type helper makes the 2nd function param required if params/requestBody are required;
  * otherwise, optional. `Location` is any key: with `Paths extends {}` a method is not known to be a
- * key of `Paths[Path]` (upstream #2267).
+ * key of `Paths[Path]` (upstream #2267). For a union of operations, the union of their inits, each
+ * with its own optionality: TypeScript uses that union where the path is not known yet, as in
+ * `Parameters<typeof client.request>` (upstream #2178).
  */
 export type MaybeOptionalInit<Params, Location extends PropertyKey> =
-  RequiredKeysOf<FetchOptions<FilterKeys<Params, Location>>> extends never
-    ? FetchOptions<FilterKeys<Params, Location>> | undefined
-    : FetchOptions<FilterKeys<Params, Location>>;
+  FilterKeys<Params, Location> extends infer Operation
+    ? Operation extends unknown
+      ? OperationInit<Operation>
+      : never
+    : never;
+
+/**
+ * `true` when the init may be left out: nothing in it is required. For a union of inits, where the
+ * path is not known yet (`Parameters<typeof client.request>`), when one of them may be left out
+ * (upstream #2178); a union whose required keys are merged would require every init.
+ */
+export type IsInitOptional<Init> = true extends (
+  Init extends unknown
+    ? RequiredKeysOf<Init> extends never
+      ? true
+      : false
+    : never
+)
+  ? true
+  : false;
 
 // The final init param to accept.
 // - Determines if the param is optional or not.
 // - Performs arbitrary [key: string] addition.
 // Note: the addition MUST happen after all the inference happens (otherwise TS can’t infer if init is required or not).
 type InitParam<Init> =
-  RequiredKeysOf<Init> extends never ? [(Init & { [key: string]: unknown })?] : [Init & { [key: string]: unknown }];
+  IsInitOptional<Init> extends true ? [(Init & { [key: string]: unknown })?] : [Init & { [key: string]: unknown }];
 
 /**
  * The operation of `Method` on `Path`. Not `Paths[Path][Method]`: `Paths` is only `{}`, because
  * the generated `interface paths` has no index signature and failed a `Record<string, …>`
- * constraint with TS2344 (upstream #2267), so TypeScript does not know `Method` is a key.
+ * constraint with TS2344 (upstream #2267), so TypeScript does not know `Method` is a key. For a
+ * union of paths or methods, the union of their operations; a method a path lacks (`put?: never`)
+ * adds none.
  */
-export type PathOperation<Paths, Path, Method> =
-  FilterKeys<Paths[Path & keyof Paths], Method> extends infer Operation extends Record<string | number, any>
-    ? Operation
-    : never;
+export type PathOperation<Paths, Path, Method> = Extract<
+  FilterKeys<Paths[Path & keyof Paths], Method>,
+  Record<string | number, any>
+>;
 
 export type ClientMethod<Paths extends {}, Method extends HttpMethod, Media extends MediaType> = <
   Path extends PathsWithMethod<Paths, Method>,

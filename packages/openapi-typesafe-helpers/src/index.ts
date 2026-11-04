@@ -127,14 +127,24 @@ export type FirstErrorStatus<T> =
 
 // OpenAPI type helpers
 
-/** Given an OpenAPI **Paths Object**, find all paths that have the given method */
-export type PathsWithMethod<Paths extends {}, PathnameMethod extends HttpMethod> = {
-  [Pathname in keyof Paths]: Paths[Pathname] extends {
-    [K in PathnameMethod]: any;
-  }
-    ? Pathname
-    : never;
-}[keyof Paths];
+/**
+ * Given an OpenAPI **Paths Object**, find all paths that have the given method. For a union of
+ * methods, the paths that have any of them: `PathsWithMethod<Paths, HttpMethod>` is every path,
+ * not `never`. TypeScript uses that union where a hook's `Method` is not known yet, as in
+ * `Parameters<typeof $api.queryOptions>` (upstream #2178).
+ */
+export type PathsWithMethod<
+  Paths extends {},
+  PathnameMethod extends HttpMethod,
+> = PathnameMethod extends HttpMethod
+  ? {
+      [Pathname in keyof Paths]: Paths[Pathname] extends {
+        [K in PathnameMethod]: any;
+      }
+        ? Pathname
+        : never;
+    }[keyof Paths]
+  : never;
 
 /**
  * DO NOT USE!
