@@ -16,6 +16,8 @@ export const OutputFix = {
   ARRAY_LENGTH_TUPLES: "array-length-tuples",
   /** A discriminator member that requires its property with exactly its values gets no second. */
   DISCRIMINATOR_DECLARED_VALUE: "discriminator-declared-value",
+  /** `--enum`: a discriminator member's value is a member of the parent's enum, not a new enum. */
+  DISCRIMINATOR_ENUM_MEMBERS: "discriminator-enum-members",
   /** `required` next to an `allOf` `$ref` to a discriminator member still gives `WithRequired`. */
   DISCRIMINATOR_MEMBER_REQUIRED: "discriminator-member-required",
   /** A schema's own discriminator is kept when it also inherits one, so its mapping applies. */
@@ -66,7 +68,7 @@ export function resolveOutputFixes(names: readonly OutputFixName[]): ReadonlySet
 
 /** A generator option that a fix works with; without it, the fix changes nothing (ADR-021). */
 export interface OutputFixRequirement {
-  readonly option: "arrayLength" | "rootTypes" | "rootTypesNoSchemaPrefix";
+  readonly option: "arrayLength" | "enum" | "rootTypes" | "rootTypesNoSchemaPrefix";
   readonly flag: string;
 }
 
@@ -79,6 +81,7 @@ const NO_SCHEMA_PREFIX = {
 /** The options each fix needs, by fix name; `all` has none. */
 const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, readonly OutputFixRequirement[]>>> = {
   [OutputFix.ARRAY_LENGTH_TUPLES]: [{ option: "arrayLength", flag: "--array-length" }],
+  [OutputFix.DISCRIMINATOR_ENUM_MEMBERS]: [{ option: "enum", flag: "--enum" }],
   [OutputFix.ROOT_TYPE_NUMBERING]: [ROOT_TYPES, NO_SCHEMA_PREFIX],
 };
 

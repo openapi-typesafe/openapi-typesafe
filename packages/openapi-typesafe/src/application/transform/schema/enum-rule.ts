@@ -3,14 +3,20 @@ import {
   irKeyword,
   irObject,
   irReference,
+  irString,
 } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import { createRef, parseRefPointer } from "../../../domain/openapi/json-pointer.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { OutputFix } from "../../../domain/output-fixes.js";
 import { literalType } from "../literal-type.js";
 import { refType } from "../ref-type.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
-import type { EnumMemberMetadata, SchemaOptions } from "./schema-context.js";
+import type {
+  EnumDeclarationRequest,
+  EnumMemberMetadata,
+  SchemaOptions,
+} from "./schema-context.js";
 import type { SchemaRequest, SchemaRule } from "./schema-rule.js";
 
 /** Removed from generated names, so `#/components/schemas/Status` gives `Status`. */
@@ -69,13 +75,51 @@ function withOtherStrings(type: IrType, schema: SchemaObject): IrType {
   return unionOf([type, intersectionOf([irKeyword("string"), irObject([])])]);
 }
 
-function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
-  // `isTsEnum` admits only strings and numbers, so there is no null member to split off.
-  const name = request.context.footer.addEnum({
-    name: nameFromPath(request.location.path),
+/** The enum declaration of `schema` typed at `path`; its values are strings and numbers. */
+function enumRequest(schema: SchemaObject, path: string | undefined): EnumDeclarationRequest {
+  return {
+    name: nameFromPath(path),
     values: (schema.enum ?? []) as (string | number)[],
     metadata: enumMetadata(schema),
-  });
+  };
+}
+
+/** One member's type; a quoted member cannot follow a dot, `typeof E["+"]` is the same type. */
+function enumMemberType(enumName: string, member: string): IrType {
+  return member.startsWith('"')
+    ? irIndexedAccess(irReference(`typeof ${enumName}`), irString(JSON.parse(member), "escaped"))
+    : irReference(`${enumName}.${member}`);
+}
+
+/**
+ * The `discriminator-enum-members` fix: an enum that the discriminator scan added to a member is
+ * typed with members of the owner's enum (`PetType.Cat`), so the member's value is one of the
+ * owner's type (#1700). Null when the owner's property is no TypeScript enum with every value.
+ */
+function ownerEnumMembersType(schema: SchemaObject, request: SchemaRequest): IrType | null {
+  const { options, discriminators, footer } = request.context;
+  const parent = options.fixes.has(OutputFix.DISCRIMINATOR_ENUM_MEMBERS)
+    ? discriminators.enumParentOf(schema)
+    : undefined;
+  if (parent === undefined || !isTsEnum(parent.schema, options)) {
+    return null;
+  }
+  const name = footer.addEnum(enumRequest(parent.schema, parent.path));
+  const members = footer.enumMembers(name);
+  const names = (schema.enum ?? []).map((value) => members.get(value as string | number));
+  if (names.length === 0 || names.some((member) => member === undefined)) {
+    return null;
+  }
+  return unionOf(names.map((member) => enumMemberType(name, member as string)));
+}
+
+function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
+  const members = ownerEnumMembersType(schema, request);
+  if (members !== null) {
+    return members;
+  }
+  // `isTsEnum` admits only strings and numbers, so there is no null member to split off.
+  const name = request.context.footer.addEnum(enumRequest(schema, request.location.path));
   return withOtherStrings(irReference(name), schema);
 }
 

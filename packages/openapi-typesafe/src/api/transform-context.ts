@@ -1,6 +1,9 @@
 import * as changeCase from "change-case";
 import { RunFooter } from "../application/transform/footer/document-footer.js";
-import type { SchemaLocation } from "../application/transform/schema/schema-context.js";
+import type {
+  DiscriminatorEnumParent,
+  SchemaLocation,
+} from "../application/transform/schema/schema-context.js";
 import type {
   DocumentFooter,
   NameCasing,
@@ -73,6 +76,8 @@ export function createTransformContext(ctx: GlobalContext): TransformContext {
     discriminators: {
       objectAt: (ref) => ctx.discriminators.objects[ref],
       isHandled: (ref) => ctx.discriminators.refsHandled.includes(ref),
+      enumParentOf: (schema) =>
+        ctx.discriminators.enumParents?.get(schema) as DiscriminatorEnumParent | undefined,
     },
     footer: runFooter(ctx),
     callbacks: schemaCallbacks(ctx),

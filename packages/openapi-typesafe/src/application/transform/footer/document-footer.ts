@@ -1,5 +1,10 @@
 import { irReference } from "../../../domain/ir/constructors.js";
-import type { IrDeclaration, IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
+import type {
+  IrDeclaration,
+  IrEnumDeclaration,
+  IrPropertySignature,
+  IrType,
+} from "../../../domain/ir/nodes.js";
 import { HELPER_TYPES, type HelperType } from "../helper-types.js";
 import type {
   EnumDeclarationRequest,
@@ -58,6 +63,8 @@ export class RunFooter implements DocumentFooter {
   private readonly enumNamesByKey = new Map<string, string>();
   /** Declarations added already: the same one twice fails with "Duplicate identifier". */
   private readonly declaredEnums = new Set<string>();
+  /** The member names of each declared enum, by value. */
+  private readonly membersByEnum = new Map<string, ReadonlyMap<string | number, string>>();
   /** `--enum-values` arrays added already, by name, type and values. */
   private readonly declaredEnumValues = new Set<string>();
   private readonly sink: FooterSink;
@@ -84,11 +91,17 @@ export class RunFooter implements DocumentFooter {
     if (declared !== null) {
       this.declaredEnums.add(declared);
     }
-    this.sink.add(enumDeclaration(name, request, this.naming));
+    const declaration = enumDeclaration(name, request, this.naming);
+    this.membersByEnum.set(name, memberNames(declaration));
+    this.sink.add(declaration);
     if (key !== null) {
       this.enumNamesByKey.set(key, name);
     }
     return name;
+  }
+
+  enumMembers(name: string): ReadonlyMap<string | number, string> {
+    return this.membersByEnum.get(name) ?? new Map();
   }
 
   addEnumValues(request: EnumValuesRequest): void {
@@ -128,6 +141,15 @@ export class RunFooter implements DocumentFooter {
       this.sink.add({ kind: "rawDeclaration", name: helper.name, text: helper.text });
     }
   }
+}
+
+/** The first member of each value; a value is listed once in a valid enum. */
+function memberNames(declaration: IrEnumDeclaration): ReadonlyMap<string | number, string> {
+  const names = new Map<string | number, string>();
+  for (const member of [...declaration.members].reverse()) {
+    names.set(member.value, member.name);
+  }
+  return names;
 }
 
 function readonlyArrayOf(type: IrType): IrType {

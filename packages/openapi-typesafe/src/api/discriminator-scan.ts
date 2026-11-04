@@ -10,6 +10,7 @@ import type {
 } from "../types.js";
 import { defaultLogger } from "./default-ports.js";
 import type { EnumPatch } from "./discriminator-enum.js";
+import type { EnumParent } from "./discriminator-enum-parent.js";
 import {
   type DiscriminatorScanOptions,
   enumKey,
@@ -182,6 +183,8 @@ function inheritDiscriminators(
 export interface DiscriminatorScan {
   objects: Record<string, DiscriminatorObject>;
   refsHandled: string[];
+  /** With `discriminator-enum-members`: the owner's enum of each enum the scan added. */
+  enumParents: ReadonlyMap<object, EnumParent>;
 }
 
 /**
@@ -212,12 +215,14 @@ export function findDiscriminators(
     patchedEnums: new Map(),
     inferredPatches: [],
     declaredKeys: new Set(),
+    enumParents: new Map(),
   };
   walkDocument(schema, (value, path) => collectDiscriminator(state, value, path));
   // A second pass, because an `allOf` may name a discriminator that is defined later.
   walkDocument(schema, (value, path) => inheritDiscriminators(state, value, path));
   applyInferredPatches(state);
-  return { objects: state.objects, refsHandled: state.refsHandled };
+  const { objects, refsHandled, enumParents } = state;
+  return { objects, refsHandled, enumParents };
 }
 
 /**

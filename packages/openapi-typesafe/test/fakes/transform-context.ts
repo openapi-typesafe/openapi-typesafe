@@ -52,8 +52,18 @@ export class RecordingFooter implements DocumentFooter {
 
   addEnum(request: EnumDeclarationRequest): string {
     this.enums.push(request);
+    return this.addEnumName(request);
+  }
+
+  private addEnumName(request: EnumDeclarationRequest): string {
     const name = request.name.replaceAll("/", "");
     return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+  }
+
+  /** Members are named by their values. */
+  enumMembers(name: string): ReadonlyMap<string | number, string> {
+    const request = this.enums.find((entry) => this.addEnumName(entry) === name);
+    return new Map((request?.values ?? []).map((value) => [value, String(value)]));
   }
 
   addEnumValues(request: EnumValuesRequest): void {
@@ -135,6 +145,7 @@ export function fakeTransformContext(input: FakeContextInput = {}): {
     discriminators: {
       objectAt: (ref) => input.discriminators?.[ref],
       isHandled: (ref) => input.handledRefs?.includes(ref) ?? false,
+      enumParentOf: () => undefined,
     },
     footer,
     callbacks: callbacksOf(input.callbacks ?? {}),

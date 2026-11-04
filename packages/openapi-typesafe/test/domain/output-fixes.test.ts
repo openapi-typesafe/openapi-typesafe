@@ -26,7 +26,7 @@ describe("outputFixNamesOf", () => {
     expect(error).toMatchObject({
       code: "OPTION_FIX_UNKNOWN",
       message:
-        'Unknown fix "nope", 1. Known fixes: allof-discriminated-union, allof-required, anyof-properties, array-length-tuples, discriminator-declared-value, discriminator-member-required, discriminator-own-mapping, discriminator-values, root-type-numbering, unevaluated-properties, all.',
+        'Unknown fix "nope", 1. Known fixes: allof-discriminated-union, allof-required, anyof-properties, array-length-tuples, discriminator-declared-value, discriminator-enum-members, discriminator-member-required, discriminator-own-mapping, discriminator-values, root-type-numbering, unevaluated-properties, all.',
       details: { unknown: ["nope", 1], known: [...OUTPUT_FIXES, ALL_OUTPUT_FIXES] },
     });
   });
@@ -56,6 +56,12 @@ describe("ineffectiveFixNotices", () => {
 
     expect(ineffectiveFixNotices(["root-type-numbering"], isOn)).toEqual([
       'Fix "root-type-numbering" has no effect without rootTypesNoSchemaPrefix (--root-types-no-schema-prefix)',
+    ]);
+  });
+
+  it("ineffectiveFixNotices names --enum for discriminator-enum-members", () => {
+    expect(ineffectiveFixNotices(["discriminator-enum-members"], () => false)).toEqual([
+      'Fix "discriminator-enum-members" has no effect without enum (--enum)',
     ]);
   });
 

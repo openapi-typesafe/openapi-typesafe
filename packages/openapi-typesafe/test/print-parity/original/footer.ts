@@ -34,6 +34,9 @@ export default function footer(ctx: GlobalContext): DocumentFooter {
     requirePropertyValues() {
       throw new Error("PropertyValues is an opt-in fix helper the original does not have");
     },
+    enumMembers() {
+      throw new Error("Enum members are read by an opt-in fix the original does not have");
+    },
     addOperation(build) {
       injectOperation(ctx.injectFooter, () => toPropertySignature(ts, build()));
     },
