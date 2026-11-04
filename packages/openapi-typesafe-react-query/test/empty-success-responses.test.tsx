@@ -108,9 +108,9 @@ describe("query data types of responses without a body", () => {
   const $api = createClient(createFetchClient<Paths>({ baseUrl: BASE_URL }));
 
   it("queryOptions data of a 200 or 204 operation is the body or null", () => {
-    const query = createQueryClient().fetchQuery($api.queryOptions("get", "/items"));
+    const query = () => createQueryClient().fetchQuery($api.queryOptions("get", "/items"));
 
-    expectTypeOf(query).toEqualTypeOf<Promise<Item | null>>();
+    expectTypeOf<ReturnType<typeof query>>().toEqualTypeOf<Promise<Item | null>>();
   });
 
   it("useQuery and useSuspenseQuery data of a 204 operation is null", () => {
