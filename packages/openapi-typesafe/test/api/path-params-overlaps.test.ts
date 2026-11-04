@@ -10,13 +10,36 @@ function operation(description: string, parameters: unknown[] = [ID]) {
   return { get: { parameters, responses: { 200: { description } } } };
 }
 
-function documentWith(paths: Record<string, unknown>): OpenAPI3 {
-  return { openapi: "3.1.0", info: { title: "t", version: "1" }, paths } as OpenAPI3;
+function documentWith(paths: Record<string, unknown>, components: object = {}): OpenAPI3 {
+  return { openapi: "3.1.0", info: { title: "t", version: "1" }, paths, components } as OpenAPI3;
 }
 
-async function generate(paths: Record<string, unknown>, options: OpenAPITSOptions = {}): Promise<string> {
-  return astToString(await openapiTS(documentWith(paths), { silent: true, pathParamsAsTypes: true, ...options }));
+async function generate(
+  paths: Record<string, unknown>,
+  options: OpenAPITSOptions = {},
+  components: object = {},
+): Promise<string> {
+  const document = documentWith(paths, components);
+  return astToString(await openapiTS(document, { silent: true, pathParamsAsTypes: true, ...options }));
 }
+
+/** An operation with an ID whose 200 response is a component schema (upstream #1752). */
+function operationOf(operationId: string, schema: string) {
+  const content = { "application/json": { schema: { $ref: `#/components/schemas/${schema}` } } };
+  return { get: { operationId, parameters: [ID], responses: { 200: { description: "ok", content } } } };
+}
+
+const objectWith = (name: string) => ({
+  type: "object",
+  required: [name],
+  properties: { [name]: { type: "string" } },
+});
+
+/** Two nested paths whose operations differ only in a referenced response schema. */
+const NESTED = {
+  "/cases/{id}": operationOf("getCase", "CaseDetail"),
+  "/cases/{id}/summary": operationOf("getCaseSummary", "CaseSummary"),
+};
 
 const OVERLAPS = { "/apps/{id}": operation("app"), "/apps/regions": operation("regions", []) };
 
@@ -89,6 +112,41 @@ const app: paths[\`/apps/\${string}\`]["get"]["parameters"]["path"] = { id: "a" 
     const output = await generate(OVERLAPS, { exportType: true, immutable: true });
 
     expect(output).toContain(`readonly [path: \`/apps/\${string}\`]: {`);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS output with nested paths that differ in a referenced schema compiles", async () => {
+    const schemas = { CaseDetail: objectWith("case_name"), CaseSummary: objectWith("case_summary") };
+
+    const output = await generate(NESTED, {}, { schemas });
+
+    expect(output).toContain("export type paths = {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS keeps one object when the referenced schemas are assignable", async () => {
+    const detail = objectWith("case_name");
+    const summary = { ...detail, properties: { ...detail.properties, extra: { type: "string" } } };
+
+    const output = await generate(NESTED, {}, { schemas: { CaseDetail: detail, CaseSummary: summary } });
+
+    expect(output).toContain("export interface paths {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS output with nested paths of recursive schemas terminates and compiles", async () => {
+    const tree = (name: string) => ({
+      type: "object",
+      properties: { child: { $ref: `#/components/schemas/${name}` } },
+    });
+
+    const output = await generate(
+      NESTED,
+      {},
+      { schemas: { CaseDetail: tree("CaseDetail"), CaseSummary: tree("CaseSummary") } },
+    );
+
+    expect(output).toContain("export interface paths {");
     expect(typeErrorsOf(output)).toEqual([]);
   });
 

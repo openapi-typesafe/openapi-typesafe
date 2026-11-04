@@ -23,7 +23,7 @@ export function transformDocument(schema: OpenAPI3, ctx: GlobalContext): Transfo
   const document = schema as DocumentObject;
   const context = createTransformContext(ctx);
   // documentBody registers the enums in the footer, so the footer is read after it.
-  const rawBody = documentBody(document, context);
+  const rawBody = documentBody(document, context, () => ctx.injectFooter.filter(isIrDeclaration));
   const footer: FooterEntry[] = [...ctx.injectFooter];
   const body = renameAliasesTakenByFooter(rawBody, footer.filter(isIrDeclaration));
   const closing = documentClosing(document, context, footer.some(isOperations));
