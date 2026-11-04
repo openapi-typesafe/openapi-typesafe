@@ -12,7 +12,12 @@ import type {
   EnumValuesRequest,
 } from "../schema/schema-context.js";
 import type { DocumentFooter } from "../transform-context.js";
-import { EnumNaming, enumDeclaration } from "./enum-naming.js";
+import {
+  type DeclaredMembers,
+  EnumNaming,
+  enumDeclaration,
+  withoutDeclaredMembers,
+} from "./enum-naming.js";
 
 /** Where footer declarations go, in order: the run's `ctx.injectFooter`, open to user code. */
 export interface FooterSink {
@@ -67,7 +72,9 @@ export class RunFooter implements DocumentFooter {
   /** Declarations added already: the same one twice fails with "Duplicate identifier". */
   private readonly declaredEnums = new Set<string>();
   /** The member names of each declared enum, by value. */
-  private readonly membersByEnum = new Map<string, ReadonlyMap<string | number, string>>();
+  private readonly membersByEnum = new Map<string, Map<string | number, string>>();
+  /** The members of each declared enum name, by member name. */
+  private readonly declaredMembers = new Map<string, Map<string, string | number>>();
   /** `--enum-values` arrays added already: their declared name by name, type and values. */
   private readonly declaredEnumValues = new Map<string, string>();
   /** The declared `--enum-values` array names. */
@@ -96,13 +103,40 @@ export class RunFooter implements DocumentFooter {
     if (declared !== null) {
       this.declaredEnums.add(declared);
     }
-    const declaration = enumDeclaration(name, request, this.naming);
-    this.membersByEnum.set(name, memberNames(declaration));
-    this.sink.add(declaration);
+    const declaration = this.withoutRepeats(enumDeclaration(name, request, this.naming));
+    if (declaration !== null) {
+      this.record(declaration);
+      this.sink.add(declaration);
+    }
     if (key !== null) {
       this.enumNamesByKey.set(key, name);
     }
     return name;
+  }
+
+  /** The declaration without members an earlier one of the name has; null when none is left. */
+  private withoutRepeats(declaration: IrEnumDeclaration): IrEnumDeclaration | null {
+    const earlier: DeclaredMembers | undefined = this.declaredMembers.get(declaration.name);
+    if (earlier === undefined) {
+      return declaration;
+    }
+    const merged = withoutDeclaredMembers(declaration, earlier);
+    // Two empty declarations merge into one empty enum, which compiles, so the second stays.
+    return merged.members.length === 0 && declaration.members.length > 0 ? null : merged;
+  }
+
+  /** The members of a declaration; the first member of a value names it. */
+  private record(declaration: IrEnumDeclaration): void {
+    const byName = this.declaredMembers.get(declaration.name) ?? new Map();
+    const byValue = this.membersByEnum.get(declaration.name) ?? new Map();
+    for (const member of declaration.members) {
+      byName.set(member.name, member.value);
+      if (!byValue.has(member.value)) {
+        byValue.set(member.value, member.name);
+      }
+    }
+    this.declaredMembers.set(declaration.name, byName);
+    this.membersByEnum.set(declaration.name, byValue);
   }
 
   enumMembers(name: string): ReadonlyMap<string | number, string> {
@@ -162,15 +196,6 @@ export class RunFooter implements DocumentFooter {
       this.sink.add({ kind: "rawDeclaration", name: helper.name, text: helper.text });
     }
   }
-}
-
-/** The first member of each value; a value is listed once in a valid enum. */
-function memberNames(declaration: IrEnumDeclaration): ReadonlyMap<string | number, string> {
-  const names = new Map<string | number, string>();
-  for (const member of [...declaration.members].reverse()) {
-    names.set(member.value, member.name);
-  }
-  return names;
 }
 
 function readonlyArrayOf(type: IrType): IrType {

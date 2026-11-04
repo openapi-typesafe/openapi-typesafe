@@ -179,3 +179,32 @@ export function enumDeclaration(
     comments: [],
   };
 }
+
+/** The member names an enum name has so far, with their values. */
+export type DeclaredMembers = ReadonlyMap<string, string | number>;
+
+/**
+ * A later declaration of an enum name merges with the earlier ones, and a member name declared
+ * twice does not compile (TS2300): a property and an inline `allOf` item of one schema give one
+ * name. A member that repeats one by name and value is left out; one whose name another value has
+ * gets the next free number (`a_b_2`).
+ */
+export function withoutDeclaredMembers(
+  declaration: IrEnumDeclaration,
+  declared: DeclaredMembers,
+): IrEnumDeclaration {
+  const taken = new Set(declared.keys());
+  const members: IrEnumDeclaration["members"][number][] = [];
+  for (const member of declaration.members) {
+    if (declared.get(member.name) === member.value) {
+      continue;
+    }
+    let name = member.name;
+    for (let count = 2; taken.has(name); count++) {
+      name = numberedMemberName(member.name, count);
+    }
+    taken.add(name);
+    members.push(name === member.name ? member : { ...member, name });
+  }
+  return { ...declaration, members };
+}

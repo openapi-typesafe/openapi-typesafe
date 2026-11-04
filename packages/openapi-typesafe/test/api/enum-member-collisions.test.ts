@@ -51,3 +51,47 @@ describe("--enum member collisions", () => {
     expect(output).toContain('    get_user = "/a",\n    get_user_2 = "/b"');
   });
 });
+
+describe("--enum declarations of one name", () => {
+  const enumOf = (values: string[]) => ({ type: "string", enum: values });
+  /** A property and an inline `allOf` item of one schema are typed at one location, `IssueState`. */
+  function issueWith(own: string[], inline: string[]) {
+    return {
+      Issue: {
+        type: "object",
+        properties: { state: enumOf(own) },
+        allOf: [{ type: "object", properties: { state: enumOf(inline) } }],
+      },
+    };
+  }
+
+  it("openapiTS declares a member that an earlier declaration of the name has once", async () => {
+    const output = await generate(documentWith(issueWith(["open", "closed"], ["closed", "open"])));
+
+    expect(output.match(/export enum IssueState /g)).toHaveLength(1);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS adds only the new members to a later declaration of the name", async () => {
+    const output = await generate(documentWith(issueWith(["open", "closed"], ["closed", "draft"])));
+
+    expect(output).toContain('export enum IssueState {\n    open = "open",\n    closed = "closed"\n}');
+    expect(output).toContain('export enum IssueState {\n    draft = "draft"\n}');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS numbers a member whose name an earlier declaration gives another value", async () => {
+    const output = await generate(documentWith(issueWith(["a-b"], ["a b"])));
+
+    expect(output).toContain('export enum IssueState {\n    a_b_2 = "a b"\n}');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS keeps later declarations whose members do not repeat", async () => {
+    const output = await generate(documentWith(issueWith(["open"], ["closed"])));
+
+    expect(output).toContain(
+      'export enum IssueState {\n    open = "open"\n}\nexport enum IssueState {\n    closed = "closed"\n}',
+    );
+  });
+});
