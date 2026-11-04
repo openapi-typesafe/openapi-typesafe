@@ -52,6 +52,7 @@ describe("selectOptionSets", () => {
       "array-length",
       "read-write-markers",
       "root-types+root-types-no-schema-prefix",
+      "enum+dedupe-enums",
       "binary-as-blob",
       "binary-as-blob+immutable",
       "binary-as-blob+read-write-markers",
@@ -68,9 +69,18 @@ describe("selectOptionSets", () => {
       "fix=unevaluated-properties+additional-properties",
       "fix=discriminator-values",
       "fix=discriminator-values+enum",
+      "fix=allof-discriminated-union",
+      "fix=discriminator-own-mapping",
+      "fix=discriminator-member-required",
+      "fix=discriminator-member-required+properties-required-by-default",
+      "fix=discriminator-declared-value",
+      "fix=discriminator-declared-value+enum",
+      "fix=discriminator-enum-members+enum",
+      "fix=discriminator-enum-members+enum+dedupe-enums",
       "fix=root-type-numbering+root-types+root-types-no-schema-prefix",
       "fix=all",
       "fix=all+array-length",
+      "fix=all+enum",
     ]);
   });
 

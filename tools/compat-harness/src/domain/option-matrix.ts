@@ -107,12 +107,26 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   },
   // `discriminator-values` merges the values of the discriminator enums; `--enum` declares them.
   { flag: "--fix=discriminator-values", with: [[], ["--enum"]] },
+  // The discriminator fixes of ADR-024. `allof-discriminated-union` and `discriminator-own-mapping`
+  // change which schemas get a value, which no flag changes.
+  { flag: "--fix=allof-discriminated-union", with: [[]] },
+  { flag: "--fix=discriminator-own-mapping", with: [[]] },
+  // `discriminator-member-required` adds `WithRequired` keys, so it is checked with the flag that
+  // makes more keys required.
+  { flag: "--fix=discriminator-member-required", with: [[], ["--properties-required-by-default"]] },
+  // `discriminator-declared-value` compares declared enums, which `--enum` declares as TS enums.
+  { flag: "--fix=discriminator-declared-value", with: [[], ["--enum"]] },
+  // `discriminator-enum-members` does nothing without `--enum`; `--dedupe-enums` renames the enum.
+  {
+    flag: "--fix=discriminator-enum-members",
+    with: [["--enum"], ["--enum", "--dedupe-enums"]],
+  },
   // `root-type-numbering` does nothing without both root type flags, the only matrix set it changes.
   {
     flag: "--fix=root-type-numbering",
     with: [["--root-types", "--root-types-no-schema-prefix"]],
   },
-  { flag: "--fix=all", with: [[], ["--array-length"]] },
+  { flag: "--fix=all", with: [[], ["--array-length"], ["--enum"]] },
 ];
 
 /** Every opt-in option set, in a deterministic order. */
