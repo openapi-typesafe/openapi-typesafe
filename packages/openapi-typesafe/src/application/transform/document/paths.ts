@@ -19,6 +19,7 @@ import { refType } from "../ref-type.js";
 import type { TransformContext } from "../transform-context.js";
 import { documentMember } from "./document-member.js";
 import { pathItemType } from "./path-item.js";
+import { isCoveredPathItemRejected } from "./path-item-conflicts.js";
 import {
   coveringTemplateKeys,
   type PathKey,
@@ -118,10 +119,11 @@ function templateText(parts: readonly PathKeyPart[]): string {
   return `\`${text}\``;
 }
 
-/** A path's member, and its key for the overlap check. */
+/** A path's member, its key and its path item type for the overlap check. */
 interface PathMember {
   readonly member: IrMember;
   readonly key: PathKey;
+  readonly type: IrType;
 }
 
 function pathItemMember(
@@ -136,7 +138,8 @@ function pathItemMember(
       ? pathTemplateParts(url, pathItem, context)
       : null;
   if (parts === null) {
-    return { member: irProperty(toPropertyName(url), type, { isReadonly }), key: literalKey(url) };
+    const member = irProperty(toPropertyName(url), type, { isReadonly });
+    return { member, key: literalKey(url), type };
   }
   const member: IrMember = {
     kind: "indexSignature",
@@ -146,7 +149,7 @@ function pathItemMember(
     isReadonly,
     comments: [],
   };
-  return { member, key: { kind: "template", parts } };
+  return { member, key: { kind: "template", parts }, type };
 }
 
 function literalKey(url: string): PathKey {
@@ -155,12 +158,24 @@ function literalKey(url: string): PathKey {
 
 /**
  * The members as one object type. When an index signature covers another key, TypeScript checks
- * the covered key's type against it and the object does not compile (TS2411, TS2413); then each
- * covering signature gets an object of its own in an intersection. An intersection does not check
- * its parts against each other, and every key has the type it had in the one object.
+ * the covered key's type against it. Where that check surely fails (TS2411, TS2413), each such
+ * signature gets an object of its own in an intersection: an intersection does not check its parts
+ * against each other, and every key has the type it had in the one object. Output that compiles
+ * keeps the one object.
  */
 function pathsObjectType(paths: readonly PathMember[]): IrType {
-  const covering = coveringTemplateKeys(paths.map(({ key }) => key));
+  const covering = coveringTemplateKeys(
+    paths.map(({ key }) => key),
+    (coveringIndex, coveredIndex) => {
+      const coveringPath = paths[coveringIndex];
+      const coveredPath = paths[coveredIndex];
+      return (
+        coveringPath !== undefined &&
+        coveredPath !== undefined &&
+        isCoveredPathItemRejected(coveredPath.type, coveringPath.type)
+      );
+    },
+  );
   if (covering.size === 0) {
     return irObject(paths.map(({ member }) => member));
   }
@@ -181,7 +196,7 @@ export function pathsType(paths: PathsObject, context: TransformContext): IrType
     if ("$ref" in pathItem) {
       const options = { isReadonly: context.options.immutable };
       const member = documentMember(url, refType(pathItem.$ref), pathItem, options);
-      members.push({ member, key: literalKey(url) });
+      members.push({ member, key: literalKey(url), type: member.type });
       continue;
     }
     const startedAt = context.diagnostics.now();

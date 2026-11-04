@@ -3,7 +3,7 @@
  * index signature over a template literal type, such as `` `/apps/${string}` ``. `${string}` also
  * matches `/`, so that signature covers `/apps/regions` and `` `/apps/${string}/restart` `` as
  * well, and TypeScript requires the covered keys' types to be assignable to its type (TS2411,
- * TS2413). These functions find the signatures that cover another key.
+ * TS2413). These functions find the signatures that cover another key the checker rejects.
  */
 
 /** A placeholder of a template literal type, by the type it stands for. */
@@ -82,15 +82,27 @@ function sampleOf(key: PathKey): string {
     .join("");
 }
 
-/** The indexes of the template keys that cover another key of the list. */
-export function coveringTemplateKeys(keys: readonly PathKey[]): ReadonlySet<number> {
+/** Whether TypeScript rejects the key at `covered` for the signature at `covering`. */
+export type CoverRejection = (covering: number, covered: number) => boolean;
+
+/** Without type information every covered key counts. */
+const EVERY_COVER_REJECTED: CoverRejection = () => true;
+
+/** The indexes of the template keys that cover another key of the list, where it is rejected. */
+export function coveringTemplateKeys(
+  keys: readonly PathKey[],
+  isRejected: CoverRejection = EVERY_COVER_REJECTED,
+): ReadonlySet<number> {
   const covering = new Set<number>();
   keys.forEach((key, index) => {
     if (key.kind !== "template") {
       return;
     }
     const isCovering = keys.some(
-      (other, otherIndex) => otherIndex !== index && matchesFrom(sampleOf(other), 0, key.parts, 0),
+      (other, otherIndex) =>
+        otherIndex !== index &&
+        matchesFrom(sampleOf(other), 0, key.parts, 0) &&
+        isRejected(index, otherIndex),
     );
     if (isCovering) {
       covering.add(index);

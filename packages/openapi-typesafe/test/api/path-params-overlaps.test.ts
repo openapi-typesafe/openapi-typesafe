@@ -49,13 +49,40 @@ const app: paths[\`/apps/\${string}\`]["get"]["parameters"]["path"] = { id: "a" 
     expect(typeErrorsOf(await generate(paths))).toEqual([]);
   });
 
-  it("openapiTS treats a $ref path item as a literal key", async () => {
+  it("openapiTS keeps one object for a $ref path item, which the check cannot read", async () => {
     const paths = { "/apps/{id}": operation("app"), "/apps/latest": { $ref: "#/paths/~1apps~1{id}" } };
+
+    const output = await generate(paths);
+
+    expect(output).toContain("export interface paths {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS keeps one object when the covered type is assignable, as the original", async () => {
+    const SUB = { name: "sub", in: "path", required: true, schema: { type: "string" } };
+    const paths = { "/apps/{id}": operation("app"), "/apps/{id}/{sub}": operation("sub", [ID, SUB]) };
+
+    const output = await generate(paths);
+
+    expect(output).toContain("export interface paths {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS moves a signature whose covered path has another method", async () => {
+    const restart = { post: { parameters: [ID], responses: { 200: { description: "restart" } } } };
+    const paths = { "/apps/{id}": operation("app"), "/apps/{id}/restart": restart };
 
     const output = await generate(paths);
 
     expect(output).toContain("export type paths = {");
     expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS moves a signature that needs a method the covered path does not have", async () => {
+    const both = { ...operation("app"), delete: operation("remove").get };
+    const paths = { "/apps/{id}": both, "/apps/{id}/{sub}": operation("sub") };
+
+    expect(await generate(paths)).toContain("export type paths = {");
   });
 
   it("openapiTS with exportType and immutable keeps readonly members in the intersection", async () => {

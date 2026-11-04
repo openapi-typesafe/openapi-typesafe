@@ -233,11 +233,14 @@ Though this is a contrived example, you could use this feature to automatically 
 ::: info Paths that a template also matches
 `${string}` matches `/` too, so `` `/user/${string}` `` also matches `/user/settings` and
 `` `/user/${string}/keys` ``. TypeScript then requires those paths' types to fit the template's
-type, and the output does not compile (TS2411, TS2413). When that happens, `paths` is written as
-an intersection, `` export type paths = { … } & { [path: `/user/${string}`]: … } ``, with each such
-template in an object of its own. Every path keeps its type: `paths["/user/settings"]` and
-`` paths[`/user/${string}`] `` are the same as before. Only an `interface paths` you extend with
-declaration merging needs a change; a schema without such paths keeps `export interface paths`.
+type, and the output does not compile when they do not (TS2411, TS2413). When a path surely does
+not fit (it has a method or a parameter location the template's path has not, or lacks one it
+has), `paths` is written as an intersection,
+`` export type paths = { … } & { [path: `/user/${string}`]: … } ``, with each such template in an
+object of its own. Every path keeps its type: `paths["/user/settings"]` and
+`` paths[`/user/${string}`] `` are the same as before. Output that compiles stays the same,
+`export interface paths` included. Paths that differ only deeper (two operations by reference,
+two response schemas) are not decided, and that output is left as it was.
 :::
 
 _Thanks, [@Powell-v2](https://github.com/Powell-v2)!_
