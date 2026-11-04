@@ -40,6 +40,28 @@ function isRefItem(item: Schema): item is { readonly $ref: string } {
   return "$ref" in (item as object);
 }
 
+/**
+ * The parent's `required` keys that the target at `ref` defines. A target that the discriminator
+ * scan gave its property got none: the scan made that property required, but the other keys were
+ * lost too. With `discriminator-member-required` only keys the target requires already are left
+ * out (#2162).
+ */
+function keysToRequire(
+  ref: string,
+  target: SchemaObject,
+  required: readonly string[],
+  request: SchemaRequest,
+): readonly string[] {
+  const defined = required.filter((key) => Boolean(target.properties?.[key]));
+  if (!request.context.discriminators.isHandled(ref)) {
+    return defined;
+  }
+  if (!request.context.options.fixes.has(OutputFix.DISCRIMINATOR_MEMBER_REQUIRED)) {
+    return [];
+  }
+  return defined.filter((key) => !target.required?.includes(key));
+}
+
 /** A `$ref` item gets the parent's `required` keys that its target defines (`WithRequired`). */
 function refItemType(
   item: { readonly $ref: string },
@@ -47,19 +69,13 @@ function refItemType(
   request: SchemaRequest,
 ): IrType {
   const type = request.transformNested(item, request.location);
-  const { refs, discriminators, footer } = request.context;
-  const resolved = refs.resolve(item.$ref) as SchemaObject | undefined;
-  const isEligible =
-    resolved &&
-    typeof resolved === "object" &&
-    "properties" in resolved &&
-    !discriminators.isHandled(item.$ref);
-  if (!isEligible) {
+  const resolved = request.context.refs.resolve(item.$ref) as SchemaObject | undefined;
+  if (!resolved || typeof resolved !== "object" || !("properties" in resolved)) {
     return type;
   }
-  const keys = required.filter((key) => Boolean(resolved.properties?.[key]));
+  const keys = keysToRequire(item.$ref, resolved, required, request);
   if (keys.length > 0) {
-    footer.requireWithRequired();
+    request.context.footer.requireWithRequired();
   }
   return withRequiredKeys(type, keys);
 }
