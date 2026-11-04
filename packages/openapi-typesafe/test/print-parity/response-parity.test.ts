@@ -12,6 +12,7 @@ import {
   type ContextInput,
   contentArbitrary,
   contextInput,
+  hasDuplicateEnumMembers,
   headerArbitrary,
   key,
   REFS,
@@ -60,7 +61,9 @@ function checkParity<T>(
     fc.property(arbitrary, contextInput, (value: T, input: ContextInput) => {
       const run = (build: Transform) =>
         runLegacy((options) => build(value as never, options as never), input, input.path);
-      expect(run(transform)).toBe(run(original));
+      const expected = run(original);
+      fc.pre(!hasDuplicateEnumMembers(expected));
+      expect(run(transform)).toBe(expected);
     }),
     { numRuns: RUNS },
   );

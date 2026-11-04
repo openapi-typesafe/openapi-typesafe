@@ -27,7 +27,7 @@ import originalTransformWebhooksObject from "./original/webhooks-object.js";
 import {
   type ContextInput,
   contextInput,
-  hasDuplicateApiPathsMembers,
+  hasDuplicateEnumMembers,
   objectOf,
   RUNS,
   resetLegacyEnumState,
@@ -44,7 +44,9 @@ import {
 type Build = (options: TransformNodeOptions) => IrType | ts.TypeNode;
 
 function expectSameOutput(build: Build, original: Build, input: ContextInput): void {
-  expect(runLegacy(build, input, input.path)).toBe(runLegacy(original, input, input.path));
+  const expected = runLegacy(original, input, input.path);
+  fc.pre(!hasDuplicateEnumMembers(expected));
+  expect(runLegacy(build, input, input.path)).toBe(expected);
 }
 
 function property<T>(arbitrary: fc.Arbitrary<T>, check: (value: T, input: ContextInput) => void) {
@@ -148,7 +150,7 @@ describe("path transformer parity with the fork base", () => {
     () =>
       property(paths, (value) => {
         const original = printEnum(originalMakeApiPathsEnum, value);
-        fc.pre(!hasDuplicateApiPathsMembers(original));
+        fc.pre(!hasDuplicateEnumMembers(original));
         expect(printEnum(makeApiPathsEnum, value)).toBe(original);
       }),
     TIMEOUT_MS,

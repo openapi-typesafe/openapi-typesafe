@@ -8,7 +8,12 @@ import { irReference } from "../../src/domain/ir/constructors.js";
 import { astToString } from "../../src/index.js";
 import { DEFAULT_CTX } from "../test-helpers.js";
 import originalFooter from "./original/footer.js";
-import { RUNS, resetLegacyEnumState, TIMEOUT_MS } from "./parity-arbitraries.js";
+import {
+  hasDuplicateEnumMembers,
+  RUNS,
+  resetLegacyEnumState,
+  TIMEOUT_MS,
+} from "./parity-arbitraries.js";
 
 /**
  * ENGINEERING_PLAN Phase 5, step 6: the run footer (enum registry, enum naming, helper types)
@@ -83,9 +88,9 @@ describe("footer parity", () => {
     () => {
       fc.assert(
         fc.property(input, (value) => {
-          expect(run((ctx) => createTransformContext(ctx).footer, value)).toBe(
-            run(originalFooter, value),
-          );
+          const expected = run(originalFooter, value);
+          fc.pre(!hasDuplicateEnumMembers(expected));
+          expect(run((ctx) => createTransformContext(ctx).footer, value)).toBe(expected);
         }),
         { numRuns: RUNS },
       );

@@ -14,6 +14,7 @@ import { transformParametersArray as originalTransformParametersArray } from "./
 import {
   type ContextInput,
   contextInput,
+  hasDuplicateEnumMembers,
   headerArbitrary,
   key,
   mediaTypeArbitrary,
@@ -65,7 +66,9 @@ function expectSameOutput(
   input: ContextInput,
   path: string | undefined,
 ): void {
-  expect(runLegacy(build, input, path)).toBe(runLegacy(original, input, path));
+  const expected = runLegacy(original, input, path);
+  fc.pre(!hasDuplicateEnumMembers(expected));
+  expect(runLegacy(build, input, path)).toBe(expected);
 }
 
 /** A parameters array as a type literal, so the property list prints like any type. */

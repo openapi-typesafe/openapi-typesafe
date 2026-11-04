@@ -10,6 +10,7 @@ import {
   type ContextInput,
   contextInput,
   createContext,
+  hasDuplicateEnumMembers,
   RUNS,
   reachesFixedLegacyBug,
   resetLegacyEnumState,
@@ -43,9 +44,9 @@ describe("components transformer parity with the fork base", () => {
       fc.assert(
         fc.property(components, contextInput, (value, input) => {
           fc.pre(!reachesFixedLegacyBug(value, input));
-          expect(run(transformComponentsObject, value, input)).toBe(
-            run(originalTransformComponentsObject, value, input),
-          );
+          const expected = run(originalTransformComponentsObject, value, input);
+          fc.pre(!hasDuplicateEnumMembers(expected));
+          expect(run(transformComponentsObject, value, input)).toBe(expected);
         }),
         { numRuns: RUNS },
       );

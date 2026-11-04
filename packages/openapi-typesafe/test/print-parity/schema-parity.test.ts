@@ -8,6 +8,7 @@ import originalTransformSchemaObject from "./original/schema-object.js";
 import {
   type ContextInput,
   contextInput,
+  hasDuplicateEnumMembers,
   RUNS,
   runLegacy,
   schemaArbitrary,
@@ -39,9 +40,9 @@ describe("schema transformer parity with the fork base", () => {
     () => {
       fc.assert(
         fc.property(schemaArbitrary(), contextInput, (schema, input) => {
-          expect(run(transformSchemaObject, schema, input)).toBe(
-            run(originalTransformSchemaObject, schema, input),
-          );
+          const expected = run(originalTransformSchemaObject, schema, input);
+          fc.pre(!hasDuplicateEnumMembers(expected));
+          expect(run(transformSchemaObject, schema, input)).toBe(expected);
         }),
         { numRuns: RUNS },
       );

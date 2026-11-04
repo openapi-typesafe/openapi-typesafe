@@ -434,14 +434,19 @@ export function reachesFixedLegacyBug(value: unknown, input: ContextInput): bool
   );
 }
 
-const API_PATHS_BLOCK_RE = /^export enum ApiPaths \{\n([\s\S]*?)^\}/m;
+const ENUM_BLOCK_RE = /^export (?:declare )?(?:const )?enum (\S+) \{\n([\s\S]*?)^\}/gm;
+const ENUM_MEMBER_NAME_RE = /^\s+(\S+) = /gm;
 
 /**
- * Whether the original `ApiPaths` enum repeats a member name: that output does not compile, and
- * the new generator makes the names unique (upstream #2194).
+ * Whether an enum of the original output repeats a member name, also across declarations of the
+ * same name, which TypeScript merges: that output does not compile. The new generator numbers
+ * the repeats (`ApiPaths`, upstream #2194; `--enum`, roadmap R10.1) and declares an enum once.
  */
-export function hasDuplicateApiPathsMembers(output: string): boolean {
-  const body = API_PATHS_BLOCK_RE.exec(output)?.[1] ?? "";
-  const names = [...body.matchAll(/^\s+(\S+) = /gm)].map((match) => match[1]);
-  return new Set(names).size !== names.length;
+export function hasDuplicateEnumMembers(output: string): boolean {
+  const membersByEnum = new Map<string, string[]>();
+  for (const [, name = "", body = ""] of output.matchAll(ENUM_BLOCK_RE)) {
+    const names = [...body.matchAll(ENUM_MEMBER_NAME_RE)].map((match) => match[1] ?? "");
+    membersByEnum.set(name, [...(membersByEnum.get(name) ?? []), ...names]);
+  }
+  return [...membersByEnum.values()].some((names) => new Set(names).size !== names.length);
 }
