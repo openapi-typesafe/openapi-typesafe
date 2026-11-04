@@ -1,6 +1,6 @@
 import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import { documentBody, documentClosing } from "../application/transform/document/document.js";
-import { renameAliasesTakenByEnums } from "../application/transform/document/root-type-aliases.js";
+import { renameAliasesTakenByFooter } from "../application/transform/document/root-type-aliases.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
 import type { GlobalContext, OpenAPI3 } from "../types.js";
@@ -25,7 +25,7 @@ export function transformDocument(schema: OpenAPI3, ctx: GlobalContext): Transfo
   // documentBody registers the enums in the footer, so the footer is read after it.
   const rawBody = documentBody(document, context);
   const footer: FooterEntry[] = [...ctx.injectFooter];
-  const body = renameAliasesTakenByEnums(rawBody, footer.filter(isIrDeclaration));
+  const body = renameAliasesTakenByFooter(rawBody, footer.filter(isIrDeclaration));
   const closing = documentClosing(document, context, footer.some(isOperations));
   return { body, footer, closing };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  renameAliasesTakenByEnums,
+  renameAliasesTakenByFooter,
   rootTypeAlias,
 } from "../../../../src/application/transform/document/root-type-aliases.js";
 import { irReference } from "../../../../src/domain/ir/constructors.js";
@@ -14,24 +14,24 @@ function names(declarations: readonly IrDeclaration[]): string[] {
   return declarations.map((declaration) => (declaration as { name: string }).name);
 }
 
-describe("renameAliasesTakenByEnums", () => {
-  it("renameAliasesTakenByEnums with a colliding alias adds the suffix _2", () => {
+describe("renameAliasesTakenByFooter", () => {
+  it("renameAliasesTakenByFooter with a colliding alias adds the suffix _2", () => {
     const body = [rootTypeAlias("Pet", "schemas", "Pet")];
 
-    const renamed = renameAliasesTakenByEnums(body, [enumDeclaration("Pet")]);
+    const renamed = renameAliasesTakenByFooter(body, [enumDeclaration("Pet")]);
 
     expect(names(renamed)).toEqual(["Pet_2"]);
   });
 
-  it("renameAliasesTakenByEnums skips suffixes that are already taken", () => {
+  it("renameAliasesTakenByFooter skips suffixes that are already taken", () => {
     const body = [rootTypeAlias("Pet", "schemas", "Pet"), rootTypeAlias("Pet_2", "schemas", "X")];
 
-    const renamed = renameAliasesTakenByEnums(body, [enumDeclaration("Pet")]);
+    const renamed = renameAliasesTakenByFooter(body, [enumDeclaration("Pet")]);
 
     expect(names(renamed)).toEqual(["Pet_3", "Pet_2"]);
   });
 
-  it("renameAliasesTakenByEnums keeps aliases that are not root type aliases", () => {
+  it("renameAliasesTakenByFooter keeps aliases that are not root type aliases", () => {
     const alias: IrDeclaration = {
       kind: "typeAlias",
       name: "Pet",
@@ -40,15 +40,40 @@ describe("renameAliasesTakenByEnums", () => {
       comments: [],
     };
 
-    const renamed = renameAliasesTakenByEnums([alias], [enumDeclaration("Pet")]);
+    const renamed = renameAliasesTakenByFooter([alias], [enumDeclaration("Pet")]);
 
     expect(renamed).toEqual([alias]);
   });
 
-  it("renameAliasesTakenByEnums without enums returns the body unchanged", () => {
+  it("renameAliasesTakenByFooter renames an alias that a helper type takes", () => {
+    const body = [rootTypeAlias("WithRequired", "schemas", "WithRequired")];
+    const helper: IrDeclaration = {
+      kind: "rawDeclaration",
+      name: "WithRequired",
+      text: "type WithRequired<T> = T;",
+    };
+
+    expect(names(renameAliasesTakenByFooter(body, [helper]))).toEqual(["WithRequired_2"]);
+  });
+
+  it("renameAliasesTakenByFooter ignores unnamed raw code and value declarations", () => {
+    const body = [rootTypeAlias("Pet", "schemas", "Pet")];
+    const injected: IrDeclaration = { kind: "rawDeclaration", text: "type Pet = string;" };
+    const values = {
+      kind: "constArray",
+      name: "Pet",
+      isExported: true,
+      values: [],
+      comments: [],
+    } as never;
+
+    expect(renameAliasesTakenByFooter(body, [injected, values])).toEqual(body);
+  });
+
+  it("renameAliasesTakenByFooter with an empty footer returns the body unchanged", () => {
     const body = [rootTypeAlias("Pet", "schemas", "Pet")];
 
-    expect(renameAliasesTakenByEnums(body, [])).toEqual(body);
+    expect(renameAliasesTakenByFooter(body, [])).toEqual(body);
   });
 });
 

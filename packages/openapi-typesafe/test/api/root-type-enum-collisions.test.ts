@@ -37,3 +37,31 @@ describe("root type aliases that collide with an enum", () => {
     expect(output).toContain("export type Cluster = components['schemas']['Cluster'];");
   });
 });
+
+describe("root type aliases that collide with a helper type", () => {
+  it("openapiTS renames the alias of a schema named WithRequired, which the helper keeps", async () => {
+    const document: OpenAPI3 = {
+      openapi: "3.1.0",
+      info: { title: "Test", version: "1.0.0" },
+      paths: {},
+      components: {
+        schemas: {
+          Base: { type: "object", properties: { id: { type: "string" } } },
+          WithRequired: {
+            type: "object",
+            required: ["id"],
+            allOf: [{ $ref: "#/components/schemas/Base" }],
+          },
+        },
+      },
+    };
+
+    const output = astToString(
+      await openapiTS(document, { silent: true, rootTypes: true, rootTypesNoSchemaPrefix: true }),
+    );
+
+    expect(output).toContain("export type WithRequired_2 = components['schemas']['WithRequired'];");
+    expect(output).toContain("type WithRequired<T, K extends keyof T> = T & {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});

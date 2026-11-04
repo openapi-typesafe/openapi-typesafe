@@ -32,9 +32,20 @@ function isRootTypeAlias(declaration: IrDeclaration): declaration is IrTypeAlias
   );
 }
 
-function enumNames(declarations: readonly IrDeclaration[]): Set<string> {
+/**
+ * The type names the footer declares that an alias must not take: enums, and helper types such as
+ * `WithRequired`. Value declarations (`--enum-values` arrays) live in another namespace.
+ */
+function footerTypeNames(declarations: readonly IrDeclaration[]): Set<string> {
   return new Set(
-    declarations.flatMap((declaration) => (declaration.kind === "enum" ? [declaration.name] : [])),
+    declarations.flatMap((declaration) => {
+      if (declaration.kind === "enum") {
+        return [declaration.name];
+      }
+      return declaration.kind === "rawDeclaration" && declaration.name !== undefined
+        ? [declaration.name]
+        : [];
+    }),
   );
 }
 
@@ -55,19 +66,20 @@ function freeName(name: string, taken: ReadonlySet<string>): string {
 }
 
 /**
- * Rename each root alias whose name an enum of the footer also declares, to the next free
- * `Name_2`, `Name_3`, … (the suffix `--root-types` uses for its own conflicts). The enum keeps its
- * name, because the generated types refer to it. Before, both were exported under one name, which
- * does not compile (upstream #2099, #2341, #2206). Other declarations are returned unchanged.
+ * Rename each root alias whose name an enum or a helper type of the footer also declares, to the
+ * next free `Name_2`, `Name_3`, … (the suffix `--root-types` uses for its own conflicts). The
+ * footer keeps its names, because the generated types refer to them. Before, both were declared
+ * under one name, which does not compile (enums: upstream #2099, #2341, #2206; helpers: a schema
+ * named `WithRequired`, roadmap R11). Other declarations are returned unchanged.
  */
-export function renameAliasesTakenByEnums(
+export function renameAliasesTakenByFooter(
   body: readonly IrDeclaration[],
   footer: readonly IrDeclaration[],
 ): IrDeclaration[] {
-  const enums = enumNames(footer);
+  const footerNames = footerTypeNames(footer);
   const taken = declaredNames([...body, ...footer]);
   return body.map((declaration) => {
-    if (!isRootTypeAlias(declaration) || !enums.has(declaration.name)) {
+    if (!isRootTypeAlias(declaration) || !footerNames.has(declaration.name)) {
       return declaration;
     }
     const name = freeName(declaration.name, taken);
