@@ -14,6 +14,8 @@ export const OutputFix = {
   ARRAY_LENGTH_TUPLES: "array-length-tuples",
   /** A schema two discriminators name gets one enum of their values, a mapping before its name. */
   DISCRIMINATOR_VALUES: "discriminator-values",
+  /** Schemas of one root type name without the prefix each get an alias, the earlier numbered. */
+  ROOT_TYPE_NUMBERING: "root-type-numbering",
   /** `unevaluatedProperties` types the keys no other keyword declares (an index signature). */
   UNEVALUATED_PROPERTIES: "unevaluated-properties",
 } as const;
@@ -56,27 +58,38 @@ export function resolveOutputFixes(names: readonly OutputFixName[]): ReadonlySet
 
 /** A generator option that a fix works with; without it, the fix changes nothing (ADR-021). */
 export interface OutputFixRequirement {
-  readonly option: "arrayLength";
+  readonly option: "arrayLength" | "rootTypes" | "rootTypesNoSchemaPrefix";
   readonly flag: string;
 }
 
-/** By fix name; `all` has none. */
-const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, OutputFixRequirement>>> = {
-  [OutputFix.ARRAY_LENGTH_TUPLES]: { option: "arrayLength", flag: "--array-length" },
+const ROOT_TYPES = { option: "rootTypes", flag: "--root-types" } as const;
+const NO_SCHEMA_PREFIX = {
+  option: "rootTypesNoSchemaPrefix",
+  flag: "--root-types-no-schema-prefix",
+} as const;
+
+/** The options each fix needs, by fix name; `all` has none. */
+const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, readonly OutputFixRequirement[]>>> = {
+  [OutputFix.ARRAY_LENGTH_TUPLES]: [{ option: "arrayLength", flag: "--array-length" }],
+  [OutputFix.ROOT_TYPE_NUMBERING]: [ROOT_TYPES, NO_SCHEMA_PREFIX],
 };
 
+function describeRequirement(requirement: OutputFixRequirement): string {
+  return `${requirement.option} (${requirement.flag})`;
+}
+
 /**
- * A notice for each fix given by name whose option is off. `all` adds none: it means every fix
- * that applies, so one that does not apply is expected.
+ * A notice for each fix given by name with an option it needs off; it names the options that are
+ * off. `all` adds none: it means every fix that applies, so one that does not apply is expected.
  */
 export function ineffectiveFixNotices(
   names: readonly OutputFixName[],
   isOptionOn: (option: OutputFixRequirement["option"]) => boolean,
 ): string[] {
   return [...new Set(names)].flatMap((name) => {
-    const requirement = REQUIREMENTS[name];
-    return requirement === undefined || isOptionOn(requirement.option)
+    const missing = (REQUIREMENTS[name] ?? []).filter(({ option }) => !isOptionOn(option));
+    return missing.length === 0
       ? []
-      : [`Fix "${name}" has no effect without ${requirement.option} (${requirement.flag})`];
+      : [`Fix "${name}" has no effect without ${missing.map(describeRequirement).join(" and ")}`];
   });
 }

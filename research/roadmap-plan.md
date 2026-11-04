@@ -190,7 +190,7 @@ and asks.
 
 - [x] R11 `unevaluatedProperties` (backlog 22; #2839, #2880), behind R5.
 - [x] R12 Discriminator value conflict (backlog 26), behind R5.
-- [ ] R13 Numbered aliases for case-only root-type clashes (backlog 30, PB-47), behind R5.
+- [x] R13 Numbered aliases for case-only root-type clashes (backlog 30, PB-47), behind R5.
 
 ## 6. Results
 
@@ -208,6 +208,7 @@ and asks.
 | R10 | 2026-11-04 | `fix(generator)` commits | Default fixes of output that does not compile: numbered `--enum` members whose names collide, deprecated schemas kept while kept output references them, and `--path-params-as-types` templates in an intersection where TypeScript surely rejects a covered path (output that compiles unchanged). Harness: a file TypeScript stops on is a result. Full corpus vs full golden: 50,960 cases, 0 mismatches; 994 golden-invalid, 766 compile. See `research/roadmap/R10.md` |
 | R11 | 2026-11-04 | `feat(generator)` and `fix(generator)` commits | Output fix `unevaluated-properties` (ADR-021): the keys no other keyword declares get the `unevaluatedProperties` type through an index signature that also holds the declared property types (`PropertyValues<T>` for a `$ref`, distributive over unions), #2839, #2880; `false` and next to `additionalProperties` unchanged. Root aliases also give way to helper type names (`WithRequired_2`). Opt-in: 29,120 cases, 0 regressions. See `research/roadmap/R11.md` |
 | R12 | 2026-11-04 | `feat(generator)` commit | Output fix `discriminator-values` (ADR-021): the discriminator values of one schema and property merge into one enum, and a schema name is used only where no `mapping` gives the schema a value, so `kind: "Cat" & kind: "cat"` (`never`) becomes `kind: "cat"`. Deprecated `scanDiscriminators` unchanged. Opt-in: 7,280 cases, 0 regressions; compat 200: 0 mismatches. See `research/roadmap/R12.md` |
+| R13 | 2026-11-04 | `fix(generator)` and `feat(generator)` commits | Output fix `root-type-numbering` (ADR-021): with `--root-types --root-types-no-schema-prefix`, the earlier schemas of one root name get `Name_2`, `Name_3`, … instead of no alias; the later keeps the name. A fix requirement is now a list of options. Default fix: a kept-casing name that TypeScript reserves keeps the prefix (`Schemavoid`; 37 corpus documents). Opt-in: 5,460 cases, 0 regressions; compat 200: 0 mismatches. See `research/roadmap/R13.md` |
 
 ## 7. Exit criteria
 

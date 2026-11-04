@@ -66,6 +66,23 @@ function freeName(name: string, taken: ReadonlySet<string>): string {
 }
 
 /**
+ * With the `root-type-numbering` fix (ADR-021, roadmap R13, backlog 30): the aliases that a later
+ * schema of one exported name took the name from, numbered `Name_2`, `Name_3`, … in document order
+ * with the next free number. The later schema keeps the name, so the fix only adds exports.
+ */
+export function numberDisplacedAliases(
+  displaced: readonly IrTypeAliasDeclaration[],
+  kept: readonly IrTypeAliasDeclaration[],
+): IrTypeAliasDeclaration[] {
+  const taken = new Set(kept.map((alias) => alias.name));
+  return displaced.map((alias) => {
+    const name = freeName(alias.name, taken);
+    taken.add(name);
+    return { ...alias, name };
+  });
+}
+
+/**
  * Rename each root alias whose name an enum or a helper type of the footer also declares, to the
  * next free `Name_2`, `Name_3`, … (the suffix `--root-types` uses for its own conflicts). The
  * footer keeps its names, because the generated types refer to them. Before, both were declared

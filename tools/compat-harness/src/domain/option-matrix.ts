@@ -107,6 +107,11 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   },
   // `discriminator-values` merges the values of the discriminator enums; `--enum` declares them.
   { flag: "--fix=discriminator-values", with: [[], ["--enum"]] },
+  // `root-type-numbering` does nothing without both root type flags, the only matrix set it changes.
+  {
+    flag: "--fix=root-type-numbering",
+    with: [["--root-types", "--root-types-no-schema-prefix"]],
+  },
   { flag: "--fix=all", with: [[], ["--array-length"]] },
 ];
 

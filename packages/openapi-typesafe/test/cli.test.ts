@@ -117,6 +117,20 @@ describe("CLI", () => {
       },
     ],
     [
+      "snapshot > root types of one name (root-type-numbering fix)",
+      {
+        given: [
+          "./examples/root-type-numbering.yaml",
+          "--root-types",
+          "--root-types-no-schema-prefix",
+          "--fix",
+          "root-type-numbering",
+        ],
+        want: new URL("./examples/root-type-numbering.ts", root),
+        ci: { timeout: TIMEOUT },
+      },
+    ],
+    [
       "snapshot > anyOf with sibling properties (anyof-properties fix)",
       {
         given: ["./examples/anyof-properties.yaml", "--fix", "anyof-properties"],

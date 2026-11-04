@@ -51,6 +51,7 @@ describe("selectOptionSets", () => {
       "properties-required-by-default",
       "array-length",
       "read-write-markers",
+      "root-types+root-types-no-schema-prefix",
       "binary-as-blob",
       "binary-as-blob+immutable",
       "binary-as-blob+read-write-markers",
@@ -67,6 +68,7 @@ describe("selectOptionSets", () => {
       "fix=unevaluated-properties+additional-properties",
       "fix=discriminator-values",
       "fix=discriminator-values+enum",
+      "fix=root-type-numbering+root-types+root-types-no-schema-prefix",
       "fix=all",
       "fix=all+array-length",
     ]);

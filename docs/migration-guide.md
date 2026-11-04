@@ -124,6 +124,8 @@ These are off by default, so the output does not change until you turn one on.
   nested arrays, `readonly`).
   `discriminator-values` gives a schema that a discriminator `mapping` names one enum with the
   mapped values, instead of also adding its schema name, which made the property `never`.
+  `root-type-numbering` (with `--root-types --root-types-no-schema-prefix`) gives each schema of one
+  root name an alias: the later keeps the name, the earlier get `_2`, `_3`, instead of none.
   `unevaluated-properties` types the keys that no other keyword declares with the
   `unevaluatedProperties` schema, instead of ignoring it.
 

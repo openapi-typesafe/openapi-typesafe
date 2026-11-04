@@ -19,6 +19,7 @@ import {
   singularizeComponentKind,
 } from "../../../domain/openapi/components-object.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { OutputFix } from "../../../domain/output-fixes.js";
 import { type DeprecatedEntryFilter, documentEntries } from "../document-entries.js";
 import type { SchemaLocation } from "../schema/schema-context.js";
 import { transformSchema } from "../schema/schema-transform.js";
@@ -30,7 +31,7 @@ import { parameterType } from "./parameter.js";
 import { pathItemType } from "./path-item.js";
 import { requestBodyType } from "./request-body.js";
 import { responseType } from "./response.js";
-import { rootTypeAlias } from "./root-type-aliases.js";
+import { numberDisplacedAliases, rootTypeAlias } from "./root-type-aliases.js";
 
 type ComponentTransform = (
   item: never,
@@ -109,16 +110,18 @@ function rootTypeName(
 
 /**
  * Add a root alias. When its exported name is taken (two schemas of one PascalCase name without
- * the prefix), the later schema takes the name and the earlier one has no alias, as in the
- * original. That output is valid, so a number for the earlier alias would change it (backlog 30).
+ * the prefix), the later schema takes the name, as in the original. Without the
+ * `root-type-numbering` fix the earlier one then has no alias: that output is valid, so a number
+ * for it would change it (backlog 30). With the fix the earlier alias is kept aside and numbered
+ * at the end.
  */
-function addRootAlias(
-  aliases: Record<string, IrTypeAliasDeclaration>,
-  alias: string,
-  kind: ComponentKind,
-  name: string,
-): void {
-  aliases[alias] = rootTypeAlias(alias, kind, name);
+function addRootAlias(request: ComponentsRequest, alias: IrTypeAliasDeclaration): void {
+  const { aliases, displaced } = request;
+  const previous = aliases[alias.name];
+  if (previous !== undefined && displaced !== null) {
+    displaced.push(previous);
+  }
+  aliases[alias.name] = alias;
 }
 
 /** `--root-types` skips enum schemas under `--enum`: the enum itself is exported. */
@@ -132,6 +135,8 @@ interface ComponentsRequest {
   readonly components: ComponentsObject;
   readonly isKept: DeprecatedEntryFilter;
   readonly aliases: Record<string, IrTypeAliasDeclaration>;
+  /** With the `root-type-numbering` fix: the aliases a later schema took the name of, in order. */
+  readonly displaced: IrTypeAliasDeclaration[] | null;
 }
 
 function kindMember(
@@ -145,7 +150,7 @@ function kindMember(
   for (const [name, item] of documentEntries(components[kind] ?? {}, context.options, isKept)) {
     items.push(componentMember(kind, name, item, context));
     if (hasRootType(kind, item, context)) {
-      addRootAlias(aliases, rootTypeName(kind, name, aliases, context), kind, name);
+      addRootAlias(request, rootTypeAlias(rootTypeName(kind, name, aliases, context), kind, name));
     }
   }
   const type = items.length > 0 ? irObject(items) : irKeyword("never");
@@ -169,10 +174,16 @@ export function componentsType(
   // A plain object, as in the original: its key order (integer-like names first) is the
   // output order.
   const aliases: Record<string, IrTypeAliasDeclaration> = {};
-  const request = { components, isKept: (item: unknown) => kept.has(item as object), aliases };
+  const displaced = context.options.fixes.has(OutputFix.ROOT_TYPE_NUMBERING) ? [] : null;
+  const isKept = (item: unknown) => kept.has(item as object);
+  const request = { components, isKept, aliases, displaced };
   const declaredKinds = DECLARED_COMPONENT_KINDS.filter((kind) => components[kind] !== undefined);
   const members = [...COMPONENT_KINDS, ...declaredKinds].map((kind) =>
     kindMember(kind, request, context),
   );
-  return { type: irObject(members), rootTypes: Object.values(aliases) };
+  const rootTypes = Object.values(aliases);
+  return {
+    type: irObject(members),
+    rootTypes: [...rootTypes, ...numberDisplacedAliases(displaced ?? [], rootTypes)],
+  };
 }

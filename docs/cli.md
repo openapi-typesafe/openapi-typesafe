@@ -399,6 +399,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
 | `discriminator-values` | A schema that a discriminator `mapping` names gets the mapped value only, not also its schema name from a discriminated `oneOf` without a mapping, which made the property `never` | none (found in our own tests) | 1.0 |
+| `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
 
 #### allof-required
@@ -570,6 +571,25 @@ Cat: Omit<components["schemas"]["Pet"], "kind"> & { kind: "cat" }; // [!code ++]
 - Two mappings that give one schema different values make one enum with both (`"cat" | "feline"`).
 - Two discriminators with different property names still add two properties.
 - With `--enum`, the merged enum is declared once.
+
+#### root-type-numbering
+
+`--root-types --root-types-no-schema-prefix` names each root alias after its schema, in
+PascalCase. Two schemas can get one name (`PetStore` and `pet_store`). Without the fix the later
+schema takes the name and the earlier one has no alias, as in openapi-typescript. With it the
+earlier ones get the next free number, in document order:
+
+```ts
+export type PetStore = components['schemas']['pet_store'];
+export type PetStore_2 = components['schemas']['PetStore']; // [!code ++]
+```
+
+- The shared name keeps its schema, so code that uses it does not change; the fix only adds
+  exports, after the other root aliases.
+- A number that another alias has is skipped (`PetStore_3`).
+- With the prefix the names do not clash (`SchemaPetStore`, `SchemaPetStore_2`), so the fix needs
+  `--root-types` and `--root-types-no-schema-prefix` and changes nothing without them; naming it
+  without them prints a notice (`--fix all` does not).
 
 #### unevaluated-properties
 

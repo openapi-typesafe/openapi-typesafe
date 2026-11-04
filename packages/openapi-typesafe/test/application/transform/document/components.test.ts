@@ -7,7 +7,11 @@ import {
   isEnumSchema,
   singularizeComponentKind,
 } from "../../../../src/domain/openapi/components-object.js";
+import { OutputFix } from "../../../../src/domain/output-fixes.js";
 import { type FakeContextInput, fakeTransformContext } from "../../../fakes/transform-context.js";
+
+/** `--root-types` with the `root-type-numbering` fix (ADR-021, roadmap R13). */
+const NUMBERED = { rootTypes: true, fixes: new Set([OutputFix.ROOT_TYPE_NUMBERING]) };
 
 function transform(components: unknown, input: FakeContextInput = {}) {
   const fake = fakeTransformContext(input);
@@ -107,6 +111,38 @@ describe("componentsType", () => {
         "export type Schemaclass = components['schemas']['class'];\n" +
         "export type voids = components['schemas']['voids'];\n",
     );
+  });
+
+  it("componentsType with the root-type-numbering fix numbers the earlier schemas of one name", () => {
+    const options = { ...NUMBERED, rootTypesNoSchemaPrefix: true };
+
+    const { rootTypes } = transform({ schemas: { Void: {}, void: {}, Pet: {} } }, { options });
+
+    expect(rootTypes).toBe(
+      "export type Void = components['schemas']['void'];\n" +
+        "export type Pet = components['schemas']['Pet'];\n" +
+        "export type Void_2 = components['schemas']['Void'];\n",
+    );
+  });
+
+  it("componentsType with the root-type-numbering fix skips a number that an alias has", () => {
+    const options = { ...NUMBERED, rootTypesNoSchemaPrefix: true, rootTypesKeepCasing: true };
+
+    const { rootTypes } = transform({ schemas: { "a-b": {}, a_b: {}, a_b_2: {} } }, { options });
+
+    expect(rootTypes).toBe(
+      "export type a_b = components['schemas']['a_b'];\n" +
+        "export type a_b_2 = components['schemas']['a_b_2'];\n" +
+        "export type a_b_3 = components['schemas']['a-b'];\n",
+    );
+  });
+
+  it("componentsType with the root-type-numbering fix and the prefix changes nothing", () => {
+    const schemas = { schemas: { pet: {}, Pet: {} } };
+
+    const fixed = transform(schemas, { options: NUMBERED }).rootTypes;
+
+    expect(fixed).toBe(transform(schemas, { options: { rootTypes: true } }).rootTypes);
   });
 
   it("componentsType with --root-types-keep-casing writes invalid characters as _ (legacy bug 16)", () => {
