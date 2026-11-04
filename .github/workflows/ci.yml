@@ -303,4 +303,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      # The tests of the published packages, which users run on these systems. The export checks
+      # are bash scripts and the internal tools (compat harness, skill evals) use POSIX process
+      # groups; both are platform-independent checks that the Linux jobs run.
+      - run: pnpm --filter "./packages/*" run test:js
