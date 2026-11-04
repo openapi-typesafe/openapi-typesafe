@@ -2,7 +2,11 @@ import type { Logger } from "../application/ports/logger.js";
 import { OutputFix } from "../domain/output-fixes.js";
 import type { DiscriminatorObject, OpenAPI3, SchemaObject } from "../types.js";
 import { addEnumProperty, declaresValues, type EnumPatch } from "./discriminator-enum.js";
-import { type EnumParent, enumParentOf } from "./discriminator-enum-parent.js";
+import {
+  type DiscriminatorOwner,
+  type EnumParent,
+  enumParentOf,
+} from "./discriminator-enum-parent.js";
 import { resolveDocumentRef } from "./document-refs.js";
 
 /**
@@ -56,17 +60,20 @@ function isDeclared(state: ScanState, patch: EnumPatch): boolean {
   );
 }
 
-/** With `discriminator-enum-members`: the enum of the owner's property, for the added enum. */
-function recordEnumParent(state: ScanState, patch: EnumPatch, added: SchemaObject): void {
+/**
+ * With `discriminator-enum-members`: the enum of the owner's property, for `key`: an enum the scan
+ * added, or a discriminator object that a schema inherited.
+ */
+export function recordEnumParent(state: ScanState, owner: DiscriminatorOwner, key: object): void {
   if (!state.fixes.has(OutputFix.DISCRIMINATOR_ENUM_MEMBERS)) {
     return;
   }
   const { silent, logger } = state;
-  const parent = enumParentOf(patch, (ref) =>
+  const parent = enumParentOf(owner, (ref) =>
     resolveDocumentRef(state.schema, ref, { silent, logger }),
   );
   if (parent !== undefined) {
-    state.enumParents.set(added, parent);
+    state.enumParents.set(key, parent);
   }
 }
 

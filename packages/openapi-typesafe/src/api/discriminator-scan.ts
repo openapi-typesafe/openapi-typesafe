@@ -17,6 +17,7 @@ import {
   markHandled,
   mergesValues,
   patchDiscriminatorEnum,
+  recordEnumParent,
   type ScanState,
 } from "./discriminator-patch.js";
 import { resolveDocumentRef, walkDocument } from "./document-refs.js";
@@ -129,13 +130,21 @@ function inheritsDiscriminator(state: ScanState, parentRef: string, ref: string)
 /**
  * The schema at `ref` inherits `discriminator`. With `discriminator-own-mapping`, a schema that
  * defines a discriminator keeps it: the inherited one replaced its mapping, so the members walked
- * after this schema got their schema name instead of the mapped value (#2200).
+ * after this schema got their schema name instead of the mapped value (#2200). `ownerRef` is the
+ * schema that declares the discriminator property, for `discriminator-enum-members`.
  */
-function recordInherited(state: ScanState, ref: string, discriminator: DiscriminatorObject): void {
+function recordInherited(
+  state: ScanState,
+  ref: string,
+  discriminator: DiscriminatorObject,
+  ownerRef: string,
+): void {
   if (state.fixes.has(OutputFix.DISCRIMINATOR_OWN_MAPPING) && state.owners.has(ref)) {
     return;
   }
-  state.objects[ref] = { ...discriminator };
+  const inherited = { ...discriminator };
+  state.objects[ref] = inherited;
+  recordEnumParent(state, { discriminator, discriminatorRef: ownerRef }, inherited);
 }
 
 /**
@@ -154,7 +163,7 @@ function inheritFromRef(state: ScanState, parentRef: string, ref: string): boole
     markHandled(state, ref);
   }
   if (inheritsDiscriminator(state, parentRef, ref)) {
-    recordInherited(state, ref, discriminator);
+    recordInherited(state, ref, discriminator, parentRef);
   }
   return true;
 }
@@ -174,7 +183,8 @@ function inheritDiscriminators(
         return;
       }
     } else if (item.discriminator?.propertyName) {
-      recordInherited(state, createRef(path), item.discriminator);
+      // The inline item is typed at the schema's own location.
+      recordInherited(state, createRef(path), item.discriminator, createRef(path));
     }
   }
 }

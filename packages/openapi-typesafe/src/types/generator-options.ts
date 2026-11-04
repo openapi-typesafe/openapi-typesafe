@@ -210,7 +210,8 @@ export interface GlobalContext {
     refsHandled: string[];
     /**
      * @internal With the `discriminator-enum-members` fix: for each enum the scan added to a
-     * member, the enum of the owner's property and the location it is typed at.
+     * member and each inherited discriminator object, the enum of the owner's property and the
+     * location it is typed at.
      */
     enumParents?: ReadonlyMap<object, { readonly schema: SchemaObject; readonly path: string }>;
   };

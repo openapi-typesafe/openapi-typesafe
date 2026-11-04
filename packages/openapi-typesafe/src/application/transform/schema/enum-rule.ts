@@ -13,6 +13,7 @@ import { literalType } from "../literal-type.js";
 import { refType } from "../ref-type.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import type {
+  DiscriminatorEnumParent,
   EnumDeclarationRequest,
   EnumMemberMetadata,
   SchemaOptions,
@@ -92,21 +93,28 @@ function enumMemberType(enumName: string, member: string): IrType {
 }
 
 /**
- * The `discriminator-enum-members` fix: an enum that the discriminator scan added to a member is
- * typed with members of the owner's enum (`PetType.Cat`), so the member's value is one of the
- * owner's type (#1700). Null when the owner's property is no TypeScript enum with every value.
+ * The `discriminator-enum-members` fix: a member's discriminator value is typed with members of
+ * the owner's enum (`PetType.Cat`), so the member is one of the owner's type (#1700). `key` is the
+ * enum the scan added or the inherited discriminator object. Null when the fix is off, or the
+ * owner's property is no TypeScript enum with every value.
  */
-function ownerEnumMembersType(schema: SchemaObject, request: SchemaRequest): IrType | null {
+export function ownerEnumMembersType(
+  key: object,
+  values: readonly unknown[],
+  request: SchemaRequest,
+): IrType | null {
   const { options, discriminators, footer } = request.context;
-  const parent = options.fixes.has(OutputFix.DISCRIMINATOR_ENUM_MEMBERS)
-    ? discriminators.enumParentOf(schema)
+  const parent: DiscriminatorEnumParent | undefined = options.fixes.has(
+    OutputFix.DISCRIMINATOR_ENUM_MEMBERS,
+  )
+    ? discriminators.enumParentOf(key)
     : undefined;
   if (parent === undefined || !isTsEnum(parent.schema, options)) {
     return null;
   }
   const name = footer.addEnum(enumRequest(parent.schema, parent.path));
   const members = footer.enumMembers(name);
-  const names = (schema.enum ?? []).map((value) => members.get(value as string | number));
+  const names = values.map((value) => members.get(value as string | number));
   if (names.length === 0 || names.some((member) => member === undefined)) {
     return null;
   }
@@ -114,7 +122,7 @@ function ownerEnumMembersType(schema: SchemaObject, request: SchemaRequest): IrT
 }
 
 function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
-  const members = ownerEnumMembersType(schema, request);
+  const members = ownerEnumMembersType(schema, schema.enum ?? [], request);
   if (members !== null) {
     return members;
   }

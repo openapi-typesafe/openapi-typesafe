@@ -72,8 +72,14 @@ function declaredProperty(
   return undefined;
 }
 
-/** The enum of the property that the discriminator owner of `patch` declares, if it is one. */
-export function enumParentOf(patch: EnumPatch, resolve: ResolveSchemaRef): EnumParent | undefined {
+/** A discriminator and the `$ref` of the schema that declares its property. */
+export type DiscriminatorOwner = Pick<EnumPatch, "discriminator" | "discriminatorRef">;
+
+/** The enum of the property that the discriminator owner declares, if it is one. */
+export function enumParentOf(
+  patch: DiscriminatorOwner,
+  resolve: ResolveSchemaRef,
+): EnumParent | undefined {
   const name = patch.discriminator.propertyName;
   const declared = declaredProperty(patch.discriminatorRef, name, resolve, new Set());
   if (declared === undefined || !isSchemaObject(declared.property)) {

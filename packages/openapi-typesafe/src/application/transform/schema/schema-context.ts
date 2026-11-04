@@ -56,8 +56,8 @@ export interface Discriminators {
   /** Whether the discriminator property of this `$ref` was already added. */
   isHandled(ref: string): boolean;
   /**
-   * With `discriminator-enum-members`: the owner's enum that an enum the discriminator scan added
-   * to a member narrows, found by that enum schema object.
+   * With `discriminator-enum-members`: the owner's enum that a member's value narrows, found by
+   * the enum schema the discriminator scan added or by the discriminator object of `objectAt`.
    */
   enumParentOf(schema: object): DiscriminatorEnumParent | undefined;
 }

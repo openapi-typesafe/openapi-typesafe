@@ -15,6 +15,7 @@ import { withSchemaComment } from "../schema-comment.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import { discriminatorProperty } from "./discriminator-property.js";
+import { ownerEnumMembersType } from "./enum-rule.js";
 import type { SchemaOptions } from "./schema-context.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
@@ -238,7 +239,13 @@ function discriminatorMembers(schema: SchemaObject, request: SchemaRequest): IrM
   // A schema does not get the discriminator it defines for its children, nor one added already.
   const discriminator =
     !schema.discriminator && !discriminators.isHandled(path) && discriminators.objectAt(path);
-  return discriminator ? [discriminatorProperty(discriminator, path, options.immutable)] : [];
+  if (!discriminator) {
+    return [];
+  }
+  // With `discriminator-enum-members`, the value is a member of the owner's enum (#1700).
+  const valueType = (value: string | undefined) =>
+    ownerEnumMembersType(discriminator, [value], request);
+  return [discriminatorProperty(discriminator, path, options.immutable, valueType)];
 }
 
 /**

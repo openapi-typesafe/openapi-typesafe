@@ -128,3 +128,50 @@ const dog: components["schemas"]["Cat"] = { petType: PetType.Dog };`;
     expect(await fixed(SCHEMAS, { enum: false })).toBe(await generate(SCHEMAS, { enum: false }));
   });
 });
+
+describe("discriminator-enum-members fix without a mapping", () => {
+  const KINDS = { type: "string", enum: ["Cat", "Dog", "Kitten"] };
+  const OWNER = { type: "object", required: ["petType"], properties: { petType: ref("PetType") } };
+  /** No mapping and no `oneOf`: each member's value is its schema name, typed by the transformer. */
+  const INHERITED = {
+    PetType: KINDS,
+    Pet: { ...OWNER, discriminator: { propertyName: "petType" } },
+    Cat: { allOf: [ref("Pet")] },
+    Dog: member({ bark: { type: "string" } }),
+  };
+  const ASSIGNED = `const pet: components["schemas"]["Pet"] = {} as components["schemas"]["Cat"];`;
+
+  /** The `petType` types of the members, in order; the owner's own is not a member's. */
+  function memberTypesOf(output: string): string[] {
+    return [...output.matchAll(/petType: ([^;]+);/g)].map((match) => match[1] ?? "").slice(1);
+  }
+
+  it("openapiTS without the fix types each value as a string, which the enum does not accept", async () => {
+    const output = await generate(INHERITED);
+
+    expect(memberTypesOf(output)).toEqual(['"Cat"', '"Dog"']);
+    expect(typeErrorsOf(`${output}\n${ASSIGNED}`)).not.toEqual([]);
+  });
+
+  it("openapiTS with the fix types each value as a member of the owner's enum", async () => {
+    const output = await fixed(INHERITED);
+
+    expect(memberTypesOf(output)).toEqual(["PetType.Cat", "PetType.Dog"]);
+    expect(typeErrorsOf(`${output}\n${ASSIGNED}`)).toEqual([]);
+  });
+
+  it("openapiTS with the fix follows a chain of allOf and keeps a value the enum lacks", async () => {
+    const schemas = { ...INHERITED, Kitten: { allOf: [ref("Cat")] }, Puppy: { allOf: [ref("Dog")] } };
+
+    expect(memberTypesOf(await fixed(schemas))).toEqual(["PetType.Cat", "PetType.Dog", "PetType.Kitten", '"Puppy"']);
+  });
+
+  it("openapiTS with the fix finds the enum next to a discriminator of an inline allOf item", async () => {
+    const inline = { allOf: [{ ...OWNER, discriminator: { propertyName: "petType" } }] };
+
+    const output = await fixed({ ...INHERITED, Pet: inline });
+
+    // `Pet` gets its own name, which the enum lacks, before its inline item's property.
+    expect(memberTypesOf(output)).toEqual(['components["schemas"]["PetType"]', "PetType.Cat", "PetType.Dog"]);
+  });
+});
