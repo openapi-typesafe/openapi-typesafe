@@ -17,10 +17,25 @@ createClient<paths>(options);
 | :---------------- | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
 | `baseUrl`         | `string`        | Prefix all fetch URLs with this option (e.g. `"https://myapi.dev/v1/"`)                                                                 |
 | `fetch`           | `fetch`         | Fetch instance used for requests (default: `globalThis.fetch`)                                                                          |
+| `Request`         | `Request`       | Request class the client builds requests with (default: `globalThis.Request`)                                                           |
 | `querySerializer` | QuerySerializer | (optional) Provide a [querySerializer](#queryserializer)                                                                                |
 | `bodySerializer`  | BodySerializer  | (optional) Provide a [bodySerializer](#bodyserializer)                                                                                  |
 | `pathSerializer`  | PathSerializer  | (optional) Provide a [pathSerializer](#pathserializer)                                                                                  |
 | (Fetch options)   |                 | Any valid fetch option (`headers`, `mode`, `cache`, `signal` …) ([docs](https://developer.mozilla.org/en-US/docs/Web/API/fetch#options) |
+
+### Another fetch implementation
+
+`fetch` and `Request` of another Fetch API implementation, such as the `undici` package, are typed
+by that package, not by the DOM lib, so TypeScript cannot relate them to `Request` and `Response`.
+`createClient` and `createPathBasedClient` take them anyway (`OtherFetchClientOptions`) and check
+only that `fetch` returns a promise and `Request` is a class. Pass both from the same package: the
+undici `fetch` reads a request of another class as the URL `[object Request]`.
+
+```ts
+import { fetch, Request } from "undici";
+
+const client = createClient<paths>({ baseUrl: "https://myapi.dev/v1/", fetch, Request });
+```
 
 ## Fetch options
 

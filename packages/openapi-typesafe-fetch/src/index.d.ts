@@ -32,6 +32,24 @@ export interface ClientOptions extends Omit<RequestInit, "headers"> {
   requestInitExt?: Record<string, unknown>;
 }
 
+/**
+ * `ClientOptions` for a Fetch API implementation with its own types, such as the `undici` package
+ * (upstream #2562). TypeScript cannot relate its `Request` and `Response` to the DOM lib's (`duplex`,
+ * `RequestDestination`, `BodyInit` differ), so only what the client needs is checked: a `fetch`
+ * that returns a promise and a `Request` class that takes a URL. Pass the `fetch` and the `Request`
+ * of the same implementation; middleware and results still use the DOM types. The `createClient`
+ * overload with `ClientOptions` comes first, so an inline `fetch` gets a typed `Request` input.
+ */
+export interface OtherFetchClientOptions extends Omit<ClientOptions, "fetch" | "Request"> {
+  /** `fetch` of another implementation (for example `fetch` from `undici`) */
+  fetch?: (input: never, init?: never) => PromiseLike<object>;
+  /** `Request` of the same implementation (for example `Request` from `undici`) */
+  Request?: new (
+    input: string,
+    init: never,
+  ) => object;
+}
+
 export type HeadersOptions =
   | Required<RequestInit>["headers"]
   | Record<string, string | number | boolean | (string | number | boolean)[] | null | undefined>;
@@ -279,6 +297,9 @@ export type MethodResponse<
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
   clientOptions?: ClientOptions,
 ): Client<Paths, Media>;
+export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
+  clientOptions?: OtherFetchClientOptions,
+): Client<Paths, Media>;
 
 export type PathBasedClient<Paths extends Record<string | number, any>, Media extends MediaType = MediaType> = {
   [Path in keyof Paths]: ClientForPath<Paths[Path], Media>;
@@ -290,6 +311,9 @@ export declare function wrapAsPathBasedClient<Paths extends {}, Media extends Me
 
 export declare function createPathBasedClient<Paths extends {}, Media extends MediaType = MediaType>(
   clientOptions?: ClientOptions,
+): PathBasedClient<Paths, Media>;
+export declare function createPathBasedClient<Paths extends {}, Media extends MediaType = MediaType>(
+  clientOptions?: OtherFetchClientOptions,
 ): PathBasedClient<Paths, Media>;
 
 /** Serialize primitive params to string */
