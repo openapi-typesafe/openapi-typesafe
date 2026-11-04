@@ -1,5 +1,5 @@
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
 import type { CliArguments } from "./cli-arguments.js";
 import type { CliDependencies } from "./cli-dependencies.js";
@@ -21,9 +21,23 @@ export interface OutputFile {
   readonly file: URL;
 }
 
-/** A file URL for a path that is absolute, or relative to `base` (a directory or file URL). */
-export function resolveFileUrl(filePath: string, base: URL): URL {
-  return path.isAbsolute(filePath) ? pathToFileURL(filePath) : new URL(filePath, base);
+/**
+ * A scheme of two or more characters (`https:`, `file:`). One letter is a Windows drive (`C:`), so
+ * `C:\\specs\\api.yaml` stays a path.
+ */
+const URL_SCHEME = /^[a-z][a-z\d+.-]+:/i;
+
+/**
+ * The URL of a location the user wrote: a URL as it is, else a file path, absolute or relative to
+ * the directory of `base` (a directory or file URL). A path is not parsed as a URL, so `#`, `?` and
+ * `%` are part of the file name.
+ */
+export function resolveLocationUrl(location: string, base: URL): URL {
+  if (URL_SCHEME.test(location)) {
+    return new URL(location);
+  }
+  const baseDirectory = fileURLToPath(new URL(".", base));
+  return pathToFileURL(path.resolve(baseDirectory, location));
 }
 
 function printDone(run: CliRun, output: OutputFile): void {

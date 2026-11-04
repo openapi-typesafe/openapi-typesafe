@@ -120,7 +120,7 @@ describe("unknown flags", () => {
   it("parseCliArguments lists unknown flags once each, as written", () => {
     const args = parseCliArguments(["schema.yaml", "--alphabetise", "--bogus-flag=1", "-x", "--no-thing"]);
 
-    expect(args.unknownFlags).toEqual(["--alphabetise", "--bogus-flag", "-x", "--thing"]);
+    expect(args.unknownFlags).toEqual(["--alphabetise", "--bogus-flag", "-x", "--no-thing"]);
   });
 
   it("parseCliArguments knows every flag of the help text", () => {

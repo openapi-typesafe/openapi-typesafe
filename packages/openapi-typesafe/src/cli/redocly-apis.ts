@@ -4,7 +4,7 @@ import type { OutputFixName } from "../domain/output-fixes.js";
 import type { GeneratorOptions } from "../types.js";
 import { GENERATOR_FLAGS, type GeneratorFlags } from "./cli-arguments.js";
 import { cliError } from "./cli-errors.js";
-import { type CliRun, emitOutput, resolveFileUrl } from "./cli-output.js";
+import { type CliRun, emitOutput, resolveLocationUrl } from "./cli-output.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
 import { fixNamesOf, fixOption } from "./fix-option.js";
 import { refLimitOptions } from "./ref-limits.js";
@@ -55,7 +55,7 @@ function apiFixNames(settings: ApiSettings): readonly OutputFixName[] | undefine
 
 /** Paths in the config are relative to the config file; without a file, to the working dir. */
 function configRootOf(redocly: RedoclyConfig, cwd: URL): URL {
-  return redocly.configFile ? resolveFileUrl(redocly.configFile, cwd) : cwd;
+  return redocly.configFile ? resolveLocationUrl(redocly.configFile, cwd) : cwd;
 }
 
 async function generateApi(run: CliRun, redocly: RedoclyConfig, api: RedoclyApi): Promise<void> {
@@ -75,8 +75,12 @@ async function generateApi(run: CliRun, redocly: RedoclyConfig, api: RedoclyApi)
     ...fixOption(apiFixNames(api.settings) ?? run.args.fix),
     redocly,
   };
-  const contents = await run.deps.generate(new URL(api.root, configRoot), options);
-  emitOutput(run, { source: api.name, output, file: new URL(output, configRoot) }, contents);
+  const contents = await run.deps.generate(resolveLocationUrl(api.root, configRoot), options);
+  emitOutput(
+    run,
+    { source: api.name, output, file: resolveLocationUrl(output, configRoot) },
+    contents,
+  );
 }
 
 /**
