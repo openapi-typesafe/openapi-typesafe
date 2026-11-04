@@ -16,6 +16,7 @@ import { findMalformedRefs, malformedRefsError } from "./malformed-refs.js";
 import { RefAccessResolver } from "./ref-access.js";
 import { resolveConfigWithAccess } from "./remote-fetch.js";
 import {
+  loadFailedError,
   refCycleError,
   schemaInvalidError,
   versionUnsupportedError,
@@ -76,9 +77,25 @@ function assertOpenAPI3(document: unknown): void {
 /** The base for relative `$ref`s: the source file or URL itself, else the working directory. */
 function sourceAbsoluteRef(source: unknown, cwd: URL): string {
   if (source instanceof URL) {
-    return source.protocol === "file:" ? fileURLToPath(source) : source.href;
+    return source.protocol === "file:" ? sourceFilePath(source) : source.href;
   }
   return fileURLToPath(cwd);
+}
+
+/**
+ * The path of a `file:` source. A URL that names no path on this platform (an encoded slash, a
+ * host on POSIX, no drive letter on Windows) cannot be read, so it fails as a read would.
+ */
+function sourceFilePath(source: URL): string {
+  try {
+    return fileURLToPath(source);
+  } catch (error) {
+    // Node.js reports these as TypeErrors (ERR_INVALID_FILE_URL_PATH, ERR_INVALID_FILE_URL_HOST).
+    if (!(error instanceof TypeError)) {
+      throw error;
+    }
+    throw loadFailedError(source.href, error);
+  }
 }
 
 /** Redocly throws a plain Error for a `$ref` chain that points back to itself. */

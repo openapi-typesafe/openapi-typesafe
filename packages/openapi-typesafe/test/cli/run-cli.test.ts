@@ -3,9 +3,9 @@ import { refForbiddenError } from "../../src/adapters/redocly-loader/schema-load
 import { cliError } from "../../src/cli/cli-errors.js";
 import { HELP_TEXT } from "../../src/cli/help-text.js";
 import { runCli } from "../../src/cli/run-cli.js";
-import { createFakeCli, fakeRedoclyConfig } from "../fakes/cli-dependencies.js";
+import { createFakeCli, fakePath, fakeRedoclyConfig, fakeUrl } from "../fakes/cli-dependencies.js";
 
-const CONFIG_PATH = "/work/api/redocly.yaml";
+const CONFIG_PATH = fakePath("/work/api/redocly.yaml");
 
 /** A CLI whose `redocly.yaml` at CONFIG_PATH defines `apis`, found without `--redocly`. */
 function cliWithApis(apis: Record<string, Record<string, unknown>>) {
@@ -84,7 +84,7 @@ describe("runCli: help, version and flags", () => {
 
   it("runCli with an unexpected failure exits with 70 and prints the stack", async () => {
     const cli = createFakeCli();
-    cli.generator.failures.set("file:///work/a.yaml", new Error("boom"));
+    cli.generator.failures.set(fakeUrl("/work/a.yaml"), new Error("boom"));
 
     const exitCode = await runCli(["a.yaml"], cli.deps);
 
@@ -100,7 +100,7 @@ describe("runCli: one schema", () => {
     const exitCode = await runCli(["a.yaml", "--immutable"], cli.deps);
 
     expect(exitCode).toBe(0);
-    expect(cli.stdout).toEqual(["types of file:///work/a.yaml"]);
+    expect(cli.stdout).toEqual([`types of ${fakeUrl("/work/a.yaml")}`]);
     expect(cli.console.infoLines).toEqual([]);
     const options = cli.generator.calls[0]?.options;
     expect(options).toMatchObject({ immutable: true, silent: true });
@@ -115,7 +115,7 @@ describe("runCli: one schema", () => {
     expect(exitCode).toBe(0);
     expect(cli.generator.calls[0]?.source).toBe(cli.stdin);
     expect(cli.generator.calls[0]?.options.silent).toBe(false);
-    expect(cli.files.files.get("/work/out/types.ts")).toBe("types of stdin");
+    expect(cli.files.files.get(fakePath("/work/out/types.ts"))).toBe("types of stdin");
     expect(cli.console.infoLines).toEqual(["✨ *openapi-typesafe 1.2.3*", "🚀 stdin → *out/types.ts* [5ms]"]);
   });
 
@@ -124,7 +124,7 @@ describe("runCli: one schema", () => {
 
     await runCli(["a.yaml", "--output", "/elsewhere/types.ts"], cli.deps);
 
-    expect(cli.files.files.get("/elsewhere/types.ts")).toBe("types of file:///work/a.yaml");
+    expect(cli.files.files.get(fakePath("/elsewhere/types.ts"))).toBe(`types of ${fakeUrl("/work/a.yaml")}`);
   });
 
   it("runCli with a URL input passes the URL", async () => {
@@ -149,7 +149,7 @@ describe("runCli: one schema", () => {
 describe("runCli --check", () => {
   it("runCli --check with an up-to-date file exits with 0 and writes nothing", async () => {
     const cli = createFakeCli();
-    cli.files.files.set("/work/types.ts", "types of file:///work/a.yaml");
+    cli.files.files.set(fakePath("/work/types.ts"), `types of ${fakeUrl("/work/a.yaml")}`);
 
     const exitCode = await runCli(["a.yaml", "-o", "types.ts", "--check"], cli.deps);
 
@@ -159,12 +159,12 @@ describe("runCli --check", () => {
 
   it("runCli --check with a stale file exits with 1 and keeps the file", async () => {
     const cli = createFakeCli();
-    cli.files.files.set("/work/types.ts", "old");
+    cli.files.files.set(fakePath("/work/types.ts"), "old");
 
     const exitCode = await runCli(["a.yaml", "-o", "types.ts", "--check"], cli.deps);
 
     expect(exitCode).toBe(1);
-    expect(cli.files.files.get("/work/types.ts")).toBe("old");
+    expect(cli.files.files.get(fakePath("/work/types.ts"))).toBe("old");
     expect(cli.logger.messages("error")).toEqual([
       "Generated types are not up-to-date! types.ts differs from its schema. (OUTPUT_STALE)",
     ]);
@@ -199,8 +199,8 @@ describe("runCli with the APIs of a Redocly config", () => {
     const exitCode = await runCli([], cli.deps);
 
     expect(exitCode).toBe(0);
-    expect(cli.files.files.get("/work/api/first.ts")).toBe("types of file:///work/api/first.yaml");
-    expect(cli.files.files.get("/work/api/out/2.ts")).toBe("types of https://example.com/second.yaml");
+    expect(cli.files.files.get(fakePath("/work/api/first.ts"))).toBe(`types of ${fakeUrl("/work/api/first.yaml")}`);
+    expect(cli.files.files.get(fakePath("/work/api/out/2.ts"))).toBe("types of https://example.com/second.yaml");
   });
 
   it("runCli takes an API's boolean flags in camelCase or kebab-case over the CLI flags", async () => {
@@ -229,7 +229,7 @@ describe("runCli with the APIs of a Redocly config", () => {
     expect(cli.logger.messages("warn")).toEqual([
       "APIs are specified both in Redocly Config and CLI argument. Only using Redocly config.",
     ]);
-    expect(cli.generator.calls.map((call) => String(call.source))).toEqual(["file:///work/api/api.yaml"]);
+    expect(cli.generator.calls.map((call) => String(call.source))).toEqual([fakeUrl("/work/api/api.yaml")]);
   });
 
   it("runCli resolves the APIs from the working directory when the config has no file", async () => {
@@ -242,7 +242,7 @@ describe("runCli with the APIs of a Redocly config", () => {
 
     await runCli([], cli.deps);
 
-    expect(cli.files.files.get("/work/api.ts")).toBe("types of file:///work/api.yaml");
+    expect(cli.files.files.get(fakePath("/work/api.ts"))).toBe(`types of ${fakeUrl("/work/api.yaml")}`);
   });
 
   it("runCli with an API without an output exits with 2 and still writes the others", async () => {
@@ -255,7 +255,7 @@ describe("runCli with the APIs of a Redocly config", () => {
 
     expect(exitCode).toBe(2);
     expect(cli.logger.messages("error")[0]).toContain("API broken is missing an `x-openapi-ts.output` key");
-    expect(cli.files.files.has("/work/api/good.ts")).toBe(true);
+    expect(cli.files.files.has(fakePath("/work/api/good.ts"))).toBe(true);
   });
 
   it("runCli --check checks every API and fails when any output is stale", async () => {
@@ -263,8 +263,8 @@ describe("runCli with the APIs of a Redocly config", () => {
       fresh: { root: "fresh.yaml", "x-openapi-ts": { output: "fresh.ts" } },
       stale: { root: "stale.yaml", "x-openapi-ts": { output: "stale.ts" } },
     });
-    cli.files.files.set("/work/api/fresh.ts", "types of file:///work/api/fresh.yaml");
-    cli.files.files.set("/work/api/stale.ts", "old");
+    cli.files.files.set(fakePath("/work/api/fresh.ts"), `types of ${fakeUrl("/work/api/fresh.yaml")}`);
+    cli.files.files.set(fakePath("/work/api/stale.ts"), "old");
 
     const exitCode = await runCli(["--check"], cli.deps);
 
@@ -279,8 +279,8 @@ describe("runCli with the APIs of a Redocly config", () => {
       a: { root: "a.yaml", "x-openapi-ts": { output: "a.ts" } },
       b: { root: "b.yaml", "x-openapi-ts": { output: "b.ts" } },
     });
-    cli.generator.failures.set("file:///work/api/a.yaml", cliError("CLI_FLAG_REMOVED", "first"));
-    cli.generator.failures.set("file:///work/api/b.yaml", new Error("second"));
+    cli.generator.failures.set(fakeUrl("/work/api/a.yaml"), cliError("CLI_FLAG_REMOVED", "first"));
+    cli.generator.failures.set(fakeUrl("/work/api/b.yaml"), new Error("second"));
 
     const exitCode = await runCli([], cli.deps);
 
@@ -302,7 +302,7 @@ describe("runCli: $ref limits", () => {
 
     expect(exitCode).toBe(0);
     expect(cli.generator.calls[0]?.options).toMatchObject({
-      localRefRoot: new URL("file:///work/schemas"),
+      localRefRoot: new URL(fakeUrl("/work/schemas")),
       remoteRefHosts: ["api.example.com"],
     });
   });
@@ -328,7 +328,7 @@ describe("runCli: $ref limits", () => {
   it("runCli exits with 3 when a $ref is refused", async () => {
     const cli = createFakeCli();
     cli.generator.failures.set(
-      "file:///work/a.yaml",
+      fakeUrl("/work/a.yaml"),
       refForbiddenError("/etc/passwd", { reason: "outside-local-root", localRoot: "/work" }),
     );
 

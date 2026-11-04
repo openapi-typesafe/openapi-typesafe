@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Apply the repository settings of ENGINEERING_PLAN 9.8 when the repository goes public (11.2):
 # rulesets for main and release tags, secret scanning with push protection, private vulnerability
-# reporting, the `npm-publish` environment with the maintainer as required reviewer, pull requests
-# opened by workflows, and GitHub Pages built by .github/workflows/docs.yml.
+# reporting, Dependabot alerts with the dependency graph, the `npm-publish` environment with the
+# maintainer as required reviewer, pull requests opened by workflows, and GitHub Pages built by
+# .github/workflows/docs.yml.
 #
 # Usage: scripts/repo/apply-settings.sh [--apply]
 #        Without --apply it only prints what it would change. Needs `gh` logged in as an admin.
@@ -63,6 +64,9 @@ api --method PATCH "repos/${REPOSITORY}" \
   -f "security_and_analysis[secret_scanning][status]=enabled" \
   -f "security_and_analysis[secret_scanning_push_protection][status]=enabled"
 api --method PUT "repos/${REPOSITORY}/private-vulnerability-reporting"
+# Dependabot alerts turn on the dependency graph, which the `dependency review` check of pull
+# requests needs; without it the check fails with "not supported on this repository".
+api --method PUT "repos/${REPOSITORY}/vulnerability-alerts"
 
 reviewer_id="$(gh api "users/${MAINTAINER}" --jq .id)"
 api --method PUT "repos/${REPOSITORY}/environments/${ENVIRONMENT}" --input - <<JSON
@@ -73,7 +77,10 @@ api --method PUT "repos/${REPOSITORY}/environments/${ENVIRONMENT}" --input - <<J
 JSON
 
 # Changesets opens the "Version Packages" pull request with the workflow token
-# (.github/workflows/release.yml); the token stays read-only by default.
+# (.github/workflows/release.yml); the token stays read-only by default. The organization setting
+# comes first: while it forbids pull requests from workflows, the repository setting fails (409).
+api --method PUT "orgs/${REPOSITORY%%/*}/actions/permissions/workflow" \
+  -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true
 api --method PUT "repos/${REPOSITORY}/actions/permissions/workflow" \
   -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true
 

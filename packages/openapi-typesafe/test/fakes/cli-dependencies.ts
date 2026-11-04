@@ -1,5 +1,6 @@
+import path from "node:path";
 import { Readable } from "node:stream";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { FileReader, FileWriter } from "../../src/application/ports/file-system.js";
 import type { DebugGroup, Logger } from "../../src/application/ports/logger.js";
 import type {
@@ -12,7 +13,20 @@ import type { GeneratorOptions, SchemaSource } from "../../src/types.js";
 
 /** In-memory fakes of the CLI's dependencies (CODING_PRINCIPLES 6.1, rule 7). */
 
-export const FAKE_CWD = new URL("file:///work/");
+/**
+ * A fake absolute path in the form of the platform, written POSIX style: `/work/a.yaml` is
+ * `D:\work\a.yaml` on Windows, as the CLI resolves it there, so these tests run on every OS.
+ */
+export function fakePath(posixPath: string): string {
+  return path.resolve(posixPath);
+}
+
+/** The `file:` URL of fakePath(posixPath). */
+export function fakeUrl(posixPath: string): string {
+  return pathToFileURL(fakePath(posixPath)).href;
+}
+
+export const FAKE_CWD = pathToFileURL(`${fakePath("/work")}${path.sep}`);
 
 export class RecordingLogger implements Logger {
   readonly lines: { level: "debug" | "warn" | "error"; message: string }[] = [];

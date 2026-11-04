@@ -1,5 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/redocly-schema-loader.js";
 import { defaultRedoclyConfig } from "../../src/api/default-ports.js";
@@ -61,7 +63,12 @@ async function loadDocument(source: unknown) {
     now: () => 0,
     remoteRefTimeoutMs: TEST_TIMEOUT_MS,
   });
-  return loader.load({ source: source as never, cwd: new URL("file:///work/"), shouldLint: true, refAccess: {} });
+  return loader.load({
+    source: source as never,
+    cwd: pathToFileURL(`${path.resolve("/work")}${path.sep}`),
+    shouldLint: true,
+    refAccess: {},
+  });
 }
 
 async function loadFailure(source: unknown): Promise<OpenAPITypesafeError> {
