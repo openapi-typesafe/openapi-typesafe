@@ -48,6 +48,9 @@ function metadataKey(value: string, metadata: EnumMemberMetadata | undefined): s
   return `${metadata?.name ?? value}:${metadata?.description || ""}`;
 }
 
+/** Separates a repeated `--enum-values` array name from its number, as root type aliases do. */
+const ENUM_VALUES_NUMBER_SEPARATOR = "_";
+
 /** The whole declaration: an equal key means the same enum, member for member. */
 function declarationKey(name: string, request: EnumDeclarationRequest): string {
   return JSON.stringify([name, request.values, request.metadata]);
@@ -65,8 +68,10 @@ export class RunFooter implements DocumentFooter {
   private readonly declaredEnums = new Set<string>();
   /** The member names of each declared enum, by value. */
   private readonly membersByEnum = new Map<string, ReadonlyMap<string | number, string>>();
-  /** `--enum-values` arrays added already, by name, type and values. */
-  private readonly declaredEnumValues = new Set<string>();
+  /** `--enum-values` arrays added already: their declared name by name, type and values. */
+  private readonly declaredEnumValues = new Map<string, string>();
+  /** The declared `--enum-values` array names. */
+  private readonly enumValuesNames = new Set<string>();
   private readonly sink: FooterSink;
   private readonly isDedupingEnums: boolean;
 
@@ -105,13 +110,15 @@ export class RunFooter implements DocumentFooter {
   }
 
   addEnumValues(request: EnumValuesRequest): void {
-    const name = this.naming.arrayName(request.name);
+    const baseName = this.naming.arrayName(request.name);
     // The same array twice fails with "Cannot redeclare"; a schema typed twice adds it twice.
-    const declared = JSON.stringify([name, request.type, request.values]);
+    const declared = JSON.stringify([baseName, request.type, request.values]);
     if (this.declaredEnumValues.has(declared)) {
       return;
     }
-    this.declaredEnumValues.add(declared);
+    const name = this.freeEnumValuesName(baseName);
+    this.declaredEnumValues.set(declared, name);
+    this.enumValuesNames.add(name);
     this.require(HELPER_TYPES.flattenedDeepRequired);
     this.require(HELPER_TYPES.readonlyArray);
     this.sink.add({
@@ -122,6 +129,20 @@ export class RunFooter implements DocumentFooter {
       values: request.values,
       comments: [],
     });
+  }
+
+  /**
+   * Another array may have the name: `Discount/type` and `discount/type`, or a property and an
+   * inline `allOf` item of one schema, typed at one location. A redeclared `const` does not
+   * compile, so a later one gets the next number (`discountTypeValues_2`). Every unnumbered name
+   * ends with `Values`, so a number never takes a name that a later array needs.
+   */
+  private freeEnumValuesName(name: string): string {
+    let candidate = name;
+    for (let count = 2; this.enumValuesNames.has(candidate); count++) {
+      candidate = `${name}${ENUM_VALUES_NUMBER_SEPARATOR}${count}`;
+    }
+    return candidate;
   }
 
   requireWithRequired(): void {

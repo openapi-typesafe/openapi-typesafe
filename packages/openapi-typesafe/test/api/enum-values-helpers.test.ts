@@ -58,3 +58,43 @@ describe("enum values arrays declared once", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 });
+
+describe("enum values arrays of one name", () => {
+  const enumOf = (values: string[]) => ({ type: "string", enum: values });
+  /**
+   * `Discount/type` and `discount/type` give one name; so do a property and an inline `allOf` item
+   * of one schema, which are typed at the same location.
+   */
+  const SCHEMAS = {
+    Discount: { type: "object", properties: { type: enumOf(["fixed", "percent"]) } },
+    discount: { type: "object", properties: { type: enumOf(["percent", "fixed"]) } },
+    Issue: {
+      type: "object",
+      properties: { state: enumOf(["open", "closed"]) },
+      allOf: [{ type: "object", properties: { state: enumOf(["closed", "open"]) } }],
+    },
+  };
+
+  async function generateWith(schemas: Record<string, unknown>): Promise<string> {
+    const document = { ...DOCUMENT, components: { schemas } } as OpenAPI3;
+    return astToString(await openapiTS(structuredClone(document), { silent: true, enumValues: true }));
+  }
+
+  it("openapiTS with enumValues numbers the later arrays, so the output compiles", async () => {
+    const output = await generateWith(SCHEMAS);
+
+    expect([...output.matchAll(/^export const (\S+):/gm)].map((match) => match[1])).toEqual([
+      "discountTypeValues",
+      "discountTypeValues_2",
+      "issueStateValues",
+      "issueStateValues_2",
+    ]);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS with enumValues keeps the name of an array no other array has", async () => {
+    const { Discount } = SCHEMAS;
+
+    expect(await generateWith({ Discount })).toContain("export const discountTypeValues: ");
+  });
+});
