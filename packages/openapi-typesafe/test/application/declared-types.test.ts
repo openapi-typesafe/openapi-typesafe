@@ -94,6 +94,21 @@ describe("declaredTypeLookup", () => {
     expect(lookup(STRING)).toBeNull();
   });
 
+  it("declaredTypeLookup does not index a type alias that is no object, nor read nameless text", () => {
+    const alias: IrDeclaration = {
+      kind: "typeAlias",
+      name: "Id",
+      isExported: true,
+      type: STRING,
+      comments: [],
+    };
+    const text: IrDeclaration = { kind: "rawDeclaration", text: "declare const x: 1;" };
+
+    const lookup = declaredTypeLookup([alias, text]);
+
+    expect(lookup(indexed("Id", "length"))).toBeNull();
+  });
+
   it("declaredTypeLookup with a reference that indexes into itself names nothing", () => {
     const loop = indexed("components", "schemas", "Loop", "next");
     const components = interfaceOf(
