@@ -38,7 +38,7 @@ export class InvalidRefError extends OpenAPITypesafeError {
 }
 
 /** Segments that index into the root type, always as escaped string literal types. */
-function indexBy(type: IrType, ...segments: readonly string[]): IrType {
+export function indexBy(type: IrType, ...segments: readonly string[]): IrType {
   return segments.reduce<IrType>(
     (object, segment) => irIndexedAccess(object, irString(segment, "escaped")),
     type,
@@ -50,7 +50,7 @@ function indexBy(type: IrType, ...segments: readonly string[]): IrType {
  * not one (`{ content-type: unknown }`), which is a syntax error; it is now quoted like any other
  * property name, and an identifier stays as it was.
  */
-function extractVariantsWith(type: IrType, propertyName: string): IrType {
+export function extractVariantsWith(type: IrType, propertyName: string): IrType {
   const probe = irProperty(toPropertyName(propertyName), irKeyword("unknown"));
   return irReference("Extract", [type, irObject([probe])]);
 }
@@ -62,12 +62,12 @@ const DEFS_KEYWORD = "$defs";
  * segments follow it is wrapped in `NonNullable<…>` first; otherwise the next index fails on
  * `undefined` (upstream #2664).
  */
-function indexKeyword(type: IrType, segment: string, isLast: boolean): IrType {
+export function indexKeyword(type: IrType, segment: string, isLast: boolean): IrType {
   const indexed = indexBy(type, segment);
   return segment === DEFS_KEYWORD && !isLast ? irReference("NonNullable", [indexed]) : indexed;
 }
 
-function rootType(rootSegment: string, isDeep: boolean): IrType {
+export function rootType(rootSegment: string, isDeep: boolean): IrType {
   return irReference(isDeep ? `FlattenedDeepRequired<${rootSegment}>` : rootSegment);
 }
 
