@@ -12,6 +12,8 @@ export const OutputFix = {
   ANYOF_PROPERTIES: "anyof-properties",
   /** `--array-length` tuples have `min` to `max` items, nest right and follow `--immutable`. */
   ARRAY_LENGTH_TUPLES: "array-length-tuples",
+  /** A schema two discriminators name gets one enum of their values, a mapping before its name. */
+  DISCRIMINATOR_VALUES: "discriminator-values",
   /** `unevaluatedProperties` types the keys no other keyword declares (an index signature). */
   UNEVALUATED_PROPERTIES: "unevaluated-properties",
 } as const;

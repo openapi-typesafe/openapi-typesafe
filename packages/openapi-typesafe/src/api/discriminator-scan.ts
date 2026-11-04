@@ -2,12 +2,12 @@ import type { Logger } from "../application/ports/logger.js";
 import type {
   DiscriminatorObject,
   GeneratorOptions,
-  ObjectSubtype,
   OpenAPI3,
   ReferenceObject,
   SchemaObject,
 } from "../types.js";
 import { defaultLogger } from "./default-ports.js";
+import { addEnumProperty, type EnumPatch } from "./discriminator-enum.js";
 import { resolveDocumentRef, walkDocument } from "./document-refs.js";
 import { createRef } from "./legacy-utils.js";
 
@@ -19,82 +19,75 @@ import { createRef } from "./legacy-utils.js";
 
 type DiscriminatorMapping = Record<string, { inferred?: string; defined?: string[] }>;
 
-/** What the two passes share: the document they patch and what they found so far. */
-interface ScanState {
-  readonly schema: OpenAPI3;
+/** How to scan; `fixesValueConflicts` is the `discriminator-values` fix (ADR-021, roadmap R12). */
+export interface DiscriminatorScanOptions {
   readonly silent: boolean;
   readonly logger: Logger;
+  readonly fixesValueConflicts: boolean;
+}
+
+/** What the two passes share: the document they patch and what they found so far. */
+interface ScanState extends DiscriminatorScanOptions {
+  readonly schema: OpenAPI3;
   readonly objects: Record<string, DiscriminatorObject>;
   readonly refsHandled: string[];
+  /** With the fix: the enum added to each schema, by schema and property, so values merge. */
+  readonly patchedEnums: Map<string, SchemaObject>;
+  /** With the fix: schema-name values, applied after both passes where no mapping names one. */
+  readonly inferredPatches: EnumPatch[];
 }
 
-/** One mapped schema to patch: `ref` is the schema; `discriminatorRef` owns the discriminator. */
-interface EnumPatch {
-  readonly ref: string;
-  readonly values: string[];
-  readonly discriminator: DiscriminatorObject;
-  readonly discriminatorRef: string;
-}
-
-function discriminatorEnum(values: string[], previous?: SchemaObject): SchemaObject {
-  return {
-    type: "string",
-    enum: values,
-    description: previous?.description
-      ? `${previous.description} (enum property replaced by openapi-typesafe)`
-      : "discriminator enum property added by openapi-typesafe",
-  };
-}
-
-/** An `allOf` schema gets one more item that holds the required enum property. */
-function patchAllOf(allOf: (SchemaObject | ReferenceObject)[], patch: EnumPatch): void {
-  allOf.push({
-    type: "object",
-    required: [patch.discriminator.propertyName],
-    properties: { [patch.discriminator.propertyName]: discriminatorEnum(patch.values) },
-  });
-}
-
-/** An object schema gets the enum property, which is always required, added or replaced. */
-function patchObjectSchema(schema: SchemaObject & ObjectSubtype, patch: EnumPatch): void {
-  const name = patch.discriminator.propertyName;
-  if (!schema.properties) {
-    schema.properties = {};
+/** The enum the schema at `patch.ref` gets, or null (with a warning) for another kind of schema. */
+function addDiscriminatorEnum(state: ScanState, patch: EnumPatch): SchemaObject | null {
+  const { silent, logger } = state;
+  const resolved = resolveDocumentRef<SchemaObject>(state.schema, patch.ref, { silent, logger });
+  const added = addEnumProperty(resolved, patch);
+  if (added === null) {
+    warnInvalidMapping(patch, state.logger);
   }
-  if (!schema.required) {
-    schema.required = [name];
-  } else if (!schema.required.includes(name)) {
-    schema.required.push(name);
-  }
-  schema.properties[name] = discriminatorEnum(
-    patch.values,
-    schema.properties[name] as SchemaObject,
-  );
+  return added;
 }
 
-function isObjectSchema(schema: unknown): schema is SchemaObject & ObjectSubtype {
-  return (
-    typeof schema === "object" && schema !== null && "type" in schema && schema.type === "object"
-  );
+/** One schema and discriminator property; two discriminators of one property share an enum. */
+function enumKey(patch: EnumPatch): string {
+  return `${patch.ref}\n${patch.discriminator.propertyName}`;
+}
+
+/** With the fix, a second discriminator of the same property adds its values to the first enum. */
+function mergeIntoPatchedEnum(state: ScanState, key: string, values: readonly string[]): boolean {
+  const patched = state.patchedEnums.get(key);
+  if (patched === undefined) {
+    return false;
+  }
+  const merged = patched.enum as unknown[];
+  merged.push(...values.filter((value) => !merged.includes(value)));
+  return true;
 }
 
 /**
  * Add or replace the discriminator enum in the schema at `patch.ref`. Returns false, with a
- * warning, when that schema is neither an `allOf` nor an object schema.
+ * warning, when that schema is neither an `allOf` nor an object schema. Without the fix every
+ * patch adds a property, so two discriminators with different values intersect to `never`.
  */
 function patchDiscriminatorEnum(state: ScanState, patch: EnumPatch): boolean {
-  const { silent, logger } = state;
-  const resolved = resolveDocumentRef<SchemaObject>(state.schema, patch.ref, { silent, logger });
-  if (resolved?.allOf) {
-    patchAllOf(resolved.allOf, patch);
+  if (!state.fixesValueConflicts) {
+    return addDiscriminatorEnum(state, patch) !== null;
+  }
+  const key = enumKey(patch);
+  if (mergeIntoPatchedEnum(state, key, patch.values)) {
     return true;
   }
-  if (isObjectSchema(resolved)) {
-    patchObjectSchema(resolved, patch);
-    return true;
+  const added = addDiscriminatorEnum(state, patch);
+  if (added !== null) {
+    state.patchedEnums.set(key, added);
   }
-  warnInvalidMapping(patch, state.logger);
-  return false;
+  return added !== null;
+}
+
+function markHandled(state: ScanState, ref: string): void {
+  if (!state.refsHandled.includes(ref)) {
+    state.refsHandled.push(ref);
+  }
 }
 
 function warnInvalidMapping(patch: EnumPatch, logger: Logger): void {
@@ -142,13 +135,17 @@ function patchMappedSchemas(
   discriminator: Omit<EnumPatch, "ref" | "values">,
 ): void {
   for (const [ref, { inferred, defined }] of Object.entries(mapping)) {
-    if (state.refsHandled.includes(ref) || (!inferred && !defined)) {
+    const isSkipped = !state.fixesValueConflicts && state.refsHandled.includes(ref);
+    if (isSkipped || (!inferred && !defined)) {
       continue;
     }
     // A defined value wins: the schema name may not be the value the API sends.
     const values = defined ?? [inferred as string];
-    if (patchDiscriminatorEnum(state, { ...discriminator, ref, values })) {
-      state.refsHandled.push(ref);
+    if (state.fixesValueConflicts && defined === undefined) {
+      // A mapping found later, in this pass or the next, may name the schema.
+      state.inferredPatches.push({ ...discriminator, ref, values });
+    } else if (patchDiscriminatorEnum(state, { ...discriminator, ref, values })) {
+      markHandled(state, ref);
     }
   }
 }
@@ -195,7 +192,7 @@ function inheritFromRef(state: ScanState, parentRef: string, ref: string): boole
   const values = valuesMappedTo(discriminator, ref);
   const patch = { ref, values, discriminator, discriminatorRef: parentRef };
   if (values.length > 0 && patchDiscriminatorEnum(state, patch)) {
-    state.refsHandled.push(ref);
+    markHandled(state, ref);
   }
   state.objects[ref] = { ...discriminator };
   return true;
@@ -227,16 +224,36 @@ export interface DiscriminatorScan {
   refsHandled: string[];
 }
 
+/**
+ * With the fix: a schema-name value, only for a schema and property that no mapping gave a value.
+ * Every enum patched so far came from a mapping, since schema-name values wait for this step.
+ */
+function applyInferredPatches(state: ScanState): void {
+  const mapped = new Set(state.patchedEnums.keys());
+  for (const patch of state.inferredPatches) {
+    if (!mapped.has(enumKey(patch)) && patchDiscriminatorEnum(state, patch)) {
+      markHandled(state, patch.ref);
+    }
+  }
+}
+
 /** Find every discriminator in `schema`; warnings go to `logger` unless `silent`. */
 export function findDiscriminators(
   schema: OpenAPI3,
-  silent: boolean,
-  logger: Logger,
+  options: DiscriminatorScanOptions,
 ): DiscriminatorScan {
-  const state: ScanState = { schema, silent, logger, objects: {}, refsHandled: [] };
+  const state: ScanState = {
+    ...options,
+    schema,
+    objects: {},
+    refsHandled: [],
+    patchedEnums: new Map(),
+    inferredPatches: [],
+  };
   walkDocument(schema, (value, path) => collectDiscriminator(state, value, path));
   // A second pass, because an `allOf` may name a discriminator that is defined later.
   walkDocument(schema, (value, path) => inheritDiscriminators(state, value, path));
+  applyInferredPatches(state);
   return { objects: state.objects, refsHandled: state.refsHandled };
 }
 
@@ -250,5 +267,6 @@ export function scanDiscriminators(
   options: GeneratorOptions,
   logger: Logger = defaultLogger(options.silent ?? false),
 ): DiscriminatorScan {
-  return findDiscriminators(schema, options.silent ?? false, logger);
+  const silent = options.silent ?? false;
+  return findDiscriminators(schema, { silent, logger, fixesValueConflicts: false });
 }

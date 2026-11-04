@@ -398,6 +398,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
+| `discriminator-values` | A schema that a discriminator `mapping` names gets the mapped value only, not also its schema name from a discriminated `oneOf` without a mapping, which made the property `never` | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
 
 #### allof-required
@@ -521,6 +522,54 @@ Rows: [string[]]; // [!code ++]
 
 The fix needs `--array-length` and changes nothing without it; naming it without that flag prints a
 notice (`--fix all` does not). Arrays with too many possible tuples stay `T[]`, as before.
+
+#### discriminator-values
+
+A discriminator gives each schema it names a required enum property. Without the fix every
+discriminator adds its own one. A schema that a `mapping` names (`cat` for `Cat`) and that a
+discriminated `oneOf` without a mapping also lists gets the schema name too (`Cat`), and the two
+properties intersect to `never`: no value of `Cat` can be written. With the fix the values of one
+property merge into one enum:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string }
+      discriminator:
+        propertyName: kind
+        mapping:
+          cat: "#/components/schemas/Cat"
+    Cat:
+      allOf:
+        - $ref: "#/components/schemas/Pet"
+    Shelter:
+      properties:
+        resident:
+          oneOf:
+            - $ref: "#/components/schemas/Cat"
+          discriminator:
+            propertyName: kind
+```
+
+:::
+
+```ts
+Cat: Omit<components["schemas"]["Pet"], "kind"> & { kind: "Cat" } & { kind: "cat" }; // [!code --]
+Cat: Omit<components["schemas"]["Pet"], "kind"> & { kind: "cat" }; // [!code ++]
+```
+
+- A value from a `mapping` wins: the schema name is used only where no mapping, in any
+  discriminator of that property, gives the schema a value. That matches the OpenAPI rule that an
+  explicit mapping replaces the implicit one.
+- Two mappings that give one schema different values make one enum with both (`"cat" | "feline"`).
+- Two discriminators with different property names still add two properties.
+- With `--enum`, the merged enum is declared once.
 
 #### unevaluated-properties
 

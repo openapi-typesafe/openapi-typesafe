@@ -44,6 +44,7 @@ describe("selectOptionSets", () => {
 
     expect(ids).toEqual([
       "default",
+      "enum",
       "immutable",
       "additional-properties",
       "empty-objects-unknown",
@@ -64,6 +65,8 @@ describe("selectOptionSets", () => {
       "fix=unevaluated-properties",
       "fix=unevaluated-properties+immutable",
       "fix=unevaluated-properties+additional-properties",
+      "fix=discriminator-values",
+      "fix=discriminator-values+enum",
       "fix=all",
       "fix=all+array-length",
     ]);

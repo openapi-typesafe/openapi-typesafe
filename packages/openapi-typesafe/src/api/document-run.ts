@@ -7,7 +7,7 @@ import type { RefAccess, SchemaLoader } from "../application/ports/schema-loader
 import { withStackOverflowReported } from "../application/stack-overflow.js";
 import {
   ineffectiveFixNotices,
-  type OutputFix,
+  OutputFix,
   outputFixNamesOf,
   resolveOutputFixes,
 } from "../domain/output-fixes.js";
@@ -144,7 +144,11 @@ export async function createDocumentRun(
     // The scan walks every schema before the transform does, so on a larger stack, where loading
     // passed, it is the first step to run out.
     discriminators: withStackOverflowReported("transform", () =>
-      findDiscriminators(schema, silent, logger),
+      findDiscriminators(schema, {
+        silent,
+        logger,
+        fixesValueConflicts: fix.includes(OutputFix.DISCRIMINATOR_VALUES),
+      }),
     ),
     injectFooter: [],
     redoc: ports.redoc,

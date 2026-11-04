@@ -109,6 +109,14 @@ describe("CLI", () => {
       },
     ],
     [
+      "snapshot > discriminator mapping values (discriminator-values fix)",
+      {
+        given: ["./examples/discriminator-values.yaml", "--fix", "discriminator-values"],
+        want: new URL("./examples/discriminator-values.ts", root),
+        ci: { timeout: TIMEOUT },
+      },
+    ],
+    [
       "snapshot > anyOf with sibling properties (anyof-properties fix)",
       {
         given: ["./examples/anyof-properties.yaml", "--fix", "anyof-properties"],
