@@ -1,4 +1,6 @@
+import path from "node:path";
 import { Readable } from "node:stream";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { loadFailedError, schemaInvalidError } from "../../src/adapters/redocly-loader/schema-load-errors.js";
 import openapiTS, { type OpenAPITypesafeError } from "../../src/index.js";
@@ -51,14 +53,23 @@ describe("schema load errors", () => {
   });
 
   it("openapiTS with a missing file fails with SCHEMA_LOAD_FAILED and the reader's message", async () => {
-    const error = await failureOf(new URL("file:///no/such/openapi.yaml"));
+    const missing = path.resolve("/no/such/openapi.yaml");
 
-    expect(error).toMatchObject({
-      code: "SCHEMA_LOAD_FAILED",
-      details: { source: "/no/such/openapi.yaml" },
-    });
+    const error = await failureOf(pathToFileURL(missing));
+
+    expect(error).toMatchObject({ code: "SCHEMA_LOAD_FAILED", details: { source: missing } });
     expect(error.message).toContain("ENOENT");
     expect(error.cause).toBeInstanceOf(Error);
+  });
+
+  it("openapiTS with a file URL that is not a path fails with SCHEMA_LOAD_FAILED", async () => {
+    // An encoded slash cannot become a file path on any platform (ERR_INVALID_FILE_URL_PATH).
+    const source = new URL("file:///schemas/a%2Fb.yaml");
+
+    const error = await failureOf(source);
+
+    expect(error).toMatchObject({ code: "SCHEMA_LOAD_FAILED", details: { source: source.href } });
+    expect(error.cause).toMatchObject({ code: "ERR_INVALID_FILE_URL_PATH" });
   });
 
   it.each([
