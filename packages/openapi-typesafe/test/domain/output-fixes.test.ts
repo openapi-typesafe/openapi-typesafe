@@ -24,7 +24,8 @@ describe("outputFixNamesOf", () => {
     expect(isOpenAPITypesafeError(error)).toBe(true);
     expect(error).toMatchObject({
       code: "OPTION_FIX_UNKNOWN",
-      message: 'Unknown fix "nope", 1. Known fixes: allof-required, anyof-properties, all.',
+      message:
+        'Unknown fix "nope", 1. Known fixes: allof-required, anyof-properties, array-length-tuples, all.',
       details: { unknown: ["nope", 1], known: [...OUTPUT_FIXES, ALL_OUTPUT_FIXES] },
     });
   });

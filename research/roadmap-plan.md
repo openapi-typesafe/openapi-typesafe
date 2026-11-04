@@ -172,7 +172,7 @@ and asks.
 
 ### R9. `--array-length` tuples (backlog 21; #2048, #2330, #2546)
 
-- [ ] R9.1 `minItems: 1`, nested arrays, `minItems..maxItems` ranges; behind R5 (the flag already
+- [x] R9.1 `minItems: 1`, nested arrays, `minItems..maxItems` ranges; behind R5 (the flag already
   exists, so the fix changes the output of its users); gates of §4.
 
 ### R10. Invalid-output fixes (backlog 27, 28, 29)
@@ -204,6 +204,7 @@ and asks.
 | R6 | 2026-11-03 | `feat(generator)` commit | `--fix` option (ADR-021) with `allof-required`: presence-only `allOf` members are left out and their keys become required (`WithRequired`). Opt-in: 9,100 cases, 0 regressions; compat 200 × 28: 0 mismatches; type matrix pass. See `research/roadmap/R6.md` |
 | R7 | 2026-11-03 | `fix(react-query)` commit | ADR-022: `useInfiniteQuery` gets its own key (`[...queryKey, "infinite"]`, #2184) and leaves out an `undefined` page param (#2715, #2340); `select` (#2852) not reproduced, type test added; stricter init and param types (#2642, #2864) planned for 2.0 (backlog 32, 33). See `research/roadmap/R7.md` |
 | R8 | 2026-11-04 | `feat(generator)` commit | Output fix `anyof-properties` (ADR-021): `anyOf` next to `properties`, `allOf` or a single `type` is intersected with the union (#2380); a `type` list keeps its `null`. Corpus: 0 regressions, 445 intersections, 123 `\| unknown` removed. Also fixed an R6 parity break (duplicate `required` keys). See `research/roadmap/R8.md` |
+| R9 | 2026-11-04 | `feat(generator)` commit | Output fix `array-length-tuples` (ADR-021), with `--array-length`: `min..max` tuples (#2048, #2546), nested arrays wrapped once (#2330), `readonly` with `--immutable`, no length tuples around `prefixItems`; a notice when named without `--array-length`. Corpus: 0 regressions, 376 declarations. See `research/roadmap/R9.md` |
 
 ## 7. Exit criteria
 

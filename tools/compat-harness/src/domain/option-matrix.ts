@@ -97,7 +97,9 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   // `anyof-properties` combines types and keeps their members, so `unknown` members are the only
   // interaction: `--empty-objects-unknown` makes more of them.
   { flag: "--fix=anyof-properties", with: [[], ["--empty-objects-unknown"]] },
-  { flag: "--fix=all", with: [[]] },
+  // `array-length-tuples` does nothing without `--array-length`, the only matrix set it changes.
+  { flag: "--fix=array-length-tuples", with: [["--array-length"]] },
+  { flag: "--fix=all", with: [[], ["--array-length"]] },
 ];
 
 /** Every opt-in option set, in a deterministic order. */

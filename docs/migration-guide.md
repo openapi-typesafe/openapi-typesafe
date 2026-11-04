@@ -116,6 +116,8 @@ These are off by default, so the output does not change until you turn one on.
   member with only `required` required instead of adding `Record<string, never>`.
   `anyof-properties` intersects `anyOf` with its sibling `properties` instead of adding them to the
   union.
+  `array-length-tuples` corrects the `--array-length` tuples (`minItems` to `maxItems` items,
+  nested arrays, `readonly`).
 
 ### Client fixes
 

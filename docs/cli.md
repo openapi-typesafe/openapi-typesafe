@@ -275,6 +275,7 @@ With both `minItems` and `maxItems`, the tuples have 0 to `maxItems - minItems` 
 `minItems` to `maxItems`, as in openapi-typescript ([#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048)).
 The output is kept so that existing types do not change. Only `minItems` alone
 (`[string, string, ...string[]]`) and equal bounds (`[string, string]`) give the expected tuples.
+Add [`--fix array-length-tuples`](#array-length-tuples) for the right ones.
 :::
 
 _Note: this has a reasonable limit, so for example `maxItems: 100` would simply flatten back down to `string[];`_
@@ -383,6 +384,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | :--- | :----------- | :------- | :---- |
 | `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
+| `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
 
 #### allof-required
 
@@ -463,6 +465,48 @@ the `anyOf` union, as `oneOf` already is: `type: string` with `anyOf` of enums b
 - An `anyOf` with no sibling type stays a plain union.
 - With a `type` list such as `[object, "null"]`, each listed type is intersected with the
   `anyOf` union and `null` is kept: `({ name?: string } & (Email | Phone)) | null`.
+
+#### array-length-tuples
+
+[`--array-length`](#arraylength) turns `minItems` and `maxItems` into tuples. Three cases come out
+wrong without the fix:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Tags:
+      type: array
+      items: { type: string }
+      minItems: 1
+      maxItems: 2
+    Rows:
+      type: array
+      minItems: 1
+      maxItems: 1
+      items:
+        type: array
+        items: { type: string }
+```
+
+:::
+
+```ts
+Tags: [] | [string]; // [!code --]
+Tags: [string] | [string, string]; // [!code ++]
+Rows: [string[][]]; // [!code --]
+Rows: [string[]]; // [!code ++]
+```
+
+- With both bounds, the tuples have `minItems` to `maxItems` items, not 0 to `maxItems - minItems`.
+- An array item is one array level: a nested array, with or without its own bounds, is not
+  wrapped in another array.
+- With `--immutable` every length tuple is `readonly`, like other arrays.
+- A `prefixItems` tuple stays as it is; `minItems` does not wrap it in length tuples.
+
+The fix needs `--array-length` and changes nothing without it; naming it without that flag prints a
+notice (`--fix all` does not). Arrays with too many possible tuples stay `T[]`, as before.
 
 ### makePathsEnum
 

@@ -10,6 +10,8 @@ export const OutputFix = {
   ALLOF_REQUIRED: "allof-required",
   /** `anyOf` next to object keywords or `allOf` is intersected with them, not added to a union. */
   ANYOF_PROPERTIES: "anyof-properties",
+  /** `--array-length` tuples have `min` to `max` items, nest right and follow `--immutable`. */
+  ARRAY_LENGTH_TUPLES: "array-length-tuples",
 } as const;
 export type OutputFix = (typeof OutputFix)[keyof typeof OutputFix];
 
@@ -46,4 +48,31 @@ export function outputFixNamesOf(values: readonly unknown[]): readonly OutputFix
 /** The fixes the names turn on; `all` stands for every fix of this version. */
 export function resolveOutputFixes(names: readonly OutputFixName[]): ReadonlySet<OutputFix> {
   return new Set(names.flatMap((name) => (name === ALL_OUTPUT_FIXES ? OUTPUT_FIXES : [name])));
+}
+
+/** A generator option that a fix works with; without it, the fix changes nothing (ADR-021). */
+export interface OutputFixRequirement {
+  readonly option: "arrayLength";
+  readonly flag: string;
+}
+
+/** By fix name; `all` has none. */
+const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, OutputFixRequirement>>> = {
+  [OutputFix.ARRAY_LENGTH_TUPLES]: { option: "arrayLength", flag: "--array-length" },
+};
+
+/**
+ * A notice for each fix given by name whose option is off. `all` adds none: it means every fix
+ * that applies, so one that does not apply is expected.
+ */
+export function ineffectiveFixNotices(
+  names: readonly OutputFixName[],
+  isOptionOn: (option: OutputFixRequirement["option"]) => boolean,
+): string[] {
+  return [...new Set(names)].flatMap((name) => {
+    const requirement = REQUIREMENTS[name];
+    return requirement === undefined || isOptionOn(requirement.option)
+      ? []
+      : [`Fix "${name}" has no effect without ${requirement.option} (${requirement.flag})`];
+  });
 }

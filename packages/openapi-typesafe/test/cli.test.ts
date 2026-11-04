@@ -108,6 +108,14 @@ describe("CLI", () => {
         ci: { timeout: TIMEOUT },
       },
     ],
+    [
+      "snapshot > --array-length tuples (array-length-tuples fix)",
+      {
+        given: ["./examples/array-length-tuples.yaml", "--array-length", "--fix", "array-length-tuples"],
+        want: new URL("./examples/array-length-tuples.ts", root),
+        ci: { timeout: TIMEOUT },
+      },
+    ],
   ];
 
   for (const [testName, { given, want, ci }] of tests) {

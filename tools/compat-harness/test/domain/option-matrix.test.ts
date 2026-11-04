@@ -59,7 +59,9 @@ describe("selectOptionSets", () => {
       "fix=allof-required+empty-objects-unknown",
       "fix=anyof-properties",
       "fix=anyof-properties+empty-objects-unknown",
+      "fix=array-length-tuples+array-length",
       "fix=all",
+      "fix=all+array-length",
     ]);
   });
 
