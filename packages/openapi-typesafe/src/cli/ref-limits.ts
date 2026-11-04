@@ -1,6 +1,6 @@
 import type { GeneratorOptions } from "../types.js";
 import type { CliArguments } from "./cli-arguments.js";
-import { resolveFileUrl } from "./cli-output.js";
+import { resolveLocationUrl } from "./cli-output.js";
 
 /** The `$ref` limits of the CLI flags as generator options (threat model R1, R2, ADR-017). */
 
@@ -10,7 +10,7 @@ export type RefLimitOptions = Pick<GeneratorOptions, "localRefRoot" | "remoteRef
 export function refLimitOptions(args: CliArguments, cwd: URL): RefLimitOptions {
   const { localRefRoot, remoteRefHosts } = args.refLimits;
   return {
-    ...(localRefRoot === undefined ? {} : { localRefRoot: resolveFileUrl(localRefRoot, cwd) }),
+    ...(localRefRoot === undefined ? {} : { localRefRoot: resolveLocationUrl(localRefRoot, cwd) }),
     ...(remoteRefHosts === undefined ? {} : { remoteRefHosts }),
   };
 }

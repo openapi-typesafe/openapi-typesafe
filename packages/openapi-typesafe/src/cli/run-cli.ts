@@ -3,7 +3,7 @@ import type { RedoclyConfig } from "../application/ports/redocly-config-source.j
 import { ineffectiveFlagNotices, parseCliArguments } from "./cli-arguments.js";
 import type { CliDependencies } from "./cli-dependencies.js";
 import { cliError, describeCliFailure, EXIT_CODES, type ExitCode } from "./cli-errors.js";
-import { type CliRun, emitOutput, resolveFileUrl } from "./cli-output.js";
+import { type CliRun, emitOutput, resolveLocationUrl } from "./cli-output.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
 import { fixOption } from "./fix-option.js";
 import { HELP_TEXT } from "./help-text.js";
@@ -42,7 +42,7 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
       "--check needs the generated file to compare with: add --output <file>.",
     );
   }
-  const source = input ? new URL(input, run.deps.cwd) : run.deps.stdin();
+  const source = input ? resolveLocationUrl(input, run.deps.cwd) : run.deps.stdin();
   const options = {
     ...run.args.generatorFlags,
     ...refLimitOptions(run.args, run.deps.cwd),
@@ -55,7 +55,7 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
     run.deps.writeStdout(contents);
     return;
   }
-  const file = resolveFileUrl(output, run.deps.cwd);
+  const file = resolveLocationUrl(output, run.deps.cwd);
   emitOutput(run, { source: input ?? "stdin", output, file }, contents);
 }
 
