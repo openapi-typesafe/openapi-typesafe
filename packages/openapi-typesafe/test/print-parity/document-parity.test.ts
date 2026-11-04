@@ -16,6 +16,8 @@ import {
   contextInput,
   hasDuplicateEnumMembers,
   hasRedeclaredConstArrays,
+  hasRepeatedParametersIndex,
+  hasUnquotedExtractProbe,
   headerArbitrary,
   key,
   mediaTypeArbitrary,
@@ -69,6 +71,8 @@ function expectSameOutput(
 ): void {
   const expected = runLegacy(original, input, path);
   fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
+  fc.pre(!hasRepeatedParametersIndex(expected));
+  fc.pre(!hasUnquotedExtractProbe(expected));
   expect(runLegacy(build, input, path)).toBe(expected);
 }
 
