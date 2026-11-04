@@ -74,12 +74,17 @@ function assertOpenAPI3(document: unknown): void {
   throw versionUnsupportedError(UNSUPPORTED_FORMAT_MESSAGE, parsed);
 }
 
-/** The base for relative `$ref`s: the source file or URL itself, else the working directory. */
+/**
+ * The name an inline source (a string, object, buffer or stream) gets inside the working
+ * directory. Redocly resolves relative `$ref`s against the directory of the document, so the
+ * document must be named as a file in the working directory, not as the directory itself.
+ */
+const INLINE_SOURCE_NAME = "inline-source";
+
+/** The base for relative `$ref`s: the source file or URL itself, else a file in the cwd. */
 function sourceAbsoluteRef(source: unknown, cwd: URL): string {
-  if (source instanceof URL) {
-    return source.protocol === "file:" ? sourceFilePath(source) : source.href;
-  }
-  return fileURLToPath(cwd);
+  const document = source instanceof URL ? source : new URL(INLINE_SOURCE_NAME, cwd);
+  return document.protocol === "file:" ? sourceFilePath(document) : document.href;
 }
 
 /**

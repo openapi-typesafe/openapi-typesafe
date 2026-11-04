@@ -124,7 +124,7 @@ The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plu
 | `irCallbacks`      |    `boolean`    |     `false`     | Callbacks receive and return IR nodes instead of TypeScript nodes (see [IR callbacks](#ir-callbacks)) |
 | `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors will still show)                                      |
 | `lint`             |    `boolean`    |     `true`      | Lint the document with the Redocly config first. `false` skips it; bundling errors still fail |
-| `cwd`              | `string \| URL` | `process.cwd()` | (optional) Provide the current working directory to help resolve remote `$ref`s (if needed). |
+| `cwd`              | `string \| URL` | `process.cwd()` | The directory that relative `$ref`s of a string, object, buffer or stream source resolve from. A file or URL source resolves from its own location |
 | `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd` |
 | `remoteRefHosts`   |   `string[]`    |                 | Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` allows none |
 | `fix`              | `OutputFixName[]` |               | Opt-in fixes of the output, by name, or `["all"]`; see [fix](/cli#fix). `OUTPUT_FIXES` lists them |

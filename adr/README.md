@@ -36,3 +36,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [020](./020-openapi-3-2-types.md) | OpenAPI 3.2 features are typed by default, next to the 3.1 output | Accepted |
 | [021](./021-opt-in-output-fixes.md) | Opt-in output fixes are named values of one `fix` option | Accepted |
 | [022](./022-react-query-fixes.md) | react-query fixes for 1.0, and stricter types for 2.0 | Accepted |
+| [023](./023-inline-source-refs-resolve-in-cwd.md) | Relative `$ref`s of an inline source resolve in `cwd` | Accepted |
