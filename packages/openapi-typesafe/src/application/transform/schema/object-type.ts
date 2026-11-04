@@ -16,7 +16,7 @@ import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import { discriminatorProperty } from "./discriminator-property.js";
 import { ownerEnumMembersType } from "./enum-rule.js";
-import type { SchemaOptions } from "./schema-context.js";
+import type { Discriminator, SchemaOptions } from "./schema-context.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
 /** Path parts where a default value cannot make a property required (inputs may omit it). */
@@ -229,23 +229,49 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
   return types;
 }
 
-/** The discriminator property that a parent's mapping implies for this schema, if any. */
-function discriminatorMembers(schema: SchemaObject, request: SchemaRequest): IrMember[] {
+/** The discriminator a parent's mapping implies for this schema, if it adds a property. */
+function inheritedDiscriminator(
+  schema: SchemaObject,
+  request: SchemaRequest,
+): Discriminator | undefined {
   if (!schema.allOf && !schema.anyOf) {
-    return [];
+    return undefined;
   }
   const path = request.location.path ?? "";
-  const { discriminators, options } = request.context;
+  const { discriminators } = request.context;
   // A schema does not get the discriminator it defines for its children, nor one added already.
-  const discriminator =
-    !schema.discriminator && !discriminators.isHandled(path) && discriminators.objectAt(path);
-  if (!discriminator) {
-    return [];
-  }
+  const isAdded = !schema.discriminator && !discriminators.isHandled(path);
+  return isAdded ? discriminators.objectAt(path) : undefined;
+}
+
+function discriminatorMember(discriminator: Discriminator, request: SchemaRequest): IrMember {
+  const path = request.location.path ?? "";
   // With `discriminator-values`, the value is a member of the owner's enum (#1700).
   const valueType = (value: string | undefined) =>
     ownerEnumMembersType(discriminator, [value], request);
-  return [discriminatorProperty(discriminator, path, options.immutable, valueType)];
+  return discriminatorProperty(discriminator, path, request.context.options.immutable, valueType);
+}
+
+function declaresProperty(schema: SchemaObject, name: string): boolean {
+  return "properties" in schema && Object.hasOwn(schema.properties ?? {}, name);
+}
+
+/**
+ * The members for the discriminator and `properties`. A schema that declares the discriminator
+ * property itself keeps its own declaration, required as the discriminator needs: both in one
+ * object type do not compile (TS2300, the Apple SiriKit Cloud Media API).
+ */
+function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRequest): IrMember[] {
+  const discriminator = inheritedDiscriminator(schema, request);
+  if (discriminator === undefined) {
+    return propertyMembers(schema, request);
+  }
+  const name = discriminator.propertyName;
+  if (!declaresProperty(schema, name)) {
+    return [discriminatorMember(discriminator, request), ...propertyMembers(schema, request)];
+  }
+  const required = [...(schema.required ?? []), name];
+  return propertyMembers({ ...schema, required } as SchemaObject, request);
 }
 
 /**
@@ -254,11 +280,11 @@ function discriminatorMembers(schema: SchemaObject, request: SchemaRequest): IrM
  * has none of them.
  */
 export function objectType(schema: SchemaObject, request: SchemaRequest): IrType | null {
-  const members = discriminatorMembers(schema, request);
   if (!hasObjectKeywords(schema)) {
-    return members.length > 0 ? irObject(members) : null;
+    const discriminator = inheritedDiscriminator(schema, request);
+    return discriminator ? irObject([discriminatorMember(discriminator, request)]) : null;
   }
-  members.push(...propertyMembers(schema, request));
+  const members = discriminatorAndPropertyMembers(schema, request);
   // As in the original, a null `$defs` throws here (Object.keys) instead of being skipped.
   if (
     "$defs" in schema &&
