@@ -13,42 +13,59 @@
 | CLI paths are read as paths, not URLs (`#`, `?`, `%`, `C:\`) | #8 |
 | Unknown negated flag is named as written | #8 |
 
-## Generator: still reproduced
+## Fixed on `rc1/integrate`
 
-| Issue | Kind | Plan |
+Generator, by default (the output did not compile):
+
+| Issue or cause | Change |
+| --- | --- |
+| #1665 | `oneOf` + discriminator parent whose members `allOf` it: no TS2502 (ADR-024) |
+| #1752 | `--path-params-as-types`: the overlap check reads `operations[…]` and `components[…]` |
+| own discriminator property declared twice | TS2300 / TS2687 / TS2717 |
+| `--enum`: one member in two declarations of one name | TS2300 |
+| schema `Record` under `--root-types-no-schema-prefix` | shadowed the global `Record` (TS2315) |
+| `--enum-values`: unquoted name in `Extract<…>` | syntax error |
+| `--enum-values`: path item parameters indexed twice | TS2339 |
+| `$ref` into schema keywords (`items`, `allOf/0`, `content/…/schema`) | TS2339 |
+| `--enum-values`: same array name twice | numbered `_2` |
+
+Generator, opt-in `fix` names (ADR-021):
+
+| Name | Issues |
+| --- | --- |
+| `allof-discriminated-union` | #1464, #1690 |
+| `discriminator-member-required` | #2162 |
+| `discriminator-values` (extended) | #2200, #2124, #1700 |
+| `exploded-query-objects` | #2361 |
+| `prefix-items` | #1892 |
+| `read-write-refs` | #1938 |
+| `nullable-enums` | #1872 |
+| `dedupe-enum-names` | #1683 |
+| `anyof-oneof-descriptions` | #2142 |
+
+Clients (ADR-025): #2234, #1847 at runtime; #2464, #2267, #2178, #2458 and #2459, #2562, #2526,
+#1862, #1882 in types. Checked and kept: `useInfiniteQuery` pages and `useMutation` data stay
+`undefined` for an empty body, as upstream; only plain query data is `null`, which TanStack needs.
+
+## Still open
+
+Output that does not compile, scan of 1820 documents × 28 option sets (default: 24 → 16 cases):
+
+| Cause | Documents | Plan |
 | --- | --- | --- |
-| #1665 | invalid TypeScript (TS2502): `oneOf` + discriminator parent, members `allOf` the parent | default fix |
-| #1752 | invalid TypeScript (TS2413): nested paths with `--path-params-as-types` | default fix |
-| #1464, #1690 | wrong types: `Omit<Union, "discriminator">` drops the discriminator | `fix` name (ADR-021) |
-| #2200 | wrong types: mapping values lost depending on schema order (`inheritFromRef`) | `fix` name |
-| #2162 | wrong types: `WithRequired` lost when a discriminator is present | `fix` name |
-| #2124 | duplicate discriminator constituent when the member declares it | `fix` name |
-| #2361 | exploded object query parameter wrapped under its own name | `fix` name + fetch serializer |
-| #1892 | `prefixItems` with `items` gives a closed tuple | `fix` name |
-| #1938 | `readOnly` behind a `$ref` is not applied | `fix` name |
-| #1700 | `--enum`: subtype enums (`CatPetType`) not assignable to the parent enum | `fix` name |
-| #1872 | `--enum`: nullable 3.1 enum gives no TS enum | `fix` name |
-| #1683 | `--dedupe-enums`: shared enum name changes when a schema is added | `fix` name |
-| #2142 | JSDoc of `anyOf` / `oneOf` members dropped | `fix` name |
+| TS2502: a recursive `JSONValue` array in an interface property | ~11 | TypeScript limit, documented; a footer alias would be an opt-in fix |
+| `$ref` to keywords the output has no type for (`definitions`, `parameters/N/schema`) | ~9 | inline the resolved target |
+| optional or nullable parent of a `$ref` (`WithRequired<… \| undefined>`) | ~5 | needs a fix name: `NonNullable` everywhere would change compiling output |
+| `--enum-values` leftovers (`allOf` with two enums, array and non-array union, `FlattenedDeepRequired` limits) | ~27 | opt-in fix of the helper |
+| `anyOf` of `required`-only variants next to `properties` gives `{…} \| unknown` | 22 (GitHub) | opt-in fix: types are lost even where the output compiles |
+| discriminator value that the property's `enum` does not allow | several | invalid schema (Discriminator Object): typed warning |
+| `--path-params-as-types`: paths that differ only by parameter names (TS2374) | 11 | invalid schema (Paths Object): typed warning |
+| `--path-params-as-types`: a URL two templates match gets both types | 28 | TypeScript has no string type without `/` (microsoft/TypeScript#41160); documented |
 
-Not checked yet (disk full): #2128, #2189, #2855, #1647, #2672, #2815, #2862, #2005, #1947, #2034,
-#2655, #2851, #2425, #2240, #2259, #2558. #1905 partly checked.
+Clients for 2.0: excess keys in `params` / `body` (#1525, #1769, #2329); hook `error` type
+without network and middleware errors (#2151, #2372).
 
-## Clients: still reproduced
-
-| Issue | Package | Kind | Plan |
-| --- | --- | --- | --- |
-| #2234 | react-query | runtime: empty chunked 2xx or HEAD gives `undefined`, TanStack rejects it | default fix |
-| #1847 | fetch | runtime: `instanceof Request/Response` rejects another realm or undici copy | default fix |
-| #2464 | react-query | 204 gives `null` at runtime, typed `undefined` | type fix |
-| #2267 | react-query | `Paths extends Record<…>` rejects the generated `interface paths` | type fix |
-| #2178 | react-query | `Parameters<typeof queryOptions>` has `path: never` | type fix |
-| #2458, #2459 | react-query | `useInfiniteQuery` page param typed `unknown` | type fix |
-| #2562 | fetch | undici `fetch` / `Request` options rejected by types | type fix |
-| #2526 | fetch | `createClient<any>()` requires an init argument | type fix |
-| #1862 | fetch | only a `default` response: `data` is `never` | type fix |
-| #1882 | fetch | large `paths` (~400): TS2589 and no path completion | type fix |
-| #1525, #1769, #2329 | fetch | excess keys in `params` / `body` pass | stricter types: 2.0 (ADR-022 pattern) |
-| #2151, #2372 | react-query | hook `error` type omits network and middleware errors | stricter types: 2.0 |
+Not checked yet: #2128, #2189, #2855, #1647, #2672, #2815, #2862, #2005, #1947, #2034, #2655,
+#2851, #2425, #2240, #2259, #2558. #1905 partly checked.
 
 Classified fixed, not a bug, feature or unclear: see the session report; not repeated here.
