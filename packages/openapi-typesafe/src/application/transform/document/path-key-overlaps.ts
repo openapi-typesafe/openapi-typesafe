@@ -138,9 +138,9 @@ export interface CoverChecks {
 const EVERY_COVER_REJECTED: CoverRejection = () => true;
 const EVERY_CHECK: CoverChecks = { sampled: EVERY_COVER_REJECTED, exact: EVERY_COVER_REJECTED };
 
-/** The signature types of a key; empty for a literal, which is no signature. */
+/** The signature types of a template key; a boolean-only template is no signature (TS1337). */
 function signatureShapes(key: PathKey): readonly TemplateShape[] {
-  return key.kind === "template" ? shapesOf(key).filter((shape) => shape.types.length > 0) : [];
+  return shapesOf(key).filter((shape) => shape.types.length > 0);
 }
 
 /** The indexes of the template keys that cover another key of the list, where it is rejected. */

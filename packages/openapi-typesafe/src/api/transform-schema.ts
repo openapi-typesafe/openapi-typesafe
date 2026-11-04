@@ -25,12 +25,9 @@ function isOperations(entry: FooterEntry): boolean {
   return name === OPERATIONS_NAME;
 }
 
-/** The first pass must not repeat the run's warnings or debug lines. */
-const DROPPED_MESSAGES = {
-  debug: () => undefined,
-  warn: () => undefined,
-  error: () => undefined,
-};
+/** Drops a message: the first pass must not repeat the run's warnings or debug lines. */
+const dropMessage = (): void => undefined;
+const DROPPED_MESSAGES = { debug: dropMessage, warn: dropMessage, error: dropMessage };
 
 /**
  * The `dedupe-enum-names` fix (ADR-021, upstream #1683) names a shared enum by all of its schemas,
