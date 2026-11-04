@@ -2,6 +2,299 @@
 
 This package is a fork of `openapi-typescript`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-typescript` versions.
 
+## 1.0.0-rc.0
+
+### Major Changes
+
+- [#2](https://github.com/openapi-typesafe/openapi-typesafe/pull/2) [`fe3b751`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fe3b75106b6a737a3c54d1e629518a88d40375c9) Thanks [@fedorello](https://github.com/fedorello)! - First release of openapi-typesafe, a maintained fork of openapi-typescript 7.13, openapi-fetch and
+  openapi-react-query. The CLI flags, the Node API and the output of valid schemas match
+  openapi-typescript 7.13; the changes below are fixes and opt-in features. Version 1.0 makes these
+  contracts semver-stable. `npx openapi-typesafe-migrate --write` moves a project over.
+
+### Minor Changes
+
+- [`6fdfcf7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/6fdfcf7d5457dae3deddd3bce76e02a5306408bb) Thanks [@fedorello](https://github.com/fedorello)! - New `--fix` option (`fix` in the Node API and in `redocly.yaml`) for opt-in fixes of the output of
+  valid schemas (ADR-021). Give fix names, comma-separated, or `all` for every fix of the installed
+  version; an unknown name fails with `OPTION_FIX_UNKNOWN`. Without it the output does not change.
+  The fixes become the default in 2.0.
+
+  The first fix, `allof-required`: an `allOf` member with only `required` (and `type: object` or
+  annotations), inline or behind a `$ref`, no longer adds `& Record<string, never>` or `& unknown`;
+  its keys become required in the other members, so `Info & Record<string, never>` is now
+  `WithRequired<Info, "name">` (openapi-typescript [#1474](https://github.com/openapi-typesafe/openapi-typesafe/issues/1474), [#1520](https://github.com/openapi-typesafe/openapi-typesafe/issues/1520), [#2165](https://github.com/openapi-typesafe/openapi-typesafe/issues/2165)). An empty `type: object`
+  member is left out too.
+
+- [`51893c4`](https://github.com/openapi-typesafe/openapi-typesafe/commit/51893c44af634b0ff7a122a6d6e5f7001f3727ea) Thanks [@fedorello](https://github.com/fedorello)! - New output fix `anyof-properties` (`--fix anyof-properties`, ADR-021): `anyOf` next to
+  `properties`, `additionalProperties` or `allOf` is intersected with them, so
+  `{ name?: string } | Email | Phone` is now `{ name?: string } & (Email | Phone)` and a value must
+  match a variant (openapi-typescript [#2380](https://github.com/openapi-typesafe/openapi-typesafe/issues/2380)); `type: string` with `anyOf` enums becomes
+  `string & ("a" | "b")`. With a `type` list, each listed type is intersected
+  and `null` is kept. Without the fix the output does not change; `--fix all` now includes it.
+
+- [`5bf785f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/5bf785f6657f25b00a08a9cb505b44bde076df65) Thanks [@fedorello](https://github.com/fedorello)! - New output fix `array-length-tuples` (`--fix array-length-tuples`, ADR-021), for `--array-length`:
+  `minItems: 1, maxItems: 2` gives `[string] | [string, string]` instead of `[] | [string]`; a nested
+  array is no longer wrapped twice (`[string[]]`, not `[string[][]]`); with `--immutable` the length
+  tuples are `readonly`; and a `prefixItems` tuple is not wrapped in length tuples
+  (openapi-typescript [#2048](https://github.com/openapi-typesafe/openapi-typesafe/issues/2048), [#2330](https://github.com/openapi-typesafe/openapi-typesafe/issues/2330), [#2546](https://github.com/openapi-typesafe/openapi-typesafe/issues/2546)). Without `--array-length` the fix changes nothing, and
+  naming it prints a notice. Without the fix the output does not change.
+
+- [`a60df75`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a60df750c26f00aa56aee663c9519ec9aae6fa05) Thanks [@fedorello](https://github.com/fedorello)! - New option `--binary-as-blob` (`binaryAsBlob` in the Node API): raw binary strings become `Blob`
+  instead of `string`, so file uploads and downloads type check without a `transform` callback.
+  Raw binary is `format: binary` (OpenAPI 3.0), or a `contentMediaType` that is not text and has no
+  `contentEncoding` (3.1, also without `type`). `format: byte`, encoded strings and text media types
+  (`text/*`, JSON, XML, YAML) stay `string`. Off by default, so the output does not change. The
+  names follow openapi-typescript PR [#2878](https://github.com/openapi-typesafe/openapi-typesafe/issues/2878) by @joaodibba; closes openapi-typescript#1214.
+
+  The `SchemaObject` type of the Node API gains the OpenAPI 3.1 keywords `contentMediaType` and
+  `contentEncoding`.
+
+- [`236ea3f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/236ea3fce582a2befa9be4c04e72d9f70d5a3ade) Thanks [@fedorello](https://github.com/fedorello)! - Report document limits as typed errors instead of crashes or hangs. A document nested too deeply
+  for the call stack fails with `SCHEMA_TOO_DEEP`. A `$ref` cycle with no schema in between fails
+  with `SCHEMA_REF_INVALID`. Keys such as `valueOf` that the schema loader cannot read fail with
+  `SCHEMA_KEY_UNSUPPORTED` and are all listed. A remote `$ref` that does not answer stops after 60
+  seconds. See the new Limits section in the advanced guide.
+
+- [`9a9567d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9a9567daa5c041b0cbf468e72fb95547254bc4e6) Thanks [@fedorello](https://github.com/fedorello)! - Mark the rarely used utility exports `resolveRef`, `scanDiscriminators`, `walk`, `c`, `debug`, `warn` and `error` as `@deprecated`. They keep working in 1.x and are removed in 2.0 (ADR-004, decision 9).
+
+- [`de5f101`](https://github.com/openapi-typesafe/openapi-typesafe/commit/de5f101ef4464ccf85ad1c446046704a4187817e) Thanks [@fedorello](https://github.com/fedorello)! - Add the `discriminator-values` output fix (`--fix discriminator-values`, ADR-021). Without it a
+  schema that a `mapping` names and that a discriminated `oneOf` without a mapping also lists gets
+  two discriminator properties, the mapped value and the schema name (`kind: "cat"` and
+  `kind: "Cat"`), which intersect to `never`. With it the values of a property merge into one enum,
+  and the schema name is used only where no mapping gives the schema a value. Without the fix the
+  output is unchanged.
+
+- [`fed3f15`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fed3f15371340eff01c9d694f01dbd7028fb863e) Thanks [@fedorello](https://github.com/fedorello)! - **Breaking compared with `openapi-typescript`:** the type helpers (`tsUnion`, `tsIntersection`, `tsNullable`, `tsOmit`, `tsRecord`, `tsLiteral`, `tsWithRequired`, `oapiRef`), the type constants (`STRING`, `NUMBER`, `BOOLEAN`, `NULL`, `UNKNOWN`, `NEVER`, `TRUE`, `FALSE`, `UNDEFINED`) and the exported transformers (`transformSchemaObject`, `transformComponentsObject`, `transformPathsObject` and the others) return IR objects instead of TypeScript compiler nodes. The helpers still accept TypeScript type nodes as input, and `astToString` prints IR, TypeScript nodes or a mix of both. `ctx.injectFooter` holds IR declarations; TypeScript nodes pushed by user callbacks still work. A `transform` or `transformProperty` callback may return IR or TypeScript nodes. Code that passes the constants or helper results into `ts.factory` calls must convert them first or build the whole type with the helpers (see ADR-004).
+
+- [`6d0d224`](https://github.com/openapi-typesafe/openapi-typesafe/commit/6d0d22458bb3ecf341b6801b8ea583ad8695b996) Thanks [@fedorello](https://github.com/fedorello)! - Add the `irCallbacks: true` option (`OpenAPITSIrOptions`). With it, `transform`, `postTransform` and `transformProperty` receive and return IR nodes; a type result may also be TypeScript type text, printed as written. The TypeScript-node forms of `postTransform` and `transformProperty` are deprecated (ADR-004).
+
+- [`099a961`](https://github.com/openapi-typesafe/openapi-typesafe/commit/099a961729ecad1af19b1ed79f9254ebddd0411e) Thanks [@fedorello](https://github.com/fedorello)! - The TypeScript compiler is loaded only when a callback or helper uses TypeScript nodes: from the project's `typescript` (version 6 or earlier), or from `@typescript/typescript6` on TypeScript 7 projects. When neither is installed, the run fails with an error that names both packages. Legacy callbacks warn once per run: `transform` when it returns a TypeScript node, `postTransform` and `transformProperty` whenever they use the TypeScript form.
+
+- [`70eb1b0`](https://github.com/openapi-typesafe/openapi-typesafe/commit/70eb1b0dc03a48e4dc0cc09786c60d23f25fdf15) Thanks [@fedorello](https://github.com/fedorello)! - Add `--no-lint` (CLI) and `lint: false` (Node API, and `x-openapi-ts` per API) to skip the Redocly lint step. Bundling errors still fail the run. Lint stays on by default. Closes upstream [#2840](https://github.com/openapi-typesafe/openapi-typesafe/issues/2840) (design of upstream PR [#2845](https://github.com/openapi-typesafe/openapi-typesafe/issues/2845)).
+
+- [`1fd16d1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/1fd16d12c293c8397512c7bb4ec393eec9ffd276) Thanks [@fedorello](https://github.com/fedorello)! - **Breaking compared with `openapi-typescript`:** `openapiTS()` returns the generated declarations as IR objects (`IrDeclaration[]`) instead of TypeScript compiler nodes. `astToString(await openapiTS(…))` works unchanged and prints them with the package's own printer, byte for byte as before. Code that inspected or edited the returned `ts.Node`s must work with the IR objects instead (see ADR-004).
+
+- [`19e1d9d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/19e1d9d864acbec2ae17446002e2bdd71f19f806) Thanks [@fedorello](https://github.com/fedorello)! - Accept OpenAPI 3.2 documents. The schema loader update to `@redocly/openapi-core` 1.34.22 removed the
+  "Unsupported OpenAPI version: 3.2.0" error that `openapi-typescript` 7.13.0 reports (see ADR-005).
+
+- [`9e6f3f1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9e6f3f116a25f391498316cf6f303531ade6723b) Thanks [@fedorello](https://github.com/fedorello)! - OpenAPI 3.2 features are typed, with no flag (ADR-020): a path item's `query` operation becomes a
+  `query` member after `trace` (only where declared), `additionalOperations` a member keyed by the
+  exact method name, `itemSchema` an `itemContent` map next to `content` (which keeps the `schema`
+  type), an `in: querystring` parameter the `query` member of `parameters`, and
+  `components.mediaTypes` a `components` member that `content` entries can reference. Documents that
+  use none of these keep their output. The warnings for these features are gone; a `querystring`
+  parameter next to `in: query` parameters (not allowed in 3.2) still warns and is not typed.
+  `--make-paths-enum` and `--path-params-as-types` include the new operations. A discriminator
+  without `propertyName` (allowed in 3.2) no longer omits a property named `undefined`.
+
+  The Node API types gain `query`, `additionalOperations`, `itemSchema`, `in: "querystring"`,
+  `components.mediaTypes` and `discriminator.defaultMapping`. Upstream: openapi-typescript#2577,
+  PRs [#2683](https://github.com/openapi-typesafe/openapi-typesafe/issues/2683), [#2844](https://github.com/openapi-typesafe/openapi-typesafe/issues/2844), [#2853](https://github.com/openapi-typesafe/openapi-typesafe/issues/2853).
+
+- [`a8c7a1b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a8c7a1beab8683f7df4cd3d75276fbd48cdb6712) Thanks [@fedorello](https://github.com/fedorello)! - Add opt-in limits for `$ref` in documents you did not write. `--local-ref-root <dir>`
+  (`localRefRoot`) loads local `$ref` files only from that directory, and `--remote-ref-hosts
+<hosts>` (`remoteRefHosts`) loads remote `$ref` documents only from the listed hosts, including
+  each redirect. A refused `$ref` fails with the new error code `SCHEMA_REF_FORBIDDEN`. Without the
+  options nothing changes. See "Untrusted documents" in the advanced guide.
+
+- [`53e2c32`](https://github.com/openapi-typesafe/openapi-typesafe/commit/53e2c3237ee0455706e025638cdd4b297b4d7420) Thanks [@fedorello](https://github.com/fedorello)! - Add the `root-type-numbering` output fix (`--fix root-type-numbering`, ADR-021). With `--root-types
+--root-types-no-schema-prefix`, schemas of one PascalCase name (`PetStore`, `pet_store`) each get
+  a root alias: the later keeps the name, as before, and the earlier get the next free number
+  (`PetStore_2`), instead of no alias. It needs both flags and prints a notice without them. Without
+  the fix the output is unchanged.
+
+- [`9c69bfc`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9c69bfcbc99a0151f7abd0434e50003ded130c95) Thanks [@fedorello](https://github.com/fedorello)! - Add typed errors: every expected failure is an `OpenAPITypesafeError` with a stable `code` and structured `details` (exported with `ERROR_CODES` and `isOpenAPITypesafeError`). Messages are unchanged; a reader or parser error is kept as `cause` (check `error.cause.code` instead of `error.code === "ENOENT"`). The CLI now prints one line per failure with its code and exits with a documented code: `1` stale output with `--check` (as before), `2` usage or configuration, `3` input document, `4` output files, `70` unexpected error. Other failures used to exit with `1` (ADR-011).
+
+- [`a866985`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a8669856084adf4614c38ce4284ab46e7eb4086e) Thanks [@fedorello](https://github.com/fedorello)! - The generator no longer needs the `typescript` package: it is now an optional peer dependency, next to the optional `@typescript/typescript6` for TypeScript 7 projects. Only legacy callbacks and the deprecated `ts.Node` helpers load it.
+
+  **Breaking compared with `openapi-typescript`:** the `inject` option is printed as written (without the blank lines around it) instead of being reformatted by the TypeScript printer, so comments in it are kept. With `--path-params-as-types`, a backtick in a URL is escaped, so the key is a valid template literal type (the original produced a broken type).
+
+- [`d9e3755`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d9e3755180f55f279dd1879b9c9a1f9f7c52e8b5) Thanks [@fedorello](https://github.com/fedorello)! - Add the `unevaluated-properties` output fix (`--fix unevaluated-properties`, ADR-021). Without it
+  `unevaluatedProperties` is ignored, so an object with only that keyword is `Record<string, never>`.
+  With it the keys that no other keyword declares get its type through an index signature, which
+  also holds the declared property types of the schema and its `allOf`, `anyOf` and `oneOf` members
+  (`PropertyValues<T>` for a `$ref`), so valid values stay assignable (openapi-typescript [#2839](https://github.com/openapi-typesafe/openapi-typesafe/issues/2839),
+  [#2880](https://github.com/openapi-typesafe/openapi-typesafe/issues/2880)). Without the fix the output is unchanged.
+
+- [`323e9a5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/323e9a567c7ff3ddad7bc7a1bfa39b859e94b296) Thanks [@drwpow](https://github.com/drwpow)! - Add ability to set flags in redocly.yaml
+
+### Patch Changes
+
+- [`ad94710`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ad94710c5c2535f301e13b1aaf82c2447bf64823) Thanks [@fedorello](https://github.com/fedorello)! - Fix `$ref`s to keys with `~`, `/` or `%` in another file (`./parts.yaml#/a~0b`, `#/50%25`).
+  The bundled ref named a different key, so the types did not compile, or crashed the generator.
+  A local `$ref` with a malformed `%` escape now fails with `SCHEMA_REF_INVALID` and names the ref,
+  instead of an unexpected error.
+
+- [`e434933`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e43493399026d9ecfa3088e8139f47f3e930f436) Thanks [@fedorello](https://github.com/fedorello)! - A `transform`, `postTransform` or `transformProperty` callback that returns a value that is not a
+  TypeScript node (a plain object, or text from `postTransform`) now fails with
+  `CALLBACK_RESULT_UNREADABLE` and names the callback and the schema path, instead of
+  `Debug Failure. Unhandled SyntaxKind` or a `TypeError`. `transform` returning text still keeps the
+  default type, as in openapi-typescript.
+
+- [`98e6188`](https://github.com/openapi-typesafe/openapi-typesafe/commit/98e618873aa53fd2431f353360a882835c8cb9e3) Thanks [@fedorello](https://github.com/fedorello)! - `--check` without `--output` (and without `apis` in `redocly.yaml`) now fails with exit code 2 and
+  `CLI_CHECK_OUTPUT_MISSING`. Before, it printed the types and exited with 0 without checking
+  anything, so a CI check could pass by mistake.
+
+- [`07b20a9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/07b20a9378824e669a8d872d4129a424597d4216) Thanks [@fedorello](https://github.com/fedorello)! - CommonJS consumers get types and a working `require()`. The package exports now carry `types` conditions (`index.d.cts` for `require`, `index.d.mts` for `import`), so TypeScript with `"module": "node16"` finds the declarations from a CommonJS file. `engines.node` is now `>=22.12.0`: the CommonJS build loads ESM-only dependencies (`parse-json`, `change-case`, `supports-color`, `yargs-parser`) through `require()`, which Node.js supports without a flag from 22.12. Fixes upstream [#2047](https://github.com/openapi-typesafe/openapi-typesafe/issues/2047), [#2155](https://github.com/openapi-typesafe/openapi-typesafe/issues/2155), [#2342](https://github.com/openapi-typesafe/openapi-typesafe/issues/2342).
+
+- [`c988054`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c9880541b806c85d3d20c90e4ff3d6f0e71b9836) Thanks [@fedorello](https://github.com/fedorello)! - Fix `--check` with several APIs in `redocly.yaml`: the CLI exited with `0` as soon as one output was up to date, so a stale output of another API went unnoticed. Every API is now generated or checked; each failure prints a line, and the exit code is that of the first failing API. The CLI is now TypeScript (ADR-012); it passes only the documented flags to the generator, so undocumented flags such as `--silent` no longer reach the Node API options.
+
+- [`7577f44`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7577f44e417e20d96a8df11f0132d924cbd1daa9) Thanks [@fedorello](https://github.com/fedorello)! - The CLI now warns when two operations share an `operationId`. The generated file declares the
+  operation twice in `operations` and does not compile without `skipLibCheck`. The warning does not
+  change the output or the exit code; the Node API already rejects such a schema.
+
+- [`626a1d1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/626a1d1ef1ad34df2e2b1ac2b10f0370e4d6d658) Thanks [@fedorello](https://github.com/fedorello)! - Fix kebab-case boolean flags before the schema path (for example `openapi-typesafe --root-types schema.yaml`): the flag took the path as its value, so the CLI waited on stdin. Fixes upstream [#2523](https://github.com/openapi-typesafe/openapi-typesafe/issues/2523), [#1651](https://github.com/openapi-typesafe/openapi-typesafe/issues/1651), [#2764](https://github.com/openapi-typesafe/openapi-typesafe/issues/2764), [#2694](https://github.com/openapi-typesafe/openapi-typesafe/issues/2694).
+
+- [`98e6188`](https://github.com/openapi-typesafe/openapi-typesafe/commit/98e618873aa53fd2431f353360a882835c8cb9e3) Thanks [@fedorello](https://github.com/fedorello)! - The `CLI_GLOB_UNSUPPORTED` and `CLI_CONFIG_OUTPUT_MISSING` messages link to this project's docs
+  for multiple schemas instead of the openapi-typescript site.
+
+- [`78024de`](https://github.com/openapi-typesafe/openapi-typesafe/commit/78024decda862937e9521d8099147c9a95885f15) Thanks [@fedorello](https://github.com/fedorello)! - Clearer CLI messages for two failures. A remote schema that cannot be fetched now prints the
+  network reason and the URL (`fetch failed: connect ECONNREFUSED … (http://…)`), not only
+  `fetch failed`; the Node API error keeps its message and now has the network error in `cause`.
+  YAML nested deeper than the parser limit now says to move nested schemas to `components` and
+  use `$ref`.
+
+- [`5a01c7e`](https://github.com/openapi-typesafe/openapi-typesafe/commit/5a01c7e0a3db2c2fab97b4ba9544bc0b53bea9f3) Thanks [@fedorello](https://github.com/fedorello)! - The CLI now prints `Unknown flag --x is ignored (see --help)` for each flag it does not know. The
+  run still goes on, as before, but a typo such as `--alphabetise` no longer changes the output
+  without a word.
+
+- [`ecc50e8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ecc50e84ee7c14687a48a091f83b0e4e040c8a4a) Thanks [@fedorello](https://github.com/fedorello)! - A schema source nested deeper than the call stack now fails with `SCHEMA_TOO_DEEP` on Node.js 22
+  and 24 too. Before, parsing it threw a raw `RangeError` there.
+
+- [`153dff3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/153dff3dd490c09607b1d2377fe916df87427585) Thanks [@fedorello](https://github.com/fedorello)! - Fix `$defs` types. A schema's `$defs` member is now optional (`$defs?: { … }`), so values no
+  longer need a `$defs` key, and refs into it use `NonNullable<…>` (upstream [#2664](https://github.com/openapi-typesafe/openapi-typesafe/issues/2664)). The root
+  `$defs` now has one member per subschema instead of `Record<string, never>`, so `#/$defs/<name>`
+  refs resolve to the subschema type instead of `never`.
+
+- [`374f824`](https://github.com/openapi-typesafe/openapi-typesafe/commit/374f8248e06ebf57ccada0fa0f680253bc787501) Thanks [@fedorello](https://github.com/fedorello)! - `stringToAST()` is deprecated (removed in 2.0). It works as before through the TypeScript bridge and emits one Node `DeprecationWarning` (code `OPENAPI_TYPESAFE_DEP_STRING_TO_AST`). Return TypeScript type text from an IR callback (`irCallbacks: true`) instead.
+
+- [`05aa2de`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05aa2de70187c1a6ccbfc37a45e4f264bca2b4af) Thanks [@fedorello](https://github.com/fedorello)! - `--enum` no longer writes the same discriminator enum twice. A schema that its parent's
+  `discriminator.mapping` names and that a discriminated `oneOf` lists got its `…Kind` enum twice,
+  and the file failed with "Duplicate identifier". Inherited from openapi-typescript.
+
+- [`93f547f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/93f547f94e3aaa64042b460e4012c28323048d1c) Thanks [@fedorello](https://github.com/fedorello)! - An empty schema file, or a document that is only `null`, now fails with
+  `SCHEMA_VERSION_UNSUPPORTED` ("Unsupported schema format, expected `openapi: 3.x`") instead of a
+  `TypeError` and exit code 70. Inherited from openapi-typescript.
+
+- [`ed32986`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ed32986f7f062390e755629b74a5bfd615e05061) Thanks [@fedorello](https://github.com/fedorello)! - Fix `--enum` output that did not compile: an empty string value now gives the member `"" = ""`, a member name that must be quoted is escaped (`"\\"` instead of `"\"`), and a line break in `x-enum-descriptions` no longer ends the `//` comment early (it becomes a space). The deprecated `tsEnum` / `tsEnumMember` helpers get the same fixes. Fixes upstream [#2807](https://github.com/openapi-typesafe/openapi-typesafe/issues/2807), [#2812](https://github.com/openapi-typesafe/openapi-typesafe/issues/2812), [#2614](https://github.com/openapi-typesafe/openapi-typesafe/issues/2614), [#2838](https://github.com/openapi-typesafe/openapi-typesafe/issues/2838).
+
+- [`c4d5367`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c4d5367235b49ac76301e3c5953e76c4243f8358) Thanks [@fedorello](https://github.com/fedorello)! - `--enum` and `--make-paths-enum`: values whose member names come out the same after invalid
+  characters are replaced (`reactions-+1` and `reactions--1` are both `reactions_1`) gave a
+  "Duplicate identifier" error. A repeated name now gets a number (`reactions_1_2`); names that did
+  not collide stay the same.
+
+- [`4b88b54`](https://github.com/openapi-typesafe/openapi-typesafe/commit/4b88b546b12cf3a11ffbbb00aa72a2dd4eee2072) Thanks [@fedorello](https://github.com/fedorello)! - Fix `--enum-values` output that did not compile: the `FlattenedDeepRequired` helper now flattens readonly arrays (with `--immutable`) and looks through nullable parent objects, and the `ReadonlyArray` helper accepts readonly arrays. The helper text in the generated footer changes accordingly; the exported types stay the same where they compiled before. Fixes upstream [#2714](https://github.com/openapi-typesafe/openapi-typesafe/issues/2714), [#2749](https://github.com/openapi-typesafe/openapi-typesafe/issues/2749), [#2737](https://github.com/openapi-typesafe/openapi-typesafe/issues/2737).
+
+- [`d1c4913`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d1c4913348cffd6b485ededb01a348385a060b0c) Thanks [@fedorello](https://github.com/fedorello)! - Security: document text can no longer add code to the generated file. With `--root-types`, a quote, backslash or line break in a component name is now escaped in `components['schemas']['…']`. Before, a name such as `A']; export const x = 1; //` added its own declaration. With `--path-params-as-types`, backslashes, `${` and carriage returns in a URL are now escaped in the template literal key; before, a backslash before a backtick ended the literal. Output for other names and URLs is unchanged.
+
+- [`e0ae531`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e0ae531e2df0f7c22e6f0e7e2e7455d4b5bf569c) Thanks [@fedorello](https://github.com/fedorello)! - `--exclude-deprecated`: a deprecated component that kept output still references, such as the
+  `items` of a kept array or a kept operation's response, is kept, so the output no longer names a
+  missing `components["schemas"]` key (TS2339). A deprecated component that only dropped parts
+  reference (deprecated operations, parameters or properties) is still left out.
+
+- [`fffe42b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fffe42babe4a5c98665479fb2988513627653072) Thanks [@fedorello](https://github.com/fedorello)! - `openapiTS()` with a `Readable` stream that fails now rejects with `SCHEMA_LOAD_FAILED`. Before,
+  the promise never settled.
+
+- [`04c5dac`](https://github.com/openapi-typesafe/openapi-typesafe/commit/04c5dac6ad3201f5c938f2979c065ef8b044ceea) Thanks [@fedorello](https://github.com/fedorello)! - A YAML or JSON file that does not parse (a tab indent, a second YAML document, broken JSON) now
+  fails with `SCHEMA_PARSE_FAILED`, as text input does, instead of `SCHEMA_LOAD_FAILED`, and the
+  message names the file. The exit code stays `3`.
+
+- [#3](https://github.com/openapi-typesafe/openapi-typesafe/pull/3) [`186774b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/186774bc97ffe258da1adfcb58ab41dbab886666) Thanks [@fedorello](https://github.com/fedorello)! - A `file:` URL source that names no path on the platform (an encoded slash, a host on POSIX, no
+  drive letter on Windows) fails with `SCHEMA_LOAD_FAILED` and the URL in `details.source`, as a
+  missing file does. Before, it failed with Node's untyped `TypeError`.
+
+- [`e49344a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e49344a208fb3bb38cd86f62c1395f8f7ca950f6) Thanks [@fedorello](https://github.com/fedorello)! - Packages contain only their build output, sources for source maps, the CLI, and the README, license and changelog. Coverage reports, local logs and tool configs are no longer packed.
+
+- [`98e6188`](https://github.com/openapi-typesafe/openapi-typesafe/commit/98e618873aa53fd2431f353360a882835c8cb9e3) Thanks [@fedorello](https://github.com/fedorello)! - `--help` now lists `--generate-path-params`, which the CLI already accepted.
+
+- [`3e690a3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/3e690a3952aee7f85c89635007abefe68117edd8) Thanks [@fedorello](https://github.com/fedorello)! - `--root-types` names no longer keep letters that the running Node.js knows and TypeScript's scanner
+  does not (Unicode 16 and 17 letters such as `꟒`): they become `_`, so the generated file parses.
+  Before, such a schema name gave "Invalid character" errors. See ADR-019.
+
+- [`0415208`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0415208a644c505c008e6db9aafb9a7d1aad65b0) Thanks [@fedorello](https://github.com/fedorello)! - The error for the removed `-it` alias now names `--immutable`. It named `--immutable-types`, which is removed too.
+
+- [`365452e`](https://github.com/openapi-typesafe/openapi-typesafe/commit/365452ec70175d0de1866a31c9140bf12ad6bf4e) Thanks [@fedorello](https://github.com/fedorello)! - With `--local-ref-root` reached through a symbolic link (macOS `/tmp` is one), a `$ref` to a
+  missing file inside the root was refused with `SCHEMA_REF_FORBIDDEN` as if it were outside.
+  It is now reported as an unresolved `$ref`, like any missing file.
+
+- [`f55fb72`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f55fb72f93ef4fe009278bcc1f62e5d16e4012e5) Thanks [@remy90](https://github.com/remy90)! - Support `additionalProperties: true` on string enums by generating a loose autocomplete union (`(enum literals) | (string & {})`), preserving editor suggestions while still accepting arbitrary string values.
+
+- [`307f7df`](https://github.com/openapi-typesafe/openapi-typesafe/commit/307f7dfb7752d7c2406ebbfd33863f940b70468d) Thanks [@fedorello](https://github.com/fedorello)! - Fix a crash when a schema's `summary` or `title` is not a string, as when a property named `summary` is written without `properties:`. Such values no longer go into the JSDoc. Fixes upstream [#2349](https://github.com/openapi-typesafe/openapi-typesafe/issues/2349).
+
+- [`35992ed`](https://github.com/openapi-typesafe/openapi-typesafe/commit/35992ed156502393f9b87dbc7541eeb68cb1a4ea) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types`: when a template key such as `` `/apps/${string}` `` also matches another
+  path (`/apps/regions`, `` `/apps/${string}/restart` ``) whose type does not fit the template's (a
+  method or a parameter location one has and the other has not), the output did not compile
+  (TS2411, TS2413). `paths` is then an intersection type alias with each such template in an object
+  of its own, which removes those errors, and every path keeps the type it had. Output that
+  compiled stays the same, `export interface paths` included.
+
+- [`26f08b7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/26f08b74203dba7f4934978cc7a9badeb9333c15) Thanks [@fedorello](https://github.com/fedorello)! - `openapiTS("./openapi.yaml")` now fails with `SCHEMA_SOURCE_INVALID` and says to pass
+  `pathToFileURL(path)`. A string source is document text, so a file path was parsed as YAML and
+  failed with the unclear "Unsupported schema format, expected `openapi: 3.x`".
+
+- [`35d9092`](https://github.com/openapi-typesafe/openapi-typesafe/commit/35d9092f55b791354f77b150dab13a6f7a71ea36) Thanks [@fedorello](https://github.com/fedorello)! - `--make-paths-enum` no longer writes an `ApiPaths` enum that does not compile. Names built from
+  the URL that collided (`GetUser` for both `/user` and `/user/{user_id}`) now name the path
+  parameters (`GetUserByUserId`), and a name that still repeats, such as a repeated `operationId`,
+  gets a number (`listItems2`). Names that did not collide are unchanged.
+
+- [`6882bd5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/6882bd5c6f040f624378527f493e1b687cb7bdb1) Thanks [@fedorello](https://github.com/fedorello)! - Fix names that contain `%` (for example a property `50%`): the generator escapes `%` as `%25` in the `$ref` pointers it builds, so reading them back no longer throws `URIError`, and a name like `a%2Fb` no longer reads back as `a/b`. The exported `createRef` escapes the same way. Fixes upstream [#2251](https://github.com/openapi-typesafe/openapi-typesafe/issues/2251), [#2828](https://github.com/openapi-typesafe/openapi-typesafe/issues/2828).
+
+- [`63275f8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/63275f86ff7ba855338f09f87fb9567c8ed91300) Thanks [@fedorello](https://github.com/fedorello)! - `Readable` and `Writable` keep function types as they are. Before, they mapped a `Blob` or a `Date`
+  in response data into an object whose methods could not be called, so `data.file.arrayBuffer()`
+  did not type check. The helper types that `--read-write-markers` writes into the output change the
+  same way. See ADR-014, decision 6.
+
+- [`d5dcbb3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d5dcbb3f38e4d583334977c50db92461085d4a11) Thanks [@fedorello](https://github.com/fedorello)! - `Readable` and `Writable` keep the shape of types without markers: readonly arrays stay arrays, tuples stay tuples, branded primitives (`string & { __brand }`) stay as they are, `allOf` arrays keep the properties of every member (so unions narrow again), and an optional `null` property is no longer dropped from request bodies. The `--read-write-markers` output carries the same fixed helpers (ADR-014). Fixes upstream [#2615](https://github.com/openapi-typesafe/openapi-typesafe/issues/2615), [#2620](https://github.com/openapi-typesafe/openapi-typesafe/issues/2620), [#2632](https://github.com/openapi-typesafe/openapi-typesafe/issues/2632), [#2717](https://github.com/openapi-typesafe/openapi-typesafe/issues/2717), [#2765](https://github.com/openapi-typesafe/openapi-typesafe/issues/2765).
+
+- [`df1abc5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/df1abc5a4d86d096983fc07237ff55cd69b34a06) Thanks [@fedorello](https://github.com/fedorello)! - Require `@redocly/openapi-core` `^1.34.22`. The old range allowed 1.34.6 to 1.34.14, which reject
+  OpenAPI 3.2 documents, so an install that resolved one of them failed on 3.2 input.
+
+- [`cbf804a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cbf804aafefc7ffe5374eaa68f52e269b9652fe5) Thanks [@fedorello](https://github.com/fedorello)! - The 60-second limit on a remote document or `$ref` now covers the body too. A server that sent
+  the body slowly kept the run waiting, and a root URL then failed with "Cannot set property message
+  of ... which has only a getter" instead of "Timed out after 60000 ms loading <url>".
+
+- [`4638165`](https://github.com/openapi-typesafe/openapi-typesafe/commit/4638165e140ce4d097e4c20581e4e893a5ec873e) Thanks [@fedorello](https://github.com/fedorello)! - `--remote-ref-hosts` (`remoteRefHosts`) now matches hosts as URLs write them. A listed default
+  port (`api.example.com:443`), a bare IPv6 address (`::1`), a trailing dot, a Unicode host name or
+  another IPv4 form now match the URLs they name; before, such `$ref`s were refused. Entries that
+  are not a host (with `/`, `@` or `#`) never match.
+
+- [`cb058cd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cb058cdbf852b7549de553000d4bb36e390acc60) Thanks [@fedorello](https://github.com/fedorello)! - `--root-types`: a root alias whose name a helper type of the file also declares (a schema named
+  `WithRequired` with `--root-types-no-schema-prefix`) is renamed to `WithRequired_2`, as aliases that
+  an enum takes already are. Before, both were declared under one name, which does not compile.
+
+- [`70d5ef9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/70d5ef93425423c6faad5c775629541aa4bce54c) Thanks [@fedorello](https://github.com/fedorello)! - `--enum` with `--root-types`: a root type alias no longer gets the same name as an enum. Before,
+  both were exported under one name and the output did not compile. The alias now gets the next free
+  suffix (`ClusterState_2`); the enum keeps its name. Fixes upstream [#2099](https://github.com/openapi-typesafe/openapi-typesafe/issues/2099), [#2341](https://github.com/openapi-typesafe/openapi-typesafe/issues/2341), [#2206](https://github.com/openapi-typesafe/openapi-typesafe/issues/2206).
+
+- [`3d4cafd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/3d4cafd70d1da8bc80d6f3e4e3b9204f4643f840) Thanks [@fedorello](https://github.com/fedorello)! - `--root-types --root-types-no-schema-prefix --root-types-keep-casing`: a schema whose name
+  TypeScript reserves (`void`, `class`, `string`, …) keeps the prefix (`Schemavoid`), as a name that
+  starts with a digit already does. Before, `export type void` did not compile.
+
+- [`68a5741`](https://github.com/openapi-typesafe/openapi-typesafe/commit/68a574108b02082d5d91f0c9bcef8b282cd23ea7) Thanks [@fedorello](https://github.com/fedorello)! - `--root-types-no-schema-prefix` with schemas of one PascalCase name (`Void` and `void`) gives the
+  same output as openapi-typescript again: the last schema gets `Void` and the earlier ones have no
+  root alias. `1.0.0-beta.2` also added numbered aliases (`Void_2`), which changed valid output;
+  that is now a backlog item for an opt-in flag.
+
+- [`afcaca4`](https://github.com/openapi-typesafe/openapi-typesafe/commit/afcaca4c97c718017c2b46a80e5a2084246465f8) Thanks [@fedorello](https://github.com/fedorello)! - `--check` names the stale file: `Generated types are not up-to-date! src/api.ts differs from its
+schema.` With several APIs in `redocly.yaml`, this tells which output to regenerate.
+
+- [`8a4c592`](https://github.com/openapi-typesafe/openapi-typesafe/commit/8a4c59221d4ed99fcf11c51ad0d14dbac2ad057f) Thanks [@fedorello](https://github.com/fedorello)! - The public `StringSubtype` type has `minLength`, `maxLength` and `pattern`, so callbacks can read
+  them after narrowing a Schema Object to `type: "string"`.
+
+- [`1081515`](https://github.com/openapi-typesafe/openapi-typesafe/commit/1081515c69d6346dd9d7fc408e0a8a6082d6ed2f) Thanks [@fedorello](https://github.com/fedorello)! - Always generate names that parse. An `--enum` or `--enum-values` name that starts with a digit
+  after invalid characters are removed now gets the `Value` prefix (`0 a-b` gave `value0 a-b`).
+  With `--root-types-keep-casing`, characters that cannot be in an identifier become `_`
+  (`Schemamy pet` is now `Schemamy_pet`). With `--root-types-no-schema-prefix`, a name that would
+  start with a digit keeps its prefix (`Schema1`). Names that were valid before do not change.
+
+- [`e271999`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e2719997bdfb326d28849a6162892dfdff21a468) Thanks [@fedorello](https://github.com/fedorello)! - Warn about OpenAPI 3.2 features that the generated types leave out: the `query` operation,
+  `additionalOperations`, `in: querystring` parameters and `itemSchema`. Each use prints its JSON
+  Pointer. Before, they were dropped without a word. See "OpenAPI 3.2 features" in the docs.
+
+- [`77d7d5c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/77d7d5cf867d21a3424d14bda60aec62d7e5ea96) Thanks [@fedorello](https://github.com/fedorello)! - A YAML document whose aliases (`*name`) expand it far beyond its written size (a "billion laughs"
+  document) now fails at once with `SCHEMA_PARSE_FAILED`. Before, the run took minutes and ended
+  with "RangeError: Set maximum size exceeded". Real documents that reuse anchors are not affected:
+  the limit starts at 1,000,000 expanded nodes and 100 times the written size.
+
 ## 7.13.0
 
 ### Minor Changes

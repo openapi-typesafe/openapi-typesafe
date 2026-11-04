@@ -2,6 +2,53 @@
 
 This package is a fork of `openapi-fetch`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-fetch` versions.
 
+## 1.0.0-rc.0
+
+### Minor Changes
+
+- [`551c058`](https://github.com/openapi-typesafe/openapi-typesafe/commit/551c05889d32eaf1d328111e5c4d167e0337e5a4) Thanks [@fedorello](https://github.com/fedorello)! - The OpenAPI 3.2 `QUERY` method: `HttpMethod` includes `"query"`, the fetch client has
+  `client.QUERY(url, { body })` (also through `request("query", …)` and the path-based client), and
+  the react-query hooks accept `"query"`. A `Record<HttpMethod, …>` written by hand needs a `query`
+  entry. The path-based client maps only HTTP method keys, so `parameters` no longer shows up as a
+  `PARAMETERS()` call that always failed.
+
+### Patch Changes
+
+- [`16f572f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/16f572fd582fbabe058abad2604ffb3299ddc97a) Thanks [@fedorello](https://github.com/fedorello)! - `defaultBodySerializer` recognizes headers from another JavaScript realm (an iframe, `node:vm`, Jest VM modules), so an `application/x-www-form-urlencoded` body is no longer sent as JSON there. Its type now declares the optional `headers` parameter. Fixes upstream [#2637](https://github.com/openapi-typesafe/openapi-typesafe/issues/2637).
+
+- [`2b3671f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2b3671f126f78e24ead7ad785a55b79540ae9092) Thanks [@fedorello](https://github.com/fedorello)! - Middleware request ids come from a process-wide counter instead of `Math.random()`. Next.js prerendering rejected the random value as a side effect before uncached data. Ids stay unique, also across clients that share a middleware. Fixes upstream [#2486](https://github.com/openapi-typesafe/openapi-typesafe/issues/2486) (as [#2763](https://github.com/openapi-typesafe/openapi-typesafe/issues/2763) proposed).
+
+- [`e49344a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e49344a208fb3bb38cd86f62c1395f8f7ca950f6) Thanks [@fedorello](https://github.com/fedorello)! - Packages contain only their build output, sources for source maps, the CLI, and the README, license and changelog. Coverage reports, local logs and tool configs are no longer packed.
+
+- [`b775891`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b775891e2ac748aeab4cb3106c1df44a0b7ddf30) Thanks [@kaigritun](https://github.com/kaigritun)! - fix(openapi-typesafe-fetch): handle empty error responses when Content-Length header is stripped
+
+- [`bb9d754`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bb9d754cbb4133ac1ae09f1a340af455f9482ecc) Thanks [@fedorello](https://github.com/fedorello)! - The error for an invalid middleware has a missing backtick back: "Middleware must be an object
+  with one of `onRequest()`, `onResponse()` or `onError()`".
+
+- [`4091466`](https://github.com/openapi-typesafe/openapi-typesafe/commit/40914664dd3d9aba10c2720a78d226ba9355e5ba) Thanks [@fedorello](https://github.com/fedorello)! - An object body with `Content-Type: multipart/form-data` is now sent as `FormData`: one part per
+  field, a `Blob` or `File` as a file part, an array as one part per item. Before, it was
+  JSON-encoded, so every file upload needed its own `bodySerializer`. A `Content-Type` without a
+  `boundary` set by hand for a `FormData` body is dropped, so the platform sets the boundary and the
+  server can read the parts (openapi-typescript#1214). A nested object in such a body throws and
+  names `bodySerializer()`. See ADR-013, decision 10.
+
+- [`3786df3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/3786df3482727d6b728b7409ebc9ee8b66f3b97c) Thanks [@fedorello](https://github.com/fedorello)! - Query parameter names and object keys are now percent-encoded, like values. A key from your data,
+  such as the keys of an `additionalProperties` query object, could add a parameter (`a&admin`) or a
+  path segment (`a/b`). `[`, `]`, `$`, `:`, `@` and `,` stay as written, so `filter[status]` and
+  `$filter` are unchanged. See ADR-013, decision 9.
+
+- [`77e1425`](https://github.com/openapi-typesafe/openapi-typesafe/commit/77e1425ac5b45833f2a69e12448056292f71803f) Thanks [@fedorello](https://github.com/fedorello)! - Request bodies that `fetch` sends as they are now go out unchanged, without a JSON `Content-Type`:
+  `Blob`, `File`, `URLSearchParams`, `ArrayBuffer` and typed arrays. Before, they were JSON-encoded to
+  `{}`, so a binary upload lost its data. A nested object in an `application/x-www-form-urlencoded`
+  body now throws instead of being sent as `[object Object]`, and a path that already has a query
+  string gets `&` instead of a second `?`. See ADR-013, decisions 6 to 8.
+
+- [`4ddbce1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/4ddbce1079976752abb426e79d27a744f9fe1cb3) Thanks [@fedorello](https://github.com/fedorello)! - `defaultPathSerializer` throws when a path parameter makes a `.` or `..` path segment, so a value like `..` can no longer move a request to another endpoint (path traversal). Such a request now rejects before `fetch` is called (ADR-013). Fixes upstream [#2483](https://github.com/openapi-typesafe/openapi-typesafe/issues/2483).
+
+- [`f8ac0d6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f8ac0d6e8f35d317ccb41758b7a2f3dc1ecf1f87) Thanks [@fedorello](https://github.com/fedorello)! - A string request body is sent as is when the request sets a non-JSON `Content-Type` such as `text/plain`; before, it was JSON-encoded and got extra quotes. With a JSON `Content-Type`, or none, a string is still sent as a JSON string value (ADR-013). Fixes upstream [#2555](https://github.com/openapi-typesafe/openapi-typesafe/issues/2555), [#2382](https://github.com/openapi-typesafe/openapi-typesafe/issues/2382).
+- Updated dependencies [[`e49344a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e49344a208fb3bb38cd86f62c1395f8f7ca950f6), [`551c058`](https://github.com/openapi-typesafe/openapi-typesafe/commit/551c05889d32eaf1d328111e5c4d167e0337e5a4), [`63275f8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/63275f86ff7ba855338f09f87fb9567c8ed91300), [`d5dcbb3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d5dcbb3f38e4d583334977c50db92461085d4a11)]:
+  - openapi-typesafe-helpers@1.0.0-rc.0
+
 ## 0.17.0
 
 ### Minor Changes

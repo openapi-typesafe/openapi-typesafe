@@ -1,7 +1,7 @@
 {
   "name": "openapi-typesafe-react-query",
   "description": "Fast, type-safe @tanstack/react-query client to work with your OpenAPI schema.",
-  "version": "0.0.0",
+  "version": "1.0.0-rc.0",
   "author": {
     "name": "Fedor Chishchin",
     "url": "https://github.com/fedorello"
