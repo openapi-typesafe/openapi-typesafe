@@ -47,10 +47,15 @@ fi
 dist_tag="latest"
 [[ "${VERSION}" == *-* ]] && dist_tag="next"
 publish_args=(--access public --tag "${dist_tag}")
-[[ "${RELEASE_DRY_RUN:-0}" == "1" ]] && publish_args+=(--dry-run)
+# publish.sh always sets RELEASE_DRY_RUN (0 or 1), so the log mark checks its value.
+dry_run_mark=""
+if [[ "${RELEASE_DRY_RUN:-0}" == "1" ]]; then
+  publish_args+=(--dry-run)
+  dry_run_mark=" (dry run)"
+fi
 
 pnpm pack --pack-destination "${PACK_DIR}" >/dev/null
-log "publishing with tag ${dist_tag}${RELEASE_DRY_RUN:+ (dry run)}"
+log "publishing with tag ${dist_tag}${dry_run_mark}"
 npm publish "${PACK_DIR}"/*.tgz "${publish_args[@]}" 2>&1 | tee -a "${LOG_FILE}"
 
 if [[ "${RELEASE_DRY_RUN:-0}" != "1" ]]; then
