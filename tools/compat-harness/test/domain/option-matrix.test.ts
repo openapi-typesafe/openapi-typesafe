@@ -69,6 +69,8 @@ describe("selectOptionSets", () => {
       "fix=discriminator-values",
       "fix=discriminator-values+enum",
       "fix=root-type-numbering+root-types+root-types-no-schema-prefix",
+      "fix=exploded-query-objects",
+      "fix=exploded-query-objects+immutable",
       "fix=all",
       "fix=all+array-length",
     ]);

@@ -112,6 +112,8 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
     flag: "--fix=root-type-numbering",
     with: [["--root-types", "--root-types-no-schema-prefix"]],
   },
+  // `exploded-query-objects` moves keys into `query`: `--immutable` makes them readonly.
+  { flag: "--fix=exploded-query-objects", with: [[], ["--immutable"]] },
   { flag: "--fix=all", with: [[], ["--array-length"]] },
 ];
 

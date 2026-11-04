@@ -14,6 +14,8 @@ export const OutputFix = {
   ARRAY_LENGTH_TUPLES: "array-length-tuples",
   /** A schema two discriminators name gets one enum of their values, a mapping before its name. */
   DISCRIMINATOR_VALUES: "discriminator-values",
+  /** An exploded object query parameter's properties are keys of `query`, as they are sent. */
+  EXPLODED_QUERY_OBJECTS: "exploded-query-objects",
   /** Schemas of one root type name without the prefix each get an alias, the earlier numbered. */
   ROOT_TYPE_NUMBERING: "root-type-numbering",
   /** `unevaluatedProperties` types the keys no other keyword declares (an index signature). */

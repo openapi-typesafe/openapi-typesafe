@@ -407,6 +407,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
 | `discriminator-values` | A schema that a discriminator `mapping` names gets the mapped value only, not also its schema name from a discriminated `oneOf` without a mapping, which made the property `never` | none (found in our own tests) | 1.0 |
+| `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
 | `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
 
@@ -579,6 +580,41 @@ Cat: Omit<components["schemas"]["Pet"], "kind"> & { kind: "cat" }; // [!code ++]
 - Two mappings that give one schema different values make one enum with both (`"cat" | "feline"`).
 - Two discriminators with different property names still add two properties.
 - With `--enum`, the merged enum is declared once.
+
+#### exploded-query-objects
+
+A query parameter with an object schema is sent with `style: form` and `explode: true` unless it
+says otherwise, so its properties are the query keys: `?page=1&size=10`, not `?filter=…`. Without
+the fix `query` has one key named after the parameter. With it the object's properties are keys of
+`query`:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+parameters:
+  - name: GetPosts
+    in: query
+    schema:
+      $ref: "#/components/schemas/GetPosts"
+```
+
+:::
+
+```ts
+query?: { // [!code --]
+  GetPosts?: components["schemas"]["GetPosts"]; // [!code --]
+}; // [!code --]
+query?: Partial<components["schemas"]["GetPosts"]>; // [!code ++]
+```
+
+- The other query parameters stay keys of their own: `{ sort?: string } & Partial<…>`.
+- An optional parameter's properties are all optional (`Partial`): leaving the parameter out sends
+  none of them. A required parameter keeps the object as it is, and `query` is required.
+- A schema is an object when its `type` is `object` (also with `null`), when it has object keywords
+  and no `type`, or when every `allOf`, `anyOf` or `oneOf` member is one; `$ref`s are followed.
+- `style: deepObject`, `explode: false`, other styles and other locations keep the name.
+- The default `querySerializer` of `openapi-typesafe-fetch` sends top-level primitive values as
+  `key=value`, which is this format, so the client needs no other option.
 
 #### root-type-numbering
 

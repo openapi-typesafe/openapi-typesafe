@@ -128,6 +128,8 @@ These are off by default, so the output does not change until you turn one on.
   root name an alias: the later keeps the name, the earlier get `_2`, `_3`, instead of none.
   `unevaluated-properties` types the keys that no other keyword declares with the
   `unevaluatedProperties` schema, instead of ignoring it.
+  `exploded-query-objects` makes the properties of an exploded object query parameter keys of
+  `query`, as they are sent.
 
 ### Client fixes
 
