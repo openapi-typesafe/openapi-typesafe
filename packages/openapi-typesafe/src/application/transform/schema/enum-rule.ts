@@ -136,13 +136,35 @@ function isUnionPosition(pointer: readonly string[], index: number): boolean {
   return UNION_KEYWORDS.has(pointer[index] as string) && next !== undefined && INDEX_RE.test(next);
 }
 
+const PARAMETERS = "parameters";
+
+/** Where the `parameters` of a path item sit in its pointer: `paths/<key>/…`, `components/…`. */
+function pathItemParametersIndex(pointer: readonly string[]): number | null {
+  if (pointer[0] === "paths" || pointer[0] === "webhooks") {
+    return 2;
+  }
+  return pointer[0] === "components" && pointer[1] === "pathItems" ? 3 : null;
+}
+
+/**
+ * The location of a path item parameter repeats `parameters` (`paths/~1a/parameters/parameters/
+ * path/id`), which keeps the generated names as they were. The generated type has the segment
+ * once: `paths["/a"]["parameters"]["path"]["id"]`.
+ */
+function withSingleParametersSegment(pointer: readonly string[]): readonly string[] {
+  const index = pathItemParametersIndex(pointer);
+  const isRepeated =
+    index !== null && pointer[index] === PARAMETERS && pointer[index + 1] === PARAMETERS;
+  return isRepeated ? [...pointer.slice(0, index), ...pointer.slice(index + 1)] : pointer;
+}
+
 /**
  * The pointer of `--enum-values` arrays without union positions (`anyOf/0`), so names stay
  * stable. Every property after the first union position is narrowed with `Extract`: a no-op where
  * all variants have it, and the needed narrowing where only some do.
  */
 function enumValuesPointer(path: string | undefined): { ref: string; extract: string[] } {
-  const pointer = parseRefPointer(path ?? "");
+  const pointer = withSingleParametersSegment(parseRefPointer(path ?? ""));
   const kept: string[] = [];
   let firstVariantStart: number | null = null;
   for (let index = 0; index < pointer.length; index++) {
