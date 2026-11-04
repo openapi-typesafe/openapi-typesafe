@@ -5,7 +5,7 @@ packages:
 
 catalog:
   execa: ^10.2.1
-  typescript: ^6.0.3
+  typescript: ^5.9.3
   vite: ^8.3.5
 
 # Supply-chain policy: never install a version published less than 24 hours ago (most malicious
