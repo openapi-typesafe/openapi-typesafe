@@ -27,7 +27,7 @@ npx openapi-typesafe https://petstore3.swagger.io/api/v3/openapi.yaml -o petstor
 # 🚀 https://petstore3.swagger.io/api/v3/openapi.yaml → petstore.d.ts [250ms]
 ```
 
-Paths may contain spaces and non-ASCII characters, and missing output directories are created. Relative `$ref`s resolve from the path the document was read from: for a symlink, next to the link, not its target (as in openapi-typescript). In `redocly.yaml`, `root` and `output` are relative to that file.
+Paths may contain spaces and non-ASCII characters, and missing output directories are created. Relative `$ref`s resolve from the path the document was read from: for a symlink, next to the link, not its target (as in openapi-typescript). A document read from stdin resolves them from the current directory (openapi-typescript 7.13 used its parent). In `redocly.yaml`, `root` and `output` are relative to that file.
 
 ### Multiple schemas
 

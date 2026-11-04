@@ -45,10 +45,17 @@ type ContextFlags = Omit<
   | "fix"
 >;
 
+/**
+ * The directory that relative `$ref`s of an inline source resolve against, as a URL that ends in
+ * a slash. A path is resolved and encoded (`#`, `%`, spaces); a URL without the slash gets one.
+ */
 function sourceCwd(options: GeneratorOptions): URL {
-  return options.cwd instanceof URL
-    ? options.cwd
-    : new URL(`file://${options.cwd ?? process.cwd()}/`);
+  const { cwd } = options;
+  if (cwd instanceof URL) {
+    return cwd.pathname.endsWith("/") ? cwd : new URL(`${cwd.pathname}/`, cwd);
+  }
+  const directory = path.resolve(cwd === undefined ? process.cwd() : cwd.toString());
+  return pathToFileURL(path.join(directory, path.sep));
 }
 
 /** The `$ref` limits of the options; a relative local root resolves against the cwd. */
