@@ -177,13 +177,13 @@ and asks.
 
 ### R10. Invalid-output fixes (backlog 27, 28, 29)
 
-- [ ] R10.1 `--enum`: members that differ only in dropped characters get numbered names, as
+- [x] R10.1 `--enum`: members that differ only in dropped characters get numbered names, as
   `ApiPaths` does (PB-38).
-- [ ] R10.2 `--path-params-as-types`: literal paths that a template-literal path key also
+- [x] R10.2 `--path-params-as-types`: literal paths that a template-literal path key also
   matches; design first (an index signature cannot hold differently typed literal keys).
-- [ ] R10.3 `--exclude-deprecated`: keep a deprecated schema that a kept operation still
+- [x] R10.3 `--exclude-deprecated`: keep a deprecated schema that a kept operation still
   references.
-- [ ] R10.4 Each as a default fix: the compat report must show the affected cases as
+- [x] R10.4 Each as a default fix: the compat report must show the affected cases as
   golden-invalid with fewer errors; add them to `docs/compatibility.md`.
 
 ### R11–R13. `unevaluatedProperties`, discriminator conflict, numbered root aliases
@@ -205,6 +205,7 @@ and asks.
 | R7 | 2026-11-03 | `fix(react-query)` commit | ADR-022: `useInfiniteQuery` gets its own key (`[...queryKey, "infinite"]`, #2184) and leaves out an `undefined` page param (#2715, #2340); `select` (#2852) not reproduced, type test added; stricter init and param types (#2642, #2864) planned for 2.0 (backlog 32, 33). See `research/roadmap/R7.md` |
 | R8 | 2026-11-04 | `feat(generator)` commit | Output fix `anyof-properties` (ADR-021): `anyOf` next to `properties`, `allOf` or a single `type` is intersected with the union (#2380); a `type` list keeps its `null`. Corpus: 0 regressions, 445 intersections, 123 `\| unknown` removed. Also fixed an R6 parity break (duplicate `required` keys). See `research/roadmap/R8.md` |
 | R9 | 2026-11-04 | `feat(generator)` commit | Output fix `array-length-tuples` (ADR-021), with `--array-length`: `min..max` tuples (#2048, #2546), nested arrays wrapped once (#2330), `readonly` with `--immutable`, no length tuples around `prefixItems`; a notice when named without `--array-length`. Corpus: 0 regressions, 376 declarations. See `research/roadmap/R9.md` |
+| R10 | 2026-11-04 | `fix(generator)` commits | Default fixes of output that does not compile: numbered `--enum` members whose names collide, deprecated schemas kept while kept output references them, and `--path-params-as-types` templates in an intersection where TypeScript surely rejects a covered path (output that compiles unchanged). Harness: a file TypeScript stops on is a result. Full corpus vs full golden: 50,960 cases, 0 mismatches; 994 golden-invalid, 766 compile. See `research/roadmap/R10.md` |
 
 ## 7. Exit criteria
 

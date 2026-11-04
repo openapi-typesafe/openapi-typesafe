@@ -8,7 +8,7 @@ description: How the output of openapi-typesafe compares with openapi-typescript
 openapi-typesafe promises the same output as openapi-typescript 7.13, except where the output is a
 bug. This page shows how that is checked and what the last run found.
 
-**Result (2026-11-03):** 50,960 cases, 0 unexpected differences. 99.99% of the outputs are the
+**Result (2026-11-04):** 50,960 cases, 0 unexpected differences. 99.99% of the outputs are the
 same byte for byte, and 100% have the same types.
 
 ## What is compared
@@ -38,14 +38,14 @@ For every case the tool generates the types with both generators and compares th
 
 | Result | Cases | What it means |
 | --- | ---: | --- |
-| Same bytes | 50,663 | The output is the same file. |
+| Same bytes | 49,794 | The output is the same file. |
 | Same types | 4 | `--enum-values` constants whose golden names start with a digit (not valid JavaScript) get a `value` prefix; every exported type is equal. |
 | Different | 0 | — |
-| Golden output does not compile | 125 | openapi-typescript 7.13 writes TypeScript with errors; ours has no more errors, and 95 of these compile without any. |
+| Golden output does not compile | 994 | openapi-typescript 7.13 writes TypeScript with errors; ours has no more errors, and 766 of these compile without any ([see below](#golden-output-that-does-not-compile)). |
 | Golden generator fails | 168 | openapi-typescript 7.13 stops with an error on 6 documents (see below). |
 | Candidate fails | 0 | — |
 
-The rates count only cases where the golden output exists and compiles (50,667 cases): byte
+The rates count only cases where the golden output exists and compiles (49,798 cases): byte
 identity **99.99%**, type identity **100%**, and **100%** of the golden types are kept.
 
 ### Documents the golden generator cannot load
@@ -56,6 +56,24 @@ These 6 documents fail in every option set (6 × 28 = 168 cases):
   types the [3.2 features](/introduction#openapi-3-2-support) as well.
 - 3 point to files or URLs that cannot be downloaded (a relative `$ref` outside the document, and
   a URL that returns HTTP 400). Both generators stop on them.
+
+### Golden output that does not compile
+
+These cases are not compared type by type: the golden file has TypeScript errors, so the check is
+that ours has no more. They come from option combinations whose original output does not compile:
+
+| Option set | Cases | Ours compiles | Cause |
+| --- | ---: | ---: | --- |
+| `--path-params-as-types` | 791 | 600 | A path template such as `` `/apps/${string}` `` also matches another path whose type does not fit; ours writes such templates in an intersection where the error is sure (see the [CLI docs](./cli.md#pathparamsastypes)). |
+| `--make-paths-enum` | 81 | 78 | Paths that map to the same member name. |
+| `--enum` (with `--enum-values`, `--dedupe-enums`, `--conditional-enums`) | 108 | 77 | Enum members whose names collide, which ours numbers, and names that start with a digit. |
+| `--exclude-deprecated` | 13 | 11 | A kept schema points to a deprecated one, which ours keeps. |
+| `--root-types-keep-casing` | 1 | 0 | A schema name that is not a valid identifier. |
+
+Where ours still has errors, it has no more than the golden output. In 2 of the 791 cases
+(Microsoft Graph and Graph beta with `--path-params-as-types`, 24 MB each) TypeScript cannot finish
+the check of either file: it stops with `RangeError: Map maximum size exceeded`, as a user's `tsc`
+does; the default output of the same documents compiles.
 
 ## Intentional differences
 
