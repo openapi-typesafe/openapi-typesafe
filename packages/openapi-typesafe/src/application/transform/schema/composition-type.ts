@@ -106,15 +106,20 @@ function oneOfVariants(schema: SchemaObject): readonly Schema[] {
   return schema.oneOf || objectEnum || [];
 }
 
+/**
+ * The parent's `required` keys, plus the keys of left-out `allOf` members (`allof-required`).
+ * Without such keys the parent's list stays as it is, duplicates included, as in the original.
+ */
+function requiredKeys(schema: SchemaObject, presenceKeys: readonly string[]): readonly string[] {
+  const own = schema.required ?? [];
+  return presenceKeys.length === 0 ? own : [...new Set([...own, ...presenceKeys])];
+}
+
 function combinedType(schema: SchemaObject, request: SchemaRequest): IrType | null {
   let type: IrType | null = null;
   const core = coreType(schema, request);
   const { members, required } = allOfMembers(schema.allOf ?? [], request);
-  const allOf = allOfTypes(
-    members,
-    [...new Set([...(schema.required ?? []), ...required])],
-    request,
-  );
+  const allOf = allOfTypes(members, requiredKeys(schema, required), request);
   if (core !== null || allOf.length > 0) {
     const allOfType = allOf.length > 0 ? [intersectionOf(allOf)] : [];
     type = intersectionOf([...(core === null ? [] : [core]), ...allOfType]);

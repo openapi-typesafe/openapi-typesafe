@@ -34,6 +34,14 @@ describe("allof-required fix", () => {
     expect(await generate(document)).toContain('Test: components["schemas"]["Info"] & Record<string, never>;');
   });
 
+  it("openapiTS without the fix keeps duplicate required keys as the original does", async () => {
+    const nested = { allOf: [{ allOf: [INFO_REF], required: ["name"] }], required: ["name"] };
+
+    expect(await generate(documentWith({ Test: nested }))).toContain(
+      'Test: WithRequired<components["schemas"]["Info"], "name" | "name">;',
+    );
+  });
+
   it("openapiTS with the fix makes a typed required-only member's keys required on a $ref", async () => {
     const output = await fixed({ Test: { allOf: [INFO_REF, { type: "object", required: ["name", "note"] }] } });
 
