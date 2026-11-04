@@ -161,10 +161,10 @@ and asks.
 
 ### R7. react-query type fixes (backlog 23)
 
-- [ ] R7.1 Go through #2852, #2873, #2882, #2184, #2671, #2715, #2826, #2340, #2642, #2857, #2864,
+- [x] R7.1 Go through #2852, #2873, #2882, #2184, #2671, #2715, #2826, #2340, #2642, #2857, #2864,
   #2865 and their PRs. Split: pure type fixes that accept all code that compiles today (default);
   stricter types that can break compiling code (#2857, #2865: opt-in or a note for 2.0, ADR).
-- [ ] R7.2 Implement with type tests (`expectTypeOf`) and runtime tests; gates of §4.
+- [x] R7.2 Implement with type tests (`expectTypeOf`) and runtime tests; gates of §4.
 
 ### R8. `anyOf` with sibling `properties` (backlog 19; #2380, #2608)
 
@@ -202,6 +202,7 @@ and asks.
 | R4 | 2026-11-03 | `build(deps)` and `chore(examples)` commits | Workspace compiler on TypeScript 6 (not 7: no JavaScript compiler API for `unbuild` and the legacy bridge); `dist` byte-identical; SvelteKit 3 example; two Dependabot ignores dropped; ADR-006 decision 4 updated. See `research/roadmap/R4.md` |
 | R5 | 2026-11-03 | `docs(adr)` commit | ADR-021: one `fix` option with named fixes (`--fix allof-required,…`, `--fix all`), unknown names fail, `redocly.yaml` per API replaces the CLI list, every fix becomes the default in 2.0. See `research/roadmap/R5.md` |
 | R6 | 2026-11-03 | `feat(generator)` commit | `--fix` option (ADR-021) with `allof-required`: presence-only `allOf` members are left out and their keys become required (`WithRequired`). Opt-in: 9,100 cases, 0 regressions; compat 200 × 28: 0 mismatches; type matrix pass. See `research/roadmap/R6.md` |
+| R7 | 2026-11-03 | `fix(react-query)` commit | ADR-022: `useInfiniteQuery` gets its own key (`[...queryKey, "infinite"]`, #2184) and leaves out an `undefined` page param (#2715, #2340); `select` (#2852) not reproduced, type test added; stricter init and param types (#2642, #2864) planned for 2.0 (backlog 32, 33). See `research/roadmap/R7.md` |
 
 ## 7. Exit criteria
 

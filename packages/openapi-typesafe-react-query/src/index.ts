@@ -38,6 +38,20 @@ export type QueryKey<
   Init = MaybeOptionalInit<Paths[Path], Method>,
 > = Init extends undefined ? readonly [Method, Path] : readonly [Method, Path, Init];
 
+/**
+ * The last element of an infinite query's key. `useQuery` and `useInfiniteQuery` cache different
+ * data (`TData` and `InfiniteData<TData>`), so the same request must not share one key (upstream
+ * #2184, ADR-022). A prefix such as `[method, path]` still matches both. Not exported: a runtime
+ * named export next to the default export would change what `require()` returns.
+ */
+const INFINITE_QUERY_KEY_MARKER = "infinite";
+
+export type InfiniteQueryKey<
+  Paths extends Record<string, Record<HttpMethod, {}>>,
+  Method extends HttpMethod,
+  Path extends PathsWithMethod<Paths, Method>,
+> = readonly [...QueryKey<Paths, Method, Path>, typeof INFINITE_QUERY_KEY_MARKER];
+
 export type QueryOptionsFunction<Paths extends Record<string, Record<HttpMethod, {}>>, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
@@ -113,7 +127,7 @@ export type UseInfiniteQueryMethod<Paths extends Record<string, Record<HttpMetho
       Response["data"],
       Response["error"],
       InferSelectReturnType<InfiniteData<Response["data"]>, Options["select"]>,
-      QueryKey<Paths, Method, Path>,
+      InfiniteQueryKey<Paths, Method, Path>,
       unknown
     >,
     "queryKey" | "queryFn"
@@ -199,6 +213,26 @@ function throwIfFailed(result: { error?: unknown; response: Response }): void {
   }
 }
 
+/** The query parameter that carries the page param unless `pageParamName` names another. */
+const DEFAULT_PAGE_PARAM_NAME = "cursor";
+
+interface PageRequest {
+  readonly pageParamName: string;
+  readonly pageParam: unknown;
+  readonly signal: AbortSignal;
+}
+
+/**
+ * The request init of one page. An `undefined` page param (the first page with
+ * `initialPageParam: undefined`) is left out instead of being sent as `0` (upstream #2715, #2340,
+ * ADR-022), so a cursor API gets no cursor on the first page.
+ */
+function pageInit(init: unknown, { pageParamName, pageParam, signal }: PageRequest) {
+  const { params, ...rest } = (init ?? {}) as { params?: { query?: DefaultParamsOption } };
+  const page = pageParam === undefined ? {} : { [pageParamName]: pageParam };
+  return { ...rest, signal, params: { ...params, query: { ...params?.query, ...page } } };
+}
+
 // TODO: Add the ability to bring queryClient as argument
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
   client: FetchClient<Paths, Media>,
@@ -236,27 +270,16 @@ export default function createClient<Paths extends {}, Media extends MediaType =
     useSuspenseQuery: (method, path, ...[init, options, queryClient]) =>
       useSuspenseQuery(queryOptions(method, path, init as InitWithUnknowns<typeof init>, options), queryClient),
     useInfiniteQuery: (method, path, init, options, queryClient) => {
-      const { pageParamName = "cursor", ...restOptions } = options;
+      const { pageParamName = DEFAULT_PAGE_PARAM_NAME, ...restOptions } = options;
       const { queryKey } = queryOptions(method, path, init);
+      const mth = method.toUpperCase() as Uppercase<typeof method>;
+      const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
       return useInfiniteQuery(
         {
-          queryKey,
-          queryFn: async ({ queryKey: [method, path, init], pageParam = 0, signal }) => {
-            const mth = method.toUpperCase() as Uppercase<typeof method>;
-            const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
-            const mergedInit = {
-              ...init,
-              signal,
-              params: {
-                ...(init?.params || {}),
-                query: {
-                  ...(init?.params as { query?: DefaultParamsOption })?.query,
-                  [pageParamName]: pageParam,
-                },
-              },
-            };
-
-            const result = await fn(path, mergedInit as any);
+          queryKey: [...queryKey, INFINITE_QUERY_KEY_MARKER] as const,
+          // The request comes from the arguments; the key only identifies the cache entry.
+          queryFn: async ({ pageParam, signal }) => {
+            const result = await fn(path, pageInit(init, { pageParamName, pageParam, signal }) as any);
             throwIfFailed(result);
             return result.data;
           },

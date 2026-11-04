@@ -57,7 +57,10 @@ Signatures:
 - `useQuery(method, path, init?, options?, queryClient?)`; `useSuspenseQuery` takes the same.
 - `useMutation(method, path, options?, queryClient?)`; `mutate(init)` takes `params` / `body`.
 - `useInfiniteQuery(method, path, init, options, queryClient?)`; `options` needs
-  `getNextPageParam` and `initialPageParam`.
+  `getNextPageParam` and `initialPageParam`. With `initialPageParam: undefined` (cursor APIs) the
+  first request has no page param.
+- Query options (`retry`, `enabled`, `select`) go in `options`, never in `init`: in `init` they
+  compile and are ignored.
 - `queryOptions(method, path, init?, options?)` returns options for any TanStack API:
   `useQueries`, `queryClient.fetchQuery`, `ensureQueryData`, `prefetchQuery`.
 
@@ -69,6 +72,8 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
 ## Query keys
 
 - Query key: `[method, path]`, or `[method, path, init]` when `init` is given.
+- Infinite query key: the same with `"infinite"` last (type `InfiniteQueryKey`), so it never
+  shares a cache entry with `useQuery`; the `[method, path]` prefix matches both.
 - Mutation key: `[method, path]`.
 - Invalidate every query of an endpoint with a prefix key:
   `queryClient.invalidateQueries({ queryKey: ["get", "/pets"] })`.

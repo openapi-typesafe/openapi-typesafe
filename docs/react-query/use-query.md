@@ -10,7 +10,9 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
 - The query key is `[method, path, options]`, or `[method, path]` without options, so
   `[method, path]` matches every variant in `invalidateQueries`.
 - `data` and `error` are fully typed.
-- You can pass query options as fourth parameter.
+- You can pass query options as fourth parameter. Query options in the third parameter (the fetch
+  options) are not read: `useQuery("get", "/me", { retry: false })` sends a request and keeps the
+  default `retry`. Write `useQuery("get", "/me", undefined, { retry: false })`.
 
 ::: tip
 You can find more information about `useQuery` on the [@tanstack/react-query documentation](https://tanstack.com/query/latest/docs/framework/react/guides/queries).
