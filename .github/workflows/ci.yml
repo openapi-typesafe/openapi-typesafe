@@ -306,4 +306,6 @@ jobs:
       # The tests of the published packages, which users run on these systems. The export checks
       # are bash scripts and the internal tools (compat harness, skill evals) use POSIX process
       # groups; both are platform-independent checks that the Linux jobs run.
+      # The CLI tests run the built bin; `pnpm -r` builds in dependency order, as turbo does.
+      - run: pnpm --filter "./packages/*" run build
       - run: pnpm --filter "./packages/*" run test:js
