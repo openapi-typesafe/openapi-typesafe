@@ -80,6 +80,8 @@ export interface FooterDeclarations {
   addEnumValues(request: EnumValuesRequest): void;
   /** Make sure the `WithRequired` helper type is declared. */
   requireWithRequired(): void;
+  /** Make sure the `PropertyValues` helper type is declared (`unevaluated-properties`). */
+  requirePropertyValues(): void;
 }
 
 /** A type returned by the `transform` callback; `isOptional` is its `questionToken`. */

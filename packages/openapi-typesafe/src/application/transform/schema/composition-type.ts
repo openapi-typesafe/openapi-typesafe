@@ -15,6 +15,7 @@ import {
 import { coreType } from "./core-type.js";
 import { allOfMembers } from "./presence-members.js";
 import type { SchemaRequest } from "./schema-rule.js";
+import { unevaluatedPropertiesType } from "./unevaluated-properties.js";
 
 /** `anyOf` / `oneOf` variants; the position is part of the path so nested names stay unique. */
 function variantTypes(
@@ -137,7 +138,7 @@ function requiredKeys(schema: SchemaObject, presenceKeys: readonly string[]): re
   return presenceKeys.length === 0 ? own : [...new Set([...own, ...presenceKeys])];
 }
 
-function combinedType(schema: SchemaObject, request: SchemaRequest): IrType | null {
+function composedType(schema: SchemaObject, request: SchemaRequest): IrType | null {
   let type: IrType | null = null;
   const core = coreType(schema, request);
   const { members, required } = allOfMembers(schema.allOf ?? [], request);
@@ -149,6 +150,21 @@ function combinedType(schema: SchemaObject, request: SchemaRequest): IrType | nu
   type = anyOfType(type, schema, request);
   const oneOf = variantTypes(oneOfVariants(schema), "oneOf", request);
   return oneOf.length > 0 ? oneOfType(type, oneOf) : type;
+}
+
+/** The composed type, with the `unevaluatedProperties` index signature when it applies. */
+function combinedType(schema: SchemaObject, request: SchemaRequest): IrType | null {
+  const type = composedType(schema, request);
+  const unevaluated = unevaluatedPropertiesType(schema, type, request);
+  if (unevaluated === null) {
+    return type;
+  }
+  if (type === null) {
+    return unevaluated;
+  }
+  // One flat intersection, so an `allOf` intersection is not printed in parentheses.
+  const parts = type.kind === "intersection" ? type.types : [type];
+  return intersectionOf([...parts, unevaluated]);
 }
 
 /**

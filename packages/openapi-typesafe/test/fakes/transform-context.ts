@@ -48,6 +48,7 @@ export class RecordingFooter implements DocumentFooter {
   /** `operations` members, built when added (the order the real footer builds them in). */
   readonly operations: IrPropertySignature[] = [];
   withRequiredCount = 0;
+  propertyValuesCount = 0;
 
   addEnum(request: EnumDeclarationRequest): string {
     this.enums.push(request);
@@ -61,6 +62,10 @@ export class RecordingFooter implements DocumentFooter {
 
   requireWithRequired(): void {
     this.withRequiredCount++;
+  }
+
+  requirePropertyValues(): void {
+    this.propertyValuesCount++;
   }
 
   addOperation(build: () => IrPropertySignature): void {

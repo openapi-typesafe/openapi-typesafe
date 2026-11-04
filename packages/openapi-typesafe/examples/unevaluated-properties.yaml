@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info:
+  title: unevaluatedProperties
+  version: 1.0.0
+  description: The unevaluated-properties output fix (ADR-021); generated with --fix unevaluated-properties.
+paths: {}
+components:
+  schemas:
+    Labels:
+      type: object
+      unevaluatedProperties: { type: string }
+    Resource:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        version: { type: integer }
+    Annotated:
+      allOf:
+        - $ref: "#/components/schemas/Resource"
+      properties:
+        kind: { type: string, enum: [annotated] }
+      unevaluatedProperties: { type: string }
+    Closed:
+      allOf:
+        - $ref: "#/components/schemas/Resource"
+      unevaluatedProperties: false

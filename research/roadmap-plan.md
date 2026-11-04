@@ -188,7 +188,7 @@ and asks.
 
 ### R11–R13. `unevaluatedProperties`, discriminator conflict, numbered root aliases
 
-- [ ] R11 `unevaluatedProperties` (backlog 22; #2839, #2880), behind R5.
+- [x] R11 `unevaluatedProperties` (backlog 22; #2839, #2880), behind R5.
 - [ ] R12 Discriminator value conflict (backlog 26), behind R5.
 - [ ] R13 Numbered aliases for case-only root-type clashes (backlog 30, PB-47), behind R5.
 
@@ -206,6 +206,7 @@ and asks.
 | R8 | 2026-11-04 | `feat(generator)` commit | Output fix `anyof-properties` (ADR-021): `anyOf` next to `properties`, `allOf` or a single `type` is intersected with the union (#2380); a `type` list keeps its `null`. Corpus: 0 regressions, 445 intersections, 123 `\| unknown` removed. Also fixed an R6 parity break (duplicate `required` keys). See `research/roadmap/R8.md` |
 | R9 | 2026-11-04 | `feat(generator)` commit | Output fix `array-length-tuples` (ADR-021), with `--array-length`: `min..max` tuples (#2048, #2546), nested arrays wrapped once (#2330), `readonly` with `--immutable`, no length tuples around `prefixItems`; a notice when named without `--array-length`. Corpus: 0 regressions, 376 declarations. See `research/roadmap/R9.md` |
 | R10 | 2026-11-04 | `fix(generator)` commits | Default fixes of output that does not compile: numbered `--enum` members whose names collide, deprecated schemas kept while kept output references them, and `--path-params-as-types` templates in an intersection where TypeScript surely rejects a covered path (output that compiles unchanged). Harness: a file TypeScript stops on is a result. Full corpus vs full golden: 50,960 cases, 0 mismatches; 994 golden-invalid, 766 compile. See `research/roadmap/R10.md` |
+| R11 | 2026-11-04 | `feat(generator)` and `fix(generator)` commits | Output fix `unevaluated-properties` (ADR-021): the keys no other keyword declares get the `unevaluatedProperties` type through an index signature that also holds the declared property types (`PropertyValues<T>` for a `$ref`, distributive over unions), #2839, #2880; `false` and next to `additionalProperties` unchanged. Root aliases also give way to helper type names (`WithRequired_2`). Opt-in: 29,120 cases, 0 regressions. See `research/roadmap/R11.md` |
 
 ## 7. Exit criteria
 

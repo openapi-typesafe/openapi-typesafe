@@ -99,6 +99,12 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   { flag: "--fix=anyof-properties", with: [[], ["--empty-objects-unknown"]] },
   // `array-length-tuples` does nothing without `--array-length`, the only matrix set it changes.
   { flag: "--fix=array-length-tuples", with: [["--array-length"]] },
+  // `unevaluated-properties` adds an index signature: `--immutable` makes it readonly, and
+  // `--additional-properties` adds the `unknown` one it is intersected with.
+  {
+    flag: "--fix=unevaluated-properties",
+    with: [[], ["--immutable"], ["--additional-properties"]],
+  },
   { flag: "--fix=all", with: [[], ["--array-length"]] },
 ];
 

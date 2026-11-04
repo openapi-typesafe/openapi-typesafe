@@ -101,6 +101,14 @@ describe("CLI", () => {
       },
     ],
     [
+      "snapshot > unevaluatedProperties (unevaluated-properties fix)",
+      {
+        given: ["./examples/unevaluated-properties.yaml", "--fix", "unevaluated-properties"],
+        want: new URL("./examples/unevaluated-properties.ts", root),
+        ci: { timeout: TIMEOUT },
+      },
+    ],
+    [
       "snapshot > anyOf with sibling properties (anyof-properties fix)",
       {
         given: ["./examples/anyof-properties.yaml", "--fix", "anyof-properties"],

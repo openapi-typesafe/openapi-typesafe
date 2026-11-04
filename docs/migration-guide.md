@@ -122,6 +122,8 @@ These are off by default, so the output does not change until you turn one on.
   union.
   `array-length-tuples` corrects the `--array-length` tuples (`minItems` to `maxItems` items,
   nested arrays, `readonly`).
+  `unevaluated-properties` types the keys that no other keyword declares with the
+  `unevaluatedProperties` schema, instead of ignoring it.
 
 ### Client fixes
 

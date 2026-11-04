@@ -107,6 +107,10 @@ export class RunFooter implements DocumentFooter {
     this.require(HELPER_TYPES.withRequired);
   }
 
+  requirePropertyValues(): void {
+    this.require(HELPER_TYPES.propertyValues);
+  }
+
   addOperation(build: () => IrPropertySignature): void {
     this.sink.addOperation(build);
   }

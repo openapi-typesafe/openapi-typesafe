@@ -17,6 +17,12 @@ export const HELPER_TYPES = {
     name: "WithRequired",
     text: lines("type WithRequired<T, K extends keyof T> = T & {", "    [P in K]-?: T[P];", "};"),
   },
+  // `unevaluated-properties` (roadmap R11): the value types of every member of a union, so a
+  // `$ref` to a `oneOf` schema gives the values of each variant, not only of the shared keys.
+  propertyValues: {
+    name: "PropertyValues",
+    text: "type PropertyValues<T> = T extends unknown ? T[keyof T] : never;",
+  },
   // Task 7.4 changes the original text on purpose: `readonly unknown[]` also flattens the arrays
   // of `--immutable` (upstream #2714, #2749), and `NonNullable` looks through nullable parents
   // (upstream #2737). The old text did not compile for those schemas.

@@ -45,6 +45,7 @@ describe("selectOptionSets", () => {
     expect(ids).toEqual([
       "default",
       "immutable",
+      "additional-properties",
       "empty-objects-unknown",
       "properties-required-by-default",
       "array-length",
@@ -60,6 +61,9 @@ describe("selectOptionSets", () => {
       "fix=anyof-properties",
       "fix=anyof-properties+empty-objects-unknown",
       "fix=array-length-tuples+array-length",
+      "fix=unevaluated-properties",
+      "fix=unevaluated-properties+immutable",
+      "fix=unevaluated-properties+additional-properties",
       "fix=all",
       "fix=all+array-length",
     ]);

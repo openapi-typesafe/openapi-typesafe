@@ -398,6 +398,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
+| `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
 
 #### allof-required
 
@@ -521,7 +522,53 @@ Rows: [string[]]; // [!code ++]
 The fix needs `--array-length` and changes nothing without it; naming it without that flag prints a
 notice (`--fix all` does not). Arrays with too many possible tuples stay `T[]`, as before.
 
-### makePathsEnum
+#### unevaluated-properties
+
+Without the fix, `unevaluatedProperties` is ignored: its value type is lost, and an object with
+only that keyword is `Record<string, never>`. With it, the keys that no other keyword declares get
+its type, as `additionalProperties` gives:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Labels:
+      type: object
+      unevaluatedProperties: { type: string }
+    Annotated:
+      allOf:
+        - $ref: "#/components/schemas/Resource"
+      properties:
+        kind: { type: string, enum: [annotated] }
+      unevaluatedProperties: { type: string }
+```
+
+:::
+
+```ts
+Labels: Record<string, never>; // [!code --]
+Labels: { [key: string]: string }; // [!code ++]
+Annotated: { kind?: "annotated" } & components["schemas"]["Resource"]; // [!code --]
+Annotated: { kind?: "annotated" } & components["schemas"]["Resource"] & { // [!code ++]
+  [key: string]: string | "annotated" | undefined | PropertyValues<components["schemas"]["Resource"]>; // [!code ++]
+}; // [!code ++]
+```
+
+- TypeScript checks an index signature against every key of a value, declared ones too. So the
+  index type also holds the types of the declared properties, of the schema and of its `allOf`,
+  `anyOf` and `oneOf` members, and a valid value stays assignable. For a `$ref` member it is
+  `PropertyValues<T>`, a helper type the file declares once (`T[keyof T]` for each member of a
+  union). A key that no keyword declares can then hold any of those types; TypeScript has no type
+  for "the other keys".
+- `true` and `{}` give `unknown` values. `false` adds nothing, like `additionalProperties: false`:
+  TypeScript has no closed object type.
+- Next to `additionalProperties` it changes nothing: that keyword types every other key already.
+- Only an object schema gets it; in a type list such as `[object, "null"]`, the object does and
+  `null` stays outside.
+- With `--immutable` the index signature is `readonly`.
+
+
 
 This option is useful for generating an enum for all paths in the schema. This can be useful to use the paths from the schema in your code.
 

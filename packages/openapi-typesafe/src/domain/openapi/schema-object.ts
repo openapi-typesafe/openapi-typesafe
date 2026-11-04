@@ -38,6 +38,7 @@ export interface SchemaObject {
   readonly required?: readonly string[];
   readonly additionalProperties?: Schema | Readonly<Record<string, never>>;
   readonly patternProperties?: Readonly<Record<string, Schema>>;
+  readonly unevaluatedProperties?: Schema | Readonly<Record<string, never>>;
   readonly $defs?: Readonly<Record<string, SchemaObject>>;
   readonly items?: Schema | readonly Schema[];
   readonly prefixItems?: readonly Schema[];

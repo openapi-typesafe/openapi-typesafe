@@ -30,6 +30,10 @@ export default function footer(ctx: GlobalContext): DocumentFooter {
     requireWithRequired() {
       injectWithRequiredHelper(ctx.injectFooter);
     },
+    // The original has no opt-in fixes, and the parity tests run without them.
+    requirePropertyValues() {
+      throw new Error("PropertyValues is an opt-in fix helper the original does not have");
+    },
     addOperation(build) {
       injectOperation(ctx.injectFooter, () => toPropertySignature(ts, build()));
     },
