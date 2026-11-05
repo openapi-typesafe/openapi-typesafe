@@ -318,4 +318,20 @@ describe("checkedEnumValues", () => {
       ["excluded", "boolean"],
     ]);
   });
+
+  it("checkedEnumValues keeps an array of opaque elements and a ReadonlyArray with no argument", () => {
+    const footer = [
+      array("opaqueElements", irArray(irReference("Elsewhere")), ["a"]),
+      { ...array("bare", text("a"), ["a"]), type: irReference("ReadonlyArray") },
+    ];
+
+    const { footer: checked, retyped } = checkedEnumValues(
+      footer,
+      DECLARATIONS,
+      (_entry): _entry is IrDeclaration => true,
+    );
+
+    expect(retyped).toEqual([]);
+    expect(checked).toEqual(footer);
+  });
 });
