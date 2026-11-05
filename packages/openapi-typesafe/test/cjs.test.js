@@ -2,7 +2,9 @@
 const { fileURLToPath } = require("node:url");
 const { astToString, default: openapiTS } = require("../dist/index.cjs");
 
-const TIMEOUT = 10_000;
+// The same budget as the Stripe snapshot in node-api.test.ts: generating the Stripe schema takes
+// over 10 s on the slowest CI runner (macos-15-intel).
+const TIMEOUT = 30_000;
 
 describe("CJS bundle", () => {
   test(
