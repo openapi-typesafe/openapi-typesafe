@@ -148,6 +148,15 @@ describe("assignabilityProof: arrays, tuples and readonly", () => {
     ).toBe("rejected");
   });
 
+  it("assignabilityProof leaves tuples with a rest element in other places undecided", () => {
+    // `[string, ...string[]]` fits `[string, string?]` only when it has at most two items.
+    const open = irTuple([irTupleElement(STRING), irTupleElement(irArray(STRING), true)]);
+    const pair = irTuple([irTupleElement(STRING), irOptionalTupleElement(STRING)]);
+
+    expect(isAssignable(open, pair)).toBe("undecided");
+    expect(isAssignable(pair, open)).toBe("undecided");
+  });
+
   it("assignabilityProof accepts a mutable array for a readonly one, not the other way", () => {
     expect(isAssignable(irArray(STRING), irReadonly(irArray(STRING)))).toBe("assignable");
     expect(isAssignable(irReadonly(irArray(literal("a"))), irReadonly(irArray(STRING)))).toBe(

@@ -13,7 +13,7 @@ import {
   someOf,
 } from "./assignability.js";
 import type { DeclaredTypeLookup } from "./declared-types.js";
-import { relateLists } from "./list-assignability.js";
+import { type IrListType, relateLists } from "./list-assignability.js";
 import { createTypeKey } from "./type-key.js";
 import {
   indexSignaturesOf,
@@ -176,7 +176,7 @@ class AssignabilityCheck {
       case "array":
       case "tuple":
       case "readonly":
-        return relateLists(source, target, (from, to) => this.relate(from, to));
+        return relateLists(source, target as IrListType, (from, to) => this.relate(from, to));
       case "object":
         return this.relateObjects(source, target as IrObjectType);
       default:

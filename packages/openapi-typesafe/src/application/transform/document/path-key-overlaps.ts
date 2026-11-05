@@ -27,7 +27,8 @@ const BOOLEAN_TEXTS: readonly string[] = ["true", "false"];
 function withPart(shapes: readonly TemplateShape[], part: PathKeyPart): TemplateShape[] {
   return shapes.flatMap((shape): TemplateShape[] => {
     const lead = shape.texts.slice(0, -1);
-    const last = shape.texts[shape.texts.length - 1] ?? "";
+    // A shape has one text more than it has placeholders, so it always has a last text.
+    const last = shape.texts[shape.texts.length - 1] as string;
     if (part.kind === "text") {
       return [{ texts: [...lead, last + part.text], types: shape.types }];
     }
@@ -103,19 +104,18 @@ export function coveringTemplateKeys(
   isRejected: CoverRejection = EVERY_COVER_REJECTED,
 ): ReadonlySet<number> {
   const covering = new Set<number>();
-  const shapes = keys.map(checkedShapes);
-  keys.forEach((key, index) => {
+  const checked = keys.map((key) => ({ key, shapes: checkedShapes(key) }));
+  checked.forEach(({ key, shapes: targets }, index) => {
     if (key.kind !== "template") {
       return;
     }
-    const targets = shapes[index] ?? [];
-    const isCovering = keys.some((other, otherIndex) => {
+    const isCovering = checked.some((other, otherIndex) => {
       if (otherIndex === index) {
         return false;
       }
       return (
-        isSameTemplate(key, other) ||
-        (isCoveredBy(shapes[otherIndex] ?? [], targets) && isRejected(index, otherIndex))
+        isSameTemplate(key, other.key) ||
+        (isCoveredBy(other.shapes, targets) && isRejected(index, otherIndex))
       );
     });
     if (isCovering) {

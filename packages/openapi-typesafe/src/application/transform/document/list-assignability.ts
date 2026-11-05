@@ -1,4 +1,10 @@
-import type { IrTupleElement, IrTupleType, IrType } from "../../../domain/ir/nodes.js";
+import type {
+  IrArrayType,
+  IrReadonlyType,
+  IrTupleElement,
+  IrTupleType,
+  IrType,
+} from "../../../domain/ir/nodes.js";
 import { type Assignability, everyOf } from "./assignability.js";
 
 /**
@@ -7,6 +13,11 @@ import { type Assignability, everyOf } from "./assignability.js";
  */
 
 type Relate = (source: IrType, target: IrType) => Assignability;
+
+/** The types of the `list` category of `assignability.ts`. */
+export type IrListType = IrArrayType | IrTupleType | IrReadonlyType;
+
+type IrMutableListType = IrArrayType | IrTupleType;
 
 const UNDEFINED: IrType = { kind: "keyword", keyword: "undefined" };
 
@@ -49,24 +60,22 @@ function relateTuples(source: IrTupleType, target: IrTupleType, relate: Relate):
   });
 }
 
-function relateMutableLists(source: IrType, target: IrType, relate: Relate): Assignability {
+function relateMutableLists(
+  source: IrMutableListType,
+  target: IrMutableListType,
+  relate: Relate,
+): Assignability {
   if (source.kind === "array") {
-    if (target.kind === "array") {
-      return relate(source.element, target.element);
-    }
-    return target.kind === "tuple" ? arrayToTuple(target) : "undecided";
-  }
-  if (source.kind !== "tuple") {
-    return "undecided";
+    return target.kind === "array" ? relate(source.element, target.element) : arrayToTuple(target);
   }
   if (target.kind === "array") {
     return everyOf(source.elements, (element) => relate(elementType(element), target.element));
   }
-  return target.kind === "tuple" ? relateTuples(source, target, relate) : "undecided";
+  return relateTuples(source, target, relate);
 }
 
 /** Whether one list type fits another. */
-export function relateLists(source: IrType, target: IrType, relate: Relate): Assignability {
+export function relateLists(source: IrListType, target: IrListType, relate: Relate): Assignability {
   if (source.kind === "readonly") {
     // A readonly array is no mutable array (TS4104); to a readonly target it is the same type.
     return target.kind === "readonly" ? relate(source.type, target.type) : "rejected";
