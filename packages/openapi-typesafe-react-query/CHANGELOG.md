@@ -2,6 +2,56 @@
 
 This package is a fork of `openapi-react-query`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-react-query` versions.
 
+## 1.0.0-rc.1
+
+### Patch Changes
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - The CommonJS declarations (`dist/index.d.cts`) now say what `require()` returns, as in
+  openapi-fetch and openapi-react-query they did not. For the fetch client it is
+  `{ default, ...named }`: `import createClient = require("openapi-typesafe-fetch")` type-checked
+  and then failed at runtime with "createClient is not a function"; use `.default` or a default
+  import. For the react-query client it is `createClient` itself; the exported types next to its
+  `export =` were an error (TS2309) with `skipLibCheck: false`, and are now in a namespace merged with
+  the function, so `import type { QueryKey } from "openapi-typesafe-react-query"` still works. Default
+  imports and ES modules do not change.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - The data types of `useQuery`, `useSuspenseQuery` and `queryOptions` say `null` for a successful
+  response without a body, the value `queryFn` gives. A 204 was typed `undefined`, which the query
+  data never is (upstream [#2464](https://github.com/openapi-typesafe/openapi-typesafe/issues/2464)). `select` gets `Body | null` for an operation with a 200 and a 204.
+  `useInfiniteQuery` and `useMutation` are unchanged.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `useQuery`, `useSuspenseQuery` and `queryOptions` give `data: null` for every successful response
+  without a body. Only a 204 and `Content-Length: 0` did; an empty chunked body and a HEAD request
+  gave `undefined`, and TanStack Query failed with "Query data cannot be undefined" (upstream [#2234](https://github.com/openapi-typesafe/openapi-typesafe/issues/2234)).
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `useInfiniteQuery` types the page param: `lastPageParam` and `data.pageParams` get the type of
+  `initialPageParam` together with the return types of `getNextPageParam` and
+  `getPreviousPageParam`. They were `unknown` (upstream [#2458](https://github.com/openapi-typesafe/openapi-typesafe/issues/2458), PR [#2459](https://github.com/openapi-typesafe/openapi-typesafe/issues/2459)). An annotated
+  `lastPageParam`, such as `(lastPage, allPages, lastPageParam: number) => lastPageParam + 1`, now
+  compiles. Where no type can be inferred (a return computed from an unannotated `lastPageParam`,
+  or only `undefined`), the page param stays `unknown`, so code that compiled still compiles. It
+  stays `unknown` in `placeholderData` too, so `placeholderData: (previousData) => previousData`
+  compiles.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `Parameters<typeof $api.queryOptions>` (and of `useQuery`, `useSuspenseQuery` and the fetch
+  client's `request`) takes the arguments of every operation; its path was `never` (upstream [#2178](https://github.com/openapi-typesafe/openapi-typesafe/issues/2178)).
+  `PathsWithMethod<paths, HttpMethod>` is now every path that has some method; a known method or set
+  of methods still gives the paths that have each of them, as before. Code that is generic in the
+  paths, such as swr-openapi's hooks, compiles as with openapi-typescript's helpers. The init in those parameters is required when some operation
+  requires one (`IsInitOptional`), so a helper passes `{}` for a path that needs none. A single call
+  is checked as before, also with a union of paths or methods.
+  `ReturnType` of these generic functions stays `any`; the `queryOptions` docs show what to use.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - The method types take the generated `interface paths`: `UseQueryMethod`, `UseSuspenseQueryMethod`,
+  `UseInfiniteQueryMethod`, `UseMutationMethod`, `QueryOptionsFunction`, `QueryKey`,
+  `InfiniteQueryKey`, `ClientMethod` and `ClientRequestMethod` required
+  `Record<string, Record<HttpMethod, {}>>`, which an interface does not satisfy (TS2344, upstream
+  [#2267](https://github.com/openapi-typesafe/openapi-typesafe/issues/2267)). They now take any `Paths`, like `OpenapiQueryClient` and `Client`. `PathOperation` is the
+  new exported lookup of an operation; `MaybeOptionalInit` takes any key as its location.
+- Updated dependencies [[`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01), [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7), [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01), [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01), [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01), [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01), [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01), [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01)]:
+  - openapi-typesafe-fetch@1.0.0-rc.1
+  - openapi-typesafe-helpers@1.0.0-rc.1
+
 ## 1.0.0-rc.0
 
 ### Minor Changes
