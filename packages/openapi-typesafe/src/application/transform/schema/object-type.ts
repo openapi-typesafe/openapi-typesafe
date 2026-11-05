@@ -246,14 +246,25 @@ function discriminatorMember(discriminator: Discriminator, request: SchemaReques
   return discriminatorProperty(discriminator, path, request.context.options.immutable, valueType);
 }
 
-function declaresProperty(schema: SchemaObject, name: string): boolean {
-  return "properties" in schema && Object.hasOwn(schema.properties ?? {}, name);
+/**
+ * Whether the schema declares property `key` and the type keeps it: `--exclude-deprecated` drops
+ * a deprecated one.
+ */
+export function isKeptProperty(schema: SchemaObject, key: string, request: SchemaRequest): boolean {
+  const properties = "properties" in schema ? (schema.properties ?? {}) : {};
+  if (!Object.hasOwn(properties, key)) {
+    return false;
+  }
+  const value = properties[key] as Schema;
+  const isExcludable = request.context.options.excludeDeprecated && typeof value === "object";
+  return !isExcludable || !isExcluded(value, propertyFacts(value, request), request);
 }
 
 /**
  * The members for the discriminator and `properties`. A schema that declares the discriminator
  * property itself keeps its own declaration, required as the discriminator needs: both in one
- * object type do not compile (TS2300, the Apple SiriKit Cloud Media API).
+ * object type do not compile (TS2300, the Apple SiriKit Cloud Media API). A declaration that
+ * `--exclude-deprecated` drops does not count, so the discriminator property stays.
  */
 function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRequest): IrMember[] {
   const discriminator = inheritedDiscriminator(schema, request);
@@ -261,7 +272,7 @@ function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRe
     return propertyMembers(schema, request);
   }
   const name = discriminator.propertyName;
-  if (!declaresProperty(schema, name)) {
+  if (!isKeptProperty(schema, name, request)) {
     return [discriminatorMember(discriminator, request), ...propertyMembers(schema, request)];
   }
   const required = [...(schema.required ?? []), name];

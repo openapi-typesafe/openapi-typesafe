@@ -62,3 +62,33 @@ const missing: components["schemas"]["Child"] = { size: 1 };`;
     expect(typeErrorsOf(code)).toEqual([]);
   });
 });
+
+describe("a declared discriminator property and other options", () => {
+  const PET = {
+    type: "object",
+    required: ["kind"],
+    properties: { kind: { type: "string" } },
+    discriminator: { propertyName: "kind" },
+  };
+
+  async function generateLion(lion: object, options: OpenAPITSOptions): Promise<string> {
+    const document = {
+      openapi: "3.1.0",
+      info: { title: "t", version: "1" },
+      paths: {},
+      components: { schemas: { Pet: PET, Lion: { allOf: [ref("Pet")], ...lion } } },
+    };
+    return astToString(await openapiTS(document as unknown as OpenAPI3, { silent: true, ...options }));
+  }
+
+  it("openapiTS with excludeDeprecated adds the discriminator when the declared one is deprecated", async () => {
+    const lion = { properties: { kind: { type: "string", deprecated: true }, roar: { type: "string" } } };
+
+    const output = await generateLion(lion, { excludeDeprecated: true });
+
+    expect(output).toContain(`Lion: {
+            kind: "Lion";
+            roar?: string;
+        } & Omit<components["schemas"]["Pet"], "kind">;`);
+  });
+});
