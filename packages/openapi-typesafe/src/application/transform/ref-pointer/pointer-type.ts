@@ -6,7 +6,7 @@ import type { SchemaRequest } from "../schema/schema-rule.js";
 import { isJsonObject } from "./generated-shape.js";
 import { hasInlineCycle } from "./inline-cycles.js";
 import { originalIndexFails } from "./original-index.js";
-import { LEADING_SEGMENTS, pointerNode, type RefPointer, refPointerOf } from "./pointer-walk.js";
+import { leadingSegmentsOf, pointerNode, type RefPointer, refPointerOf } from "./pointer-walk.js";
 import { typedWalk } from "./typed-walk.js";
 
 /**
@@ -67,7 +67,7 @@ export function schemaRefType(
   seen: readonly string[] = [],
 ): IrType {
   const pointer = pointerOf(ref);
-  if (pointer.segments.length <= LEADING_SEGMENTS || !isCorrected(pointer, request)) {
+  if (pointer.segments.length <= leadingSegmentsOf(pointer) || !isCorrected(pointer, request)) {
     return refType(ref);
   }
   return correctedType(ref, pointer, request, seen) ?? refType(ref);

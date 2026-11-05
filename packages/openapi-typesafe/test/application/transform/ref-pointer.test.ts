@@ -38,6 +38,7 @@ const ITEM = { type: "object", properties: { time: { type: "string" } }, require
 const DOCUMENT = {
   paths: {
     "/items": {
+      parameters: [{ name: "p", in: "query", schema: { type: "string" } }],
       get: {
         parameters: [{ name: "q", in: "query", schema: { type: "string" } }],
         requestBody: { content: { "application/json": { schema: ITEM } } },
@@ -208,6 +209,11 @@ describe("typedWalk", () => {
     );
     expect(walked("#/components/schemas/Defs/definitions/Old")).toBe("untyped at 2");
     expect(walked("#/paths/~1items/get/parameters/0/schema")).toBe("untyped at 2");
+  });
+
+  it("typedWalk and originalIndexFails read the parameters of a path item", () => {
+    expect(walked("#/paths/~1items/parameters/0/schema")).toBe("untyped at 1");
+    expect(fails("#/paths/~1items/parameters/0/schema")).toBe(true);
   });
 });
 

@@ -1081,8 +1081,8 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
 - The `schema` of a media type, header or component parameter is left out, `items` is indexed by
   `[number]`, `additionalProperties` by `[string]`, and an optional or nullable value is wrapped in
   `NonNullable` before it is indexed.
-- A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation
-  `parameters/0`) gets the target's type written inline; a target that points back at itself keeps
+- A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation or
+  path item `parameters/0`) gets the target's type written inline; a target that points back at itself keeps
   the original type.
 
 Where the generated type has an index signature (`--additional-properties`, or the schema's own

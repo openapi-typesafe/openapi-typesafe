@@ -40,7 +40,7 @@ documents that were already broken.
    members are read through `NonNullable`, and a value that is not surely present is wrapped in
    `NonNullable` before it is indexed.
 3. **A segment with no type of its own** (`allOf/N`, `anyOf/N`, `definitions`, `not`, operation
-   `parameters/N`) is not indexed at all: the target schema is written inline (its own `$ref` is
+   and path item `parameters/N`) is not indexed at all: the target schema is written inline (its own `$ref` is
    followed). A target that would be written inside itself keeps the original type. This replaces
    the draft's merging and `Extract`, so no new self-reference appears.
 4. **`WithRequired` of an absent target** gets `NonNullable<…>`: `keyof (T | undefined)` is `never`.

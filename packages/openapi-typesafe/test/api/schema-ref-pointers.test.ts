@@ -213,6 +213,33 @@ describe("schema $refs into response headers", () => {
   });
 });
 
+describe("schema $refs into path item parameters", () => {
+  const parameter = { name: "q", in: "query", schema: { type: "string", enum: ["x", "y"] } };
+  const document = documentWith(
+    {
+      Copy: {
+        type: "object",
+        properties: {
+          q: { $ref: "#/paths/~1search/parameters/0/schema" },
+          w: { $ref: "#/webhooks/hook/parameters/0/schema" },
+        },
+      },
+    },
+    { "/search": { parameters: [parameter], get: { responses: { 200: { description: "OK" } } } } },
+  );
+
+  const hook = { parameters: [{ ...parameter, name: "w" }], post: { responses: {} } };
+  Object.assign(document, { webhooks: { hook } });
+
+  it("openapiTS writes the target of a path item parameter inline", async () => {
+    const output = await generate(document);
+
+    expect(output).not.toContain('["parameters"]["0"]');
+    expect(output).toMatch(/Copy: \{\n\s+q\?: "x" \| "y";\n\s+w\?: "x" \| "y";/);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
+
 describe("schema $refs into a schema whose type its keywords do not change", () => {
   // `type: object` without properties is `Record<string, never>`: every key is `never`, so the
   // original compiles. `type: string` ignores `items`: the original indexes `string`.

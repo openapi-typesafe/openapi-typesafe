@@ -16,8 +16,8 @@ import {
   isOptionalRequestBody,
   isParameterList,
   isTypedAsSchema,
-  LEADING_SEGMENTS,
   leadingNode,
+  leadingSegmentsOf,
   type RefPointer,
   startsInSchema,
 } from "./pointer-walk.js";
@@ -174,14 +174,14 @@ export function typedWalk(input: TypedWalkInput): TypedWalkResult {
   let walk: TypedWalk = {
     type: indexBy(
       rootType(pointer.rootSegment, false),
-      ...pointer.segments.slice(0, LEADING_SEGMENTS),
+      ...pointer.segments.slice(0, leadingSegmentsOf(pointer)),
     ),
     node,
     isSchema,
     isName: false,
     presence: isSchema ? schemaPresence(node, input.refs) : "present",
   };
-  for (let index = LEADING_SEGMENTS; index < pointer.segments.length; index++) {
+  for (let index = leadingSegmentsOf(pointer); index < pointer.segments.length; index++) {
     const next = step(walk, index, input);
     if (next === null) {
       return { kind: "untyped", index };

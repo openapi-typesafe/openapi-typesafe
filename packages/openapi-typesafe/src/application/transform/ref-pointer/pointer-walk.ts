@@ -10,8 +10,17 @@ export interface RefPointer {
   readonly segments: readonly string[];
 }
 
-/** The two segments after the root index the generated root type directly. */
-export const LEADING_SEGMENTS = 2;
+/** Roots whose generated type is keyed by one segment: the path or webhook name. */
+const NAMED_ROOTS: ReadonlySet<string> = new Set(["paths", "webhooks"]);
+
+/**
+ * How many segments after the root index the generated root type directly: one for `paths` and
+ * `webhooks` (`paths["/a"]`, so the path item's own `parameters/0` is walked), two otherwise
+ * (`components["schemas"]["A"]`).
+ */
+export function leadingSegmentsOf(pointer: RefPointer): number {
+  return NAMED_ROOTS.has(pointer.rootSegment) ? 1 : 2;
+}
 
 export function refPointerOf(ref: string): RefPointer | null {
   const [rootSegment, ...segments] = parseRefPointer(ref);
@@ -21,7 +30,7 @@ export function refPointerOf(ref: string): RefPointer | null {
 /** The document node at the end of the leading segments, `$ref`s followed. */
 export function leadingNode(pointer: RefPointer, refs: RefResolver): unknown {
   let node = refs.resolve(`#/${pointer.rootSegment}`);
-  for (const segment of pointer.segments.slice(0, LEADING_SEGMENTS)) {
+  for (const segment of pointer.segments.slice(0, leadingSegmentsOf(pointer))) {
     node = isJsonObject(node) ? followRefs(node[segment], refs) : undefined;
   }
   return node;

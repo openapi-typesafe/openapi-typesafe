@@ -5,8 +5,8 @@ import {
   isOptionalRequestBody,
   isParameterList,
   isTypedAsSchema,
-  LEADING_SEGMENTS,
   leadingNode,
+  leadingSegmentsOf,
   type RefPointer,
   startsInSchema,
 } from "./pointer-walk.js";
@@ -73,7 +73,7 @@ export function originalIndexFails(input: WalkInput): boolean {
     node: leadingNode(input.pointer, input.refs),
     isSchema: startsInSchema(input.pointer),
   };
-  for (let index = LEADING_SEGMENTS; index < segments.length; index++) {
+  for (let index = leadingSegmentsOf(input.pointer); index < segments.length; index++) {
     const segment = segments[index] as string;
     const isLast = index === segments.length - 1;
     if (!walk.isSchema && isParameterList(input.pointer, index)) {
