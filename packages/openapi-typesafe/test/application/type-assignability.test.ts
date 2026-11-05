@@ -38,6 +38,7 @@ const NUMBER = irKeyword("number");
 const NEVER = irKeyword("never");
 const UNKNOWN = irKeyword("unknown");
 const UNDEFINED = irKeyword("undefined");
+const NULL = irKeyword("null");
 const object = (...members: IrMember[]): IrType => irObject(members);
 const required = (name: string, type: IrType = STRING) => irProperty(toPropertyName(name), type);
 const optional = (name: string, type: IrType = STRING) =>
@@ -87,6 +88,19 @@ describe("assignabilityProof: keywords, literals and unions", () => {
 
     expect(isAssignable(irUnion([literal("a"), literal("b")]), target)).toBe("assignable");
     expect(isAssignable(irUnion([literal("a"), literal("d")]), target)).toBe("rejected");
+  });
+
+  it("assignabilityProof reads boolean as true | false against a union", () => {
+    const BOOLEAN = irKeyword("boolean");
+    const both = irUnion([irBoolean(true), irBoolean(false)]);
+
+    expect(isAssignable(BOOLEAN, both)).toBe("assignable");
+    expect(isAssignable(BOOLEAN, irUnion([irBoolean(false), irBoolean(true), NULL]))).toBe(
+      "assignable",
+    );
+    expect(isAssignable(irUnion([BOOLEAN, NULL]), irUnion([both, NULL]))).toBe("assignable");
+    expect(isAssignable(BOOLEAN, irUnion([irBoolean(true), NULL]))).toBe("rejected");
+    expect(isAssignable(BOOLEAN, irBoolean(true))).toBe("rejected");
   });
 
   it("assignabilityProof compares arrays of literal unions by their items", () => {

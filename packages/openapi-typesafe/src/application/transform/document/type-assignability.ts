@@ -1,3 +1,4 @@
+import { irBoolean } from "../../../domain/ir/constructors.js";
 import type {
   IrIndexSignature,
   IrObjectType,
@@ -68,6 +69,22 @@ function isStringIndex(signature: IrIndexSignature): boolean {
   return signature.parameterType.kind === "keyword" && signature.parameterType.keyword === "string";
 }
 
+/** `boolean` as the checker stores it: the union `true | false`. */
+const BOOLEAN_MEMBERS: readonly IrType[] = [irBoolean(true), irBoolean(false)];
+
+/**
+ * The members a source is compared by, one by one, or null for a source compared as a whole.
+ * `boolean` counts as `true | false` against a union, which it fits though it fits neither member
+ * alone; `string` and `number` are no finite unions, so no literal union holds all their values.
+ */
+function sourceUnionMembers(source: IrType, target: IrType): readonly IrType[] | null {
+  if (source.kind === "union") {
+    return source.types;
+  }
+  const isBoolean = source.kind === "keyword" && source.keyword === "boolean";
+  return isBoolean && target.kind === "union" ? BOOLEAN_MEMBERS : null;
+}
+
 /** The memoized check over the declarations of one generated file. */
 class AssignabilityCheck {
   private readonly inProgress: PairResults = new Map();
@@ -124,8 +141,9 @@ class AssignabilityCheck {
     if (source.kind === "keyword" && source.keyword === "never") {
       return "assignable";
     }
-    if (source.kind === "union") {
-      return everyOf(source.types, (member) => this.relate(member, target));
+    const sourceMembers = sourceUnionMembers(source, target);
+    if (sourceMembers !== null) {
+      return everyOf(sourceMembers, (member) => this.relate(member, target));
     }
     if (target.kind === "intersection") {
       return everyOf(target.types, (member) => this.relateToIntersectionPart(source, member));

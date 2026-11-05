@@ -91,6 +91,24 @@ const app: paths[\`/apps/\${string}\`]["get"]["parameters"]["path"] = { id: "a" 
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS keeps one object when a boolean response is covered by a true | false one", async () => {
+    const respond = (schema: object) => ({
+      get: {
+        parameters: [ID],
+        responses: { 200: { description: "ok", content: { "application/json": { schema } } } },
+      },
+    });
+    const paths = {
+      "/a/{id}": respond({ type: "boolean", enum: [true, false] }),
+      "/a/{id}/b": respond({ type: "boolean" }),
+    };
+
+    const output = await generate(paths);
+
+    expect(output).toContain("export interface paths {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS moves a signature whose covered path has another method", async () => {
     const restart = { post: { parameters: [ID], responses: { 200: { description: "restart" } } } };
     const paths = { "/apps/{id}": operation("app"), "/apps/{id}/restart": restart };

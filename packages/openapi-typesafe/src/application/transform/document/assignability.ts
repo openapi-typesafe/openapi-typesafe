@@ -191,7 +191,8 @@ const LITERAL_KEYWORDS = {
 /**
  * The relation of two primitive types written differently (the same text is assignable). A
  * literal fits its keyword; any other pair is rejected: different keywords, different literals,
- * a keyword for a literal (`boolean` is `true | false`), and anything for `never`.
+ * a keyword for one literal (a union of literals is compared in `type-assignability.ts`), and
+ * anything for `never`.
  */
 export function primitiveRelation(source: IrType, target: IrType): Assignability {
   if (target.kind !== "keyword" || source.kind === "keyword") {
