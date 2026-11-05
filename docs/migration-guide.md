@@ -107,6 +107,8 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
 - A schema that `allOf`s a discriminated union which lists that schema (`Cat: { allOf: [Pet] }`,
   `Pet: { oneOf: [Cat, Dog] }`) referred to itself through `Omit<Pet>` and did not compile
   (TS2502, upstream #1665). It is now typed with the keywords of `Pet` itself, without the union.
+  When `Pet` inherits the discriminator through `allOf`, neither `Pet` nor its keywords get the
+  value `"Pet"`, which every member would contradict.
 
 All other output is byte-identical.
 

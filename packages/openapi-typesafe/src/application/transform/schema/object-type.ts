@@ -15,9 +15,8 @@ import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js"
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import { type AccessFlags, propertyAccessFlags } from "./access-flags.js";
-import { discriminatorProperty } from "./discriminator-property.js";
-import { ownerEnumMembersType } from "./enum-rule.js";
-import type { Discriminator, SchemaOptions } from "./schema-context.js";
+import { discriminatorMember, inheritedDiscriminator } from "./inherited-discriminator.js";
+import type { SchemaOptions } from "./schema-context.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
 /** Path parts where a default value cannot make a property required (inputs may omit it). */
@@ -221,29 +220,6 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
     }
   }
   return types;
-}
-
-/** The discriminator a parent's mapping implies for this schema, if it adds a property. */
-function inheritedDiscriminator(
-  schema: SchemaObject,
-  request: SchemaRequest,
-): Discriminator | undefined {
-  if (!schema.allOf && !schema.anyOf) {
-    return undefined;
-  }
-  const path = request.location.path ?? "";
-  const { discriminators } = request.context;
-  // A schema does not get the discriminator it defines for its children, nor one added already.
-  const isAdded = !schema.discriminator && !discriminators.isHandled(path);
-  return isAdded ? discriminators.objectAt(path) : undefined;
-}
-
-function discriminatorMember(discriminator: Discriminator, request: SchemaRequest): IrMember {
-  const path = request.location.path ?? "";
-  // With `discriminator-values`, the value is a member of the owner's enum (#1700).
-  const valueType = (value: string | undefined) =>
-    ownerEnumMembersType(discriminator, [value], request);
-  return discriminatorProperty(discriminator, path, request.context.options.immutable, valueType);
 }
 
 /**

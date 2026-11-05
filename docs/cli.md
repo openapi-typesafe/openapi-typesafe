@@ -479,7 +479,9 @@ reuses a union gets no discriminator value. A schema that the union lists (`Cat`
 
 - An `allOf` `$ref` to a discriminated union that lists the schema itself is typed with the
   union's own keywords by default, fix or not, because that output referred to itself and did not
-  compile (TS2502, [#1665](https://github.com/openapi-ts/openapi-typescript/issues/1665)).
+  compile (TS2502, [#1665](https://github.com/openapi-ts/openapi-typescript/issues/1665)). A
+  union that inherits its discriminator through `allOf` then gets no value of its own: each
+  member sets it.
 
 #### allof-required
 

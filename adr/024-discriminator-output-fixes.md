@@ -24,7 +24,9 @@ value.
 ## Decision
 
 1. **#1665 is the default.** A `$ref` in `allOf` to a discriminated union that reaches the schema
-   itself is typed with the union's own keywords, without the union. Only output that fails with
+   itself is typed with the union's own keywords, without the union. A union that inherits the
+   discriminator through `allOf` gets no value of its own, in its type or in those keywords: each
+   member sets the value, and a second one made every member `never`. Only output that fails with
    TS2502 changes. Proof: the compat corpus (1820 documents) gives byte-identical output with
    default options and `--enum` before and after the change.
 2. **Fix names are stable from the first stable release, not from a release candidate.** A name
