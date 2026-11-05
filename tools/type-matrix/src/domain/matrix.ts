@@ -1,7 +1,7 @@
 /**
  * The consumer type matrix (ENGINEERING_PLAN 8.1, ADR-006): every supported TypeScript version
- * type-checks the generated examples and the clients, once with `strict` and once with the strict
- * consumer flags. A non-blocking version (a beta) is reported but does not fail the run.
+ * type-checks the generated examples and the clients, once with `strict`, once with the strict
+ * consumer flags, and once as a CommonJS consumer of the clients. A non-blocking version (a beta) is reported but does not fail the run.
  */
 
 export interface TypeScriptVersion {
@@ -33,6 +33,7 @@ export const CONSUMER_PROJECTS: readonly ConsumerProject[] = [
     id: "strict-flags",
     tsconfig: "tsconfig.strict-flags.json",
   },
+  { id: "commonjs", tsconfig: "tsconfig.commonjs.json" },
 ];
 
 /** One compiler on one consumer project. */

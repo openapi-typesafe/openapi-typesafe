@@ -49,8 +49,8 @@ function loadFailedMessage(error: OpenAPITypesafeError): string {
   if (!(reason instanceof Error)) {
     return error.message;
   }
-  const source = typeof error.details.source === "string" ? ` (${error.details.source})` : "";
-  return `${error.message}: ${reason.message}${source}`;
+  // `loadFailedError`, the only source of this code, always sets the source.
+  return `${error.message}: ${reason.message} (${String(error.details.source)})`;
 }
 
 /** The message js-yaml throws at its nesting limit (docs/security/threat-model.md T2). */
@@ -88,6 +88,7 @@ const CLI_ERROR_REPORTS: Readonly<Record<ErrorCode, CliErrorReport>> = {
   CLI_FLAG_REMOVED: { exitCode: EXIT_CODES.USAGE },
   CLI_GLOB_UNSUPPORTED: { exitCode: EXIT_CODES.USAGE },
   CLI_CONFIG_NOT_FOUND: { exitCode: EXIT_CODES.USAGE },
+  CLI_CONFIG_INVALID: { exitCode: EXIT_CODES.USAGE },
   CLI_CONFIG_OUTPUT_MISSING: { exitCode: EXIT_CODES.USAGE },
   CLI_CHECK_OUTPUT_MISSING: { exitCode: EXIT_CODES.USAGE },
   CLI_INPUT_MISSING: { exitCode: EXIT_CODES.USAGE },

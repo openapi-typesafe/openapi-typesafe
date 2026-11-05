@@ -395,6 +395,12 @@ Episode:
 Add a mapping entry for the value the property allows (`mapping: { episode:
 "#/components/schemas/Episode" }`).
 
+A member is a schema that the discriminator's `oneOf`, `anyOf` or `mapping` names, or one that
+`allOf`s the owner, also through other schemas (`Lion: { allOf: [Cat] }`, `Cat: { allOf: [Pet] }`).
+Below a schema with its own discriminator of the property, the schemas are that one's members.
+With [`--fix allof-discriminated-union`](./cli.md#allof-discriminated-union), a schema that `allOf`s
+a union which neither lists nor maps it reuses the union and gets no value, so it is no member.
+
 ## Enum values arrays
 
 `--enum-values` exports each enum's values as an array typed by the place of its schema in the
@@ -409,8 +415,11 @@ compiles (`ReadonlyArray<"available" | "sold">`):
 
 - the place has no type of its own: a schema under `definitions`, an `allOf` member, a positional
   operation parameter, or a property of a schema whose type is `unknown` (an `anyOf` with a
-  variant that has only `required`);
+  variant that has only `required`), whether the property is the schema's own or one of another
+  `anyOf` variant;
 - an `anyOf` member is an array of the enum and another member is not an array;
+- the enum is empty (`enum: []`): its type is `never`, so the array is `readonly never[]`;
+- `--read-write-markers` wraps the property in `$Read<T>` or `$Write<T>`, an object type;
 - the schema contradicts itself: an `allOf` of enums with different values, or a discriminator
   value that the property enum does not list. The type there admits fewer values, or none; this
   case also prints a warning that names the array and the values.

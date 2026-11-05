@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { printNodes } from "../../../src/application/print/print-nodes.js";
+import { generatedLocationOf } from "../../../src/application/transform/ref-pointer/generated-location.js";
 import {
   generatedMember,
   isNullableSchema,
@@ -38,11 +39,18 @@ const ITEM = { type: "object", properties: { time: { type: "string" } }, require
 const DOCUMENT = {
   paths: {
     "/items": {
+      parameters: [{ name: "p", in: "query", schema: { type: "string" } }],
       get: {
         parameters: [{ name: "q", in: "query", schema: { type: "string" } }],
         requestBody: { content: { "application/json": { schema: ITEM } } },
         responses: {
-          200: { content: { "application/json": { schema: { type: "array", items: ITEM } } } },
+          200: {
+            content: { "application/json": { schema: { type: "array", items: ITEM } } },
+            headers: {
+              "X-Open": { schema: { type: "object", additionalProperties: true } },
+              "X-Ref": { $ref: "#/components/headers/Open" },
+            },
+          },
         },
       },
     },
@@ -78,6 +86,10 @@ const DOCUMENT = {
       Text: { type: ["string", "null"] },
       Str: { type: "string" },
       Bin: { type: "string", format: "binary" },
+      Blank: { type: "object", items: { type: "string" } },
+      Hollow: { type: "object", properties: {}, allOf: [ITEM] },
+      Words: { type: "string", items: { type: "number" }, properties: { a: {} } },
+      Free: { type: "object", required: ["any"], properties: { any: { "x-inner": ITEM } } },
       Loop: {
         definitions: {
           Node: { properties: { next: { $ref: "#/components/schemas/Loop/definitions/Node" } } },
@@ -85,6 +97,7 @@ const DOCUMENT = {
       },
     },
     parameters: { Page: { name: "page", in: "query", schema: { type: "integer" } } },
+    headers: { Open: { schema: { type: "object", additionalProperties: true } } },
   },
 };
 const REFS = resolverOf(DOCUMENT);
@@ -142,6 +155,23 @@ describe("generatedMember", () => {
     expect(member("Both", "time")).toBe("opaque");
     expect(member("Union", "time")).toBe("missing");
   });
+
+  it("generatedMember reads an index signature of unknown in an allOf as unknown & T", () => {
+    const open = { ...OPTIONS, additionalProperties: true };
+
+    // `unknown & unknown` is `unknown`, and `unknown & T` is `T`.
+    expect(generatedMember(DOCUMENT.components.schemas.Both, "allOf", open, REFS)).toEqual({
+      kind: "index",
+      node: undefined,
+    });
+    expect(member("Own", "id", open)).toBe("property");
+  });
+
+  it("generatedMember misses every key of a schema typed unknown", () => {
+    expect(generatedMember({ "x-inner": ITEM }, "x-inner", OPTIONS, REFS).kind).toBe("missing");
+    expect(generatedMember({ $defs: { A: ITEM } }, "x", OPTIONS, REFS).kind).toBe("opaque");
+    expect(generatedMember({ type: [] }, "x", OPTIONS, REFS).kind).toBe("opaque");
+  });
 });
 
 describe("originalIndexFails", () => {
@@ -156,6 +186,14 @@ describe("originalIndexFails", () => {
   it("originalIndexFails through an optional value or request body is true", () => {
     expect(fails("#/components/schemas/Optional/properties/inner/properties/time")).toBe(true);
     expect(fails("#/paths/~1items/get/requestBody/content/application~1json/schema")).toBe(true);
+  });
+
+  it("originalIndexFails with a key after a member typed unknown is true", () => {
+    const open = { ...OPTIONS, additionalProperties: true };
+
+    expect(fails("#/components/schemas/Both/allOf/0/properties/time", open)).toBe(true);
+    expect(fails("#/components/schemas/Both/allOf/1", open)).toBe(true);
+    expect(fails("#/components/schemas/Free/properties/any/x-inner")).toBe(true);
   });
 
   it("originalIndexFails with a type that compiles is false", () => {
@@ -199,6 +237,11 @@ describe("typedWalk", () => {
     expect(walked("#/components/schemas/Defs/definitions/Old")).toBe("untyped at 2");
     expect(walked("#/paths/~1items/get/parameters/0/schema")).toBe("untyped at 2");
   });
+
+  it("typedWalk and originalIndexFails read the parameters of a path item", () => {
+    expect(walked("#/paths/~1items/parameters/0/schema")).toBe("untyped at 1");
+    expect(fails("#/paths/~1items/parameters/0/schema")).toBe(true);
+  });
 });
 
 describe("edge shapes", () => {
@@ -212,7 +255,8 @@ describe("edge shapes", () => {
   });
 
   it("generatedMember reads allOf with own properties and a nullable scalar", () => {
-    expect(member("Own", "id")).toBe("opaque");
+    expect(member("Own", "id")).toBe("property");
+    expect(member("Own", "time")).toBe("property");
     expect(member("Own", "other")).toBe("missing");
     expect(member("Text", "length")).toBe("opaque");
     expect(member("Str", "schema")).toBe("missing");
@@ -238,6 +282,146 @@ describe("edge shapes", () => {
     expect(fails("#/paths/~1items/get/nothing/x")).toBe(false);
     expect(pointerNode(pointer("#/components/schemas/Nope/a/b"), REFS)).toBeUndefined();
     expect(isOptionalRequestBody({}, REFS)).toBe(false);
+  });
+});
+
+describe("keywords the generated type ignores", () => {
+  const member = (name: string, key: string, options = OPTIONS) =>
+    generatedMember(DOCUMENT.components.schemas[name as "Item"], key, options, REFS).kind;
+
+  it("generatedMember of an object without object keywords reads Record<string, never>", () => {
+    expect(member("Blank", "items")).toBe("opaque");
+    expect(member("Blank", "items", { ...OPTIONS, emptyObjectsUnknown: true })).toBe("missing");
+    expect(member("Hollow", "allOf")).toBe("missing");
+  });
+
+  it("generatedMember of a primitive type ignores its object and array keywords", () => {
+    expect(member("Words", "items")).toBe("missing");
+    expect(member("Words", "a")).toBe("missing");
+  });
+
+  it("typedWalk stops at a keyword the owner's type has no member for", () => {
+    expect(walked("#/components/schemas/Blank/items")).toBe("untyped at 2");
+    expect(walked("#/components/schemas/Words/items")).toBe("untyped at 2");
+    expect(walked("#/components/schemas/Words/properties/a")).toBe("untyped at 2");
+  });
+});
+
+describe("response headers", () => {
+  const HEADERS = "#/paths/~1items/get/responses/200/headers";
+
+  it("originalIndexFails through a header that is not required is true", () => {
+    expect(fails(`${HEADERS}/X-Open/schema`)).toBe(true);
+    expect(fails(`${HEADERS}/X-Ref/schema`)).toBe(false);
+    expect(fails("#/components/headers/Open/schema")).toBe(false);
+  });
+
+  it("typedWalk wraps a header that is not required in NonNullable", () => {
+    expect(walked(`${HEADERS}/X-Open/schema/properties/a`)).toBe(
+      'NonNullable<paths["/items"]["get"]["responses"]["200"]["headers"]["X-Open"]>["a"]',
+    );
+    expect(walked("#/components/headers/Open/schema/properties/a")).toBe(
+      'components["headers"]["Open"]["a"]',
+    );
+  });
+});
+
+describe("generatedLocationOf", () => {
+  const located = (ref: string) => generatedLocationOf(ref, REFS);
+
+  it("generatedLocationOf leaves out the keywords typed at the parent's location", () => {
+    expect(located("#/components/schemas/Both/allOf/0/properties/time").path).toBe(
+      "#/components/schemas/Both/time",
+    );
+    expect(located("#/components/schemas/List/items/properties/time").path).toBe(
+      "#/components/schemas/List/time",
+    );
+    expect(located("#/components/schemas/Union/anyOf/1/properties/other").path).toBe(
+      "#/components/schemas/Union/anyOf/1/other",
+    );
+    expect(located("#/components/schemas/Map/additionalProperties")).toEqual({
+      path: "#/components/schemas/Map",
+      isFromAdditionalProperties: true,
+    });
+  });
+
+  it("generatedLocationOf names parameters and leaves out a container's schema", () => {
+    expect(located("#/paths/~1items/get/parameters/0/schema").path).toBe(
+      "#/paths/~1items/get/parameters/query/q",
+    );
+    expect(located("#/paths/~1items/parameters/0/schema").path).toBe(
+      "#/paths/~1items/parameters/parameters/query/p",
+    );
+    expect(located(`${MEDIA}/schema/items/properties/time`).path).toBe(`${MEDIA}/time`);
+  });
+
+  it("generatedLocationOf continues at a crossed $ref and keeps a pointer it cannot map", () => {
+    expect(located("#/components/schemas/Both/allOf/1/properties/time").path).toBe(
+      "#/components/schemas/Item/time",
+    );
+    // The generator types nothing under `definitions`: such a node keeps its pointer.
+    expect(located("#/components/schemas/Defs/definitions/Old/properties/time").path).toBe(
+      "#/components/schemas/Defs/definitions/Old/properties/time",
+    );
+    expect(located("#/components/schemas/Optional/properties/inner/not").path).toBe(
+      "#/components/schemas/Optional/properties/inner/not",
+    );
+    expect(located("no pointer").path).toBe("no pointer");
+  });
+
+  const PARAMETER = { name: "w", in: "header", schema: { type: "string" } };
+  const LOCATIONS = resolverOf({
+    webhooks: { hook: { parameters: [PARAMETER] } },
+    components: {
+      pathItems: { Shared: { parameters: [PARAMETER] } },
+      headers: { Text: { content: { "text/plain": { schema: ITEM } } } },
+      schemas: {
+        Ring: { $ref: "#/components/schemas/Loop" },
+        Loop: { $ref: "#/components/schemas/Ring" },
+        Alias: { $ref: "#/components/schemas/Target" },
+        Target: { $ref: "#/components/schemas/Item" },
+        Item: ITEM,
+        Via: { properties: { old: { $ref: "#/components/schemas/Old/definitions/Old" } } },
+        Old: { definitions: { Old: ITEM } },
+      },
+    },
+  });
+  const locatedIn = (ref: string) => generatedLocationOf(ref, LOCATIONS).path;
+
+  it("generatedLocationOf nests the parameters of a webhook and a shared path item", () => {
+    expect(locatedIn("#/webhooks/hook/parameters/0/schema")).toBe(
+      "#/webhooks/hook/parameters/parameters/header/w",
+    );
+    expect(locatedIn("#/components/pathItems/Shared/parameters/0/schema")).toBe(
+      "#/components/pathItems/Shared/parameters/parameters/header/w",
+    );
+  });
+
+  it("generatedLocationOf with a missing node keeps walking the pointer's own segments", () => {
+    expect(locatedIn("#/webhooks/hook/parameters/9/schema")).toBe(
+      "#/webhooks/hook/parameters/parameters",
+    );
+    expect(locatedIn("#/components/schemas/Nope/properties/a")).toBe("#/components/schemas/Nope/a");
+  });
+
+  it("generatedLocationOf types a header's content at its media type", () => {
+    expect(locatedIn("#/components/headers/Text/content/text~1plain/schema/properties/time")).toBe(
+      "#/components/headers/Text/text~1plain/time",
+    );
+    expect(locatedIn("#/components/headers/Text/content")).toBe("#/components/headers/Text");
+  });
+
+  it("generatedLocationOf follows a $ref chain and stops at a $ref cycle", () => {
+    expect(locatedIn("#/components/schemas/Alias/properties/time")).toBe(
+      "#/components/schemas/Item/time",
+    );
+    expect(locatedIn("#/components/schemas/Ring/properties/a")).toBe("#/components/schemas/Ring/a");
+  });
+
+  it("generatedLocationOf keeps the pointer when a crossed $ref has no location", () => {
+    const ref = "#/components/schemas/Via/properties/old/properties/time";
+
+    expect(locatedIn(ref)).toBe(ref);
   });
 });
 

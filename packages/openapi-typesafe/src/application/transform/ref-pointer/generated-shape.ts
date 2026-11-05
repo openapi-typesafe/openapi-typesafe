@@ -17,15 +17,6 @@ export type GeneratedMember =
 type JsonObject = Readonly<Record<string, unknown>>;
 
 const OPAQUE_KEYS = ["not", "enum", "const", "$ref"] as const;
-/** Keywords that can give a schema with a primitive `type` another generated type. */
-const COMPOSITE_KEYS: ReadonlySet<string> = new Set([
-  "allOf",
-  "anyOf",
-  "oneOf",
-  "properties",
-  "additionalProperties",
-  "items",
-]);
 /** How deep `allOf`/`anyOf`/`oneOf` members are read; deeper shapes count as opaque. */
 const MAX_DEPTH = 8;
 const INDEX_RE = /^\d+$/;
@@ -53,7 +44,14 @@ function typeNames(node: JsonObject): readonly unknown[] {
   return Array.isArray(node.type) ? node.type : [node.type];
 }
 
-function isObjectShape(node: JsonObject): boolean {
+/**
+ * Whether the generated type is an object. One `type` name decides alone: `type: string` with
+ * `properties` or `items` is `string`, as `coreType` matches the `type` before the keywords.
+ */
+export function isObjectShape(node: JsonObject): boolean {
+  if (typeof node.type === "string") {
+    return node.type === "object";
+  }
   return (
     typeNames(node).includes("object") ||
     "properties" in node ||
@@ -62,8 +60,29 @@ function isObjectShape(node: JsonObject): boolean {
   );
 }
 
-function isArrayShape(node: JsonObject): boolean {
+/** Whether the generated type is an array; one `type` name decides alone (`isObjectShape`). */
+export function isArrayShape(node: JsonObject): boolean {
+  if (typeof node.type === "string") {
+    return node.type === "array";
+  }
   return typeNames(node).includes("array") || "items" in node;
+}
+
+/** Whether `objectType` writes a type for the schema; the same test as there. */
+function hasObjectKeywords(node: JsonObject): boolean {
+  const hasProperties = isJsonObject(node.properties) && Object.keys(node.properties).length > 0;
+  return (
+    hasProperties || Boolean(node.additionalProperties || node.patternProperties || node.$defs)
+  );
+}
+
+/**
+ * A key of an object schema without object keywords. With a `type` it is `Record<string, never>`:
+ * every key is `never`, and so is every key after it (or `unknown` with `--empty-objects-unknown`,
+ * which has no key). Without a `type` it is `unknown`.
+ */
+function emptyObjectMember(node: JsonObject, options: SchemaOptions): GeneratedMember {
+  return node.type !== undefined && !options.emptyObjectsUnknown ? OPAQUE : MISSING;
 }
 
 /** Whether a key the object has no property for is still a member: `toString`, `length`, `0`. */
@@ -105,10 +124,15 @@ function objectMember(node: JsonObject, key: string, options: SchemaOptions): Ge
       ? OPAQUE
       : { kind: "property", node: property, isOptional: isOptionalProperty(node, key, options) };
   }
-  if (isBuiltInMember(key, {}) || key === "$defs" || isJsonObject(node.discriminator)) {
+  // `unevaluatedProperties` adds an index signature with its fix, so it counts as opaque too.
+  const isUnknownShape =
+    isJsonObject(node.discriminator) || node.unevaluatedProperties !== undefined;
+  if (isBuiltInMember(key, {}) || key === "$defs" || isUnknownShape) {
     return OPAQUE;
   }
-  return indexMember(node, options) ?? MISSING;
+  return hasObjectKeywords(node)
+    ? (indexMember(node, options) ?? MISSING)
+    : emptyObjectMember(node, options);
 }
 
 /** Whether a value is there: `present`, `absent` (may be `undefined` or `null`) or `unknown`. */
@@ -144,23 +168,46 @@ function withoutComposition(node: JsonObject): JsonObject {
   return own;
 }
 
+/** Own keywords without an object type of their own (`properties: {}`) add no part. */
+function hasOwnObjectType(own: JsonObject): boolean {
+  return isObjectShape(own) && (hasObjectKeywords(own) || isJsonObject(own.discriminator));
+}
+
 /**
- * `allOf` with own keywords is an intersection: a key is missing only if every part misses it.
+ * `allOf` with own keywords is an intersection (`intersectionMember`).
  * `anyOf` or `oneOf` alone is a union: a key is missing if one member misses it. A mix of both
  * is written in more than one way (`anyof-properties`), so it counts as opaque.
  */
 function composedMember(node: JsonObject, key: string, input: MemberInput): GeneratedMember {
   const variants = [...membersOf(node, "anyOf"), ...membersOf(node, "oneOf")];
   const own = withoutComposition(node);
-  const hasOwn = isObjectShape(own);
+  const hasOwn = hasOwnObjectType(own);
   if (variants.length > 0) {
     const isAlone = membersOf(node, "allOf").length === 0 && !hasOwn;
     const members = variants.map((variant) => memberAt(variant, key, input));
     return isAlone && members.some((member) => member.kind === "missing") ? MISSING : OPAQUE;
   }
   const parts = [...membersOf(node, "allOf"), ...(hasOwn ? [own] : [])];
-  const members = parts.map((part) => memberAt(part, key, input));
-  return members.every((member) => member.kind === "missing") ? MISSING : OPAQUE;
+  return intersectionMember(parts.map((part) => memberAt(part, key, input)));
+}
+
+function isUnknownIndex(member: GeneratedMember): boolean {
+  return member.kind === "index" && member.node === undefined;
+}
+
+/**
+ * A key of an intersection: missing if every part misses it; the part's member if only one part
+ * has it (`A & B` where `B` has no such key and no index signature); else opaque. A part's
+ * `[key: string]: unknown` adds nothing (`unknown & T` is `T`), and only such parts give `unknown`.
+ */
+function intersectionMember(members: readonly GeneratedMember[]): GeneratedMember {
+  const found = members.filter((member) => member.kind !== "missing");
+  const typed = found.filter((member) => !isUnknownIndex(member));
+  const [only] = typed;
+  if (only === undefined) {
+    return found[0] ?? MISSING;
+  }
+  return typed.length === 1 && only.kind !== "opaque" ? only : OPAQUE;
 }
 
 interface MemberInput {
@@ -204,11 +251,17 @@ const PRIMITIVE_PROTOTYPES: Readonly<Record<string, object>> = {
   boolean: Boolean.prototype,
 };
 
-/** A key of a schema with one primitive `type`: missing unless the primitive has it. */
+/**
+ * A key of a schema with one primitive `type`: missing unless the primitive has it. Object and
+ * array keywords next to that `type` do not change the type (`isObjectShape`). Without a `type`
+ * and object keywords the schema is `unknown` (`objectType` writes nothing), which has no keys.
+ */
 function primitiveMember(node: JsonObject, key: string): GeneratedMember {
+  if (node.type === undefined) {
+    return hasObjectKeywords(node) ? OPAQUE : MISSING;
+  }
   const prototype = typeof node.type === "string" ? PRIMITIVE_PROTOTYPES[node.type] : undefined;
-  const isPlain = Object.keys(node).every((name) => !COMPOSITE_KEYS.has(name));
-  return prototype !== undefined && isPlain && !isBuiltInMember(key, prototype) ? MISSING : OPAQUE;
+  return prototype !== undefined && !isBuiltInMember(key, prototype) ? MISSING : OPAQUE;
 }
 
 /** The member `key` of the type generated for `schema` (a `$ref` is followed first). */

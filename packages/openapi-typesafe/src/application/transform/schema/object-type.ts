@@ -15,9 +15,8 @@ import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js"
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import { type AccessFlags, propertyAccessFlags } from "./access-flags.js";
-import { discriminatorProperty } from "./discriminator-property.js";
-import { ownerEnumMembersType } from "./enum-rule.js";
-import type { Discriminator, SchemaOptions } from "./schema-context.js";
+import { discriminatorMember, inheritedDiscriminator } from "./inherited-discriminator.js";
+import type { SchemaOptions } from "./schema-context.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
 /** Path parts where a default value cannot make a property required (inputs may omit it). */
@@ -223,48 +222,40 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
   return types;
 }
 
-/** The discriminator a parent's mapping implies for this schema, if it adds a property. */
-function inheritedDiscriminator(
-  schema: SchemaObject,
-  request: SchemaRequest,
-): Discriminator | undefined {
-  if (!schema.allOf && !schema.anyOf) {
-    return undefined;
+/**
+ * Whether the schema declares property `key` and the type keeps it: `--exclude-deprecated` drops
+ * a deprecated one.
+ */
+export function isKeptProperty(schema: SchemaObject, key: string, request: SchemaRequest): boolean {
+  const properties = schema.properties ?? {};
+  if (!Object.hasOwn(properties, key)) {
+    return false;
   }
-  const path = request.location.path ?? "";
-  const { discriminators } = request.context;
-  // A schema does not get the discriminator it defines for its children, nor one added already.
-  const isAdded = !schema.discriminator && !discriminators.isHandled(path);
-  return isAdded ? discriminators.objectAt(path) : undefined;
-}
-
-function discriminatorMember(discriminator: Discriminator, request: SchemaRequest): IrMember {
-  const path = request.location.path ?? "";
-  // With `discriminator-values`, the value is a member of the owner's enum (#1700).
-  const valueType = (value: string | undefined) =>
-    ownerEnumMembersType(discriminator, [value], request);
-  return discriminatorProperty(discriminator, path, request.context.options.immutable, valueType);
-}
-
-function declaresProperty(schema: SchemaObject, name: string): boolean {
-  return "properties" in schema && Object.hasOwn(schema.properties ?? {}, name);
+  const value = properties[key] as Schema;
+  const isExcludable = request.context.options.excludeDeprecated && typeof value === "object";
+  return !isExcludable || !isExcluded(value, propertyFacts(value, request), request);
 }
 
 /**
  * The members for the discriminator and `properties`. A schema that declares the discriminator
  * property itself keeps its own declaration, required as the discriminator needs: both in one
- * object type do not compile (TS2300, the Apple SiriKit Cloud Media API).
+ * object type do not compile (TS2300, the Apple SiriKit Cloud Media API). A declaration that
+ * `--exclude-deprecated` drops does not count, so the discriminator property stays.
  */
 function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRequest): IrMember[] {
-  const discriminator = inheritedDiscriminator(schema, request);
-  if (discriminator === undefined) {
+  const inherited = inheritedDiscriminator(schema, request);
+  if (inherited === undefined) {
     return propertyMembers(schema, request);
   }
-  const name = discriminator.propertyName;
-  if (!declaresProperty(schema, name)) {
-    return [discriminatorMember(discriminator, request), ...propertyMembers(schema, request)];
+  const name = inherited.discriminator.propertyName;
+  if (!isKeptProperty(schema, name, request)) {
+    return [discriminatorMember(inherited, request), ...propertyMembers(schema, request)];
   }
-  const required = [...(schema.required ?? []), name];
+  // Without `required`, `--properties-required-by-default` requires every property already; a
+  // list of one would make the others optional.
+  const isAllRequired =
+    schema.required === undefined && request.context.options.propertiesRequiredByDefault;
+  const required = isAllRequired ? undefined : [...(schema.required ?? []), name];
   return propertyMembers({ ...schema, required } as SchemaObject, request);
 }
 
@@ -275,8 +266,8 @@ function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRe
  */
 export function objectType(schema: SchemaObject, request: SchemaRequest): IrType | null {
   if (!hasObjectKeywords(schema)) {
-    const discriminator = inheritedDiscriminator(schema, request);
-    return discriminator ? irObject([discriminatorMember(discriminator, request)]) : null;
+    const inherited = inheritedDiscriminator(schema, request);
+    return inherited ? irObject([discriminatorMember(inherited, request)]) : null;
   }
   const members = discriminatorAndPropertyMembers(schema, request);
   // As in the original, a null `$defs` throws here (Object.keys) instead of being skipped.

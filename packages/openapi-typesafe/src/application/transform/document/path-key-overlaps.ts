@@ -6,7 +6,7 @@
  * TS2413). These functions find the signatures that cover another key the checker rejects.
  */
 
-import { isAssignableToTemplate, isNumberText, type TemplateShape } from "./template-key-match.js";
+import { isAssignableToTemplate, type TemplateShape } from "./template-key-match.js";
 
 /** A placeholder of a template literal type, by the type it stands for. */
 export type PathPlaceholder = "string" | "number" | "boolean";
@@ -23,68 +23,12 @@ export type PathKey =
 
 const BOOLEAN_TEXTS: readonly string[] = ["true", "false"];
 
-/** The text one placeholder stands for in a sample of a template key. */
-const SAMPLE_TEXTS: Readonly<Record<PathPlaceholder, string>> = {
-  string: "",
-  number: "0",
-  boolean: "true",
-};
-
-function isPlaceholderText(type: PathPlaceholder, text: string): boolean {
-  if (type === "number") {
-    return isNumberText(text);
-  }
-  return type === "boolean" ? BOOLEAN_TEXTS.includes(text) : true;
-}
-
-/** Whether `text` from `start` on is one of the strings the parts from `index` on describe. */
-function matchesFrom(
-  text: string,
-  start: number,
-  parts: readonly PathKeyPart[],
-  index: number,
-): boolean {
-  const part = parts[index];
-  if (part === undefined) {
-    return start === text.length;
-  }
-  if (part.kind === "text") {
-    return (
-      text.startsWith(part.text, start) &&
-      matchesFrom(text, start + part.text.length, parts, index + 1)
-    );
-  }
-  for (let end = start; end <= text.length; end += 1) {
-    if (
-      isPlaceholderText(part.type, text.slice(start, end)) &&
-      matchesFrom(text, end, parts, index + 1)
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * One string of the key. If a template key is covered, every string of it is, so a sample that is
- * not covered proves the key is not; a sample that is covered may over-report, which only moves a
- * signature that did not need it (the types stay the same, see `pathsObjectType`). This is the
- * cover the original check used, kept so that the output it gave stays the same.
- */
-function sampleOf(key: PathKey): string {
-  if (key.kind === "literal") {
-    return key.url;
-  }
-  return key.parts
-    .map((part) => (part.kind === "text" ? part.text : SAMPLE_TEXTS[part.type]))
-    .join("");
-}
-
 /** The shapes after one more part; a boolean placeholder doubles them, as TypeScript does. */
 function withPart(shapes: readonly TemplateShape[], part: PathKeyPart): TemplateShape[] {
   return shapes.flatMap((shape): TemplateShape[] => {
     const lead = shape.texts.slice(0, -1);
-    const last = shape.texts[shape.texts.length - 1] ?? "";
+    // A shape has one text more than it has placeholders, so it always has a last text.
+    const last = shape.texts[shape.texts.length - 1] as string;
     if (part.kind === "text") {
       return [{ texts: [...lead, last + part.text], types: shape.types }];
     }
@@ -115,71 +59,140 @@ function isCoveredBy(
   sources: readonly TemplateShape[],
   targets: readonly TemplateShape[],
 ): boolean {
-  return sources.every((source) =>
-    targets.some((target) => isAssignableToTemplate(source, target)),
+  return (
+    sources.length > 0 &&
+    sources.every((source) => targets.some((target) => isAssignableToTemplate(source, target)))
   );
 }
 
 /** Whether TypeScript rejects the key at `covered` for the signature at `covering`. */
 export type CoverRejection = (covering: number, covered: number) => boolean;
 
-/**
- * How the check decides that TypeScript rejects a covered key. `sampled` goes with the sampled
- * cover, as the original check did, with the path items' own types: its output stays the same.
- * `exact` goes only with the cover TypeScript itself checks, so it may read further (the types
- * that path items reference, upstream #1752) without moving a signature the checker accepts.
- */
-export interface CoverChecks {
-  readonly sampled: CoverRejection;
-  readonly exact: CoverRejection;
-}
-
 /** Without type information every covered key counts. */
 const EVERY_COVER_REJECTED: CoverRejection = () => true;
-const EVERY_CHECK: CoverChecks = { sampled: EVERY_COVER_REJECTED, exact: EVERY_COVER_REJECTED };
 
-/** The signature types of a template key; a boolean-only template is no signature (TS1337). */
-function signatureShapes(key: PathKey): readonly TemplateShape[] {
-  return shapesOf(key).filter((shape) => shape.types.length > 0);
+/**
+ * The key types TypeScript checks against a signature: a literal's, or a template's signature
+ * types. A boolean-only template is no signature (TS1337), so the checker neither checks it nor
+ * checks anything against it; a repeated one is still reported (TS2374, see `repeatedTemplates`).
+ */
+function checkedShapes(key: PathKey): readonly TemplateShape[] {
+  const shapes = shapesOf(key);
+  return key.kind === "literal" ? shapes : shapes.filter((shape) => shape.types.length > 0);
+}
+
+/** A checked key: the key, the shapes TypeScript checks, and its template identity. */
+interface CheckedKey {
+  readonly key: PathKey;
+  readonly shapes: readonly TemplateShape[];
+  /** The key types written as one string, for templates; null for a literal. */
+  readonly template: string | null;
+}
+
+function checkedKeyOf(key: PathKey): CheckedKey {
+  const template = key.kind === "template" ? JSON.stringify(shapesOf(key)) : null;
+  return { key, shapes: checkedShapes(key), template };
 }
 
 /**
- * Whether two keys are the same template, as paths that differ only in parameter names give
+ * The templates written more than once, as paths that differ only in parameter names give
  * (`/a/{id}`, `/a/{name}`). OpenAPI forbids such paths, and one object with both signatures fails
  * to compile whatever their types (TS2374), so each always counts as covering the other.
  */
-function isSameTemplate(key: PathKey, other: PathKey): boolean {
-  return (
-    other.kind === "template" && JSON.stringify(shapesOf(key)) === JSON.stringify(shapesOf(other))
+function repeatedTemplates(checked: readonly CheckedKey[]): ReadonlySet<string> {
+  const seen = new Set<string>();
+  const repeated = new Set<string>();
+  for (const { template } of checked) {
+    if (template !== null) {
+      (seen.has(template) ? repeated : seen).add(template);
+    }
+  }
+  return repeated;
+}
+
+/**
+ * The checked keys by the first text of each of their shapes, sorted. A key type is assignable to
+ * a template only when its first text starts with the template's first text (both branches of
+ * `isAssignableToTemplate`), so the keys a template can cover are one run of this list. Without
+ * it the check compares every pair of keys, which takes minutes for 10 000 paths.
+ */
+interface StartTextIndex {
+  readonly starts: readonly string[];
+  readonly keyIndexes: readonly number[];
+}
+
+/** Code unit order: in it the strings that start with one prefix are adjacent. */
+function compareCodeUnits(left: string, right: string): number {
+  if (left === right) {
+    return 0;
+  }
+  return left < right ? -1 : 1;
+}
+
+function startTextIndexOf(checked: readonly CheckedKey[]): StartTextIndex {
+  const entries = checked.flatMap(({ shapes }, keyIndex) =>
+    shapes.map((shape) => ({ start: shape.texts[0] as string, keyIndex })),
   );
+  entries.sort((left, right) => compareCodeUnits(left.start, right.start));
+  return {
+    starts: entries.map((entry) => entry.start),
+    keyIndexes: entries.map((entry) => entry.keyIndex),
+  };
+}
+
+/** The indexes of the keys with a shape whose first text starts with one of the prefixes. */
+function keysStartingWith(index: StartTextIndex, prefixes: readonly string[]): Set<number> {
+  const found = new Set<number>();
+  for (const prefix of prefixes) {
+    let low = 0;
+    let high = index.starts.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if ((index.starts[middle] as string) < prefix) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    for (let at = low; at < index.starts.length; at += 1) {
+      if (!(index.starts[at] as string).startsWith(prefix)) {
+        break;
+      }
+      found.add(index.keyIndexes[at] as number);
+    }
+  }
+  return found;
 }
 
 /**
  * The indexes of the template keys that cover another key of the list, where it is rejected, or
- * that repeat another template key.
+ * that repeat another template key. A template covers the keys TypeScript checks against it, the
+ * ones its own matching accepts (see `template-key-match.ts`), not every string it stands for:
+ * `` `/a/b/${number}` `` is no `` `/${string}/${number}` `` to the checker, which does not
+ * backtrack, so that pair is never checked.
  */
 export function coveringTemplateKeys(
   keys: readonly PathKey[],
-  checks: CoverChecks = EVERY_CHECK,
+  isRejected: CoverRejection = EVERY_COVER_REJECTED,
 ): ReadonlySet<number> {
+  const checked = keys.map(checkedKeyOf);
+  const repeated = repeatedTemplates(checked);
+  const startTexts = startTextIndexOf(checked);
   const covering = new Set<number>();
-  const shapes = keys.map(shapesOf);
-  keys.forEach((key, index) => {
-    if (key.kind !== "template") {
+  checked.forEach(({ template, shapes: targets }, index) => {
+    if (template === null) {
       return;
     }
-    const targets = signatureShapes(key);
-    const isCovering = keys.some((other, otherIndex) => {
-      // An exact cover is sampled too: a key the checker matches has every string matched.
-      if (otherIndex === index || !matchesFrom(sampleOf(other), 0, key.parts, 0)) {
-        return false;
-      }
-      return (
-        isSameTemplate(key, other) ||
-        checks.sampled(index, otherIndex) ||
-        (isCoveredBy(shapes[otherIndex] ?? [], targets) && checks.exact(index, otherIndex))
+    const prefixes = targets.map((target) => target.texts[0] as string);
+    const candidates = [...keysStartingWith(startTexts, prefixes)].sort((a, b) => a - b);
+    const isCovering =
+      repeated.has(template) ||
+      candidates.some(
+        (otherIndex) =>
+          otherIndex !== index &&
+          isCoveredBy((checked[otherIndex] as CheckedKey).shapes, targets) &&
+          isRejected(index, otherIndex),
       );
-    });
     if (isCovering) {
       covering.add(index);
     }

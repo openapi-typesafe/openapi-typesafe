@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  isUnionMember,
   unionAt,
+  unionMaps,
   unionMembers,
   unionReaches,
 } from "../../../src/domain/openapi/discriminated-union.js";
@@ -54,5 +56,36 @@ describe("unionReaches", () => {
     const resolve = resolverOf({ M: { oneOf: [ref("N")] }, N: { oneOf: [ref("M")] } });
 
     expect(unionReaches({ oneOf: [ref("M")] }, ref("A").$ref, resolve)).toBe(false);
+  });
+});
+
+describe("unionMaps", () => {
+  const CAT = "#/components/schemas/Cat";
+
+  it("unionMaps reads a bare name as a component schema and a $ref as written", () => {
+    const named = { discriminator: { propertyName: "kind", mapping: { cat: "Cat" } } };
+    const pointed = { discriminator: { propertyName: "kind", mapping: { cat: CAT } } };
+
+    expect(unionMaps(named, CAT)).toBe(true);
+    expect(unionMaps(pointed, CAT)).toBe(true);
+    expect(unionMaps(named, "#/components/schemas/Dog")).toBe(false);
+  });
+
+  it("unionMaps skips a mapping value that is not a string, and a union with no mapping", () => {
+    const invalid = { discriminator: { propertyName: "kind", mapping: { cat: 1 } } };
+
+    expect(unionMaps(invalid as never, CAT)).toBe(false);
+    expect(unionMaps({ oneOf: [] }, CAT)).toBe(false);
+  });
+});
+
+describe("isUnionMember", () => {
+  it("isUnionMember accepts a mapped schema and a reached one", () => {
+    const union = { oneOf: [ref("A")], discriminator: { propertyName: "k", mapping: { b: "B" } } };
+    const resolve = resolverOf({});
+
+    expect(isUnionMember(union, "#/components/schemas/B", resolve)).toBe(true);
+    expect(isUnionMember(union, ref("A").$ref, resolve)).toBe(true);
+    expect(isUnionMember(union, ref("C").$ref, resolve)).toBe(false);
   });
 });

@@ -65,6 +65,54 @@ describe("--enum-values location check", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("generateDeclarations types the array of an empty enum as an empty array", async () => {
+    // The location is `never`, and the `ReadonlyArray` helper of `never` is `never` too.
+    const { output, warnings } = await run({
+      Empty: STRING_ENUM([]),
+      Holder: { type: "object", properties: { none: STRING_ENUM([]) } },
+    });
+
+    expect(output).toContain("emptyValues: readonly never[] = [];");
+    expect(output).toContain("holderNoneValues: readonly never[] = [];");
+    expect(warnings).toEqual([]);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("generateDeclarations types an array by its values where a read-write marker wraps it", async () => {
+    // `FlattenedDeepRequired<$Read<"r">>` maps over the marker object, which holds no string.
+    const { output, warnings } = await run(
+      {
+        Pet: {
+          type: "object",
+          properties: {
+            ro: { ...STRING_ENUM(["r"]), readOnly: true },
+            wo: { ...STRING_ENUM(["w"]), writeOnly: true },
+          },
+        },
+      },
+      { readWriteMarkers: true },
+    );
+
+    expect(output).toContain('petRoValues: ReadonlyArray<"r"> = ["r"];');
+    expect(output).toContain('petWoValues: ReadonlyArray<"w"> = ["w"];');
+    expect(warnings).toEqual([]);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("generateDeclarations reads a union with an unknown member as unknown", async () => {
+    // `{ … } | unknown | { m?: "m1" }` is `unknown`: `Extract` on it finds no member with `m`.
+    const { output } = await run({
+      Unk: {
+        type: "object",
+        properties: { x: { type: "string" } },
+        anyOf: [{ required: ["x"] }, { type: "object", properties: { m: STRING_ENUM(["m1"]) } }],
+      },
+    });
+
+    expect(output).toContain('unkAnyOf1MValues: ReadonlyArray<"m1"> = ["m1"];');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("generateDeclarations warns where an allOf of enums excludes listed values", async () => {
     const { output, warnings } = await run({
       Base: { type: "object", properties: { state: STRING_ENUM(["open", "converting"]) } },
@@ -207,5 +255,54 @@ describe("discriminator value warnings", () => {
 
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('#/components/schemas/Dog: the discriminator "kind"');
+  });
+
+  const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
+  const kindOf = (value: string) => ({ type: "object", properties: { kind: STRING_ENUM([value]) } });
+
+  it("generateDeclarations warns about a member that inherits through an allOf chain", async () => {
+    const { warnings } = await run(
+      {
+        Pet: { type: "object", properties: { kind: { type: "string" } }, discriminator: { propertyName: "kind" } },
+        Cat: { allOf: [ref("Pet"), kindOf("Cat")] },
+        Lion: { allOf: [ref("Cat"), kindOf("lion")] },
+      },
+      { enumValues: false },
+    );
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('#/components/schemas/Lion: the discriminator "kind" of #/components/schemas/Pet');
+    expect(warnings[0]).toContain('does not allow ("lion")');
+  });
+
+  it("generateDeclarations does not follow a chain past a schema with its own discriminator", async () => {
+    const { warnings } = await run(
+      {
+        Pet: { type: "object", properties: { kind: { type: "string" } }, discriminator: { propertyName: "kind" } },
+        Cat: {
+          allOf: [ref("Pet"), kindOf("Cat")],
+          discriminator: { propertyName: "kind", mapping: { lion: ref("Lion").$ref } },
+        },
+        Lion: { allOf: [ref("Cat"), kindOf("lion")] },
+      },
+      { enumValues: false },
+    );
+
+    expect(warnings).toEqual([]);
+  });
+
+  it("generateDeclarations with allof-discriminated-union does not warn about a schema that reuses a union", async () => {
+    const schemas = {
+      Pet: { oneOf: [ref("Cat")], discriminator: { propertyName: "kind" } },
+      Cat: kindOf("Cat"),
+      CatResponse: { allOf: [ref("Pet"), kindOf("Cat")] },
+      Child: { allOf: [ref("CatResponse"), kindOf("Cat")] },
+    };
+
+    const fixed = await run(schemas, { enumValues: false, fix: ["allof-discriminated-union"] });
+    const unfixed = await run(schemas, { enumValues: false });
+
+    expect(fixed.warnings).toEqual([]);
+    expect(unfixed.warnings).toHaveLength(2);
   });
 });

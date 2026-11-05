@@ -91,6 +91,46 @@ const app: paths[\`/apps/\${string}\`]["get"]["parameters"]["path"] = { id: "a" 
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS keeps one object when a boolean response is covered by a true | false one", async () => {
+    const respond = (schema: object) => ({
+      get: {
+        parameters: [ID],
+        responses: { 200: { description: "ok", content: { "application/json": { schema } } } },
+      },
+    });
+    const paths = {
+      "/a/{id}": respond({ type: "boolean", enum: [true, false] }),
+      "/a/{id}/b": respond({ type: "boolean" }),
+    };
+
+    const output = await generate(paths);
+
+    expect(output).toContain("export interface paths {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS output with an item response under its array response compiles (conjur)", async () => {
+    const respond = (schema: object) => ({
+      get: {
+        parameters: [ID],
+        responses: { 200: { description: "ok", content: { "application/json": { schema } } } },
+      },
+    });
+    const item = { type: "object", properties: { id: { type: "string" } } };
+    const paths = {
+      "/r/{id}": respond({ type: "array", items: item }),
+      "/r/{id}/x": respond({
+        $ref: "#/paths/~1r~1{id}/get/responses/200/content/application~1json/schema/items",
+      }),
+    };
+
+    const output = await generate(paths);
+
+    expect(output).toContain('["application/json"][number]');
+    expect(output).toContain("export type paths = {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS moves a signature whose covered path has another method", async () => {
     const restart = { post: { parameters: [ID], responses: { 200: { description: "restart" } } } };
     const paths = { "/apps/{id}": operation("app"), "/apps/{id}/restart": restart };
@@ -134,6 +174,33 @@ const app: paths[\`/apps/\${string}\`]["get"]["parameters"]["path"] = { id: "a" 
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS keeps the paths interface for a key TypeScript does not match", async () => {
+    // `/a/b/${number}` is no `/${string}/${number}` to the checker, which does not backtrack.
+    const N = { name: "n", in: "path", required: true, schema: { type: "integer" } };
+    const remove = { delete: { parameters: [N], responses: { 200: { description: "ok" } } } };
+    const paths = { "/{id}/{n}": operation("any", [ID, N]), "/a/b/{n}": remove };
+
+    const output = await generate(paths);
+
+    expect(output).toContain("export interface paths {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS keeps the paths interface when the check cannot read a covered type", async () => {
+    // `Record<string, never>` fits `{ [key: string]: unknown }`; the check does not model it, so
+    // the output stays the original, which compiles.
+    const schemas = {
+      CaseDetail: { type: "object", additionalProperties: true },
+      CaseSummary: { type: "object" },
+    };
+
+    const output = await generate(NESTED, {}, { schemas });
+
+    expect(output).toContain("export interface paths {");
+    expect(output).toContain("Record<string, never>");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS output with nested paths of recursive schemas terminates and compiles", async () => {
     const tree = (name: string) => ({
       type: "object",
@@ -163,6 +230,17 @@ const app: paths["/apps/a"]["get"]["parameters"]["path"] = { id: "a" };`;
     const schemas = { CaseDetail: item, CaseSummary: { type: "array", items: item } };
 
     const output = await generate(NESTED, {}, { schemas });
+
+    expect(output).toContain("export type paths = {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS output with an open prefixItems tuple under an array response compiles", async () => {
+    // `[string?, ...string[]]` may start with undefined, so it is no `string[]` (TS2413).
+    const list = { type: "array", items: { type: "string" } };
+    const schemas = { CaseDetail: list, CaseSummary: { ...list, prefixItems: [{ type: "string" }] } };
+
+    const output = await generate(NESTED, { fix: ["prefix-items"] }, { schemas });
 
     expect(output).toContain("export type paths = {");
     expect(typeErrorsOf(output)).toEqual([]);

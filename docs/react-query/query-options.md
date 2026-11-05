@@ -98,7 +98,8 @@ export const $api = createClient(fetchClient);
 
 `Parameters<typeof $api.queryOptions>` takes the arguments of any operation, so a helper can pass
 them on. TypeScript does not relate the method, the path and the init in it: it checks the path
-against every path, and the init is optional when some operation needs none.
+against every path, and the init is required when some operation requires one, so pass `{}` for
+a path that needs none (`useInvalidateQuery("get", "/items", {})`).
 
 ```ts [src/use-invalidate-query.ts]
 import { useQueryClient } from "@tanstack/react-query";

@@ -4,17 +4,20 @@ import { indexBy, indexKeyword, rootType } from "../ref-type.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import {
   followRefs,
+  isArrayShape,
   isJsonObject,
+  isObjectShape,
   type Presence,
   propertyPresence,
   schemaPresence,
 } from "./generated-shape.js";
 import {
+  isOptionalHeader,
   isOptionalRequestBody,
   isParameterList,
   isTypedAsSchema,
-  LEADING_SEGMENTS,
   leadingNode,
+  leadingSegmentsOf,
   type RefPointer,
   startsInSchema,
 } from "./pointer-walk.js";
@@ -93,8 +96,29 @@ function defsStep(walk: TypedWalk, owner: unknown, isLast: boolean): TypedWalk {
   };
 }
 
+const SHAPED_KEYWORDS: ReadonlySet<string> = new Set([
+  "properties",
+  "items",
+  "additionalProperties",
+]);
+
+/**
+ * Whether the keyword gives the owner's generated type a member: `items` only an array,
+ * `properties` and `additionalProperties` only an object (`type: string` ignores them). A node
+ * that is not in the document is indexed as the keyword says.
+ */
+function hasKeywordMember(owner: unknown, segment: string): boolean {
+  if (!SHAPED_KEYWORDS.has(segment) || !isJsonObject(owner)) {
+    return true;
+  }
+  return segment === "items" ? isArrayShape(owner) : isObjectShape(owner);
+}
+
 function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: TypedWalkInput) {
   const owner = followRefs(walk.node, input.refs);
+  if (!hasKeywordMember(owner, segment)) {
+    return null;
+  }
   switch (segment) {
     case "properties":
       return { ...walk, isName: true };
@@ -109,9 +133,12 @@ function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: T
   }
 }
 
-function containerStep(walk: TypedWalk, segment: string, input: TypedWalkInput): TypedWalk {
+function containerStep(walk: TypedWalk, index: number, input: TypedWalkInput): TypedWalk {
+  const segment = input.pointer.segments[index] as string;
   const owner = followRefs(walk.node, input.refs);
-  const isOptional = segment === "requestBody" && isOptionalRequestBody(owner, input.refs);
+  const isOptional =
+    (segment === "requestBody" && isOptionalRequestBody(owner, input.refs)) ||
+    isOptionalHeader(input.pointer, index, owner);
   return {
     ...walk,
     type: indexBy(present(walk), segment),
@@ -132,9 +159,11 @@ function step(walk: TypedWalk, index: number, input: TypedWalkInput): TypedWalk 
   if (segment === "schema" && isTypedAsSchema(input.pointer, index)) {
     const owner = followRefs(walk.node, input.refs);
     const schema = isJsonObject(owner) ? owner.schema : undefined;
-    return { ...walk, node: schema, isSchema: true, presence: schemaPresence(schema, input.refs) };
+    // The container's type is its schema's type: an optional header stays optional.
+    const presence = walk.presence === "absent" ? "absent" : schemaPresence(schema, input.refs);
+    return { ...walk, node: schema, isSchema: true, presence };
   }
-  return isParameterList(input.pointer, index) ? null : containerStep(walk, segment, input);
+  return isParameterList(input.pointer, index) ? null : containerStep(walk, index, input);
 }
 
 /** Walk the whole pointer; see the module comment. */
@@ -145,14 +174,14 @@ export function typedWalk(input: TypedWalkInput): TypedWalkResult {
   let walk: TypedWalk = {
     type: indexBy(
       rootType(pointer.rootSegment, false),
-      ...pointer.segments.slice(0, LEADING_SEGMENTS),
+      ...pointer.segments.slice(0, leadingSegmentsOf(pointer)),
     ),
     node,
     isSchema,
     isName: false,
     presence: isSchema ? schemaPresence(node, input.refs) : "present",
   };
-  for (let index = LEADING_SEGMENTS; index < pointer.segments.length; index++) {
+  for (let index = leadingSegmentsOf(pointer); index < pointer.segments.length; index++) {
     const next = step(walk, index, input);
     if (next === null) {
       return { kind: "untyped", index };

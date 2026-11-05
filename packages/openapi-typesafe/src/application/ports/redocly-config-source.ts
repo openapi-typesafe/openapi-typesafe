@@ -10,7 +10,11 @@ export interface RedoclyConfigSource {
    * from the working directory. Undefined when there is none.
    */
   find(explicitPath: string | undefined): string | undefined;
+  /** The config of a file; fails with `CLI_CONFIG_INVALID` when it or its ignore file is bad. */
   load(configPath: string): Promise<RedoclyConfig>;
-  /** The config used when there is no file: the minimal rules. */
+  /**
+   * The config used when there is no file: the minimal rules. Fails with `CLI_CONFIG_INVALID`
+   * when the ignore file of the working directory is bad.
+   */
   createDefault(): Promise<RedoclyConfig>;
 }

@@ -109,6 +109,23 @@ export function ageOf(animal: components["schemas"]["Animal"]): number | undefin
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS gives a union that inherits the discriminator no value of its own", async () => {
+    const schemas = {
+      Base: parent(),
+      Animal: { allOf: [ref("Base")], oneOf: [ref("Dog"), ref("Cat")] },
+      Cat: member({ age: { type: "integer" } }),
+      Dog: { allOf: [ref("Animal")] },
+    };
+    const code = `${await generate(schemas)}
+type IsNever<T> = [T] extends [never] ? true : false;
+const animal: IsNever<components["schemas"]["Animal"]> = false;
+const cat: components["schemas"]["Cat"] = { type: "CAT", age: 2 };
+const dog: components["schemas"]["Dog"] = { type: "DOG" };`;
+
+    expect(code).not.toContain('type: "Animal"');
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
   it("openapiTS breaks a cycle through an intermediate parent", async () => {
     const schemas = {
       Animal: animal({ oneOf: [ref("Cat")], discriminator: { propertyName: "type" } }),

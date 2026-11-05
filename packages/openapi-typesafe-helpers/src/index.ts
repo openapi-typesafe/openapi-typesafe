@@ -127,24 +127,37 @@ export type FirstErrorStatus<T> =
 
 // OpenAPI type helpers
 
+/** The paths that have each of the methods: upstream's `PathsWithMethod`. */
+type PathsWithEveryMethod<Paths extends {}, PathnameMethod extends HttpMethod> = {
+  [Pathname in keyof Paths]: Paths[Pathname] extends {
+    [K in PathnameMethod]: any;
+  }
+    ? Pathname
+    : never;
+}[keyof Paths];
+
+/** The paths that have at least one method. */
+type PathsWithAnyMethod<Paths extends {}> = {
+  [Pathname in keyof Paths]: {
+    [Method in HttpMethod]: Paths[Pathname] extends { [K in Method]: any } ? Pathname : never;
+  }[HttpMethod];
+}[keyof Paths];
+
 /**
  * Given an OpenAPI **Paths Object**, find all paths that have the given method. For a union of
- * methods, the paths that have any of them: `PathsWithMethod<Paths, HttpMethod>` is every path,
- * not `never`. TypeScript uses that union where a hook's `Method` is not known yet, as in
- * `Parameters<typeof $api.queryOptions>` (upstream #2178).
+ * methods, the paths that have each of them, so a call with either method finds its operation.
+ * For `HttpMethod` itself, a method not known yet, the paths that have any method too: TypeScript
+ * uses it where a hook's `Method` is not inferred, as in `Parameters<typeof $api.queryOptions>`,
+ * and the paths with every method were none (upstream #2178).
+ *
+ * A union with upstream's type, not a conditional type over the method: code that is generic in
+ * the method (`Path extends PathsWithMethod<Paths, Method>`, as swr-openapi has) must still
+ * relate one `PathsWithMethod` to another, and TypeScript cannot relate a type to a conditional
+ * type that waits for its method (TS2344). For a known method the second member is `never`.
  */
-export type PathsWithMethod<
-  Paths extends {},
-  PathnameMethod extends HttpMethod,
-> = PathnameMethod extends HttpMethod
-  ? {
-      [Pathname in keyof Paths]: Paths[Pathname] extends {
-        [K in PathnameMethod]: any;
-      }
-        ? Pathname
-        : never;
-    }[keyof Paths]
-  : never;
+export type PathsWithMethod<Paths extends {}, PathnameMethod extends HttpMethod> =
+  | PathsWithEveryMethod<Paths, PathnameMethod>
+  | (HttpMethod extends PathnameMethod ? PathsWithAnyMethod<Paths> : never);
 
 /**
  * DO NOT USE!

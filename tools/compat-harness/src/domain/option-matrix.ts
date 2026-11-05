@@ -133,6 +133,9 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   { flag: "--fix=exploded-query-objects", with: [[], ["--immutable"]] },
   // `nullable-enums` does nothing without `--enum`; `--dedupe-enums` shares the enum it declares.
   { flag: "--fix=nullable-enums", with: [["--enum"], ["--enum", "--dedupe-enums"]] },
+  // `path-param-type-names` does nothing without `--path-params-as-types`, the only matrix set it
+  // changes.
+  { flag: "--fix=path-param-type-names", with: [["--path-params-as-types"]] },
   // `prefix-items` replaces the tuple that `--array-length` would wrap and `--immutable` makes
   // readonly.
   { flag: "--fix=prefix-items", with: [[], ["--array-length"], ["--immutable"]] },

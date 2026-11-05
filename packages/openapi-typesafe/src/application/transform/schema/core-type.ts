@@ -9,6 +9,7 @@ import type {
 import { unionOf } from "../type-combinators.js";
 import { arrayType } from "./array-type.js";
 import { objectType } from "./object-type.js";
+import { hasRequiredVariants } from "./required-variants.js";
 import type { SchemaRequest, SchemaRule } from "./schema-rule.js";
 
 const PRIMITIVE_TYPE_NAMES: ReadonlySet<SchemaTypeName | null> = new Set([
@@ -34,10 +35,13 @@ function multipleTypes(schema: SchemaObject, request: SchemaRequest): IrType {
     if (isInOneOf) {
       continue;
     }
-    // With oneOf, the member drops it, so oneOf is not applied once per member.
-    const variant = Array.isArray(oneOf)
-      ? { ...schema, type: typeName, oneOf: undefined }
-      : { ...schema, type: typeName };
+    // With oneOf, the member drops it, so oneOf is not applied once per member. Variants that
+    // only require properties (`anyof-oneof-required`) belong to the object member.
+    const isKept = typeName === "object" && hasRequiredVariants(schema, oneOf ?? [], request);
+    const variant =
+      Array.isArray(oneOf) && !isKept
+        ? { ...schema, type: typeName, oneOf: undefined }
+        : { ...schema, type: typeName };
     members.push(
       typeName === "null" || typeName === null
         ? irKeyword("null")

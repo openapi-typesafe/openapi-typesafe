@@ -107,7 +107,8 @@ function ownKeywordsType(own: SchemaObject, ref: string, request: SchemaRequest)
  * An `allOf` item; one with a discriminator omits that property (the parent redefines it). A
  * `$ref` to a discriminated union is not such a parent: for a member of the union it is the
  * union's own keywords, since the union contains the member (#1665); with
- * `allof-discriminated-union` it is the union, since `Omit` on a union drops keys (#1464).
+ * `allof-discriminated-union` it is the union, since `Omit` on a union drops keys (#1464), unless
+ * the union's mapping names the schema: then it is a member, as the discriminator scan has it.
  */
 function allOfItemType(
   item: Schema,
@@ -129,8 +130,16 @@ function allOfItemType(
     : inlineItemType(item, required, request);
   const isUnion =
     unionItem !== undefined &&
+    !unionItem.isMapped &&
     request.context.options.fixes.has(OutputFix.ALLOF_DISCRIMINATED_UNION);
-  return propertyName && !isUnion ? omitKeys(type, [propertyName]) : type;
+  if (!propertyName || isUnion) {
+    return type;
+  }
+  // With `discriminator-values` the schema also redefines the properties of other owners above
+  // it, so no item may keep a value of its own for them (a parent mapped as `content`).
+  const { path } = request.location;
+  const others = path === undefined ? [] : request.context.discriminators.otherPropertiesAt(path);
+  return omitKeys(type, [propertyName, ...others]);
 }
 
 function allOfTypes(

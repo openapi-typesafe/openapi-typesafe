@@ -56,6 +56,11 @@ export interface Discriminators {
   /** Whether the discriminator property of this `$ref` was already added. */
   isHandled(ref: string): boolean;
   /**
+   * With `discriminator-values`: the properties of the discriminators the schema at `ref`
+   * inherits besides `objectAt`'s. It redefines them too, so its `allOf` items omit them.
+   */
+  otherPropertiesAt(ref: string): readonly string[];
+  /**
    * With `discriminator-values`: the owner's enum that a member's value narrows, found by
    * the enum schema the discriminator scan added or by the discriminator object of `objectAt`.
    */
@@ -78,6 +83,11 @@ export interface EnumDeclarationRequest {
   readonly isComponentSchema: boolean;
   readonly values: readonly (string | number)[];
   readonly metadata: readonly EnumMemberMetadata[];
+  /**
+   * The request only refers to the enum, for a discriminator member's value
+   * (`discriminator-values`); the schema at `name` declares it where it is typed itself.
+   */
+  readonly isOwnerReference?: boolean;
 }
 
 export interface EnumValuesRequest {

@@ -14,13 +14,13 @@ import {
   pathItemOperations,
 } from "../../../domain/openapi/path-item-object.js";
 import type { ReferenceSchema, SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { OutputFix } from "../../../domain/output-fixes.js";
 import { documentEntries } from "../document-entries.js";
 import { refType } from "../ref-type.js";
 import type { TransformContext } from "../transform-context.js";
 import { type DeclaredTypeLookup, NO_DECLARED_TYPES } from "./declared-types.js";
 import { documentMember } from "./document-member.js";
 import { pathItemType } from "./path-item.js";
-import { type PathItemRejection, pathItemRejection } from "./path-item-conflicts.js";
 import {
   type CoverRejection,
   coveringTemplateKeys,
@@ -28,6 +28,11 @@ import {
   type PathKeyPart,
   type PathPlaceholder,
 } from "./path-key-overlaps.js";
+import {
+  type PathParameterMatch,
+  placeholderText,
+  replacedTemplateParts,
+} from "./path-template-replace.js";
 import { assignabilityProof } from "./type-assignability.js";
 
 const PATH_PARAMETER_RE = /\{[^}]+\}/g;
@@ -39,11 +44,6 @@ const PLACEHOLDERS: ReadonlyMap<unknown, PathPlaceholder> = new Map([
   ["boolean", "boolean"],
 ]);
 const STRING_PLACEHOLDER: PathPlaceholder = "string";
-
-/** `${type}`: the text of a template literal type placeholder. */
-function placeholderText(type: PathPlaceholder): string {
-  return `\${${type}}`;
-}
 
 function resolvedParameter(
   parameter: ParameterOrReference,
@@ -83,29 +83,37 @@ function pathParameters(
   return byName;
 }
 
+/** Each `{name}` of the URL and its own placeholder, from the URL split at the matches. */
+function splitTemplateParts(url: string, matches: readonly PathParameterMatch[]): PathKeyPart[] {
+  return url.split(PATH_PARAMETER_RE).flatMap((text, index): PathKeyPart[] => {
+    const type = matches[index]?.type;
+    const textPart: PathKeyPart = { kind: "text", text };
+    return type === undefined ? [textPart] : [textPart, { kind: "placeholder", type }];
+  });
+}
+
 /**
  * `--path-params-as-types`: the URL as template parts, each `{name}` replaced by a placeholder for
- * its parameter's type. Null when the URL has no complete `{…}` placeholder.
+ * its parameter's type, the way the original replaces them unless the `path-param-type-names` fix
+ * is on (see `replacedTemplateParts`). Null when the URL has no complete `{…}` placeholder.
  */
 function pathTemplateParts(
   url: string,
   pathItem: PathItemObject,
   context: TransformContext,
 ): PathKeyPart[] | null {
-  const matches = url.match(PATH_PARAMETER_RE);
-  if (!matches) {
+  const found = url.match(PATH_PARAMETER_RE);
+  if (!found) {
     return null;
   }
   const parameters = pathParameters(pathItem, context);
-  const placeholders = matches.map((match) => {
+  const matches = found.map((match): PathParameterMatch => {
     const schema = parameters.get(match.slice(1, -1))?.schema as SchemaObject | undefined;
-    return PLACEHOLDERS.get(schema?.type) ?? STRING_PLACEHOLDER;
+    return { match, type: PLACEHOLDERS.get(schema?.type) ?? STRING_PLACEHOLDER };
   });
-  return url.split(PATH_PARAMETER_RE).flatMap((text, index): PathKeyPart[] => {
-    const type = placeholders[index];
-    const textPart: PathKeyPart = { kind: "text", text };
-    return type === undefined ? [textPart] : [textPart, { kind: "placeholder", type }];
-  });
+  return context.options.fixes.has(OutputFix.PATH_PARAM_TYPE_NAMES)
+    ? splitTemplateParts(url, matches)
+    : replacedTemplateParts(url, matches);
 }
 
 /**
@@ -160,19 +168,6 @@ function literalKey(url: string): PathKey {
   return { kind: "literal", url };
 }
 
-/** A cover rejection by the indexes of the paths, from a rejection of their path item types. */
-function rejectionOf(paths: readonly PathMember[], isRejected: PathItemRejection): CoverRejection {
-  return (coveringIndex, coveredIndex) => {
-    const coveringPath = paths[coveringIndex];
-    const coveredPath = paths[coveredIndex];
-    return (
-      coveringPath !== undefined &&
-      coveredPath !== undefined &&
-      isRejected(coveredPath.type, coveringPath.type)
-    );
-  };
-}
-
 const PATHS_TYPE_NAME = "paths";
 
 /** The URL of `paths["/apps/{id}"]`, or null for any other type. */
@@ -204,19 +199,21 @@ function withPathItems(
 }
 
 /**
- * The exact check. Once the declarations are known, a covered path item that is not proven
- * assignable to the signature's type counts as rejected, so every output compiles. Before that,
- * only a proven rejection counts: references cannot be read yet.
+ * The rejection of a covered path item: only one proven not assignable to the signature's type
+ * counts (ADR-028). A pair the proof cannot decide keeps the original output, which may well
+ * compile (`Record<string, never>` fits `{ [key: string]: unknown }`).
  */
-function exactRejection(
-  paths: readonly PathMember[],
-  lookup: DeclaredTypeLookup,
-): PathItemRejection {
-  if (lookup === NO_DECLARED_TYPES) {
-    return pathItemRejection();
-  }
-  const isAssignable = assignabilityProof(withPathItems(paths, lookup));
-  return (covered, covering) => !isAssignable(covered, covering);
+function rejectionOf(paths: readonly PathMember[], lookup: DeclaredTypeLookup): CoverRejection {
+  const relate = assignabilityProof(withPathItems(paths, lookup));
+  return (coveringIndex, coveredIndex) => {
+    const coveringPath = paths[coveringIndex];
+    const coveredPath = paths[coveredIndex];
+    return (
+      coveringPath !== undefined &&
+      coveredPath !== undefined &&
+      relate(coveredPath.type, coveringPath.type) === "rejected"
+    );
+  };
 }
 
 /**
@@ -232,10 +229,7 @@ export function pathsObjectType(
   lookup: DeclaredTypeLookup = NO_DECLARED_TYPES,
 ): IrType {
   const keys = paths.map(({ key }) => key);
-  const covering = coveringTemplateKeys(keys, {
-    sampled: rejectionOf(paths, pathItemRejection()),
-    exact: rejectionOf(paths, exactRejection(paths, lookup)),
-  });
+  const covering = coveringTemplateKeys(keys, rejectionOf(paths, lookup));
   if (covering.size === 0) {
     return irObject(paths.map(({ member }) => member));
   }

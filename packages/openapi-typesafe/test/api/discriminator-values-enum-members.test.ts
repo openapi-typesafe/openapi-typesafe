@@ -112,10 +112,50 @@ const dog: components["schemas"]["Cat"] = { petType: PetType.Dog };`;
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS with the fix and --dedupe-enums names a shared enum as without the fix", async () => {
+    const petType = { type: "string", enum: VALUES };
+    const schemas = {
+      Cat: SCHEMAS.Cat,
+      Other: { type: "object", properties: { kind: petType } },
+      Pet: pet(petType),
+      Dog: SCHEMAS.Dog,
+      HotDog: SCHEMAS.HotDog,
+      Plus: SCHEMAS.Plus,
+    };
+
+    const output = await fixed(schemas, { dedupeEnums: true });
+
+    expect(output).toContain("kind?: OtherKind;");
+    expect([...output.matchAll(/petType: ([^;]+);/g)].map((match) => match[1])).toEqual([
+      "OtherKind.Cat",
+      "OtherKind",
+      "OtherKind.Dog",
+      "OtherKind.hot_dog",
+      'typeof OtherKind["+"]',
+    ]);
+    expect(output).not.toContain("PetPetType");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS with the fix keeps the member enum where the parent's enum lacks a value", async () => {
     const schemas = { ...SCHEMAS, PetType: { type: "string", enum: ["Dog", "Cat"] } };
 
     expect(petTypesOf(await fixed(schemas))).toEqual(["PetType.Cat", "PetType.Dog", "HotDogPetType", "PlusPetType"]);
+  });
+
+  it("openapiTS with the fix uses the enum a member inherits when a union without it maps the member", async () => {
+    const schemas = {
+      PetType: SCHEMAS.PetType,
+      Pet: { ...pet(ref("PetType")), discriminator: { propertyName: "petType" } },
+      Dog: member({ bark: { type: "string" } }),
+      Any: { oneOf: [ref("Dog")], discriminator: { propertyName: "petType", mapping: { Dog: ref("Dog").$ref } } },
+    };
+    const code = `${await fixed(schemas)}
+const pet: components["schemas"]["Pet"] = {} as components["schemas"]["Dog"];`;
+
+    expect(petTypesOf(code)).toEqual(["PetType.Dog"]);
+    expect(code).not.toContain("enum DogPetType");
+    expect(typeErrorsOf(code)).toEqual([]);
   });
 
   it("openapiTS with the fix changes nothing where the parent's property is no enum", async () => {

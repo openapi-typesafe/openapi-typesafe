@@ -221,38 +221,40 @@ type OperationInit<Operation> =
 /**
  * This type helper makes the 2nd function param required if params/requestBody are required;
  * otherwise, optional. `Location` is any key: with `Paths extends {}` a method is not known to be a
- * key of `Paths[Path]` (upstream #2267). For a union of operations, the union of their inits, each
- * with its own optionality: TypeScript uses that union where the path is not known yet, as in
- * `Parameters<typeof client.request>` (upstream #2178).
+ * key of `Paths[Path]` (upstream #2267). For a union of operations, the union of their inits: one
+ * deep type of every init gave TS2589 on hundreds of paths (upstream #1882).
  */
-export type MaybeOptionalInit<Params, Location extends PropertyKey> =
-  FilterKeys<Params, Location> extends infer Operation
-    ? Operation extends unknown
-      ? OperationInit<Operation>
-      : never
-    : never;
+export type MaybeOptionalInit<Params, Location extends PropertyKey> = OperationInits<FilterKeys<Params, Location>>;
 
 /**
- * `true` when the init may be left out: nothing in it is required. For a union of inits, where the
- * path is not known yet (`Parameters<typeof client.request>`), when one of them may be left out
- * (upstream #2178); a union whose required keys are merged would require every init.
+ * Each operation's init. A distributive alias, not `extends infer Operation`: while the path is
+ * not known, TypeScript reads an `infer` type as `unknown`, so the init lost its type as the
+ * contextual type of an argument and a literal such as `"available"` widened to `string`
+ * (swr-openapi's `Exact<Init>` checks).
  */
-export type IsInitOptional<Init> = true extends (
-  Init extends unknown
-    ? RequiredKeysOf<Init> extends never
-      ? true
-      : false
-    : never
-)
-  ? true
-  : false;
+type OperationInits<Operation> = Operation extends unknown ? OperationInit<Operation> : never;
+
+/** For each init of a union, whether it may be left out: nothing in it is required. */
+type InitOptionality<Init> = Init extends unknown ? (RequiredKeysOf<Init> extends never ? true : false) : never;
+
+/**
+ * `true` when the init may be left out: nothing in it is required. For a union of inits (a union
+ * of paths, or `Parameters<typeof client.request>`), only when each of them may be left out: a
+ * call to one of the paths sends the init it gets, and a path parameter left out stays `{id}` in
+ * the URL.
+ */
+export type IsInitOptional<Init> = InitOptionality<Init> extends true ? true : false;
 
 // The final init param to accept.
 // - Determines if the param is optional or not.
 // - Performs arbitrary [key: string] addition.
 // Note: the addition MUST happen after all the inference happens (otherwise TS can’t infer if init is required or not).
-type InitParam<Init> =
-  IsInitOptional<Init> extends true ? [(Init & { [key: string]: unknown })?] : [Init & { [key: string]: unknown }];
+// - Reads `InitOptionality` and names the addition: through `IsInitOptional`, or with the addition
+//   written out in both branches, TypeScript gave `never` for `Parameters` of the methods.
+type InitParam<Init> = InitOptionality<Init> extends true ? [WithAnyKeys<Init>?] : [WithAnyKeys<Init>];
+
+/** The init with any other key (`[key: string]: unknown`), added after inference. */
+type WithAnyKeys<Init> = Init & { [key: string]: unknown };
 
 /**
  * The operation of `Method` on `Path`. Not `Paths[Path][Method]`: `Paths` is only `{}`, because

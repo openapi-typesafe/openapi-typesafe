@@ -47,6 +47,10 @@ const SCHEMAS = irObject([
     irObject([irStringIndexSignature("key", text("m"))]),
   ),
   irProperty(
+    { kind: "identifier", text: "Frozen" },
+    irObject([irProperty({ kind: "identifier", text: "tags" }, irReadonly(irArray(text("f"))))]),
+  ),
+  irProperty(
     { kind: "identifier", text: "Both" },
     irIntersection([
       irIndexedAccess(irIndexedAccess(irReference("components"), key("schemas")), key("A")),
@@ -64,6 +68,7 @@ const DECLARATIONS: IrDeclaration[] = [
     comments: [],
   },
   { kind: "typeAlias", name: "Alias", isExported: true, type: irReadonly(text("r")), comments: [] },
+  { kind: "typeAlias", name: "Loop", isExported: true, type: irReference("Loop"), comments: [] },
 ];
 
 function deep(...keys: IrType[]): IrType {
@@ -173,6 +178,8 @@ describe("TypeEvaluator", () => {
     expect(index(kind(irKeyword("null")), kind(text("a")))).toBe("never");
     expect(index(kind(irKeyword("string")), kind(text("a")))).toBe('string & "a"');
     expect(index(irKeyword("null"), kind(text("a")))).toBe("never");
+    expect(index(irKeyword("undefined"), kind(text("a")))).toBe("never");
+    expect(index(irKeyword("string"), kind(text("a")), kind(text("b")))).toBe("never");
   });
 
   it("evaluate reads a declared property before index signatures of other parts", () => {
@@ -207,6 +214,51 @@ describe("TypeEvaluator", () => {
 
     expect(evaluated(irIndexedAccess(irReference("Extract", [both, probe]), key("k")))).toBe('"v"');
     expect(evaluated(irReference("Extract", [irArray(text("a")), probe]))).toBe("missing");
+  });
+
+  it("evaluate leaves a reference that never resolves opaque", () => {
+    expect(evaluated(irReference("Loop"))).toBe("opaque");
+  });
+
+  it("evaluate flattens a readonly array and reads arrays by a string key as built-ins", () => {
+    expect(evaluated(deep(key("schemas"), key("Frozen"), key("tags")))).toBe('"f"');
+    expect(evaluated(irIndexedAccess(irArray(text("a")), irKeyword("string")))).toBe("opaque");
+  });
+
+  it("evaluate leaves a union or an intersection with a type it cannot read opaque", () => {
+    const has = irObject([irProperty({ kind: "identifier", text: "k" }, text("v"))]);
+    const index = (type: IrType) => evaluated(irIndexedAccess(type, key("k")));
+
+    expect(evaluated(irReference("NonNullable", [irUnion([text("n"), irRaw("x")])]))).toBe(
+      "opaque",
+    );
+    expect(index(irUnion([has, irRaw("x")]))).toBe("opaque");
+    expect(index(irIntersection([irRaw("x"), has]))).toBe("opaque");
+  });
+
+  it("evaluate reads a union of one member as that member", () => {
+    const has = irObject([irProperty({ kind: "identifier", text: "k" }, text("v"))]);
+
+    expect(evaluated(irIndexedAccess(irUnion([has]), key("k")))).toBe('"v"');
+  });
+
+  it("evaluate misses a key that no part of an intersection has", () => {
+    const part = (name: string) =>
+      irObject([irProperty({ kind: "identifier", text: name }, text(name))]);
+
+    expect(evaluated(irIndexedAccess(irIntersection([part("a"), part("b")]), key("c")))).toBe(
+      "missing",
+    );
+  });
+
+  it("evaluate keeps properties of the same name that are not only units", () => {
+    const kind = (type: IrType) =>
+      irObject([irProperty({ kind: "identifier", text: "kind" }, type)]);
+    const index = (...types: IrType[]) =>
+      evaluated(irIndexedAccess(irIntersection(types), key("kind")));
+
+    expect(index(kind(irArray(text("a"))), kind(text("a")))).toBe('"a"[] & "a"');
+    expect(index(kind(irRaw("X")), kind(text("a")))).toBe("opaque");
   });
 });
 
@@ -265,5 +317,21 @@ describe("checkedEnumValues", () => {
       ["untyped", "elements"],
       ["excluded", "boolean"],
     ]);
+  });
+
+  it("checkedEnumValues keeps an array of opaque elements and a ReadonlyArray with no argument", () => {
+    const footer = [
+      array("opaqueElements", irArray(irReference("Elsewhere")), ["a"]),
+      { ...array("bare", text("a"), ["a"]), type: irReference("ReadonlyArray") },
+    ];
+
+    const { footer: checked, retyped } = checkedEnumValues(
+      footer,
+      DECLARATIONS,
+      (_entry): _entry is IrDeclaration => true,
+    );
+
+    expect(retyped).toEqual([]);
+    expect(checked).toEqual(footer);
   });
 });

@@ -1,3 +1,4 @@
+import { escapePointerSegment } from "./json-pointer.js";
 import type { Schema, SchemaObject } from "./schema-object.js";
 
 /**
@@ -74,4 +75,35 @@ export function unionReaches(
 ): boolean {
   const search = { target, resolve, visited: new Set<string>() };
   return unionMembers(union).some((member) => reaches(member, search));
+}
+
+const COMPONENT_SCHEMAS = "#/components/schemas/";
+
+/** A mapping value as a `$ref`: a bare name is a component schema's name. */
+function mappingRef(target: unknown): string | undefined {
+  if (typeof target !== "string") {
+    return undefined;
+  }
+  return target.startsWith("#") ? target : `${COMPONENT_SCHEMAS}${escapePointerSegment(target)}`;
+}
+
+/** Whether the discriminator `mapping` of `union` names the schema at `target`. */
+export function unionMaps(union: SchemaObject, target: string): boolean {
+  const mapping = (union.discriminator as { readonly mapping?: unknown } | undefined)?.mapping;
+  if (!isSchemaObject(mapping)) {
+    return false;
+  }
+  return Object.values(mapping).some((value) => mappingRef(value) === target);
+}
+
+/**
+ * Whether the schema at `target` is a member of `union`: the union's type contains it, or the
+ * discriminator `mapping` names it, which gives it a value of the union as a member does.
+ */
+export function isUnionMember(
+  union: SchemaObject,
+  target: string,
+  resolve: ResolveSchemaRef,
+): boolean {
+  return unionMaps(union, target) || unionReaches(union, target, resolve);
 }

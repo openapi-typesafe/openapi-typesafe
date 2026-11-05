@@ -26,7 +26,7 @@ describe("outputFixNamesOf", () => {
     expect(error).toMatchObject({
       code: "OPTION_FIX_UNKNOWN",
       message:
-        'Unknown fix "nope", 1. Known fixes: allof-discriminated-union, allof-required, anyof-oneof-descriptions, anyof-oneof-required, anyof-properties, array-length-tuples, dedupe-enum-names, discriminator-member-required, discriminator-values, exploded-query-objects, nullable-enums, prefix-items, read-write-refs, ref-pointers, root-type-numbering, unevaluated-properties, all.',
+        'Unknown fix "nope", 1. Known fixes: allof-discriminated-union, allof-required, anyof-oneof-descriptions, anyof-oneof-required, anyof-properties, array-length-tuples, dedupe-enum-names, discriminator-member-required, discriminator-values, exploded-query-objects, nullable-enums, path-param-type-names, prefix-items, read-write-refs, ref-pointers, root-type-numbering, unevaluated-properties, all.',
       details: { unknown: ["nope", 1], known: [...OUTPUT_FIXES, ALL_OUTPUT_FIXES] },
     });
   });
@@ -65,6 +65,12 @@ describe("ineffectiveFixNotices", () => {
     expect(ineffectiveFixNotices(["nullable-enums", "dedupe-enum-names"], isOn)).toEqual([
       'Fix "nullable-enums" has no effect without enum (--enum)',
       'Fix "dedupe-enum-names" has no effect without enum (--enum)',
+    ]);
+  });
+
+  it("ineffectiveFixNotices with path-param-type-names and the flag off names the flag", () => {
+    expect(ineffectiveFixNotices(["path-param-type-names"], () => false)).toEqual([
+      'Fix "path-param-type-names" has no effect without pathParamsAsTypes (--path-params-as-types)',
     ]);
   });
 

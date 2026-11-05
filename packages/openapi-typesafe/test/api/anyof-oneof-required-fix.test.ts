@@ -62,4 +62,29 @@ describe("anyof-oneof-required fix", () => {
 
     expect(await generate(document, FIX)).not.toContain("WithRequired");
   });
+
+  it("openapiTS with the fix and excludeDeprecated keeps variants that require a dropped property", async () => {
+    const properties = { ...PROPERTIES, cname: { type: "string", deprecated: true } };
+    const document = documentWith({ properties, anyOf: VARIANTS });
+
+    const output = await generate(document, { ...FIX, excludeDeprecated: true });
+
+    expect(output).toContain("} | unknown | unknown;");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it.each(["anyOf", "oneOf"])("openapiTS with the fix requires %s keys once for a type list", async (keyword) => {
+    const output = await generate(documentWith({ type: ["object", "null"], [keyword]: VARIANTS }), FIX);
+
+    expect(output.match(/WithRequired<\{/g)).toHaveLength(2);
+    expect(output).toContain('}, "source">) | null;');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS with the fix leaves a listed type that is not an object as it was", async () => {
+    const output = await generate(documentWith({ type: ["object", "string"], anyOf: VARIANTS }), FIX);
+
+    expect(output).not.toContain("WithRequired<string");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
 });

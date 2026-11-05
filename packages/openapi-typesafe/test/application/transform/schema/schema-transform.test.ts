@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { printNodes } from "../../../../src/application/print/print-nodes.js";
+import { InvalidRefError } from "../../../../src/application/transform/ref-type.js";
 import { InvalidPropertyError } from "../../../../src/application/transform/schema/object-type.js";
 import {
   InvalidSchemaError,
@@ -32,6 +33,22 @@ describe("transformSchema", () => {
     expect(transform({ type: "string" }).text).toBe("string");
     expect(transform({ type: "integer" }).text).toBe("number");
     expect(transform({ type: ["string", "null"] }).text).toBe("string | null");
+  });
+
+  it("transformSchema with a $ref that has no pointer throws InvalidRefError", () => {
+    expect(() => transform({ $ref: "other.yaml" })).toThrow(InvalidRefError);
+  });
+
+  // The Redocly loader rejects such a cycle; the guard keeps any other loader from recursing.
+  it("transformSchema with a $ref into a cycle of $refs stops where the cycle closes", () => {
+    const defs = "#/components/schemas/Pair/definitions";
+    const definitions = { Left: { $ref: `${defs}/Right` }, Right: { $ref: `${defs}/Left` } };
+    const pair = { type: "object", properties: { id: { type: "string" } }, definitions };
+    const documents = { "#/components": { schemas: { Pair: pair } } };
+
+    const { text } = transform({ $ref: `${defs}/Left` }, { documents });
+
+    expect(text).toBe('components["schemas"]["Pair"]["definitions"]["Right"]');
   });
 
   it("transformSchema with a boolean schema prints unknown or never", () => {
@@ -213,6 +230,36 @@ describe("transformSchema", () => {
     const { text } = transform(schema, { discriminators, handledRefs: [ROOT.path] });
 
     expect(text).not.toContain("kind");
+  });
+
+  it("transformSchema with a parent discriminator and no own properties adds the property", () => {
+    const discriminators = { [ROOT.path]: { propertyName: "kind", mapping: { root: ROOT.path } } };
+    const schema = { allOf: [{ type: "object" }], additionalProperties: true };
+
+    const { text } = transform(schema, { discriminators });
+
+    expect(text).toContain('kind: "root";');
+  });
+
+  it("transformSchema without a path adds no inherited discriminator", () => {
+    const { context } = fakeTransformContext({ discriminators: { "": { propertyName: "kind" } } });
+    const schema = { allOf: [{ type: "object" }], properties: { a: { type: "string" } } };
+
+    const text = print(transformSchema(schema as never, {}, context));
+
+    expect(text).not.toContain("kind");
+  });
+
+  it("transformSchema without a path omits only the discriminator of an allOf item", () => {
+    const { context } = fakeTransformContext();
+    const item = {
+      discriminator: { propertyName: "kind" },
+      properties: { kind: { type: "string" } },
+    };
+
+    const text = print(transformSchema({ allOf: [item] } as never, {}, context));
+
+    expect(text).toBe('Omit<{\n    kind?: string;\n}, "kind">');
   });
 
   it("transformSchema with $defs nests them under an optional $defs member", () => {

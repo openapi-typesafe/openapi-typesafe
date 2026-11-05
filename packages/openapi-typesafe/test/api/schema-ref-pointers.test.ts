@@ -185,3 +185,167 @@ describe("schema $refs whose original type compiles", () => {
     expect(output).toContain(`bag?: ${media};`);
   });
 });
+
+describe("schema $refs into an allOf with additional properties", () => {
+  const B = "#/components/schemas/B";
+  const document = documentWith({
+    A: {
+      type: "object",
+      properties: { k: { $ref: `${B}/allOf/0/properties/k` }, j: { $ref: `${B}/allOf/1` } },
+    },
+    B: {
+      allOf: [
+        { type: "object", properties: { k: { type: "string", enum: ["k1"] } } },
+        { type: "object", properties: { j: { type: "number" } } },
+      ],
+    },
+  });
+
+  // `B["allOf"]` compiles through `[key: string]: unknown`, but `unknown` has no key `0`.
+  it("openapiTS corrects a pointer that indexes a member typed unknown", async () => {
+    const output = await generate(document, { additionalProperties: true });
+
+    expect(output).toContain('k?: "k1";');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
+
+describe("schema $refs into a schema typed unknown", () => {
+  // A schema with no type and no object keywords is `unknown`, which has no keys at all.
+  it("openapiTS corrects a pointer that indexes a schema typed unknown", async () => {
+    const document = documentWith({
+      X: {
+        type: "object",
+        required: ["free"],
+        properties: { free: { "x-inner": { type: "string", enum: ["i"] } } },
+      },
+      A: {
+        type: "object",
+        properties: { a: { $ref: "#/components/schemas/X/properties/free/x-inner" } },
+      },
+    });
+
+    const output = await generate(document);
+
+    expect(output).toContain('a?: "i";');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
+
+describe("schema $refs into response headers", () => {
+  const header = (required: boolean) => ({
+    required,
+    schema: { type: "object", properties: { limit: { type: "integer" } } },
+  });
+  const document = documentWith({
+    Copy: {
+      type: "object",
+      properties: {
+        optional: { $ref: "#/components/responses/R/headers/X-Rate/schema/properties/limit" },
+        required: { $ref: "#/components/responses/R/headers/X-Must/schema/properties/limit" },
+      },
+    },
+  });
+  const response = { description: "OK", headers: { "X-Rate": header(false), "X-Must": header(true) } };
+  Object.assign(document.components ?? {}, { responses: { R: response } });
+  const headers = 'components["responses"]["R"]["headers"]';
+
+  it("openapiTS looks through a header that is not required with NonNullable", async () => {
+    const output = await generate(document);
+
+    expect(output).toContain(`optional?: NonNullable<${headers}["X-Rate"]>["limit"];`);
+    expect(output).toContain(`required?: ${headers}["X-Must"]["limit"];`);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
+
+describe("schema $refs into path item parameters", () => {
+  const parameter = { name: "q", in: "query", schema: { type: "string", enum: ["x", "y"] } };
+  const document = documentWith(
+    {
+      Copy: {
+        type: "object",
+        properties: {
+          q: { $ref: "#/paths/~1search/parameters/0/schema" },
+          w: { $ref: "#/webhooks/hook/parameters/0/schema" },
+        },
+      },
+    },
+    { "/search": { parameters: [parameter], get: { responses: { 200: { description: "OK" } } } } },
+  );
+
+  const hook = { parameters: [{ ...parameter, name: "w" }], post: { responses: {} } };
+  Object.assign(document, { webhooks: { hook } });
+
+  it("openapiTS writes the target of a path item parameter inline", async () => {
+    const output = await generate(document);
+
+    expect(output).not.toContain('["parameters"]["0"]');
+    expect(output).toMatch(/Copy: \{\n\s+q\?: "x" \| "y";\n\s+w\?: "x" \| "y";/);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
+
+describe("schema $refs into a schema with allOf next to properties", () => {
+  const LIST = { type: "array", items: OBJECT };
+  const document = documentWith({
+    Base: {
+      type: "object",
+      properties: { list: LIST },
+      allOf: [{ type: "object", properties: { z: { type: "boolean" } } }],
+    },
+    Copy: {
+      type: "object",
+      properties: {
+        item: { $ref: "#/components/schemas/Base/properties/list/items" },
+      },
+    },
+  });
+
+  it("openapiTS reads the one part of the intersection that has the key", async () => {
+    const output = await generate(document);
+
+    expect(output).toContain('item?: NonNullable<components["schemas"]["Base"]["list"]>[number];');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
+
+describe("schema $refs into a schema whose type its keywords do not change", () => {
+  // `type: object` without properties is `Record<string, never>`: every key is `never`, so the
+  // original compiles. `type: string` ignores `items`: the original indexes `string`.
+  const document = documentWith({
+    Shared: { type: "object", definitions: { Money: OBJECT } },
+    Bag: { type: "object", items: { type: "string" } },
+    Text: { type: "string", items: { type: "number" } },
+    Copy: {
+      type: "object",
+      properties: {
+        money: { $ref: "#/components/schemas/Shared/definitions/Money" },
+        bag: { $ref: "#/components/schemas/Bag/items" },
+        text: { $ref: "#/components/schemas/Text/items" },
+      },
+    },
+  });
+
+  it("openapiTS keeps the original type where Record<string, never> admits the key", async () => {
+    const output = await generate(document);
+
+    expect(output).toContain('money?: components["schemas"]["Shared"]["definitions"]["Money"];');
+    expect(output).toContain('bag?: components["schemas"]["Bag"]["items"];');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS writes items of a schema that is no array inline", async () => {
+    const output = await generate(document);
+
+    expect(output).toContain("text?: number;");
+  });
+
+  it("openapiTS writes those targets inline with the ref-pointers fix", async () => {
+    const output = await generate(document, { fix: ["ref-pointers"] });
+
+    expect(output).toContain("bag?: string;");
+    expect(output).toMatch(/money\?: \{\n\s+time\?: string;\n\s+\};/);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});

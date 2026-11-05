@@ -20,6 +20,11 @@ export interface TemplateShape {
   readonly types: readonly TemplatePlaceholder[];
 }
 
+/** The text at an index of the shape; every caller passes one of `0 .. types.length`. */
+function textAt(shape: TemplateShape, index: number): string {
+  return shape.texts[index] as string;
+}
+
 /** The type the checker infers for one target placeholder: a text, or a slice of the source. */
 type InferredMatch =
   | { readonly kind: "text"; readonly text: string }
@@ -59,7 +64,7 @@ class LiteralPartsScan {
   constructor(source: TemplateShape, startPosition: number, endTextLength: number) {
     this.source = source;
     this.lastSourceIndex = source.texts.length - 1;
-    const endText = source.texts[this.lastSourceIndex] ?? "";
+    const endText = textAt(source, this.lastSourceIndex);
     this.remainingEndText = endText.slice(0, endText.length - endTextLength);
     this.cursor = { segment: 0, position: startPosition };
   }
@@ -112,7 +117,7 @@ class LiteralPartsScan {
   }
 
   private sourceText(index: number): string {
-    return index < this.lastSourceIndex ? (this.source.texts[index] ?? "") : this.remainingEndText;
+    return index < this.lastSourceIndex ? textAt(this.source, index) : this.remainingEndText;
   }
 
   private addMatch(segment: number, position: number): void {
@@ -122,7 +127,7 @@ class LiteralPartsScan {
       this.matches.push({ kind: "text", text });
     } else {
       const texts = [
-        (this.source.texts[start.segment] ?? "").slice(start.position),
+        textAt(this.source, start.segment).slice(start.position),
         ...this.source.texts.slice(start.segment + 1, segment),
         this.sourceText(segment).slice(0, position),
       ];
@@ -138,10 +143,10 @@ function inferMatches(
   source: TemplateShape,
   target: TemplateShape,
 ): readonly InferredMatch[] | null {
-  const sourceStart = source.texts[0] ?? "";
-  const sourceEnd = source.texts[source.texts.length - 1] ?? "";
-  const targetStart = target.texts[0] ?? "";
-  const targetEnd = target.texts[target.texts.length - 1] ?? "";
+  const sourceStart = textAt(source, 0);
+  const sourceEnd = textAt(source, source.texts.length - 1);
+  const targetStart = textAt(target, 0);
+  const targetEnd = textAt(target, target.texts.length - 1);
   const isTooShort =
     source.texts.length === 1 && sourceStart.length < targetStart.length + targetEnd.length;
   if (isTooShort || !sourceStart.startsWith(targetStart) || !sourceEnd.endsWith(targetEnd)) {

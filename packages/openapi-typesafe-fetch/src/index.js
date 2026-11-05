@@ -461,7 +461,7 @@ function isHeaders(value) {
 }
 
 function isRequest(value) {
-  return typeof value?.method === "string" && typeof value.url === "string";
+  return typeof value?.method === "string" && typeof value.url === "string" && isHeaders(value.headers);
 }
 
 function isResponse(value) {

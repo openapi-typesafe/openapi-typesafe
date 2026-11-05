@@ -81,3 +81,109 @@ const named: components["schemas"]["Video"] = { contentType: "Video" };`;
     expect(await fixed(schemas)).toContain('contentType: "Clip";');
   });
 });
+
+describe("discriminator-values fix, an owner of another property", () => {
+  /** `Content` owns `subtype` and inherits `contentType` from `Element`. */
+  const OTHER = {
+    Element: SCHEMAS.Element,
+    Content: {
+      type: "object",
+      required: ["subtype"],
+      allOf: [ref("Element")],
+      properties: { subtype: { type: "string" } },
+      discriminator: { propertyName: "subtype", mapping: { video: ref("Video").$ref } },
+    },
+    Video: { allOf: [ref("Content"), { type: "object", properties: { url: { type: "string" } } }] },
+    Clip: { allOf: [ref("Video")] },
+  };
+  const ASSIGNED = `
+const video: components["schemas"]["Video"] = { contentType: "Video", subtype: "video" };
+const clip: components["schemas"]["Clip"] = { contentType: "Clip", subtype: "Clip" };`;
+
+  it("openapiTS with the fix gives a member both properties, in any order of the schemas", async () => {
+    const { Video, Clip, ...rest } = OTHER;
+
+    for (const schemas of [OTHER, { Video, ...rest, Clip }]) {
+      const code = `${await fixed(schemas)}${ASSIGNED}`;
+
+      expect(code).toContain('contentType: "Video";');
+      expect(typeErrorsOf(code)).toEqual([]);
+    }
+  });
+
+  it("openapiTS with the fix gives the other property its mapped value", async () => {
+    const mapping = { movie: ref("Video").$ref };
+    const element = { ...SCHEMAS.Element, discriminator: { propertyName: "contentType", mapping } };
+
+    const output = await fixed({ ...OTHER, Element: element });
+
+    expect(output).toContain('contentType: "movie";');
+    expect(output).not.toContain('contentType: "Video";');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS with the fix replaces the mapped value of a parent with the member's own", async () => {
+    const mapping = { content: ref("Content").$ref };
+    const element = { ...SCHEMAS.Element, discriminator: { propertyName: "contentType", mapping } };
+    const content = `
+const content: components["schemas"]["Content"] = { contentType: "content", subtype: "x" };`;
+
+    const code = `${await fixed({ ...OTHER, Element: element })}${ASSIGNED}${content}`;
+
+    expect(code).toContain('Omit<components["schemas"]["Content"], "subtype" | "contentType">');
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
+  it("openapiTS with the fix gives a value once through two paths to the other owner", async () => {
+    const article = {
+      type: "object",
+      allOf: [ref("Element"), ref("Base")],
+      properties: { format: { type: "string" } },
+      discriminator: { propertyName: "format" },
+    };
+    const schemas = {
+      ...OTHER,
+      Base: { allOf: [ref("Element")] },
+      Article: article,
+      Video: { allOf: [ref("Content"), ref("Article")] },
+    };
+
+    const output = await fixed(schemas);
+
+    expect(output.match(/contentType: "Video";/g)).toHaveLength(1);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS with the fix adds no other value of a property the member owns itself", async () => {
+    const video = { ...OTHER.Video, discriminator: { propertyName: "contentType" } };
+
+    const output = await fixed({ ...OTHER, Video: video });
+
+    expect(output).not.toContain('contentType: "Video";');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS with the fix prefers a mapping of the other property from another discriminator", async () => {
+    const holder = {
+      type: "object",
+      properties: {
+        item: {
+          oneOf: [ref("Video")],
+          discriminator: { propertyName: "contentType", mapping: { vid: ref("Video").$ref } },
+        },
+      },
+    };
+
+    const output = await fixed({ ...OTHER, Holder: holder });
+
+    expect(output).toContain('contentType: "vid";');
+    expect(output).not.toContain('contentType: "Video";');
+  });
+
+  it("openapiTS without the fix keeps the inherited discriminator instead", async () => {
+    const output = await generate(OTHER);
+
+    expect(output).toContain('contentType: "Video";');
+    expect(output).not.toContain('"subtype" | "contentType"');
+  });
+});

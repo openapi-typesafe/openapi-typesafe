@@ -37,6 +37,21 @@ describe("enumParentOf", () => {
     });
   });
 
+  it("enumParentOf takes the enum a member inherits when the owner declares no property", () => {
+    const resolve = resolverOf({
+      "#/components/schemas/Any": { oneOf: [{ $ref: "#/components/schemas/Cat" }] },
+      "#/components/schemas/Cat": { allOf: [{ $ref: "#/components/schemas/Pet" }, { properties: { kind: KIND } }] },
+      "#/components/schemas/Pet": { properties: { kind: KIND } },
+    });
+    const { ref: _member, ...owner } = patchOf("#/components/schemas/Any");
+
+    expect(enumParentOf(patchOf("#/components/schemas/Any"), resolve)).toEqual({
+      schema: KIND,
+      path: "#/components/schemas/Pet/kind",
+    });
+    expect(enumParentOf(owner, resolve)).toBeUndefined();
+  });
+
   it("enumParentOf ends on an allOf cycle and finds nothing without an enum", () => {
     const resolve = resolverOf({
       A: { allOf: [{ $ref: "B" }, true] },

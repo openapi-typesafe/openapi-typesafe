@@ -7,4 +7,6 @@
 `getPreviousPageParam`. They were `unknown` (upstream #2458, PR #2459). An annotated
 `lastPageParam`, such as `(lastPage, allPages, lastPageParam: number) => lastPageParam + 1`, now
 compiles. Where no type can be inferred (a return computed from an unannotated `lastPageParam`,
-or only `undefined`), the page param stays `unknown`, so code that compiled still compiles.
+or only `undefined`), the page param stays `unknown`, so code that compiled still compiles. It
+stays `unknown` in `placeholderData` too, so `placeholderData: (previousData) => previousData`
+compiles.

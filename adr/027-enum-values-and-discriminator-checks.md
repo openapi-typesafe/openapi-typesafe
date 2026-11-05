@@ -35,13 +35,19 @@ as upstream writes it, and where it compiles it must not change (ADR-021).
    - An intersection is `never` where `null` or `undefined` meets an object, or where objects
      share a property whose literal types have no value in common and one of them requires it
      (`{ a: "x" } & { a: "y" }`).
-   - Unions of intersections are distributed, as TypeScript normalizes them.
+   - Unions of intersections are distributed, as TypeScript normalizes them. A union with an
+     `unknown` member is `unknown` (`{ a: X } | unknown | { m: Y }`), with an `any` member `any`,
+     so `Extract` over it finds no member.
+   - `$Read<T>` and `$Write<T>` (`--read-write-markers`) are the objects `{ readonly $read: T }`
+     and `{ readonly $write: T }`; they hold no enum value.
    - Where one part of an intersection declares a property, the index signatures of the other
      parts do not take part in its type (`{ a: X } & { [key: string]: Y }` gives `X` for `a`).
    The expansion budget counts references only, so the checks after a large evaluation still run.
 2. **Where the location type surely fails, the array is typed by its own values**
    (`ReadonlyArray<"a" | "b">`). That is the default: the original does not compile there. Every
-   other array keeps its type, byte for byte.
+   other array keeps its type, byte for byte. An empty enum is typed `never`, and the
+   `ReadonlyArray` helper of `never` is `never` too (`never` extends an array), which not even
+   `[]` is; its array is `readonly never[]`.
 3. **A schema that admits none or only some of its own values** (an `allOf` of different enums,
    a discriminator value the enum does not list) gets the same array, all of its values listed,
    and a warning that names the array and the excluded values. We list the schema's own values,
@@ -50,7 +56,8 @@ as upstream writes it, and where it compiles it must not change (ADR-021).
 4. **Discriminator values.** Every Discriminator Object member whose value (mapping key, or the
    schema name without one) its own property `enum` / `const` does not allow gets a typed warning
    (`findDiscriminatorValueConflicts`), naming the rule and the mapping entry to add. The output
-   does not change: the value the generator adds is what the rule gives.
+   does not change: the value the generator adds is what the rule gives. A member that inherits
+   through an `allOf` chain counts too, up to a schema with its own discriminator of the property.
 5. **Required-only variants** (`anyOf` / `oneOf: [{ required: [a] }, …]` next to `properties`):
    the original type compiles (as `unknown`), so the corrected type
    `WithRequired<Props, "a"> | …` is the opt-in fix `anyof-oneof-required` (ADR-021).

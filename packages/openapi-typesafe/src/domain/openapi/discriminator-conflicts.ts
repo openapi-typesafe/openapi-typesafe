@@ -1,4 +1,5 @@
 import { admittedPropertyValues, resolveLocalRef } from "./admitted-values.js";
+import { isUnionMember, unionAt } from "./discriminated-union.js";
 import { createRef, escapePointerSegment, parseRefPointer } from "./json-pointer.js";
 
 /**
@@ -105,17 +106,105 @@ function ownersIn(document: unknown): Owner[] {
   return found;
 }
 
-/** Component schemas that inherit the owner through `allOf: [{ $ref: owner }]`. */
-function inheritingMembers(owner: Owner, document: unknown): string[] {
+/** A member and the `$ref`s whose properties its type leaves out (`Omit` of its parents). */
+interface Member {
+  readonly ref: string;
+  readonly skipped: ReadonlySet<string>;
+}
+
+interface Child {
+  readonly ref: string;
+  readonly schema: JsonObject;
+}
+
+/** How the run types an `allOf` of a discriminated union. */
+export interface ConflictOptions {
+  /**
+   * `allof-discriminated-union`: a schema that `allOf`s a union which does not contain it reuses
+   * the union and gets no value, so neither it nor the schemas below it are members.
+   */
+  readonly isUnionReused: boolean;
+}
+
+/** What the search for conflicts reads: the document and its `allOf` children by parent. */
+interface ConflictSearch extends ConflictOptions {
+  readonly document: unknown;
+  readonly children: ReadonlyMap<string, readonly Child[]>;
+}
+
+/** The `allOf` children of the owner that inherit its discriminator. */
+function inheritingChildren(owner: Owner, search: ConflictSearch): readonly Child[] {
+  const children = search.children.get(owner.pointer) ?? [];
+  const resolve = (ref: string) => resolveLocalRef(search.document, ref);
+  const union = search.isUnionReused ? unionAt(owner.pointer, resolve) : undefined;
+  return union === undefined
+    ? children
+    : children.filter((child) => isUnionMember(union, child.ref, resolve));
+}
+
+/** The component schemas whose `allOf` holds a `$ref`, by that `$ref`, in document order. */
+function allOfChildren(document: unknown): Map<string, Child[]> {
   const schemas = resolveLocalRef(document, "#/components/schemas");
-  if (!isObject(schemas)) {
-    return [];
+  const children = new Map<string, Child[]>();
+  for (const [name, schema] of Object.entries(isObject(schemas) ? schemas : {})) {
+    if (!isObject(schema)) {
+      continue;
+    }
+    const child = { ref: `${COMPONENT_SCHEMAS}${escapePointerSegment(name)}`, schema };
+    for (const parent of new Set(refsOf(schema.allOf))) {
+      const siblings = children.get(parent) ?? [];
+      siblings.push(child);
+      children.set(parent, siblings);
+    }
   }
-  return Object.entries(schemas).flatMap(([name, schema]) =>
-    isObject(schema) && refsOf(schema.allOf).includes(owner.pointer)
-      ? [`${COMPONENT_SCHEMAS}${escapePointerSegment(name)}`]
-      : [],
-  );
+  return children;
+}
+
+/** Whether a schema defines a discriminator of the property itself: it is the owner below. */
+function ownsProperty(schema: JsonObject, propertyName: string): boolean {
+  const discriminator = schema.discriminator;
+  return isObject(discriminator) && discriminator.propertyName === propertyName;
+}
+
+/**
+ * Component schemas that inherit the owner through `allOf`, also through a chain
+ * (`Lion: { allOf: [Cat] }`, `Cat: { allOf: [Pet] }`). Each parent on the way is left out of the
+ * member's values, as its type omits the property. A schema with its own discriminator of the
+ * property is a member, but the schemas below it are its own members.
+ */
+function inheritingMembers(owner: Owner, search: ConflictSearch): Member[] {
+  const found: Member[] = [];
+  const visited = new Set([owner.pointer]);
+  const parents: Member[] = [{ ref: owner.pointer, skipped: new Set([owner.pointer]) }];
+  for (let parent = parents.shift(); parent !== undefined; parent = parents.shift()) {
+    const children =
+      parent.ref === owner.pointer
+        ? inheritingChildren(owner, search)
+        : (search.children.get(parent.ref) ?? []);
+    for (const child of children) {
+      if (visited.has(child.ref)) {
+        continue;
+      }
+      visited.add(child.ref);
+      found.push({ ref: child.ref, skipped: parent.skipped });
+      if (!ownsProperty(child.schema, owner.propertyName)) {
+        parents.push({ ref: child.ref, skipped: new Set([...parent.skipped, child.ref]) });
+      }
+    }
+  }
+  return found;
+}
+
+/** The members of an owner, each once: the listed and mapped ones, then the inheriting ones. */
+function membersOf(owner: Owner, search: ConflictSearch): Member[] {
+  const listed = owner.memberRefs.map((ref) => ({ ref, skipped: new Set([owner.pointer]) }));
+  const members = new Map<string, Member>();
+  for (const member of [...listed, ...inheritingMembers(owner, search)]) {
+    if (!members.has(member.ref)) {
+      members.set(member.ref, member);
+    }
+  }
+  return [...members.values()];
 }
 
 function memberValues(owner: Owner, member: string): { values: string[]; isImplicit: boolean } {
@@ -126,13 +215,13 @@ function memberValues(owner: Owner, member: string): { values: string[]; isImpli
   return values.length > 0 ? { values, isImplicit: false } : { values: [name], isImplicit: true };
 }
 
-function conflictOf(owner: Owner, member: string, document: unknown) {
+function conflictOf(owner: Owner, { ref: member, skipped }: Member, document: unknown) {
   // The owner's own property is left out of an inheriting member's type (`Omit`).
   const allowed = admittedPropertyValues(
     resolveLocalRef(document, member),
     owner.propertyName,
     document,
-    new Set([owner.pointer]),
+    skipped,
   );
   const { values, isImplicit } = memberValues(owner, member);
   if (allowed === null || values.some((value) => allowed.has(value))) {
@@ -145,13 +234,14 @@ function conflictOf(owner: Owner, member: string, document: unknown) {
 /** The conflicts of the document, one per member and value list, in document order. */
 export function findDiscriminatorValueConflicts(
   document: unknown,
+  options: ConflictOptions = { isUnionReused: false },
 ): readonly DiscriminatorValueConflict[] {
   const conflicts = new Map<string, DiscriminatorValueConflict>();
+  const search = { ...options, document, children: allOfChildren(document) };
   for (const owner of ownersIn(document)) {
-    const members = new Set([...owner.memberRefs, ...inheritingMembers(owner, document)]);
-    for (const member of members) {
+    for (const member of membersOf(owner, search)) {
       const conflict = conflictOf(owner, member, document);
-      const key = JSON.stringify([member, conflict?.propertyName, conflict?.values]);
+      const key = JSON.stringify([member.ref, conflict?.propertyName, conflict?.values]);
       if (conflict !== null && !conflicts.has(key)) {
         conflicts.set(key, conflict);
       }

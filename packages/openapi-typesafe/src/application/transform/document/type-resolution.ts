@@ -9,8 +9,8 @@ import type { DeclaredTypeLookup } from "./declared-types.js";
 
 /**
  * The types the `--path-params-as-types` overlap check compares, as TypeScript sees them:
- * references followed to the declarations of the document, `T["key"]` read from `T`, and an
- * intersection of object types merged into one object.
+ * references followed to the declarations of the document, `T["key"]` and `T[number]` read from
+ * `T`, and an intersection of object types merged into one object.
  */
 
 const UNDEFINED: IrType = { kind: "keyword", keyword: "undefined" };
@@ -35,6 +35,15 @@ export function indexSignaturesOf(type: IrObjectType): IrIndexSignature[] {
 /** The type read from a property: an optional one may be `undefined`. */
 export function readType(property: IrPropertySignature): IrType {
   return property.isOptional ? { kind: "union", types: [property.type, UNDEFINED] } : property.type;
+}
+
+/**
+ * `T[number]` for an array `T`, as the generator writes for an item of an array response: the
+ * element type, readonly or not. A tuple's is the union of its elements, which is not modelled.
+ */
+function arrayElement(type: IrType): IrType | null {
+  const list = type.kind === "readonly" ? type.type : type;
+  return list.kind === "array" ? list.element : null;
 }
 
 /** One property for two of the same name in an intersection. */
@@ -85,17 +94,21 @@ export class TypeResolution {
   /**
    * `T["key"]` read from the object type `T` resolves to, which the lookup does not do for an
    * object it reached through another lookup (`paths["/a/{id}"]["get"]`). An optional property
-   * reads as `T | undefined`.
+   * reads as `T | undefined`; `T[number]` is the element of the array `T`.
    */
   private indexedProperty(type: IrType): IrType | null {
-    if (type.kind !== "indexedAccess" || type.index.kind !== "stringLiteral") {
+    if (type.kind !== "indexedAccess") {
       return null;
+    }
+    const { index } = type;
+    if (index.kind === "keyword" && index.keyword === "number") {
+      return arrayElement(this.resolved(type.object));
     }
     const object = this.resolved(type.object);
-    if (object.kind !== "object") {
+    if (index.kind !== "stringLiteral" || object.kind !== "object") {
       return null;
     }
-    const property = propertiesOf(object).get(type.index.value);
+    const property = propertiesOf(object).get(index.value);
     return property === undefined ? null : readType(property);
   }
 

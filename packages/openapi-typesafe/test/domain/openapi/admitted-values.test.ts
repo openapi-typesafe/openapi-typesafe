@@ -84,4 +84,20 @@ describe("findDiscriminatorValueConflicts", () => {
     ]);
     expect(findDiscriminatorValueConflicts({ paths: {} })).toEqual([]);
   });
+
+  it("findDiscriminatorValueConflicts skips boolean schemas and names a root member ''", () => {
+    const rooted = {
+      properties: { kind: { const: "root" } },
+      components: {
+        schemas: {
+          Any: true,
+          Pet: { discriminator: { propertyName: "kind" }, oneOf: [{ $ref: "#/" }] },
+        },
+      },
+    };
+
+    const conflicts = findDiscriminatorValueConflicts(rooted);
+
+    expect(conflicts.map(({ member, values }) => [member, values])).toEqual([["#/", [""]]]);
+  });
 });

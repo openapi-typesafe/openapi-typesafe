@@ -160,7 +160,7 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 | :--: | :------ | :---------- |
 | `0` | Success; with `--check`, the output is up to date | |
 | `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
-| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
 | `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 | `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |
@@ -249,11 +249,13 @@ Though this is a contrived example, you could use this feature to automatically 
 type, and the output does not compile when they do not (TS2411, TS2413). The generator checks
 each such path against the template the way TypeScript does: through `operations[…]` and
 `components[…]`, into unions, intersections, arrays, tuples, index signatures and every property
-type. Unless the path's type surely fits, `paths` is written as an intersection,
+type. Where the path's type surely does not fit, `paths` is written as an intersection,
 `` export type paths = { … } & { [path: `/user/${string}`]: … } ``, with each such template in an
 object of its own. Every path keeps its type: `paths["/user/settings"]` and
 `` paths[`/user/${string}`] `` are the same as before. Output that compiles stays the same,
-`export interface paths` included.
+`export interface paths` included. Where the check cannot tell, such as for a utility type
+(`Record<string, never>`) or the type of a callback, the output stays as the original wrote it,
+which may then not compile.
 
 A URL that two templates match, such as `/user/123/keys` for `` `/user/${string}` `` and
 `` `/user/${string}/keys` ``, gets both types: `paths["/user/123/keys"]` is their intersection.
@@ -366,7 +368,9 @@ file: Blob; // [!code ++]
 
 `Blob` is a global type. It comes with the `"dom"` lib and with `@types/node`, and Deno and Bun
 have it too. A project with neither (for example `lib: ["es2022"]` and no Node.js types) gets
-`Cannot find name 'Blob'`; add `"dom"` to `lib` or install `@types/node`.
+`Cannot find name 'Blob'`; add `"dom"` to `lib` or install `@types/node`. With
+`--root-types --root-types-no-schema-prefix`, the alias of a schema named `Blob` is `Blob_2`, so
+it does not hide the global type.
 
 With [openapi-typesafe-fetch](/fetch/), send the object with the `multipart/form-data` header: the
 client builds the `FormData` and lets the platform set the boundary. Read a binary response with
@@ -434,6 +438,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `discriminator-values` | The value a discriminator member gets: a schema that a `mapping` names gets the mapped value only (not also its schema name, which made the property `never`); a schema's own `mapping` is kept when it also inherits a discriminator; a member that declares its value gets no second property; with `--enum` the value is a member of the owner's enum (`PetType.Cat`) | [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200), [#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124), [#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700) | 1.0 |
 | `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
 | `nullable-enums` | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum` | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872) | 1.0 |
+| `path-param-type-names` | With `--path-params-as-types`, a path parameter named `number`, `string` or `boolean` gets its placeholder, instead of the `$` and the `{name}` text the original leaves when it replaces that name inside an earlier placeholder; needs `--path-params-as-types` | none (found in our own tests) | 1.0 |
 | `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
 | `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
 | `ref-pointers` | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`; where the original does not compile, this is the default | none (found in the compat corpus) | 1.0 |
@@ -470,11 +475,15 @@ Response: components["schemas"]["Pet"]; // [!code ++]
 Without the fix, `Response` is treated as one more member of `Pet`: its own name becomes the
 `kind` value, which no `Cat` or `Dog` has, and `Omit` on a union keeps only the keys that every
 member has. With the fix, a `$ref` to a union in `allOf` is the union, and a schema that only
-reuses a union gets no discriminator value. A schema that the union lists (`Cat`) keeps its value.
+reuses a union gets no discriminator value. A schema that the union lists (`Cat`) keeps its value,
+and so does a schema that the union's `mapping` names: the mapping makes it a member, so its output
+stays as without the fix.
 
 - An `allOf` `$ref` to a discriminated union that lists the schema itself is typed with the
   union's own keywords by default, fix or not, because that output referred to itself and did not
-  compile (TS2502, [#1665](https://github.com/openapi-ts/openapi-typescript/issues/1665)).
+  compile (TS2502, [#1665](https://github.com/openapi-ts/openapi-typescript/issues/1665)). A
+  union that inherits its discriminator through `allOf` then gets no value of its own: each
+  member sets it.
 
 #### allof-required
 
@@ -575,6 +584,11 @@ Pages: WithRequired<{ cname?: string; source?: string }, "cname"> | WithRequired
 - It applies to `anyOf` and `oneOf` when every variant has only `required` (and `description` or
   `title`), each key is in the schema's own `properties`, and the schema has a type next to them.
   Otherwise nothing changes; `anyof-properties` then applies as before.
+- A key whose property `--exclude-deprecated` leaves out does not count as one of the schema's
+  properties.
+- Only an object has the keys: with a `type` list (`[object, "null"]`) the `object` member gets
+  them, `(WithRequired<…> | WithRequired<…>) | null`; a schema of another type keeps the old
+  output.
 
 #### anyof-properties
 
@@ -763,8 +777,13 @@ Cat: Omit<components["schemas"]["Pet"], "kind"> & { kind: "cat" }; // [!code ++]
   discriminator of that property, gives the schema a value. That matches the OpenAPI rule that an
   explicit mapping replaces the implicit one.
 - Two mappings that give one schema different values make one enum with both (`"cat" | "feline"`).
-- Two discriminators with different property names still add two properties.
+- Two discriminators with different property names still add two properties, also through a
+  schema that owns one of them: when `Content` owns `subtype` and `allOf`s `Element`, which owns
+  `contentType`, a `Video` that `allOf`s `Content` gets both, and a schema that `allOf`s `Video`
+  omits both from it (`Omit<Video, "subtype" | "contentType">`).
 - With `--enum`, the merged enum is declared once.
+- With `--enum --dedupe-enums`, a shared enum keeps the name it has without the fix, after the
+  first schema that declares it: a member's value that refers to it does not rename it.
 
 The fix also corrects the value in these cases:
 
@@ -889,6 +908,8 @@ schema name as the value, as the string `"Cat"`, which `PetType` does not accept
 fix it is `PetType.Cat` too.
 
 - The owner's enum may be a `$ref`, inline, or inherited through `allOf`.
+- An owner that declares no such property (a `oneOf` with a `mapping`) gives the value of the
+  enum that the member inherits through its `allOf` `$ref`s.
 - Members use the names `--enum` gives: `PetType.hot_dog` for `hot-dog`, and
   `typeof PetType["+"]` for a quoted member.
 - A value that the owner's enum lacks keeps the old output.
@@ -963,6 +984,26 @@ export enum Values { // [!code ++]
 - An enum of only `null` stays `null`.
 - It needs `--enum` and changes nothing without it; naming it without it prints a notice (`--fix
   all` does not).
+
+#### path-param-type-names
+
+`--path-params-as-types` replaces each `{name}` of a URL with the placeholder of its parameter's
+type, one after the other, as openapi-typescript does. That replaces the first `{name}` in the
+text so far, so a parameter named `number`, `string` or `boolean` can hit the placeholder an
+earlier parameter got instead of its own:
+
+```yaml
+/invoices/{id}/lines/{number}: # both parameters are integers
+```
+
+```ts
+[path: `/invoices/$${number}/lines/{number}`]: { … }; // [!code --]
+[path: `/invoices/${number}/lines/${number}`]: { … }; // [!code ++]
+```
+
+Without the fix the key matches `` `/invoices/$1/lines/{number}` `` only. With it every parameter
+gets its own placeholder. It needs `--path-params-as-types` and changes nothing without it; naming
+it without the flag prints a notice (`--fix all` does not).
 
 #### prefix-items
 
@@ -1040,9 +1081,10 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
 - The `schema` of a media type, header or component parameter is left out, `items` is indexed by
   `[number]`, `additionalProperties` by `[string]`, and an optional or nullable value is wrapped in
   `NonNullable` before it is indexed.
-- A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation
-  `parameters/0`) gets the target's type written inline; a target that points back at itself keeps
-  the original type.
+- A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation or
+  path item `parameters/0`) gets the target's type written inline; a target that points back at
+  itself keeps the original type. The inline type is the one the generator writes for that schema,
+  so with `--enum` it uses the same enum, not a second one named after the pointer.
 
 Where the generated type has an index signature (`--additional-properties`, or the schema's own
 `additionalProperties`), the original compiles: `["schema"]` reads the index signature and is
@@ -1064,6 +1106,8 @@ export type PetStore_2 = components['schemas']['PetStore']; // [!code ++]
 - The shared name keeps its schema, so code that uses it does not change; the fix only adds
   exports, after the other root aliases.
 - A number that another alias has is skipped (`PetStore_3`).
+- A shared name that an enum, a helper or a TypeScript global type such as `Record` already has
+  is numbered with or without the fix (`Record_2`); the earlier schemas get the numbers after it.
 - With the prefix the names do not clash (`SchemaPetStore`, `SchemaPetStore_2`), so the fix needs
   `--root-types` and `--root-types-no-schema-prefix` and changes nothing without them; naming it
   without them prints a notice (`--fix all` does not).

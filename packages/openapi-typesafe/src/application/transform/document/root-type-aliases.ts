@@ -67,42 +67,37 @@ function freeName(name: string, taken: ReadonlySet<string>): string {
 }
 
 /**
- * With the `root-type-numbering` fix (ADR-021, roadmap R13, backlog 30): the aliases that a later
- * schema of one exported name took the name from, numbered `Name_2`, `Name_3`, … in document order
- * with the next free number. The later schema keeps the name, so the fix only adds exports.
- */
-export function numberDisplacedAliases(
-  displaced: readonly IrTypeAliasDeclaration[],
-  kept: readonly IrTypeAliasDeclaration[],
-): IrTypeAliasDeclaration[] {
-  const taken = new Set(kept.map((alias) => alias.name));
-  return displaced.map((alias) => {
-    const name = freeName(alias.name, taken);
-    taken.add(name);
-    return { ...alias, name };
-  });
-}
-
-/**
  * Rename each root alias whose name an enum or a helper type of the footer also declares, or that
  * shadows a TypeScript global type the output refers to (`Record` in `Record<string, never>`), to
  * the next free `Name_2`, `Name_3`, … (the suffix `--root-types` uses for its own conflicts). The
  * footer and the globals keep their names, because the generated types refer to them. Before, the
  * output did not compile (enums: upstream #2099, #2341, #2206; helpers: a schema named
  * `WithRequired`, roadmap R11; globals: TS2315). Other declarations are returned unchanged.
+ *
+ * With the `root-type-numbering` fix (ADR-021, roadmap R13, backlog 30) the body also holds the
+ * aliases a later schema of one exported name took the name from, after the other aliases and
+ * under that same name. Each gets the next free number in body order, after the alias that kept
+ * the name got its own: so the fix only adds exports, and every other alias keeps the name it has
+ * without the fix.
  */
-export function renameAliasesTakenByFooter(
-  body: readonly IrDeclaration[],
+export function renameTakenAliases<T extends IrDeclaration>(
+  body: readonly T[],
   footer: readonly IrDeclaration[],
   closing: readonly IrDeclaration[] = [],
-): IrDeclaration[] {
+): T[] {
   const reserved = footerTypeNames(footer);
   for (const name of globalTypeReferences([...body, ...footer, ...closing])) {
     reserved.add(name);
   }
   const taken = declaredNames([...body, ...footer, ...closing]);
+  const aliasNames = new Set<string>();
   return body.map((declaration) => {
-    if (!isRootTypeAlias(declaration) || !reserved.has(declaration.name)) {
+    if (!isRootTypeAlias(declaration)) {
+      return declaration;
+    }
+    const isRepeated = aliasNames.has(declaration.name);
+    aliasNames.add(declaration.name);
+    if (!isRepeated && !reserved.has(declaration.name)) {
       return declaration;
     }
     const name = freeName(declaration.name, taken);

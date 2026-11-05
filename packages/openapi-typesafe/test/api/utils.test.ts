@@ -1,4 +1,4 @@
-import { createRef, getEntries } from "../../src/api/legacy-utils.js";
+import { createDiscriminatorProperty, createRef, getEntries } from "../../src/api/legacy-utils.js";
 
 describe("getEntries", () => {
   test("operates like Object.entries()", () => {
@@ -51,5 +51,18 @@ describe("createRef", () => {
     expect(createRef(["#/paths/~1foo~1{bar}", "parameters", "query", "page"])).toBe(
       "#/paths/~1foo~1{bar}/parameters/query/page",
     );
+  });
+});
+
+describe("createDiscriminatorProperty", () => {
+  test("types the property as the value a bare mapping name gives, else the schema name", () => {
+    const discriminator = { propertyName: "kind", mapping: { cat: "Cat" } };
+
+    const mapped = createDiscriminatorProperty(discriminator, { path: "#/components/schemas/Cat" });
+    const named = createDiscriminatorProperty(discriminator, { path: "#/components/schemas/Dog", readonly: true });
+
+    expect(mapped.type).toMatchObject({ kind: "stringLiteral", value: "cat" });
+    expect(named.type).toMatchObject({ kind: "stringLiteral", value: "Dog" });
+    expect(named.isReadonly).toBe(true);
   });
 });

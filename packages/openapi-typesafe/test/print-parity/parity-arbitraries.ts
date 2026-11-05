@@ -473,8 +473,9 @@ export function hasRepeatedParametersIndex(output: string): boolean {
   return REPEATED_PARAMETERS_RE.test(output);
 }
 
+/** `ReadonlyArray<"a" | "b">`, or `readonly never[]` for an empty enum. */
 const RETYPED_ENUM_VALUES_RE =
-  /^export const \S+: ReadonlyArray<(?!FlattenedDeepRequired<|Extract<)/m;
+  /^export const \S+: (?:ReadonlyArray<(?!FlattenedDeepRequired<|Extract<)|readonly never\[\])/m;
 
 /**
  * Whether the new output types an `--enum-values` array by its own values: it does so only where

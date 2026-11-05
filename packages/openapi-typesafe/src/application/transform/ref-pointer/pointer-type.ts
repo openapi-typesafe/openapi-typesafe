@@ -3,10 +3,11 @@ import type { IrType } from "../../../domain/ir/nodes.js";
 import { OutputFix } from "../../../domain/output-fixes.js";
 import { InvalidRefError, refType } from "../ref-type.js";
 import type { SchemaRequest } from "../schema/schema-rule.js";
+import { generatedLocationOf } from "./generated-location.js";
 import { isJsonObject } from "./generated-shape.js";
 import { hasInlineCycle } from "./inline-cycles.js";
 import { originalIndexFails } from "./original-index.js";
-import { LEADING_SEGMENTS, pointerNode, type RefPointer, refPointerOf } from "./pointer-walk.js";
+import { leadingSegmentsOf, pointerNode, type RefPointer, refPointerOf } from "./pointer-walk.js";
 import { typedWalk } from "./typed-walk.js";
 
 /**
@@ -39,7 +40,13 @@ function targetType(
   if (target === undefined || hasInlineCycle(ref, request.context.options, request.context.refs)) {
     return null;
   }
-  return request.transformNested(target as never, { path: ref, schema: target });
+  // Typed where the generator types the node, so it shares the node's enum (`--enum`).
+  const location = generatedLocationOf(ref, request.context.refs);
+  return request.transformNested(
+    target as never,
+    { path: location.path, schema: target },
+    location.isFromAdditionalProperties,
+  );
 }
 
 function correctedType(
@@ -67,7 +74,7 @@ export function schemaRefType(
   seen: readonly string[] = [],
 ): IrType {
   const pointer = pointerOf(ref);
-  if (pointer.segments.length <= LEADING_SEGMENTS || !isCorrected(pointer, request)) {
+  if (pointer.segments.length <= leadingSegmentsOf(pointer) || !isCorrected(pointer, request)) {
     return refType(ref);
   }
   return correctedType(ref, pointer, request, seen) ?? refType(ref);

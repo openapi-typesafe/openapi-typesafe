@@ -124,6 +124,15 @@ function outputFixesOf(options: GeneratorOptions, logger: Logger): readonly Outp
   return [...resolveOutputFixes(names)];
 }
 
+/** The warnings about the loaded document itself, before it is transformed. */
+function warnAboutDocument(schema: OpenAPI3, fix: readonly OutputFix[], logger: Logger): void {
+  withStackOverflowReported("transform", () => warnUnsupportedFeatures(schema, logger));
+  withStackOverflowReported("transform", () =>
+    warnDiscriminatorValueConflicts(schema, fix, logger),
+  );
+  warnIdenticalPathTemplates(schema, logger);
+}
+
 /**
  * Load the source through the ports, then build the run's context from the options. The fix names
  * are checked first, so a typo fails before the document is read.
@@ -146,9 +155,7 @@ export async function createDocumentRun(
     shouldLint: options.lint ?? true,
     refAccess: refAccessOf(options, cwd),
   });
-  withStackOverflowReported("transform", () => warnUnsupportedFeatures(schema, logger));
-  withStackOverflowReported("transform", () => warnDiscriminatorValueConflicts(schema, logger));
-  warnIdenticalPathTemplates(schema, logger);
+  warnAboutDocument(schema, fix, logger);
   const ctx: GlobalContext = {
     ...contextFlags(options),
     fix,

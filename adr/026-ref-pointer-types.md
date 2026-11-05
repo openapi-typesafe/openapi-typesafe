@@ -27,18 +27,33 @@ documents that were already broken.
    a key with no property and no index signature (`--additional-properties`, schema
    `additionalProperties`), a key a primitive `type` does not have (`string["schema"]`), a value
    that may be `undefined` or `null` indexed further, a key of an array, an optional
-   `requestBody`, an `allOf` whose parts all miss the key, a pure `anyOf` / `oneOf` where a member
-   misses it, a positional `parameters` index. Every shape it does not model
-   (`enum`, `not`, `$ref` chains, discriminators, `--read-write-markers`, `patternProperties`, mixed
-   composition) counts as compiling, so that output stays byte-identical.
+   `requestBody` or response header (one without `required: true`), an `allOf` whose parts all miss
+   the key (where exactly one part of the intersection has it, the walk reads that part, so `allOf`
+   next to `properties` is no longer opaque), a pure `anyOf` / `oneOf` where a member misses it, a
+   positional `parameters` index, a key of `unknown`: a schema with no `type` and no object
+   keywords, or a value read through `[key: string]: unknown` (an `allOf` of such parts reads
+   `unknown & unknown`, which is `unknown`; next to a part that has the key it reads
+   `unknown & T`, which is `T`). Every shape it does not model (`enum`, `not`, `$ref` chains, discriminators, `--read-write-markers`, `patternProperties`, mixed
+   composition) counts as compiling, so that output stays byte-identical. The walk reads the
+   generated type as `coreType` writes it: one `type` name decides alone (`type: string` with
+   `items` or `properties` is `string`), and `type: object` without object keywords is
+   `Record<string, never>`, whose every key is `never` and compiles, as does every key after it.
 2. **The corrected type.** The `schema` of a media type, header or component parameter is left out,
-   `items` is `[number]`, `additionalProperties` is `[string]`, `$defs` members are read through
-   `NonNullable`, and a value that is not surely present is wrapped in `NonNullable` before it is
-   indexed.
+   `items` of an array is `[number]`, `additionalProperties` of an object is `[string]`; on a type
+   without that member (`type: string` with `items`) the keyword has no type (point 3). `$defs`
+   members are read through `NonNullable`, and a value that is not surely present is wrapped in
+   `NonNullable` before it is indexed.
 3. **A segment with no type of its own** (`allOf/N`, `anyOf/N`, `definitions`, `not`, operation
-   `parameters/N`) is not indexed at all: the target schema is written inline (its own `$ref` is
-   followed). A target that would be written inside itself keeps the original type. This replaces
-   the draft's merging and `Extract`, so no new self-reference appears.
+   and path item `parameters/N`) is not indexed at all: the target schema is written inline (its
+   own `$ref` is followed). A target that would be written inside itself keeps the original type.
+   This replaces the draft's merging and `Extract`, so no new self-reference appears. The target
+   is typed at the location the generator types the node at (`generated-location.ts`:
+   `properties` and `allOf/N` left out, `parameters/0` named `parameters/<in>/<name>`), not at
+   the pointer: that location names its `--enum` declaration and `--enum-values` array, so the
+   inline copy shares them. Typed at the pointer, it declared a second TypeScript enum with the
+   same members, which is not assignable to the first. A node under a keyword the generator does
+   not type (`definitions/A`, `not`) is typed nowhere else and keeps its pointer as its location,
+   so its names stay as they were.
 4. **`WithRequired` of an absent target** gets `NonNullable<…>`: `keyof (T | undefined)` is `never`.
 5. **Fix `ref-pointers`.** Where the original compiles through an index signature, the corrected
    type comes only with `--fix ref-pointers` (and `all`), as every other output fix (ADR-021). Its

@@ -9,5 +9,7 @@ of its own schema name (`{ pet_type: "B" } & …`) that no member allows, so
 `B: { pet_type: "B" } & Omit<components["schemas"]["A"], "pet_type">` is now
 `B: components["schemas"]["A"]` (openapi-typescript
 [#1464](https://github.com/openapi-ts/openapi-typescript/issues/1464),
-[#1690](https://github.com/openapi-ts/openapi-typescript/issues/1690)). Without the fix the output
+[#1690](https://github.com/openapi-ts/openapi-typescript/issues/1690)). A schema that the union's
+`mapping` names is a member and stays as it was. A schema that only reuses the union gets no
+`DISCRIMINATOR_VALUE_NOT_ALLOWED` warning for a value it does not get. Without the fix the output
 does not change; `--fix all` now includes it.

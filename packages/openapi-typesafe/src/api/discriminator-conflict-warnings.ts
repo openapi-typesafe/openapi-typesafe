@@ -3,6 +3,7 @@ import {
   type DiscriminatorValueConflict,
   findDiscriminatorValueConflicts,
 } from "../domain/openapi/discriminator-conflicts.js";
+import { OutputFix } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 
 const DOCS_BASE_URL = "https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs";
@@ -26,9 +27,17 @@ function warningOf(conflict: DiscriminatorValueConflict): string {
   );
 }
 
-/** Warn once per discriminator member whose value its own property does not allow. */
-export function warnDiscriminatorValueConflicts(document: unknown, logger: Logger): void {
-  for (const conflict of findDiscriminatorValueConflicts(document)) {
+/**
+ * Warn once per discriminator member whose value its own property does not allow. The members
+ * depend on the run's fixes (`allof-discriminated-union`).
+ */
+export function warnDiscriminatorValueConflicts(
+  document: unknown,
+  fixes: readonly OutputFix[],
+  logger: Logger,
+): void {
+  const isUnionReused = fixes.includes(OutputFix.ALLOF_DISCRIMINATED_UNION);
+  for (const conflict of findDiscriminatorValueConflicts(document, { isUnionReused })) {
     logger.warn(warningText(warningOf(conflict), WARNING_CODES.DISCRIMINATOR_VALUE_NOT_ALLOWED));
   }
 }

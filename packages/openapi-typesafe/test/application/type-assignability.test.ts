@@ -38,6 +38,7 @@ const NUMBER = irKeyword("number");
 const NEVER = irKeyword("never");
 const UNKNOWN = irKeyword("unknown");
 const UNDEFINED = irKeyword("undefined");
+const NULL = irKeyword("null");
 const object = (...members: IrMember[]): IrType => irObject(members);
 const required = (name: string, type: IrType = STRING) => irProperty(toPropertyName(name), type);
 const optional = (name: string, type: IrType = STRING) =>
@@ -70,41 +71,55 @@ const isAssignable = (source: IrType, target: IrType) => proof()(source, target)
 
 describe("assignabilityProof: keywords, literals and unions", () => {
   it("assignabilityProof accepts any type for unknown and never for any type", () => {
-    expect(isAssignable(STRING, UNKNOWN)).toBe(true);
-    expect(isAssignable(NEVER, NUMBER)).toBe(true);
+    expect(isAssignable(STRING, UNKNOWN)).toBe("assignable");
+    expect(isAssignable(NEVER, NUMBER)).toBe("assignable");
   });
 
   it("assignabilityProof accepts literals for their keyword and rejects other keywords", () => {
-    expect(isAssignable(literal("a"), STRING)).toBe(true);
-    expect(isAssignable(irNumber(1), NUMBER)).toBe(true);
-    expect(isAssignable(irBoolean(true), irKeyword("boolean"))).toBe(true);
-    expect(isAssignable(literal("a"), NUMBER)).toBe(false);
-    expect(isAssignable(STRING, NUMBER)).toBe(false);
+    expect(isAssignable(literal("a"), STRING)).toBe("assignable");
+    expect(isAssignable(irNumber(1), NUMBER)).toBe("assignable");
+    expect(isAssignable(irBoolean(true), irKeyword("boolean"))).toBe("assignable");
+    expect(isAssignable(literal("a"), NUMBER)).toBe("rejected");
+    expect(isAssignable(STRING, NUMBER)).toBe("rejected");
   });
 
   it("assignabilityProof accepts a union whose every member fits", () => {
     const target = irUnion([literal("a"), literal("b"), literal("c")]);
 
-    expect(isAssignable(irUnion([literal("a"), literal("b")]), target)).toBe(true);
-    expect(isAssignable(irUnion([literal("a"), literal("d")]), target)).toBe(false);
+    expect(isAssignable(irUnion([literal("a"), literal("b")]), target)).toBe("assignable");
+    expect(isAssignable(irUnion([literal("a"), literal("d")]), target)).toBe("rejected");
+  });
+
+  it("assignabilityProof reads boolean as true | false against a union", () => {
+    const BOOLEAN = irKeyword("boolean");
+    const both = irUnion([irBoolean(true), irBoolean(false)]);
+
+    expect(isAssignable(BOOLEAN, both)).toBe("assignable");
+    expect(isAssignable(BOOLEAN, irUnion([irBoolean(false), irBoolean(true), NULL]))).toBe(
+      "assignable",
+    );
+    expect(isAssignable(irUnion([BOOLEAN, NULL]), irUnion([both, NULL]))).toBe("assignable");
+    expect(isAssignable(BOOLEAN, irUnion([irBoolean(true), NULL]))).toBe("rejected");
+    expect(isAssignable(BOOLEAN, irBoolean(true))).toBe("rejected");
   });
 
   it("assignabilityProof compares arrays of literal unions by their items", () => {
     const names = irArray(irUnion([literal("id"), literal("name")]));
 
     expect(isAssignable(irArray(irUnion([literal("id"), literal("contentType")])), names)).toBe(
-      false,
+      "rejected",
     );
-    expect(isAssignable(irArray(literal("id")), names)).toBe(true);
+    expect(isAssignable(irArray(literal("id")), names)).toBe("assignable");
   });
 
-  it("assignabilityProof accepts a type it does not model only when it is the same", () => {
+  it("assignabilityProof leaves a type it does not model undecided unless it is the same", () => {
     const record = irReference("Record", [STRING, NEVER]);
 
-    expect(isAssignable(record, irReference("Record", [STRING, NEVER]))).toBe(true);
-    expect(isAssignable(record, irReference("Record", [STRING, UNKNOWN]))).toBe(false);
-    expect(isAssignable(irRaw("A"), irRaw("A"))).toBe(true);
-    expect(isAssignable(irRaw("A"), irRaw("B"))).toBe(false);
+    expect(isAssignable(record, irReference("Record", [STRING, NEVER]))).toBe("assignable");
+    expect(isAssignable(record, irReference("Record", [STRING, UNKNOWN]))).toBe("undecided");
+    expect(isAssignable(irRaw("A"), irRaw("A"))).toBe("assignable");
+    expect(isAssignable(irRaw("A"), irRaw("B"))).toBe("undecided");
+    expect(isAssignable(record, object(irStringIndexSignature("key", UNKNOWN)))).toBe("undecided");
   });
 });
 
@@ -115,31 +130,53 @@ describe("assignabilityProof: arrays, tuples and readonly", () => {
       irTupleElement(irArray(literal("b")), true),
     ]);
 
-    expect(isAssignable(tuple, irArray(STRING))).toBe(true);
-    expect(isAssignable(tuple, irArray(NUMBER))).toBe(false);
-    expect(isAssignable(irArray(STRING), irTuple([irTupleElement(STRING)]))).toBe(false);
-    expect(isAssignable(literal("a"), irArray(STRING))).toBe(false);
+    expect(isAssignable(tuple, irArray(STRING))).toBe("assignable");
+    expect(isAssignable(tuple, irArray(NUMBER))).toBe("rejected");
+    expect(isAssignable(irArray(STRING), irTuple([irTupleElement(STRING)]))).toBe("rejected");
+    expect(isAssignable(literal("a"), irArray(STRING))).toBe("rejected");
+  });
+
+  it("assignabilityProof reads an optional tuple element as possibly undefined", () => {
+    // `[string?, ...string[]]` is no `string[]` under `strict`: the first item may be undefined.
+    const prefixed = irTuple([
+      irOptionalTupleElement(STRING),
+      irTupleElement(irArray(STRING), true),
+    ]);
+
+    expect(isAssignable(prefixed, irArray(STRING))).toBe("rejected");
+    expect(isAssignable(prefixed, irArray(irUnion([STRING, UNDEFINED])))).toBe("assignable");
   });
 
   it("assignabilityProof compares tuples element by element, with the same shape", () => {
     const pair = irTuple([irTupleElement(literal("a")), irTupleElement(NUMBER)]);
 
     expect(isAssignable(pair, irTuple([irTupleElement(STRING), irTupleElement(NUMBER)]))).toBe(
-      true,
+      "assignable",
     );
     expect(
       isAssignable(pair, irTuple([irTupleElement(STRING), irOptionalTupleElement(NUMBER)])),
-    ).toBe(true);
-    expect(isAssignable(pair, irTuple([irTupleElement(STRING)]))).toBe(false);
+    ).toBe("assignable");
+    expect(isAssignable(pair, irTuple([irTupleElement(STRING)]))).toBe("rejected");
     expect(
       isAssignable(irTuple([irOptionalTupleElement(STRING)]), irTuple([irTupleElement(STRING)])),
-    ).toBe(false);
+    ).toBe("rejected");
+  });
+
+  it("assignabilityProof leaves tuples with a rest element in other places undecided", () => {
+    // `[string, ...string[]]` fits `[string, string?]` only when it has at most two items.
+    const open = irTuple([irTupleElement(STRING), irTupleElement(irArray(STRING), true)]);
+    const pair = irTuple([irTupleElement(STRING), irOptionalTupleElement(STRING)]);
+
+    expect(isAssignable(open, pair)).toBe("undecided");
+    expect(isAssignable(pair, open)).toBe("undecided");
   });
 
   it("assignabilityProof accepts a mutable array for a readonly one, not the other way", () => {
-    expect(isAssignable(irArray(STRING), irReadonly(irArray(STRING)))).toBe(true);
-    expect(isAssignable(irReadonly(irArray(literal("a"))), irReadonly(irArray(STRING)))).toBe(true);
-    expect(isAssignable(irReadonly(irArray(STRING)), irArray(STRING))).toBe(false);
+    expect(isAssignable(irArray(STRING), irReadonly(irArray(STRING)))).toBe("assignable");
+    expect(isAssignable(irReadonly(irArray(literal("a"))), irReadonly(irArray(STRING)))).toBe(
+      "assignable",
+    );
+    expect(isAssignable(irReadonly(irArray(STRING)), irArray(STRING))).toBe("rejected");
   });
 });
 
@@ -148,26 +185,41 @@ describe("assignabilityProof: objects", () => {
     const target = object(required("id"), optional("note"));
 
     expect(isAssignable(object(required("id", literal("a")), required("extra")), target)).toBe(
-      true,
+      "assignable",
     );
-    expect(isAssignable(object(optional("id")), target)).toBe(false);
-    expect(isAssignable(object(required("note")), target)).toBe(false);
-    expect(isAssignable(object(required("id", NUMBER)), target)).toBe(false);
+    expect(isAssignable(object(optional("id")), target)).toBe("rejected");
+    expect(isAssignable(object(required("note")), target)).toBe("rejected");
+    expect(isAssignable(object(required("id", NUMBER)), target)).toBe("rejected");
   });
 
   it("assignabilityProof fills an empty slot only with undefined or nothing", () => {
     const target = object(optional("post", NEVER));
 
-    expect(isAssignable(object(optional("post", NEVER)), target)).toBe(true);
-    expect(isAssignable(object(required("post", object())), target)).toBe(false);
+    expect(isAssignable(object(optional("post", NEVER)), target)).toBe("assignable");
+    expect(isAssignable(object(required("post", object())), target)).toBe("rejected");
+    expect(isAssignable(object(), target)).toBe("assignable");
+    expect(isAssignable(object(optional("post", UNDEFINED)), target)).toBe("assignable");
+    // Raw text (a callback's type) may be `undefined`, and a reference may name `never`.
+    expect(isAssignable(object(required("post", irRaw("any"))), target)).toBe("undecided");
+    expect(isAssignable(object(required("post", schema("Missing"))), target)).toBe("undecided");
+  });
+
+  it("assignabilityProof needs a method the covering path item has", () => {
+    const covering = object(required("get", object()), optional("post", NEVER));
+
+    expect(isAssignable(object(optional("get", NEVER)), covering)).toBe("rejected");
+    expect(isAssignable(object(optional("get", object())), covering)).toBe("rejected");
+    expect(isAssignable(object(required("get", object()), required("sub")), covering)).toBe(
+      "assignable",
+    );
   });
 
   it("assignabilityProof rejects a source that shares no property with a weak type", () => {
     const weak = object(optional("a"), optional("b"));
 
-    expect(isAssignable(object(required("c")), weak)).toBe(false);
-    expect(isAssignable(object(required("a"), required("c")), weak)).toBe(true);
-    expect(isAssignable(object(), weak)).toBe(true);
+    expect(isAssignable(object(required("c")), weak)).toBe("rejected");
+    expect(isAssignable(object(required("a"), required("c")), weak)).toBe("assignable");
+    expect(isAssignable(object(), weak)).toBe("assignable");
   });
 
   it("assignabilityProof checks every property and index against a string index", () => {
@@ -176,35 +228,40 @@ describe("assignabilityProof: objects", () => {
 
     expect(
       isAssignable(object(required("a", NUMBER), irStringIndexSignature("n", NUMBER)), headers),
-    ).toBe(true);
-    expect(isAssignable(object(required("a", NUMBER)), strings)).toBe(false);
-    expect(isAssignable(object(irStringIndexSignature("n", NUMBER)), strings)).toBe(false);
+    ).toBe("assignable");
+    expect(isAssignable(object(required("a", NUMBER)), strings)).toBe("rejected");
+    expect(isAssignable(object(irStringIndexSignature("n", NUMBER)), strings)).toBe("rejected");
   });
 
-  it("assignabilityProof proves nothing for an index signature that is not a string index", () => {
+  it("assignabilityProof leaves a target index that is not a string index undecided", () => {
     const template: IrIndexSignature = {
       ...irStringIndexSignature("path", STRING),
       parameterType: irRaw(`\`/a/\${string}\``),
     };
 
-    expect(isAssignable(object(), object(template))).toBe(false);
-    expect(isAssignable(object(template), object(irStringIndexSignature("n", STRING)))).toBe(false);
+    expect(isAssignable(object(), object(template))).toBe("undecided");
+    // A template index of the source applies to a string index of the target.
+    const strings = object(irStringIndexSignature("n", STRING));
+    expect(isAssignable(object(template), strings)).toBe("assignable");
+    expect(isAssignable(object({ ...template, type: NUMBER }), strings)).toBe("rejected");
   });
 
-  it("assignabilityProof checks a missing optional property against the source's string index", () => {
+  it("assignabilityProof does not check a missing optional property against a string index", () => {
     const target = object(optional("a"));
 
-    expect(isAssignable(object(irStringIndexSignature("n", literal("x"))), target)).toBe(true);
-    expect(isAssignable(object(irStringIndexSignature("n", NUMBER)), target)).toBe(false);
+    expect(isAssignable(object(irStringIndexSignature("n", literal("x"))), target)).toBe(
+      "assignable",
+    );
+    expect(isAssignable(object(irStringIndexSignature("n", NUMBER)), target)).toBe("assignable");
   });
 
   it("assignabilityProof accepts an optional value for an optional property, undefined included", () => {
     expect(
       isAssignable(object(optional("a")), object(optional("a", irUnion([STRING, UNDEFINED])))),
-    ).toBe(true);
+    ).toBe("assignable");
     expect(
       isAssignable(object(optional("a")), object(required("a", irUnion([STRING, UNDEFINED])))),
-    ).toBe(false);
+    ).toBe("rejected");
   });
 });
 
@@ -215,17 +272,34 @@ describe("assignabilityProof: intersections and references", () => {
       object(required("a"), required("b")),
     ]);
 
-    expect(isAssignable(merged, object(required("a", literal("x")), required("b")))).toBe(true);
-    expect(isAssignable(object(required("a", literal("x")), required("b")), merged)).toBe(true);
-    expect(isAssignable(object(required("a", literal("y")), required("b")), merged)).toBe(false);
+    expect(isAssignable(merged, object(required("a", literal("x")), required("b")))).toBe(
+      "assignable",
+    );
+    expect(isAssignable(object(required("a", literal("x")), required("b")), merged)).toBe(
+      "assignable",
+    );
+    expect(isAssignable(object(required("a", literal("y")), required("b")), merged)).toBe(
+      "rejected",
+    );
+  });
+
+  it("assignabilityProof keeps the index signatures of the parts of a merged intersection", () => {
+    const merged = irIntersection([
+      object(required("a")),
+      object(irStringIndexSignature("key", STRING)),
+    ]);
+
+    expect(isAssignable(merged, object(irStringIndexSignature("key", STRING)))).toBe("assignable");
+    expect(isAssignable(merged, object(irStringIndexSignature("key", NUMBER)))).toBe("rejected");
   });
 
   it("assignabilityProof accepts an intersection with a non-object part when one part fits", () => {
     const parts = irIntersection([object(required("a")), irRaw("Brand")]);
 
-    expect(isAssignable(parts, object(required("a")))).toBe(true);
-    expect(isAssignable(parts, object(required("b")))).toBe(false);
-    expect(isAssignable(object(required("a")), parts)).toBe(false);
+    expect(isAssignable(parts, object(required("a")))).toBe("assignable");
+    expect(isAssignable(parts, object(required("b")))).toBe("undecided");
+    expect(isAssignable(object(required("a")), parts)).toBe("undecided");
+    expect(isAssignable(object(required("a", NUMBER)), parts)).toBe("rejected");
   });
 
   it("assignabilityProof reads references and their properties through the declarations", () => {
@@ -238,14 +312,36 @@ describe("assignabilityProof: intersections and references", () => {
     ]);
     const tag = irIndexedAccess(schema("Tagged"), irString("tag", "escaped"));
 
-    expect(check(schema("Tagged"), schema("Item"))).toBe(true);
-    expect(check(schema("List"), schema("Item"))).toBe(false);
-    expect(check(tag, irUnion([STRING, UNDEFINED]))).toBe(true);
-    expect(check(tag, STRING)).toBe(false);
+    expect(check(schema("Tagged"), schema("Item"))).toBe("assignable");
+    expect(check(schema("List"), schema("Item"))).toBe("rejected");
+    expect(check(schema("Item"), schema("List"))).toBe("rejected");
+    expect(check(tag, irUnion([STRING, UNDEFINED]))).toBe("assignable");
+    expect(check(tag, STRING)).toBe("rejected");
     expect(check(irIndexedAccess(schema("Tagged"), irString("missing", "escaped")), STRING)).toBe(
-      false,
+      "undecided",
     );
-    expect(check(irIndexedAccess(schema("List"), irString("id", "escaped")), STRING)).toBe(false);
+    expect(check(irIndexedAccess(schema("List"), irString("id", "escaped")), STRING)).toBe(
+      "undecided",
+    );
+  });
+
+  it("assignabilityProof reads the element of an array indexed by number", () => {
+    // `paths["/a"]["get"]["responses"]["200"]["content"]["application/json"][number]` (conjur).
+    const check = proof([
+      schemas({
+        Item: object(required("id")),
+        List: irArray(schema("Item")),
+        Frozen: irReadonly(irArray(schema("Item"))),
+        Pair: irTuple([irTupleElement(schema("Item"))]),
+      }),
+    ]);
+    const element = (name: string) => irIndexedAccess(schema(name), NUMBER);
+
+    expect(check(element("List"), schema("Item"))).toBe("assignable");
+    expect(check(element("List"), schema("List"))).toBe("rejected");
+    expect(check(element("Frozen"), schema("Item"))).toBe("assignable");
+    expect(check(element("Pair"), schema("Item"))).toBe("undecided");
+    expect(check(irIndexedAccess(schema("Item"), NUMBER), STRING)).toBe("undecided");
   });
 
   it("assignabilityProof terminates on recursive types and relates them structurally", () => {
@@ -257,9 +353,9 @@ describe("assignabilityProof: intersections and references", () => {
       }),
     ]);
 
-    expect(check(schema("Node"), schema("Tree"))).toBe(true);
-    expect(check(schema("Tree"), schema("Node"))).toBe(false);
-    expect(check(schema("Self"), object(required("name")))).toBe(true);
+    expect(check(schema("Node"), schema("Tree"))).toBe("assignable");
+    expect(check(schema("Tree"), schema("Node"))).toBe("rejected");
+    expect(check(schema("Self"), object(required("name")))).toBe("assignable");
   });
 
   it("assignabilityProof keeps no relation that rested on an outer pair that failed", () => {
@@ -272,7 +368,82 @@ describe("assignabilityProof: intersections and references", () => {
     ]);
     const wrapped = (name: string) => object(required("value", schema(name)));
 
-    expect(check(schema("A"), schema("B"))).toBe(false);
-    expect(check(wrapped("B"), wrapped("A"))).toBe(false);
+    expect(check(schema("A"), schema("B"))).toBe("rejected");
+    expect(check(wrapped("B"), wrapped("A"))).toBe("rejected");
+  });
+});
+
+describe("assignabilityProof: rejected only where TypeScript surely rejects", () => {
+  it("assignabilityProof rejects a pair of different categories, except for an object target", () => {
+    expect(isAssignable(object(required("a")), STRING)).toBe("rejected");
+    expect(isAssignable(object(required("a")), irArray(STRING))).toBe("rejected");
+    expect(isAssignable(object(required("length", NUMBER)), irArray(STRING))).toBe("undecided");
+    expect(isAssignable(irArray(STRING), NUMBER)).toBe("rejected");
+    expect(isAssignable(STRING, object(required("length", NUMBER)))).toBe("undecided");
+    expect(isAssignable(irKeyword("null"), object())).toBe("rejected");
+    expect(isAssignable(UNKNOWN, object())).toBe("rejected");
+    expect(isAssignable(STRING, NEVER)).toBe("rejected");
+  });
+
+  it("assignabilityProof rejects a list for an object that needs a property no list has", () => {
+    expect(isAssignable(irArray(STRING), object(required("data")))).toBe("rejected");
+    expect(isAssignable(irArray(STRING), object(optional("code")))).toBe("rejected");
+    expect(isAssignable(irArray(STRING), object(required("length", NUMBER)))).toBe("undecided");
+    expect(isAssignable(irArray(STRING), object(optional("map"), optional("code")))).toBe(
+      "undecided",
+    );
+    expect(isAssignable(irTuple([irTupleElement(STRING)]), object(required("0")))).toBe(
+      "undecided",
+    );
+  });
+
+  it("assignabilityProof leaves an object undecided for a union of objects it may discriminate", () => {
+    const kinds = irUnion([
+      object(required("k", literal("a"))),
+      object(required("k", literal("b"))),
+    ]);
+    const either = object(required("k", irUnion([literal("a"), literal("b")])));
+
+    expect(isAssignable(either, kinds)).toBe("undecided");
+    expect(isAssignable(object(required("k", literal("a"))), kinds)).toBe("assignable");
+    expect(isAssignable(irKeyword("null"), kinds)).toBe("rejected");
+  });
+
+  it("assignabilityProof leaves a weak type part of an intersection it cannot merge undecided", () => {
+    const parts = irIntersection([object(optional("a")), irRaw("Brand")]);
+
+    expect(isAssignable(object(required("b")), parts)).toBe("undecided");
+  });
+
+  it("assignabilityProof rejects tuples of other fixed lengths and arrays for required items", () => {
+    const one = irTuple([irTupleElement(STRING)]);
+    const pair = irTuple([irTupleElement(STRING), irTupleElement(STRING)]);
+    const openPair = irTuple([irTupleElement(STRING), irOptionalTupleElement(STRING)]);
+
+    expect(isAssignable(pair, one)).toBe("rejected");
+    expect(isAssignable(openPair, one)).toBe("undecided");
+    expect(isAssignable(irArray(STRING), one)).toBe("rejected");
+    expect(isAssignable(irArray(STRING), irTuple([irOptionalTupleElement(STRING)]))).toBe(
+      "undecided",
+    );
+  });
+
+  it("assignabilityProof rejects a readonly array for a mutable list", () => {
+    const tuple = irTuple([irTupleElement(STRING)]);
+
+    expect(isAssignable(irReadonly(irArray(STRING)), tuple)).toBe("rejected");
+  });
+
+  it("assignabilityProof compares an optional source property by its type for a string index", () => {
+    const strings = object(irStringIndexSignature("n", STRING));
+
+    expect(isAssignable(object(optional("a")), strings)).toBe("assignable");
+    expect(isAssignable(object(required("a", irRaw("A"))), strings)).toBe("undecided");
+  });
+
+  it("assignabilityProof rejects a keyword for a literal and a literal of another value", () => {
+    expect(isAssignable(irKeyword("boolean"), irBoolean(true))).toBe("rejected");
+    expect(isAssignable(literal("a"), literal("b"))).toBe("rejected");
+    expect(isAssignable(irNumber(1), irKeyword("null"))).toBe("rejected");
   });
 });

@@ -1,9 +1,9 @@
-import { irReference } from "../../../domain/ir/constructors.js";
+import { irArray, irReadonly, irReference } from "../../../domain/ir/constructors.js";
 import type { IrConstArrayDeclaration, IrDeclaration, IrType } from "../../../domain/ir/nodes.js";
 import { HELPER_TYPES } from "../helper-types.js";
 import { literalType } from "../literal-type.js";
 import { unionOf } from "../type-combinators.js";
-import type { Evaluated, Evaluation } from "./evaluation.js";
+import { type Evaluated, type Evaluation, NEVER } from "./evaluation.js";
 import { TypeEvaluator } from "./type-evaluation.js";
 
 /**
@@ -117,6 +117,10 @@ function retypeOf(
   if (element.kind !== "type") {
     return element.kind === "missing" ? { kind: "untyped", name: declaration.name } : null;
   }
+  if (declaration.values.length === 0 && isNever(element.type)) {
+    // The `ReadonlyArray` helper of `never` is `never` (`never` extends an array): not even `[]`.
+    return { kind: "untyped", name: declaration.name };
+  }
   const results = declaration.values.map((value) => admission(evaluator, element, value));
   if (!results.includes("no")) {
     return null;
@@ -128,7 +132,15 @@ function retypeOf(
   return { kind: "excluded", name: declaration.name, excluded };
 }
 
+function isNever(type: IrType): boolean {
+  return type.kind === "keyword" && type.keyword === "never";
+}
+
+/** The values' own type; with no values `readonly never[]` (`ReadonlyArray<never>` is never). */
 function ownValuesType(declaration: IrConstArrayDeclaration): IrType {
+  if (declaration.values.length === 0) {
+    return irReadonly(irArray(NEVER));
+  }
   const values = unionOf(declaration.values.map((value) => literalType(value)));
   return irReference(HELPER_TYPES.readonlyArray.name, [values]);
 }

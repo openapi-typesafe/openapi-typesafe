@@ -33,6 +33,10 @@ export interface ScanState extends DiscriminatorScanOptions {
   readonly patchedEnums: Map<string, SchemaObject>;
   /** With the fix: schema-name values, applied after both passes where no mapping names one. */
   readonly inferredPatches: EnumPatch[];
+  /** With the fix: schema-name values of other properties (`inheritOtherOwners`). */
+  readonly otherInferredPatches: EnumPatch[];
+  /** With the fix: the other properties each schema got a value of (`inheritOtherOwners`). */
+  readonly otherProperties: Record<string, string[]>;
   /** With `discriminator-values`: the enum keys that a schema declares itself. */
   readonly declaredKeys: Set<string>;
   /** With `discriminator-values`: the owner's enum of each added enum, by that enum. */

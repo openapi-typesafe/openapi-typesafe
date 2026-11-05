@@ -1,4 +1,4 @@
-import { unionAt, unionReaches } from "../../../domain/openapi/discriminated-union.js";
+import { unionAt, unionMaps, unionReaches } from "../../../domain/openapi/discriminated-union.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
@@ -16,6 +16,8 @@ export interface UnionItem {
    * itself, which does not compile (TS2502, upstream #1665).
    */
   readonly isMember: boolean;
+  /** The union's mapping names the schema, so it is a member even where the type is not. */
+  readonly isMapped: boolean;
 }
 
 /** The union at `ref`, if the schema there is one. */
@@ -26,7 +28,8 @@ export function unionItemOf(ref: string, request: SchemaRequest): UnionItem | un
   if (union === undefined) {
     return undefined;
   }
-  return { union, isMember: path !== undefined && unionReaches(union, path, resolve) };
+  const isMember = path !== undefined && unionReaches(union, path, resolve);
+  return { union, isMember, isMapped: path !== undefined && unionMaps(union, path) };
 }
 
 function withoutKey<T>(record: Readonly<Record<string, T>>, key: string): Record<string, T> {

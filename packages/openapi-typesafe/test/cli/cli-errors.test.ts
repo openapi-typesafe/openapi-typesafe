@@ -86,6 +86,16 @@ describe("describeCliFailure", () => {
     expect(failure.message).toMatch(/^Unexpected error: TypeError: boom\n/);
   });
 
+  it("describeCliFailure with an untyped error without a stack returns INTERNAL with its message", () => {
+    const error = new TypeError("boom");
+    delete error.stack;
+
+    expect(describeCliFailure(error)).toEqual({
+      exitCode: EXIT_CODES.INTERNAL,
+      message: "Unexpected error: boom",
+    });
+  });
+
   it("describeCliFailure with a thrown non-error returns INTERNAL with its text", () => {
     expect(describeCliFailure("boom")).toEqual({
       exitCode: EXIT_CODES.INTERNAL,

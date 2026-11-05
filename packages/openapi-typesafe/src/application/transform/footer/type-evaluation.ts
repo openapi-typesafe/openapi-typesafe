@@ -1,5 +1,6 @@
 import type { IrDeclaration, IrMember, IrType } from "../../../domain/ir/nodes.js";
 import {
+  absorbed,
   type Evaluated,
   type Evaluation,
   MISSING,
@@ -8,7 +9,13 @@ import {
   propertyKey,
   unionType,
 } from "./evaluation.js";
-import { declaredFirst, extracted, isNeverIntersection, omitted } from "./type-rules.js";
+import {
+  declaredFirst,
+  extracted,
+  isNeverIntersection,
+  markerObject,
+  omitted,
+} from "./type-rules.js";
 
 /**
  * A small evaluator of the generated types, as TypeScript reads them, for the `--enum-values`
@@ -105,14 +112,14 @@ export class TypeEvaluator {
       case "Omit":
         return second === undefined ? OPAQUE : omitted(this, argument, second);
       default:
-        return OPAQUE;
+        return markerObject(name, argument) ?? OPAQUE;
     }
   }
 
   /**
    * The members of a union, each expanded; an intersection with unions in it is distributed over
    * them (`A & (B | C)` is `(A & B) | (A & C)`), as TypeScript normalizes it. A type that is not a
-   * union is its only member.
+   * union is its only member. A union with an `any` or `unknown` member is that keyword alone.
    */
   membersOf(value: Evaluated): readonly Evaluation[] {
     const expanded = this.expand(value);
@@ -121,7 +128,9 @@ export class TypeEvaluator {
     }
     const { type } = expanded;
     if (type.kind === "union") {
-      return type.types.flatMap((member) => this.membersOf({ ...expanded, type: member }));
+      return absorbed(
+        type.types.flatMap((member) => this.membersOf({ ...expanded, type: member })),
+      );
     }
     return type.kind === "intersection" ? this.distributed(expanded, type.types) : [expanded];
   }
@@ -252,9 +261,9 @@ function isNullish(type: IrType): boolean {
   return type.kind === "keyword" && NULLISH.has(type.keyword);
 }
 
+/** The element of an expanded member; expanding already dropped `readonly`. */
 function arrayElement(type: IrType): IrType | null {
-  const inner = type.kind === "readonly" ? type.type : type;
-  return inner.kind === "array" ? inner.element : null;
+  return type.kind === "array" ? type.element : null;
 }
 
 function intersectionType(types: readonly IrType[]): IrType {

@@ -145,6 +145,7 @@ export function fakeTransformContext(input: FakeContextInput = {}): {
     discriminators: {
       objectAt: (ref) => input.discriminators?.[ref],
       isHandled: (ref) => input.handledRefs?.includes(ref) ?? false,
+      otherPropertiesAt: () => [],
       enumParentOf: () => undefined,
     },
     footer,

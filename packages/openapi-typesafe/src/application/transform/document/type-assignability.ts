@@ -1,11 +1,20 @@
+import { irBoolean } from "../../../domain/ir/constructors.js";
 import type {
   IrIndexSignature,
   IrObjectType,
   IrPropertySignature,
-  IrTupleElement,
   IrType,
+  IrUnionType,
 } from "../../../domain/ir/nodes.js";
+import {
+  type Assignability,
+  crossCategoryRelation,
+  everyOf,
+  primitiveRelation,
+  someOf,
+} from "./assignability.js";
 import type { DeclaredTypeLookup } from "./declared-types.js";
+import { type IrListType, relateLists } from "./list-assignability.js";
 import { createTypeKey } from "./type-key.js";
 import {
   indexSignaturesOf,
@@ -16,26 +25,29 @@ import {
 } from "./type-resolution.js";
 
 /**
- * Whether TypeScript surely accepts one type where another is expected (`strict`, without
+ * Whether TypeScript accepts one type where another is expected (`strict`, without
  * `exactOptionalPropertyTypes`), for the `--path-params-as-types` overlap check. It follows the
  * checker's rules for the types the generator writes: unions, intersections, objects with optional
  * properties and index signatures, weak types, arrays, tuples, literals and keywords, and the
- * references to declarations of the document. `true` is a proof; `false` means "not proven":
- * a type it does not model (a utility type, raw text) is only accepted when it is the same type.
- * So a path item that is not proven assignable is moved to its own object, which always compiles.
+ * references to declarations of the document. A pair it does not model (a utility type, raw text)
+ * is undecided unless both are the same type, and an undecided pair keeps the original output.
  */
 
 /** Results by source type, then by target type. */
-type PairResults = Map<IrType, Map<IrType, boolean>>;
+type PairResults = Map<IrType, Map<IrType, Assignability>>;
 
-function resultOf(results: PairResults, source: IrType, target: IrType): boolean | undefined {
+function resultOf(results: PairResults, source: IrType, target: IrType): Assignability | undefined {
   return results.get(source)?.get(target);
 }
 
-function setResult(results: PairResults, source: IrType, target: IrType, value: boolean): void {
-  const byTarget = results.get(source) ?? new Map<IrType, boolean>();
-  byTarget.set(target, value);
-  results.set(source, byTarget);
+function setResult(
+  results: PairResults,
+  pair: { readonly source: IrType; readonly target: IrType },
+  value: Assignability,
+): void {
+  const byTarget = results.get(pair.source) ?? new Map<IrType, Assignability>();
+  byTarget.set(pair.target, value);
+  results.set(pair.source, byTarget);
 }
 
 /** A weak type has only optional properties; TypeScript rejects a source sharing none (TS2559). */
@@ -57,16 +69,20 @@ function isStringIndex(signature: IrIndexSignature): boolean {
   return signature.parameterType.kind === "keyword" && signature.parameterType.keyword === "string";
 }
 
-/** The element type of a tuple element; a rest element `...T[]` stands for its items. */
-function elementType(element: IrTupleElement): IrType {
-  return element.isRest && element.type.kind === "array" ? element.type.element : element.type;
-}
+/** `boolean` as the checker stores it: the union `true | false`. */
+const BOOLEAN_MEMBERS: readonly IrType[] = [irBoolean(true), irBoolean(false)];
 
-function isSameTupleShape(source: IrTupleElement, target: IrTupleElement): boolean {
-  return (
-    source.isRest === target.isRest &&
-    (source.isOptional === target.isOptional || target.isOptional)
-  );
+/**
+ * The members a source is compared by, one by one, or null for a source compared as a whole.
+ * `boolean` counts as `true | false` against a union, which it fits though it fits neither member
+ * alone; `string` and `number` are no finite unions, so no literal union holds all their values.
+ */
+function sourceUnionMembers(source: IrType, target: IrType): readonly IrType[] | null {
+  if (source.kind === "union") {
+    return source.types;
+  }
+  const isBoolean = source.kind === "keyword" && source.keyword === "boolean";
+  return isBoolean && target.kind === "union" ? BOOLEAN_MEMBERS : null;
 }
 
 /** The memoized check over the declarations of one generated file. */
@@ -83,167 +99,170 @@ class AssignabilityCheck {
     this.resolution = new TypeResolution(lookup);
   }
 
-  isAssignable(source: IrType, target: IrType): boolean {
-    const from = this.resolution.resolved(source);
-    const to = this.resolution.resolved(target);
-    if (from === to || this.typeKeyOf(from) === this.typeKeyOf(to)) {
-      return true;
+  relate(source: IrType, target: IrType): Assignability {
+    const pair = {
+      source: this.resolution.resolved(source),
+      target: this.resolution.resolved(target),
+    };
+    if (
+      pair.source === pair.target ||
+      this.typeKeyOf(pair.source) === this.typeKeyOf(pair.target)
+    ) {
+      return "assignable";
     }
-    const known = resultOf(this.results, from, to);
+    const known = resultOf(this.results, pair.source, pair.target);
     if (known !== undefined) {
       return known;
     }
     // A pair being compared is assumed related, as the checker does for recursive types.
-    if (resultOf(this.inProgress, from, to) !== undefined) {
+    if (resultOf(this.inProgress, pair.source, pair.target) !== undefined) {
       this.assumptions += 1;
-      return true;
+      return "assignable";
     }
     const assumedBefore = this.assumptions;
-    setResult(this.inProgress, from, to, true);
+    setResult(this.inProgress, pair, "assignable");
     this.depth += 1;
-    const result = this.compare(from, to);
+    const result = this.compare(pair.source, pair.target);
     this.depth -= 1;
-    this.inProgress.get(from)?.delete(to);
-    // "Related" that rests on an assumption about an outer pair holds only if that pair does, so
-    // it is kept only once no outer pair is open. "Not proven" never rests on an assumption.
-    if (!result || this.assumptions === assumedBefore || this.depth === 0) {
-      setResult(this.results, from, to, result);
+    this.inProgress.get(pair.source)?.delete(pair.target);
+    // "Assignable" that rests on an assumption about an outer pair holds only if that pair does,
+    // so it is kept only once no outer pair is open. The assumption can only make a pair more
+    // related, so a rejection or an undecided pair reached under it is safe to keep.
+    if (result !== "assignable" || this.assumptions === assumedBefore || this.depth === 0) {
+      setResult(this.results, pair, result);
     }
     return result;
   }
 
-  private compare(source: IrType, target: IrType): boolean {
+  private compare(source: IrType, target: IrType): Assignability {
     if (target.kind === "keyword" && target.keyword === "unknown") {
-      return true;
+      return "assignable";
     }
     if (source.kind === "keyword" && source.keyword === "never") {
-      return true;
+      return "assignable";
     }
-    if (source.kind === "union") {
-      return source.types.every((member) => this.isAssignable(member, target));
+    const sourceMembers = sourceUnionMembers(source, target);
+    if (sourceMembers !== null) {
+      return everyOf(sourceMembers, (member) => this.relate(member, target));
     }
     if (target.kind === "intersection") {
-      return target.types.every((member) => this.isAssignable(source, member));
+      return everyOf(target.types, (member) => this.relateToIntersectionPart(source, member));
     }
-    if (
-      target.kind === "union" &&
-      target.types.some((member) => this.isAssignable(source, member))
-    ) {
-      return true;
+    if (target.kind === "union") {
+      return this.relateToUnion(source, target);
     }
     if (source.kind === "intersection") {
-      return this.isIntersectionAssignable(source.types, target);
+      // A part that fits is enough; the parts as one type are not modelled (see `merged`).
+      const fits = source.types.some((part) => this.relate(part, target) === "assignable");
+      return fits ? "assignable" : "undecided";
     }
     return this.compareSingle(source, target);
   }
 
-  /** A part of an intersection that is not one object (see `merged`) is enough when it fits. */
-  private isIntersectionAssignable(parts: readonly IrType[], target: IrType): boolean {
-    return parts.some((part) => this.isAssignable(part, target));
+  /**
+   * A part of an intersection the check cannot merge into one object. The checker skips the weak
+   * type check for such a part, so a rejection that may rest on it decides nothing.
+   */
+  private relateToIntersectionPart(source: IrType, part: IrType): Assignability {
+    const result = this.relate(source, part);
+    const from = this.resolution.resolved(source);
+    const to = this.resolution.resolved(part);
+    const isWeakRejection =
+      from.kind === "object" && to.kind === "object" && isWeakTypeRejected(from, to);
+    return result === "rejected" && isWeakRejection ? "undecided" : result;
   }
 
-  private compareSingle(source: IrType, target: IrType): boolean {
-    if (source.kind === "readonly") {
-      // A readonly array is no mutable array; to a readonly target it is the same type.
-      return target.kind === "readonly" && this.isAssignable(source.type, target.type);
-    }
-    if (target.kind === "readonly") {
-      return this.isAssignable(source, target.type);
+  /**
+   * An object may fit a union of objects that none of its members accepts alone, through a
+   * discriminant property (`{ k: "a" | "b" }` fits `{ k: "a" } | { k: "b" }`); not modelled.
+   */
+  private relateToUnion(source: IrType, target: IrUnionType): Assignability {
+    const result = someOf(target.types, (member) => this.relate(source, member));
+    const objectMembers = target.types.filter(
+      (member) => this.resolution.resolved(member).kind === "object",
+    );
+    const mayBeDiscriminated = source.kind === "object" && objectMembers.length > 1;
+    return result === "rejected" && mayBeDiscriminated ? "undecided" : result;
+  }
+
+  private compareSingle(source: IrType, target: IrType): Assignability {
+    const crossCategory = crossCategoryRelation(source, target);
+    if (crossCategory !== null) {
+      return crossCategory;
     }
     switch (source.kind) {
-      case "stringLiteral":
-        return target.kind === "keyword" && target.keyword === "string";
-      case "numberLiteral":
-        return target.kind === "keyword" && target.keyword === "number";
-      case "booleanLiteral":
-        return target.kind === "keyword" && target.keyword === "boolean";
       case "array":
       case "tuple":
-        return this.isListAssignable(source, target);
+      case "readonly":
+        return relateLists(source, target as IrListType, (from, to) => this.relate(from, to));
       case "object":
-        return target.kind === "object" && this.isObjectAssignable(source, target);
+        return this.relateObjects(source, target as IrObjectType);
       default:
-        return false;
+        return primitiveRelation(source, target);
     }
   }
 
-  private isListAssignable(source: IrType, target: IrType): boolean {
-    if (source.kind === "array") {
-      return target.kind === "array" && this.isAssignable(source.element, target.element);
-    }
-    if (source.kind !== "tuple") {
-      return false;
-    }
-    if (target.kind === "array") {
-      return source.elements.every((element) =>
-        this.isAssignable(elementType(element), target.element),
-      );
-    }
-    return (
-      target.kind === "tuple" &&
-      source.elements.length === target.elements.length &&
-      source.elements.every((element, index) => {
-        const other = target.elements[index] as IrTupleElement;
-        return isSameTupleShape(element, other) && this.isAssignable(element.type, other.type);
-      })
-    );
-  }
-
-  private isObjectAssignable(source: IrObjectType, target: IrObjectType): boolean {
+  private relateObjects(source: IrObjectType, target: IrObjectType): Assignability {
     if (isWeakTypeRejected(source, target)) {
-      return false;
+      return "rejected";
     }
     const sourceProperties = propertiesOf(source);
-    const sourceIndexes = indexSignaturesOf(source);
-    const targetIndexes = indexSignaturesOf(target);
-    if (!targetIndexes.every((signature) => this.isIndexSatisfied(source, signature))) {
-      return false;
-    }
-    return [...propertiesOf(target).values()].every((property) =>
-      this.isPropertySatisfied(sourceProperties.get(nameOf(property)), property, sourceIndexes),
+    const indexes = everyOf(indexSignaturesOf(target), (signature) =>
+      this.relateToIndex(source, signature),
     );
+    if (indexes === "rejected") {
+      return indexes;
+    }
+    const properties = everyOf([...propertiesOf(target).values()], (property) =>
+      this.relateProperty(sourceProperties.get(nameOf(property)), property),
+    );
+    return everyOf([indexes, properties], (result) => result);
   }
 
-  /** Every property and string index of the source fits a string index signature of the target. */
-  private isIndexSatisfied(source: IrObjectType, signature: IrIndexSignature): boolean {
+  /**
+   * A string index signature of the target. A string index of the source is compared with it;
+   * without one, every property and index signature of the source is. An optional property is
+   * compared without the `undefined` its optionality adds, as the checker does.
+   */
+  private relateToIndex(source: IrObjectType, signature: IrIndexSignature): Assignability {
     if (!isStringIndex(signature)) {
-      return false;
+      return "undecided";
     }
-    const properties = [...propertiesOf(source).values()];
-    return (
-      properties.every((property) => this.isAssignable(readType(property), signature.type)) &&
-      indexSignaturesOf(source).every(
-        (own) => isStringIndex(own) && this.isAssignable(own.type, signature.type),
-      )
-    );
+    const indexes = indexSignaturesOf(source);
+    const own = indexes.find(isStringIndex);
+    if (own !== undefined) {
+      return this.relate(own.type, signature.type);
+    }
+    const types = [
+      ...[...propertiesOf(source).values()].map((property) => property.type),
+      ...indexes.map((index) => index.type),
+    ];
+    return everyOf(types, (type) => this.relate(type, signature.type));
   }
 
-  private isPropertySatisfied(
+  /**
+   * A property of the target. A missing optional one is not checked, not even against a string
+   * index of the source; a missing or optional source property fails a required one (TS2741).
+   */
+  private relateProperty(
     source: IrPropertySignature | undefined,
     target: IrPropertySignature,
-    sourceIndexes: readonly IrIndexSignature[],
-  ): boolean {
+  ): Assignability {
     if (source === undefined) {
-      // An optional property is checked against a string index of the source, if any.
-      return (
-        target.isOptional &&
-        sourceIndexes.every(
-          (own) => isStringIndex(own) && this.isAssignable(own.type, readType(target)),
-        )
-      );
+      return target.isOptional ? "assignable" : "rejected";
     }
     if (source.isOptional && !target.isOptional) {
-      return false;
+      return "rejected";
     }
-    return this.isAssignable(readType(source), readType(target));
+    return this.relate(readType(source), readType(target));
   }
 }
 
-/** Whether a source type is surely assignable to a target, read through the document's types. */
-export type AssignabilityProof = (source: IrType, target: IrType) => boolean;
+/** What the check proves about a source type where a target is expected. */
+export type AssignabilityProof = (source: IrType, target: IrType) => Assignability;
 
 /** One memoized check, for all the comparisons of a `paths` type. */
 export function assignabilityProof(lookup: DeclaredTypeLookup): AssignabilityProof {
   const check = new AssignabilityCheck(lookup);
-  return (source, target) => check.isAssignable(source, target);
+  return (source, target) => check.relate(source, target);
 }

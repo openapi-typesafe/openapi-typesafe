@@ -40,8 +40,10 @@ describe("matrixCells", () => {
     expect(cells.map((cell) => `${cell.version.id}/${cell.project.id}`)).toEqual([
       "5.4/strict",
       "5.4/strict-flags",
+      "5.4/commonjs",
       "7.1-beta/strict",
       "7.1-beta/strict-flags",
+      "7.1-beta/commonjs",
     ]);
   });
 });

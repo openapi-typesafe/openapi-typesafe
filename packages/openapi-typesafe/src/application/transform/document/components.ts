@@ -31,7 +31,7 @@ import { parameterType } from "./parameter.js";
 import { pathItemType } from "./path-item.js";
 import { requestBodyType } from "./request-body.js";
 import { responseType } from "./response.js";
-import { numberDisplacedAliases, rootTypeAlias } from "./root-type-aliases.js";
+import { rootTypeAlias } from "./root-type-aliases.js";
 
 type ComponentTransform = (
   item: never,
@@ -112,8 +112,8 @@ function rootTypeName(
  * Add a root alias. When its exported name is taken (two schemas of one PascalCase name without
  * the prefix), the later schema takes the name, as in the original. Without the
  * `root-type-numbering` fix the earlier one then has no alias: that output is valid, so a number
- * for it would change it (backlog 30). With the fix the earlier alias is kept aside and numbered
- * at the end.
+ * for it would change it (backlog 30). With the fix the earlier alias is kept aside and follows
+ * the others under the same name; `renameTakenAliases` numbers it once every name is known.
  */
 function addRootAlias(request: ComponentsRequest, alias: IrTypeAliasDeclaration): void {
   const { aliases, displaced } = request;
@@ -184,6 +184,6 @@ export function componentsType(
   const rootTypes = Object.values(aliases);
   return {
     type: irObject(members),
-    rootTypes: [...rootTypes, ...numberDisplacedAliases(displaced ?? [], rootTypes)],
+    rootTypes: [...rootTypes, ...(displaced ?? [])],
   };
 }

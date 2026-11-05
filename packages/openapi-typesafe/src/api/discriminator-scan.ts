@@ -1,5 +1,5 @@
 import type { Logger } from "../application/ports/logger.js";
-import { unionAt, unionReaches } from "../domain/openapi/discriminated-union.js";
+import { isUnionMember, unionAt } from "../domain/openapi/discriminated-union.js";
 import { OutputFix } from "../domain/output-fixes.js";
 import type {
   DiscriminatorObject,
@@ -11,6 +11,7 @@ import type {
 import { defaultLogger } from "./default-ports.js";
 import type { EnumPatch } from "./discriminator-enum.js";
 import type { EnumParent } from "./discriminator-enum-parent.js";
+import { applyOtherInferredPatches, inheritOtherOwners } from "./discriminator-other-owners.js";
 import {
   type DiscriminatorScanOptions,
   enumKey,
@@ -49,9 +50,9 @@ function inferredMapping(oneOf: (SchemaObject | ReferenceObject)[]): Discriminat
 /** Values defined in `discriminator.mapping` replace inferred ones for the same schema. */
 function addDefinedMapping(
   mapping: DiscriminatorMapping,
-  discriminator: DiscriminatorObject,
+  defined: Readonly<Record<string, string>>,
 ): void {
-  for (const [mappedValue, mappedRef] of Object.entries(discriminator.mapping ?? {})) {
+  for (const [mappedValue, mappedRef] of Object.entries(defined)) {
     if (!mappedRef) {
       continue;
     }
@@ -101,7 +102,7 @@ function collectDiscriminator(
   }
   const mapping = inferredMapping(value.oneOf);
   if (discriminator.mapping) {
-    addDefinedMapping(mapping, discriminator);
+    addDefinedMapping(mapping, discriminator.mapping);
   }
   patchMappedSchemas(state, mapping, { discriminator, discriminatorRef });
 }
@@ -116,7 +117,8 @@ function valuesMappedTo(discriminator: DiscriminatorObject, ref: string): string
 /**
  * Whether the schema at `ref` takes the discriminator of its `allOf` parent at `parentRef`. With
  * `allof-discriminated-union`, a schema that `allOf`s a discriminated union that does not contain
- * it is that union, not one of its members, so it gets no value of its own (#1464, #1690).
+ * it is that union, not one of its members, so it gets no value of its own (#1464, #1690). A
+ * schema that the union's mapping names is a member.
  */
 function inheritsDiscriminator(state: ScanState, parentRef: string, ref: string): boolean {
   if (!state.fixes.has(OutputFix.ALLOF_DISCRIMINATED_UNION)) {
@@ -124,7 +126,7 @@ function inheritsDiscriminator(state: ScanState, parentRef: string, ref: string)
   }
   const resolve = (target: string) => resolveDocumentRef(state.schema, target, state);
   const union = unionAt(parentRef, resolve);
-  return union === undefined || unionReaches(union, ref, resolve);
+  return union === undefined || isUnionMember(union, ref, resolve);
 }
 
 /**
@@ -164,6 +166,9 @@ function inheritFromRef(state: ScanState, parentRef: string, ref: string): boole
   }
   if (inheritsDiscriminator(state, parentRef, ref)) {
     recordInherited(state, ref, discriminator, parentRef);
+    if (mergesValues(state)) {
+      inheritOtherOwners(state, parentRef, ref);
+    }
   }
   return true;
 }
@@ -195,6 +200,8 @@ export interface DiscriminatorScan {
   refsHandled: string[];
   /** With `discriminator-values`: the owner's enum of each enum the scan added. */
   enumParents: ReadonlyMap<object, EnumParent>;
+  /** With `discriminator-values`: the properties of the other discriminators a schema inherits. */
+  otherProperties: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
@@ -209,6 +216,7 @@ function applyInferredPatches(state: ScanState): void {
       markHandled(state, patch.ref);
     }
   }
+  applyOtherInferredPatches(state, mapped);
 }
 
 /** Find every discriminator in `schema`; warnings go to `logger` unless `silent`. */
@@ -224,6 +232,8 @@ export function findDiscriminators(
     refsHandled: [],
     patchedEnums: new Map(),
     inferredPatches: [],
+    otherInferredPatches: [],
+    otherProperties: {},
     declaredKeys: new Set(),
     enumParents: new Map(),
   };
@@ -231,8 +241,8 @@ export function findDiscriminators(
   // A second pass, because an `allOf` may name a discriminator that is defined later.
   walkDocument(schema, (value, path) => inheritDiscriminators(state, value, path));
   applyInferredPatches(state);
-  const { objects, refsHandled, enumParents } = state;
-  return { objects, refsHandled, enumParents };
+  const { objects, refsHandled, enumParents, otherProperties } = state;
+  return { objects, refsHandled, enumParents, otherProperties };
 }
 
 /**
