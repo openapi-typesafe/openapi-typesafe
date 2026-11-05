@@ -48,7 +48,9 @@ documents that were already broken.
    `properties` and `allOf/N` left out, `parameters/0` named `parameters/<in>/<name>`), not at
    the pointer: that location names its `--enum` declaration and `--enum-values` array, so the
    inline copy shares them. Typed at the pointer, it declared a second TypeScript enum with the
-   same members, which is not assignable to the first.
+   same members, which is not assignable to the first. A node under a keyword the generator does
+   not type (`definitions/A`, `not`) is typed nowhere else and keeps its pointer as its location,
+   so its names stay as they were.
 4. **`WithRequired` of an absent target** gets `NonNullable<…>`: `keyof (T | undefined)` is `never`.
 5. **Fix `ref-pointers`.** Where the original compiles through an index signature, the corrected
    type comes only with `--fix ref-pointers` (and `all`), as every other output fix (ADR-021). Its

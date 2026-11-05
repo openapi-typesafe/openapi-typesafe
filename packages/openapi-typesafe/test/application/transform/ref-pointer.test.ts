@@ -329,15 +329,16 @@ describe("generatedLocationOf", () => {
     expect(located(`${MEDIA}/schema/items/properties/time`).path).toBe(`${MEDIA}/time`);
   });
 
-  it("generatedLocationOf continues at a crossed $ref and keeps other keywords", () => {
+  it("generatedLocationOf continues at a crossed $ref and keeps a pointer it cannot map", () => {
     expect(located("#/components/schemas/Both/allOf/1/properties/time").path).toBe(
       "#/components/schemas/Item/time",
     );
+    // The generator types nothing under `definitions`: such a node keeps its pointer.
     expect(located("#/components/schemas/Defs/definitions/Old/properties/time").path).toBe(
-      "#/components/schemas/Defs/definitions/Old/time",
+      "#/components/schemas/Defs/definitions/Old/properties/time",
     );
-    expect(located("#/components/schemas/Loop/definitions/Node/properties/next/x").path).toBe(
-      "#/components/schemas/Loop/definitions/Node/x",
+    expect(located("#/components/schemas/Optional/properties/inner/not").path).toBe(
+      "#/components/schemas/Optional/properties/inner/not",
     );
     expect(located("no pointer").path).toBe("no pointer");
   });

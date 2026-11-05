@@ -18,7 +18,8 @@ import {
  * `patternProperties/P` and `additionalProperties` type their schema at the parent's location;
  * the `schema` of a parameter, header or media type is typed at the container's; a positional
  * parameter is named by `in` and `name`. A `$ref` crossed on the way continues at its target's
- * location. Other segments (`definitions/A`, `not`) are kept: the generator does not type them.
+ * location. A node under a schema keyword the generator does not type (`definitions/A`, `not`) is
+ * typed nowhere else, so it keeps its pointer as its location.
  */
 
 export interface GeneratedLocation {
@@ -56,6 +57,8 @@ const RECORD_VALUE_KEYWORDS: ReadonlySet<string> = new Set([
 ]);
 /** Keywords followed by a name or position that both stay in the location. */
 const KEPT_PAIRS: ReadonlySet<string> = new Set(["anyOf", "oneOf", "$defs"]);
+/** The other schema keywords the generator types: at the parent's location. */
+const PARENT_LOCATION_KEYWORDS: ReadonlySet<string> = new Set(["items", ...RECORD_VALUE_KEYWORDS]);
 const INDEX_RE = /^\d+$/;
 
 function childOf(node: unknown, segment: string | undefined): unknown {
@@ -68,7 +71,8 @@ function pairStep(value: unknown, next: string | undefined, path: readonly strin
   return { path, child: childOf(value, next), length: 2, isSchema: true };
 }
 
-function schemaStep(node: unknown, segment: string, next: string | undefined): Step {
+/** The step through a schema keyword; null for a keyword the generator does not type. */
+function schemaStep(node: unknown, segment: string, next: string | undefined): Step | null {
   const value = childOf(node, segment);
   const named = next === undefined ? [] : [next];
   if (segment === "properties") {
@@ -80,10 +84,12 @@ function schemaStep(node: unknown, segment: string, next: string | undefined): S
   if (KEPT_PAIRS.has(segment)) {
     return pairStep(value, next, [segment, ...named]);
   }
+  if (!PARENT_LOCATION_KEYWORDS.has(segment)) {
+    return null;
+  }
   const isRecordValue = RECORD_VALUE_KEYWORDS.has(segment);
-  const path = isRecordValue || segment === "items" ? [] : [segment];
   return {
-    path,
+    path: [],
     child: value,
     length: 1,
     isSchema: true,
@@ -126,7 +132,7 @@ function documentStep(walk: LocationWalk, segments: readonly string[], index: nu
   return { path: [segment], child: value, length: 1, isSchema: false };
 }
 
-function stepAt(walk: LocationWalk, pointer: RefPointer, index: number): Step {
+function stepAt(walk: LocationWalk, pointer: RefPointer, index: number): Step | null {
   const { segments } = pointer;
   const segment = segments[index] as string;
   if (index < leadingSegmentsOf(pointer)) {
@@ -143,21 +149,21 @@ function refOf(node: unknown): string | null {
 }
 
 /**
- * The walk at a crossed `$ref`'s target, through `$ref`s to `$ref`s. A cycle of `$ref`s has no
- * node; an external `$ref` keeps the pointer's own path.
+ * The walk at a crossed `$ref`'s target, through `$ref`s to `$ref`s; null where the target has
+ * no generated location. A cycle of `$ref`s has no node.
  */
 function crossed(
   walk: LocationWalk,
   ref: string,
   refs: RefResolver,
   seen: readonly string[],
-): LocationWalk {
+): LocationWalk | null {
   if (seen.includes(ref)) {
     return { ...walk, node: undefined };
   }
-  const target = walkTo(ref, refs, seen) ?? { ...walk, node: refs.resolve(ref) };
-  const inner = refOf(target.node);
-  return inner === null ? target : crossed(target, inner, refs, [...seen, ref]);
+  const target = walkTo(ref, refs, seen);
+  const inner = refOf(target?.node);
+  return target === null || inner === null ? target : crossed(target, inner, refs, [...seen, ref]);
 }
 
 function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): LocationWalk | null {
@@ -174,6 +180,9 @@ function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): Locati
   };
   for (let index = 0; index < pointer.segments.length; ) {
     const step = stepAt(walk, pointer, index);
+    if (step === null) {
+      return null;
+    }
     index += step.length;
     walk = {
       path: [...walk.path, ...step.path],
@@ -182,9 +191,12 @@ function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): Locati
       isFromAdditionalProperties: step.isFromAdditionalProperties === true,
     };
     const inner = refOf(walk.node);
-    if (inner !== null && index < pointer.segments.length) {
-      walk = crossed(walk, inner, refs, [...seen, ref]);
+    const target = inner !== null && index < pointer.segments.length;
+    const next = target ? crossed(walk, inner, refs, [...seen, ref]) : walk;
+    if (next === null) {
+      return null;
     }
+    walk = next;
   }
   return walk;
 }
