@@ -204,9 +204,10 @@ function withPathItems(
 }
 
 /**
- * The exact check. Once the declarations are known, a covered path item that is not proven
- * assignable to the signature's type counts as rejected, so every output compiles. Before that,
- * only a proven rejection counts: references cannot be read yet.
+ * The exact check: a covered path item counts as rejected only when it is proven not assignable
+ * to the signature's type. A pair the proof cannot decide keeps the original output, which may
+ * well compile (`Record<string, never>` fits `{ [key: string]: unknown }`). Before the
+ * declarations are known, only the presence check counts: references cannot be read yet.
  */
 function exactRejection(
   paths: readonly PathMember[],
@@ -215,8 +216,8 @@ function exactRejection(
   if (lookup === NO_DECLARED_TYPES) {
     return pathItemRejection();
   }
-  const isAssignable = assignabilityProof(withPathItems(paths, lookup));
-  return (covered, covering) => !isAssignable(covered, covering);
+  const relate = assignabilityProof(withPathItems(paths, lookup));
+  return (covered, covering) => relate(covered, covering) === "rejected";
 }
 
 /**

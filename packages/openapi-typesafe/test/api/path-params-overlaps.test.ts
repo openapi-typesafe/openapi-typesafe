@@ -134,6 +134,21 @@ const app: paths[\`/apps/\${string}\`]["get"]["parameters"]["path"] = { id: "a" 
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS keeps the paths interface when the check cannot read a covered type", async () => {
+    // `Record<string, never>` fits `{ [key: string]: unknown }`; the check does not model it, so
+    // the output stays the original, which compiles.
+    const schemas = {
+      CaseDetail: { type: "object", additionalProperties: true },
+      CaseSummary: { type: "object" },
+    };
+
+    const output = await generate(NESTED, {}, { schemas });
+
+    expect(output).toContain("export interface paths {");
+    expect(output).toContain("Record<string, never>");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS output with nested paths of recursive schemas terminates and compiles", async () => {
     const tree = (name: string) => ({
       type: "object",

@@ -249,11 +249,13 @@ Though this is a contrived example, you could use this feature to automatically 
 type, and the output does not compile when they do not (TS2411, TS2413). The generator checks
 each such path against the template the way TypeScript does: through `operations[…]` and
 `components[…]`, into unions, intersections, arrays, tuples, index signatures and every property
-type. Unless the path's type surely fits, `paths` is written as an intersection,
+type. Where the path's type surely does not fit, `paths` is written as an intersection,
 `` export type paths = { … } & { [path: `/user/${string}`]: … } ``, with each such template in an
 object of its own. Every path keeps its type: `paths["/user/settings"]` and
 `` paths[`/user/${string}`] `` are the same as before. Output that compiles stays the same,
-`export interface paths` included.
+`export interface paths` included. Where the check cannot tell, such as for a utility type
+(`Record<string, never>`) or the type of a callback, the output stays as the original wrote it,
+which may then not compile.
 
 A URL that two templates match, such as `/user/123/keys` for `` `/user/${string}` `` and
 `` `/user/${string}/keys` ``, gets both types: `paths["/user/123/keys"]` is their intersection.
