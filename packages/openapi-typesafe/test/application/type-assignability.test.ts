@@ -174,6 +174,21 @@ describe("assignabilityProof: objects", () => {
 
     expect(isAssignable(object(optional("post", NEVER)), target)).toBe("assignable");
     expect(isAssignable(object(required("post", object())), target)).toBe("rejected");
+    expect(isAssignable(object(), target)).toBe("assignable");
+    expect(isAssignable(object(optional("post", UNDEFINED)), target)).toBe("assignable");
+    // Raw text (a callback's type) may be `undefined`, and a reference may name `never`.
+    expect(isAssignable(object(required("post", irRaw("any"))), target)).toBe("undecided");
+    expect(isAssignable(object(required("post", schema("Missing"))), target)).toBe("undecided");
+  });
+
+  it("assignabilityProof needs a method the covering path item has", () => {
+    const covering = object(required("get", object()), optional("post", NEVER));
+
+    expect(isAssignable(object(optional("get", NEVER)), covering)).toBe("rejected");
+    expect(isAssignable(object(optional("get", object())), covering)).toBe("rejected");
+    expect(isAssignable(object(required("get", object()), required("sub")), covering)).toBe(
+      "assignable",
+    );
   });
 
   it("assignabilityProof rejects a source that shares no property with a weak type", () => {

@@ -134,6 +134,18 @@ const app: paths[\`/apps/\${string}\`]["get"]["parameters"]["path"] = { id: "a" 
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS keeps the paths interface for a key TypeScript does not match", async () => {
+    // `/a/b/${number}` is no `/${string}/${number}` to the checker, which does not backtrack.
+    const N = { name: "n", in: "path", required: true, schema: { type: "integer" } };
+    const remove = { delete: { parameters: [N], responses: { 200: { description: "ok" } } } };
+    const paths = { "/{id}/{n}": operation("any", [ID, N]), "/a/b/{n}": remove };
+
+    const output = await generate(paths);
+
+    expect(output).toContain("export interface paths {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS keeps the paths interface when the check cannot read a covered type", async () => {
     // `Record<string, never>` fits `{ [key: string]: unknown }`; the check does not model it, so
     // the output stays the original, which compiles.

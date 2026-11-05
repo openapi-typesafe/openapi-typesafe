@@ -20,7 +20,6 @@ import type { TransformContext } from "../transform-context.js";
 import { type DeclaredTypeLookup, NO_DECLARED_TYPES } from "./declared-types.js";
 import { documentMember } from "./document-member.js";
 import { pathItemType } from "./path-item.js";
-import { type PathItemRejection, pathItemRejection } from "./path-item-conflicts.js";
 import {
   type CoverRejection,
   coveringTemplateKeys,
@@ -160,19 +159,6 @@ function literalKey(url: string): PathKey {
   return { kind: "literal", url };
 }
 
-/** A cover rejection by the indexes of the paths, from a rejection of their path item types. */
-function rejectionOf(paths: readonly PathMember[], isRejected: PathItemRejection): CoverRejection {
-  return (coveringIndex, coveredIndex) => {
-    const coveringPath = paths[coveringIndex];
-    const coveredPath = paths[coveredIndex];
-    return (
-      coveringPath !== undefined &&
-      coveredPath !== undefined &&
-      isRejected(coveredPath.type, coveringPath.type)
-    );
-  };
-}
-
 const PATHS_TYPE_NAME = "paths";
 
 /** The URL of `paths["/apps/{id}"]`, or null for any other type. */
@@ -204,20 +190,21 @@ function withPathItems(
 }
 
 /**
- * The exact check: a covered path item counts as rejected only when it is proven not assignable
- * to the signature's type. A pair the proof cannot decide keeps the original output, which may
- * well compile (`Record<string, never>` fits `{ [key: string]: unknown }`). Before the
- * declarations are known, only the presence check counts: references cannot be read yet.
+ * The rejection of a covered path item: only one proven not assignable to the signature's type
+ * counts (ADR-028). A pair the proof cannot decide keeps the original output, which may well
+ * compile (`Record<string, never>` fits `{ [key: string]: unknown }`).
  */
-function exactRejection(
-  paths: readonly PathMember[],
-  lookup: DeclaredTypeLookup,
-): PathItemRejection {
-  if (lookup === NO_DECLARED_TYPES) {
-    return pathItemRejection();
-  }
+function rejectionOf(paths: readonly PathMember[], lookup: DeclaredTypeLookup): CoverRejection {
   const relate = assignabilityProof(withPathItems(paths, lookup));
-  return (covered, covering) => relate(covered, covering) === "rejected";
+  return (coveringIndex, coveredIndex) => {
+    const coveringPath = paths[coveringIndex];
+    const coveredPath = paths[coveredIndex];
+    return (
+      coveringPath !== undefined &&
+      coveredPath !== undefined &&
+      relate(coveredPath.type, coveringPath.type) === "rejected"
+    );
+  };
 }
 
 /**
@@ -233,10 +220,7 @@ export function pathsObjectType(
   lookup: DeclaredTypeLookup = NO_DECLARED_TYPES,
 ): IrType {
   const keys = paths.map(({ key }) => key);
-  const covering = coveringTemplateKeys(keys, {
-    sampled: rejectionOf(paths, pathItemRejection()),
-    exact: rejectionOf(paths, exactRejection(paths, lookup)),
-  });
+  const covering = coveringTemplateKeys(keys, rejectionOf(paths, lookup));
   if (covering.size === 0) {
     return irObject(paths.map(({ member }) => member));
   }
