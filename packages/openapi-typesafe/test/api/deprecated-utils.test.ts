@@ -38,6 +38,21 @@ describe("deprecated utilities", () => {
     expect(Object.keys(objects)).toEqual(["#/components/schemas/Pet", "#/components/schemas/Alias"]);
   });
 
+  it("scanDiscriminators without a logger or silent skips refs and mapping targets with no name", () => {
+    const document = structuredClone(DOCUMENT);
+    const schemas = document.components?.schemas ?? {};
+    schemas.Shelter = {
+      type: "object",
+      oneOf: [{ $ref: "#/components/schemas/" }, { $ref: ALIAS_REF }],
+      discriminator: { propertyName: "kind", mapping: { none: "" } },
+    };
+
+    scanDiscriminators(document, {});
+
+    const added = (schemas.Alias as { allOf: { properties?: { kind?: { enum?: string[] } } }[] }).allOf;
+    expect(added.map((item) => item.properties?.kind?.enum)).toEqual([undefined, ["Alias"]]);
+  });
+
   it("scanDiscriminators keeps both values when two discriminators give a schema different ones", () => {
     const document = structuredClone(DOCUMENT);
     const schemas = document.components?.schemas ?? {};

@@ -50,9 +50,9 @@ function inferredMapping(oneOf: (SchemaObject | ReferenceObject)[]): Discriminat
 /** Values defined in `discriminator.mapping` replace inferred ones for the same schema. */
 function addDefinedMapping(
   mapping: DiscriminatorMapping,
-  discriminator: DiscriminatorObject,
+  defined: Readonly<Record<string, string>>,
 ): void {
-  for (const [mappedValue, mappedRef] of Object.entries(discriminator.mapping ?? {})) {
+  for (const [mappedValue, mappedRef] of Object.entries(defined)) {
     if (!mappedRef) {
       continue;
     }
@@ -102,7 +102,7 @@ function collectDiscriminator(
   }
   const mapping = inferredMapping(value.oneOf);
   if (discriminator.mapping) {
-    addDefinedMapping(mapping, discriminator);
+    addDefinedMapping(mapping, discriminator.mapping);
   }
   patchMappedSchemas(state, mapping, { discriminator, discriminatorRef });
 }
