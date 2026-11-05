@@ -2,11 +2,13 @@ import type { IrDeclaration } from "../../../domain/ir/nodes.js";
 
 /**
  * The TypeScript global types that generated code can refer to: in references (`Record<string,
- * never>`, `Omit<…>`) and in the text of footer helpers (`Exclude<…>`, `Readonly<…>`). A module
- * declaration of the same name shadows the global, and every use of it then fails to compile.
+ * never>`, `Omit<…>`, the `Blob` of `--binary-as-blob`) and in the text of footer helpers
+ * (`Exclude<…>`, `Readonly<…>`). A module declaration of the same name shadows the global: every
+ * use of it then fails to compile, or silently names the module's type (`Blob`).
  */
 const GLOBAL_TYPE_NAMES: ReadonlySet<string> = new Set([
   "Array",
+  "Blob",
   "Exclude",
   "Extract",
   "NonNullable",

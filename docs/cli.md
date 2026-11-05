@@ -368,7 +368,9 @@ file: Blob; // [!code ++]
 
 `Blob` is a global type. It comes with the `"dom"` lib and with `@types/node`, and Deno and Bun
 have it too. A project with neither (for example `lib: ["es2022"]` and no Node.js types) gets
-`Cannot find name 'Blob'`; add `"dom"` to `lib` or install `@types/node`.
+`Cannot find name 'Blob'`; add `"dom"` to `lib` or install `@types/node`. With
+`--root-types --root-types-no-schema-prefix`, the alias of a schema named `Blob` is `Blob_2`, so
+it does not hide the global type.
 
 With [openapi-typesafe-fetch](/fetch/), send the object with the `multipart/form-data` header: the
 client builds the `FormData` and lets the platform set the boundary. Read a binary response with

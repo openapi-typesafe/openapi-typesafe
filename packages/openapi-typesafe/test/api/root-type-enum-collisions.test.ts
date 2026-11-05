@@ -90,6 +90,34 @@ describe("root type aliases that shadow a TypeScript global type", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS renames the alias of a schema named Blob, which --binary-as-blob uses", async () => {
+    const upload = { type: "string", format: "binary" };
+    const document = {
+      ...documentWith({ Blob: { type: "object", properties: { id: { type: "string" } } } }),
+      paths: {
+        "/upload": {
+          post: {
+            requestBody: { content: { "application/octet-stream": { schema: upload } } },
+            responses: { 200: { description: "ok" } },
+          },
+        },
+      },
+    } as OpenAPI3;
+
+    const output = astToString(await openapiTS(document, { ...ROOT_OPTIONS, binaryAsBlob: true }));
+    // The body is the global Blob (declared here: the check has no DOM library), not the schema.
+    const code = `${output}
+declare global {
+  interface Blob { readonly size: number }
+  var Blob: { new (): Blob };
+}
+const blob = { "application/octet-stream": new Blob() };
+const body: paths["/upload"]["post"]["requestBody"] = { content: blob };`;
+
+    expect(output).toContain("export type Blob_2 = components['schemas']['Blob'];");
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
   it("openapiTS keeps the alias of a global type name that the output does not use", async () => {
     const document = documentWith({
       Omit: { type: "object", properties: { id: { type: "string" } } },
