@@ -72,16 +72,49 @@ function declaredProperty(
   return undefined;
 }
 
-/** A discriminator and the `$ref` of the schema that declares its property. */
-export type DiscriminatorOwner = Pick<EnumPatch, "discriminator" | "discriminatorRef">;
+/**
+ * A discriminator and the `$ref` of the schema that declares its property; `ref` is the member
+ * whose value the discriminator gives, where there is one.
+ */
+export type DiscriminatorOwner = Pick<EnumPatch, "discriminator" | "discriminatorRef"> &
+  Partial<Pick<EnumPatch, "ref">>;
 
-/** The enum of the property that the discriminator owner declares, if it is one. */
+/**
+ * The property `name` that the member at `ref` inherits through its `allOf` `$ref`s. Its own
+ * keywords and inline items are left out: the scan writes the added value there.
+ */
+function inheritedProperty(
+  ref: string,
+  name: string,
+  resolve: ResolveSchemaRef,
+): DeclaredProperty | undefined {
+  const schema = resolve(ref);
+  const visited = new Set([ref]);
+  for (const item of isSchemaObject(schema) ? (schema.allOf ?? []) : []) {
+    const found =
+      isSchemaObject(item) && "$ref" in item
+        ? declaredProperty(item.$ref as string, name, resolve, visited)
+        : undefined;
+    if (found !== undefined) {
+      return found;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The enum of the property that the discriminator owner declares, if it is one. An owner that
+ * declares no such property (a `oneOf` with a mapping) leaves the member's type to the property
+ * the member inherits, so that property's enum is the one.
+ */
 export function enumParentOf(
   patch: DiscriminatorOwner,
   resolve: ResolveSchemaRef,
 ): EnumParent | undefined {
   const name = patch.discriminator.propertyName;
-  const declared = declaredProperty(patch.discriminatorRef, name, resolve, new Set());
+  const declared =
+    declaredProperty(patch.discriminatorRef, name, resolve, new Set()) ??
+    (patch.ref === undefined ? undefined : inheritedProperty(patch.ref, name, resolve));
   if (declared === undefined || !isSchemaObject(declared.property)) {
     return undefined;
   }

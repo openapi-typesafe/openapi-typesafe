@@ -118,6 +118,21 @@ const dog: components["schemas"]["Cat"] = { petType: PetType.Dog };`;
     expect(petTypesOf(await fixed(schemas))).toEqual(["PetType.Cat", "PetType.Dog", "HotDogPetType", "PlusPetType"]);
   });
 
+  it("openapiTS with the fix uses the enum a member inherits when a union without it maps the member", async () => {
+    const schemas = {
+      PetType: SCHEMAS.PetType,
+      Pet: { ...pet(ref("PetType")), discriminator: { propertyName: "petType" } },
+      Dog: member({ bark: { type: "string" } }),
+      Any: { oneOf: [ref("Dog")], discriminator: { propertyName: "petType", mapping: { Dog: ref("Dog").$ref } } },
+    };
+    const code = `${await fixed(schemas)}
+const pet: components["schemas"]["Pet"] = {} as components["schemas"]["Dog"];`;
+
+    expect(petTypesOf(code)).toEqual(["PetType.Dog"]);
+    expect(code).not.toContain("enum DogPetType");
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
   it("openapiTS with the fix changes nothing where the parent's property is no enum", async () => {
     const schemas = { ...SCHEMAS, Pet: pet({ type: "string" }) };
 

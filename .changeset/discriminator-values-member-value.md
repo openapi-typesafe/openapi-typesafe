@@ -19,6 +19,8 @@ new output:
   value is a member of that enum, `petType: PetType.Cat`, with or without a mapping. Before, each
   member declared an enum of its own (`CatPetType`) or got the string `"Cat"`, and neither is
   assignable to `PetType`, so a `Cat` was not a `Pet`
-  ([#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700)).
+  ([#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700)). A value from a
+  discriminator that declares no such property (a `oneOf` with a `mapping`) is a member of the
+  enum the member inherits.
 
 Without the fix the output does not change; `--fix all` includes it.

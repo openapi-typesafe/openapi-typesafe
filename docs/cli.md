@@ -903,6 +903,8 @@ schema name as the value, as the string `"Cat"`, which `PetType` does not accept
 fix it is `PetType.Cat` too.
 
 - The owner's enum may be a `$ref`, inline, or inherited through `allOf`.
+- An owner that declares no such property (a `oneOf` with a `mapping`) gives the value of the
+  enum that the member inherits through its `allOf` `$ref`s.
 - Members use the names `--enum` gives: `PetType.hot_dog` for `hot-dog`, and
   `typeof PetType["+"]` for a quoted member.
 - A value that the owner's enum lacks keeps the old output.
