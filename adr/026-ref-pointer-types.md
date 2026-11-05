@@ -27,8 +27,8 @@ documents that were already broken.
    a key with no property and no index signature (`--additional-properties`, schema
    `additionalProperties`), a key a primitive `type` does not have (`string["schema"]`), a value
    that may be `undefined` or `null` indexed further, a key of an array, an optional
-   `requestBody`, an `allOf` whose parts all miss the key, a pure `anyOf` / `oneOf` where a member
-   misses it, a positional `parameters` index. Every shape it does not model
+   `requestBody` or response header (one without `required: true`), an `allOf` whose parts all miss
+   the key, a pure `anyOf` / `oneOf` where a member misses it, a positional `parameters` index. Every shape it does not model
    (`enum`, `not`, `$ref` chains, discriminators, `--read-write-markers`, `patternProperties`, mixed
    composition) counts as compiling, so that output stays byte-identical. The walk reads the
    generated type as `coreType` writes it: one `type` name decides alone (`type: string` with

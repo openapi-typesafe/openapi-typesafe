@@ -1,6 +1,7 @@
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import { followRefs, generatedMember, isJsonObject } from "./generated-shape.js";
 import {
+  isOptionalHeader,
   isOptionalRequestBody,
   isParameterList,
   isTypedAsSchema,
@@ -49,8 +50,13 @@ function schemaStep(walk: OriginalWalk, segment: string, isLast: boolean, input:
   };
 }
 
-function containerStep(walk: OriginalWalk, segment: string, isLast: boolean, input: WalkInput) {
-  if (segment === "requestBody" && !isLast && isOptionalRequestBody(walk.node, input.refs)) {
+function containerStep(walk: OriginalWalk, index: number, input: WalkInput) {
+  const segment = input.pointer.segments[index] as string;
+  const isLast = index === input.pointer.segments.length - 1;
+  const isOptional =
+    (segment === "requestBody" && isOptionalRequestBody(walk.node, input.refs)) ||
+    isOptionalHeader(input.pointer, index, walk.node);
+  if (isOptional && !isLast) {
     return { step: "fails" as Step, walk };
   }
   const child = isJsonObject(walk.node) ? followRefs(walk.node[segment], input.refs) : undefined;
@@ -79,7 +85,7 @@ export function originalIndexFails(input: WalkInput): boolean {
     }
     const result = walk.isSchema
       ? schemaStep(walk, segment, isLast, input)
-      : containerStep(walk, segment, isLast, input);
+      : containerStep(walk, index, input);
     if (result.step !== "continue") {
       return result.step === "fails";
     }

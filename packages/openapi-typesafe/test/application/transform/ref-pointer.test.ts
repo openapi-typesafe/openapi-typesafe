@@ -42,7 +42,13 @@ const DOCUMENT = {
         parameters: [{ name: "q", in: "query", schema: { type: "string" } }],
         requestBody: { content: { "application/json": { schema: ITEM } } },
         responses: {
-          200: { content: { "application/json": { schema: { type: "array", items: ITEM } } } },
+          200: {
+            content: { "application/json": { schema: { type: "array", items: ITEM } } },
+            headers: {
+              "X-Open": { schema: { type: "object", additionalProperties: true } },
+              "X-Ref": { $ref: "#/components/headers/Open" },
+            },
+          },
         },
       },
     },
@@ -88,6 +94,7 @@ const DOCUMENT = {
       },
     },
     parameters: { Page: { name: "page", in: "query", schema: { type: "integer" } } },
+    headers: { Open: { schema: { type: "object", additionalProperties: true } } },
   },
 };
 const REFS = resolverOf(DOCUMENT);
@@ -263,6 +270,25 @@ describe("keywords the generated type ignores", () => {
     expect(walked("#/components/schemas/Blank/items")).toBe("untyped at 2");
     expect(walked("#/components/schemas/Words/items")).toBe("untyped at 2");
     expect(walked("#/components/schemas/Words/properties/a")).toBe("untyped at 2");
+  });
+});
+
+describe("response headers", () => {
+  const HEADERS = "#/paths/~1items/get/responses/200/headers";
+
+  it("originalIndexFails through a header that is not required is true", () => {
+    expect(fails(`${HEADERS}/X-Open/schema`)).toBe(true);
+    expect(fails(`${HEADERS}/X-Ref/schema`)).toBe(false);
+    expect(fails("#/components/headers/Open/schema")).toBe(false);
+  });
+
+  it("typedWalk wraps a header that is not required in NonNullable", () => {
+    expect(walked(`${HEADERS}/X-Open/schema/properties/a`)).toBe(
+      'NonNullable<paths["/items"]["get"]["responses"]["200"]["headers"]["X-Open"]>["a"]',
+    );
+    expect(walked("#/components/headers/Open/schema/properties/a")).toBe(
+      'components["headers"]["Open"]["a"]',
+    );
   });
 });
 

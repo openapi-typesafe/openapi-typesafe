@@ -12,6 +12,7 @@ import {
   schemaPresence,
 } from "./generated-shape.js";
 import {
+  isOptionalHeader,
   isOptionalRequestBody,
   isParameterList,
   isTypedAsSchema,
@@ -132,9 +133,12 @@ function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: T
   }
 }
 
-function containerStep(walk: TypedWalk, segment: string, input: TypedWalkInput): TypedWalk {
+function containerStep(walk: TypedWalk, index: number, input: TypedWalkInput): TypedWalk {
+  const segment = input.pointer.segments[index] as string;
   const owner = followRefs(walk.node, input.refs);
-  const isOptional = segment === "requestBody" && isOptionalRequestBody(owner, input.refs);
+  const isOptional =
+    (segment === "requestBody" && isOptionalRequestBody(owner, input.refs)) ||
+    isOptionalHeader(input.pointer, index, owner);
   return {
     ...walk,
     type: indexBy(present(walk), segment),
@@ -155,9 +159,11 @@ function step(walk: TypedWalk, index: number, input: TypedWalkInput): TypedWalk 
   if (segment === "schema" && isTypedAsSchema(input.pointer, index)) {
     const owner = followRefs(walk.node, input.refs);
     const schema = isJsonObject(owner) ? owner.schema : undefined;
-    return { ...walk, node: schema, isSchema: true, presence: schemaPresence(schema, input.refs) };
+    // The container's type is its schema's type: an optional header stays optional.
+    const presence = walk.presence === "absent" ? "absent" : schemaPresence(schema, input.refs);
+    return { ...walk, node: schema, isSchema: true, presence };
   }
-  return isParameterList(input.pointer, index) ? null : containerStep(walk, segment, input);
+  return isParameterList(input.pointer, index) ? null : containerStep(walk, index, input);
 }
 
 /** Walk the whole pointer; see the module comment. */

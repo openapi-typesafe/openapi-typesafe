@@ -186,6 +186,33 @@ describe("schema $refs whose original type compiles", () => {
   });
 });
 
+describe("schema $refs into response headers", () => {
+  const header = (required: boolean) => ({
+    required,
+    schema: { type: "object", properties: { limit: { type: "integer" } } },
+  });
+  const document = documentWith({
+    Copy: {
+      type: "object",
+      properties: {
+        optional: { $ref: "#/components/responses/R/headers/X-Rate/schema/properties/limit" },
+        required: { $ref: "#/components/responses/R/headers/X-Must/schema/properties/limit" },
+      },
+    },
+  });
+  const response = { description: "OK", headers: { "X-Rate": header(false), "X-Must": header(true) } };
+  Object.assign(document.components ?? {}, { responses: { R: response } });
+  const headers = 'components["responses"]["R"]["headers"]';
+
+  it("openapiTS looks through a header that is not required with NonNullable", async () => {
+    const output = await generate(document);
+
+    expect(output).toContain(`optional?: NonNullable<${headers}["X-Rate"]>["limit"];`);
+    expect(output).toContain(`required?: ${headers}["X-Must"]["limit"];`);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
+
 describe("schema $refs into a schema whose type its keywords do not change", () => {
   // `type: object` without properties is `Record<string, never>`: every key is `never`, so the
   // original compiles. `type: string` ignores `items`: the original indexes `string`.

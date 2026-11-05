@@ -63,6 +63,20 @@ export function isParameterList(pointer: RefPointer, index: number): boolean {
   return pointer.segments[index] === "parameters" && /^\d+$/.test(next);
 }
 
+/**
+ * Whether the segment at `index` names a response header that is an optional member: one the
+ * response lists without `required: true`. A `$ref` header counts as required, as the generated
+ * type has it; a component header (`components/headers/<name>`) is a member of its own.
+ */
+export function isOptionalHeader(pointer: RefPointer, index: number, headers: unknown): boolean {
+  const isComponentHeader = pointer.rootSegment === "components" && index === 1;
+  if (pointer.segments[index - 1] !== "headers" || isComponentHeader || !isJsonObject(headers)) {
+    return false;
+  }
+  const header = headers[pointer.segments[index] as string];
+  return isJsonObject(header) && header.$ref === undefined && header.required !== true;
+}
+
 /** A `requestBody` the operation does not mark `required` is an optional member. */
 export function isOptionalRequestBody(container: unknown, refs: RefResolver): boolean {
   if (!isJsonObject(container) || container.requestBody === undefined) {
