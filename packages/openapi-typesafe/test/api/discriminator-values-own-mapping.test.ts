@@ -122,6 +122,52 @@ const clip: components["schemas"]["Clip"] = { contentType: "Clip", subtype: "Cli
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS with the fix gives a value once through two paths to the other owner", async () => {
+    const article = {
+      type: "object",
+      allOf: [ref("Element"), ref("Base")],
+      properties: { format: { type: "string" } },
+      discriminator: { propertyName: "format" },
+    };
+    const schemas = {
+      ...OTHER,
+      Base: { allOf: [ref("Element")] },
+      Article: article,
+      Video: { allOf: [ref("Content"), ref("Article")] },
+    };
+
+    const output = await fixed(schemas);
+
+    expect(output.match(/contentType: "Video";/g)).toHaveLength(1);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS with the fix adds no other value of a property the member owns itself", async () => {
+    const video = { ...OTHER.Video, discriminator: { propertyName: "contentType" } };
+
+    const output = await fixed({ ...OTHER, Video: video });
+
+    expect(output).not.toContain('contentType: "Video";');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS with the fix prefers a mapping of the other property from another discriminator", async () => {
+    const holder = {
+      type: "object",
+      properties: {
+        item: {
+          oneOf: [ref("Video")],
+          discriminator: { propertyName: "contentType", mapping: { vid: ref("Video").$ref } },
+        },
+      },
+    };
+
+    const output = await fixed({ ...OTHER, Holder: holder });
+
+    expect(output).toContain('contentType: "vid";');
+    expect(output).not.toContain('contentType: "Video";');
+  });
+
   it("openapiTS without the fix keeps the inherited discriminator instead", async () => {
     const output = await generate(OTHER);
 

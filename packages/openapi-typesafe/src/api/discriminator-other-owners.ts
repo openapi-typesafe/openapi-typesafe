@@ -74,7 +74,7 @@ export function inheritOtherOwners(state: ScanState, parentRef: string, ref: str
     const mapped = Object.entries(discriminator.mapping ?? {})
       .filter(([, target]) => target === ref)
       .map(([value]) => value);
-    const name = ref.split("/").pop() ?? "";
+    const name = ref.slice(ref.lastIndexOf("/") + 1);
     const patch: EnumPatch = { ref, values: mapped, discriminator, discriminatorRef: ownerRef };
     if (mapped.length > 0) {
       patchDiscriminatorEnum(state, patch);
