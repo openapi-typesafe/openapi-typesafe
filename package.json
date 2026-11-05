@@ -16,7 +16,7 @@
     "test": "turbo run test --continue",
     "test-e2e": "turbo run test-e2e",
     "size": "turbo run size-limit",
-    "version": "pnpm run build && changeset version && pnpm i",
+    "version-packages": "changeset version && biome format --write packages/*/CHANGELOG.md",
     "verify": "scripts/verify.sh",
     "prepare": "lefthook install"
   },

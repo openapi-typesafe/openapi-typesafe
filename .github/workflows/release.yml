@@ -56,7 +56,8 @@ jobs:
       - id: changesets
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
-          version-script: pnpm exec changeset version
+          # The changelogs that `changeset version` writes are formatted as the lint step checks them.
+          version-script: pnpm run version-packages
           commit-message: "chore(release): version packages"
           pr-title: "chore(release): version packages"
           # Publishing is the job below, so this action never publishes or tags.
