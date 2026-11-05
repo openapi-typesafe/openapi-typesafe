@@ -50,6 +50,25 @@ describe("CLI exit codes", () => {
     TIMEOUT,
   );
 
+  it.each([
+    ["redocly.yaml", "apis: [\n  one: {\n"],
+    [".redocly.lint-ignore.yaml", "a.yaml: [\n  b\n"],
+  ])(
+    "cli with a malformed %s exits with 2 and CLI_CONFIG_INVALID, without a stack trace",
+    async (file, contents) => {
+      const cwd = path.join(workDir, `malformed-${file}`);
+      fs.mkdirSync(cwd, { recursive: true });
+      fs.writeFileSync(path.join(cwd, file), contents);
+
+      const { exitCode, stderr } = await runCli([SIMPLE_SCHEMA], cwd);
+
+      expect(exitCode).toBe(2);
+      expect(stderr).toContain("(CLI_CONFIG_INVALID)");
+      expect(stderr).not.toContain("    at ");
+    },
+    TIMEOUT,
+  );
+
   it(
     "cli with a glob or an API without output links to this project's multiple-schemas docs",
     async () => {

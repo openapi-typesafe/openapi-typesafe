@@ -52,6 +52,42 @@ describe("createRedoclyConfigSource", () => {
   );
 
   it(
+    "load of a config that is no YAML fails with CLI_CONFIG_INVALID",
+    async () => {
+      const brokenDir = path.join(workDir, "broken");
+      fs.mkdirSync(brokenDir, { recursive: true });
+      const broken = path.join(brokenDir, "redocly.yaml");
+      fs.writeFileSync(broken, "apis: [\n  one: {\n");
+
+      const failure = createRedoclyConfigSource(workDir).load(broken);
+
+      await expect(failure).rejects.toMatchObject({
+        code: "CLI_CONFIG_INVALID",
+        details: { configPath: broken },
+      });
+      await expect(failure).rejects.toThrow(`Cannot load the Redocly config ${broken}`);
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "load with a lint-ignore file that is no YAML fails with CLI_CONFIG_INVALID",
+    async () => {
+      const ignoreDir = path.join(workDir, "ignore");
+      fs.mkdirSync(ignoreDir, { recursive: true });
+      const config = path.join(ignoreDir, "redocly.yaml");
+      fs.writeFileSync(config, "extends: [minimal]\n");
+      fs.writeFileSync(path.join(ignoreDir, ".redocly.lint-ignore.yaml"), "a.yaml: [\n  b\n");
+
+      const failure = createRedoclyConfigSource(workDir).load(config);
+
+      await expect(failure).rejects.toMatchObject({ code: "CLI_CONFIG_INVALID" });
+      await expect(failure).rejects.toThrow(".redocly.lint-ignore.yaml");
+    },
+    TIMEOUT,
+  );
+
+  it(
     "createDefault has no APIs",
     async () => {
       const config = await createRedoclyConfigSource(workDir).createDefault();
