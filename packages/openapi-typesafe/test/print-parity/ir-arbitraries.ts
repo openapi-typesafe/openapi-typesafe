@@ -36,6 +36,13 @@ export const arbitraryIdentifier = fc.stringMatching(/^[A-Za-z_$][A-Za-z_$0-9]{0
 
 const arbitraryNumber = fc.double({ noNaN: true, noDefaultInfinity: true });
 
+/** A tuple element is plain, a rest (`...T`) or optional (`T?`), never both. */
+const arbitraryTupleModifier = fc.constantFrom(
+  { isRest: false, isOptional: false },
+  { isRest: true, isOptional: false },
+  { isRest: false, isOptional: true },
+);
+
 const arbitraryComment: fc.Arbitrary<IrComment> = fc.oneof(
   arbitraryText
     .filter((text) => !text.includes("*/"))
@@ -78,7 +85,12 @@ const { type: arbitraryType, member: arbitraryMember } = fc.letrec<{
     fc.record({ kind: fc.constant("array" as const), element: tie("type") }),
     fc.record({
       kind: fc.constant("tuple" as const),
-      elements: fc.array(fc.record({ type: tie("type"), isRest: fc.boolean() }), { maxLength: 3 }),
+      elements: fc.array(
+        fc
+          .tuple(tie("type"), arbitraryTupleModifier)
+          .map(([type, modifier]) => ({ type, ...modifier })),
+        { maxLength: 3 },
+      ),
     }),
     // Never empty: the original builds unions with `tsUnion`, which returns `never` for no members,
     // and the TypeScript printer itself fails on an empty union inside a tuple.

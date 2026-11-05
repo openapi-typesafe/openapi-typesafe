@@ -51,6 +51,19 @@ The order in which middleware are registered matters. For requests, `onRequest()
 
 :::
 
+### Middleware for one request
+
+A request method also takes a `middleware` array, for that request only. It runs after the
+middleware registered with `client.use()`, by the same order rules: its `onRequest()` is called
+last and its `onResponse()` first. The client's middleware is not replaced.
+
+```ts
+const { data } = await client.GET("/posts/{id}", {
+  params: { path: { id: 123 } },
+  middleware: [showErrorModal],
+});
+```
+
 ### Skipping
 
 If you want to skip the middleware under certain conditions, just `return` as early as possible:

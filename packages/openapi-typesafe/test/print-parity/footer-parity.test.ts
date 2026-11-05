@@ -10,6 +10,9 @@ import { DEFAULT_CTX } from "../test-helpers.js";
 import originalFooter from "./original/footer.js";
 import {
   hasDuplicateEnumMembers,
+  hasRedeclaredConstArrays,
+  hasRepeatedParametersIndex,
+  hasUnquotedExtractProbe,
   RUNS,
   resetLegacyEnumState,
   TIMEOUT_MS,
@@ -56,7 +59,7 @@ type FooterInput = typeof input extends fc.Arbitrary<infer T> ? T : never;
 function apply(footer: DocumentFooter, step: FooterOperation): string {
   switch (step.kind) {
     case "enum":
-      return footer.addEnum(step);
+      return footer.addEnum({ ...step, isComponentSchema: false });
     case "enumValues":
       footer.addEnumValues({ ...step, type: irReference("T") });
       return "";
@@ -89,7 +92,9 @@ describe("footer parity", () => {
       fc.assert(
         fc.property(input, (value) => {
           const expected = run(originalFooter, value);
-          fc.pre(!hasDuplicateEnumMembers(expected));
+          fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
+          fc.pre(!hasRepeatedParametersIndex(expected));
+          fc.pre(!hasUnquotedExtractProbe(expected));
           expect(run((ctx) => createTransformContext(ctx).footer, value)).toBe(expected);
         }),
         { numRuns: RUNS },

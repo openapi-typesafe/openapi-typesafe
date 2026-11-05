@@ -17,15 +17,18 @@ import type { ReferenceSchema, SchemaObject } from "../../../domain/openapi/sche
 import { documentEntries } from "../document-entries.js";
 import { refType } from "../ref-type.js";
 import type { TransformContext } from "../transform-context.js";
+import { type DeclaredTypeLookup, NO_DECLARED_TYPES } from "./declared-types.js";
 import { documentMember } from "./document-member.js";
 import { pathItemType } from "./path-item.js";
-import { isCoveredPathItemRejected } from "./path-item-conflicts.js";
+import { type PathItemRejection, pathItemRejection } from "./path-item-conflicts.js";
 import {
+  type CoverRejection,
   coveringTemplateKeys,
   type PathKey,
   type PathKeyPart,
   type PathPlaceholder,
 } from "./path-key-overlaps.js";
+import { assignabilityProof } from "./type-assignability.js";
 
 const PATH_PARAMETER_RE = /\{[^}]+\}/g;
 
@@ -120,7 +123,8 @@ function templateText(parts: readonly PathKeyPart[]): string {
 }
 
 /** A path's member, its key and its path item type for the overlap check. */
-interface PathMember {
+export interface PathMember {
+  readonly url: string;
   readonly member: IrMember;
   readonly key: PathKey;
   readonly type: IrType;
@@ -139,7 +143,7 @@ function pathItemMember(
       : null;
   if (parts === null) {
     const member = irProperty(toPropertyName(url), type, { isReadonly });
-    return { member, key: literalKey(url), type };
+    return { url, member, key: literalKey(url), type };
   }
   const member: IrMember = {
     kind: "indexSignature",
@@ -149,11 +153,70 @@ function pathItemMember(
     isReadonly,
     comments: [],
   };
-  return { member, key: { kind: "template", parts }, type };
+  return { url, member, key: { kind: "template", parts }, type };
 }
 
 function literalKey(url: string): PathKey {
   return { kind: "literal", url };
+}
+
+/** A cover rejection by the indexes of the paths, from a rejection of their path item types. */
+function rejectionOf(paths: readonly PathMember[], isRejected: PathItemRejection): CoverRejection {
+  return (coveringIndex, coveredIndex) => {
+    const coveringPath = paths[coveringIndex];
+    const coveredPath = paths[coveredIndex];
+    return (
+      coveringPath !== undefined &&
+      coveredPath !== undefined &&
+      isRejected(coveredPath.type, coveringPath.type)
+    );
+  };
+}
+
+const PATHS_TYPE_NAME = "paths";
+
+/** The URL of `paths["/apps/{id}"]`, or null for any other type. */
+function pathsIndexOf(type: IrType): string | null {
+  if (type.kind !== "indexedAccess" || type.index.kind !== "stringLiteral") {
+    return null;
+  }
+  const { object } = type;
+  const isPaths =
+    object.kind === "reference" &&
+    object.name === PATHS_TYPE_NAME &&
+    object.typeArguments.length === 0;
+  return isPaths ? type.index.value : null;
+}
+
+/**
+ * The lookup, and `paths["/apps/{id}"]` as that path's item. The declarations cannot read it: a
+ * templated path is no property of `paths`, and TypeScript finds it through the signature.
+ */
+function withPathItems(
+  paths: readonly PathMember[],
+  lookup: DeclaredTypeLookup,
+): DeclaredTypeLookup {
+  const byUrl = new Map(paths.map((path) => [path.url, path.type]));
+  return (type) => {
+    const url = pathsIndexOf(type);
+    return (url === null ? undefined : byUrl.get(url)) ?? lookup(type);
+  };
+}
+
+/**
+ * The exact check. Once the declarations are known, a covered path item that is not proven
+ * assignable to the signature's type counts as rejected, so every output compiles. Before that,
+ * only a proven rejection counts: references cannot be read yet.
+ */
+function exactRejection(
+  paths: readonly PathMember[],
+  lookup: DeclaredTypeLookup,
+): PathItemRejection {
+  if (lookup === NO_DECLARED_TYPES) {
+    return pathItemRejection();
+  }
+  const isAssignable = assignabilityProof(withPathItems(paths, lookup));
+  return (covered, covering) => !isAssignable(covered, covering);
 }
 
 /**
@@ -161,21 +224,18 @@ function literalKey(url: string): PathKey {
  * the covered key's type against it. Where that check surely fails (TS2411, TS2413), each such
  * signature gets an object of its own in an intersection: an intersection does not check its parts
  * against each other, and every key has the type it had in the one object. Output that compiles
- * keeps the one object.
+ * keeps the one object. The lookup reads the types that path items reference; without it, a
+ * reference decides nothing.
  */
-function pathsObjectType(paths: readonly PathMember[]): IrType {
-  const covering = coveringTemplateKeys(
-    paths.map(({ key }) => key),
-    (coveringIndex, coveredIndex) => {
-      const coveringPath = paths[coveringIndex];
-      const coveredPath = paths[coveredIndex];
-      return (
-        coveringPath !== undefined &&
-        coveredPath !== undefined &&
-        isCoveredPathItemRejected(coveredPath.type, coveringPath.type)
-      );
-    },
-  );
+export function pathsObjectType(
+  paths: readonly PathMember[],
+  lookup: DeclaredTypeLookup = NO_DECLARED_TYPES,
+): IrType {
+  const keys = paths.map(({ key }) => key);
+  const covering = coveringTemplateKeys(keys, {
+    sampled: rejectionOf(paths, pathItemRejection()),
+    exact: rejectionOf(paths, exactRejection(paths, lookup)),
+  });
   if (covering.size === 0) {
     return irObject(paths.map(({ member }) => member));
   }
@@ -186,8 +246,8 @@ function pathsObjectType(paths: readonly PathMember[]): IrType {
   return irIntersection([irObject(rest), ...own]);
 }
 
-/** The `paths` interface body (OpenAPI 3.1 §4.8.8): one member per path, by URL. */
-export function pathsType(paths: PathsObject, context: TransformContext): IrType {
+/** The members of the `paths` interface (OpenAPI 3.1 §4.8.8): one per path, by URL. */
+export function pathMembers(paths: PathsObject, context: TransformContext): PathMember[] {
   const members: PathMember[] = [];
   for (const [url, pathItem] of documentEntries(paths, context.options)) {
     if (!pathItem || typeof pathItem !== "object") {
@@ -196,7 +256,7 @@ export function pathsType(paths: PathsObject, context: TransformContext): IrType
     if ("$ref" in pathItem) {
       const options = { isReadonly: context.options.immutable };
       const member = documentMember(url, refType(pathItem.$ref), pathItem, options);
-      members.push({ member, key: literalKey(url), type: member.type });
+      members.push({ url, member, key: literalKey(url), type: member.type });
       continue;
     }
     const startedAt = context.diagnostics.now();
@@ -207,5 +267,13 @@ export function pathsType(paths: PathsObject, context: TransformContext): IrType
       context.diagnostics.debug(`Transformed path "${url}"`, context.diagnostics.now() - startedAt);
     }
   }
-  return pathsObjectType(members);
+  return members;
+}
+
+/**
+ * The `paths` interface body, with only the path items' own types for the overlap check. The
+ * document transform checks the overlaps again once the referenced types are declared.
+ */
+export function pathsType(paths: PathsObject, context: TransformContext): IrType {
+  return pathsObjectType(pathMembers(paths, context));
 }

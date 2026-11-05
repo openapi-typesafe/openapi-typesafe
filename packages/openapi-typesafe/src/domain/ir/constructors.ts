@@ -62,7 +62,12 @@ export function irTuple(elements: readonly IrTupleElement[]): IrTupleType {
 }
 
 export function irTupleElement(type: IrType, isRest = false): IrTupleElement {
-  return { type, isRest };
+  return { type, isRest, isOptional: false };
+}
+
+/** `T?`: an element the tuple may end before. */
+export function irOptionalTupleElement(type: IrType): IrTupleElement {
+  return { type, isRest: false, isOptional: true };
 }
 
 export function irUnion(types: readonly IrType[]): IrUnionType {

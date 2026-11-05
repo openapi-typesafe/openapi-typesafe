@@ -37,3 +37,7 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [021](./021-opt-in-output-fixes.md) | Opt-in output fixes are named values of one `fix` option | Accepted |
 | [022](./022-react-query-fixes.md) | react-query fixes for 1.0, and stricter types for 2.0 | Accepted |
 | [023](./023-inline-source-refs-resolve-in-cwd.md) | Relative `$ref`s of an inline source resolve in `cwd` | Accepted |
+| [024](./024-discriminator-output-fixes.md) | Discriminator fixes: one default for output that does not compile, one name per construct | Accepted |
+| [025](./025-client-fixes-for-rc1.md) | Client fixes for 1.0.0-rc.1, and two more type changes for 2.0 | Accepted |
+| [026](./026-ref-pointer-types.md) | Types of `$ref` pointers into schema keywords | Accepted |
+| [027](./027-enum-values-and-discriminator-checks.md) | Checked `--enum-values` types, discriminator value warnings, required-only variants | Accepted |

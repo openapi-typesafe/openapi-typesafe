@@ -8,7 +8,8 @@ description: Typed useInfiniteQuery for paginated OpenAPI endpoints
 The `useInfiniteQuery` method allows you to use the original [useInfiniteQuery](https://tanstack.com/query/latest/docs/framework/react/guides/infinite-queries)
 
 - The result is the same as the original function.
-- The `queryKey` is `[method, path, params, "infinite"]`: the `queryKey` of
+- The `queryKey` is `[method, path, options, "infinite"]` (`[method, path, "infinite"]` without
+  options): the `queryKey` of
   [`queryOptions`](./query-options) with `"infinite"` after it, so `useQuery` and
   `useInfiniteQuery` for the same request do not share a cache entry, and `[method, path]` still
   matches both in `invalidateQueries`. Its type is `InfiniteQueryKey`.
@@ -105,6 +106,12 @@ const query = $api.useInfiniteQuery(
   - `pageParamName` The query param name used for pagination, `"cursor"` by default.
   - The page param is sent in that query param. When it is `undefined` (the first page with
     `initialPageParam: undefined`, as cursor APIs need), the query param is left out.
+  - The page param type (`lastPageParam`, `data.pageParams`) is the type of `initialPageParam`
+    together with the return types of `getNextPageParam` and `getPreviousPageParam`:
+    `initialPageParam: undefined` and `(lastPage) => lastPage.nextCursor` give `string | undefined`.
+    A return computed from `lastPageParam` cannot be inferred, so annotate that parameter, as in
+    `(lastPage, allPages, lastPageParam: number) => lastPageParam + 1`; without the annotation the
+    page param stays `unknown`.
   - The original `useInfiniteQuery` options.
   - [See more information](https://tanstack.com/query/latest/docs/framework/react/reference/useInfiniteQuery)
 - `queryClient`

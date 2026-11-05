@@ -222,10 +222,21 @@ class RedoclySchemaLoader implements SchemaLoader {
     return bundled.bundle.parsed;
   }
 
-  /** Report every problem; then throw if any of them is an error. */
+  /**
+   * Report every problem; then throw if any of them is an error. A problem that the Redocly
+   * config's `.redocly.lint-ignore.yaml` lists is left out, as `redocly lint` leaves it out
+   * (upstream #2189).
+   */
   #report(problems: readonly NormalizedProblem[]): void {
     const errorMessages: string[] = [];
     for (const problem of problems) {
+      if (problem.ignored === true) {
+        this.#options.logger.debug(
+          `Ignored by the lint ignore file: ${problemMessage(problem)}`,
+          "lint",
+        );
+        continue;
+      }
       const message = problemMessage(problem);
       if (problem.severity === "error") {
         errorMessages.push(message);

@@ -37,7 +37,8 @@ function readDeclaredValueExports(declarationsPath: URL): string[] {
       }
     }
   }
-  return names.sort();
+  // The overloads of one function are one export.
+  return [...new Set(names)].sort();
 }
 
 describe("public exports", () => {

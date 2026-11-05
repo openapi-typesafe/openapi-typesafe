@@ -83,7 +83,7 @@ As in openapi-typescript 7, the old spellings fail with an error that names the 
 
 ### CLI exit codes and errors
 
-Failures now exit with a documented code: `1` stale output with `--check` (as before), `2` usage or configuration, `3` input document, `4` output files, `70` unexpected error. Before, every failure exited with `1`. See [exit codes](/cli#exit-codes). `--check` without `--output` (and without `apis` in `redocly.yaml`) now fails with `2` and `CLI_CHECK_OUTPUT_MISSING`; before, it printed the types and passed without checking anything.
+Failures now exit with a documented code: `1` stale output with `--check` (as before), `2` usage or configuration, `3` input document, `4` output files, `70` unexpected error. Before, every failure exited with `1`. See [exit codes](/cli#exit-codes). `--check` without `--output` (and without `apis` in `redocly.yaml`) now fails with `2` and `CLI_CHECK_OUTPUT_MISSING`; before, it printed the types and passed without checking anything. Without a schema, with nothing piped into stdin (stdin is a terminal) and without `apis` in `redocly.yaml`, the CLI now fails with `2` and `CLI_INPUT_MISSING`; before, it waited for input with no prompt, which looked like a hang.
 
 OpenAPI 3.2 documents get types for `query` and `additionalOperations` operations, `itemSchema` (an `itemContent` map next to `content`), `in: querystring` parameters and `components.mediaTypes`; openapi-typescript leaves them out. `HttpMethod` from `openapi-typesafe-helpers` includes `"query"`, and the fetch client has `QUERY()`. A `Record<HttpMethod, …>` you write yourself needs a `query` entry. The path-based client no longer offers `PARAMETERS()`, which was typed but always failed. See [OpenAPI 3.2 support](/introduction#openapi-3-2-support).
 
@@ -102,8 +102,11 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
 - `--make-paths-enum`: `ApiPaths` members whose names collided (`GetUser` for both `/user` and `/user/{user_id}`) did not compile. Colliding names built from the URL now name the path parameters (`GetUserByUserId`); names that still collide, such as a repeated `operationId`, get a number (`listItems2`). Names that did not collide stay the same.
 - `--enum` and `--make-paths-enum`: values whose member names come out the same after invalid characters are replaced (`reactions-+1` and `reactions--1` are both `reactions_1`) did not compile. A repeated name gets a number: `reactions_1_2` (a quoted name gets it inside the quotes). Names that did not collide stay the same.
 - `--exclude-deprecated`: a deprecated schema that kept output still references (an array's `items`, a kept operation's response) was left out, so the output named a missing `components["schemas"]` key. It is kept now; a deprecated schema that only dropped parts reference is still left out.
-- `--path-params-as-types`: a template key such as `` `/apps/${string}` `` also matches `/apps/regions` and `` `/apps/${string}/restart` ``, and that output did not compile (TS2411, TS2413) when their types do not fit the template's. When a path surely does not fit (a method or a parameter location one has and the other has not), `paths` is now an intersection type alias, `` { … } & { [path: `/apps/${string}`]: … } ``, and every path keeps its type. Output that compiled stays the same, `export interface paths` included.
+- `--path-params-as-types`: a template key such as `` `/apps/${string}` `` also matches `/apps/regions` and `` `/apps/${string}/restart` ``, and that output did not compile (TS2411, TS2413) when their types do not fit the template's. When a path surely does not fit (a method or a parameter location one has and the other has not, or an operation or response schema that lacks a required property of the template's), `paths` is now an intersection type alias, `` { … } & { [path: `/apps/${string}`]: … } ``, and every path keeps its type. Output that compiled stays the same, `export interface paths` included.
 - JSON Schema `$defs` (OpenAPI 3.1): a schema's `$defs` member is optional (`$defs?: { … }`), and a `$ref` into it reads `NonNullable<components["schemas"]["Foo"]["$defs"]>["bar"]`. The root `export type $defs` has one member per subschema; before, it was `Record<string, never>` and `#/$defs/<name>` refs were `never`.
+- A schema that `allOf`s a discriminated union which lists that schema (`Cat: { allOf: [Pet] }`,
+  `Pet: { oneOf: [Cat, Dog] }`) referred to itself through `Omit<Pet>` and did not compile
+  (TS2502, upstream #1665). It is now typed with the keywords of `Pet` itself, without the union.
 
 All other output is byte-identical.
 
@@ -118,6 +121,8 @@ These are off by default, so the output does not change until you turn one on.
 - [`--fix`](/cli#fix) (`fix`): opt-in fixes of the output of valid schemas, by name or `all`.
   They become the default in 2.0. The first one, `allof-required`, makes the keys of an `allOf`
   member with only `required` required instead of adding `Record<string, never>`.
+  `anyof-oneof-required` makes an `anyOf` or `oneOf` of `required`-only variants the parent with
+  each variant's keys required, instead of `unknown`.
   `anyof-properties` intersects `anyOf` with its sibling `properties` instead of adding them to the
   union.
   `array-length-tuples` corrects the `--array-length` tuples (`minItems` to `maxItems` items,
@@ -128,6 +133,23 @@ These are off by default, so the output does not change until you turn one on.
   root name an alias: the later keeps the name, the earlier get `_2`, `_3`, instead of none.
   `unevaluated-properties` types the keys that no other keyword declares with the
   `unevaluatedProperties` schema, instead of ignoring it.
+  `discriminator-values` also keeps a schema's own `mapping` when it inherits a discriminator,
+  adds no second property to a member that declares its value, and with `--enum` types the value
+  as a member of the owner's enum (`PetType.Cat`).
+  `allof-discriminated-union` types an `allOf` `$ref` to a discriminated union as the union,
+  without `Omit` or an invented value.
+  `discriminator-member-required` keeps `WithRequired` next to an `allOf` `$ref` to a
+  discriminator member.
+  `anyof-oneof-descriptions` lists the descriptions of `anyOf` and `oneOf` members in the JSDoc.
+  `dedupe-enum-names` (with `--enum --dedupe-enums`) names a shared enum by a rule that does not
+  depend on the document order.
+  `exploded-query-objects` makes the properties of an exploded object query parameter keys of
+  `query`, as they are sent.
+  `nullable-enums` (with `--enum`) declares an enum that lists `null` and adds `| null` to its type.
+  `prefix-items` makes a `prefixItems` tuple open, with the elements after `minItems` optional.
+  `read-write-refs` makes a property `readonly` when the schema it references is `readOnly`.
+  `ref-pointers` gives a `$ref` into another schema's keywords the type it points at also where
+  an index signature made the original compile as `unknown`.
 
 ### Client fixes
 

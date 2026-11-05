@@ -61,10 +61,11 @@ export interface IrArrayType {
   readonly element: IrType;
 }
 
-/** A tuple element; `isRest` prints `...T`. */
+/** A tuple element; `isRest` prints `...T`, `isOptional` prints `T?` (never both). */
 export interface IrTupleElement {
   readonly type: IrType;
   readonly isRest: boolean;
+  readonly isOptional: boolean;
 }
 
 export interface IrTupleType {

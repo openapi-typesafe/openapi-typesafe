@@ -2,6 +2,7 @@ import { irRaw } from "../../../domain/ir/constructors.js";
 import type { IrDeclaration, IrTypeAliasDeclaration } from "../../../domain/ir/nodes.js";
 import { escapeSingleQuotedText } from "../../../domain/ir/raw-text-escapes.js";
 import type { ComponentKind } from "../../../domain/openapi/components-object.js";
+import { globalTypeReferences } from "./global-type-references.js";
 
 /** The `--root-types` aliases: `export type Pet = components['schemas']['Pet'];`. */
 
@@ -83,20 +84,25 @@ export function numberDisplacedAliases(
 }
 
 /**
- * Rename each root alias whose name an enum or a helper type of the footer also declares, to the
- * next free `Name_2`, `Name_3`, … (the suffix `--root-types` uses for its own conflicts). The
- * footer keeps its names, because the generated types refer to them. Before, both were declared
- * under one name, which does not compile (enums: upstream #2099, #2341, #2206; helpers: a schema
- * named `WithRequired`, roadmap R11). Other declarations are returned unchanged.
+ * Rename each root alias whose name an enum or a helper type of the footer also declares, or that
+ * shadows a TypeScript global type the output refers to (`Record` in `Record<string, never>`), to
+ * the next free `Name_2`, `Name_3`, … (the suffix `--root-types` uses for its own conflicts). The
+ * footer and the globals keep their names, because the generated types refer to them. Before, the
+ * output did not compile (enums: upstream #2099, #2341, #2206; helpers: a schema named
+ * `WithRequired`, roadmap R11; globals: TS2315). Other declarations are returned unchanged.
  */
 export function renameAliasesTakenByFooter(
   body: readonly IrDeclaration[],
   footer: readonly IrDeclaration[],
+  closing: readonly IrDeclaration[] = [],
 ): IrDeclaration[] {
-  const footerNames = footerTypeNames(footer);
-  const taken = declaredNames([...body, ...footer]);
+  const reserved = footerTypeNames(footer);
+  for (const name of globalTypeReferences([...body, ...footer, ...closing])) {
+    reserved.add(name);
+  }
+  const taken = declaredNames([...body, ...footer, ...closing]);
   return body.map((declaration) => {
-    if (!isRootTypeAlias(declaration) || !footerNames.has(declaration.name)) {
+    if (!isRootTypeAlias(declaration) || !reserved.has(declaration.name)) {
       return declaration;
     }
     const name = freeName(declaration.name, taken);

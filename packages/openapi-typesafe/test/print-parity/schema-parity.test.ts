@@ -9,6 +9,9 @@ import {
   type ContextInput,
   contextInput,
   hasDuplicateEnumMembers,
+  hasRedeclaredConstArrays,
+  hasRepeatedParametersIndex,
+  hasUnquotedExtractProbe,
   RUNS,
   runLegacy,
   schemaArbitrary,
@@ -41,7 +44,9 @@ describe("schema transformer parity with the fork base", () => {
       fc.assert(
         fc.property(schemaArbitrary(), contextInput, (schema, input) => {
           const expected = run(originalTransformSchemaObject, schema, input);
-          fc.pre(!hasDuplicateEnumMembers(expected));
+          fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
+          fc.pre(!hasRepeatedParametersIndex(expected));
+          fc.pre(!hasUnquotedExtractProbe(expected));
           expect(run(transformSchemaObject, schema, input)).toBe(expected);
         }),
         { numRuns: RUNS },

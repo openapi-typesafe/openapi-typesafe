@@ -14,6 +14,11 @@ import {
   contextInput,
   createContext,
   hasDuplicateEnumMembers,
+  hasRedeclaredConstArrays,
+  hasRepeatedParametersIndex,
+  hasRetypedEnumValues,
+  hasUnquotedExtractProbe,
+  OPTION_KEYS,
   RUNS,
   reachesFixedLegacyBug,
   resetLegacyEnumState,
@@ -52,6 +57,34 @@ function run(transform: Transform, value: unknown, input: ContextInput, code?: s
   }
 }
 
+/**
+ * Counterexamples of earlier runs, checked first on every run. Seed -2008229445: the enum of a path
+ * item parameter in a `oneOf` member, whose `--enum-values` type repeats `parameters` inside
+ * `Extract`.
+ */
+const NO_FLAGS = Object.fromEntries(OPTION_KEYS.map((name) => [name, false]));
+
+const EXAMPLES = [
+  [
+    {
+      paths: {
+        "/items": {
+          parameters: [{ in: "query", schema: { oneOf: [{ properties: { a: { enum: [] } } }] } }],
+        },
+      },
+    },
+    {
+      flags: { ...NO_FLAGS, enumValues: true },
+      callbacks: 0,
+      path: "#/components/schemas/Root",
+      isFromAdditionalProperties: false,
+      hasDiscriminator: false,
+      handledRefs: [],
+    },
+    undefined,
+  ],
+] as unknown as [unknown, ContextInput, string | undefined][];
+
 describe("root transformer parity with the fork base", () => {
   it(
     "transformSchema matches the original",
@@ -60,11 +93,15 @@ describe("root transformer parity with the fork base", () => {
         fc.property(document, contextInput, inject, (value, input, code) => {
           const original = run(originalTransformSchema, value, input, code);
           fc.pre(!hasRootAliasEnumCollision(original));
-          fc.pre(!hasDuplicateEnumMembers(original));
+          fc.pre(!hasDuplicateEnumMembers(original) && !hasRedeclaredConstArrays(original));
+          fc.pre(!hasRepeatedParametersIndex(original));
+          fc.pre(!hasUnquotedExtractProbe(original));
           fc.pre(!reachesFixedLegacyBug(value, input));
-          expect(run(transformSchema, value, input, code)).toBe(original);
+          const output = run(transformSchema, value, input, code);
+          fc.pre(!hasRetypedEnumValues(output));
+          expect(output).toBe(original);
         }),
-        { numRuns: RUNS },
+        { numRuns: RUNS, examples: EXAMPLES },
       );
     },
     DOCUMENT_TIMEOUT_MS,

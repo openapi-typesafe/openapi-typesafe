@@ -3,7 +3,7 @@ import { irKeyword } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { literalType } from "../literal-type.js";
-import { refType } from "../ref-type.js";
+import { schemaRefType } from "../ref-pointer/pointer-type.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { compositionType } from "./composition-type.js";
 import { enumRule } from "./enum-rule.js";
@@ -27,7 +27,7 @@ const SHAPE_RULES: readonly SchemaRule[] = [
   {
     name: "$ref",
     matches: (schema) => "$ref" in schema,
-    transform: (schema) => refType((schema as { $ref: string }).$ref),
+    transform: (schema, request) => schemaRefType((schema as { $ref: string }).$ref, request),
   },
   {
     name: "const",

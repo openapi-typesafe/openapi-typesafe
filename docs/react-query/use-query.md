@@ -8,8 +8,15 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
 
 - The result is the same as the original function.
 - The query key is `[method, path, options]`, or `[method, path]` without options, so
-  `[method, path]` matches every variant in `invalidateQueries`.
+  `[method, path]` matches every variant in `invalidateQueries`. `options` is the whole `init`
+  object, such as `{ params: { path: { id: 1 } } }`: pass that to `setQueryData`, not `params`.
 - `data` and `error` are fully typed.
+- A successful response without a body (a 204, an empty body, any HEAD response) gives
+  `data: null`: TanStack Query does not accept `undefined` query data. `useSuspenseQuery` and
+  `queryOptions` do the same, and the types say so: the data of an operation with a 204 is
+  `Body | null`, and `select` gets `null` too. `useInfiniteQuery` pages and `useMutation` data
+  stay `undefined` for such a response, as in `openapi-react-query`: TanStack Query accepts
+  them, and their types include `undefined`.
 - You can pass query options as fourth parameter. Query options in the third parameter (the fetch
   options) are not read: `useQuery("get", "/me", { retry: false })` sends a request and keeps the
   default `retry`. Write `useQuery("get", "/me", undefined, { retry: false })`.

@@ -127,14 +127,24 @@ export type FirstErrorStatus<T> =
 
 // OpenAPI type helpers
 
-/** Given an OpenAPI **Paths Object**, find all paths that have the given method */
-export type PathsWithMethod<Paths extends {}, PathnameMethod extends HttpMethod> = {
-  [Pathname in keyof Paths]: Paths[Pathname] extends {
-    [K in PathnameMethod]: any;
-  }
-    ? Pathname
-    : never;
-}[keyof Paths];
+/**
+ * Given an OpenAPI **Paths Object**, find all paths that have the given method. For a union of
+ * methods, the paths that have any of them: `PathsWithMethod<Paths, HttpMethod>` is every path,
+ * not `never`. TypeScript uses that union where a hook's `Method` is not known yet, as in
+ * `Parameters<typeof $api.queryOptions>` (upstream #2178).
+ */
+export type PathsWithMethod<
+  Paths extends {},
+  PathnameMethod extends HttpMethod,
+> = PathnameMethod extends HttpMethod
+  ? {
+      [Pathname in keyof Paths]: Paths[Pathname] extends {
+        [K in PathnameMethod]: any;
+      }
+        ? Pathname
+        : never;
+    }[keyof Paths]
+  : never;
 
 /**
  * DO NOT USE!
@@ -179,11 +189,19 @@ export type OperationRequestBodyContent<T> =
     ? FilterKeys<NonNullable<OperationRequestBodyMediaContent<T>>, MediaType> | undefined
     : FilterKeys<OperationRequestBodyMediaContent<T>, MediaType>;
 
-/** Return all 2XX responses from a Response Object Map */
+/**
+ * The statuses of success responses in a Response Object Map: the 2XX statuses, or `default` when
+ * no 2XX status is declared. `default` covers every status the operation does not declare (OpenAPI
+ * Responses Object), so then it covers every success (upstream #1862). With a 2XX status declared,
+ * `default` is left to the errors, as before.
+ */
+type SuccessStatus<T> = [Extract<keyof T, OkStatus>] extends [never] ? "default" : OkStatus;
+
+/** Return all 2XX responses from a Response Object Map, or `default` if it declares no 2XX one */
 export type SuccessResponse<
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = GetResponseContent<T, Media, OkStatus>;
+> = GetResponseContent<T, Media, SuccessStatus<T>>;
 
 export type GetResponseContent<
   T extends Record<string | number, any>,

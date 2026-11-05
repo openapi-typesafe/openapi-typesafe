@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type CoverChecks,
   coveringTemplateKeys,
   type PathKey,
   type PathKeyPart,
@@ -12,6 +13,8 @@ const text = (value: string): PathKeyPart => ({ kind: "text", text: value });
 const slot = (type: PathPlaceholder): PathKeyPart => ({ kind: "placeholder", type });
 const literal = (url: string): PathKey => ({ kind: "literal", url });
 const template = (...parts: PathKeyPart[]): PathKey => ({ kind: "template", parts });
+/** Only the cover TypeScript itself checks counts. */
+const EXACT: CoverChecks = { sampled: () => false, exact: () => true };
 
 describe("coveringTemplateKeys", () => {
   it("coveringTemplateKeys with a string placeholder covers a literal key under it", () => {
@@ -26,6 +29,16 @@ describe("coveringTemplateKeys", () => {
     expect(coveringTemplateKeys([longer, template(text("/apps/"), slot("string"))])).toEqual(
       new Set([1]),
     );
+  });
+
+  it("coveringTemplateKeys with two identical templates covers both, whatever the checks", () => {
+    const keys = [
+      template(text("/apps/"), slot("string")),
+      template(text("/apps/"), slot("string")),
+    ];
+    const NONE: CoverChecks = { sampled: () => false, exact: () => false };
+
+    expect(coveringTemplateKeys(keys, NONE)).toEqual(new Set([0, 1]));
   });
 
   it("coveringTemplateKeys with keys that do not overlap covers nothing", () => {
@@ -46,10 +59,60 @@ describe("coveringTemplateKeys", () => {
   });
 
   it("coveringTemplateKeys with a boolean placeholder covers true and false only", () => {
+    const flags = template(text("/flags/"), slot("boolean"), text("/"), slot("string"));
+
+    expect(coveringTemplateKeys([flags, literal("/flags/false/a")])).toEqual(new Set([0]));
+    expect(coveringTemplateKeys([flags, literal("/flags/yes/a")])).toEqual(new Set());
+  });
+
+  it("coveringTemplateKeys with only a boolean placeholder covers nothing, as it is no signature", () => {
     const flags = template(text("/flags/"), slot("boolean"));
 
-    expect(coveringTemplateKeys([flags, literal("/flags/false")])).toEqual(new Set([0]));
-    expect(coveringTemplateKeys([flags, literal("/flags/yes")])).toEqual(new Set());
+    expect(coveringTemplateKeys([flags, literal("/flags/false")], EXACT)).toEqual(new Set());
+  });
+
+  it("coveringTemplateKeys covers what TypeScript matches, at the first occurrence of a text", () => {
+    const versioned = template(text("/v"), slot("number"), text("."), slot("string"));
+
+    expect(coveringTemplateKeys([versioned, literal("/v1.2.x")], EXACT)).toEqual(new Set([0]));
+    // A regular expression matches "-.5" as the number; TypeScript reads "-" and rejects it.
+    expect(coveringTemplateKeys([versioned, literal("/v-.5.x")], EXACT)).toEqual(new Set());
+  });
+
+  it("coveringTemplateKeys does not cover a template by a shorter one it only overlaps", () => {
+    const download = template(text("/files/"), slot("string"), text("/download"));
+    const suffixed = template(text("/files/"), slot("string"), text("/download"), slot("string"));
+
+    expect(coveringTemplateKeys([download, suffixed], EXACT)).toEqual(new Set([1]));
+  });
+
+  it("coveringTemplateKeys with the sampled check keeps the original cover, which over-reports", () => {
+    const download = template(text("/files/"), slot("string"), text("/download"));
+    const suffixed = template(text("/files/"), slot("string"), text("/download"), slot("string"));
+    const sampledOnly: CoverChecks = { sampled: () => true, exact: () => false };
+
+    expect(coveringTemplateKeys([download, suffixed], sampledOnly)).toEqual(new Set([0, 1]));
+  });
+
+  it("coveringTemplateKeys compares templates with the same texts placeholder by placeholder", () => {
+    const any = template(text("/a/"), slot("string"), text("/b"));
+    const numbered = template(text("/a/"), slot("number"), text("/b"));
+
+    expect(coveringTemplateKeys([any, numbered])).toEqual(new Set([0]));
+    expect(
+      coveringTemplateKeys([numbered, template(text("/a/"), slot("number"), text("/c"))]),
+    ).toEqual(new Set());
+  });
+
+  it("coveringTemplateKeys covers a number placeholder by a number placeholder of another template", () => {
+    const line = template(text("/l/"), slot("number"));
+
+    expect(coveringTemplateKeys([line, template(text("/l/"), slot("number"), text(""))])).toEqual(
+      new Set([0, 1]),
+    );
+    expect(coveringTemplateKeys([line, template(text("/l/"), slot("string"), text("x"))])).toEqual(
+      new Set(),
+    );
   });
 
   it("coveringTemplateKeys samples a number and a boolean placeholder of the other key", () => {
@@ -68,7 +131,7 @@ describe("coveringTemplateKeys", () => {
 
   it("coveringTemplateKeys with two equal number or boolean templates covers both", () => {
     const line = () => template(text("/lines/"), slot("number"));
-    const flag = () => template(text("/flags/"), slot("boolean"));
+    const flag = () => template(text("/flags/"), slot("boolean"), text("/"), slot("string"));
 
     expect(coveringTemplateKeys([line(), line()])).toEqual(new Set([0, 1]));
     expect(coveringTemplateKeys([flag(), flag()])).toEqual(new Set([0, 1]));

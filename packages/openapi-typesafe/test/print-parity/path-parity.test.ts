@@ -28,6 +28,9 @@ import {
   type ContextInput,
   contextInput,
   hasDuplicateEnumMembers,
+  hasRedeclaredConstArrays,
+  hasRepeatedParametersIndex,
+  hasUnquotedExtractProbe,
   objectOf,
   RUNS,
   resetLegacyEnumState,
@@ -45,7 +48,9 @@ type Build = (options: TransformNodeOptions) => IrType | ts.TypeNode;
 
 function expectSameOutput(build: Build, original: Build, input: ContextInput): void {
   const expected = runLegacy(original, input, input.path);
-  fc.pre(!hasDuplicateEnumMembers(expected));
+  fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
+  fc.pre(!hasRepeatedParametersIndex(expected));
+  fc.pre(!hasUnquotedExtractProbe(expected));
   expect(runLegacy(build, input, input.path)).toBe(expected);
 }
 
@@ -150,7 +155,9 @@ describe("path transformer parity with the fork base", () => {
     () =>
       property(paths, (value) => {
         const original = printEnum(originalMakeApiPathsEnum, value);
-        fc.pre(!hasDuplicateEnumMembers(original));
+        fc.pre(!hasDuplicateEnumMembers(original) && !hasRedeclaredConstArrays(original));
+        fc.pre(!hasRepeatedParametersIndex(original));
+        fc.pre(!hasUnquotedExtractProbe(original));
         expect(printEnum(makeApiPathsEnum, value)).toBe(original);
       }),
     TIMEOUT_MS,

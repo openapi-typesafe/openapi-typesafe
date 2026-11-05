@@ -32,7 +32,7 @@ class InMemorySink implements FooterSink {
   }
 }
 
-const STATUS = { name: "status", values: ["a", "b"], metadata: [] };
+const STATUS = { name: "status", isComponentSchema: false, values: ["a", "b"], metadata: [] };
 
 describe("RunFooter", () => {
   it("addEnum adds an enum and returns its name", () => {
@@ -84,7 +84,7 @@ describe("RunFooter", () => {
     const request = { name: "StatusValues", type: irReference("T"), values: ["a"] };
 
     footer.addEnumValues(request);
-    footer.addEnumValues(request);
+    footer.addEnumValues({ ...request, name: "OtherValues" });
 
     expect(sink.declarations.map((declaration) => declaration.kind)).toEqual([
       "rawDeclaration",
@@ -95,6 +95,38 @@ describe("RunFooter", () => {
       name: "statusValues",
       type: irReference("ReadonlyArray", [irReference("T")]),
     });
+  });
+
+  it("addEnumValues adds the same array once, so it is not declared twice", () => {
+    // A discriminated union's own keywords are typed again in each member that inherits them.
+    const sink = new InMemorySink(["ReadonlyArray", "FlattenedDeepRequired"]);
+    const footer = new RunFooter(sink, false);
+    const request = { name: "StatusValues", type: irReference("T"), values: ["a"] };
+
+    footer.addEnumValues(request);
+    footer.addEnumValues(request);
+    footer.addEnumValues({ ...request, values: ["a", "b"] });
+
+    expect(sink.declarations.map((declaration) => declaration.kind)).toEqual([
+      "constArray",
+      "constArray",
+    ]);
+  });
+
+  it("addEnumValues numbers an array whose name another array has", () => {
+    // `Discount/type` and `discount/type`, or two `anyOf` variants, give one name.
+    const sink = new InMemorySink(["ReadonlyArray", "FlattenedDeepRequired"]);
+    const footer = new RunFooter(sink, false);
+    const request = { name: "DiscountTypeValues", type: irReference("T"), values: ["a"] };
+
+    footer.addEnumValues(request);
+    footer.addEnumValues({ ...request, type: irReference("U") });
+    footer.addEnumValues({ ...request, values: ["b"] });
+    footer.addEnumValues({ ...request, values: ["b"] });
+
+    expect(
+      sink.declarations.map((declaration) => "name" in declaration && declaration.name),
+    ).toEqual(["discountTypeValues", "discountTypeValues_2", "discountTypeValues_3"]);
   });
 
   it("requireWithRequired adds the helper only when it is not declared", () => {

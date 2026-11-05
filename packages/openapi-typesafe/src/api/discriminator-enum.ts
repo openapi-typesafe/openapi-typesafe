@@ -61,6 +61,45 @@ function isObjectSchema(schema: unknown): schema is SchemaObject & ObjectSubtype
   );
 }
 
+/** The values a property schema allows, from `const` or `enum`; null when it lists none. */
+function listedValues(property: unknown): readonly unknown[] | null {
+  if (typeof property !== "object" || property === null) {
+    return null;
+  }
+  const { const: constant, enum: values } = property as SchemaObject;
+  if (constant !== undefined) {
+    return [constant];
+  }
+  return Array.isArray(values) ? values : null;
+}
+
+/** Whether one schema object requires the property and allows exactly the values. */
+function requiresValues(schema: unknown, name: string, values: readonly string[]): boolean {
+  if (typeof schema !== "object" || schema === null || "$ref" in schema) {
+    return false;
+  }
+  const { required, properties } = schema as SchemaObject & ObjectSubtype;
+  const listed = listedValues(properties?.[name]);
+  return (
+    Boolean(required?.includes(name)) &&
+    listed !== null &&
+    listed.length === values.length &&
+    values.every((value) => listed.includes(value))
+  );
+}
+
+/**
+ * Whether `schema`, or an inline `allOf` item of it, already requires the discriminator property
+ * with exactly the patch's values (the `discriminator-values` fix). Then a patch would
+ * only repeat it (#2124).
+ */
+export function declaresValues(schema: SchemaObject | undefined, patch: EnumPatch): boolean {
+  const name = patch.discriminator.propertyName;
+  return [schema, ...(schema?.allOf ?? [])].some((item) =>
+    requiresValues(item, name, patch.values),
+  );
+}
+
 /**
  * Add or replace the enum property in `schema`, an `allOf` or object schema. Returns the added
  * enum schema, or null for another kind of schema, which is left as it is.

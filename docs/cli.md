@@ -78,6 +78,8 @@ npx openapi-typesafe --redocly ./path/to/redocly.yaml
 
 You can read more about the Redoc’s configuration options [in their docs](https://redocly.com/docs/cli/configuration/).
 
+Problems listed in a `.redocly.lint-ignore.yaml` next to `redocly.yaml` (as `redocly lint --generate-ignore-file` writes it) are skipped, as `redocly lint` skips them; with `DEBUG=openapi-ts:*` each one is printed. Without a `redocly.yaml`, the file is read from the current directory.
+
 ## Auth
 
 Authentication for non-public schemas is handled in your [Redocly config](https://redocly.com/docs/cli/configuration/#resolve-non-public-or-non-remote-urls). You can add headers and basic authentication like so:
@@ -139,6 +141,17 @@ The following flags are supported in the CLI:
 
 `--content-never` is accepted for compatibility with openapi-typescript and has no effect.
 
+## Warnings
+
+A warning does not stop the run: the types are written and the exit code stays `0`. A warning about the document ends with its code, as an error does.
+
+| Code | Meaning |
+| :--- | :------ |
+| `DISCRIMINATOR_VALUE_NOT_ALLOWED` | A discriminator gives a schema a value that the schema's own discriminator property does not allow, so no value matches. The Discriminator Object requires the value, from `mapping` or the schema name, to be one the property admits; add a `mapping` entry. See [discriminator values](./advanced.md#discriminator-values) |
+| `ENUM_VALUES_EXCLUDED` | `--enum-values`: other keywords exclude some values of an enum (an `allOf` of enums with other values, a discriminator value the enum does not list), so the array is typed by its own values. See [enum values arrays](./advanced.md#enum-values-arrays) |
+| `PATH_TEMPLATES_IDENTICAL` | Paths differ only in their parameter names, such as `/users/{id}` and `/users/{name}`. The OpenAPI Paths Object forbids this: "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical." See [pathParamsAsTypes](#pathparamsastypes) for the output |
+| `QUERYSTRING_NEXT_TO_QUERY` | An `in: querystring` parameter is next to `in: query` parameters, which OpenAPI 3.2 does not allow; the parameter is left out of the types. See [OpenAPI 3.2 support](./introduction.md#openapi-3-2-support) |
+
 ## Exit codes
 
 The CLI exits with a code that tells what went wrong. On failure it prints one line with the message and the error code, for example `✘  Generated types are not up-to-date! src/api.ts differs from its schema. (OUTPUT_STALE)`.
@@ -147,7 +160,7 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 | :--: | :------ | :---------- |
 | `0` | Success; with `--check`, the output is up to date | |
 | `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
-| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
 | `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 | `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |
@@ -233,14 +246,29 @@ Though this is a contrived example, you could use this feature to automatically 
 ::: info Paths that a template also matches
 `${string}` matches `/` too, so `` `/user/${string}` `` also matches `/user/settings` and
 `` `/user/${string}/keys` ``. TypeScript then requires those paths' types to fit the template's
-type, and the output does not compile when they do not (TS2411, TS2413). When a path surely does
-not fit (it has a method or a parameter location the template's path has not, or lacks one it
-has), `paths` is written as an intersection,
+type, and the output does not compile when they do not (TS2411, TS2413). The generator checks
+each such path against the template the way TypeScript does: through `operations[…]` and
+`components[…]`, into unions, intersections, arrays, tuples, index signatures and every property
+type. Unless the path's type surely fits, `paths` is written as an intersection,
 `` export type paths = { … } & { [path: `/user/${string}`]: … } ``, with each such template in an
 object of its own. Every path keeps its type: `paths["/user/settings"]` and
 `` paths[`/user/${string}`] `` are the same as before. Output that compiles stays the same,
-`export interface paths` included. Paths that differ only deeper (two operations by reference,
-two response schemas) are not decided, and that output is left as it was.
+`export interface paths` included.
+
+A URL that two templates match, such as `/user/123/keys` for `` `/user/${string}` `` and
+`` `/user/${string}/keys` ``, gets both types: `paths["/user/123/keys"]` is their intersection.
+TypeScript has no string type that excludes `/`
+([microsoft/TypeScript#41160](https://github.com/microsoft/TypeScript/issues/41160)), so look such a
+path up by its template, `` paths[`/user/${string}/keys`] ``.
+:::
+
+::: info Paths that differ only in parameter names
+OpenAPI forbids paths such as `/user/{user_id}` and `/user/{name}`, which match the same URLs; the
+generator warns about them (`PATH_TEMPLATES_IDENTICAL`, see [Warnings](#warnings)). With
+`--path-params-as-types` both get the same key, `` `/user/${string}` ``, and one object with that
+signature twice does not compile (TS2374), so each of them is written in an object of its own in
+the intersection. `` paths[`/user/${string}`] `` is then the intersection of both path items;
+merge the paths in the document to get one. Without the flag, each path keeps its own key.
 :::
 
 _Thanks, [@Powell-v2](https://github.com/Powell-v2)!_
@@ -395,12 +423,58 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 
 | Name | What changes | Upstream | Since |
 | :--- | :----------- | :------- | :---- |
+| `allof-discriminated-union` | An `allOf` `$ref` to a discriminated union is the union, not `Omit` of it with the schema's own name as the discriminator value | [#1464](https://github.com/openapi-ts/openapi-typescript/issues/1464), [#1690](https://github.com/openapi-ts/openapi-typescript/issues/1690) | 1.0 |
 | `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
+| `anyof-oneof-descriptions` | The JSDoc of a schema lists the descriptions of its `anyOf` and `oneOf` members, which were dropped | [#2142](https://github.com/openapi-ts/openapi-typescript/issues/2142), [#2143](https://github.com/openapi-ts/openapi-typescript/pull/2143) | 1.0 |
+| `anyof-oneof-required` | An `anyOf` or `oneOf` whose variants have only `required` keys of the sibling `properties` gives the parent with each variant's keys required, instead of `unknown` | none (found in the compat corpus) | 1.0 |
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
-| `discriminator-values` | A schema that a discriminator `mapping` names gets the mapped value only, not also its schema name from a discriminated `oneOf` without a mapping, which made the property `never` | none (found in our own tests) | 1.0 |
+| `dedupe-enum-names` | With `--enum --dedupe-enums`, a shared enum is named by a rule that does not depend on the document order, instead of after the first schema in the document; needs both flags | [#1683](https://github.com/openapi-ts/openapi-typescript/issues/1683) | 1.0 |
+| `discriminator-member-required` | `required` next to an `allOf` `$ref` to a discriminator member gives `WithRequired` instead of being dropped | [#2162](https://github.com/openapi-ts/openapi-typescript/issues/2162) | 1.0 |
+| `discriminator-values` | The value a discriminator member gets: a schema that a `mapping` names gets the mapped value only (not also its schema name, which made the property `never`); a schema's own `mapping` is kept when it also inherits a discriminator; a member that declares its value gets no second property; with `--enum` the value is a member of the owner's enum (`PetType.Cat`) | [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200), [#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124), [#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700) | 1.0 |
+| `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
+| `nullable-enums` | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum` | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872) | 1.0 |
+| `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
+| `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
+| `ref-pointers` | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`; where the original does not compile, this is the default | none (found in the compat corpus) | 1.0 |
 | `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
+
+#### allof-discriminated-union
+
+A schema that reuses a discriminated union through `allOf`:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Pet:
+      oneOf:
+        - $ref: "#/components/schemas/Cat"
+        - $ref: "#/components/schemas/Dog"
+      discriminator:
+        propertyName: kind
+    Response:
+      allOf:
+        - $ref: "#/components/schemas/Pet"
+```
+
+:::
+
+```ts
+Response: { kind: "Response" } & Omit<components["schemas"]["Pet"], "kind">; // [!code --]
+Response: components["schemas"]["Pet"]; // [!code ++]
+```
+
+Without the fix, `Response` is treated as one more member of `Pet`: its own name becomes the
+`kind` value, which no `Cat` or `Dog` has, and `Omit` on a union keeps only the keys that every
+member has. With the fix, a `$ref` to a union in `allOf` is the union, and a schema that only
+reuses a union gets no discriminator value. A schema that the union lists (`Cat`) keeps its value.
+
+- An `allOf` `$ref` to a discriminated union that lists the schema itself is typed with the
+  union's own keywords by default, fix or not, because that output referred to itself and did not
+  compile (TS2502, [#1665](https://github.com/openapi-ts/openapi-typescript/issues/1665)).
 
 #### allof-required
 
@@ -445,6 +519,62 @@ The fix leaves these as they are:
 - a key that no other member defines in its `properties` (it is dropped, as for a `required` next
   to `allOf`);
 - `properties` next to the `allOf`.
+
+#### anyof-oneof-descriptions
+
+A member of `anyOf` or `oneOf` may have its own `description`. The member is a union member in
+TypeScript, and a union member has no JSDoc an editor shows, so without the fix the descriptions
+are lost. With it the JSDoc of the property or schema lists them under its own description, by
+keyword:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+item:
+  description: The item.
+  oneOf:
+    - type: boolean
+      description: Description 1
+    - type: string
+      description: Description 2
+```
+
+:::
+
+```ts
+/** @description The item. */ // [!code --]
+/** // [!code ++]
+ * @description The item. // [!code ++]
+ *     One of: // [!code ++]
+ *     - Description 1 // [!code ++]
+ *     - Description 2 // [!code ++]
+ */ // [!code ++]
+item: boolean | string;
+```
+
+- A member's description holds only where that member applies, so each one is a bullet of its
+  own, not joined into one sentence.
+- A member's own `description` counts, also one next to a `$ref`. A member with only a `$ref` has
+  none: the schema it names is documented where it is declared.
+- Members without a description are left out. With both keywords, `Any of:` comes before
+  `One of:`.
+- It applies to properties and to component schemas.
+
+#### anyof-oneof-required
+
+`anyOf: [{ required: [cname] }, { required: [source] }]` next to `properties` says which of the
+properties must be there. Each variant has no type of its own, so it is `unknown`, and without
+the fix the schema is `{ cname?: string; source?: string } | unknown`, which is `unknown`. With
+the fix each variant is the parent with its keys required:
+
+```ts
+Pages: { cname?: string; source?: string } | unknown | unknown; // [!code --]
+Pages: WithRequired<{ cname?: string; source?: string }, "cname"> | WithRequired<{ cname?: string; source?: string }, "source">; // [!code ++]
+```
+
+- It applies to `anyOf` and `oneOf` when every variant has only `required` (and `description` or
+  `title`), each key is in the schema's own `properties`, and the schema has a type next to them.
+  Otherwise nothing changes; `anyof-properties` then applies as before.
 
 #### anyof-properties
 
@@ -524,6 +654,70 @@ Rows: [string[]]; // [!code ++]
 The fix needs `--array-length` and changes nothing without it; naming it without that flag prints a
 notice (`--fix all` does not). Arrays with too many possible tuples stay `T[]`, as before.
 
+#### dedupe-enum-names
+
+`--dedupe-enums` declares one enum for schemas with the same members. Without the fix it takes the
+name of the first of them in the document, so adding a schema before it renames the enum, and code
+that uses it breaks. With the fix the name is chosen from all of them, by this rule:
+
+1. A component schema that is the enum itself (`#/components/schemas/Status`) wins.
+2. Then the shortest name.
+3. Then the first name in code-unit order (as `Array.prototype.sort` compares strings).
+
+```ts
+// Alpha.mode comes first in the document, Pet.state after it, with the same values.
+export enum AlphaMode { // [!code --]
+export enum PetState { // [!code ++]
+```
+
+- No step depends on the document order. A new schema changes the name only when it ranks first,
+  for example a new component schema with these values.
+- Two enums with other members whose best names are the same (`Pet` and `Pet-` both give
+  `PetState`) are resolved in the order of their values: the later one takes its next name.
+- The names are built as without the fix (`PetState` for `Pet.state`).
+- The schemas are known only at the end, so the document is transformed twice; `transform`,
+  `transformProperty` and `postTransform` callbacks run in both passes.
+- It needs `--enum` and `--dedupe-enums` and changes nothing without them; naming it without them
+  prints a notice (`--fix all` does not).
+- An `x-enum-name` extension is not read: no tool of the ecosystem defines it.
+
+#### discriminator-member-required
+
+`required` next to an `allOf` `$ref`, where the referenced schema is a discriminator member:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    CatProps:
+      type: object
+      properties:
+        kittens: { type: number }
+    Cat:
+      type: object
+      required: [kittens]
+      allOf:
+        - $ref: "#/components/schemas/CatProps"
+    UpdatePet:
+      oneOf:
+        - $ref: "#/components/schemas/CatProps"
+      discriminator:
+        propertyName: sound
+        mapping:
+          meow: "#/components/schemas/CatProps"
+```
+
+:::
+
+```ts
+Cat: components["schemas"]["CatProps"]; // [!code --]
+Cat: WithRequired<components["schemas"]["CatProps"], "kittens">; // [!code ++]
+```
+
+Without the fix every key is dropped, because the discriminator property of a member must not be
+required twice. With the fix only the keys that the member already requires are left out.
+
 #### discriminator-values
 
 A discriminator gives each schema it names a required enum property. Without the fix every
@@ -571,6 +765,289 @@ Cat: Omit<components["schemas"]["Pet"], "kind"> & { kind: "cat" }; // [!code ++]
 - Two mappings that give one schema different values make one enum with both (`"cat" | "feline"`).
 - Two discriminators with different property names still add two properties.
 - With `--enum`, the merged enum is declared once.
+
+The fix also corrects the value in these cases:
+
+##### A schema's own mapping
+
+A schema with its own discriminator that also inherits one:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Element:
+      type: object
+      properties:
+        contentType: { type: string }
+      discriminator:
+        propertyName: contentType
+    Content:
+      type: object
+      required: [contentType]
+      allOf:
+        - $ref: "#/components/schemas/Element"
+      discriminator:
+        propertyName: contentType
+        mapping:
+          video: "#/components/schemas/Video"
+    Video:
+      allOf:
+        - $ref: "#/components/schemas/Content"
+```
+
+:::
+
+```ts
+Video: Omit<components["schemas"]["Content"], "contentType"> & { contentType: "Video" }; // [!code --]
+Video: Omit<components["schemas"]["Content"], "contentType"> & { contentType: "video" }; // [!code ++]
+```
+
+Without the fix the inherited discriminator replaces `Content`'s own, with its `mapping`, so the
+mapped values are lost for the schemas that come after `Content` in the document. With the fix a
+schema keeps its own discriminator, and the result does not depend on the order of the schemas.
+A schema without one still inherits its parent's.
+
+##### A value the member declares
+
+A member that declares its discriminator value itself:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    Image:
+      oneOf:
+        - $ref: "#/components/schemas/AgentImage"
+      discriminator:
+        propertyName: type
+        mapping:
+          agent: "#/components/schemas/AgentImage"
+    AgentImage:
+      allOf:
+        - $ref: "#/components/schemas/ImageBase"
+        - type: object
+          required: [type]
+          properties:
+            type: { type: string, enum: [agent] }
+```
+
+:::
+
+```ts
+AgentImage: components["schemas"]["ImageBase"] & { type: "agent" } & { type: "agent" }; // [!code --]
+AgentImage: components["schemas"]["ImageBase"] & { type: "agent" }; // [!code ++]
+```
+
+The added property has the same type, so the output is right but noisy. With the fix, a member
+that requires the property, in its own keywords or an inline `allOf` item, with an `enum` or
+`const` of exactly its discriminator values gets no added property. A member that declares other
+values, or does not require the property, still gets it.
+
+##### Enum members with `--enum`
+
+With [`--enum`](#flags), a discriminator owner whose property is an enum:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+components:
+  schemas:
+    PetType:
+      type: string
+      enum: [Dog, Cat]
+    Pet:
+      type: object
+      required: [petType]
+      properties:
+        petType: { $ref: "#/components/schemas/PetType" }
+      discriminator:
+        propertyName: petType
+        mapping:
+          Cat: "#/components/schemas/Cat"
+    Cat:
+      allOf:
+        - $ref: "#/components/schemas/Pet"
+        - type: object
+          properties:
+            name: { type: string }
+```
+
+:::
+
+```ts
+Cat: Omit<components["schemas"]["Pet"], "petType"> & { name?: string } & { petType: CatPetType }; // [!code --]
+Cat: Omit<components["schemas"]["Pet"], "petType"> & { name?: string } & { petType: PetType.Cat }; // [!code ++]
+```
+
+Without the fix each member declares an enum of its own (`export enum CatPetType { Cat = "Cat" }`),
+which is not assignable to `PetType`, so a `Cat` is not a `Pet`. With the fix the added value is a
+member of the owner's enum and no new enum is declared. A member without a mapping gets its
+schema name as the value, as the string `"Cat"`, which `PetType` does not accept either; with the
+fix it is `PetType.Cat` too.
+
+- The owner's enum may be a `$ref`, inline, or inherited through `allOf`.
+- Members use the names `--enum` gives: `PetType.hot_dog` for `hot-dog`, and
+  `typeof PetType["+"]` for a quoted member.
+- A value that the owner's enum lacks keeps the old output.
+- Without `--enum` there is no enum to take members from, and this part changes nothing.
+
+#### exploded-query-objects
+
+A query parameter with an object schema is sent with `style: form` and `explode: true` unless it
+says otherwise, so its properties are the query keys: `?page=1&size=10`, not `?filter=…`. Without
+the fix `query` has one key named after the parameter. With it the object's properties are keys of
+`query`:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+parameters:
+  - name: GetPosts
+    in: query
+    schema:
+      $ref: "#/components/schemas/GetPosts"
+```
+
+:::
+
+```ts
+query?: { // [!code --]
+  GetPosts?: components["schemas"]["GetPosts"]; // [!code --]
+}; // [!code --]
+query?: Partial<components["schemas"]["GetPosts"]>; // [!code ++]
+```
+
+- The other query parameters stay keys of their own: `{ sort?: string } & Partial<…>`.
+- An optional parameter's properties are all optional (`Partial`): leaving the parameter out sends
+  none of them. A required parameter keeps the object as it is, and `query` is required.
+- A schema is an object when its `type` is `object` (also with `null`), when it has object keywords
+  and no `type`, or when every `allOf`, `anyOf` or `oneOf` member is one; `$ref`s are followed.
+- `style: deepObject`, `explode: false`, other styles and other locations keep the name.
+- The default `querySerializer` of `openapi-typesafe-fetch` sends top-level primitive values as
+  `key=value`, which is this format, so the client needs no other option.
+
+#### nullable-enums
+
+`--enum` makes string and number enums TypeScript enums. An enum member cannot be `null`, so an
+enum that lists `null` stays a union without the fix (the original meant to allow it, but tested
+`typeof null`). With it the other values become the enum, and `null` is added to the type where the
+schema allows it:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+Values:
+  type: [string, "null"]
+  enum: [VALUE1, VALUE2, null]
+```
+
+:::
+
+```ts
+Values: "VALUE1" | "VALUE2" | null; // [!code --]
+Values: Values | null; // [!code ++]
+export enum Values { // [!code ++]
+  VALUE1 = "VALUE1", // [!code ++]
+  VALUE2 = "VALUE2", // [!code ++]
+} // [!code ++]
+```
+
+- `null` is added only when the type also admits it: `type` absent or listing `"null"`, or
+  OpenAPI 3.0 `nullable: true`. A value must pass both keywords, so `type: string` with `null` in
+  `enum` gives just the enum.
+- `x-enum-varnames` and `x-enum-descriptions` keep their positions: the entry for `null` is
+  skipped.
+- An enum of only `null` stays `null`.
+- It needs `--enum` and changes nothing without it; naming it without it prints a notice (`--fix
+  all` does not).
+
+#### prefix-items
+
+In JSON Schema 2020-12, `prefixItems` types the first items only. More items are allowed unless
+`items` or `unevaluatedItems` is `false`, and `minItems` sets how many are required (none by
+default). Without the fix the tuple is closed and every element required. With it:
+
+```yaml
+type: array
+prefixItems: [{ type: number }, { type: string }]
+```
+
+| Next to `prefixItems` | Without the fix | With the fix |
+| :-- | :-- | :-- |
+| nothing | `[number, string]` | `[number?, string?, ...unknown[]]` |
+| `minItems: 2` | `[number, string]` | `[number, string, ...unknown[]]` |
+| `minItems: 1, items: { type: number }` | `[number, string]` | `[number, string?, ...number[]]` |
+| `minItems: 2, items: false` | `[number, string]` | `[number, string]` |
+
+- Further items have the `items` type. Without `items`, `unevaluatedItems` types them, with the
+  `contains` type added (`contains` evaluates the items it matches); without either they are
+  `unknown`.
+- `unevaluatedItems` next to `items` changes nothing: `items` evaluates every further item.
+- With `--array-length` the fixed tuple gets no length tuples around it; with `--immutable` it is
+  `readonly`.
+
+#### read-write-refs
+
+`readOnly` and `writeOnly` are annotations of a schema. A property whose schema is a `$ref` to a
+`readOnly` schema is read-only too: in OpenAPI 3.0 the reference is the property's definition, and
+in 3.1 the annotations of the referenced schema apply to the value. Without the fix only the flags
+written on the property itself count. With it the flags of the `$ref` target and of `allOf`
+members count too:
+
+::: code-group
+
+```yaml [my-openapi-3-schema.yaml]
+ParticipantType:
+  type: string
+  readOnly: true
+  enum: [MAIN, CO]
+Participant:
+  type: object
+  properties:
+    kind:
+      $ref: "#/components/schemas/ParticipantType"
+```
+
+:::
+
+```ts
+kind?: components["schemas"]["ParticipantType"]; // [!code --]
+readonly kind?: components["schemas"]["ParticipantType"]; // [!code ++]
+```
+
+- A `$ref` to a `$ref` and nested `allOf` members are followed; recursion stops at a schema seen
+  before.
+- `anyOf` and `oneOf` members are not read: only one of them may apply.
+- With `--read-write-markers` the property gets `$Read<T>` or `$Write<T>`, so `Readable` and
+  `Writable` drop it where it is not sent; a property both flags reach gets no marker.
+
+#### ref-pointers
+
+A `$ref` can point into another schema:
+`#/paths/~1a/get/responses/200/content/application~1json/schema` or
+`#/components/schemas/Base/allOf/0/properties/id`. The original indexed every segment by name
+(`["content"]["application/json"]["schema"]`), but the generated types have no `schema`, `items`
+or `allOf` member. Where that does not compile, 1.0 writes the type the pointer means by default:
+
+```ts
+bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]; // [!code --]
+bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // [!code ++]
+```
+
+- The `schema` of a media type, header or component parameter is left out, `items` is indexed by
+  `[number]`, `additionalProperties` by `[string]`, and an optional or nullable value is wrapped in
+  `NonNullable` before it is indexed.
+- A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation
+  `parameters/0`) gets the target's type written inline; a target that points back at itself keeps
+  the original type.
+
+Where the generated type has an index signature (`--additional-properties`, or the schema's own
+`additionalProperties`), the original compiles: `["schema"]` reads the index signature and is
+`unknown`. Changing it could break code, so it stays without the fix; with `ref-pointers` it gets
+the type above too.
 
 #### root-type-numbering
 

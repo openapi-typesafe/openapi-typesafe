@@ -1,5 +1,5 @@
 import { irProperty } from "../../../domain/ir/constructors.js";
-import type { IrPropertySignature } from "../../../domain/ir/nodes.js";
+import type { IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { parseRefPointer } from "../../../domain/openapi/json-pointer.js";
 import { literalType } from "../literal-type.js";
@@ -17,12 +17,17 @@ function discriminatorValue(discriminator: Discriminator, path: string): string 
   return match ? match[0] : name;
 }
 
-/** The discriminator property, typed as its literal value (`createDiscriminatorProperty`). */
+/**
+ * The discriminator property, typed as its literal value (`createDiscriminatorProperty`), or as
+ * `valueType` gives it; `valueType` returns null to keep the literal.
+ */
 export function discriminatorProperty(
   discriminator: Discriminator,
   path: string,
   isReadonly: boolean,
+  valueType: (value: string | undefined) => IrType | null = () => null,
 ): IrPropertySignature {
   const value = discriminatorValue(discriminator, path);
-  return irProperty(toPropertyName(discriminator.propertyName), literalType(value), { isReadonly });
+  const type = valueType(value) ?? literalType(value);
+  return irProperty(toPropertyName(discriminator.propertyName), type, { isReadonly });
 }

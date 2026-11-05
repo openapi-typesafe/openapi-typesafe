@@ -260,12 +260,15 @@ minItems: 2
 
 ```yaml
 type: array
-items:
-  type: number
+items: false
+minItems: 2
 prefixItems:
   - type: number
   - type: number
 ```
+
+(`items: false` closes the tuple and `minItems` requires both elements, as the
+[`prefix-items`](cli.md#prefix-items) fix reads them)
 
 </td>
       <td>
@@ -369,6 +372,50 @@ Cat: { type?: "cat"; } & components["schemas"]["PetCommonProperties"];
 _Note: you optionally could provide `discriminator.propertyName: "type"` on `Pet` ([docs](https://spec.openapis.org/oas/v3.1.0#discriminator-object)) to automatically generate the `type` key, but is less explicit._
 
 While the schema permits you to use composition in any way you like, it’s good to always take a look at the generated types and see if there’s a simpler way to express your unions & intersections. Limiting the use of `oneOf` is not the only way to do that, but often yields the greatest benefits.
+
+### Discriminator values
+
+A discriminator gives each member schema a value of its property. A `mapping` entry names it; a
+member that no entry names gets its schema name, as the
+[Discriminator Object](https://spec.openapis.org/oas/v3.1.0#discriminator-object) says. If the
+member's property has an `enum` or `const` that does not list that value, no value of the member
+matches the discriminator, and where the generator adds the value to the member the property is
+`never`. openapi-typesafe warns about each such member:
+
+```yaml
+Item:
+  oneOf: [{ $ref: "#/components/schemas/Episode" }]
+  discriminator: { propertyName: type } # Episode gets the value "Episode"
+Episode:
+  type: object
+  properties:
+    type: { type: string, enum: [episode] } # does not list "Episode"
+```
+
+Add a mapping entry for the value the property allows (`mapping: { episode:
+"#/components/schemas/Episode" }`).
+
+## Enum values arrays
+
+`--enum-values` exports each enum's values as an array typed by the place of its schema in the
+generated types:
+
+```ts
+export const petStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Pet"]["status"]> = ["available", "sold"];
+```
+
+Where that type cannot hold the values, the array is typed by its own values instead, so the file
+compiles (`ReadonlyArray<"available" | "sold">`):
+
+- the place has no type of its own: a schema under `definitions`, an `allOf` member, a positional
+  operation parameter, or a property of a schema whose type is `unknown` (an `anyOf` with a
+  variant that has only `required`);
+- an `anyOf` member is an array of the enum and another member is not an array;
+- the schema contradicts itself: an `allOf` of enums with different values, or a discriminator
+  value that the property enum does not list. The type there admits fewer values, or none; this
+  case also prints a warning that names the array and the values.
+
+Every other array keeps its type.
 
 ## JSONSchema $defs caveats
 
@@ -505,7 +552,11 @@ Cyclic schemas are fine when the cycle goes through an object property
 (`Node: { properties: { next: { $ref: Node } } }`): they generate recursive types. A cycle with no
 object on it, such as two arrays of each other or two `allOf`s of each other, generates types that
 TypeScript rejects with “is referenced directly or indirectly in its own type annotation”, as in
-openapi-typescript.
+openapi-typescript. The common case is a JSON value schema whose `anyOf` or `oneOf` holds an array
+of itself (`JSONValue: anyOf: [string, number, { type: array, items: { $ref: JSONValue } }]`). It
+gives `JSONValue: components["schemas"]["JSONValue"][] | string | number`, and TypeScript defers
+an array of itself only in a type alias, not in an interface property (TS2502). An array that sits
+in an object property (`{ type: object, properties: { items: { type: array, … } } }`) is fine.
 
 Names need no care: reserved words (`class`, `default`, `constructor`), TypeScript global names,
 `__proto__`, Unicode, quotes, backslashes and line breaks in schema, property, enum, path and

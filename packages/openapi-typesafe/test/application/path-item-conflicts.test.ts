@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vitest";
+import { declaredTypeLookup } from "../../src/application/transform/document/declared-types.js";
 import { isCoveredPathItemRejected } from "../../src/application/transform/document/path-item-conflicts.js";
-import { irKeyword, irObject, irProperty, irRaw } from "../../src/domain/ir/constructors.js";
-import type { IrMember, IrType } from "../../src/domain/ir/nodes.js";
+import {
+  irIndexedAccess,
+  irKeyword,
+  irObject,
+  irProperty,
+  irRaw,
+  irReference,
+  irString,
+} from "../../src/domain/ir/constructors.js";
+import type { IrDeclaration, IrMember, IrType } from "../../src/domain/ir/nodes.js";
 import { toPropertyName } from "../../src/domain/ir/property-name.js";
 
 /** Which covered path item types the checker surely rejects for a signature (roadmap R10.2). */
 
-const OPERATION = irRaw('operations["app"]');
+const operationRef = (name: string): IrType =>
+  irIndexedAccess(irReference("operations"), irString(name, "escaped"));
+const OPERATION = operationRef("app");
 const EMPTY = irKeyword("never");
 
 const object = (...members: IrMember[]): IrType => irObject(members);
@@ -79,6 +90,15 @@ describe("isCoveredPathItemRejected", () => {
     expect(isCoveredPathItemRejected(object(required("get")), covered)).toBe(false);
   });
 
+  it("isCoveredPathItemRejected with a value that may be undefined for an empty slot decides nothing", () => {
+    const covering = object(empty("post"));
+
+    expect(isCoveredPathItemRejected(object(required("post", irRaw("any"))), covering)).toBe(false);
+    expect(
+      isCoveredPathItemRejected(object(optional("post", irKeyword("undefined"))), covering),
+    ).toBe(false);
+  });
+
   it("isCoveredPathItemRejected reads quoted and numeric property names", () => {
     const covering = object(required("x-y"), required("200"));
 
@@ -87,5 +107,41 @@ describe("isCoveredPathItemRejected", () => {
       true,
     );
     expect(isCoveredPathItemRejected(covering, covering)).toBe(false);
+  });
+
+  describe("with declared types", () => {
+    const operations = (...members: IrMember[]): IrDeclaration => ({
+      kind: "interface",
+      name: "operations",
+      isExported: true,
+      members,
+      comments: [],
+    });
+    const lookup = declaredTypeLookup([
+      operations(
+        required("getCase", object(required("case_name", irKeyword("string")))),
+        required("getSummary", object(required("summary", irKeyword("string")))),
+        required("getLonger", object(required("case_name"), required("summary"))),
+        required("tree", object(optional("child", operationRef("tree")))),
+        required("forest", object(optional("child", operationRef("forest")))),
+      ),
+    ]);
+    const itemOf = (name: string) => object(required("get", operationRef(name)));
+
+    it("isCoveredPathItemRejected compares the operations that references name", () => {
+      expect(isCoveredPathItemRejected(itemOf("getSummary"), itemOf("getCase"), lookup)).toBe(true);
+    });
+
+    it("isCoveredPathItemRejected with an assignable referenced operation rejects nothing", () => {
+      expect(isCoveredPathItemRejected(itemOf("getLonger"), itemOf("getCase"), lookup)).toBe(false);
+    });
+
+    it("isCoveredPathItemRejected with recursive referenced types terminates without a decision", () => {
+      expect(isCoveredPathItemRejected(itemOf("forest"), itemOf("tree"), lookup)).toBe(false);
+    });
+
+    it("isCoveredPathItemRejected without the lookup leaves references undecided", () => {
+      expect(isCoveredPathItemRejected(itemOf("getSummary"), itemOf("getCase"))).toBe(false);
+    });
   });
 });

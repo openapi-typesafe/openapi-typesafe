@@ -16,6 +16,16 @@ readonly RUN_DIR="${ROOT_DIR}/.logs/verify/$(date -u +%Y%m%dT%H%M%SZ)"
 readonly SUMMARY_FILE="${RUN_DIR}/summary.log"
 # Matches warning lines from pnpm, biome, rollup/unbuild, node and vitest output.
 readonly WARNING_PATTERN='WARN|warning|Warning|DeprecationWarning|ExperimentalWarning'
+# Vitest lists passed and skipped tests and suites by name (slow ones too, so the list differs per
+# machine); a name such as "discriminator value warnings" is not a warning, so those lines are
+# left out, also behind the package prefix that pnpm and turbo add ("pkg test: "). A failed test
+# fails the step through its exit code.
+readonly TEST_RESULT_PATTERN='(^|: )[[:space:]]*(✓|√|↓) '
+
+# Count the warning lines of a log, without colour codes and test result lines.
+count_warnings() {
+  sed 's/\x1b\[[0-9;]*m//g' "$1" | grep -vE "${TEST_RESULT_PATTERN}" | grep -cE "${WARNING_PATTERN}"
+}
 
 # A case statement instead of an associative array keeps the script working on bash 3.2 (macOS default).
 command_for_step() {
@@ -48,7 +58,7 @@ run_step() {
   (cd "${ROOT_DIR}" && ${command}) >"${log_file}" 2>&1
   local exit_code=$?
   local warning_count
-  warning_count=$(sed 's/\x1b\[[0-9;]*m//g' "${log_file}" | grep -cE "${WARNING_PATTERN}")
+  warning_count=$(count_warnings "${log_file}")
 
   if [[ "${exit_code}" -eq 0 && "${VERIFY_FAIL_ON_WARNINGS:-0}" == "1" && "${warning_count}" -gt 0 ]]; then
     exit_code=1

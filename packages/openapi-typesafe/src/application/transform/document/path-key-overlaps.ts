@@ -6,6 +6,8 @@
  * TS2413). These functions find the signatures that cover another key the checker rejects.
  */
 
+import { isAssignableToTemplate, isNumberText, type TemplateShape } from "./template-key-match.js";
+
 /** A placeholder of a template literal type, by the type it stands for. */
 export type PathPlaceholder = "string" | "number" | "boolean";
 
@@ -27,11 +29,6 @@ const SAMPLE_TEXTS: Readonly<Record<PathPlaceholder, string>> = {
   number: "0",
   boolean: "true",
 };
-
-/** TypeScript's rule for `${number}`: a text that converts to a finite number. */
-function isNumberText(text: string): boolean {
-  return text !== "" && Number.isFinite(Number(text));
-}
 
 function isPlaceholderText(type: PathPlaceholder, text: string): boolean {
   if (type === "number") {
@@ -71,7 +68,8 @@ function matchesFrom(
 /**
  * One string of the key. If a template key is covered, every string of it is, so a sample that is
  * not covered proves the key is not; a sample that is covered may over-report, which only moves a
- * signature that did not need it (the types stay the same, see `pathsObjectType`).
+ * signature that did not need it (the types stay the same, see `pathsObjectType`). This is the
+ * cover the original check used, kept so that the output it gave stays the same.
  */
 function sampleOf(key: PathKey): string {
   if (key.kind === "literal") {
@@ -82,28 +80,106 @@ function sampleOf(key: PathKey): string {
     .join("");
 }
 
+/** The shapes after one more part; a boolean placeholder doubles them, as TypeScript does. */
+function withPart(shapes: readonly TemplateShape[], part: PathKeyPart): TemplateShape[] {
+  return shapes.flatMap((shape): TemplateShape[] => {
+    const lead = shape.texts.slice(0, -1);
+    const last = shape.texts[shape.texts.length - 1] ?? "";
+    if (part.kind === "text") {
+      return [{ texts: [...lead, last + part.text], types: shape.types }];
+    }
+    if (part.type === "boolean") {
+      return BOOLEAN_TEXTS.map((text) => ({ texts: [...lead, last + text], types: shape.types }));
+    }
+    return [{ texts: [...shape.texts, ""], types: [...shape.types, part.type] }];
+  });
+}
+
+/**
+ * The key types TypeScript makes of a key: a literal is one text; a template is one shape, or a
+ * union of shapes when `${boolean}` is in it (`` `/a/${boolean}` `` is `"/a/true" | "/a/false"`).
+ */
+function shapesOf(key: PathKey): readonly TemplateShape[] {
+  if (key.kind === "literal") {
+    return [{ texts: [key.url], types: [] }];
+  }
+  return key.parts.reduce<TemplateShape[]>(withPart, [{ texts: [""], types: [] }]);
+}
+
+/**
+ * Whether a signature checks the covered key: every type of the covered key is assignable to one
+ * of the signature's types. A shape without placeholders (a boolean-only template) is a string
+ * literal, which is no signature, so the targets leave it out.
+ */
+function isCoveredBy(
+  sources: readonly TemplateShape[],
+  targets: readonly TemplateShape[],
+): boolean {
+  return sources.every((source) =>
+    targets.some((target) => isAssignableToTemplate(source, target)),
+  );
+}
+
 /** Whether TypeScript rejects the key at `covered` for the signature at `covering`. */
 export type CoverRejection = (covering: number, covered: number) => boolean;
 
+/**
+ * How the check decides that TypeScript rejects a covered key. `sampled` goes with the sampled
+ * cover, as the original check did, with the path items' own types: its output stays the same.
+ * `exact` goes only with the cover TypeScript itself checks, so it may read further (the types
+ * that path items reference, upstream #1752) without moving a signature the checker accepts.
+ */
+export interface CoverChecks {
+  readonly sampled: CoverRejection;
+  readonly exact: CoverRejection;
+}
+
 /** Without type information every covered key counts. */
 const EVERY_COVER_REJECTED: CoverRejection = () => true;
+const EVERY_CHECK: CoverChecks = { sampled: EVERY_COVER_REJECTED, exact: EVERY_COVER_REJECTED };
 
-/** The indexes of the template keys that cover another key of the list, where it is rejected. */
+/** The signature types of a template key; a boolean-only template is no signature (TS1337). */
+function signatureShapes(key: PathKey): readonly TemplateShape[] {
+  return shapesOf(key).filter((shape) => shape.types.length > 0);
+}
+
+/**
+ * Whether two keys are the same template, as paths that differ only in parameter names give
+ * (`/a/{id}`, `/a/{name}`). OpenAPI forbids such paths, and one object with both signatures fails
+ * to compile whatever their types (TS2374), so each always counts as covering the other.
+ */
+function isSameTemplate(key: PathKey, other: PathKey): boolean {
+  return (
+    other.kind === "template" && JSON.stringify(shapesOf(key)) === JSON.stringify(shapesOf(other))
+  );
+}
+
+/**
+ * The indexes of the template keys that cover another key of the list, where it is rejected, or
+ * that repeat another template key.
+ */
 export function coveringTemplateKeys(
   keys: readonly PathKey[],
-  isRejected: CoverRejection = EVERY_COVER_REJECTED,
+  checks: CoverChecks = EVERY_CHECK,
 ): ReadonlySet<number> {
   const covering = new Set<number>();
+  const shapes = keys.map(shapesOf);
   keys.forEach((key, index) => {
     if (key.kind !== "template") {
       return;
     }
-    const isCovering = keys.some(
-      (other, otherIndex) =>
-        otherIndex !== index &&
-        matchesFrom(sampleOf(other), 0, key.parts, 0) &&
-        isRejected(index, otherIndex),
-    );
+    const targets = signatureShapes(key);
+    const isCovering = keys.some((other, otherIndex) => {
+      // An exact cover is sampled too: a key the checker matches has every string matched.
+      if (otherIndex === index || !matchesFrom(sampleOf(other), 0, key.parts, 0)) {
+        return false;
+      }
+      return (
+        isSameTemplate(key, other) ||
+        checks.sampled(index, otherIndex) ||
+        (isCoveredBy(shapes[otherIndex] ?? [], targets) && checks.exact(index, otherIndex))
+      );
+    });
     if (isCovering) {
       covering.add(index);
     }

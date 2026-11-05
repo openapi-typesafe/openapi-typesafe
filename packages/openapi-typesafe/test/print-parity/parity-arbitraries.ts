@@ -436,6 +436,16 @@ export function reachesFixedLegacyBug(value: unknown, input: ContextInput): bool
 
 const ENUM_BLOCK_RE = /^export (?:declare )?(?:const )?enum (\S+) \{\n([\s\S]*?)^\}/gm;
 const ENUM_MEMBER_NAME_RE = /^\s+(\S+) = /gm;
+const CONST_ARRAY_NAME_RE = /^export const (\S+): /gm;
+
+/**
+ * Whether the original output declares an `--enum-values` array twice (a schema typed twice):
+ * that output does not compile (TS2451). The new footer adds the same array once.
+ */
+export function hasRedeclaredConstArrays(output: string): boolean {
+  const names = [...output.matchAll(CONST_ARRAY_NAME_RE)].map((match) => match[1] ?? "");
+  return new Set(names).size !== names.length;
+}
 
 /**
  * Whether an enum of the original output repeats a member name, also across declarations of the
@@ -449,4 +459,41 @@ export function hasDuplicateEnumMembers(output: string): boolean {
     membersByEnum.set(name, [...(membersByEnum.get(name) ?? []), ...names]);
   }
   return [...membersByEnum.values()].some((names) => new Set(names).size !== names.length);
+}
+
+const REPEATED_PARAMETERS_RE =
+  /^export const \S+: ReadonlyArray<(?:Extract<)*FlattenedDeepRequired<(?:paths>|webhooks>|components>\["pathItems"\])\["[^"]*"\]\["parameters"\]\["parameters"\]/m;
+
+/**
+ * Whether the original output types an `--enum-values` array of a path item parameter with
+ * `["parameters"]["parameters"]`, which does not exist (TS2339), also inside the `Extract` of a
+ * union member. The new one indexes it once.
+ */
+export function hasRepeatedParametersIndex(output: string): boolean {
+  return REPEATED_PARAMETERS_RE.test(output);
+}
+
+const RETYPED_ENUM_VALUES_RE =
+  /^export const \S+: ReadonlyArray<(?!FlattenedDeepRequired<|Extract<)/m;
+
+/**
+ * Whether the new output types an `--enum-values` array by its own values: it does so only where
+ * the original location type surely does not hold them (ADR-027), so that output did not compile.
+ */
+export function hasRetypedEnumValues(output: string): boolean {
+  return RETYPED_ENUM_VALUES_RE.test(output);
+}
+
+const EXTRACT_PROBE_RE = /, \{\n\s+([^\n:]+): unknown;\n\s*\}>/g;
+const PROBE_NAME_RE = /^(?:[A-Za-z_$][A-Za-z_$0-9]*|\d+|"[^"]*")$/;
+
+/**
+ * Whether the original output narrows a union with an `Extract` probe whose property name is not
+ * an identifier and not quoted (`{ c-d: unknown }`): that output does not parse. The new generator
+ * quotes the name.
+ */
+export function hasUnquotedExtractProbe(output: string): boolean {
+  return [...output.matchAll(EXTRACT_PROBE_RE)].some(
+    (match) => !PROBE_NAME_RE.test(match[1] ?? ""),
+  );
 }

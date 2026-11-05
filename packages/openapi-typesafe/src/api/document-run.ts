@@ -7,13 +7,15 @@ import type { RefAccess, SchemaLoader } from "../application/ports/schema-loader
 import { withStackOverflowReported } from "../application/stack-overflow.js";
 import {
   ineffectiveFixNotices,
-  OutputFix,
+  type OutputFix,
   outputFixNamesOf,
   resolveOutputFixes,
 } from "../domain/output-fixes.js";
 import type { GeneratorOptions, GlobalContext, OpenAPI3, SchemaSource } from "../types.js";
+import { warnDiscriminatorValueConflicts } from "./discriminator-conflict-warnings.js";
 import { findDiscriminators } from "./discriminator-scan.js";
 import { resolveDocumentRef } from "./document-refs.js";
+import { warnIdenticalPathTemplates } from "./path-template-warnings.js";
 import { warnUnsupportedFeatures } from "./unsupported-feature-warnings.js";
 
 /** The ports of one generator run, wired by the Node API or the CLI (ENGINEERING_PLAN 4.5). */
@@ -145,6 +147,8 @@ export async function createDocumentRun(
     refAccess: refAccessOf(options, cwd),
   });
   withStackOverflowReported("transform", () => warnUnsupportedFeatures(schema, logger));
+  withStackOverflowReported("transform", () => warnDiscriminatorValueConflicts(schema, logger));
+  warnIdenticalPathTemplates(schema, logger);
   const ctx: GlobalContext = {
     ...contextFlags(options),
     fix,
@@ -154,7 +158,7 @@ export async function createDocumentRun(
       findDiscriminators(schema, {
         silent,
         logger,
-        fixesValueConflicts: fix.includes(OutputFix.DISCRIMINATOR_VALUES),
+        fixes: new Set(fix),
       }),
     ),
     injectFooter: [],
