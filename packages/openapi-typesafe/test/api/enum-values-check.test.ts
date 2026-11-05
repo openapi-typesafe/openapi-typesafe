@@ -65,6 +65,20 @@ describe("--enum-values location check", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("generateDeclarations reads a union with an unknown member as unknown", async () => {
+    // `{ … } | unknown | { m?: "m1" }` is `unknown`: `Extract` on it finds no member with `m`.
+    const { output } = await run({
+      Unk: {
+        type: "object",
+        properties: { x: { type: "string" } },
+        anyOf: [{ required: ["x"] }, { type: "object", properties: { m: STRING_ENUM(["m1"]) } }],
+      },
+    });
+
+    expect(output).toContain('unkAnyOf1MValues: ReadonlyArray<"m1"> = ["m1"];');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("generateDeclarations warns where an allOf of enums excludes listed values", async () => {
     const { output, warnings } = await run({
       Base: { type: "object", properties: { state: STRING_ENUM(["open", "converting"]) } },

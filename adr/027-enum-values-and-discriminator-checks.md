@@ -35,7 +35,9 @@ as upstream writes it, and where it compiles it must not change (ADR-021).
    - An intersection is `never` where `null` or `undefined` meets an object, or where objects
      share a property whose literal types have no value in common and one of them requires it
      (`{ a: "x" } & { a: "y" }`).
-   - Unions of intersections are distributed, as TypeScript normalizes them.
+   - Unions of intersections are distributed, as TypeScript normalizes them. A union with an
+     `unknown` member is `unknown` (`{ a: X } | unknown | { m: Y }`), with an `any` member `any`,
+     so `Extract` over it finds no member.
    - Where one part of an intersection declares a property, the index signatures of the other
      parts do not take part in its type (`{ a: X } & { [key: string]: Y }` gives `X` for `a`).
    The expansion budget counts references only, so the checks after a large evaluation still run.

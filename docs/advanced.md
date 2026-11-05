@@ -415,7 +415,8 @@ compiles (`ReadonlyArray<"available" | "sold">`):
 
 - the place has no type of its own: a schema under `definitions`, an `allOf` member, a positional
   operation parameter, or a property of a schema whose type is `unknown` (an `anyOf` with a
-  variant that has only `required`);
+  variant that has only `required`), whether the property is the schema's own or one of another
+  `anyOf` variant;
 - an `anyOf` member is an array of the enum and another member is not an array;
 - the schema contradicts itself: an `allOf` of enums with different values, or a discriminator
   value that the property enum does not list. The type there admits fewer values, or none; this

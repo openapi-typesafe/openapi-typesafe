@@ -1,5 +1,6 @@
 import type { IrDeclaration, IrMember, IrType } from "../../../domain/ir/nodes.js";
 import {
+  absorbed,
   type Evaluated,
   type Evaluation,
   MISSING,
@@ -112,7 +113,7 @@ export class TypeEvaluator {
   /**
    * The members of a union, each expanded; an intersection with unions in it is distributed over
    * them (`A & (B | C)` is `(A & B) | (A & C)`), as TypeScript normalizes it. A type that is not a
-   * union is its only member.
+   * union is its only member. A union with an `any` or `unknown` member is that keyword alone.
    */
   membersOf(value: Evaluated): readonly Evaluation[] {
     const expanded = this.expand(value);
@@ -121,7 +122,9 @@ export class TypeEvaluator {
     }
     const { type } = expanded;
     if (type.kind === "union") {
-      return type.types.flatMap((member) => this.membersOf({ ...expanded, type: member }));
+      return absorbed(
+        type.types.flatMap((member) => this.membersOf({ ...expanded, type: member })),
+      );
     }
     return type.kind === "intersection" ? this.distributed(expanded, type.types) : [expanded];
   }
