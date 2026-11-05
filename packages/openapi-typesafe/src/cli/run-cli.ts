@@ -1,5 +1,6 @@
 import type { Logger } from "../application/ports/logger.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
+import type { SchemaSource } from "../types.js";
 import { ineffectiveFlagNotices, parseCliArguments } from "./cli-arguments.js";
 import type { CliDependencies } from "./cli-dependencies.js";
 import { cliError, describeCliFailure, EXIT_CODES, type ExitCode } from "./cli-errors.js";
@@ -25,6 +26,22 @@ async function loadRedoclyConfig(run: CliRun): Promise<RedoclyConfig> {
   return configPath ? redoclyConfigs.load(configPath) : redoclyConfigs.createDefault();
 }
 
+/** The schema's URL, or stdin when no path or URL is given and something is piped in. */
+function schemaSource(run: CliRun): SchemaSource {
+  const { input } = run.args;
+  if (input) {
+    return resolveLocationUrl(input, run.deps.cwd);
+  }
+  if (run.deps.isStdinTerminal()) {
+    throw cliError(
+      "CLI_INPUT_MISSING",
+      "No schema given: pass a schema path or URL, pipe a schema into stdin, or define `apis` " +
+        "in redocly.yaml. See --help.",
+    );
+  }
+  return run.deps.stdin();
+}
+
 /** One schema from a path, a URL or stdin; without `--output`, the types go to stdout only. */
 async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promise<void> {
   const { input, output } = run.args;
@@ -42,7 +59,7 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
       "--check needs the generated file to compare with: add --output <file>.",
     );
   }
-  const source = input ? resolveLocationUrl(input, run.deps.cwd) : run.deps.stdin();
+  const source = schemaSource(run);
   const options = {
     ...run.args.generatorFlags,
     ...refLimitOptions(run.args, run.deps.cwd),

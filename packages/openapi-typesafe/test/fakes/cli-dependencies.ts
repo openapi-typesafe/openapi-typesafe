@@ -155,7 +155,8 @@ export interface FakeCli {
   readonly stdin: Readable;
 }
 
-export function createFakeCli(): FakeCli {
+/** `isStdinTerminal`: stdin is a terminal, as when the CLI runs with nothing piped into it. */
+export function createFakeCli({ isStdinTerminal = false } = {}): FakeCli {
   const parts = {
     logger: new RecordingLogger(),
     console: new RecordingConsole(),
@@ -171,6 +172,7 @@ export function createFakeCli(): FakeCli {
     version: "1.2.3",
     writeStdout: (text) => parts.stdout.push(text),
     stdin: () => parts.stdin,
+    isStdinTerminal: () => isStdinTerminal,
     generate: parts.generator.generate,
     now: steppingClock(),
     style: { bold: (text) => `*${text}*`, green: (text) => text, dim: (text) => text },

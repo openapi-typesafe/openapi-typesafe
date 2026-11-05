@@ -8,8 +8,8 @@ import { createFakeCli, fakePath, fakeRedoclyConfig, fakeUrl } from "../fakes/cl
 const CONFIG_PATH = fakePath("/work/api/redocly.yaml");
 
 /** A CLI whose `redocly.yaml` at CONFIG_PATH defines `apis`, found without `--redocly`. */
-function cliWithApis(apis: Record<string, Record<string, unknown>>) {
-  const cli = createFakeCli();
+function cliWithApis(apis: Record<string, Record<string, unknown>>, options = {}) {
+  const cli = createFakeCli(options);
   cli.redoclyConfigs.configs.set(CONFIG_PATH, fakeRedoclyConfig(apis, CONFIG_PATH));
   cli.redoclyConfigs.found = CONFIG_PATH;
   return cli;
@@ -117,6 +117,25 @@ describe("runCli: one schema", () => {
     expect(cli.generator.calls[0]?.options.silent).toBe(false);
     expect(cli.files.files.get(fakePath("/work/out/types.ts"))).toBe("types of stdin");
     expect(cli.console.infoLines).toEqual(["✨ *openapi-typesafe 1.2.3*", "🚀 stdin → *out/types.ts* [5ms]"]);
+  });
+
+  it("runCli without a schema and with stdin a terminal fails instead of waiting (upstream #1905)", async () => {
+    const cli = createFakeCli({ isStdinTerminal: true });
+
+    const exitCode = await runCli(["-o", "out/types.ts"], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.generator.calls).toEqual([]);
+    expect(cli.logger.messages("error")).toEqual([
+      expect.stringMatching(/^No schema given: .* \(CLI_INPUT_MISSING\)$/),
+    ]);
+  });
+
+  it("runCli with stdin a terminal still generates the APIs of the Redocly config", async () => {
+    const cli = cliWithApis({ a: { root: "./a.yaml", "x-openapi-ts": { output: "a.ts" } } }, { isStdinTerminal: true });
+
+    expect(await runCli([], cli.deps)).toBe(0);
+    expect(cli.generator.calls).toHaveLength(1);
   });
 
   it("runCli with an absolute --output writes to that path", async () => {

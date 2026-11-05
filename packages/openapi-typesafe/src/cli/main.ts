@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { isatty } from "node:tty";
 import { pathToFileURL } from "node:url";
 import colors from "ansi-colors";
 import { createNodeFileSystem } from "../adapters/node-file-system/node-file-system.js";
@@ -33,6 +34,8 @@ function terminalStyle(): TextStyle {
   };
 }
 
+const STDIN_DESCRIPTOR = 0;
+
 const generateTypes: GenerateTypes = async (source, options) =>
   `${COMMENT_HEADER}${astToString(await openapiTS(source, options))}`;
 
@@ -54,6 +57,9 @@ function processDependencies(): CliDependencies {
     console: terminalConsole(),
     writeStdout: (text) => process.stdout.write(text),
     stdin: () => process.stdin,
+    // `isatty` reads the descriptor without opening `process.stdin`, which would keep the
+    // process alive.
+    isStdinTerminal: () => isatty(STDIN_DESCRIPTOR),
     files: createNodeFileSystem(),
     redoclyConfigs: createRedoclyConfigSource(cwd),
     generate: generateTypes,
