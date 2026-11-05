@@ -1,3 +1,4 @@
+import { isRawBinarySchema } from "../../../domain/openapi/binary-content.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 
 /**
@@ -16,6 +17,15 @@ export type GeneratedMember =
 type JsonObject = Readonly<Record<string, unknown>>;
 
 const OPAQUE_KEYS = ["not", "enum", "const", "$ref"] as const;
+/** Keywords that can give a schema with a primitive `type` another generated type. */
+const COMPOSITE_KEYS: ReadonlySet<string> = new Set([
+  "allOf",
+  "anyOf",
+  "oneOf",
+  "properties",
+  "additionalProperties",
+  "items",
+]);
 /** How deep `allOf`/`anyOf`/`oneOf` members are read; deeper shapes count as opaque. */
 const MAX_DEPTH = 8;
 const INDEX_RE = /^\d+$/;
@@ -180,7 +190,25 @@ function memberAt(schema: unknown, key: string, input: MemberInput): GeneratedMe
   if (isArrayShape(node)) {
     return INDEX_RE.test(key) || isBuiltInMember(key, []) ? OPAQUE : MISSING;
   }
-  return OPAQUE;
+  // `--binary-as-blob` types raw binary strings as `Blob`, which has members of its own.
+  return input.options.binaryAsBlob && isRawBinarySchema(node as never)
+    ? OPAQUE
+    : primitiveMember(node, key);
+}
+
+/** The JavaScript value whose members a primitive `type` has: `"".length`, `(0).toFixed`. */
+const PRIMITIVE_PROTOTYPES: Readonly<Record<string, object>> = {
+  string: String.prototype,
+  number: Number.prototype,
+  integer: Number.prototype,
+  boolean: Boolean.prototype,
+};
+
+/** A key of a schema with one primitive `type`: missing unless the primitive has it. */
+function primitiveMember(node: JsonObject, key: string): GeneratedMember {
+  const prototype = typeof node.type === "string" ? PRIMITIVE_PROTOTYPES[node.type] : undefined;
+  const isPlain = Object.keys(node).every((name) => !COMPOSITE_KEYS.has(name));
+  return prototype !== undefined && isPlain && !isBuiltInMember(key, prototype) ? MISSING : OPAQUE;
 }
 
 /** The member `key` of the type generated for `schema` (a `$ref` is followed first). */

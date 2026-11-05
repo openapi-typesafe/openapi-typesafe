@@ -25,9 +25,10 @@ documents that were already broken.
 1. **Default only where the original surely does not compile.** `originalIndexFails` walks the
    document as TypeScript walks the generated types, and answers true only where the error is sure:
    a key with no property and no index signature (`--additional-properties`, schema
-   `additionalProperties`), a value that may be `undefined` or `null` indexed further, a key of an
-   array, an optional `requestBody`, an `allOf` whose parts all miss the key, a pure `anyOf` /
-   `oneOf` where a member misses it, a positional `parameters` index. Every shape it does not model
+   `additionalProperties`), a key a primitive `type` does not have (`string["schema"]`), a value
+   that may be `undefined` or `null` indexed further, a key of an array, an optional
+   `requestBody`, an `allOf` whose parts all miss the key, a pure `anyOf` / `oneOf` where a member
+   misses it, a positional `parameters` index. Every shape it does not model
    (`enum`, `not`, `$ref` chains, discriminators, `--read-write-markers`, `patternProperties`, mixed
    composition) counts as compiling, so that output stays byte-identical.
 2. **The corrected type.** The `schema` of a media type, header or component parameter is left out,

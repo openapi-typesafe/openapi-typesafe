@@ -76,6 +76,8 @@ const DOCUMENT = {
       },
       Own: { allOf: [ITEM], properties: { id: { type: "string" } } },
       Text: { type: ["string", "null"] },
+      Str: { type: "string" },
+      Bin: { type: "string", format: "binary" },
       Loop: {
         definitions: {
           Node: { properties: { next: { $ref: "#/components/schemas/Loop/definitions/Node" } } },
@@ -148,6 +150,7 @@ describe("originalIndexFails", () => {
     expect(fails(`${MEDIA}/schema/items/properties/time`)).toBe(true);
     expect(fails("#/components/schemas/Defs/definitions/Old")).toBe(true);
     expect(fails("#/paths/~1items/get/parameters/0/schema")).toBe(true);
+    expect(fails("#/components/parameters/Page/schema")).toBe(true);
   });
 
   it("originalIndexFails through an optional value or request body is true", () => {
@@ -164,7 +167,6 @@ describe("originalIndexFails", () => {
         additionalProperties: true,
       }),
     ).toBe(false);
-    expect(fails("#/components/parameters/Page/schema")).toBe(false);
     expect(fails("#/components/schemas/Pattern/properties/x")).toBe(false);
     expect(fails("#/paths/~1missing/get")).toBe(false);
   });
@@ -213,6 +215,10 @@ describe("edge shapes", () => {
     expect(member("Own", "id")).toBe("opaque");
     expect(member("Own", "other")).toBe("missing");
     expect(member("Text", "length")).toBe("opaque");
+    expect(member("Str", "schema")).toBe("missing");
+    expect(member("Str", "length")).toBe("opaque");
+    expect(member("Bin", "schema")).toBe("missing");
+    expect(member("Bin", "schema", { ...OPTIONS, binaryAsBlob: true })).toBe("opaque");
     expect(isNullableSchema("text")).toBe(false);
   });
 
