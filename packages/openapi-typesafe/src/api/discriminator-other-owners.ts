@@ -50,7 +50,10 @@ function otherOwners(state: ScanState, parentRef: string): OtherOwner[] {
   return [...found.values()];
 }
 
-/** The child's own children omit this property of it too, since they redefine it. */
+/**
+ * The child redefines this property, so its `allOf` items omit it: a parent may have a value of
+ * its own, as `Content` has when `Element`'s mapping names it.
+ */
 function recordOtherProperty(state: ScanState, ref: string, propertyName: string): void {
   const names = state.otherProperties[ref] ?? [];
   if (!names.includes(propertyName)) {

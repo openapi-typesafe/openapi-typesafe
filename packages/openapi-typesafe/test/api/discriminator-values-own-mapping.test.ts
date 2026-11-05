@@ -122,6 +122,18 @@ const clip: components["schemas"]["Clip"] = { contentType: "Clip", subtype: "Cli
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS with the fix replaces the mapped value of a parent with the member's own", async () => {
+    const mapping = { content: ref("Content").$ref };
+    const element = { ...SCHEMAS.Element, discriminator: { propertyName: "contentType", mapping } };
+    const content = `
+const content: components["schemas"]["Content"] = { contentType: "content", subtype: "x" };`;
+
+    const code = `${await fixed({ ...OTHER, Element: element })}${ASSIGNED}${content}`;
+
+    expect(code).toContain('Omit<components["schemas"]["Content"], "subtype" | "contentType">');
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
   it("openapiTS with the fix gives a value once through two paths to the other owner", async () => {
     const article = {
       type: "object",

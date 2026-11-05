@@ -13,6 +13,8 @@ new output:
   schemas (openapi-typescript [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200)).
   A discriminator of another property that the owner inherits still gives its members a value:
   `Video` of `Content` (which owns `subtype`) of `Element` (which owns `contentType`) gets both.
+  Its value of the other property is its own (`contentType: "Video"` when no mapping names it),
+  also when `Element`'s mapping names `Content`: `Content`'s `"content"` is left out of `Video`.
 - A member that already requires the property with exactly its values (`enum: [agent]` or
   `const: agent`) gets no second, added property: `{ type: "agent" }`, not
   `{ type: "agent" } & { type: "agent" }`

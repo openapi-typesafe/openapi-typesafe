@@ -135,8 +135,10 @@ function allOfItemType(
   if (!propertyName || isUnion) {
     return type;
   }
-  // A child redefines every discriminator property the item passes on (`discriminator-values`).
-  const others = isRef ? request.context.discriminators.otherPropertiesAt(item.$ref) : [];
+  // With `discriminator-values` the schema also redefines the properties of other owners above
+  // it, so no item may keep a value of its own for them (a parent mapped as `content`).
+  const { path } = request.location;
+  const others = path === undefined ? [] : request.context.discriminators.otherPropertiesAt(path);
   return omitKeys(type, [propertyName, ...others]);
 }
 

@@ -250,6 +250,18 @@ describe("transformSchema", () => {
     expect(text).not.toContain("kind");
   });
 
+  it("transformSchema without a path omits only the discriminator of an allOf item", () => {
+    const { context } = fakeTransformContext();
+    const item = {
+      discriminator: { propertyName: "kind" },
+      properties: { kind: { type: "string" } },
+    };
+
+    const text = print(transformSchema({ allOf: [item] } as never, {}, context));
+
+    expect(text).toBe('Omit<{\n    kind?: string;\n}, "kind">');
+  });
+
   it("transformSchema with $defs nests them under an optional $defs member", () => {
     const schema = { type: "object", $defs: { a: { type: "string" } } };
 

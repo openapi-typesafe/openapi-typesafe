@@ -57,7 +57,7 @@ export interface Discriminators {
   isHandled(ref: string): boolean;
   /**
    * With `discriminator-values`: the properties of the discriminators the schema at `ref`
-   * inherits besides `objectAt`'s, which its `allOf` children redefine as well.
+   * inherits besides `objectAt`'s. It redefines them too, so its `allOf` items omit them.
    */
   otherPropertiesAt(ref: string): readonly string[];
   /**
