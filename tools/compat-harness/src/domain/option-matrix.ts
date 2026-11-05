@@ -94,6 +94,9 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
     flag: "--fix=allof-required",
     with: [[], ["--immutable"], ["--properties-required-by-default"], ["--empty-objects-unknown"]],
   },
+  // `anyof-oneof-required` adds `WithRequired` keys; `--immutable` makes the properties readonly.
+  // With `anyof-properties` it is checked by `fix=all`.
+  { flag: "--fix=anyof-oneof-required", with: [[], ["--immutable"]] },
   // `anyof-properties` combines types and keeps their members, so `unknown` members are the only
   // interaction: `--empty-objects-unknown` makes more of them.
   { flag: "--fix=anyof-properties", with: [[], ["--empty-objects-unknown"]] },

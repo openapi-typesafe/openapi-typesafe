@@ -16,6 +16,7 @@ import {
 import { coreType } from "./core-type.js";
 import { unionItemOf, unionOwnKeywords } from "./discriminated-union.js";
 import { allOfMembers } from "./presence-members.js";
+import { requiredVariantsType } from "./required-variants.js";
 import type { SchemaRequest } from "./schema-rule.js";
 import { unevaluatedPropertiesType } from "./unevaluated-properties.js";
 
@@ -194,7 +195,22 @@ function composedType(schema: SchemaObject, request: SchemaRequest): IrType | nu
     const allOfType = allOf.length > 0 ? [intersectionOf(allOf)] : [];
     type = intersectionOf([...(core === null ? [] : [core]), ...allOfType]);
   }
-  type = anyOfType(type, schema, request);
+  return variantsType(type, schema, request);
+}
+
+/** `anyOf`, then `oneOf`, applied to the core and `allOf` type (`anyof-oneof-required` first). */
+function variantsType(
+  previous: IrType | null,
+  schema: SchemaObject,
+  request: SchemaRequest,
+): IrType | null {
+  const type =
+    requiredVariantsType(previous, schema, schema.anyOf ?? [], request) ??
+    anyOfType(previous, schema, request);
+  const oneOfRequired = requiredVariantsType(type, schema, schema.oneOf ?? [], request);
+  if (oneOfRequired !== null) {
+    return oneOfRequired;
+  }
   const oneOf = variantTypes(oneOfVariants(schema), "oneOf", request);
   return oneOf.length > 0 ? oneOfType(type, oneOf) : type;
 }

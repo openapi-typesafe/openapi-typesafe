@@ -12,6 +12,8 @@ export const OutputFix = {
   ALLOF_REQUIRED: "allof-required",
   /** The JSDoc of a schema lists the descriptions of its `anyOf` and `oneOf` members. */
   ANYOF_ONEOF_DESCRIPTIONS: "anyof-oneof-descriptions",
+  /** `anyOf` / `oneOf` variants with only `required` make those keys of the parent required. */
+  ANYOF_ONEOF_REQUIRED: "anyof-oneof-required",
   /** `anyOf` next to object keywords or `allOf` is intersected with them, not added to a union. */
   ANYOF_PROPERTIES: "anyof-properties",
   /** `--array-length` tuples have `min` to `max` items, nest right and follow `--immutable`. */

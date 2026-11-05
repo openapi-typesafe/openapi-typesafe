@@ -406,6 +406,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `allof-discriminated-union` | An `allOf` `$ref` to a discriminated union is the union, not `Omit` of it with the schema's own name as the discriminator value | [#1464](https://github.com/openapi-ts/openapi-typescript/issues/1464), [#1690](https://github.com/openapi-ts/openapi-typescript/issues/1690) | 1.0 |
 | `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
 | `anyof-oneof-descriptions` | The JSDoc of a schema lists the descriptions of its `anyOf` and `oneOf` members, which were dropped | [#2142](https://github.com/openapi-ts/openapi-typescript/issues/2142), [#2143](https://github.com/openapi-ts/openapi-typescript/pull/2143) | 1.0 |
+| `anyof-oneof-required` | An `anyOf` or `oneOf` whose variants have only `required` keys of the sibling `properties` gives the parent with each variant's keys required, instead of `unknown` | none (found in the compat corpus) | 1.0 |
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
 | `dedupe-enum-names` | With `--enum --dedupe-enums`, a shared enum is named by a rule that does not depend on the document order, instead of after the first schema in the document; needs both flags | [#1683](https://github.com/openapi-ts/openapi-typescript/issues/1683) | 1.0 |
@@ -538,6 +539,22 @@ item: boolean | string;
 - Members without a description are left out. With both keywords, `Any of:` comes before
   `One of:`.
 - It applies to properties and to component schemas.
+
+#### anyof-oneof-required
+
+`anyOf: [{ required: [cname] }, { required: [source] }]` next to `properties` says which of the
+properties must be there. Each variant has no type of its own, so it is `unknown`, and without
+the fix the schema is `{ cname?: string; source?: string } | unknown`, which is `unknown`. With
+the fix each variant is the parent with its keys required:
+
+```ts
+Pages: { cname?: string; source?: string } | unknown | unknown; // [!code --]
+Pages: WithRequired<{ cname?: string; source?: string }, "cname"> | WithRequired<{ cname?: string; source?: string }, "source">; // [!code ++]
+```
+
+- It applies to `anyOf` and `oneOf` when every variant has only `required` (and `description` or
+  `title`), each key is in the schema's own `properties`, and the schema has a type next to them.
+  Otherwise nothing changes; `anyof-properties` then applies as before.
 
 #### anyof-properties
 
