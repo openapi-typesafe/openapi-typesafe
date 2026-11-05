@@ -418,6 +418,7 @@ compiles (`ReadonlyArray<"available" | "sold">`):
   variant that has only `required`), whether the property is the schema's own or one of another
   `anyOf` variant;
 - an `anyOf` member is an array of the enum and another member is not an array;
+- the enum is empty (`enum: []`): its type is `never`, so the array is `readonly never[]`;
 - the schema contradicts itself: an `allOf` of enums with different values, or a discriminator
   value that the property enum does not list. The type there admits fewer values, or none; this
   case also prints a warning that names the array and the values.

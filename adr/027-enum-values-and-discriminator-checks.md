@@ -42,7 +42,8 @@ as upstream writes it, and where it compiles it must not change (ADR-021).
      parts do not take part in its type (`{ a: X } & { [key: string]: Y }` gives `X` for `a`).
    The expansion budget counts references only, so the checks after a large evaluation still run.
 2. **Where the location type surely fails, the array is typed by its own values**
-   (`ReadonlyArray<"a" | "b">`). That is the default: the original does not compile there. Every
+   (`ReadonlyArray<"a" | "b">`). An empty enum is typed `never`, and the `ReadonlyArray` helper
+   distributes over it to `never`, which not even `[]` is; its array is `readonly never[]`. That is the default: the original does not compile there. Every
    other array keeps its type, byte for byte.
 3. **A schema that admits none or only some of its own values** (an `allOf` of different enums,
    a discriminator value the enum does not list) gets the same array, all of its values listed,

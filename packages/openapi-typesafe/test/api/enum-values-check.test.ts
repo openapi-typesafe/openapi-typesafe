@@ -65,6 +65,19 @@ describe("--enum-values location check", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("generateDeclarations types the array of an empty enum as an empty array", async () => {
+    // The location is `never`, and `ReadonlyArray<never>` distributes over it to `never` too.
+    const { output, warnings } = await run({
+      Empty: STRING_ENUM([]),
+      Holder: { type: "object", properties: { none: STRING_ENUM([]) } },
+    });
+
+    expect(output).toContain("emptyValues: readonly never[] = [];");
+    expect(output).toContain("holderNoneValues: readonly never[] = [];");
+    expect(warnings).toEqual([]);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("generateDeclarations reads a union with an unknown member as unknown", async () => {
     // `{ … } | unknown | { m?: "m1" }` is `unknown`: `Extract` on it finds no member with `m`.
     const { output } = await run({
