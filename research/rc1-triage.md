@@ -47,25 +47,35 @@ Clients (ADR-025): #2234, #1847 at runtime; #2464, #2267, #2178, #2458 and #2459
 #1862, #1882 in types. Checked and kept: `useInfiniteQuery` pages and `useMutation` data stay
 `undefined` for an empty body, as upstream; only plain query data is `null`, which TanStack needs.
 
+Also fixed by default after the first full-corpus check (ADR-026, ADR-027):
+
+| Cause | Change |
+| --- | --- |
+| `$ref` to keywords the output has no type for (`definitions`, `parameters/N/schema`) | resolved target type |
+| optional or nullable parent of a `$ref` (`WithRequired<… \| undefined>`) | declared properties read first |
+| `--enum-values` arrays whose location type does not hold their values | typed by their values |
+| `--path-params-as-types`: covered path items that overlap (TS2413) | proven assignable or split |
+
+New opt-in `fix` names: `ref-pointers` (the `$ref` pointer type where the old output compiled) and
+`anyof-oneof-required` (22 GitHub documents, `{…} | unknown`).
+
+New typed warnings: `DISCRIMINATOR_VALUE_NOT_ALLOWED` (a discriminator value that the property
+`enum` does not allow, an invalid Discriminator Object), `ENUM_VALUES_EXCLUDED` (an `allOf` of
+enums that excludes listed values), `PATH_TEMPLATES_IDENTICAL` (paths that differ only by parameter
+names; with `--path-params-as-types` they now compile).
+
+The full corpus (1820 documents × 28 option sets) against 1.0.0-rc.0: no output changed without
+`fix`, and no case has more TypeScript errors than before.
+
 ## Still open
 
-Output that does not compile, scan of 1820 documents × 28 option sets (default: 24 → 16 cases):
-
-| Cause | Documents | Plan |
-| --- | --- | --- |
-| TS2502: a recursive `JSONValue` array in an interface property | ~11 | TypeScript limit, documented; a footer alias would be an opt-in fix |
-| `$ref` to keywords the output has no type for (`definitions`, `parameters/N/schema`) | ~9 | inline the resolved target |
-| optional or nullable parent of a `$ref` (`WithRequired<… \| undefined>`) | ~5 | needs a fix name: `NonNullable` everywhere would change compiling output |
-| `--enum-values` leftovers (`allOf` with two enums, array and non-array union, `FlattenedDeepRequired` limits) | ~27 | opt-in fix of the helper |
-| `anyOf` of `required`-only variants next to `properties` gives `{…} \| unknown` | 22 (GitHub) | opt-in fix: types are lost even where the output compiles |
-| discriminator value that the property's `enum` does not allow | several | invalid schema (Discriminator Object): typed warning |
-| `--path-params-as-types`: a URL two templates match gets both types | 28 | TypeScript has no string type without `/` (microsoft/TypeScript#41160); documented |
+| Cause | Plan |
+| --- | --- |
+| TS2502: a recursive `JSONValue` array in an interface property | documented (docs/advanced.md); the clean fix changes output shape, 2.0 |
+| `--path-params-as-types`: a URL that two templates match gets both types | TypeScript has no string type without `/` (microsoft/TypeScript#41160); documented |
 
 Clients for 2.0: excess keys in `params` / `body` (#1525, #1769, #2329); hook `error` type
 without network and middleware errors (#2151, #2372).
-
-Paths that differ only by parameter names (Paths Object, invalid) now get the typed warning
-`PATH_TEMPLATES_IDENTICAL`; with `--path-params-as-types` they compile (no TS2374).
 
 ## Second round
 
