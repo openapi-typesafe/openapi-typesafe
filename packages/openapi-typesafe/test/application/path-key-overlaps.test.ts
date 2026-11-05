@@ -164,4 +164,30 @@ describe("coveringTemplateKeys", () => {
   it("coveringTemplateKeys does not compare a key with itself", () => {
     expect(coveringTemplateKeys([template(text("/apps/"), slot("string"))])).toEqual(new Set());
   });
+
+  it("coveringTemplateKeys covers keys whose first text only starts with the template's", () => {
+    const keys = [
+      literal("/a"),
+      template(text("/ab"), slot("string")),
+      literal("/abc/d"),
+      template(text("/abc/"), slot("number")),
+      literal("/b/c"),
+    ];
+
+    expect(coveringTemplateKeys(keys)).toEqual(new Set([1]));
+  });
+
+  it("coveringTemplateKeys of 20 000 keys compares only the keys under each template", () => {
+    // Every pair of keys took minutes for documents of this size (Microsoft Graph beta).
+    const KEY_COUNT = 20_000;
+    const keys = Array.from({ length: KEY_COUNT }, (_, index) =>
+      index % 2 === 0
+        ? template(text(`/r${index}/`), slot("string"))
+        : literal(`/r${index - 1}/items`),
+    );
+
+    const covering = coveringTemplateKeys(keys);
+
+    expect(covering.size).toBe(KEY_COUNT / 2);
+  }, 10_000);
 });

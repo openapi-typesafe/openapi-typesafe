@@ -74,22 +74,94 @@ const EVERY_COVER_REJECTED: CoverRejection = () => true;
 /**
  * The key types TypeScript checks against a signature: a literal's, or a template's signature
  * types. A boolean-only template is no signature (TS1337), so the checker neither checks it nor
- * checks anything against it; a repeated one is still reported (TS2374, see `isSameTemplate`).
+ * checks anything against it; a repeated one is still reported (TS2374, see `repeatedTemplates`).
  */
 function checkedShapes(key: PathKey): readonly TemplateShape[] {
   const shapes = shapesOf(key);
   return key.kind === "literal" ? shapes : shapes.filter((shape) => shape.types.length > 0);
 }
 
+/** A checked key: the key, the shapes TypeScript checks, and its template identity. */
+interface CheckedKey {
+  readonly key: PathKey;
+  readonly shapes: readonly TemplateShape[];
+  /** The key types written as one string, for templates; null for a literal. */
+  readonly template: string | null;
+}
+
+function checkedKeyOf(key: PathKey): CheckedKey {
+  const template = key.kind === "template" ? JSON.stringify(shapesOf(key)) : null;
+  return { key, shapes: checkedShapes(key), template };
+}
+
 /**
- * Whether two keys are the same template, as paths that differ only in parameter names give
+ * The templates written more than once, as paths that differ only in parameter names give
  * (`/a/{id}`, `/a/{name}`). OpenAPI forbids such paths, and one object with both signatures fails
  * to compile whatever their types (TS2374), so each always counts as covering the other.
  */
-function isSameTemplate(key: PathKey, other: PathKey): boolean {
-  return (
-    other.kind === "template" && JSON.stringify(shapesOf(key)) === JSON.stringify(shapesOf(other))
+function repeatedTemplates(checked: readonly CheckedKey[]): ReadonlySet<string> {
+  const seen = new Set<string>();
+  const repeated = new Set<string>();
+  for (const { template } of checked) {
+    if (template !== null) {
+      (seen.has(template) ? repeated : seen).add(template);
+    }
+  }
+  return repeated;
+}
+
+/**
+ * The checked keys by the first text of each of their shapes, sorted. A key type is assignable to
+ * a template only when its first text starts with the template's first text (both branches of
+ * `isAssignableToTemplate`), so the keys a template can cover are one run of this list. Without
+ * it the check compares every pair of keys, which takes minutes for 10 000 paths.
+ */
+interface StartTextIndex {
+  readonly starts: readonly string[];
+  readonly keyIndexes: readonly number[];
+}
+
+/** Code unit order: in it the strings that start with one prefix are adjacent. */
+function compareCodeUnits(left: string, right: string): number {
+  if (left === right) {
+    return 0;
+  }
+  return left < right ? -1 : 1;
+}
+
+function startTextIndexOf(checked: readonly CheckedKey[]): StartTextIndex {
+  const entries = checked.flatMap(({ shapes }, keyIndex) =>
+    shapes.map((shape) => ({ start: shape.texts[0] as string, keyIndex })),
   );
+  entries.sort((left, right) => compareCodeUnits(left.start, right.start));
+  return {
+    starts: entries.map((entry) => entry.start),
+    keyIndexes: entries.map((entry) => entry.keyIndex),
+  };
+}
+
+/** The indexes of the keys with a shape whose first text starts with one of the prefixes. */
+function keysStartingWith(index: StartTextIndex, prefixes: readonly string[]): Set<number> {
+  const found = new Set<number>();
+  for (const prefix of prefixes) {
+    let low = 0;
+    let high = index.starts.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if ((index.starts[middle] as string) < prefix) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    for (let at = low; at < index.starts.length; at += 1) {
+      if (!(index.starts[at] as string).startsWith(prefix)) {
+        break;
+      }
+      found.add(index.keyIndexes[at] as number);
+    }
+  }
+  return found;
 }
 
 /**
@@ -103,21 +175,24 @@ export function coveringTemplateKeys(
   keys: readonly PathKey[],
   isRejected: CoverRejection = EVERY_COVER_REJECTED,
 ): ReadonlySet<number> {
+  const checked = keys.map(checkedKeyOf);
+  const repeated = repeatedTemplates(checked);
+  const startTexts = startTextIndexOf(checked);
   const covering = new Set<number>();
-  const checked = keys.map((key) => ({ key, shapes: checkedShapes(key) }));
-  checked.forEach(({ key, shapes: targets }, index) => {
-    if (key.kind !== "template") {
+  checked.forEach(({ template, shapes: targets }, index) => {
+    if (template === null) {
       return;
     }
-    const isCovering = checked.some((other, otherIndex) => {
-      if (otherIndex === index) {
-        return false;
-      }
-      return (
-        isSameTemplate(key, other.key) ||
-        (isCoveredBy(other.shapes, targets) && isRejected(index, otherIndex))
+    const prefixes = targets.map((target) => target.texts[0] as string);
+    const candidates = [...keysStartingWith(startTexts, prefixes)].sort((a, b) => a - b);
+    const isCovering =
+      repeated.has(template) ||
+      candidates.some(
+        (otherIndex) =>
+          otherIndex !== index &&
+          isCoveredBy((checked[otherIndex] as CheckedKey).shapes, targets) &&
+          isRejected(index, otherIndex),
       );
-    });
     if (isCovering) {
       covering.add(index);
     }
