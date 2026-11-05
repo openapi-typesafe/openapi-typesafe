@@ -68,6 +68,21 @@ describe("documentDeclarations", () => {
     expect(ir).toContain("type User = 1;");
   });
 
+  it("an operations interface that a user callback adds replaces the empty one", async () => {
+    const transform: OpenAPITSOptions["transform"] = (_schema, options) => {
+      const source = "interface operations { a: 1 }";
+      const [node] = ts.createSourceFile("u.ts", source, ts.ScriptTarget.ESNext).statements;
+      options.ctx.injectFooter.push(node as ts.Node);
+      return undefined;
+    };
+    const document = { ...DOCUMENT, paths: {} };
+
+    const ir = astToString(await openapiTS(document, { silent: true, transform }));
+
+    expect(ir).toContain("interface operations");
+    expect(ir).not.toContain("export type operations = Record<string, never>;");
+  });
+
   it("injected code without statements is skipped", async () => {
     const { ir, typescript } = await printBoth({ inject: "   " });
 
