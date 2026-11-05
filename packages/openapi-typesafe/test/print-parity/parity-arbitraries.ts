@@ -473,6 +473,17 @@ export function hasRepeatedParametersIndex(output: string): boolean {
   return REPEATED_PARAMETERS_RE.test(output);
 }
 
+const RETYPED_ENUM_VALUES_RE =
+  /^export const \S+: ReadonlyArray<(?!FlattenedDeepRequired<|Extract<)/m;
+
+/**
+ * Whether the new output types an `--enum-values` array by its own values: it does so only where
+ * the original location type surely does not hold them (ADR-027), so that output did not compile.
+ */
+export function hasRetypedEnumValues(output: string): boolean {
+  return RETYPED_ENUM_VALUES_RE.test(output);
+}
+
 const EXTRACT_PROBE_RE = /, \{\n\s+([^\n:]+): unknown;\n\s*\}>/g;
 const PROBE_NAME_RE = /^(?:[A-Za-z_$][A-Za-z_$0-9]*|\d+|"[^"]*")$/;
 

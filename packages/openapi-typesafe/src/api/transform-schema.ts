@@ -2,6 +2,7 @@ import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import { documentBody, documentClosing } from "../application/transform/document/document.js";
 import { renameAliasesTakenByFooter } from "../application/transform/document/root-type-aliases.js";
 import { RunFooter } from "../application/transform/footer/document-footer.js";
+import { checkedEnumValues } from "../application/transform/footer/enum-values-check.js";
 import {
   SharedEnumNameRecorder,
   type SharedEnumNames,
@@ -11,6 +12,7 @@ import type { DocumentObject } from "../domain/openapi/document-object.js";
 import { OutputFix } from "../domain/output-fixes.js";
 import type { GlobalContext, OpenAPI3 } from "../types.js";
 import { documentDeclarations, type TransformedDocument } from "./document-declarations.js";
+import { excludedValuesWarning } from "./enum-values-warnings.js";
 import { type FooterEntry, isIrDeclaration } from "./footer-entry.js";
 import { ContextFooterSink } from "./footer-sink.js";
 import { createTransformContext } from "./transform-context.js";
@@ -59,6 +61,27 @@ function withSharedEnumNames(document: DocumentObject, ctx: GlobalContext): void
   ctx.runFooter = new RunFooter(new ContextFooterSink(ctx.injectFooter), true, names);
 }
 
+/**
+ * With `--enum-values`, arrays whose location type does not hold their values are typed by their
+ * values (ADR-027); a location that excludes listed values is a contradiction of the document.
+ */
+function enumValuesChecked(
+  body: readonly IrDeclaration[],
+  footer: FooterEntry[],
+  ctx: GlobalContext,
+): FooterEntry[] {
+  if (!ctx.enumValues) {
+    return footer;
+  }
+  const checked = checkedEnumValues(footer, body, isIrDeclaration);
+  for (const retype of checked.retyped) {
+    if (retype.kind === "excluded") {
+      ctx.logger?.warn(excludedValuesWarning(retype.name, retype.excluded));
+    }
+  }
+  return checked.footer;
+}
+
 /** @internal Root types, the footer, then the closing declarations (Phase 5, step 6). */
 export function transformDocument(schema: OpenAPI3, ctx: GlobalContext): TransformedDocument {
   const document = schema as DocumentObject;
@@ -66,7 +89,7 @@ export function transformDocument(schema: OpenAPI3, ctx: GlobalContext): Transfo
   const context = createTransformContext(ctx);
   // documentBody registers the enums in the footer, so the footer is read after it.
   const rawBody = documentBody(document, context, () => ctx.injectFooter.filter(isIrDeclaration));
-  const footer: FooterEntry[] = [...ctx.injectFooter];
+  const footer = enumValuesChecked(rawBody, [...ctx.injectFooter], ctx);
   const closing = documentClosing(document, context, footer.some(isOperations));
   const body = renameAliasesTakenByFooter(rawBody, footer.filter(isIrDeclaration), closing);
   return { body, footer, closing };

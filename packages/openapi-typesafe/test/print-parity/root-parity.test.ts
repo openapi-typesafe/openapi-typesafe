@@ -16,6 +16,7 @@ import {
   hasDuplicateEnumMembers,
   hasRedeclaredConstArrays,
   hasRepeatedParametersIndex,
+  hasRetypedEnumValues,
   hasUnquotedExtractProbe,
   OPTION_KEYS,
   RUNS,
@@ -96,7 +97,9 @@ describe("root transformer parity with the fork base", () => {
           fc.pre(!hasRepeatedParametersIndex(original));
           fc.pre(!hasUnquotedExtractProbe(original));
           fc.pre(!reachesFixedLegacyBug(value, input));
-          expect(run(transformSchema, value, input, code)).toBe(original);
+          const output = run(transformSchema, value, input, code);
+          fc.pre(!hasRetypedEnumValues(output));
+          expect(output).toBe(original);
         }),
         { numRuns: RUNS, examples: EXAMPLES },
       );

@@ -373,6 +373,50 @@ _Note: you optionally could provide `discriminator.propertyName: "type"` on `Pet
 
 While the schema permits you to use composition in any way you like, it’s good to always take a look at the generated types and see if there’s a simpler way to express your unions & intersections. Limiting the use of `oneOf` is not the only way to do that, but often yields the greatest benefits.
 
+### Discriminator values
+
+A discriminator gives each member schema a value of its property. A `mapping` entry names it; a
+member that no entry names gets its schema name, as the
+[Discriminator Object](https://spec.openapis.org/oas/v3.1.0#discriminator-object) says. If the
+member's property has an `enum` or `const` that does not list that value, no value of the member
+matches the discriminator, and where the generator adds the value to the member the property is
+`never`. openapi-typesafe warns about each such member:
+
+```yaml
+Item:
+  oneOf: [{ $ref: "#/components/schemas/Episode" }]
+  discriminator: { propertyName: type } # Episode gets the value "Episode"
+Episode:
+  type: object
+  properties:
+    type: { type: string, enum: [episode] } # does not list "Episode"
+```
+
+Add a mapping entry for the value the property allows (`mapping: { episode:
+"#/components/schemas/Episode" }`).
+
+## Enum values arrays
+
+`--enum-values` exports each enum's values as an array typed by the place of its schema in the
+generated types:
+
+```ts
+export const petStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Pet"]["status"]> = ["available", "sold"];
+```
+
+Where that type cannot hold the values, the array is typed by its own values instead, so the file
+compiles (`ReadonlyArray<"available" | "sold">`):
+
+- the place has no type of its own: a schema under `definitions`, an `allOf` member, a positional
+  operation parameter, or a property of a schema whose type is `unknown` (an `anyOf` with a
+  variant that has only `required`);
+- an `anyOf` member is an array of the enum and another member is not an array;
+- the schema contradicts itself: an `allOf` of enums with different values, or a discriminator
+  value that the property enum does not list. The type there admits fewer values, or none; this
+  case also prints a warning that names the array and the values.
+
+Every other array keeps its type.
+
 ## JSONSchema $defs caveats
 
 [JSONSchema $defs](https://json-schema.org/understanding-json-schema/structuring.html#defs) can be used to provide sub-schema definitions anywhere. However, these won’t always convert cleanly to TypeScript. For example, this works:
