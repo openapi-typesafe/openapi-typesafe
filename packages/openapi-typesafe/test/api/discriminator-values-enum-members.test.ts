@@ -112,6 +112,31 @@ const dog: components["schemas"]["Cat"] = { petType: PetType.Dog };`;
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS with the fix and --dedupe-enums names a shared enum as without the fix", async () => {
+    const petType = { type: "string", enum: VALUES };
+    const schemas = {
+      Cat: SCHEMAS.Cat,
+      Other: { type: "object", properties: { kind: petType } },
+      Pet: pet(petType),
+      Dog: SCHEMAS.Dog,
+      HotDog: SCHEMAS.HotDog,
+      Plus: SCHEMAS.Plus,
+    };
+
+    const output = await fixed(schemas, { dedupeEnums: true });
+
+    expect(output).toContain("kind?: OtherKind;");
+    expect([...output.matchAll(/petType: ([^;]+);/g)].map((match) => match[1])).toEqual([
+      "OtherKind.Cat",
+      "OtherKind",
+      "OtherKind.Dog",
+      "OtherKind.hot_dog",
+      'typeof OtherKind["+"]',
+    ]);
+    expect(output).not.toContain("PetPetType");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS with the fix keeps the member enum where the parent's enum lacks a value", async () => {
     const schemas = { ...SCHEMAS, PetType: { type: "string", enum: ["Dog", "Cat"] } };
 

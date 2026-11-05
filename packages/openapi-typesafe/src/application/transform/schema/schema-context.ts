@@ -83,6 +83,11 @@ export interface EnumDeclarationRequest {
   readonly isComponentSchema: boolean;
   readonly values: readonly (string | number)[];
   readonly metadata: readonly EnumMemberMetadata[];
+  /**
+   * The request only refers to the enum, for a discriminator member's value
+   * (`discriminator-values`); the schema at `name` declares it where it is typed itself.
+   */
+  readonly isOwnerReference?: boolean;
 }
 
 export interface EnumValuesRequest {

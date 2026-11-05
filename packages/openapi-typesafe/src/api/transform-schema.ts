@@ -11,6 +11,7 @@ import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
 import { OutputFix } from "../domain/output-fixes.js";
 import type { GlobalContext, OpenAPI3 } from "../types.js";
+import { FirstSchemaNameRecorder } from "./discriminator-enum-names.js";
 import { documentDeclarations, type TransformedDocument } from "./document-declarations.js";
 import { excludedValuesWarning } from "./enum-values-warnings.js";
 import { type FooterEntry, isIrDeclaration } from "./footer-entry.js";
@@ -31,13 +32,23 @@ function isOperations(entry: FooterEntry): boolean {
 const dropMessage = (): void => undefined;
 const DROPPED_MESSAGES = { debug: dropMessage, warn: dropMessage, error: dropMessage };
 
+/** A shared enum name recorder of a first pass, and the names it gives the second. */
+interface EnumNameRecorder extends SharedEnumNames {
+  chosenNames(): SharedEnumNames;
+}
+
 /**
- * The `dedupe-enum-names` fix (ADR-021, upstream #1683) names a shared enum by all of its schemas,
- * which are known only at the end. So a first pass transforms the document into a scratch footer
- * and records them; its output is dropped. User callbacks run in both passes.
+ * The names of shared enums, known only at the end: a first pass transforms the document into a
+ * scratch footer that `recorder` watches; its output is dropped. User callbacks run in both
+ * passes. The `dedupe-enum-names` fix (ADR-021, upstream #1683) names an enum by all of its
+ * schemas; `discriminator-values` keeps the first declaring schema's name
+ * (`FirstSchemaNameRecorder`).
  */
-function sharedEnumNamesOf(document: DocumentObject, ctx: GlobalContext): SharedEnumNames {
-  const recorder = new SharedEnumNameRecorder();
+function sharedEnumNamesOf(
+  document: DocumentObject,
+  ctx: GlobalContext,
+  recorder: EnumNameRecorder,
+): SharedEnumNames {
   const injectFooter: FooterEntry[] = [];
   const scratch: GlobalContext = {
     ...ctx,
@@ -51,13 +62,21 @@ function sharedEnumNamesOf(document: DocumentObject, ctx: GlobalContext): Shared
   return recorder.chosenNames();
 }
 
-/** With the fix, `--enum` and `--dedupe-enums`, the run's footer names shared enums stably. */
+/** The recorder of the run's fixes, or null where the first schema's name needs no first pass. */
+function enumNameRecorderOf(ctx: GlobalContext): EnumNameRecorder | null {
+  if (ctx.fix?.includes(OutputFix.DEDUPE_ENUM_NAMES)) {
+    return new SharedEnumNameRecorder();
+  }
+  return ctx.fix?.includes(OutputFix.DISCRIMINATOR_VALUES) ? new FirstSchemaNameRecorder() : null;
+}
+
+/** With a naming fix, `--enum` and `--dedupe-enums`, the run's footer names shared enums. */
 function withSharedEnumNames(document: DocumentObject, ctx: GlobalContext): void {
-  const isFixed = ctx.fix?.includes(OutputFix.DEDUPE_ENUM_NAMES) === true;
-  if (ctx.runFooter !== undefined || !isFixed || !ctx.enum || !ctx.dedupeEnums) {
+  const recorder = ctx.runFooter === undefined ? enumNameRecorderOf(ctx) : null;
+  if (recorder === null || !ctx.enum || !ctx.dedupeEnums) {
     return;
   }
-  const names = sharedEnumNamesOf(document, ctx);
+  const names = sharedEnumNamesOf(document, ctx, recorder);
   ctx.runFooter = new RunFooter(new ContextFooterSink(ctx.injectFooter), true, names);
 }
 

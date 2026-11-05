@@ -58,6 +58,11 @@ value.
 
 - The discriminator scan reads the fixes (`DiscriminatorScanOptions.fixes`), and the transformer
   gets the owner's enum per member value (`Discriminators.enumParentOf`).
+- With `--enum --dedupe-enums`, a member's value declares the owner's enum when the member is
+  typed, which may come before the first schema that declares it, whose name the shared enum
+  has. So `discriminator-values` runs a first pass, as `dedupe-enum-names` does, that records the
+  first declaring schema of each shared enum; a reference (`isOwnerReference`) does not count.
+  The cost is a second transform, only with these three options.
 - Accepted edges: `transform` / `postTransform` callbacks see the fixed types; under
   `discriminator-values` a member whose declared values contradict a mapping keeps the added
   property; enum members use the names `--enum` gives (`hot_dog`, `typeof PetType["+"]`).

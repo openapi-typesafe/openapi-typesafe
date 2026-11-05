@@ -782,6 +782,8 @@ Cat: Omit<components["schemas"]["Pet"], "kind"> & { kind: "cat" }; // [!code ++]
   `contentType`, a `Video` that `allOf`s `Content` gets both, and a schema that `allOf`s `Video`
   omits both from it (`Omit<Video, "subtype" | "contentType">`).
 - With `--enum`, the merged enum is declared once.
+- With `--enum --dedupe-enums`, a shared enum keeps the name it has without the fix, after the
+  first schema that declares it: a member's value that refers to it does not rename it.
 
 The fix also corrects the value in these cases:
 

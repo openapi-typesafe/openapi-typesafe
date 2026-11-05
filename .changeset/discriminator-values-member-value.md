@@ -23,6 +23,7 @@ new output:
   assignable to `PetType`, so a `Cat` was not a `Pet`
   ([#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700)). A value from a
   discriminator that declares no such property (a `oneOf` with a `mapping`) is a member of the
-  enum the member inherits.
+  enum the member inherits. With `--dedupe-enums`, a shared enum keeps the name it has without
+  the fix (`OtherK`, not the owner's `PetPetType`).
 
 Without the fix the output does not change; `--fix all` includes it.

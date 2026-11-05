@@ -155,7 +155,8 @@ export function ownerEnumMembersType(
   if (parent === undefined || !isTsEnum(parent.schema, options)) {
     return null;
   }
-  const name = footer.addEnum(enumRequest(parent.schema, parent.path, options));
+  const reference = { ...enumRequest(parent.schema, parent.path, options), isOwnerReference: true };
+  const name = footer.addEnum(reference);
   const members = footer.enumMembers(name);
   const names = values.map((value) => members.get(value as string | number));
   if (names.length === 0 || names.some((member) => member === undefined)) {
