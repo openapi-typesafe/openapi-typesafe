@@ -1082,8 +1082,9 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   `[number]`, `additionalProperties` by `[string]`, and an optional or nullable value is wrapped in
   `NonNullable` before it is indexed.
 - A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation or
-  path item `parameters/0`) gets the target's type written inline; a target that points back at itself keeps
-  the original type.
+  path item `parameters/0`) gets the target's type written inline; a target that points back at
+  itself keeps the original type. The inline type is the one the generator writes for that schema,
+  so with `--enum` it uses the same enum, not a second one named after the pointer.
 
 Where the generated type has an index signature (`--additional-properties`, or the schema's own
 `additionalProperties`), the original compiles: `["schema"]` reads the index signature and is

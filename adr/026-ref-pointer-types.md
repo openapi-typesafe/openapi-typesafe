@@ -41,9 +41,14 @@ documents that were already broken.
    members are read through `NonNullable`, and a value that is not surely present is wrapped in
    `NonNullable` before it is indexed.
 3. **A segment with no type of its own** (`allOf/N`, `anyOf/N`, `definitions`, `not`, operation
-   and path item `parameters/N`) is not indexed at all: the target schema is written inline (its own `$ref` is
-   followed). A target that would be written inside itself keeps the original type. This replaces
-   the draft's merging and `Extract`, so no new self-reference appears.
+   and path item `parameters/N`) is not indexed at all: the target schema is written inline (its
+   own `$ref` is followed). A target that would be written inside itself keeps the original type.
+   This replaces the draft's merging and `Extract`, so no new self-reference appears. The target
+   is typed at the location the generator types the node at (`generated-location.ts`:
+   `properties` and `allOf/N` left out, `parameters/0` named `parameters/<in>/<name>`), not at
+   the pointer: that location names its `--enum` declaration and `--enum-values` array, so the
+   inline copy shares them. Typed at the pointer, it declared a second TypeScript enum with the
+   same members, which is not assignable to the first.
 4. **`WithRequired` of an absent target** gets `NonNullable<…>`: `keyof (T | undefined)` is `never`.
 5. **Fix `ref-pointers`.** Where the original compiles through an index signature, the corrected
    type comes only with `--fix ref-pointers` (and `all`), as every other output fix (ADR-021). Its

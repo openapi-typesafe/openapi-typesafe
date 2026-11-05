@@ -13,7 +13,9 @@ response header without `required: true`) is wrapped in `NonNullable`, and a tar
 `allOf/N`, `definitions` or operation and path item `parameters/N` is written inline. Output that
 compiled stays the same (ADR-026): a key of `type: object` without properties
 (`Record<string, never>`) is `never` and compiles, so it is kept, and `items` next to
-`type: string` or `type: object` has no type of its own, so its target is written inline.
+`type: string` or `type: object` has no type of its own, so its target is written inline. With
+`--enum` an inline target uses the enum the generator declares for that schema, so no second,
+incompatible TypeScript enum (and no second `--enum-values` array) is named after the pointer.
 
 New opt-in fix `ref-pointers` (`--fix ref-pointers`): the same type also where the original compiled
 through an index signature (`--additional-properties`) as `unknown`.

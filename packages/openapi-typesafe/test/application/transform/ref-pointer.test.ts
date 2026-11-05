@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { printNodes } from "../../../src/application/print/print-nodes.js";
+import { generatedLocationOf } from "../../../src/application/transform/ref-pointer/generated-location.js";
 import {
   generatedMember,
   isNullableSchema,
@@ -296,6 +297,49 @@ describe("response headers", () => {
     expect(walked("#/components/headers/Open/schema/properties/a")).toBe(
       'components["headers"]["Open"]["a"]',
     );
+  });
+});
+
+describe("generatedLocationOf", () => {
+  const located = (ref: string) => generatedLocationOf(ref, REFS);
+
+  it("generatedLocationOf leaves out the keywords typed at the parent's location", () => {
+    expect(located("#/components/schemas/Both/allOf/0/properties/time").path).toBe(
+      "#/components/schemas/Both/time",
+    );
+    expect(located("#/components/schemas/List/items/properties/time").path).toBe(
+      "#/components/schemas/List/time",
+    );
+    expect(located("#/components/schemas/Union/anyOf/1/properties/other").path).toBe(
+      "#/components/schemas/Union/anyOf/1/other",
+    );
+    expect(located("#/components/schemas/Map/additionalProperties")).toEqual({
+      path: "#/components/schemas/Map",
+      isFromAdditionalProperties: true,
+    });
+  });
+
+  it("generatedLocationOf names parameters and leaves out a container's schema", () => {
+    expect(located("#/paths/~1items/get/parameters/0/schema").path).toBe(
+      "#/paths/~1items/get/parameters/query/q",
+    );
+    expect(located("#/paths/~1items/parameters/0/schema").path).toBe(
+      "#/paths/~1items/parameters/parameters/query/p",
+    );
+    expect(located(`${MEDIA}/schema/items/properties/time`).path).toBe(`${MEDIA}/time`);
+  });
+
+  it("generatedLocationOf continues at a crossed $ref and keeps other keywords", () => {
+    expect(located("#/components/schemas/Both/allOf/1/properties/time").path).toBe(
+      "#/components/schemas/Item/time",
+    );
+    expect(located("#/components/schemas/Defs/definitions/Old/properties/time").path).toBe(
+      "#/components/schemas/Defs/definitions/Old/time",
+    );
+    expect(located("#/components/schemas/Loop/definitions/Node/properties/next/x").path).toBe(
+      "#/components/schemas/Loop/definitions/Node/x",
+    );
+    expect(located("no pointer").path).toBe("no pointer");
   });
 });
 
