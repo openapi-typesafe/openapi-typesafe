@@ -124,9 +124,9 @@ function objectMember(node: JsonObject, key: string, options: SchemaOptions): Ge
       ? OPAQUE
       : { kind: "property", node: property, isOptional: isOptionalProperty(node, key, options) };
   }
+  // `unevaluatedProperties` adds an index signature with its fix, so it counts as opaque too.
   const isUnknownShape =
     isJsonObject(node.discriminator) || node.unevaluatedProperties !== undefined;
-  // `unevaluatedProperties` adds an index signature with its fix, so it counts as opaque too.
   if (isBuiltInMember(key, {}) || key === "$defs" || isUnknownShape) {
     return OPAQUE;
   }
