@@ -462,11 +462,12 @@ export function hasDuplicateEnumMembers(output: string): boolean {
 }
 
 const REPEATED_PARAMETERS_RE =
-  /^export const \S+: ReadonlyArray<FlattenedDeepRequired<(?:paths>|webhooks>|components>\["pathItems"\])\["[^"]*"\]\["parameters"\]\["parameters"\]/m;
+  /^export const \S+: ReadonlyArray<(?:Extract<)*FlattenedDeepRequired<(?:paths>|webhooks>|components>\["pathItems"\])\["[^"]*"\]\["parameters"\]\["parameters"\]/m;
 
 /**
  * Whether the original output types an `--enum-values` array of a path item parameter with
- * `["parameters"]["parameters"]`, which does not exist (TS2339). The new one indexes it once.
+ * `["parameters"]["parameters"]`, which does not exist (TS2339), also inside the `Extract` of a
+ * union member. The new one indexes it once.
  */
 export function hasRepeatedParametersIndex(output: string): boolean {
   return REPEATED_PARAMETERS_RE.test(output);
