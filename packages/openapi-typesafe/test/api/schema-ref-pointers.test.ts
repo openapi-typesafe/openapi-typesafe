@@ -185,3 +185,43 @@ describe("schema $refs whose original type compiles", () => {
     expect(output).toContain(`bag?: ${media};`);
   });
 });
+
+describe("schema $refs into a schema whose type its keywords do not change", () => {
+  // `type: object` without properties is `Record<string, never>`: every key is `never`, so the
+  // original compiles. `type: string` ignores `items`: the original indexes `string`.
+  const document = documentWith({
+    Shared: { type: "object", definitions: { Money: OBJECT } },
+    Bag: { type: "object", items: { type: "string" } },
+    Text: { type: "string", items: { type: "number" } },
+    Copy: {
+      type: "object",
+      properties: {
+        money: { $ref: "#/components/schemas/Shared/definitions/Money" },
+        bag: { $ref: "#/components/schemas/Bag/items" },
+        text: { $ref: "#/components/schemas/Text/items" },
+      },
+    },
+  });
+
+  it("openapiTS keeps the original type where Record<string, never> admits the key", async () => {
+    const output = await generate(document);
+
+    expect(output).toContain('money?: components["schemas"]["Shared"]["definitions"]["Money"];');
+    expect(output).toContain('bag?: components["schemas"]["Bag"]["items"];');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS writes items of a schema that is no array inline", async () => {
+    const output = await generate(document);
+
+    expect(output).toContain("text?: number;");
+  });
+
+  it("openapiTS writes those targets inline with the ref-pointers fix", async () => {
+    const output = await generate(document, { fix: ["ref-pointers"] });
+
+    expect(output).toContain("bag?: string;");
+    expect(output).toMatch(/money\?: \{\n\s+time\?: string;\n\s+\};/);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});

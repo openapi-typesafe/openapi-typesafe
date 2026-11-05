@@ -30,11 +30,15 @@ documents that were already broken.
    `requestBody`, an `allOf` whose parts all miss the key, a pure `anyOf` / `oneOf` where a member
    misses it, a positional `parameters` index. Every shape it does not model
    (`enum`, `not`, `$ref` chains, discriminators, `--read-write-markers`, `patternProperties`, mixed
-   composition) counts as compiling, so that output stays byte-identical.
+   composition) counts as compiling, so that output stays byte-identical. The walk reads the
+   generated type as `coreType` writes it: one `type` name decides alone (`type: string` with
+   `items` or `properties` is `string`), and `type: object` without object keywords is
+   `Record<string, never>`, whose every key is `never` and compiles, as does every key after it.
 2. **The corrected type.** The `schema` of a media type, header or component parameter is left out,
-   `items` is `[number]`, `additionalProperties` is `[string]`, `$defs` members are read through
-   `NonNullable`, and a value that is not surely present is wrapped in `NonNullable` before it is
-   indexed.
+   `items` of an array is `[number]`, `additionalProperties` of an object is `[string]`; on a type
+   without that member (`type: string` with `items`) the keyword has no type (point 3). `$defs`
+   members are read through `NonNullable`, and a value that is not surely present is wrapped in
+   `NonNullable` before it is indexed.
 3. **A segment with no type of its own** (`allOf/N`, `anyOf/N`, `definitions`, `not`, operation
    `parameters/N`) is not indexed at all: the target schema is written inline (its own `$ref` is
    followed). A target that would be written inside itself keeps the original type. This replaces

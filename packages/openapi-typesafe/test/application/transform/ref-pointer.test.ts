@@ -78,6 +78,9 @@ const DOCUMENT = {
       Text: { type: ["string", "null"] },
       Str: { type: "string" },
       Bin: { type: "string", format: "binary" },
+      Blank: { type: "object", items: { type: "string" } },
+      Hollow: { type: "object", properties: {}, allOf: [ITEM] },
+      Words: { type: "string", items: { type: "number" }, properties: { a: {} } },
       Loop: {
         definitions: {
           Node: { properties: { next: { $ref: "#/components/schemas/Loop/definitions/Node" } } },
@@ -238,6 +241,28 @@ describe("edge shapes", () => {
     expect(fails("#/paths/~1items/get/nothing/x")).toBe(false);
     expect(pointerNode(pointer("#/components/schemas/Nope/a/b"), REFS)).toBeUndefined();
     expect(isOptionalRequestBody({}, REFS)).toBe(false);
+  });
+});
+
+describe("keywords the generated type ignores", () => {
+  const member = (name: string, key: string, options = OPTIONS) =>
+    generatedMember(DOCUMENT.components.schemas[name as "Item"], key, options, REFS).kind;
+
+  it("generatedMember of an object without object keywords reads Record<string, never>", () => {
+    expect(member("Blank", "items")).toBe("opaque");
+    expect(member("Blank", "items", { ...OPTIONS, emptyObjectsUnknown: true })).toBe("missing");
+    expect(member("Hollow", "allOf")).toBe("missing");
+  });
+
+  it("generatedMember of a primitive type ignores its object and array keywords", () => {
+    expect(member("Words", "items")).toBe("missing");
+    expect(member("Words", "a")).toBe("missing");
+  });
+
+  it("typedWalk stops at a keyword the owner's type has no member for", () => {
+    expect(walked("#/components/schemas/Blank/items")).toBe("untyped at 2");
+    expect(walked("#/components/schemas/Words/items")).toBe("untyped at 2");
+    expect(walked("#/components/schemas/Words/properties/a")).toBe("untyped at 2");
   });
 });
 

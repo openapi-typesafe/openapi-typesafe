@@ -4,7 +4,9 @@ import { indexBy, indexKeyword, rootType } from "../ref-type.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import {
   followRefs,
+  isArrayShape,
   isJsonObject,
+  isObjectShape,
   type Presence,
   propertyPresence,
   schemaPresence,
@@ -93,8 +95,29 @@ function defsStep(walk: TypedWalk, owner: unknown, isLast: boolean): TypedWalk {
   };
 }
 
+const SHAPED_KEYWORDS: ReadonlySet<string> = new Set([
+  "properties",
+  "items",
+  "additionalProperties",
+]);
+
+/**
+ * Whether the keyword gives the owner's generated type a member: `items` only an array,
+ * `properties` and `additionalProperties` only an object (`type: string` ignores them). A node
+ * that is not in the document is indexed as the keyword says.
+ */
+function hasKeywordMember(owner: unknown, segment: string): boolean {
+  if (!SHAPED_KEYWORDS.has(segment) || !isJsonObject(owner)) {
+    return true;
+  }
+  return segment === "items" ? isArrayShape(owner) : isObjectShape(owner);
+}
+
 function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: TypedWalkInput) {
   const owner = followRefs(walk.node, input.refs);
+  if (!hasKeywordMember(owner, segment)) {
+    return null;
+  }
   switch (segment) {
     case "properties":
       return { ...walk, isName: true };
