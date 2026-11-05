@@ -110,4 +110,19 @@ const named: components["schemas"]["B"] = { pet_type: "B" };`;
 
     expect(await fixed(schemas)).toBe(await generate(schemas));
   });
+
+  it("openapiTS with the fix keeps a schema that the mapping names a member of the union", async () => {
+    const mapping = { c: ref("C").$ref, d: ref("D").$ref, resp: ref("Response").$ref };
+    const schemas = {
+      A: { oneOf: [ref("C"), ref("D")], discriminator: { propertyName: "pet_type", mapping } },
+      C: PET_TYPE("c"),
+      D: PET_TYPE("d"),
+      Response: { allOf: [ref("A"), { type: "object", properties: { extra: { type: "string" } } }] },
+    };
+    const code = `${await fixed(schemas)}
+const response: components["schemas"]["Response"] = { pet_type: "resp", extra: "x" };`;
+
+    expect(await fixed(schemas)).toBe(await generate(schemas));
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
 });

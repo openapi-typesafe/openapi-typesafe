@@ -1,5 +1,5 @@
 import type { Logger } from "../application/ports/logger.js";
-import { unionAt, unionReaches } from "../domain/openapi/discriminated-union.js";
+import { isUnionMember, unionAt } from "../domain/openapi/discriminated-union.js";
 import { OutputFix } from "../domain/output-fixes.js";
 import type {
   DiscriminatorObject,
@@ -116,7 +116,8 @@ function valuesMappedTo(discriminator: DiscriminatorObject, ref: string): string
 /**
  * Whether the schema at `ref` takes the discriminator of its `allOf` parent at `parentRef`. With
  * `allof-discriminated-union`, a schema that `allOf`s a discriminated union that does not contain
- * it is that union, not one of its members, so it gets no value of its own (#1464, #1690).
+ * it is that union, not one of its members, so it gets no value of its own (#1464, #1690). A
+ * schema that the union's mapping names is a member.
  */
 function inheritsDiscriminator(state: ScanState, parentRef: string, ref: string): boolean {
   if (!state.fixes.has(OutputFix.ALLOF_DISCRIMINATED_UNION)) {
@@ -124,7 +125,7 @@ function inheritsDiscriminator(state: ScanState, parentRef: string, ref: string)
   }
   const resolve = (target: string) => resolveDocumentRef(state.schema, target, state);
   const union = unionAt(parentRef, resolve);
-  return union === undefined || unionReaches(union, ref, resolve);
+  return union === undefined || isUnionMember(union, ref, resolve);
 }
 
 /**

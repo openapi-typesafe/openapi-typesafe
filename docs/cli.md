@@ -475,7 +475,9 @@ Response: components["schemas"]["Pet"]; // [!code ++]
 Without the fix, `Response` is treated as one more member of `Pet`: its own name becomes the
 `kind` value, which no `Cat` or `Dog` has, and `Omit` on a union keeps only the keys that every
 member has. With the fix, a `$ref` to a union in `allOf` is the union, and a schema that only
-reuses a union gets no discriminator value. A schema that the union lists (`Cat`) keeps its value.
+reuses a union gets no discriminator value. A schema that the union lists (`Cat`) keeps its value,
+and so does a schema that the union's `mapping` names: the mapping makes it a member, so its output
+stays as without the fix.
 
 - An `allOf` `$ref` to a discriminated union that lists the schema itself is typed with the
   union's own keywords by default, fix or not, because that output referred to itself and did not
