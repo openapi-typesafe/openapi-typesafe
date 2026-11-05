@@ -150,6 +150,54 @@ const app: paths[\`/apps/\${string}\`]["get"]["parameters"]["path"] = { id: "a" 
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS output with paths that differ only in parameter names compiles", async () => {
+    // Same types, so no cover check rejects them; still one object would repeat the signature.
+    const code = `${await generate({ "/apps/{id}": operation("same"), "/apps/{key}": operation("same") })}
+const app: paths["/apps/a"]["get"]["parameters"]["path"] = { id: "a" };`;
+
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
+  it("openapiTS output with an array response under an object response compiles (magento)", async () => {
+    const item = { type: "object", properties: { code: { type: "string" } } };
+    const schemas = { CaseDetail: item, CaseSummary: { type: "array", items: item } };
+
+    const output = await generate(NESTED, {}, { schemas });
+
+    expect(output).toContain("export type paths = {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS output with query arrays of other enum values compiles (Microsoft Graph)", async () => {
+    const select = (values: string[]) => ({
+      name: "$select",
+      in: "query",
+      schema: { type: "array", items: { type: "string", enum: values } },
+    });
+    const paths = {
+      "/drives/{id}/items": operation("items", [ID, select(["id", "name"])]),
+      "/drives/{id}/list/items": operation("list", [ID, select(["id", "contentType"])]),
+    };
+
+    const output = await generate(paths);
+
+    expect(output).toContain("export type paths = {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS keeps one object when a referenced path item is the same type", async () => {
+    const paths = {
+      "/cases/{id}": operationOf("getCase", "CaseDetail"),
+      "/cases/{id}/copy": { get: { $ref: "#/paths/~1cases~1{id}/get" } },
+    };
+    const schemas = { CaseDetail: objectWith("case_name") };
+
+    const output = await generate(paths, {}, { schemas });
+
+    expect(output).toContain("export interface paths {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS without pathParamsAsTypes keeps every path a property", async () => {
     expect(await generate(OVERLAPS, { pathParamsAsTypes: false })).toContain("export interface paths {");
   });

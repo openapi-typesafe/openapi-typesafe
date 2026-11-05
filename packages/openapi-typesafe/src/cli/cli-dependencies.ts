@@ -33,6 +33,11 @@ export interface CliDependencies {
   readonly writeStdout: (text: string) => void;
   /** Read only when the schema comes from stdin: opening it early can keep the process alive. */
   readonly stdin: () => Readable;
+  /**
+   * Whether stdin is a terminal. Then nothing is piped in, and reading it would wait for typed
+   * input with no prompt, which looks like a hang (upstream #1905).
+   */
+  readonly isStdinTerminal: () => boolean;
   readonly files: FileReader & FileWriter;
   readonly redoclyConfigs: RedoclyConfigSource;
   readonly generate: GenerateTypes;

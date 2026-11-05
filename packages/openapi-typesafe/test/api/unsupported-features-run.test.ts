@@ -38,7 +38,7 @@ describe("unsupported feature warnings", () => {
 
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('#/paths/~1items/get/parameters/1 is an "in: querystring" parameter');
-    expect(warnings[0]).toContain("docs/introduction.md#openapi-3-2-support");
+    expect(warnings[0]).toMatch(/docs\/introduction\.md#openapi-3-2-support \(QUERYSTRING_NEXT_TO_QUERY\)$/);
   });
 
   it("createDocumentRun with a 3.1 document does not warn", async () => {

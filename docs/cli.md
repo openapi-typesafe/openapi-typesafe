@@ -78,6 +78,8 @@ npx openapi-typesafe --redocly ./path/to/redocly.yaml
 
 You can read more about the Redoc’s configuration options [in their docs](https://redocly.com/docs/cli/configuration/).
 
+Problems listed in a `.redocly.lint-ignore.yaml` next to `redocly.yaml` (as `redocly lint --generate-ignore-file` writes it) are skipped, as `redocly lint` skips them; with `DEBUG=openapi-ts:*` each one is printed. Without a `redocly.yaml`, the file is read from the current directory.
+
 ## Auth
 
 Authentication for non-public schemas is handled in your [Redocly config](https://redocly.com/docs/cli/configuration/#resolve-non-public-or-non-remote-urls). You can add headers and basic authentication like so:
@@ -139,6 +141,15 @@ The following flags are supported in the CLI:
 
 `--content-never` is accepted for compatibility with openapi-typescript and has no effect.
 
+## Warnings
+
+A warning does not stop the run: the types are written and the exit code stays `0`. A warning about the document ends with its code, as an error does.
+
+| Code | Meaning |
+| :--- | :------ |
+| `PATH_TEMPLATES_IDENTICAL` | Paths differ only in their parameter names, such as `/users/{id}` and `/users/{name}`. The OpenAPI Paths Object forbids this: "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical." See [pathParamsAsTypes](#pathparamsastypes) for the output |
+| `QUERYSTRING_NEXT_TO_QUERY` | An `in: querystring` parameter is next to `in: query` parameters, which OpenAPI 3.2 does not allow; the parameter is left out of the types. See [OpenAPI 3.2 support](./introduction.md#openapi-3-2-support) |
+
 ## Exit codes
 
 The CLI exits with a code that tells what went wrong. On failure it prints one line with the message and the error code, for example `✘  Generated types are not up-to-date! src/api.ts differs from its schema. (OUTPUT_STALE)`.
@@ -147,7 +158,7 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 | :--: | :------ | :---------- |
 | `0` | Success; with `--check`, the output is up to date | |
 | `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
-| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
 | `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 | `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |
@@ -233,22 +244,29 @@ Though this is a contrived example, you could use this feature to automatically 
 ::: info Paths that a template also matches
 `${string}` matches `/` too, so `` `/user/${string}` `` also matches `/user/settings` and
 `` `/user/${string}/keys` ``. TypeScript then requires those paths' types to fit the template's
-type, and the output does not compile when they do not (TS2411, TS2413). When a path surely does
-not fit (it has a method or a parameter location the template's path has not, or lacks one it
-has, or its operation or response schema lacks a required property of the template's, read
-through `operations[…]` and `components[…]`), `paths` is written as an intersection,
+type, and the output does not compile when they do not (TS2411, TS2413). The generator checks
+each such path against the template the way TypeScript does: through `operations[…]` and
+`components[…]`, into unions, intersections, arrays, tuples, index signatures and every property
+type. Unless the path's type surely fits, `paths` is written as an intersection,
 `` export type paths = { … } & { [path: `/user/${string}`]: … } ``, with each such template in an
 object of its own. Every path keeps its type: `paths["/user/settings"]` and
 `` paths[`/user/${string}`] `` are the same as before. Output that compiles stays the same,
-`export interface paths` included. Paths that differ only in ways the check does not read (a
-union, an array item, a property type other than an object) are not decided, and that output is
-left as it was.
+`export interface paths` included.
 
 A URL that two templates match, such as `/user/123/keys` for `` `/user/${string}` `` and
 `` `/user/${string}/keys` ``, gets both types: `paths["/user/123/keys"]` is their intersection.
 TypeScript has no string type that excludes `/`
 ([microsoft/TypeScript#41160](https://github.com/microsoft/TypeScript/issues/41160)), so look such a
 path up by its template, `` paths[`/user/${string}/keys`] ``.
+:::
+
+::: info Paths that differ only in parameter names
+OpenAPI forbids paths such as `/user/{user_id}` and `/user/{name}`, which match the same URLs; the
+generator warns about them (`PATH_TEMPLATES_IDENTICAL`, see [Warnings](#warnings)). With
+`--path-params-as-types` both get the same key, `` `/user/${string}` ``, and one object with that
+signature twice does not compile (TS2374), so each of them is written in an object of its own in
+the intersection. `` paths[`/user/${string}`] `` is then the intersection of both path items;
+merge the paths in the document to get one. Without the flag, each path keeps its own key.
 :::
 
 _Thanks, [@Powell-v2](https://github.com/Powell-v2)!_

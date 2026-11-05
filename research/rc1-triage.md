@@ -59,13 +59,27 @@ Output that does not compile, scan of 1820 documents × 28 option sets (default:
 | `--enum-values` leftovers (`allOf` with two enums, array and non-array union, `FlattenedDeepRequired` limits) | ~27 | opt-in fix of the helper |
 | `anyOf` of `required`-only variants next to `properties` gives `{…} \| unknown` | 22 (GitHub) | opt-in fix: types are lost even where the output compiles |
 | discriminator value that the property's `enum` does not allow | several | invalid schema (Discriminator Object): typed warning |
-| `--path-params-as-types`: paths that differ only by parameter names (TS2374) | 11 | invalid schema (Paths Object): typed warning |
 | `--path-params-as-types`: a URL two templates match gets both types | 28 | TypeScript has no string type without `/` (microsoft/TypeScript#41160); documented |
 
 Clients for 2.0: excess keys in `params` / `body` (#1525, #1769, #2329); hook `error` type
 without network and middleware errors (#2151, #2372).
 
-Not checked yet: #2128, #2189, #2855, #1647, #2672, #2815, #2862, #2005, #1947, #2034, #2655,
-#2851, #2425, #2240, #2259, #2558. #1905 partly checked.
+Paths that differ only by parameter names (Paths Object, invalid) now get the typed warning
+`PATH_TEMPLATES_IDENTICAL`; with `--path-params-as-types` they compile (no TS2374).
+
+## Second round
+
+| Issue | Verdict |
+| --- | --- |
+| #1905 | bug: no schema and stdin a terminal waited silently; now `CLI_INPUT_MISSING` |
+| #2189 | bug: problems in `.redocly.lint-ignore.yaml` still failed the run; now skipped |
+| #2034 | docs: the query key holds the whole `init`, not `params` |
+| #1947, #2655 | docs: `QueryClientProvider` setup and the "No QueryClient set" error |
+| #2005 | fixed already (per-request `middleware`); its order is now documented |
+| #2128, #2672, #2851, #2862 | fixed already |
+| #2855 | not a bug: redundant parentheses, the same type; output kept for parity |
+| #1647, #2425 | not a bug of the generator (user cast; a removed URL in the user's document) |
+| #2815 | not a bug here: attw and the TypeScript 7 type matrix resolve the types |
+| #2240, #2259, #2558 | not this project (swr-openapi, hey-api) |
 
 Classified fixed, not a bug, feature or unclear: see the session report; not repeated here.
