@@ -1,9 +1,7 @@
 ---
-
 title: useQuery
 description: Typed useQuery for OpenAPI endpoints
 ---
-
 # {{ $frontmatter.title }}
 
 The `useQuery` method allows you to use the original [useQuery](https://tanstack.com/query/latest/docs/framework/react/guides/queries).

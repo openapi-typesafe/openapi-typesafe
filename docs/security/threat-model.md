@@ -1,5 +1,4 @@
 ---
-
 title: Threat model
 description: How openapi-typesafe treats untrusted OpenAPI documents, what it defends against, and the open risks
 ---
@@ -11,22 +10,22 @@ Review it again when a new input, option or output is added, and before each maj
 
 ## What we protect
 
-| Asset                                 | Why it matters                                                                        |
-| :------------------------------------ | :------------------------------------------------------------------------------------ |
+| Asset | Why it matters |
+| :-- | :-- |
 | The developer's machine and CI runner | The generator runs there with the user's rights, often on documents from other people |
-| The generated `.ts` file              | It is committed and compiled into applications; code in it runs everywhere they run   |
-| Requests made by the fetch client     | They carry credentials and user data to the API                                       |
-| The published npm packages            | Every user installs them; a compromised release reaches all of them                   |
+| The generated `.ts` file | It is committed and compiled into applications; code in it runs everywhere they run |
+| Requests made by the fetch client | They carry credentials and user data to the API |
+| The published npm packages | Every user installs them; a compromised release reaches all of them |
 
 ## Trust boundaries
 
-| Input                                                                      | Trusted? | Notes                                                                        |
-| :------------------------------------------------------------------------- | :------- | :--------------------------------------------------------------------------- |
-| The OpenAPI document and every document it references                      | **No**   | Often downloaded from a vendor or a URL; treat it like data from the network |
-| CLI flags, `redocly.yaml`, Node API options                                | Yes      | Chosen by the developer                                                      |
-| `transform`, `postTransform` and other callbacks, `inject` text            | Yes      | The developer's own code; it may write any TypeScript on purpose             |
-| Values passed to the fetch client at run time (path, query, body, headers) | **No**   | Often come from end users                                                    |
-| Dependencies and the release pipeline                                      | Verified | Lockfile, pinned actions, provenance (Phase 9)                               |
+| Input | Trusted? | Notes |
+| :-- | :-- | :-- |
+| The OpenAPI document and every document it references | **No** | Often downloaded from a vendor or a URL; treat it like data from the network |
+| CLI flags, `redocly.yaml`, Node API options | Yes | Chosen by the developer |
+| `transform`, `postTransform` and other callbacks, `inject` text | Yes | The developer's own code; it may write any TypeScript on purpose |
+| Values passed to the fetch client at run time (path, query, body, headers) | **No** | Often come from end users |
+| Dependencies and the release pipeline | Verified | Lockfile, pinned actions, provenance (Phase 9) |
 
 ## Threats and controls
 

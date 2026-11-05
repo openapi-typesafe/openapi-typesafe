@@ -1,9 +1,7 @@
 ---
-
 title: queryOptions
 description: Build type-safe TanStack Query options for useQueries, prefetching and fetchQuery
 ---
-
 # {{ $frontmatter.title }}
 
 The `queryOptions` method allows you to construct type-safe [Query Options](https://tanstack.com/query/latest/docs/framework/react/guides/query-options).
@@ -24,7 +22,7 @@ If you would like to use a query API that is not explicitly supported by `openap
 ::: code-group
 
 ```tsx [src/app.tsx]
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from '@tanstack/react-query';
 import { $api } from "./api";
 
 export const App = () => {
@@ -67,19 +65,20 @@ Usage with [useQueries](https://tanstack.com/query/latest/docs/framework/react/r
 ::: code-group
 
 ```tsx [src/use-users-by-id.ts]
-import { useQueries } from "@tanstack/react-query";
+import { useQueries } from '@tanstack/react-query';
 import { $api } from "./api";
 
-export const useUsersById = (userIds: number[]) =>
+export const useUsersById = (userIds: number[]) => (
   useQueries({
-    queries: userIds.map((userId) =>
+    queries: userIds.map((userId) => (
       $api.queryOptions("get", "/users/{user_id}", {
         params: {
           path: { user_id: userId },
         },
-      }),
-    ),
-  });
+      })
+    ))
+  })
+);
 ```
 
 ```ts [src/api.ts]

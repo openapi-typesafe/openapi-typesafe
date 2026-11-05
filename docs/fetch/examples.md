@@ -1,5 +1,4 @@
 ---
-
 title: openapi-typesafe-fetch Examples
 description: openapi-typesafe-fetch with React, Next.js, Svelte, Vue and other frameworks
 ---

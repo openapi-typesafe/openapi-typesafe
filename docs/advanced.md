@@ -1,5 +1,4 @@
 ---
-
 title: Advanced
 description: Advanced usage as well as tips, tricks, and best practices
 ---
@@ -63,7 +62,7 @@ export enum ErrorCode {
   // User has no access to this resource
   AccessDenied = 200,
   // Something went wrong
-  Unknown = 300,
+  Unknown = 300
 }
 ```
 
@@ -402,10 +401,7 @@ Add a mapping entry for the value the property allows (`mapping: { episode:
 generated types:
 
 ```ts
-export const petStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Pet"]["status"]> = [
-  "available",
-  "sold",
-];
+export const petStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Pet"]["status"]> = ["available", "sold"];
 ```
 
 Where that type cannot hold the values, the array is typed by its own values instead, so the file
@@ -543,14 +539,14 @@ A refused `$ref` fails with `SCHEMA_REF_FORBIDDEN` (CLI exit code `3`); `err.det
 openapi-typesafe fails with a typed error (`err.code`, CLI exit code `3`) instead of crashing or
 hanging when a document reaches one of these limits.
 
-| Limit                                                                                                                                                                                  | What happens                                                                                                       | Error code                                                         |
-| :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------- |
-| A YAML or JSON file nested more than 100 levels deep                                                                                                                                   | The YAML parser stops. A document passed as an object or as JSON text skips this limit                             | `SCHEMA_PARSE_FAILED`                                              |
-| About 550 levels of inline schemas, or a chain of about 900 `$ref`s where each schema refers to the next                                                                               | The call stack runs out. The numbers are for the default Node.js stack and vary a little between runs and runtimes | `SCHEMA_TOO_DEEP`                                                  |
-| A `$ref` that points at itself, or two `$ref`s that point at each other, with no schema in between                                                                                     | The cycle has no type                                                                                              | `SCHEMA_REF_INVALID`                                               |
-| A key named `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `valueOf` or one of the `__define…` / `__lookup…` methods, where the schema loader reads keys | The schema loader (Redocly 1.x) cannot read it; the error lists every such key                                     | `SCHEMA_KEY_UNSUPPORTED`                                           |
-| YAML aliases (`*name`) that expand a file to more than 1,000,000 nodes and to more than 100 times its written size (a "billion laughs" document)                                       | The file is refused right after parsing, before anything walks it                                                  | `SCHEMA_PARSE_FAILED`                                              |
-| A remote `$ref` or remote document that does not answer, or does not finish sending its body, within 60 seconds                                                                        | The fetch stops. A `customFetch` in your Redocly config replaces this limit                                        | `SCHEMA_INVALID` (a `$ref`) or `SCHEMA_LOAD_FAILED` (the document) |
+| Limit | What happens | Error code |
+| :-- | :-- | :-- |
+| A YAML or JSON file nested more than 100 levels deep | The YAML parser stops. A document passed as an object or as JSON text skips this limit | `SCHEMA_PARSE_FAILED` |
+| About 550 levels of inline schemas, or a chain of about 900 `$ref`s where each schema refers to the next | The call stack runs out. The numbers are for the default Node.js stack and vary a little between runs and runtimes | `SCHEMA_TOO_DEEP` |
+| A `$ref` that points at itself, or two `$ref`s that point at each other, with no schema in between | The cycle has no type | `SCHEMA_REF_INVALID` |
+| A key named `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `valueOf` or one of the `__define…` / `__lookup…` methods, where the schema loader reads keys | The schema loader (Redocly 1.x) cannot read it; the error lists every such key | `SCHEMA_KEY_UNSUPPORTED` |
+| YAML aliases (`*name`) that expand a file to more than 1,000,000 nodes and to more than 100 times its written size (a "billion laughs" document) | The file is refused right after parsing, before anything walks it | `SCHEMA_PARSE_FAILED` |
+| A remote `$ref` or remote document that does not answer, or does not finish sending its body, within 60 seconds | The fetch stops. A `customFetch` in your Redocly config replaces this limit | `SCHEMA_INVALID` (a `$ref`) or `SCHEMA_LOAD_FAILED` (the document) |
 
 Cyclic schemas are fine when the cycle goes through an object property
 (`Node: { properties: { next: { $ref: Node } } }`): they generate recursive types. A cycle with no

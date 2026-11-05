@@ -1,9 +1,7 @@
 ---
-
 title: useSuspenseQuery
 description: Typed useSuspenseQuery for OpenAPI endpoints
 ---
-
 # {{ $frontmatter.title }}
 
 The `useSuspenseQuery` method allows you to use the original [useSuspenseQuery](https://tanstack.com/query/latest/docs/framework/react/guides/suspense).

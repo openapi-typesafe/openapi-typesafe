@@ -1,5 +1,4 @@
 ---
-
 title: openapi-typesafe CLI
 description: The quickest, easiest way to generate types.
 ---
@@ -107,38 +106,38 @@ Refer to the [Redocly docs](https://redocly.com/docs/cli/configuration/#resolve-
 
 The following flags are supported in the CLI:
 
-| Flag                               | Alias | Default  | Description                                                                                                                                                      |
-| :--------------------------------- | :---- | :------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--help`                           |       |          | Display inline help message and exit                                                                                                                             |
-| `--version`                        |       |          | Display this library’s version and exit                                                                                                                          |
-| `--output [location]`              | `-o`  | (stdout) | Where should the output file be saved?                                                                                                                           |
-| `--redocly [location]`             | `-c`  |          | Path to a `redocly.yaml` file (see [Multiple schemas](#multiple-schemas))                                                                                        |
-| `--additional-properties`          |       | `false`  | Allow arbitrary properties for all schema objects without `additionalProperties: false`                                                                          |
-| `--alphabetize`                    |       | `false`  | Sort types alphabetically                                                                                                                                        |
-| `--array-length`                   |       | `false`  | Generate tuples using array `minItems` / `maxItems`                                                                                                              |
-| `--binary-as-blob`                 |       | `false`  | Type raw binary strings (`format: binary`, or a `contentMediaType` that is not text) as `Blob`. See [binaryAsBlob](#binaryasblob)                                |
-| `--fix [names]`                    |       |          | Turn on opt-in fixes of the output, comma-separated, or `all`. See [fix](#fix)                                                                                   |
-| `--default-non-nullable`           |       |  `true`  | A property with a `default` is required, except in parameters and inline request bodies; see [defaultNonNullable](#defaultnonnullable)                           |
-| `--properties-required-by-default` |       | `false`  | Treat schema objects without `required` as having all properties required.                                                                                       |
-| `--empty-objects-unknown`          |       | `false`  | Allow arbitrary properties for schema objects with no specified properties, and no specified `additionalProperties`                                              |
-| `--enum`                           |       | `false`  | Generate true [TS enums](https://www.typescriptlang.org/docs/handbook/enums.html) rather than string unions.                                                     |
-| `--enum-values`                    |       | `false`  | Export enum values as arrays.                                                                                                                                    |
-| `--conditional-enums`              |       | `false`  | Only generate true TS enums when the `x-enum-*` metadata is available. Requires `--enum=true` to be enabled.                                                     |
-| `--dedupe-enums`                   |       | `false`  | Dedupe enum types when `--enum=true` is set                                                                                                                      |
-| `--check`                          |       | `false`  | Check that the generated types are up-to-date.                                                                                                                   |
-| `--exclude-deprecated`             |       | `false`  | Exclude deprecated fields from types                                                                                                                             |
-| `--export-type`                    | `-t`  | `false`  | Export `type` instead of `interface`                                                                                                                             |
-| `--immutable`                      |       | `false`  | Generates immutable types (readonly properties and readonly array)                                                                                               |
-| `--path-params-as-types`           |       | `false`  | Allow dynamic string lookups on the `paths` object                                                                                                               |
-| `--root-types`                     |       | `false`  | Exports types from `components` as root level type aliases                                                                                                       |
-| `--root-types-no-schema-prefix`    |       | `false`  | Do not add "Schema" prefix to types at the root level (should only be used with --root-types)                                                                    |
-| `--root-types-keep-casing`         |       | `false`  | Do not convert root type names to pascal case                                                                                                                    |
-| `--make-paths-enum`                |       | `false`  | Generate ApiPaths enum for all paths                                                                                                                             |
-| `--generate-path-params`           |       | `false`  | Generate path parameters for all paths where they are undefined by schema                                                                                        |
-| `--read-write-markers`             |       | `false`  | Generate `$Read<T>`/`$Write<T>` markers for readOnly/writeOnly properties                                                                                        |
-| `--no-lint`                        |       | `false`  | Skip the Redocly lint. Bundling errors (for example a broken `$ref`) still fail                                                                                  |
+| Flag                               | Alias | Default  | Description                                                                                                         |
+|:-----------------------------------| :---- | :------: |:--------------------------------------------------------------------------------------------------------------------|
+| `--help`                           |       |          | Display inline help message and exit                                                                                |
+| `--version`                        |       |          | Display this library’s version and exit                                                                             |
+| `--output [location]`              | `-o`  | (stdout) | Where should the output file be saved?                                                                              |
+| `--redocly [location]`             | `-c`  |          | Path to a `redocly.yaml` file (see [Multiple schemas](#multiple-schemas))                                           |
+| `--additional-properties`          |       | `false`  | Allow arbitrary properties for all schema objects without `additionalProperties: false`                             |
+| `--alphabetize`                    |       | `false`  | Sort types alphabetically                                                                                           |
+| `--array-length`                   |       | `false`  | Generate tuples using array `minItems` / `maxItems`                                                                 |
+| `--binary-as-blob`                 |       | `false`  | Type raw binary strings (`format: binary`, or a `contentMediaType` that is not text) as `Blob`. See [binaryAsBlob](#binaryasblob) |
+| `--fix [names]`                    |       |          | Turn on opt-in fixes of the output, comma-separated, or `all`. See [fix](#fix) |
+| `--default-non-nullable`           |       |  `true`  | A property with a `default` is required, except in parameters and inline request bodies; see [defaultNonNullable](#defaultnonnullable) |
+| `--properties-required-by-default` |       | `false`  | Treat schema objects without `required` as having all properties required.                                          |
+| `--empty-objects-unknown`          |       | `false`  | Allow arbitrary properties for schema objects with no specified properties, and no specified `additionalProperties` |
+| `--enum`                           |       | `false`  | Generate true [TS enums](https://www.typescriptlang.org/docs/handbook/enums.html) rather than string unions.        |
+| `--enum-values`                    |       | `false`  | Export enum values as arrays.                                                                                       |
+| `--conditional-enums`              |       | `false`  | Only generate true TS enums when the `x-enum-*` metadata is available. Requires `--enum=true` to be enabled.        |
+| `--dedupe-enums`                   |       | `false`  | Dedupe enum types when `--enum=true` is set                                                                         |
+| `--check`                          |       | `false`  | Check that the generated types are up-to-date.                                                                      |
+| `--exclude-deprecated`             |       | `false`  | Exclude deprecated fields from types                                                                                |
+| `--export-type`                    | `-t`  | `false`  | Export `type` instead of `interface`                                                                                |
+| `--immutable`                      |       | `false`  | Generates immutable types (readonly properties and readonly array)                                                  |
+| `--path-params-as-types`           |       | `false`  | Allow dynamic string lookups on the `paths` object                                                                  |
+| `--root-types`                     |       | `false`  | Exports types from `components` as root level type aliases                                                          |
+| `--root-types-no-schema-prefix`    |       | `false`  | Do not add "Schema" prefix to types at the root level (should only be used with --root-types)                       |
+| `--root-types-keep-casing`         |       | `false`  | Do not convert root type names to pascal case                                                                        |
+| `--make-paths-enum`                |       | `false`  | Generate ApiPaths enum for all paths                                                                                |
+| `--generate-path-params`           |       | `false`  | Generate path parameters for all paths where they are undefined by schema                                           |
+| `--read-write-markers`             |       | `false`  | Generate `$Read<T>`/`$Write<T>` markers for readOnly/writeOnly properties                                           |
+| `--no-lint`                        |       | `false`  | Skip the Redocly lint. Bundling errors (for example a broken `$ref`) still fail                                     |
 | `--local-ref-root [dir]`           |       |          | Load local `$ref` files only from this directory and below it; without a value, the working directory (see [Untrusted documents](/advanced#untrusted-documents)) |
-| `--remote-ref-hosts [hosts]`       |       |          | Load remote `$ref` documents only from these comma-separated hosts; an empty value allows none                                                                   |
+| `--remote-ref-hosts [hosts]`       |       |          | Load remote `$ref` documents only from these comma-separated hosts; an empty value allows none                        |
 
 `--content-never` is accepted for compatibility with openapi-typescript and has no effect.
 
@@ -146,25 +145,25 @@ The following flags are supported in the CLI:
 
 A warning does not stop the run: the types are written and the exit code stays `0`. A warning about the document ends with its code, as an error does.
 
-| Code                              | Meaning                                                                                                                                                                                                                                                                                                                       |
-| :-------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code | Meaning |
+| :--- | :------ |
 | `DISCRIMINATOR_VALUE_NOT_ALLOWED` | A discriminator gives a schema a value that the schema's own discriminator property does not allow, so no value matches. The Discriminator Object requires the value, from `mapping` or the schema name, to be one the property admits; add a `mapping` entry. See [discriminator values](./advanced.md#discriminator-values) |
-| `ENUM_VALUES_EXCLUDED`            | `--enum-values`: other keywords exclude some values of an enum (an `allOf` of enums with other values, a discriminator value the enum does not list), so the array is typed by its own values. See [enum values arrays](./advanced.md#enum-values-arrays)                                                                     |
-| `PATH_TEMPLATES_IDENTICAL`        | Paths differ only in their parameter names, such as `/users/{id}` and `/users/{name}`. The OpenAPI Paths Object forbids this: "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical." See [pathParamsAsTypes](#pathparamsastypes) for the output                        |
-| `QUERYSTRING_NEXT_TO_QUERY`       | An `in: querystring` parameter is next to `in: query` parameters, which OpenAPI 3.2 does not allow; the parameter is left out of the types. See [OpenAPI 3.2 support](./introduction.md#openapi-3-2-support)                                                                                                                  |
+| `ENUM_VALUES_EXCLUDED` | `--enum-values`: other keywords exclude some values of an enum (an `allOf` of enums with other values, a discriminator value the enum does not list), so the array is typed by its own values. See [enum values arrays](./advanced.md#enum-values-arrays) |
+| `PATH_TEMPLATES_IDENTICAL` | Paths differ only in their parameter names, such as `/users/{id}` and `/users/{name}`. The OpenAPI Paths Object forbids this: "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical." See [pathParamsAsTypes](#pathparamsastypes) for the output |
+| `QUERYSTRING_NEXT_TO_QUERY` | An `in: querystring` parameter is next to `in: query` parameters, which OpenAPI 3.2 does not allow; the parameter is left out of the types. See [OpenAPI 3.2 support](./introduction.md#openapi-3-2-support) |
 
 ## Exit codes
 
 The CLI exits with a code that tells what went wrong. On failure it prints one line with the message and the error code, for example `✘  Generated types are not up-to-date! src/api.ts differs from its schema. (OUTPUT_STALE)`.
 
-| Code | Meaning                                                                               | Error codes                                                                                                                                                                                                                                                                                                   |
-| :--: | :------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `0`  | Success; with `--check`, the output is up to date                                     |                                                                                                                                                                                                                                                                                                               |
-| `1`  | `--check`: the output differs from the generated types                                | `OUTPUT_STALE`                                                                                                                                                                                                                                                                                                |
-| `2`  | A flag, the Redocly config or the environment is wrong                                | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN`                                                                                  |
-| `3`  | The OpenAPI document cannot be read, is invalid, or cannot be converted               | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
-| `4`  | An output file cannot be read (`--check`) or written                                  | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED`                                                                                                                                                                                                                                                                   |
-| `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it |                                                                                                                                                                                                                                                                                                               |
+| Code | Meaning | Error codes |
+| :--: | :------ | :---------- |
+| `0` | Success; with `--check`, the output is up to date | |
+| `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
+| `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
+| `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
+| `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |
 
 For `SCHEMA_INVALID`, every lint or bundle error is printed first, then a summary line.
 
@@ -176,12 +175,12 @@ On by default, as in openapi-typescript 7: a property with a `default` is requir
 says the value is always there. Two places are exceptions: parameters, and properties of a schema
 written inline under a request body.
 
-| Schema                                                        | default  | `--default-non-nullable=false` |
-| ------------------------------------------------------------- | -------- | ------------------------------ |
-| a query parameter with `default`                              | optional | optional                       |
-| a property of an inline request body                          | optional | optional                       |
-| a property of an inline response                              | required | optional                       |
-| a property of a component (`$ref`), in requests and responses | required | optional                       |
+| Schema | default | `--default-non-nullable=false` |
+| --- | --- | --- |
+| a query parameter with `default` | optional | optional |
+| a property of an inline request body | optional | optional |
+| a property of an inline response | required | optional |
+| a property of a component (`$ref`), in requests and responses | required | optional |
 
 The last row is the common surprise (openapi-typescript issues #2012, #1957, #1903): a component
 used as a request body makes the client send a field the server would fill in. The rule cannot
@@ -251,16 +250,16 @@ type, and the output does not compile when they do not (TS2411, TS2413). The gen
 each such path against the template the way TypeScript does: through `operations[…]` and
 `components[…]`, into unions, intersections, arrays, tuples, index signatures and every property
 type. Unless the path's type surely fits, `paths` is written as an intersection,
-``export type paths = { … } & { [path: `/user/${string}`]: … }``, with each such template in an
+`` export type paths = { … } & { [path: `/user/${string}`]: … } ``, with each such template in an
 object of its own. Every path keeps its type: `paths["/user/settings"]` and
-``paths[`/user/${string}`]`` are the same as before. Output that compiles stays the same,
+`` paths[`/user/${string}`] `` are the same as before. Output that compiles stays the same,
 `export interface paths` included.
 
 A URL that two templates match, such as `/user/123/keys` for `` `/user/${string}` `` and
 `` `/user/${string}/keys` ``, gets both types: `paths["/user/123/keys"]` is their intersection.
 TypeScript has no string type that excludes `/`
 ([microsoft/TypeScript#41160](https://github.com/microsoft/TypeScript/issues/41160)), so look such a
-path up by its template, ``paths[`/user/${string}/keys`]``.
+path up by its template, `` paths[`/user/${string}/keys`] ``.
 :::
 
 ::: info Paths that differ only in parameter names
@@ -268,7 +267,7 @@ OpenAPI forbids paths such as `/user/{user_id}` and `/user/{name}`, which match 
 generator warns about them (`PATH_TEMPLATES_IDENTICAL`, see [Warnings](#warnings)). With
 `--path-params-as-types` both get the same key, `` `/user/${string}` ``, and one object with that
 signature twice does not compile (TS2374), so each of them is written in an object of its own in
-the intersection. ``paths[`/user/${string}`]`` is then the intersection of both path items;
+the intersection. `` paths[`/user/${string}`] `` is then the intersection of both path items;
 merge the paths in the document to get one. Without the flag, each path keeps its own key.
 :::
 
@@ -422,24 +421,24 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 - A `fix` setting of an API in `redocly.yaml` replaces `--fix` for that API.
 - In 2.0 every fix becomes the default.
 
-| Name                            | What changes                                                                                                                                                                                                                                                                                                                                                             | Upstream                                                                                                                                                                                                            | Since |
-| :------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---- |
-| `allof-discriminated-union`     | An `allOf` `$ref` to a discriminated union is the union, not `Omit` of it with the schema's own name as the discriminator value                                                                                                                                                                                                                                          | [#1464](https://github.com/openapi-ts/openapi-typescript/issues/1464), [#1690](https://github.com/openapi-ts/openapi-typescript/issues/1690)                                                                        | 1.0   |
-| `allof-required`                | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>`                                                                                                                                                                                                                                                         | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0   |
-| `anyof-oneof-descriptions`      | The JSDoc of a schema lists the descriptions of its `anyOf` and `oneOf` members, which were dropped                                                                                                                                                                                                                                                                      | [#2142](https://github.com/openapi-ts/openapi-typescript/issues/2142), [#2143](https://github.com/openapi-ts/openapi-typescript/pull/2143)                                                                          | 1.0   |
-| `anyof-oneof-required`          | An `anyOf` or `oneOf` whose variants have only `required` keys of the sibling `properties` gives the parent with each variant's keys required, instead of `unknown`                                                                                                                                                                                                      | none (found in the compat corpus)                                                                                                                                                                                   | 1.0   |
-| `anyof-properties`              | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member                                                                                                                                                                                                                                                                  | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380)                                                                                                                                               | 1.0   |
-| `array-length-tuples`           | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length`                                                                                                                                                                                                        | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546)     | 1.0   |
-| `dedupe-enum-names`             | With `--enum --dedupe-enums`, a shared enum is named by a rule that does not depend on the document order, instead of after the first schema in the document; needs both flags                                                                                                                                                                                           | [#1683](https://github.com/openapi-ts/openapi-typescript/issues/1683)                                                                                                                                               | 1.0   |
-| `discriminator-member-required` | `required` next to an `allOf` `$ref` to a discriminator member gives `WithRequired` instead of being dropped                                                                                                                                                                                                                                                             | [#2162](https://github.com/openapi-ts/openapi-typescript/issues/2162)                                                                                                                                               | 1.0   |
-| `discriminator-values`          | The value a discriminator member gets: a schema that a `mapping` names gets the mapped value only (not also its schema name, which made the property `never`); a schema's own `mapping` is kept when it also inherits a discriminator; a member that declares its value gets no second property; with `--enum` the value is a member of the owner's enum (`PetType.Cat`) | [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200), [#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124), [#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700) | 1.0   |
-| `exploded-query-objects`        | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter                                                                                                                                                                                                    | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361)                                                                                                                                               | 1.0   |
-| `nullable-enums`                | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum`                                                                                                                                                                                                           | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872)                                                                                                                                               | 1.0   |
-| `prefix-items`                  | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it                                                                                                                                                                                                                  | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892)                                                                                                                                               | 1.0   |
-| `read-write-refs`               | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers`                                                                                                                                                                                                              | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938)                                                                                                                                               | 1.0   |
-| `ref-pointers`                  | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`; where the original does not compile, this is the default                                      | none (found in the compat corpus)                                                                                                                                                                                   | 1.0   |
-| `root-type-numbering`           | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags                                                                                                                                                     | none (found in our own tests)                                                                                                                                                                                       | 1.0   |
-| `unevaluated-properties`        | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored                                                                                                                                                                                                                                                 | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880)                                                                          | 1.0   |
+| Name | What changes | Upstream | Since |
+| :--- | :----------- | :------- | :---- |
+| `allof-discriminated-union` | An `allOf` `$ref` to a discriminated union is the union, not `Omit` of it with the schema's own name as the discriminator value | [#1464](https://github.com/openapi-ts/openapi-typescript/issues/1464), [#1690](https://github.com/openapi-ts/openapi-typescript/issues/1690) | 1.0 |
+| `allof-required` | An `allOf` member with only `required` makes those properties required instead of adding `Record<string, never>` | [#1474](https://github.com/openapi-ts/openapi-typescript/issues/1474), [#1520](https://github.com/openapi-ts/openapi-typescript/issues/1520), [#2165](https://github.com/openapi-ts/openapi-typescript/issues/2165) | 1.0 |
+| `anyof-oneof-descriptions` | The JSDoc of a schema lists the descriptions of its `anyOf` and `oneOf` members, which were dropped | [#2142](https://github.com/openapi-ts/openapi-typescript/issues/2142), [#2143](https://github.com/openapi-ts/openapi-typescript/pull/2143) | 1.0 |
+| `anyof-oneof-required` | An `anyOf` or `oneOf` whose variants have only `required` keys of the sibling `properties` gives the parent with each variant's keys required, instead of `unknown` | none (found in the compat corpus) | 1.0 |
+| `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
+| `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
+| `dedupe-enum-names` | With `--enum --dedupe-enums`, a shared enum is named by a rule that does not depend on the document order, instead of after the first schema in the document; needs both flags | [#1683](https://github.com/openapi-ts/openapi-typescript/issues/1683) | 1.0 |
+| `discriminator-member-required` | `required` next to an `allOf` `$ref` to a discriminator member gives `WithRequired` instead of being dropped | [#2162](https://github.com/openapi-ts/openapi-typescript/issues/2162) | 1.0 |
+| `discriminator-values` | The value a discriminator member gets: a schema that a `mapping` names gets the mapped value only (not also its schema name, which made the property `never`); a schema's own `mapping` is kept when it also inherits a discriminator; a member that declares its value gets no second property; with `--enum` the value is a member of the owner's enum (`PetType.Cat`) | [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200), [#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124), [#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700) | 1.0 |
+| `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
+| `nullable-enums` | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum` | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872) | 1.0 |
+| `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
+| `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
+| `ref-pointers` | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`; where the original does not compile, this is the default | none (found in the compat corpus) | 1.0 |
+| `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
+| `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
 
 #### allof-discriminated-union
 
@@ -849,7 +848,7 @@ values, or does not require the property, still gets it.
 
 ##### Enum members with `--enum`
 
-With [`--enum`](#enum), a discriminator owner whose property is an enum:
+With [`--enum`](#flags), a discriminator owner whose property is an enum:
 
 ::: code-group
 
@@ -976,12 +975,12 @@ type: array
 prefixItems: [{ type: number }, { type: string }]
 ```
 
-| Next to `prefixItems`                  | Without the fix    | With the fix                       |
-| :------------------------------------- | :----------------- | :--------------------------------- |
-| nothing                                | `[number, string]` | `[number?, string?, ...unknown[]]` |
-| `minItems: 2`                          | `[number, string]` | `[number, string, ...unknown[]]`   |
-| `minItems: 1, items: { type: number }` | `[number, string]` | `[number, string?, ...number[]]`   |
-| `minItems: 2, items: false`            | `[number, string]` | `[number, string]`                 |
+| Next to `prefixItems` | Without the fix | With the fix |
+| :-- | :-- | :-- |
+| nothing | `[number, string]` | `[number?, string?, ...unknown[]]` |
+| `minItems: 2` | `[number, string]` | `[number, string, ...unknown[]]` |
+| `minItems: 1, items: { type: number }` | `[number, string]` | `[number, string?, ...number[]]` |
+| `minItems: 2, items: false` | `[number, string]` | `[number, string]` |
 
 - Further items have the `items` type. Without `items`, `unevaluatedItems` types them, with the
   `contains` type added (`contains` evaluates the items it matches); without either they are
@@ -1058,8 +1057,8 @@ schema takes the name and the earlier one has no alias, as in openapi-typescript
 earlier ones get the next free number, in document order:
 
 ```ts
-export type PetStore = components["schemas"]["pet_store"];
-export type PetStore_2 = components["schemas"]["PetStore"]; // [!code ++]
+export type PetStore = components['schemas']['pet_store'];
+export type PetStore_2 = components['schemas']['PetStore']; // [!code ++]
 ```
 
 - The shared name keeps its schema, so code that uses it does not change; the fix only adds

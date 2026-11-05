@@ -1,9 +1,7 @@
 ---
-
 title: useMutation
 description: Typed useMutation for OpenAPI endpoints
 ---
-
 # {{ $frontmatter.title }}
 
 The `useMutation` method allows you to use the original [useMutation](https://tanstack.com/query/latest/docs/framework/react/guides/mutations).
@@ -26,7 +24,11 @@ import { $api } from "./api";
 export const App = () => {
   const { mutate } = $api.useMutation("patch", "/users");
 
-  return <button onClick={() => mutate({ body: { firstname: "John" } })}>Update</button>;
+  return (
+    <button onClick={() => mutate({ body: { firstname: "John" } })}>
+      Update
+    </button>
+  );
 };
 ```
 

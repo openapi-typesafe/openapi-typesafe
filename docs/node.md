@@ -1,5 +1,4 @@
 ---
-
 title: openapi-typesafe Node.js API
 description: Programmatic usage and unlimited flexibility.
 ---
@@ -117,21 +116,21 @@ const ast = await openapiTS(mySchema, { redocly: inMemory });
 
 The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plus the following additional options:
 
-| Name                |       Type        |     Default     | Description                                                                                                                                          |
-| :------------------ | :---------------: | :-------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `transform`         |    `Function`     |                 | Override the default Schema Object ➝ TypeScript transformer in certain scenarios                                                                     |
-| `postTransform`     |    `Function`     |                 | Same as `transform` but runs _after_ the TypeScript transformation                                                                                   |
-| `transformProperty` |    `Function`     |                 | Transform individual property signatures for Schema Object properties                                                                                |
-| `irCallbacks`       |     `boolean`     |     `false`     | Callbacks receive and return IR nodes instead of TypeScript nodes (see [IR callbacks](#ir-callbacks))                                                |
-| `silent`            |     `boolean`     |     `false`     | Silence warning messages (fatal errors will still show)                                                                                              |
-| `lint`              |     `boolean`     |     `true`      | Lint the document with the Redocly config first. `false` skips it; bundling errors still fail                                                        |
-| `cwd`               |  `string \| URL`  | `process.cwd()` | The directory that relative `$ref`s of a string, object, buffer or stream source resolve from. A file or URL source resolves from its own location   |
-| `localRefRoot`      |  `string \| URL`  |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd`                                                |
-| `remoteRefHosts`    |    `string[]`     |                 | Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` allows none                                                         |
-| `fix`               | `OutputFixName[]` |                 | Opt-in fixes of the output, by name, or `["all"]`; see [fix](/cli#fix). `OUTPUT_FIXES` lists them                                                    |
-| `inject`            |     `string`      |                 | Inject arbitrary TypeScript types into the start of the file                                                                                         |
-| `redocly`           |     `Config`      |                 | A Redocly config object; see [Redoc config](#redoc-config). Without it, the built-in `minimal` config; the Node API does not look for `redocly.yaml` |
-| `version`           |     `number`      |                 | Accepted for compatibility with openapi-typescript; no code reads it                                                                                 |
+| Name               |      Type       |     Default     | Description                                                                                  |
+| :----------------- | :-------------: | :-------------: | :------------------------------------------------------------------------------------------- |
+| `transform`        |   `Function`    |                 | Override the default Schema Object ➝ TypeScript transformer in certain scenarios             |
+| `postTransform`    |   `Function`    |                 | Same as `transform` but runs _after_ the TypeScript transformation                           |
+| `transformProperty`|   `Function`    |                 | Transform individual property signatures for Schema Object properties                        |
+| `irCallbacks`      |    `boolean`    |     `false`     | Callbacks receive and return IR nodes instead of TypeScript nodes (see [IR callbacks](#ir-callbacks)) |
+| `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors will still show)                                      |
+| `lint`             |    `boolean`    |     `true`      | Lint the document with the Redocly config first. `false` skips it; bundling errors still fail |
+| `cwd`              | `string \| URL` | `process.cwd()` | The directory that relative `$ref`s of a string, object, buffer or stream source resolve from. A file or URL source resolves from its own location |
+| `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd` |
+| `remoteRefHosts`   |   `string[]`    |                 | Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` allows none |
+| `fix`              | `OutputFixName[]` |               | Opt-in fixes of the output, by name, or `["all"]`; see [fix](/cli#fix). `OUTPUT_FIXES` lists them |
+| `inject`           |    `string`     |                 | Inject arbitrary TypeScript types into the start of the file                                 |
+| `redocly`          |     `Config`    |                 | A Redocly config object; see [Redoc config](#redoc-config). Without it, the built-in `minimal` config; the Node API does not look for `redocly.yaml`
+| `version`          |     `number`    |                 | Accepted for compatibility with openapi-typescript; no code reads it
 
 ### IR callbacks
 

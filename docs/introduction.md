@@ -1,5 +1,4 @@
 ---
-
 title: openapi-typesafe
 description: Quickstart
 ---
@@ -35,13 +34,13 @@ OpenAPI 2.x (Swagger) is not supported.
 A 3.2 document generates the same types as a 3.1 document with the same content, plus types for
 the 3.2 additions. A document that uses none of them gets the same output as before.
 
-| 3.2 feature             | Generated types                                                                                                                       |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `query` operation       | a `query` member after `trace`, only in path items that have one; `client.QUERY()` calls it                                           |
-| `additionalOperations`  | an `additionalOperations` member keyed by the exact method name (`SUBSCRIBE`); the operations are typed, the clients do not call them |
-| `itemSchema`            | an `itemContent` map next to `content`, with the type of one item per media type; `content` keeps the `schema` type (or `unknown`)    |
-| `in: querystring`       | the schema of its `content` becomes `parameters.query`                                                                                |
-| `components.mediaTypes` | a `mediaTypes` member of `components`, and `content` entries that reference it                                                        |
+| 3.2 feature | Generated types |
+| --- | --- |
+| `query` operation | a `query` member after `trace`, only in path items that have one; `client.QUERY()` calls it |
+| `additionalOperations` | an `additionalOperations` member keyed by the exact method name (`SUBSCRIBE`); the operations are typed, the clients do not call them |
+| `itemSchema` | an `itemContent` map next to `content`, with the type of one item per media type; `content` keeps the `schema` type (or `unknown`) |
+| `in: querystring` | the schema of its `content` becomes `parameters.query` |
+| `components.mediaTypes` | a `mediaTypes` member of `components`, and `content` entries that reference it |
 
 ```ts
 "/trips": {
@@ -141,8 +140,10 @@ type MyType = components["schemas"]["MyType"];
 type EndpointParams = paths["/my/endpoint"]["parameters"];
 
 // Response obj
-type SuccessResponse = paths["/my/endpoint"]["get"]["responses"][200]["content"]["application/json"];
-type ErrorResponse = paths["/my/endpoint"]["get"]["responses"][500]["content"]["application/json"];
+type SuccessResponse =
+  paths["/my/endpoint"]["get"]["responses"][200]["content"]["application/json"];
+type ErrorResponse =
+  paths["/my/endpoint"]["get"]["responses"][500]["content"]["application/json"];
 ```
 
 :::

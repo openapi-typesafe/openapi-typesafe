@@ -1,5 +1,4 @@
 ---
-
 title: Middleware & Auth
 description: Change requests and responses for every call, add auth tokens, and handle fetch errors
 ---
@@ -102,15 +101,15 @@ const cacheMiddleware: Middleware = {
       const key = getCacheKey(request);
       cache.set(key, response.clone());
     }
-  },
+  }
 };
 ```
 
 When a middleware returns a `Response`:
 
-- The request is not sent to the server
-- Subsequent `onRequest` handlers are skipped
-- `onResponse` handlers are skipped
+* The request is not sent to the server
+* Subsequent `onRequest` handlers are skipped
+* `onResponse` handlers are skipped
 
 ### Throwing
 
@@ -158,7 +157,7 @@ onError({ error }) {
 
 ::: tip
 
-`onError` _does not_ handle error responses with `4xx` or `5xx` HTTP status codes, since these are considered "successful" responses but with a bad status code. In these cases you need to check the response's status property or `ok()` method via the `onResponse` callback.
+`onError` _does not_ handle error responses with `4xx` or `5xx` HTTP status codes, since these are considered "successful" responses but with a bad status code. In these cases you need to check the response's  status property or `ok()` method via the `onResponse` callback.
 
 :::
 

@@ -1,9 +1,7 @@
 ---
-
 title: openapi-typesafe-react-query
 description: Type-safe TanStack Query hooks generated from your OpenAPI schema
 ---
-
 # Introduction
 
 openapi-typesafe-react-query is a type-safe tiny wrapper (1 kb) around [@tanstack/react-query](https://tanstack.com/query/latest/docs/framework/react/overview) to work with OpenAPI schema.
@@ -29,11 +27,15 @@ const fetchClient = createFetchClient<paths>({
 const $api = createClient(fetchClient);
 
 const MyComponent = () => {
-  const { data, error, isLoading } = $api.useQuery("get", "/blogposts/{post_id}", {
-    params: {
-      path: { post_id: "5" },
+  const { data, error, isLoading } = $api.useQuery(
+    "get",
+    "/blogposts/{post_id}",
+    {
+      params: {
+        path: { post_id: "5" },
+      },
     },
-  });
+  );
 
   if (error) return `An error occurred: ${error.message}`;
 
@@ -110,11 +112,15 @@ const fetchClient = createFetchClient<paths>({
 const $api = createClient(fetchClient);
 
 const MyComponent = () => {
-  const { data, error, isLoading } = $api.useQuery("get", "/blogposts/{post_id}", {
-    params: {
-      path: { post_id: "5" },
+  const { data, error, isLoading } = $api.useQuery(
+    "get",
+    "/blogposts/{post_id}",
+    {
+      params: {
+        path: { post_id: "5" },
+      },
     },
-  });
+  );
 
   if (error) return `An error occurred: ${error.message}`;
 
@@ -129,3 +135,4 @@ const MyComponent = () => {
 ::: tip
 You can find more information about `createFetchClient` on the [openapi-typesafe-fetch documentation](../fetch/index.md).
 :::
+
