@@ -168,6 +168,17 @@ const app: paths["/apps/a"]["get"]["parameters"]["path"] = { id: "a" };`;
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS output with an open prefixItems tuple under an array response compiles", async () => {
+    // `[string?, ...string[]]` may start with undefined, so it is no `string[]` (TS2413).
+    const list = { type: "array", items: { type: "string" } };
+    const schemas = { CaseDetail: list, CaseSummary: { ...list, prefixItems: [{ type: "string" }] } };
+
+    const output = await generate(NESTED, { fix: ["prefix-items"] }, { schemas });
+
+    expect(output).toContain("export type paths = {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS output with query arrays of other enum values compiles (Microsoft Graph)", async () => {
     const select = (values: string[]) => ({
       name: "$select",

@@ -57,9 +57,17 @@ function isStringIndex(signature: IrIndexSignature): boolean {
   return signature.parameterType.kind === "keyword" && signature.parameterType.keyword === "string";
 }
 
-/** The element type of a tuple element; a rest element `...T[]` stands for its items. */
+const UNDEFINED: IrType = { kind: "keyword", keyword: "undefined" };
+
+/**
+ * The type of a tuple element's items: a rest element `...T[]` stands for its items, and an
+ * optional element `T?` may be `undefined` (`[string?]` is no `string[]` under `strict`).
+ */
 function elementType(element: IrTupleElement): IrType {
-  return element.isRest && element.type.kind === "array" ? element.type.element : element.type;
+  if (element.isRest && element.type.kind === "array") {
+    return element.type.element;
+  }
+  return element.isOptional ? { kind: "union", types: [element.type, UNDEFINED] } : element.type;
 }
 
 function isSameTupleShape(source: IrTupleElement, target: IrTupleElement): boolean {

@@ -121,6 +121,17 @@ describe("assignabilityProof: arrays, tuples and readonly", () => {
     expect(isAssignable(literal("a"), irArray(STRING))).toBe(false);
   });
 
+  it("assignabilityProof reads an optional tuple element as possibly undefined", () => {
+    // `[string?, ...string[]]` is no `string[]` under `strict`: the first item may be undefined.
+    const prefixed = irTuple([
+      irOptionalTupleElement(STRING),
+      irTupleElement(irArray(STRING), true),
+    ]);
+
+    expect(isAssignable(prefixed, irArray(STRING))).toBe(false);
+    expect(isAssignable(prefixed, irArray(irUnion([STRING, UNDEFINED])))).toBe(true);
+  });
+
   it("assignabilityProof compares tuples element by element, with the same shape", () => {
     const pair = irTuple([irTupleElement(literal("a")), irTupleElement(NUMBER)]);
 
