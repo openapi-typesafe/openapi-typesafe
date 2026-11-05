@@ -66,7 +66,7 @@ describe("--enum-values location check", () => {
   });
 
   it("generateDeclarations types the array of an empty enum as an empty array", async () => {
-    // The location is `never`, and `ReadonlyArray<never>` distributes over it to `never` too.
+    // The location is `never`, and the `ReadonlyArray` helper of `never` is `never` too.
     const { output, warnings } = await run({
       Empty: STRING_ENUM([]),
       Holder: { type: "object", properties: { none: STRING_ENUM([]) } },
@@ -74,6 +74,27 @@ describe("--enum-values location check", () => {
 
     expect(output).toContain("emptyValues: readonly never[] = [];");
     expect(output).toContain("holderNoneValues: readonly never[] = [];");
+    expect(warnings).toEqual([]);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("generateDeclarations types an array by its values where a read-write marker wraps it", async () => {
+    // `FlattenedDeepRequired<$Read<"r">>` maps over the marker object, which holds no string.
+    const { output, warnings } = await run(
+      {
+        Pet: {
+          type: "object",
+          properties: {
+            ro: { ...STRING_ENUM(["r"]), readOnly: true },
+            wo: { ...STRING_ENUM(["w"]), writeOnly: true },
+          },
+        },
+      },
+      { readWriteMarkers: true },
+    );
+
+    expect(output).toContain('petRoValues: ReadonlyArray<"r"> = ["r"];');
+    expect(output).toContain('petWoValues: ReadonlyArray<"w"> = ["w"];');
     expect(warnings).toEqual([]);
     expect(typeErrorsOf(output)).toEqual([]);
   });

@@ -1,9 +1,11 @@
+import { irObject, irProperty } from "../../../domain/ir/constructors.js";
 import type {
   IrMember,
   IrObjectType,
   IrPropertySignature,
   IrType,
 } from "../../../domain/ir/nodes.js";
+import { toPropertyName } from "../../../domain/ir/property-name.js";
 import {
   type Evaluated,
   type Evaluation,
@@ -257,4 +259,20 @@ export function omitted(types: TypeExpansion, value: Evaluated, keys: IrType): E
           (member) => member.kind !== "property" || !names.has(propertyKey(member.name)),
         );
   return { ...value, type: { kind: "object", members: kept } };
+}
+
+/** The `--read-write-markers` types and their one member (`READ_WRITE_MARKER_TYPES`). */
+const READ_WRITE_MARKER_KEYS: ReadonlyMap<string, string> = new Map([
+  ["$Read", "$read"],
+  ["$Write", "$write"],
+]);
+
+/** `$Read<T>` is `{ readonly $read: T }`: an object, which holds no enum value. */
+export function markerObject(name: string, argument: Evaluated): Evaluated | null {
+  const key = READ_WRITE_MARKER_KEYS.get(name);
+  if (key === undefined) {
+    return null;
+  }
+  const member = irProperty(toPropertyName(key), argument.type, { isReadonly: true });
+  return { ...argument, type: irObject([member]) };
 }

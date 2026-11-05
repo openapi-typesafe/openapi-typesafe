@@ -419,6 +419,7 @@ compiles (`ReadonlyArray<"available" | "sold">`):
   `anyOf` variant;
 - an `anyOf` member is an array of the enum and another member is not an array;
 - the enum is empty (`enum: []`): its type is `never`, so the array is `readonly never[]`;
+- `--read-write-markers` wraps the property in `$Read<T>` or `$Write<T>`, an object type;
 - the schema contradicts itself: an `allOf` of enums with different values, or a discriminator
   value that the property enum does not list. The type there admits fewer values, or none; this
   case also prints a warning that names the array and the values.

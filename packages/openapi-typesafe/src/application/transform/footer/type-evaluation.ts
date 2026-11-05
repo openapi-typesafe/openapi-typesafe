@@ -9,7 +9,13 @@ import {
   propertyKey,
   unionType,
 } from "./evaluation.js";
-import { declaredFirst, extracted, isNeverIntersection, omitted } from "./type-rules.js";
+import {
+  declaredFirst,
+  extracted,
+  isNeverIntersection,
+  markerObject,
+  omitted,
+} from "./type-rules.js";
 
 /**
  * A small evaluator of the generated types, as TypeScript reads them, for the `--enum-values`
@@ -106,7 +112,7 @@ export class TypeEvaluator {
       case "Omit":
         return second === undefined ? OPAQUE : omitted(this, argument, second);
       default:
-        return OPAQUE;
+        return markerObject(name, argument) ?? OPAQUE;
     }
   }
 

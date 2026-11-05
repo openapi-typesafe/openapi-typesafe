@@ -118,7 +118,7 @@ function retypeOf(
     return element.kind === "missing" ? { kind: "untyped", name: declaration.name } : null;
   }
   if (declaration.values.length === 0 && isNever(element.type)) {
-    // `ReadonlyArray<never>` distributes to `never`, which not even `[]` is.
+    // The `ReadonlyArray` helper of `never` is `never` (`never` extends an array): not even `[]`.
     return { kind: "untyped", name: declaration.name };
   }
   const results = declaration.values.map((value) => admission(evaluator, element, value));
@@ -136,7 +136,7 @@ function isNever(type: IrType): boolean {
   return type.kind === "keyword" && type.keyword === "never";
 }
 
-/** The values' own type; with no values `readonly never[]`, as `ReadonlyArray<never>` is never. */
+/** The values' own type; with no values `readonly never[]` (`ReadonlyArray<never>` is never). */
 function ownValuesType(declaration: IrConstArrayDeclaration): IrType {
   if (declaration.values.length === 0) {
     return irReadonly(irArray(NEVER));
