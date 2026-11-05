@@ -1,4 +1,5 @@
 import { admittedPropertyValues, resolveLocalRef } from "./admitted-values.js";
+import { isUnionMember, unionAt } from "./discriminated-union.js";
 import { createRef, escapePointerSegment, parseRefPointer } from "./json-pointer.js";
 
 /**
@@ -116,10 +117,29 @@ interface Child {
   readonly schema: JsonObject;
 }
 
+/** How the run types an `allOf` of a discriminated union. */
+export interface ConflictOptions {
+  /**
+   * `allof-discriminated-union`: a schema that `allOf`s a union which does not contain it reuses
+   * the union and gets no value, so neither it nor the schemas below it are members.
+   */
+  readonly isUnionReused: boolean;
+}
+
 /** What the search for conflicts reads: the document and its `allOf` children by parent. */
-interface ConflictSearch {
+interface ConflictSearch extends ConflictOptions {
   readonly document: unknown;
   readonly children: ReadonlyMap<string, readonly Child[]>;
+}
+
+/** The `allOf` children of the owner that inherit its discriminator. */
+function inheritingChildren(owner: Owner, search: ConflictSearch): readonly Child[] {
+  const children = search.children.get(owner.pointer) ?? [];
+  const resolve = (ref: string) => resolveLocalRef(search.document, ref);
+  const union = search.isUnionReused ? unionAt(owner.pointer, resolve) : undefined;
+  return union === undefined
+    ? children
+    : children.filter((child) => isUnionMember(union, child.ref, resolve));
 }
 
 /** The component schemas whose `allOf` holds a `$ref`, by that `$ref`, in document order. */
@@ -157,7 +177,11 @@ function inheritingMembers(owner: Owner, search: ConflictSearch): Member[] {
   const visited = new Set([owner.pointer]);
   const parents: Member[] = [{ ref: owner.pointer, skipped: new Set([owner.pointer]) }];
   for (let parent = parents.shift(); parent !== undefined; parent = parents.shift()) {
-    for (const child of search.children.get(parent.ref) ?? []) {
+    const children =
+      parent.ref === owner.pointer
+        ? inheritingChildren(owner, search)
+        : (search.children.get(parent.ref) ?? []);
+    for (const child of children) {
       if (visited.has(child.ref)) {
         continue;
       }
@@ -210,9 +234,10 @@ function conflictOf(owner: Owner, { ref: member, skipped }: Member, document: un
 /** The conflicts of the document, one per member and value list, in document order. */
 export function findDiscriminatorValueConflicts(
   document: unknown,
+  options: ConflictOptions = { isUnionReused: false },
 ): readonly DiscriminatorValueConflict[] {
   const conflicts = new Map<string, DiscriminatorValueConflict>();
-  const search = { document, children: allOfChildren(document) };
+  const search = { ...options, document, children: allOfChildren(document) };
   for (const owner of ownersIn(document)) {
     for (const member of membersOf(owner, search)) {
       const conflict = conflictOf(owner, member, document);

@@ -398,6 +398,8 @@ Add a mapping entry for the value the property allows (`mapping: { episode:
 A member is a schema that the discriminator's `oneOf`, `anyOf` or `mapping` names, or one that
 `allOf`s the owner, also through other schemas (`Lion: { allOf: [Cat] }`, `Cat: { allOf: [Pet] }`).
 Below a schema with its own discriminator of the property, the schemas are that one's members.
+With [`--fix allof-discriminated-union`](./cli.md#allof-discriminated-union), a schema that `allOf`s
+a union which neither lists nor maps it reuses the union and gets no value, so it is no member.
 
 ## Enum values arrays
 

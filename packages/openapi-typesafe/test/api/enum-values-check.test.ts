@@ -242,4 +242,19 @@ describe("discriminator value warnings", () => {
 
     expect(warnings).toEqual([]);
   });
+
+  it("generateDeclarations with allof-discriminated-union does not warn about a schema that reuses a union", async () => {
+    const schemas = {
+      Pet: { oneOf: [ref("Cat")], discriminator: { propertyName: "kind" } },
+      Cat: kindOf("Cat"),
+      CatResponse: { allOf: [ref("Pet"), kindOf("Cat")] },
+      Child: { allOf: [ref("CatResponse"), kindOf("Cat")] },
+    };
+
+    const fixed = await run(schemas, { enumValues: false, fix: ["allof-discriminated-union"] });
+    const unfixed = await run(schemas, { enumValues: false });
+
+    expect(fixed.warnings).toEqual([]);
+    expect(unfixed.warnings).toHaveLength(2);
+  });
 });
