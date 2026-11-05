@@ -14,6 +14,7 @@ import {
   pathItemOperations,
 } from "../../../domain/openapi/path-item-object.js";
 import type { ReferenceSchema, SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { OutputFix } from "../../../domain/output-fixes.js";
 import { documentEntries } from "../document-entries.js";
 import { refType } from "../ref-type.js";
 import type { TransformContext } from "../transform-context.js";
@@ -27,6 +28,11 @@ import {
   type PathKeyPart,
   type PathPlaceholder,
 } from "./path-key-overlaps.js";
+import {
+  type PathParameterMatch,
+  placeholderText,
+  replacedTemplateParts,
+} from "./path-template-replace.js";
 import { assignabilityProof } from "./type-assignability.js";
 
 const PATH_PARAMETER_RE = /\{[^}]+\}/g;
@@ -38,11 +44,6 @@ const PLACEHOLDERS: ReadonlyMap<unknown, PathPlaceholder> = new Map([
   ["boolean", "boolean"],
 ]);
 const STRING_PLACEHOLDER: PathPlaceholder = "string";
-
-/** `${type}`: the text of a template literal type placeholder. */
-function placeholderText(type: PathPlaceholder): string {
-  return `\${${type}}`;
-}
 
 function resolvedParameter(
   parameter: ParameterOrReference,
@@ -82,29 +83,37 @@ function pathParameters(
   return byName;
 }
 
+/** Each `{name}` of the URL and its own placeholder, from the URL split at the matches. */
+function splitTemplateParts(url: string, matches: readonly PathParameterMatch[]): PathKeyPart[] {
+  return url.split(PATH_PARAMETER_RE).flatMap((text, index): PathKeyPart[] => {
+    const type = matches[index]?.type;
+    const textPart: PathKeyPart = { kind: "text", text };
+    return type === undefined ? [textPart] : [textPart, { kind: "placeholder", type }];
+  });
+}
+
 /**
  * `--path-params-as-types`: the URL as template parts, each `{name}` replaced by a placeholder for
- * its parameter's type. Null when the URL has no complete `{…}` placeholder.
+ * its parameter's type, the way the original replaces them unless the `path-param-type-names` fix
+ * is on (see `replacedTemplateParts`). Null when the URL has no complete `{…}` placeholder.
  */
 function pathTemplateParts(
   url: string,
   pathItem: PathItemObject,
   context: TransformContext,
 ): PathKeyPart[] | null {
-  const matches = url.match(PATH_PARAMETER_RE);
-  if (!matches) {
+  const found = url.match(PATH_PARAMETER_RE);
+  if (!found) {
     return null;
   }
   const parameters = pathParameters(pathItem, context);
-  const placeholders = matches.map((match) => {
+  const matches = found.map((match): PathParameterMatch => {
     const schema = parameters.get(match.slice(1, -1))?.schema as SchemaObject | undefined;
-    return PLACEHOLDERS.get(schema?.type) ?? STRING_PLACEHOLDER;
+    return { match, type: PLACEHOLDERS.get(schema?.type) ?? STRING_PLACEHOLDER };
   });
-  return url.split(PATH_PARAMETER_RE).flatMap((text, index): PathKeyPart[] => {
-    const type = placeholders[index];
-    const textPart: PathKeyPart = { kind: "text", text };
-    return type === undefined ? [textPart] : [textPart, { kind: "placeholder", type }];
-  });
+  return context.options.fixes.has(OutputFix.PATH_PARAM_TYPE_NAMES)
+    ? splitTemplateParts(url, matches)
+    : replacedTemplateParts(url, matches);
 }
 
 /**

@@ -8,6 +8,7 @@ import { webhooksType } from "../../../../src/application/transform/document/web
 import { irObject } from "../../../../src/domain/ir/constructors.js";
 import type { IrType } from "../../../../src/domain/ir/nodes.js";
 import type { PathsObject } from "../../../../src/domain/openapi/path-item-object.js";
+import { OutputFix } from "../../../../src/domain/output-fixes.js";
 import { type FakeContextInput, fakeTransformContext } from "../../../fakes/transform-context.js";
 
 const LOCATION = { path: "#/paths/~1items/get" };
@@ -114,6 +115,35 @@ describe("pathsType", () => {
     // biome-ignore lint/suspicious/noTemplateCurlyInString: the expected output is a template literal type
     expect(text).toContain("[path: `/a/${number}/${string}`]: {");
     expect(diagnostics.messages).toEqual([]);
+  });
+
+  it("pathsType replaces a parameter named like a type inside the placeholder before, as the original", () => {
+    const parameters = ["id", "number"].map((name) => ({
+      name,
+      in: "path",
+      schema: { type: "integer" },
+    }));
+    const paths = { "/invoices/{id}/lines/{number}": { parameters } };
+
+    const { text } = transformPaths(paths, { options: { pathParamsAsTypes: true } });
+
+    // The original replaces the first `{number}`, which is in the `${number}` of `{id}`.
+    expect(text).toContain("[path: `/invoices/$${number}/lines/{number}`]: {");
+  });
+
+  it("pathsType with the path-param-type-names fix gives each parameter its placeholder", () => {
+    const parameters = ["id", "number"].map((name) => ({
+      name,
+      in: "path",
+      schema: { type: "integer" },
+    }));
+    const paths = { "/invoices/{id}/lines/{number}": { parameters } };
+    const options = { pathParamsAsTypes: true, fixes: new Set([OutputFix.PATH_PARAM_TYPE_NAMES]) };
+
+    const { text } = transformPaths(paths, { options });
+
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: the expected output is a template literal type
+    expect(text).toContain("[path: `/invoices/${number}/lines/${number}`]: {");
   });
 
   it("pathsType keeps a property when the template is not complete", () => {

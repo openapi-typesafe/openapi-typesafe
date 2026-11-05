@@ -146,6 +146,8 @@ These are off by default, so the output does not change until you turn one on.
   `exploded-query-objects` makes the properties of an exploded object query parameter keys of
   `query`, as they are sent.
   `nullable-enums` (with `--enum`) declares an enum that lists `null` and adds `| null` to its type.
+  `path-param-type-names` (with `--path-params-as-types`) gives a path parameter named `number`,
+  `string` or `boolean` its own placeholder.
   `prefix-items` makes a `prefixItems` tuple open, with the elements after `minItems` optional.
   `read-write-refs` makes a property `readonly` when the schema it references is `readOnly`.
   `ref-pointers` gives a `$ref` into another schema's keywords the type it points at also where

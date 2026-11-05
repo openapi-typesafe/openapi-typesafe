@@ -438,6 +438,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `discriminator-values` | The value a discriminator member gets: a schema that a `mapping` names gets the mapped value only (not also its schema name, which made the property `never`); a schema's own `mapping` is kept when it also inherits a discriminator; a member that declares its value gets no second property; with `--enum` the value is a member of the owner's enum (`PetType.Cat`) | [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200), [#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124), [#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700) | 1.0 |
 | `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
 | `nullable-enums` | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum` | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872) | 1.0 |
+| `path-param-type-names` | With `--path-params-as-types`, a path parameter named `number`, `string` or `boolean` gets its placeholder, instead of the `$` and the `{name}` text the original leaves when it replaces that name inside an earlier placeholder; needs `--path-params-as-types` | none (found in our own tests) | 1.0 |
 | `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
 | `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
 | `ref-pointers` | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`; where the original does not compile, this is the default | none (found in the compat corpus) | 1.0 |
@@ -967,6 +968,26 @@ export enum Values { // [!code ++]
 - An enum of only `null` stays `null`.
 - It needs `--enum` and changes nothing without it; naming it without it prints a notice (`--fix
   all` does not).
+
+#### path-param-type-names
+
+`--path-params-as-types` replaces each `{name}` of a URL with the placeholder of its parameter's
+type, one after the other, as openapi-typescript does. That replaces the first `{name}` in the
+text so far, so a parameter named `number`, `string` or `boolean` can hit the placeholder an
+earlier parameter got instead of its own:
+
+```yaml
+/invoices/{id}/lines/{number}: # both parameters are integers
+```
+
+```ts
+[path: `/invoices/$${number}/lines/{number}`]: { … }; // [!code --]
+[path: `/invoices/${number}/lines/${number}`]: { … }; // [!code ++]
+```
+
+Without the fix the key matches `` `/invoices/$1/lines/{number}` `` only. With it every parameter
+gets its own placeholder. It needs `--path-params-as-types` and changes nothing without it; naming
+it without the flag prints a notice (`--fix all` does not).
 
 #### prefix-items
 

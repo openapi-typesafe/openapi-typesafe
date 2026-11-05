@@ -32,6 +32,8 @@ export const OutputFix = {
   EXPLODED_QUERY_OBJECTS: "exploded-query-objects",
   /** `--enum` declares an enum that lists `null` without it, and the type adds `| null`. */
   NULLABLE_ENUMS: "nullable-enums",
+  /** `--path-params-as-types` gives each `{name}` its placeholder, `{number}` included. */
+  PATH_PARAM_TYPE_NAMES: "path-param-type-names",
   /** A `prefixItems` tuple is open unless `items` or `unevaluatedItems` closes it (2020-12). */
   PREFIX_ITEMS: "prefix-items",
   /** `readOnly` and `writeOnly` of the schema a `$ref` names, or of `allOf` members, count. */
@@ -85,7 +87,13 @@ export function resolveOutputFixes(names: readonly OutputFixName[]): ReadonlySet
 
 /** A generator option that a fix works with; without it, the fix changes nothing (ADR-021). */
 export interface OutputFixRequirement {
-  readonly option: "arrayLength" | "dedupeEnums" | "enum" | "rootTypes" | "rootTypesNoSchemaPrefix";
+  readonly option:
+    | "arrayLength"
+    | "dedupeEnums"
+    | "enum"
+    | "pathParamsAsTypes"
+    | "rootTypes"
+    | "rootTypesNoSchemaPrefix";
   readonly flag: string;
 }
 
@@ -101,6 +109,9 @@ const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, readonly OutputFixReq
   [OutputFix.ARRAY_LENGTH_TUPLES]: [{ option: "arrayLength", flag: "--array-length" }],
   [OutputFix.DEDUPE_ENUM_NAMES]: [ENUM, { option: "dedupeEnums", flag: "--dedupe-enums" }],
   [OutputFix.NULLABLE_ENUMS]: [ENUM],
+  [OutputFix.PATH_PARAM_TYPE_NAMES]: [
+    { option: "pathParamsAsTypes", flag: "--path-params-as-types" },
+  ],
   [OutputFix.ROOT_TYPE_NUMBERING]: [ROOT_TYPES, NO_SCHEMA_PREFIX],
 };
 
