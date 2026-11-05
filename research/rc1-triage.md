@@ -111,3 +111,11 @@ found three more (marked "review").
 Path template overlaps were also checked on random documents against upstream (1200, then 900
 with boolean enums): no output differs where upstream's compiles, and none of ours has errors
 beyond TS1337, which upstream has too.
+
+The full checks after the fixes found three more:
+
+| Check | Finding | Fix |
+| --- | --- | --- |
+| Corpus run | `--path-params-as-types` took 258 s on Microsoft Graph beta (11 s upstream); rc.0 had the same pairwise check | a template is compared only with the paths that start with its first text |
+| Corpus gate | Conjur: a template rc.0 moved out stayed in (TS2413) | the overlap check reads `T[number]` of an array |
+| 22 dependents | swr-openapi: TS2344 and a widened literal (TS2322), both from changes after rc.0 | `PathsWithMethod` is upstream's type in a union; `MaybeOptionalInit` drops `infer` (ADR-025) |
