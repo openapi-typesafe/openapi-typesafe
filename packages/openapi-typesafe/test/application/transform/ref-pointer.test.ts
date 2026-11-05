@@ -342,6 +342,61 @@ describe("generatedLocationOf", () => {
     );
     expect(located("no pointer").path).toBe("no pointer");
   });
+
+  const PARAMETER = { name: "w", in: "header", schema: { type: "string" } };
+  const LOCATIONS = resolverOf({
+    webhooks: { hook: { parameters: [PARAMETER] } },
+    components: {
+      pathItems: { Shared: { parameters: [PARAMETER] } },
+      headers: { Text: { content: { "text/plain": { schema: ITEM } } } },
+      schemas: {
+        Ring: { $ref: "#/components/schemas/Loop" },
+        Loop: { $ref: "#/components/schemas/Ring" },
+        Alias: { $ref: "#/components/schemas/Target" },
+        Target: { $ref: "#/components/schemas/Item" },
+        Item: ITEM,
+        Via: { properties: { old: { $ref: "#/components/schemas/Old/definitions/Old" } } },
+        Old: { definitions: { Old: ITEM } },
+      },
+    },
+  });
+  const locatedIn = (ref: string) => generatedLocationOf(ref, LOCATIONS).path;
+
+  it("generatedLocationOf nests the parameters of a webhook and a shared path item", () => {
+    expect(locatedIn("#/webhooks/hook/parameters/0/schema")).toBe(
+      "#/webhooks/hook/parameters/parameters/header/w",
+    );
+    expect(locatedIn("#/components/pathItems/Shared/parameters/0/schema")).toBe(
+      "#/components/pathItems/Shared/parameters/parameters/header/w",
+    );
+  });
+
+  it("generatedLocationOf with a missing node keeps walking the pointer's own segments", () => {
+    expect(locatedIn("#/webhooks/hook/parameters/9/schema")).toBe(
+      "#/webhooks/hook/parameters/parameters",
+    );
+    expect(locatedIn("#/components/schemas/Nope/properties/a")).toBe("#/components/schemas/Nope/a");
+  });
+
+  it("generatedLocationOf types a header's content at its media type", () => {
+    expect(locatedIn("#/components/headers/Text/content/text~1plain/schema/properties/time")).toBe(
+      "#/components/headers/Text/text~1plain/time",
+    );
+    expect(locatedIn("#/components/headers/Text/content")).toBe("#/components/headers/Text");
+  });
+
+  it("generatedLocationOf follows a $ref chain and stops at a $ref cycle", () => {
+    expect(locatedIn("#/components/schemas/Alias/properties/time")).toBe(
+      "#/components/schemas/Item/time",
+    );
+    expect(locatedIn("#/components/schemas/Ring/properties/a")).toBe("#/components/schemas/Ring/a");
+  });
+
+  it("generatedLocationOf keeps the pointer when a crossed $ref has no location", () => {
+    const ref = "#/components/schemas/Via/properties/old/properties/time";
+
+    expect(locatedIn(ref)).toBe(ref);
+  });
 });
 
 describe("hasInlineCycle", () => {
