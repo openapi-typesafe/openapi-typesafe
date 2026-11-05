@@ -102,6 +102,13 @@ describe("middleware results from another fetch implementation", () => {
 
     await expect(client.GET("/items")).rejects.toThrow(/onRequest: must return/);
   });
+
+  it("onRequest returning a method and a url without headers still throws", async () => {
+    const { client } = createRecordingClient();
+    client.use({ onRequest: ({ request }) => ({ method: "GET", url: request.url }) as Request });
+
+    await expect(client.GET("/items")).rejects.toThrow(/onRequest: must return/);
+  });
 });
 
 describe("mergeHeaders with headers from another fetch implementation", () => {

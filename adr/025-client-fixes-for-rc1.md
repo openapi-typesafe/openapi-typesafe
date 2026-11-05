@@ -26,7 +26,8 @@ not a contract: what shipped only in rc.0 may change (maintainer decision, 2026-
 
 ## Decision
 
-1. **#1847:** the middleware result checks are structural (`isRequest`, `isResponse`, `isHeaders`). Raw
+1. **#1847:** the middleware result checks are structural (`isRequest`: `method`, `url` and
+   `headers`; `isResponse`: `status` and `headers`; `isHeaders`). Raw
    bodies (`FormData`, `Blob`) and `instanceof Error` keep `instanceof`.
 2. **#2234:** `queryFn` returns `data ?? null`, so every success without a body is `null`.
 3. **#2464:** `QueryData` maps `undefined` to `null` in the data, `select` and `DataTag` types of
