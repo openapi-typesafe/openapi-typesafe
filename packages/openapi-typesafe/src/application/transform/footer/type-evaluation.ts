@@ -8,7 +8,7 @@ import {
   propertyKey,
   unionType,
 } from "./evaluation.js";
-import { extracted, isNeverIntersection, omitted } from "./type-rules.js";
+import { declaredFirst, extracted, isNeverIntersection, omitted } from "./type-rules.js";
 
 /**
  * A small evaluator of the generated types, as TypeScript reads them, for the `--enum-values`
@@ -206,7 +206,10 @@ export class TypeEvaluator {
     if (found.some((part) => part.kind === "opaque")) {
       return OPAQUE;
     }
-    const types = found.flatMap((part) => (part.kind === "type" ? [part.type] : []));
+    const read = parts.map((type, at) => ({ type, found: found[at] as Evaluation }));
+    const types = declaredFirst(this, owner, indexKey(index), read).flatMap((part) =>
+      part.kind === "type" ? [part.type] : [],
+    );
     return types.length === 0 ? MISSING : { ...owner, type: intersectionType(types) };
   }
 

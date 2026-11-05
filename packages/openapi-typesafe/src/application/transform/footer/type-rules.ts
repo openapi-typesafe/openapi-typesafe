@@ -143,6 +143,39 @@ export function isNeverIntersection(
   );
 }
 
+/** Whether `key` reaches only an index signature of this object: it declares no such property. */
+function isSignatureOnly(types: TypeExpansion, value: Evaluated, key: string | null): boolean {
+  const members = types.membersOf(value);
+  const [only] = members;
+  if (
+    key === null ||
+    members.length !== 1 ||
+    only?.kind !== "type" ||
+    only.type.kind !== "object"
+  ) {
+    return false;
+  }
+  const { members: declared } = only.type;
+  const hasSignature = declared.some((member) => member.kind === "indexSignature");
+  return hasSignature && propertiesNamed([only.type], key).length === 0;
+}
+
+/**
+ * The parts of an intersection indexed by `index`, as TypeScript reads them: where one part
+ * declares the property, the index signatures of the others do not take part
+ * (`{ a: X } & { [key: string]: Y }` gives `X` for `a`).
+ */
+export function declaredFirst(
+  types: TypeExpansion,
+  value: Evaluated,
+  key: string | null,
+  parts: readonly { readonly type: IrType; readonly found: Evaluation }[],
+): Evaluation[] {
+  const bySignature = parts.map(({ type }) => isSignatureOnly(types, { ...value, type }, key));
+  const isDeclared = parts.some(({ found }, at) => found.kind === "type" && !bySignature[at]);
+  return parts.filter((_, at) => !(isDeclared && bySignature[at])).map(({ found }) => found);
+}
+
 type Presence = "yes" | "no" | "opaque";
 
 /**

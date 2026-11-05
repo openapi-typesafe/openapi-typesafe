@@ -36,6 +36,8 @@ as upstream writes it, and where it compiles it must not change (ADR-021).
      share a property whose literal types have no value in common and one of them requires it
      (`{ a: "x" } & { a: "y" }`).
    - Unions of intersections are distributed, as TypeScript normalizes them.
+   - Where one part of an intersection declares a property, the index signatures of the other
+     parts do not take part in its type (`{ a: X } & { [key: string]: Y }` gives `X` for `a`).
    The expansion budget counts references only, so the checks after a large evaluation still run.
 2. **Where the location type surely fails, the array is typed by its own values**
    (`ReadonlyArray<"a" | "b">`). That is the default: the original does not compile there. Every

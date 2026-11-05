@@ -175,6 +175,16 @@ describe("TypeEvaluator", () => {
     expect(index(irKeyword("null"), kind(text("a")))).toBe("never");
   });
 
+  it("evaluate reads a declared property before index signatures of other parts", () => {
+    const declared = irObject([irProperty({ kind: "identifier", text: "o" }, text("system"))]);
+    const signature = irObject([irStringIndexSignature("key", text("custom"))]);
+    const index = (name: string) =>
+      evaluated(irIndexedAccess(irIntersection([declared, signature]), key(name)));
+
+    expect(index("o")).toBe('"system"');
+    expect(index("other")).toBe('"custom"');
+  });
+
   it("evaluate leaves helper types it cannot read opaque", () => {
     const a = irIndexedAccess(irIndexedAccess(irReference("components"), key("schemas")), key("A"));
     const twice = irIntersection([a, a]);
