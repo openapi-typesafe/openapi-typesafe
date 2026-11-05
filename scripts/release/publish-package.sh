@@ -32,18 +32,13 @@ if [[ "${IS_PRIVATE}" == "true" ]]; then
   exit 0
 fi
 
-# `npm view` prints nothing for a missing version of an existing package and fails with E404 for a
-# package that does not exist yet; any other failure (network, registry) stops the release.
-if ! published="$(npm view "${NAME}@${VERSION}" version 2>"${PACK_DIR}/view.err")"; then
-  grep -q "E404" "${PACK_DIR}/view.err" || { cat "${PACK_DIR}/view.err" >&2; exit 1; }
-  published=""
-fi
-if [[ -n "${published}" ]]; then
+if [[ "$("${ROOT_DIR}/scripts/release/is-on-npm.sh" "${NAME}" "${VERSION}")" == "true" ]]; then
   log "already on npm, skipped"
   exit 0
 fi
 
-# A prerelease (1.0.0-rc.0) goes to `next`, so `latest` keeps pointing at a stable version.
+# A prerelease (1.0.0-rc.0) goes to `next`. publish.sh may add `latest` after every release is
+# created (tag-latest.sh, ADR-007).
 dist_tag="latest"
 [[ "${VERSION}" == *-* ]] && dist_tag="next"
 publish_args=(--access public --tag "${dist_tag}")

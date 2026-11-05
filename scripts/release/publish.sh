@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Publish every public package whose version is not on npm yet, then tag each one and create its
-# GitHub release with a CycloneDX SBOM (ENGINEERING_PLAN 9.3–9.5).
+# GitHub release with a CycloneDX SBOM (ENGINEERING_PLAN 9.3–9.5). Before the first stable
+# release, each prerelease then also takes the `latest` tag (ADR-007).
 #
 # Usage: scripts/release/publish.sh [--dry-run]
 #        In CI only, after the "Version Packages" pull request is merged (release.yml). The dry run
@@ -27,4 +28,8 @@ if [[ "${RELEASE_DRY_RUN}" == "1" ]]; then
 fi
 while read -r release; do
   "${ROOT_DIR}/scripts/release/create-github-release.sh" "${release}"
+done < "${RELEASE_RECORD}"
+# Last, so a failed tag leaves every package published and released (RELEASING.md).
+while read -r release; do
+  "${ROOT_DIR}/scripts/release/tag-latest.sh" "${release}"
 done < "${RELEASE_RECORD}"

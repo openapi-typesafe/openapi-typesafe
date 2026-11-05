@@ -15,8 +15,9 @@ does not generate provenance for private repositories.
    maintainer, deployment branches = `main` only.
 3. **Add a trusted publisher** to each of the five packages on npmjs.com (package settings →
    Trusted publisher → GitHub Actions): owner and repository of this repository, workflow
-   `release.yml`, environment `npm-publish`. A publisher that has not published within 48 hours
-   expires, so do this just before step 5.
+   `release.yml`, environment `npm-publish`. Turn on **Allow npm dist-tag** for it: until the
+   first stable release, the workflow also tags each prerelease `latest` (ADR-007). A publisher
+   that has not published within 48 hours expires, so do this just before step 5.
 4. **Turn off tokens**: package settings → Publishing access → "Require two-factor authentication
    and disallow tokens". Trusted publishing keeps working.
 5. **First release**: `pnpm exec changeset pre enter rc`, add a major changeset for each package,
@@ -43,12 +44,18 @@ The beta runs while the repository is private, so nothing goes to npm.
 1. Pull requests carry changesets (`pnpm changeset`).
 2. On `main`, the release workflow keeps the "chore(release): version packages" pull request up to
    date. Merge it when the release is ready.
-3. The `publish` job waits for approval in the `npm-publish` environment. Approve it.
+3. The `publish` job waits for approval in the `npm-publish` environment. Approve it. A push to
+   `main` with no changesets and no version missing from npm (`scripts/release/list-unpublished.sh`)
+   skips the job, so it asks for approval only when there is something to publish.
 4. The job runs the verify gate, publishes each package that is not on npm yet (in dependency
    order), fails if a version has no provenance, then tags `<name>@<version>` and creates a GitHub
    release with the changelog section and a CycloneDX SBOM.
 
 Prereleases (a version with `-`) go to the `next` tag and are marked as prereleases on GitHub.
+Until a stable release exists, each prerelease also takes `latest` (ADR-007). That is the last
+step, after the GitHub releases; if it fails (for example, "Allow npm dist-tag" is off), turn the
+permission on and run `npm dist-tag add <name>@<version> latest` for each package, logged in with
+2FA.
 `pnpm exec changeset pre exit` before 1.0.0.
 
 ## Dry run

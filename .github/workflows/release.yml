@@ -40,6 +40,7 @@ jobs:
       pull-requests: write
     outputs:
       has-changesets: ${{ steps.changesets.outputs.has-changesets }}
+      has-unpublished: ${{ steps.unpublished.outputs.has-unpublished }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,11 +71,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run ci.yml --ref changeset-release/main
+      # Without changesets, a push to main publishes only versions that are not on npm yet. When
+      # there are none (a CI or docs change after a release), the publish job is skipped instead of
+      # waiting for an approval that would publish nothing.
+      - id: unpublished
+        name: find versions not on npm
+        if: steps.changesets.outputs.has-changesets == 'false'
+        run: |
+          unpublished="$(scripts/release/list-unpublished.sh)"
+          echo "${unpublished:-nothing to publish}"
+          has_unpublished=false
+          [[ -n "${unpublished}" ]] && has_unpublished=true
+          echo "has-unpublished=${has_unpublished}" >> "${GITHUB_OUTPUT}"
 
   publish:
     name: publish
     needs: version
-    if: needs.version.outputs.has-changesets == 'false'
+    if: >-
+      needs.version.outputs.has-changesets == 'false' &&
+      needs.version.outputs.has-unpublished == 'true'
     runs-on: ubuntu-latest
     # Required reviewers on this environment are the manual approval (9.4); the trusted publisher
     # accepts tokens from this environment only.
