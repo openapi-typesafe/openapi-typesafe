@@ -143,7 +143,21 @@ function signatureShapes(key: PathKey): readonly TemplateShape[] {
   return shapesOf(key).filter((shape) => shape.types.length > 0);
 }
 
-/** The indexes of the template keys that cover another key of the list, where it is rejected. */
+/**
+ * Whether two keys are the same template, as paths that differ only in parameter names give
+ * (`/a/{id}`, `/a/{name}`). OpenAPI forbids such paths, and one object with both signatures fails
+ * to compile whatever their types (TS2374), so each always counts as covering the other.
+ */
+function isSameTemplate(key: PathKey, other: PathKey): boolean {
+  return (
+    other.kind === "template" && JSON.stringify(shapesOf(key)) === JSON.stringify(shapesOf(other))
+  );
+}
+
+/**
+ * The indexes of the template keys that cover another key of the list, where it is rejected, or
+ * that repeat another template key.
+ */
 export function coveringTemplateKeys(
   keys: readonly PathKey[],
   checks: CoverChecks = EVERY_CHECK,
@@ -161,6 +175,7 @@ export function coveringTemplateKeys(
         return false;
       }
       return (
+        isSameTemplate(key, other) ||
         checks.sampled(index, otherIndex) ||
         (isCoveredBy(shapes[otherIndex] ?? [], targets) && checks.exact(index, otherIndex))
       );

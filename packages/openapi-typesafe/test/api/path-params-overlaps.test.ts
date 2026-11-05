@@ -150,6 +150,14 @@ const app: paths[\`/apps/\${string}\`]["get"]["parameters"]["path"] = { id: "a" 
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS output with paths that differ only in parameter names compiles", async () => {
+    // Same types, so no cover check rejects them; still one object would repeat the signature.
+    const code = `${await generate({ "/apps/{id}": operation("same"), "/apps/{key}": operation("same") })}
+const app: paths["/apps/a"]["get"]["parameters"]["path"] = { id: "a" };`;
+
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
   it("openapiTS without pathParamsAsTypes keeps every path a property", async () => {
     expect(await generate(OVERLAPS, { pathParamsAsTypes: false })).toContain("export interface paths {");
   });

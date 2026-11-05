@@ -139,6 +139,15 @@ The following flags are supported in the CLI:
 
 `--content-never` is accepted for compatibility with openapi-typescript and has no effect.
 
+## Warnings
+
+A warning does not stop the run: the types are written and the exit code stays `0`. A warning about the document ends with its code, as an error does.
+
+| Code | Meaning |
+| :--- | :------ |
+| `PATH_TEMPLATES_IDENTICAL` | Paths differ only in their parameter names, such as `/users/{id}` and `/users/{name}`. The OpenAPI Paths Object forbids this: "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical." See [pathParamsAsTypes](#pathparamsastypes) for the output |
+| `QUERYSTRING_NEXT_TO_QUERY` | An `in: querystring` parameter is next to `in: query` parameters, which OpenAPI 3.2 does not allow; the parameter is left out of the types. See [OpenAPI 3.2 support](./introduction.md#openapi-3-2-support) |
+
 ## Exit codes
 
 The CLI exits with a code that tells what went wrong. On failure it prints one line with the message and the error code, for example `✘  Generated types are not up-to-date! src/api.ts differs from its schema. (OUTPUT_STALE)`.
@@ -249,6 +258,15 @@ A URL that two templates match, such as `/user/123/keys` for `` `/user/${string}
 TypeScript has no string type that excludes `/`
 ([microsoft/TypeScript#41160](https://github.com/microsoft/TypeScript/issues/41160)), so look such a
 path up by its template, `` paths[`/user/${string}/keys`] ``.
+:::
+
+::: info Paths that differ only in parameter names
+OpenAPI forbids paths such as `/user/{user_id}` and `/user/{name}`, which match the same URLs; the
+generator warns about them (`PATH_TEMPLATES_IDENTICAL`, see [Warnings](#warnings)). With
+`--path-params-as-types` both get the same key, `` `/user/${string}` ``, and one object with that
+signature twice does not compile (TS2374), so each of them is written in an object of its own in
+the intersection. `` paths[`/user/${string}`] `` is then the intersection of both path items;
+merge the paths in the document to get one. Without the flag, each path keeps its own key.
 :::
 
 _Thanks, [@Powell-v2](https://github.com/Powell-v2)!_

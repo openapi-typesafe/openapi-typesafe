@@ -31,6 +31,16 @@ describe("coveringTemplateKeys", () => {
     );
   });
 
+  it("coveringTemplateKeys with two identical templates covers both, whatever the checks", () => {
+    const keys = [
+      template(text("/apps/"), slot("string")),
+      template(text("/apps/"), slot("string")),
+    ];
+    const NONE: CoverChecks = { sampled: () => false, exact: () => false };
+
+    expect(coveringTemplateKeys(keys, NONE)).toEqual(new Set([0, 1]));
+  });
+
   it("coveringTemplateKeys with keys that do not overlap covers nothing", () => {
     const keys = [
       template(text("/apps/"), slot("string"), text("/restart")),

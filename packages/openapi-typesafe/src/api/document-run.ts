@@ -14,6 +14,7 @@ import {
 import type { GeneratorOptions, GlobalContext, OpenAPI3, SchemaSource } from "../types.js";
 import { findDiscriminators } from "./discriminator-scan.js";
 import { resolveDocumentRef } from "./document-refs.js";
+import { warnIdenticalPathTemplates } from "./path-template-warnings.js";
 import { warnUnsupportedFeatures } from "./unsupported-feature-warnings.js";
 
 /** The ports of one generator run, wired by the Node API or the CLI (ENGINEERING_PLAN 4.5). */
@@ -145,6 +146,7 @@ export async function createDocumentRun(
     refAccess: refAccessOf(options, cwd),
   });
   withStackOverflowReported("transform", () => warnUnsupportedFeatures(schema, logger));
+  warnIdenticalPathTemplates(schema, logger);
   const ctx: GlobalContext = {
     ...contextFlags(options),
     fix,
