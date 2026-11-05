@@ -174,7 +174,7 @@ function hasOwnObjectType(own: JsonObject): boolean {
 }
 
 /**
- * `allOf` with own keywords is an intersection: a key is missing only if every part misses it.
+ * `allOf` with own keywords is an intersection (`intersectionMember`).
  * `anyOf` or `oneOf` alone is a union: a key is missing if one member misses it. A mix of both
  * is written in more than one way (`anyof-properties`), so it counts as opaque.
  */
@@ -188,8 +188,20 @@ function composedMember(node: JsonObject, key: string, input: MemberInput): Gene
     return isAlone && members.some((member) => member.kind === "missing") ? MISSING : OPAQUE;
   }
   const parts = [...membersOf(node, "allOf"), ...(hasOwn ? [own] : [])];
-  const members = parts.map((part) => memberAt(part, key, input));
-  return members.every((member) => member.kind === "missing") ? MISSING : OPAQUE;
+  return intersectionMember(parts.map((part) => memberAt(part, key, input)));
+}
+
+/**
+ * A key of an intersection: missing if every part misses it; the part's member if only one part
+ * has it (`A & B` where `B` has no such key and no index signature); else opaque.
+ */
+function intersectionMember(members: readonly GeneratedMember[]): GeneratedMember {
+  const found = members.filter((member) => member.kind !== "missing");
+  const [only] = found;
+  if (only === undefined) {
+    return MISSING;
+  }
+  return found.length === 1 && only.kind !== "opaque" ? only : OPAQUE;
 }
 
 interface MemberInput {

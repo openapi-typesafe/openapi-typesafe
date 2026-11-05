@@ -240,6 +240,30 @@ describe("schema $refs into path item parameters", () => {
   });
 });
 
+describe("schema $refs into a schema with allOf next to properties", () => {
+  const LIST = { type: "array", items: OBJECT };
+  const document = documentWith({
+    Base: {
+      type: "object",
+      properties: { list: LIST },
+      allOf: [{ type: "object", properties: { z: { type: "boolean" } } }],
+    },
+    Copy: {
+      type: "object",
+      properties: {
+        item: { $ref: "#/components/schemas/Base/properties/list/items" },
+      },
+    },
+  });
+
+  it("openapiTS reads the one part of the intersection that has the key", async () => {
+    const output = await generate(document);
+
+    expect(output).toContain('item?: NonNullable<components["schemas"]["Base"]["list"]>[number];');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
+
 describe("schema $refs into a schema whose type its keywords do not change", () => {
   // `type: object` without properties is `Record<string, never>`: every key is `never`, so the
   // original compiles. `type: string` ignores `items`: the original indexes `string`.

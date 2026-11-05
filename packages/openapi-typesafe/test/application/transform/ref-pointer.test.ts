@@ -228,7 +228,8 @@ describe("edge shapes", () => {
   });
 
   it("generatedMember reads allOf with own properties and a nullable scalar", () => {
-    expect(member("Own", "id")).toBe("opaque");
+    expect(member("Own", "id")).toBe("property");
+    expect(member("Own", "time")).toBe("property");
     expect(member("Own", "other")).toBe("missing");
     expect(member("Text", "length")).toBe("opaque");
     expect(member("Str", "schema")).toBe("missing");
