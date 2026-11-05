@@ -54,6 +54,9 @@ not a contract: what shipped only in rc.0 may change (maintainer decision, 2026-
 9. **#2458:** the page param type is `initialPageParam` together with the return types of
    `getNextPageParam` and `getPreviousPageParam`. It stays `unknown` when TypeScript cannot infer a
    return type (a return computed from an unannotated `lastPageParam`) or knows only `undefined`/`null`.
+   `placeholderData` keeps an `unknown` page param: TypeScript types a `(previousData) =>
+   previousData` callback before it infers the page param, so a typed one failed there. The page
+   params that `select` gets stay `unknown` for the same reason.
 10. **#1882:** fixed by decision 8. The type matrix checks a wrong path and `Parameters<typeof client.GET>`
     on the GitHub schema with TypeScript 5.4 to 7.1. The docs name what remains: with TypeScript 7,
     `Parameters` of `client.request` or `$api.queryOptions` over hundreds of paths hits TS2859.

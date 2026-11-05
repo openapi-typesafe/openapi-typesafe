@@ -35,6 +35,34 @@ describe("useInfiniteQuery page param type", () => {
     expectTypeOf<PageParamsOf<typeof query>>().toEqualTypeOf<number>();
   });
 
+  it("placeholderData keeps the previous data with typed page params", () => {
+    const query = () =>
+      $api.useInfiniteQuery(
+        "get",
+        "/items",
+        {},
+        {
+          initialPageParam: "",
+          getNextPageParam: (last) => last.nextCursor,
+          placeholderData: (previous) => previous,
+        },
+      );
+
+    expectTypeOf<PageParamsOf<typeof query>>().toEqualTypeOf<string>();
+  });
+
+  it("select compiles and gets unknown page params, as TypeScript types it before inferring them", () => {
+    const query = () =>
+      $api.useInfiniteQuery(
+        "get",
+        "/items",
+        {},
+        { initialPageParam: 0, getNextPageParam: (last) => last.nextPage, select: (data) => data },
+      );
+
+    expectTypeOf<PageParamsOf<typeof query>>().toEqualTypeOf<unknown>();
+  });
+
   it("a cursor API with an undefined initialPageParam gets the cursor or undefined", () => {
     const query = () =>
       $api.useInfiniteQuery(

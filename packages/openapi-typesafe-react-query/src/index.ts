@@ -136,14 +136,18 @@ export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
  * infer the return type of a callback that computes it from an unannotated `lastPageParam`,
  * whose type depends on that return type, and gives `never` or `unknown`.
  */
-type PageParam<Options, Initial, Next, Previous> =
+type PageParam<Initial, Next, Previous> =
   IsUntyped<Next> extends true
     ? unknown
-    : "getPreviousPageParam" extends keyof Options
-      ? IsUntyped<Previous> extends true
+    : [Previous] extends [NoPreviousPageParam]
+      ? NullishToUnknown<Initial | NonNullable<Next>>
+      : IsUntyped<Previous> extends true
         ? unknown
-        : NullishToUnknown<Initial | NonNullable<Next> | NonNullable<Previous>>
-      : NullishToUnknown<Initial | NonNullable<Next>>;
+        : NullishToUnknown<Initial | NonNullable<Next> | NonNullable<Previous>>;
+
+/** The `Previous` type parameter when the options have no `getPreviousPageParam`. */
+declare const NO_PREVIOUS_PAGE_PARAM: unique symbol;
+type NoPreviousPageParam = typeof NO_PREVIOUS_PAGE_PARAM;
 
 type IsUntyped<T> = [T] extends [never] ? true : unknown extends T ? true : false;
 
@@ -163,6 +167,25 @@ interface PageParamSources<Initial, Next, Previous> {
   getPreviousPageParam?: PageParamFunction<Previous>;
 }
 
+/**
+ * `placeholderData` of `useInfiniteQuery`, with an `unknown` page param as before: TypeScript types
+ * a `(previousData) => previousData` callback while it still infers the page param, so it got
+ * `unknown` there and failed against the typed page param.
+ */
+type InfinitePlaceholderData<
+  Data,
+  Error,
+  Paths extends {},
+  Method extends HttpMethod,
+  Path extends PathsWithMethod<Paths, Method>,
+> = UseInfiniteQueryOptions<
+  Data,
+  Error,
+  InfiniteData<Data, unknown>,
+  InfiniteQueryKey<Paths, Method, Path>,
+  unknown
+>["placeholderData"];
+
 export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
@@ -172,20 +195,18 @@ export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = 
     UseInfiniteQueryOptions<
       Response["data"],
       Response["error"],
-      InferSelectReturnType<
-        InfiniteData<Response["data"], PageParam<Options, Initial, Next, Previous>>,
-        Options["select"]
-      >,
+      InferSelectReturnType<InfiniteData<Response["data"], PageParam<Initial, Next, Previous>>, Options["select"]>,
       InfiniteQueryKey<Paths, Method, Path>,
-      PageParam<Options, Initial, Next, Previous>
+      PageParam<Initial, Next, Previous>
     >,
-    "queryKey" | "queryFn"
+    "queryKey" | "queryFn" | "placeholderData"
   > & {
+    placeholderData?: InfinitePlaceholderData<Response["data"], Response["error"], Paths, Method, Path>;
     pageParamName?: string;
   },
   Initial = unknown,
   Next = never,
-  Previous = never,
+  Previous = NoPreviousPageParam,
 >(
   method: Method,
   url: Path,
@@ -193,7 +214,7 @@ export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = 
   options: PageParamSources<Initial, Next, Previous> & Options,
   queryClient?: QueryClient,
 ) => UseInfiniteQueryResult<
-  InferSelectReturnType<InfiniteData<Response["data"], PageParam<Options, Initial, Next, Previous>>, Options["select"]>,
+  InferSelectReturnType<InfiniteData<Response["data"], PageParam<Initial, Next, Previous>>, Options["select"]>,
   Response["error"]
 >;
 
@@ -318,7 +339,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
     useSuspenseQuery: (method, path, ...[init, options, queryClient]) =>
       useSuspenseQuery(queryOptions(method, path, init as InitWithUnknowns<typeof init>, options), queryClient),
     useInfiniteQuery: (method, path, init, options, queryClient) => {
-      const { pageParamName = DEFAULT_PAGE_PARAM_NAME, ...restOptions } = options;
+      const { pageParamName = DEFAULT_PAGE_PARAM_NAME, placeholderData, ...restOptions } = options;
       const { queryKey } = queryOptions(method, path, init);
       const mth = method.toUpperCase() as Uppercase<typeof method>;
       const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
@@ -334,6 +355,9 @@ export default function createClient<Paths extends {}, Media extends MediaType =
             return result.data;
           },
           ...restOptions,
+          // Typed with an `unknown` page param for the caller (`InfinitePlaceholderData`). TanStack
+          // passes the previous data of this query, with its own page params, and takes it back.
+          placeholderData: placeholderData as any,
         },
         queryClient,
       );
