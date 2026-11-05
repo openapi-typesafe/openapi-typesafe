@@ -37,7 +37,8 @@ if [[ "$("${ROOT_DIR}/scripts/release/is-on-npm.sh" "${NAME}" "${VERSION}")" == 
   exit 0
 fi
 
-# A prerelease (1.0.0-rc.0) goes to `next`, so `latest` keeps pointing at a stable version.
+# A prerelease (1.0.0-rc.0) goes to `next`. publish.sh may add `latest` after every release is
+# created (tag-latest.sh, ADR-007).
 dist_tag="latest"
 [[ "${VERSION}" == *-* ]] && dist_tag="next"
 publish_args=(--access public --tag "${dist_tag}")

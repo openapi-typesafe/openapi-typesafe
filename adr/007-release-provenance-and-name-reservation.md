@@ -50,12 +50,37 @@ ENGINEERING_PLAN 9.3, 9.4 and 9.4a. Facts checked on 2026-11-02:
 
 ## Consequences
 
-- `latest` points at the deprecated placeholder until 1.0.0 (11.4); prereleases go to `next`.
-  The placeholder README tells users to install `@next` until then.
+- Prereleases go to `next`. Until a stable release that is not deprecated exists, a prerelease
+  also takes `latest` (amended 2026-11-05, see below). The placeholder README tells users to
+  install `@next`, which stays correct.
 - The release scripts (`scripts/release/`) are ours to maintain instead of `changeset publish`;
   Changesets still owns versions and changelogs.
 - Renaming `release.yml` or the `npm-publish` environment breaks publishing until every trusted
   publisher is updated.
+
+## Amendment (2026-11-05): `latest` before the first stable release
+
+After `1.0.0-rc.0` and `1.0.0-rc.1`, `latest` still pointed at the deprecated `0.0.0`
+placeholder. The npm page of each package showed "This package has been deprecated", and
+`npm install openapi-typesafe` without `@next` installed a package with no code.
+
+Decision: a prerelease is still published to `next`. As the last step of `publish.sh`, after
+the GitHub releases, `scripts/release/tag-latest.sh` also adds `latest` with `npm dist-tag add`
+when the package has no stable release that is not deprecated
+(`scripts/release/has-stable-release.sh`; the placeholder does not count). Once 1.0.0 is out,
+prereleases go to `next` only, as before. The first release under this rule is `1.0.0-rc.2`;
+rc.1 keeps its tags until then.
+
+- `npm dist-tag` over OIDC needs npm 12.2.0 or later (the workflow pins 12.2.1) and the opt-in
+  "Allow npm dist-tag" permission on each package's trusted publisher
+  ([GitHub changelog, 2026-09-30](https://github.blog/changelog/2026-09-30-opt-in-dist-tag-permissions-for-npm-trusted-publishing)).
+  It is set on npmjs.com only (RELEASING.md, step 3).
+- Alternatives: keep `latest` on the placeholder until 1.0.0 (the deprecated page during the whole
+  rc phase, when testers and first users arrive); move `latest` by hand after each rc (a manual
+  2FA step that is easy to forget); un-deprecate the placeholder (`npm install` would still get a
+  package with no code).
+- A user who installs a prerelease through `latest` gets the range `^1.0.0-rc.N`, which 1.0.0
+  satisfies, so they move to the stable release with a normal update.
 
 ## Review trigger
 
