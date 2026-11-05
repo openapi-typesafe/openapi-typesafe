@@ -78,6 +78,8 @@ npx openapi-typesafe --redocly ./path/to/redocly.yaml
 
 You can read more about the Redoc’s configuration options [in their docs](https://redocly.com/docs/cli/configuration/).
 
+Problems listed in a `.redocly.lint-ignore.yaml` next to `redocly.yaml` (as `redocly lint --generate-ignore-file` writes it) are skipped, as `redocly lint` skips them; with `DEBUG=openapi-ts:*` each one is printed. Without a `redocly.yaml`, the file is read from the current directory.
+
 ## Auth
 
 Authentication for non-public schemas is handled in your [Redocly config](https://redocly.com/docs/cli/configuration/#resolve-non-public-or-non-remote-urls). You can add headers and basic authentication like so:
