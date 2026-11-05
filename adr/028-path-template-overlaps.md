@@ -29,7 +29,8 @@ The rc.1 audit found two ways this changed output that compiles, against ADR-021
    checker's own matching, `template-key-match.ts`) and that key's path item is `rejected`, or when
    it repeats another template (TS2374). An `undecided` pair keeps the original output. A
    template of only `${boolean}` placeholders is no signature (TS1337), so the checker neither
-   checks it nor checks a key against it, and neither does the generator.
+   checks it nor checks a key against it, and neither does the generator; a repeated one is
+   still reported (TS2374), so it moves as any repeated template does.
 3. **One check.** The presence check of rc.0 (methods, parameter locations, required properties)
    and its backtracking cover are removed; the three-valued check covers what it proved.
 

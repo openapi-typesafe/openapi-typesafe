@@ -71,9 +71,9 @@ export type CoverRejection = (covering: number, covered: number) => boolean;
 const EVERY_COVER_REJECTED: CoverRejection = () => true;
 
 /**
- * The key types TypeScript checks: a literal's, or a template's signature types. A boolean-only
- * template is no signature (TS1337), so the checker neither checks it nor checks anything against
- * it.
+ * The key types TypeScript checks against a signature: a literal's, or a template's signature
+ * types. A boolean-only template is no signature (TS1337), so the checker neither checks it nor
+ * checks anything against it; a repeated one is still reported (TS2374, see `isSameTemplate`).
  */
 function checkedShapes(key: PathKey): readonly TemplateShape[] {
   const shapes = shapesOf(key);
@@ -105,10 +105,10 @@ export function coveringTemplateKeys(
   const covering = new Set<number>();
   const shapes = keys.map(checkedShapes);
   keys.forEach((key, index) => {
-    const targets = shapes[index] ?? [];
-    if (key.kind !== "template" || targets.length === 0) {
+    if (key.kind !== "template") {
       return;
     }
+    const targets = shapes[index] ?? [];
     const isCovering = keys.some((other, otherIndex) => {
       if (otherIndex === index) {
         return false;

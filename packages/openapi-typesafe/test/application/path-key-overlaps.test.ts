@@ -69,12 +69,13 @@ describe("coveringTemplateKeys", () => {
     expect(coveringTemplateKeys([flags, literal("/flags/false")])).toEqual(new Set());
   });
 
-  it("coveringTemplateKeys does not check a boolean-only template, as it is no signature", () => {
+  it("coveringTemplateKeys does not check a boolean-only template against a signature", () => {
     const flags = () => template(text("/flags/"), slot("boolean"));
     const any = template(text("/flags/"), slot("string"));
 
     expect(coveringTemplateKeys([any, flags()])).toEqual(new Set());
-    expect(coveringTemplateKeys([flags(), flags()])).toEqual(new Set());
+    // The checker still reports a repeated one (TS2374), so both move.
+    expect(coveringTemplateKeys([flags(), flags()])).toEqual(new Set([0, 1]));
   });
 
   it("coveringTemplateKeys covers what TypeScript matches, at the first occurrence of a text", () => {
