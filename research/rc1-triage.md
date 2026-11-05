@@ -93,3 +93,21 @@ without network and middleware errors (#2151, #2372).
 | #2240, #2259, #2558 | not this project (swr-openapi, hey-api) |
 
 Classified fixed, not a bug, feature or unclear: see the session report; not repeated here.
+
+## Code audit
+
+Five reviewers read the rc.1 code with repro schemas, upstream 7.13 next to it and `tsc --strict`.
+Each finding was fixed with a test that failed first; a second, independent review of the fixes
+found three more (marked "review").
+
+| Area | Findings | Notes |
+| --- | --- | --- |
+| Clients | 4 | `Parameters<typeof client.request>`, union paths and methods, `placeholderData` of `useInfiniteQuery`, a `Request` without `headers` |
+| CommonJS declarations | 1 | `.d.cts` of fetch and react-query; the type matrix has a `commonjs` project now |
+| Discriminators | 11 + 1 review | ADR-024; the review case: a mapped parent left `never` under `discriminator-values` |
+| Enums and `$ref` pointers | 8 + 1 review | ADR-026, ADR-027; the review case: a pointer past a value typed `unknown` |
+| Paths and CLI | 7 + 1 review | ADR-028; the review case: `boolean` against `true \| false` was read as a rejection |
+
+Path template overlaps were also checked on random documents against upstream (1200, then 900
+with boolean enums): no output differs where upstream's compiles, and none of ours has errors
+beyond TS1337, which upstream has too.
