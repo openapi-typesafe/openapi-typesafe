@@ -43,7 +43,9 @@ The beta runs while the repository is private, so nothing goes to npm.
 1. Pull requests carry changesets (`pnpm changeset`).
 2. On `main`, the release workflow keeps the "chore(release): version packages" pull request up to
    date. Merge it when the release is ready.
-3. The `publish` job waits for approval in the `npm-publish` environment. Approve it.
+3. The `publish` job waits for approval in the `npm-publish` environment. Approve it. A push to
+   `main` with no changesets and no version missing from npm (`scripts/release/list-unpublished.sh`)
+   skips the job, so it asks for approval only when there is something to publish.
 4. The job runs the verify gate, publishes each package that is not on npm yet (in dependency
    order), fails if a version has no provenance, then tags `<name>@<version>` and creates a GitHub
    release with the changelog section and a CycloneDX SBOM.

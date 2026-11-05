@@ -32,13 +32,7 @@ if [[ "${IS_PRIVATE}" == "true" ]]; then
   exit 0
 fi
 
-# `npm view` prints nothing for a missing version of an existing package and fails with E404 for a
-# package that does not exist yet; any other failure (network, registry) stops the release.
-if ! published="$(npm view "${NAME}@${VERSION}" version 2>"${PACK_DIR}/view.err")"; then
-  grep -q "E404" "${PACK_DIR}/view.err" || { cat "${PACK_DIR}/view.err" >&2; exit 1; }
-  published=""
-fi
-if [[ -n "${published}" ]]; then
+if [[ "$("${ROOT_DIR}/scripts/release/is-on-npm.sh" "${NAME}" "${VERSION}")" == "true" ]]; then
   log "already on npm, skipped"
   exit 0
 fi
