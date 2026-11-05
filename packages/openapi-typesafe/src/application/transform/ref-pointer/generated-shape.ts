@@ -191,17 +191,23 @@ function composedMember(node: JsonObject, key: string, input: MemberInput): Gene
   return intersectionMember(parts.map((part) => memberAt(part, key, input)));
 }
 
+function isUnknownIndex(member: GeneratedMember): boolean {
+  return member.kind === "index" && member.node === undefined;
+}
+
 /**
  * A key of an intersection: missing if every part misses it; the part's member if only one part
- * has it (`A & B` where `B` has no such key and no index signature); else opaque.
+ * has it (`A & B` where `B` has no such key and no index signature); else opaque. A part's
+ * `[key: string]: unknown` adds nothing (`unknown & T` is `T`), and only such parts give `unknown`.
  */
 function intersectionMember(members: readonly GeneratedMember[]): GeneratedMember {
   const found = members.filter((member) => member.kind !== "missing");
-  const [only] = found;
+  const typed = found.filter((member) => !isUnknownIndex(member));
+  const [only] = typed;
   if (only === undefined) {
-    return MISSING;
+    return found[0] ?? MISSING;
   }
-  return found.length === 1 && only.kind !== "opaque" ? only : OPAQUE;
+  return typed.length === 1 && only.kind !== "opaque" ? only : OPAQUE;
 }
 
 interface MemberInput {
@@ -247,9 +253,13 @@ const PRIMITIVE_PROTOTYPES: Readonly<Record<string, object>> = {
 
 /**
  * A key of a schema with one primitive `type`: missing unless the primitive has it. Object and
- * array keywords next to that `type` do not change the type (`isObjectShape`).
+ * array keywords next to that `type` do not change the type (`isObjectShape`). Without a `type`
+ * and object keywords the schema is `unknown` (`objectType` writes nothing), which has no keys.
  */
 function primitiveMember(node: JsonObject, key: string): GeneratedMember {
+  if (node.type === undefined) {
+    return hasObjectKeywords(node) ? OPAQUE : MISSING;
+  }
   const prototype = typeof node.type === "string" ? PRIMITIVE_PROTOTYPES[node.type] : undefined;
   return prototype !== undefined && !isBuiltInMember(key, prototype) ? MISSING : OPAQUE;
 }

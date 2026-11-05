@@ -30,7 +30,10 @@ documents that were already broken.
    `requestBody` or response header (one without `required: true`), an `allOf` whose parts all miss
    the key (where exactly one part of the intersection has it, the walk reads that part, so `allOf`
    next to `properties` is no longer opaque), a pure `anyOf` / `oneOf` where a member misses it, a
-   positional `parameters` index. Every shape it does not model (`enum`, `not`, `$ref` chains, discriminators, `--read-write-markers`, `patternProperties`, mixed
+   positional `parameters` index, a key of `unknown`: a schema with no `type` and no object
+   keywords, or a value read through `[key: string]: unknown` (an `allOf` of such parts reads
+   `unknown & unknown`, which is `unknown`; next to a part that has the key it reads
+   `unknown & T`, which is `T`). Every shape it does not model (`enum`, `not`, `$ref` chains, discriminators, `--read-write-markers`, `patternProperties`, mixed
    composition) counts as compiling, so that output stays byte-identical. The walk reads the
    generated type as `coreType` writes it: one `type` name decides alone (`type: string` with
    `items` or `properties` is `string`), and `type: object` without object keywords is

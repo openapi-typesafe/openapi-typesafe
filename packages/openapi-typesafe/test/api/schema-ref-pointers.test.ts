@@ -186,6 +186,52 @@ describe("schema $refs whose original type compiles", () => {
   });
 });
 
+describe("schema $refs into an allOf with additional properties", () => {
+  const B = "#/components/schemas/B";
+  const document = documentWith({
+    A: {
+      type: "object",
+      properties: { k: { $ref: `${B}/allOf/0/properties/k` }, j: { $ref: `${B}/allOf/1` } },
+    },
+    B: {
+      allOf: [
+        { type: "object", properties: { k: { type: "string", enum: ["k1"] } } },
+        { type: "object", properties: { j: { type: "number" } } },
+      ],
+    },
+  });
+
+  // `B["allOf"]` compiles through `[key: string]: unknown`, but `unknown` has no key `0`.
+  it("openapiTS corrects a pointer that indexes a member typed unknown", async () => {
+    const output = await generate(document, { additionalProperties: true });
+
+    expect(output).toContain('k?: "k1";');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
+
+describe("schema $refs into a schema typed unknown", () => {
+  // A schema with no type and no object keywords is `unknown`, which has no keys at all.
+  it("openapiTS corrects a pointer that indexes a schema typed unknown", async () => {
+    const document = documentWith({
+      X: {
+        type: "object",
+        required: ["free"],
+        properties: { free: { "x-inner": { type: "string", enum: ["i"] } } },
+      },
+      A: {
+        type: "object",
+        properties: { a: { $ref: "#/components/schemas/X/properties/free/x-inner" } },
+      },
+    });
+
+    const output = await generate(document);
+
+    expect(output).toContain('a?: "i";');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});
+
 describe("schema $refs into response headers", () => {
   const header = (required: boolean) => ({
     required,

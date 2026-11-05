@@ -89,6 +89,7 @@ const DOCUMENT = {
       Blank: { type: "object", items: { type: "string" } },
       Hollow: { type: "object", properties: {}, allOf: [ITEM] },
       Words: { type: "string", items: { type: "number" }, properties: { a: {} } },
+      Free: { type: "object", required: ["any"], properties: { any: { "x-inner": ITEM } } },
       Loop: {
         definitions: {
           Node: { properties: { next: { $ref: "#/components/schemas/Loop/definitions/Node" } } },
@@ -154,6 +155,23 @@ describe("generatedMember", () => {
     expect(member("Both", "time")).toBe("opaque");
     expect(member("Union", "time")).toBe("missing");
   });
+
+  it("generatedMember reads an index signature of unknown in an allOf as unknown & T", () => {
+    const open = { ...OPTIONS, additionalProperties: true };
+
+    // `unknown & unknown` is `unknown`, and `unknown & T` is `T`.
+    expect(generatedMember(DOCUMENT.components.schemas.Both, "allOf", open, REFS)).toEqual({
+      kind: "index",
+      node: undefined,
+    });
+    expect(member("Own", "id", open)).toBe("property");
+  });
+
+  it("generatedMember misses every key of a schema typed unknown", () => {
+    expect(generatedMember({ "x-inner": ITEM }, "x-inner", OPTIONS, REFS).kind).toBe("missing");
+    expect(generatedMember({ $defs: { A: ITEM } }, "x", OPTIONS, REFS).kind).toBe("opaque");
+    expect(generatedMember({ type: [] }, "x", OPTIONS, REFS).kind).toBe("opaque");
+  });
 });
 
 describe("originalIndexFails", () => {
@@ -168,6 +186,14 @@ describe("originalIndexFails", () => {
   it("originalIndexFails through an optional value or request body is true", () => {
     expect(fails("#/components/schemas/Optional/properties/inner/properties/time")).toBe(true);
     expect(fails("#/paths/~1items/get/requestBody/content/application~1json/schema")).toBe(true);
+  });
+
+  it("originalIndexFails with a key after a member typed unknown is true", () => {
+    const open = { ...OPTIONS, additionalProperties: true };
+
+    expect(fails("#/components/schemas/Both/allOf/0/properties/time", open)).toBe(true);
+    expect(fails("#/components/schemas/Both/allOf/1", open)).toBe(true);
+    expect(fails("#/components/schemas/Free/properties/any/x-inner")).toBe(true);
   });
 
   it("originalIndexFails with a type that compiles is false", () => {
