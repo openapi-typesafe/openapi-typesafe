@@ -1,4 +1,5 @@
 ---
+
 title: useInfiniteQuery
 description: Typed useInfiniteQuery for paginated OpenAPI endpoints
 ---
@@ -28,22 +29,21 @@ You can find more information about `useInfiniteQuery` on the [@tanstack/react-q
 import { $api } from "./api";
 
 export const PostList = () => {
-  const { data, fetchNextPage, hasNextPage, isFetching } =
-    $api.useInfiniteQuery(
-      "get",
-      "/posts",
-      {
-        params: {
-          query: {
-            limit: 10,
-          },
+  const { data, fetchNextPage, hasNextPage, isFetching } = $api.useInfiniteQuery(
+    "get",
+    "/posts",
+    {
+      params: {
+        query: {
+          limit: 10,
         },
       },
-      {
-        getNextPageParam: (lastPage) => lastPage.nextPage,
-        initialPageParam: 0,
-      }
-    );
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextPage,
+      initialPageParam: 0,
+    },
+  );
 
   return (
     <div>
@@ -80,13 +80,7 @@ export const $api = createClient(fetchClient);
 ## Api
 
 ```tsx
-const query = $api.useInfiniteQuery(
-  method,
-  path,
-  options,
-  infiniteQueryOptions,
-  queryClient
-);
+const query = $api.useInfiniteQuery(method, path, options, infiniteQueryOptions, queryClient);
 ```
 
 **Arguments**

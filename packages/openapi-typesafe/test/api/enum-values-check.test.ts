@@ -81,6 +81,7 @@ describe("--enum-values location check", () => {
     expect(warnings[0]).toContain(
       'createdStateValues: the generated type at the location of this enum does not admit "locked"',
     );
+    expect(warnings[0]).toMatch(/ \(ENUM_VALUES_EXCLUDED\)$/);
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
@@ -170,6 +171,7 @@ describe("discriminator value warnings", () => {
       '#/components/schemas/Episode: the discriminator "type" of #/components/schemas/Holder/properties/item gives this schema the value "Episode"',
     );
     expect(discriminator[0]).toContain('add a mapping entry such as "episode": "#/components/schemas/Episode"');
+    expect(discriminator[0]).toMatch(/ \(DISCRIMINATOR_VALUE_NOT_ALLOWED\)$/);
     expect(output).toContain('episodeTypeValues: ReadonlyArray<"Episode">');
     expect(typeErrorsOf(output)).toEqual([]);
   });

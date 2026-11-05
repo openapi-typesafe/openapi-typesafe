@@ -1,4 +1,5 @@
 ---
+
 title: Migration guide
 description: Move a project from openapi-typescript, openapi-fetch and openapi-react-query to openapi-typesafe
 ---
@@ -7,12 +8,12 @@ description: Move a project from openapi-typescript, openapi-fetch and openapi-r
 
 openapi-typesafe is a drop-in successor. A project on these packages moves by changing names:
 
-| Before | After |
-| :-- | :-- |
-| `openapi-typescript` 7.x (package and command) | `openapi-typesafe` |
-| `openapi-fetch` 0.x | `openapi-typesafe-fetch` |
-| `openapi-react-query` | `openapi-typesafe-react-query` |
-| `openapi-typescript-helpers` | `openapi-typesafe-helpers` |
+| Before                                         | After                          |
+| :--------------------------------------------- | :----------------------------- |
+| `openapi-typescript` 7.x (package and command) | `openapi-typesafe`             |
+| `openapi-fetch` 0.x                            | `openapi-typesafe-fetch`       |
+| `openapi-react-query`                          | `openapi-typesafe-react-query` |
+| `openapi-typescript-helpers`                   | `openapi-typesafe-helpers`     |
 
 All four packages have one version number. The generated types are the same, the CLI flags are the same, and `redocly.yaml` keeps its `x-openapi-ts` settings.
 
@@ -102,7 +103,7 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
 - `--make-paths-enum`: `ApiPaths` members whose names collided (`GetUser` for both `/user` and `/user/{user_id}`) did not compile. Colliding names built from the URL now name the path parameters (`GetUserByUserId`); names that still collide, such as a repeated `operationId`, get a number (`listItems2`). Names that did not collide stay the same.
 - `--enum` and `--make-paths-enum`: values whose member names come out the same after invalid characters are replaced (`reactions-+1` and `reactions--1` are both `reactions_1`) did not compile. A repeated name gets a number: `reactions_1_2` (a quoted name gets it inside the quotes). Names that did not collide stay the same.
 - `--exclude-deprecated`: a deprecated schema that kept output still references (an array's `items`, a kept operation's response) was left out, so the output named a missing `components["schemas"]` key. It is kept now; a deprecated schema that only dropped parts reference is still left out.
-- `--path-params-as-types`: a template key such as `` `/apps/${string}` `` also matches `/apps/regions` and `` `/apps/${string}/restart` ``, and that output did not compile (TS2411, TS2413) when their types do not fit the template's. When a path surely does not fit (a method or a parameter location one has and the other has not, or an operation or response schema that lacks a required property of the template's), `paths` is now an intersection type alias, `` { … } & { [path: `/apps/${string}`]: … } ``, and every path keeps its type. Output that compiled stays the same, `export interface paths` included.
+- `--path-params-as-types`: a template key such as `` `/apps/${string}` `` also matches `/apps/regions` and `` `/apps/${string}/restart` ``, and that output did not compile (TS2411, TS2413) when their types do not fit the template's. When a path surely does not fit (a method or a parameter location one has and the other has not, or an operation or response schema that lacks a required property of the template's), `paths` is now an intersection type alias, ``{ … } & { [path: `/apps/${string}`]: … }``, and every path keeps its type. Output that compiled stays the same, `export interface paths` included.
 - JSON Schema `$defs` (OpenAPI 3.1): a schema's `$defs` member is optional (`$defs?: { … }`), and a `$ref` into it reads `NonNullable<components["schemas"]["Foo"]["$defs"]>["bar"]`. The root `export type $defs` has one member per subschema; before, it was `Record<string, never>` and `#/$defs/<name>` refs were `never`.
 - A schema that `allOf`s a discriminated union which lists that schema (`Cat: { allOf: [Pet] }`,
   `Pet: { oneOf: [Cat, Dog] }`) referred to itself through `Omit<Pet>` and did not compile

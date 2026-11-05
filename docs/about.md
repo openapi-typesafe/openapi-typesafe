@@ -1,4 +1,5 @@
 ---
+
 title: About openapi-typesafe
 description: Where this project comes from, its goals, and the people whose work it builds on
 ---

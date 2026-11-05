@@ -1,4 +1,5 @@
 ---
+
 title: TypeScript 7
 description: Why openapi-typescript fails with TypeScript 7, and how openapi-typesafe works with it
 ---

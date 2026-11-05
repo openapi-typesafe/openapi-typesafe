@@ -1,4 +1,5 @@
 ---
+
 title: openapi-typesafe-fetch
 description: A type-safe fetch client for OpenAPI, with typed paths, parameters, bodies and responses and no generics
 ---
@@ -244,5 +245,5 @@ compiler's limit (TS2859, excessive complexity). Use the method of the call inst
 | Platform       | Support                                                                                                                                            |
 | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Browsers**   | [See fetch API support](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API#browser_compatibility) (widely-available in all major browsers) |
-| **Node**       | >= 22; Bun and Deno are tested too |
-| **TypeScript** | >= 5.4, including 6.x and 7.x |
+| **Node**       | >= 22; Bun and Deno are tested too                                                                                                                 |
+| **TypeScript** | >= 5.4, including 6.x and 7.x                                                                                                                      |

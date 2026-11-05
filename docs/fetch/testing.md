@@ -1,4 +1,5 @@
 ---
+
 title: Testing
 description: Test code that uses openapi-typesafe-fetch with a fake fetch or Mock Service Worker
 ---
@@ -66,11 +67,7 @@ test("my API call", async () => {
 
   const BASE_URL = "https://my-site.com";
 
-  server.use(
-    http.get(`${BASE_URL}/api/v1/foo`, () =>
-      HttpResponse.json(rawData, { status: 200 })
-    )
-  );
+  server.use(http.get(`${BASE_URL}/api/v1/foo`, () => HttpResponse.json(rawData, { status: 200 })));
 
   const client = createClient<paths>({
     baseUrl: BASE_URL,
