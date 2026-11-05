@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { printNodes } from "../../../../src/application/print/print-nodes.js";
 import { componentsType } from "../../../../src/application/transform/document/components.js";
+import { renameTakenAliases } from "../../../../src/application/transform/document/root-type-aliases.js";
 import { irReference } from "../../../../src/domain/ir/constructors.js";
 import type { IrDeclaration } from "../../../../src/domain/ir/nodes.js";
 import {
@@ -23,7 +24,12 @@ function transform(components: unknown, input: FakeContextInput = {}) {
     type,
     comments: [],
   };
-  return { text: printNodes([alias]), rootTypes: printNodes(rootTypes), ...fake };
+  return {
+    text: printNodes([alias]),
+    rootTypes: printNodes(rootTypes),
+    namedRootTypes: printNodes(renameTakenAliases(rootTypes, [])),
+    ...fake,
+  };
 }
 
 describe("componentsType", () => {
@@ -116,9 +122,18 @@ describe("componentsType", () => {
   it("componentsType with the root-type-numbering fix numbers the earlier schemas of one name", () => {
     const options = { ...NUMBERED, rootTypesNoSchemaPrefix: true };
 
-    const { rootTypes } = transform({ schemas: { Void: {}, void: {}, Pet: {} } }, { options });
+    const { rootTypes, namedRootTypes } = transform(
+      { schemas: { Void: {}, void: {}, Pet: {} } },
+      { options },
+    );
 
+    // The kept-aside alias follows the others under the shared name; the document names it last.
     expect(rootTypes).toBe(
+      "export type Void = components['schemas']['void'];\n" +
+        "export type Pet = components['schemas']['Pet'];\n" +
+        "export type Void = components['schemas']['Void'];\n",
+    );
+    expect(namedRootTypes).toBe(
       "export type Void = components['schemas']['void'];\n" +
         "export type Pet = components['schemas']['Pet'];\n" +
         "export type Void_2 = components['schemas']['Void'];\n",
@@ -128,9 +143,12 @@ describe("componentsType", () => {
   it("componentsType with the root-type-numbering fix skips a number that an alias has", () => {
     const options = { ...NUMBERED, rootTypesNoSchemaPrefix: true, rootTypesKeepCasing: true };
 
-    const { rootTypes } = transform({ schemas: { "a-b": {}, a_b: {}, a_b_2: {} } }, { options });
+    const { namedRootTypes } = transform(
+      { schemas: { "a-b": {}, a_b: {}, a_b_2: {} } },
+      { options },
+    );
 
-    expect(rootTypes).toBe(
+    expect(namedRootTypes).toBe(
       "export type a_b = components['schemas']['a_b'];\n" +
         "export type a_b_2 = components['schemas']['a_b_2'];\n" +
         "export type a_b_3 = components['schemas']['a-b'];\n",

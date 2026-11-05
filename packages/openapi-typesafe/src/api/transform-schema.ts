@@ -1,6 +1,6 @@
 import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import { documentBody, documentClosing } from "../application/transform/document/document.js";
-import { renameAliasesTakenByFooter } from "../application/transform/document/root-type-aliases.js";
+import { renameTakenAliases } from "../application/transform/document/root-type-aliases.js";
 import { RunFooter } from "../application/transform/footer/document-footer.js";
 import { checkedEnumValues } from "../application/transform/footer/enum-values-check.js";
 import {
@@ -91,7 +91,7 @@ export function transformDocument(schema: OpenAPI3, ctx: GlobalContext): Transfo
   const rawBody = documentBody(document, context, () => ctx.injectFooter.filter(isIrDeclaration));
   const footer = enumValuesChecked(rawBody, [...ctx.injectFooter], ctx);
   const closing = documentClosing(document, context, footer.some(isOperations));
-  const body = renameAliasesTakenByFooter(rawBody, footer.filter(isIrDeclaration), closing);
+  const body = renameTakenAliases(rawBody, footer.filter(isIrDeclaration), closing);
   return { body, footer, closing };
 }
 

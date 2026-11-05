@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  renameAliasesTakenByFooter,
+  renameTakenAliases,
   rootTypeAlias,
 } from "../../../../src/application/transform/document/root-type-aliases.js";
 import { irReference } from "../../../../src/domain/ir/constructors.js";
@@ -14,24 +14,24 @@ function names(declarations: readonly IrDeclaration[]): string[] {
   return declarations.map((declaration) => (declaration as { name: string }).name);
 }
 
-describe("renameAliasesTakenByFooter", () => {
-  it("renameAliasesTakenByFooter with a colliding alias adds the suffix _2", () => {
+describe("renameTakenAliases", () => {
+  it("renameTakenAliases with a colliding alias adds the suffix _2", () => {
     const body = [rootTypeAlias("Pet", "schemas", "Pet")];
 
-    const renamed = renameAliasesTakenByFooter(body, [enumDeclaration("Pet")]);
+    const renamed = renameTakenAliases(body, [enumDeclaration("Pet")]);
 
     expect(names(renamed)).toEqual(["Pet_2"]);
   });
 
-  it("renameAliasesTakenByFooter skips suffixes that are already taken", () => {
+  it("renameTakenAliases skips suffixes that are already taken", () => {
     const body = [rootTypeAlias("Pet", "schemas", "Pet"), rootTypeAlias("Pet_2", "schemas", "X")];
 
-    const renamed = renameAliasesTakenByFooter(body, [enumDeclaration("Pet")]);
+    const renamed = renameTakenAliases(body, [enumDeclaration("Pet")]);
 
     expect(names(renamed)).toEqual(["Pet_3", "Pet_2"]);
   });
 
-  it("renameAliasesTakenByFooter keeps aliases that are not root type aliases", () => {
+  it("renameTakenAliases keeps aliases that are not root type aliases", () => {
     const alias: IrDeclaration = {
       kind: "typeAlias",
       name: "Pet",
@@ -40,12 +40,12 @@ describe("renameAliasesTakenByFooter", () => {
       comments: [],
     };
 
-    const renamed = renameAliasesTakenByFooter([alias], [enumDeclaration("Pet")]);
+    const renamed = renameTakenAliases([alias], [enumDeclaration("Pet")]);
 
     expect(renamed).toEqual([alias]);
   });
 
-  it("renameAliasesTakenByFooter renames an alias that a helper type takes", () => {
+  it("renameTakenAliases renames an alias that a helper type takes", () => {
     const body = [rootTypeAlias("WithRequired", "schemas", "WithRequired")];
     const helper: IrDeclaration = {
       kind: "rawDeclaration",
@@ -53,10 +53,10 @@ describe("renameAliasesTakenByFooter", () => {
       text: "type WithRequired<T> = T;",
     };
 
-    expect(names(renameAliasesTakenByFooter(body, [helper]))).toEqual(["WithRequired_2"]);
+    expect(names(renameTakenAliases(body, [helper]))).toEqual(["WithRequired_2"]);
   });
 
-  it("renameAliasesTakenByFooter ignores unnamed raw code and value declarations", () => {
+  it("renameTakenAliases ignores unnamed raw code and value declarations", () => {
     const body = [rootTypeAlias("Pet", "schemas", "Pet")];
     const injected: IrDeclaration = { kind: "rawDeclaration", text: "type Pet = string;" };
     const values = {
@@ -67,13 +67,33 @@ describe("renameAliasesTakenByFooter", () => {
       comments: [],
     } as never;
 
-    expect(renameAliasesTakenByFooter(body, [injected, values])).toEqual(body);
+    expect(renameTakenAliases(body, [injected, values])).toEqual(body);
   });
 
-  it("renameAliasesTakenByFooter with an empty footer returns the body unchanged", () => {
+  it("renameTakenAliases with an empty footer returns the body unchanged", () => {
     const body = [rootTypeAlias("Pet", "schemas", "Pet")];
 
-    expect(renameAliasesTakenByFooter(body, [])).toEqual(body);
+    expect(renameTakenAliases(body, [])).toEqual(body);
+  });
+
+  it("renameTakenAliases numbers a repeated alias after the first one got its own name", () => {
+    const repeated = [
+      rootTypeAlias("Record", "schemas", "Record"),
+      rootTypeAlias("Pet", "schemas", "Pet"),
+      rootTypeAlias("Record", "schemas", "record"),
+      rootTypeAlias("Pet", "schemas", "pet"),
+    ];
+    const usesRecord: IrDeclaration = {
+      kind: "typeAlias",
+      name: "paths",
+      isExported: true,
+      type: irReference("Record", [irReference("string")]),
+      comments: [],
+    };
+
+    const renamed = renameTakenAliases([usesRecord, ...repeated], []);
+
+    expect(names(renamed)).toEqual(["paths", "Record_2", "Pet", "Record_3", "Pet_2"]);
   });
 });
 

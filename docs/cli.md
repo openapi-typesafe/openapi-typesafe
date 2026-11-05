@@ -1066,6 +1066,8 @@ export type PetStore_2 = components['schemas']['PetStore']; // [!code ++]
 - The shared name keeps its schema, so code that uses it does not change; the fix only adds
   exports, after the other root aliases.
 - A number that another alias has is skipped (`PetStore_3`).
+- A shared name that an enum, a helper or a TypeScript global type such as `Record` already has
+  is numbered with or without the fix (`Record_2`); the earlier schemas get the numbers after it.
 - With the prefix the names do not clash (`SchemaPetStore`, `SchemaPetStore_2`), so the fix needs
   `--root-types` and `--root-types-no-schema-prefix` and changes nothing without them; naming it
   without them prints a notice (`--fix all` does not).

@@ -47,4 +47,22 @@ const wrong: Void = "a";`;
     expect(output).toContain("export type Void_3 = components['schemas']['void'];\n");
     expect(typeErrorsOf(code)).toEqual([]);
   });
+
+  it("openapiTS with the root-type-numbering fix keeps the alias a global type name gives", async () => {
+    // `Record` shadows the global the output uses, so the shared name becomes `Record_2` with or
+    // without the fix; the fix only adds the earlier schema, under the next number.
+    const document: OpenAPI3 = {
+      ...DOCUMENT,
+      components: { schemas: { record: { type: "integer" }, Record: { type: "string" } } },
+    };
+    const options = { silent: true, rootTypes: true, rootTypesNoSchemaPrefix: true };
+
+    const plain = astToString(await openapiTS(structuredClone(document), options));
+    const fixed = astToString(await openapiTS(structuredClone(document), { ...options, fix: ["root-type-numbering"] }));
+
+    expect(plain).toContain("export type Record_2 = components['schemas']['Record'];\n");
+    expect(fixed).toContain("export type Record_2 = components['schemas']['Record'];\n");
+    expect(fixed).toContain("export type Record_3 = components['schemas']['record'];\n");
+    expect(typeErrorsOf(fixed)).toEqual([]);
+  });
 });

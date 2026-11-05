@@ -1,5 +1,6 @@
 import { createTransformContext } from "../api/transform-context.js";
 import { componentsType } from "../application/transform/document/components.js";
+import { renameTakenAliases } from "../application/transform/document/root-type-aliases.js";
 import type { IrType, IrTypeAliasDeclaration } from "../domain/ir/nodes.js";
 import { isEnumSchema, singularizeComponentKind } from "../domain/openapi/components-object.js";
 import type { ComponentsObject, GlobalContext } from "../types.js";
@@ -21,5 +22,6 @@ export default function transformComponentsObject(
   ctx: GlobalContext,
 ): (IrType | IrTypeAliasDeclaration)[] {
   const { type, rootTypes } = componentsType(componentsObject, createTransformContext(ctx));
-  return [type, ...rootTypes];
+  // No footer here: only the aliases the `root-type-numbering` fix keeps get numbers.
+  return [type, ...renameTakenAliases(rootTypes, [])];
 }
