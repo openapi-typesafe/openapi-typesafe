@@ -395,6 +395,10 @@ Episode:
 Add a mapping entry for the value the property allows (`mapping: { episode:
 "#/components/schemas/Episode" }`).
 
+A member is a schema that the discriminator's `oneOf`, `anyOf` or `mapping` names, or one that
+`allOf`s the owner, also through other schemas (`Lion: { allOf: [Cat] }`, `Cat: { allOf: [Pet] }`).
+Below a schema with its own discriminator of the property, the schemas are that one's members.
+
 ## Enum values arrays
 
 `--enum-values` exports each enum's values as an array typed by the place of its schema in the

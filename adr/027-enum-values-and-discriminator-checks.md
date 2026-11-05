@@ -50,7 +50,8 @@ as upstream writes it, and where it compiles it must not change (ADR-021).
 4. **Discriminator values.** Every Discriminator Object member whose value (mapping key, or the
    schema name without one) its own property `enum` / `const` does not allow gets a typed warning
    (`findDiscriminatorValueConflicts`), naming the rule and the mapping entry to add. The output
-   does not change: the value the generator adds is what the rule gives.
+   does not change: the value the generator adds is what the rule gives. A member that inherits
+   through an `allOf` chain counts too, up to a schema with its own discriminator of the property.
 5. **Required-only variants** (`anyOf` / `oneOf: [{ required: [a] }, …]` next to `properties`):
    the original type compiles (as `unknown`), so the corrected type
    `WithRequired<Props, "a"> | …` is the opt-in fix `anyof-oneof-required` (ADR-021).

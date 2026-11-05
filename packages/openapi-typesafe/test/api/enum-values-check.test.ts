@@ -208,4 +208,38 @@ describe("discriminator value warnings", () => {
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('#/components/schemas/Dog: the discriminator "kind"');
   });
+
+  const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
+  const kindOf = (value: string) => ({ type: "object", properties: { kind: STRING_ENUM([value]) } });
+
+  it("generateDeclarations warns about a member that inherits through an allOf chain", async () => {
+    const { warnings } = await run(
+      {
+        Pet: { type: "object", properties: { kind: { type: "string" } }, discriminator: { propertyName: "kind" } },
+        Cat: { allOf: [ref("Pet"), kindOf("Cat")] },
+        Lion: { allOf: [ref("Cat"), kindOf("lion")] },
+      },
+      { enumValues: false },
+    );
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('#/components/schemas/Lion: the discriminator "kind" of #/components/schemas/Pet');
+    expect(warnings[0]).toContain('does not allow ("lion")');
+  });
+
+  it("generateDeclarations does not follow a chain past a schema with its own discriminator", async () => {
+    const { warnings } = await run(
+      {
+        Pet: { type: "object", properties: { kind: { type: "string" } }, discriminator: { propertyName: "kind" } },
+        Cat: {
+          allOf: [ref("Pet"), kindOf("Cat")],
+          discriminator: { propertyName: "kind", mapping: { lion: ref("Lion").$ref } },
+        },
+        Lion: { allOf: [ref("Cat"), kindOf("lion")] },
+      },
+      { enumValues: false },
+    );
+
+    expect(warnings).toEqual([]);
+  });
 });
