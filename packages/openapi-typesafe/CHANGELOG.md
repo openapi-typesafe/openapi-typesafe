@@ -2,6 +2,277 @@
 
 This package is a fork of `openapi-typescript`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-typescript` versions.
 
+## 1.0.0-rc.1
+
+### Patch Changes
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - New output fix `allof-discriminated-union` (`--fix allof-discriminated-union`, ADR-021): a schema
+  that `allOf`s a discriminated `oneOf` or `anyOf` it is not a member of is typed as that union.
+  Before, it got `Omit<Union, "pet_type">`, which keeps only the keys every member has, and a value
+  of its own schema name (`{ pet_type: "B" } & …`) that no member allows, so
+  `B: { pet_type: "B" } & Omit<components["schemas"]["A"], "pet_type">` is now
+  `B: components["schemas"]["A"]` (openapi-typescript
+  [#1464](https://github.com/openapi-ts/openapi-typescript/issues/1464),
+  [#1690](https://github.com/openapi-ts/openapi-typescript/issues/1690)). A schema that the union's
+  `mapping` names is a member and stays as it was. A schema that only reuses the union gets no
+  `DISCRIMINATOR_VALUE_NOT_ALLOWED` warning for a value it does not get. Without the fix the output
+  does not change; `--fix all` now includes it.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - The CLI with a `redocly.yaml` or a `.redocly.lint-ignore.yaml` that cannot be parsed printed
+  "Unexpected error" with a stack trace and exited with 70, the code for a bug. It now prints one
+  line that names the file and the reason, with the new error code `CLI_CONFIG_INVALID`, and exits
+  with 2, the code for a wrong Redocly config.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - The CLI without a schema path or URL, without `apis` in `redocly.yaml` and with nothing piped into
+  stdin (stdin is a terminal) now fails at once with exit code `2` and `CLI_INPUT_MISSING`. Before,
+  it waited for a schema typed into the terminal with no prompt, which looked like a hang
+  (openapi-typescript [#1905](https://github.com/openapi-ts/openapi-typescript/issues/1905)). A
+  schema piped into stdin is read as before.
+
+- [#8](https://github.com/openapi-typesafe/openapi-typesafe/pull/8) [`ff6b717`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ff6b717836b81e929295a4db4e731221e17322ac) Thanks [@fedorello](https://github.com/fedorello)! - The CLI reads a path as a path: a `#`, `?` or `%` in the schema path, in `--output`, `--redocly`,
+  `--local-ref-root` or in a `redocly.yaml` `root` or `output` is part of the file name. Before, the
+  path was parsed as a URL, so `specs/#v2/api.yaml` read `specs/` and `a%20b.yaml` read `a b.yaml`.
+  A one-letter scheme is a Windows drive, so `C:\specs\api.yaml` is a path. URLs (`https:`, `file:`)
+  work as before.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - A discriminated `oneOf` or `anyOf` whose members `allOf` it now compiles (openapi-typescript
+  [#1665](https://github.com/openapi-ts/openapi-typescript/issues/1665)). Each member was typed as
+  `Omit<Union, "type"> & …`, and the union contains the member, so TypeScript failed with "is
+  referenced directly or indirectly in its own type annotation" (TS2502). A member now gets the
+  union's own properties instead (`{ id?: string } & { age?: number } & { type: "CAT" }`), or none
+  when the union has only the discriminator property. A union that inherits its discriminator
+  through `allOf` gets no value of its own (`kind: "Pet"`), which made every member `never`. On by
+  default: only output that did not
+  compile changes.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - A schema that inherits a discriminator through `allOf` and declares the discriminator property in
+  its own `properties` got the property twice in one object type (`class: "Child"; class?:
+"Child";`), and the output did not compile (TS2300). The schema's own declaration is now kept,
+  required as a discriminator property must be. Output that compiled stays the same.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - New output fix `discriminator-member-required` (`--fix discriminator-member-required`, ADR-021):
+  `required` next to an `allOf` `$ref` keeps `WithRequired` when the target is also a member of a
+  discriminated `oneOf`. Before, a discriminator elsewhere in the document dropped it, so
+  `Cat: WithRequired<components["schemas"]["CatProps"], "kittens">` became
+  `Cat: components["schemas"]["CatProps"]` and `kittens` stayed optional (openapi-typescript
+  [#2162](https://github.com/openapi-ts/openapi-typescript/issues/2162)). The discriminator property
+  itself is required in the target already and is not repeated. Without the fix the output does not
+  change; `--fix all` now includes it.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - A discriminator member whose value (its mapping key, or its schema name without one) its own
+  property `enum` or `const` does not allow now gets a warning that names the Discriminator Object
+  rule and the mapping entry to add (`DISCRIMINATOR_VALUE_NOT_ALLOWED`). No value of such a schema matches the discriminator. A member that inherits
+  the discriminator through an `allOf` chain (`Lion` of `Cat` of `Pet`) is checked too.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - The output fix `discriminator-values` (`--fix discriminator-values`, ADR-021, ADR-024) now
+  corrects every case of the value a discriminator member gets. Projects that list it in rc.0 get
+  new output:
+  - A schema that defines a discriminator with a `mapping` and also `allOf`s another discriminator
+    owner keeps its own discriminator. Before, the inherited one replaced it, so the schemas listed
+    after the owner got their schema name instead of the mapped value (`contentType:
+"JDocumentContentModel"` instead of `"jDocument"`), and the output depended on the order of the
+    schemas (openapi-typescript [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200)).
+    A discriminator of another property that the owner inherits still gives its members a value:
+    `Video` of `Content` (which owns `subtype`) of `Element` (which owns `contentType`) gets both.
+    Its value of the other property is its own (`contentType: "Video"` when no mapping names it),
+    also when `Element`'s mapping names `Content`: `Content`'s `"content"` is left out of `Video`.
+  - A member that already requires the property with exactly its values (`enum: [agent]` or
+    `const: agent`) gets no second, added property: `{ type: "agent" }`, not
+    `{ type: "agent" } & { type: "agent" }`
+    ([#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124)).
+  - With `--enum`, when the owner's property is an enum (`petType: { $ref: PetType }`), a member's
+    value is a member of that enum, `petType: PetType.Cat`, with or without a mapping. Before, each
+    member declared an enum of its own (`CatPetType`) or got the string `"Cat"`, and neither is
+    assignable to `PetType`, so a `Cat` was not a `Pet`
+    ([#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700)). A value from a
+    discriminator that declares no such property (a `oneOf` with a `mapping`) is a member of the
+    enum the member inherits. With `--dedupe-enums`, a shared enum keeps the name it has without
+    the fix (`OtherK`, not the owner's `PetPetType`).
+
+  Without the fix the output does not change; `--fix all` includes it.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `--enum`: two enums that got one name, such as those of a property and an inline `allOf` item of
+  one schema, were declared twice with the same member names, and the output did not compile
+  (TS2300). TypeScript merges the declarations, so a later one now leaves out the members an earlier
+  one has, a member whose name an earlier one gives another value gets a number (`a_b_2`), and a
+  declaration with nothing new is left out. Output that compiled stays the same.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values` declares each values array once. A schema typed twice at the same place, such as
+  two `prefixItems` entries with the same enum, declared the same `export const …Values` twice, and
+  the file failed with "Cannot redeclare block-scoped variable" (TS2451). Output that compiled
+  before does not change.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values` arrays whose type, the location of their schema in the generated types, cannot
+  hold their values are typed by their own values (`ReadonlyArray<"a" | "b">`), so the output
+  compiles: a schema under `definitions` or an `allOf` member, a property of a schema whose type is
+  `unknown`, an `anyOf` array member next to a non-array one, an empty enum (`readonly never[]`), a
+  property `--read-write-markers` wraps in `$Read<T>` or `$Write<T>`, or a schema that contradicts
+  itself (an `allOf` of different enums, a discriminator value its enum does not list). The last
+  case also prints a warning (`ENUM_VALUES_EXCLUDED`). Arrays whose type compiled stay the same
+  (ADR-027).
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values`: the type of a values array for an enum under a `oneOf`/`anyOf` variant narrows
+  the union with `Extract<T, { name: unknown }>`. A property name that is not an identifier, such as
+  `content-type`, was written without quotes there, and the output had a syntax error. It is now
+  quoted. Output that compiled stays the same.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values`: two different arrays that got one name, such as those of `Discount/type` and
+  `discount/type`, or of a property and an inline `allOf` item of one schema, declared one `const`
+  twice, and the output did not compile (TS2451). The later array now gets a number,
+  `discountTypeValues_2`. Output that compiled stays the same.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values`: the values array of an enum in a path item parameter (`paths`, `webhooks`,
+  `components.pathItems`) was typed as `paths["/a"]["parameters"]["parameters"]["path"]["id"]`, which
+  does not exist, and the output did not compile (TS2339). It now indexes `parameters` once. The
+  array names and output that compiled stay the same.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - New opt-in fix `anyof-oneof-descriptions` (`--fix anyof-oneof-descriptions`): the JSDoc of a
+  property or schema lists the `description` of each `anyOf` and `oneOf` member, which was dropped
+  (openapi-typescript [#2142](https://github.com/openapi-typesafe/openapi-typesafe/issues/2142)).
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - New opt-in fix `anyof-oneof-required` (`--fix anyof-oneof-required`): an `anyOf` or `oneOf` whose
+  variants have only `required` keys of the sibling `properties` gives the parent with each variant's
+  keys required (`WithRequired<Props, "a"> | WithRequired<Props, "b">`) instead of `Props | unknown`,
+  which is `unknown`. A key whose property `--exclude-deprecated` leaves out keeps the old output.
+  With a `type` list (`[object, "null"]`) only the `object` member gets the keys.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - New opt-in fix `dedupe-enum-names` (`--enum --dedupe-enums --fix dedupe-enum-names`): a shared
+  enum is named by a rule that does not depend on the document order (its component schema, else the
+  shortest name, else code-unit order), so adding a schema no longer renames it
+  (openapi-typescript [#1683](https://github.com/openapi-typesafe/openapi-typesafe/issues/1683)).
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - New opt-in fix `exploded-query-objects` (`--fix exploded-query-objects`, or `fix:
+["exploded-query-objects"]`): a query parameter with an object schema and the default `style: form`,
+  `explode: true` is sent as its own keys (`?page=1&size=10`), so its properties become keys of
+  `query` instead of one key named after the parameter (openapi-typescript [#2361](https://github.com/openapi-typesafe/openapi-typesafe/issues/2361)). The default
+  `querySerializer` of `openapi-typesafe-fetch` already sends this format.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - New opt-in fix `nullable-enums` (`--enum --fix nullable-enums`): an enum that lists `null` becomes a
+  TypeScript enum of its other values, typed `E | null` where the schema allows `null`, instead of
+  staying a union (openapi-typescript [#1872](https://github.com/openapi-typesafe/openapi-typesafe/issues/1872)).
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - New opt-in fix `prefix-items` (`--fix prefix-items`): a `prefixItems` tuple follows JSON Schema
+  2020-12. It is open unless `items` or `unevaluatedItems` is `false`, further items get the `items`
+  type, and elements after `minItems` are optional (openapi-typescript [#1892](https://github.com/openapi-typesafe/openapi-typesafe/issues/1892)).
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - New opt-in fix `read-write-refs` (`--fix read-write-refs`): `readOnly` and `writeOnly` of a schema
+  that a property references with `$ref` or `allOf` make the property `readonly` and count for
+  `--read-write-markers`, as in OpenAPI 3.0 and 3.1 (openapi-typescript [#1938](https://github.com/openapi-typesafe/openapi-typesafe/issues/1938)).
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - Paths that differ only in their parameter names, such as `/users/{id}` and `/users/{name}`, now
+  get a warning, `PATH_TEMPLATES_IDENTICAL`: the OpenAPI Paths Object forbids them. With
+  `--path-params-as-types` they share one key type, and when their path items had the same type the
+  output repeated the index signature and did not compile (TS2374); each of them is now in an object
+  of its own in the `paths` intersection, as paths with different types already were. Warnings about
+  the document now end with a code, as errors do: the `in: querystring` warning ends with
+  `(QUERYSTRING_NEXT_TO_QUERY)`.
+
+- [#6](https://github.com/openapi-typesafe/openapi-typesafe/pull/6) [`19c5d85`](https://github.com/openapi-typesafe/openapi-typesafe/commit/19c5d85bc6bdc77f7f7165067bf479aba99d32fb) Thanks [@fedorello](https://github.com/fedorello)! - Relative `$ref`s of a string, object, buffer or stream source (and of a schema read from stdin) now
+  resolve in `cwd`. openapi-typescript 7.13 and 1.0.0-rc.0 read them from the parent of `cwd`. A
+  `cwd` path with `#` or `%` works, and a `cwd` URL without a trailing slash is a directory. A setup
+  that kept the shared files one level up must now pass that directory as `cwd` (ADR-023).
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - Lint problems listed in `.redocly.lint-ignore.yaml` no longer fail the run: they are skipped, as
+  `redocly lint` skips them (openapi-typescript
+  [#2189](https://github.com/openapi-ts/openapi-typescript/issues/2189)). Before, an ignored error
+  still stopped the generation with `SCHEMA_INVALID`.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types`: a path whose response is an item of another path's array response
+  (`$ref: "#/paths/~1a/get/responses/200/content/application~1json/schema/items"`, written as
+  `...["application/json"][number]`) stayed in the `paths` interface under a template that covers
+  it, and the output did not compile (TS2413). The overlap check now reads `T[number]` of an array
+  as its element, so it sees that an item is no array and moves the template, as rc.0 did.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types`: a `boolean` response under a path that a template with a
+  `true | false` response also matches (`enum: [true, false]`) moved the template into a `paths`
+  intersection, although TypeScript accepts `boolean` there. The overlap check now reads `boolean`
+  as `true | false` against a union, and the output is the same as openapi-typescript 7.13 gives.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - With `--path-params-as-types`, output where a template also matches a path whose type differs in
+  a union, an array item, a tuple or a property type other than an object compiles. It gave TS2413
+  for 66 documents of the APIs.guru corpus, Magento and Microsoft Graph among them (upstream [#1752](https://github.com/openapi-typesafe/openapi-typesafe/issues/1752)):
+  the overlap check read only methods, parameter locations and required properties. It now compares
+  the types the way TypeScript does and writes such a template in an object of its own. Output that
+  compiled is unchanged.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types`: a template such as `` `/${string}/${number}` `` next to `/a/b/{n}` was
+  moved into a `paths` intersection, although that output compiles. The overlap check matched the
+  keys by trying every split of the text; TypeScript matches each text of the template at its first
+  occurrence and never checks `` `/a/b/${number}` `` against that template. The check now follows
+  TypeScript's matching only, so the output is the same as openapi-typescript 7.13 gives.
+  A template of only `${boolean}` placeholders, which is no index signature (TS1337), no longer
+  moves another template either.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types` is fast on large documents again. The overlap check compared every pair of
+  paths, which took over four minutes for Microsoft Graph beta (about 10 000 paths); it now compares
+  a template only with the paths that start with its first text, and takes seconds.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types`: output that compiled could still change. A template such as
+  `` `/a/${string}` `` that also matches `/a/{id}/b` was moved into a `paths` intersection whenever
+  the overlap check could not read a type of the covered path, such as `Record<string, never>` for
+  an empty object schema, although TypeScript accepts it. The check now moves a template only where
+  the covered type surely does not fit; where it cannot tell, the output is the same as
+  openapi-typescript 7.13 gives, `export interface paths` included.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types` with a path parameter named `number`, `string` or `boolean`, such as
+  `/invoices/{id}/lines/{number}`, now gives the same key as openapi-typescript 7.13,
+  `` `/invoices/$${number}/lines/{number}` ``: the original replaces the first `{number}` in the
+  key, which is in the placeholder of `{id}`. The rc gave every parameter its own placeholder; that
+  key is now the new opt-in fix `path-param-type-names` (`--fix=path-param-type-names`), since both
+  outputs compile.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types`: nested paths such as `/cases/{id}` and `/cases/{id}/summary`, whose
+  operations differ only in a referenced response schema, gave output that did not compile (TS2413,
+  openapi-typescript [#1752](https://github.com/openapi-typesafe/openapi-typesafe/issues/1752)). The overlap check now reads the `operations` and `components` types the
+  paths reference, so such a template gets its own object in the `paths` intersection. Output that
+  compiled stays byte-identical. This fix is on by default.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types` with `--fix=prefix-items`: a template that also matches a path whose
+  response is an open `prefixItems` tuple, such as `[string?, ...string[]]`, under a `string[]`
+  response gave output that did not compile (TS2413). The overlap check took the optional element
+  for a `string`; it may be `undefined`, so the template now gets an object of its own.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - `--binary-as-blob` with `--root-types --root-types-no-schema-prefix`: a schema named `Blob` got
+  the alias `Blob`, which hid the global type, so every binary body and response silently had the
+  type of that schema. Its alias is now `Blob_2`, as a schema named `Record` already gets
+  `Record_2`.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `--root-types --root-types-no-schema-prefix`: a schema named after a TypeScript global type that
+  the output uses, such as `Record`, got an alias of that name (`export type Record = …`). It shadowed
+  the global, and every `Record<string, never>` of the output failed to compile (TS2315). The alias is
+  now numbered like other root type conflicts (`Record_2`). An alias of a global name that the output
+  does not use, and output that compiled, stay the same.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - `--fix=root-type-numbering`: with `--root-types --root-types-no-schema-prefix`, schemas named
+  `record` and `Record` gave `Record_2` to `record`, although without the fix `Record_2` is the alias
+  of `Record` (the name `Record` itself shadows the global type the output uses). The earlier schemas
+  are now numbered after the shared name got its own, so `Record_2` keeps its schema and the fix
+  only adds `Record_3`, as the docs promise.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - A schema `$ref` into the keywords of another schema, such as
+  `#/paths/~1a/get/responses/200/content/application~1json/schema/items/properties/time`,
+  `#/components/schemas/Base/allOf/0/properties/id` or `#/components/schemas/A/definitions/B`, was
+  indexed by the keyword names (`["schema"]["items"]`), which the generated types do not have, and did
+  not look through optional or nullable values; the output did not compile (TS2339, TS2532, TS2344).
+  Where it does not compile, the `schema` of a media type, header or component parameter is now left
+  out, `items` is indexed by `number`, `additionalProperties` by `string`, an optional value (also a
+  response header without `required: true`) is wrapped in `NonNullable`, and a target behind
+  `allOf/N`, `definitions` or operation and path item `parameters/N` is written inline. Output that
+  compiled stays the same (ADR-026): a key of `type: object` without properties
+  (`Record<string, never>`) is `never` and compiles, so it is kept, and `items` next to
+  `type: string` or `type: object` has no type of its own, so its target is written inline. With
+  `--enum` an inline target uses the enum the generator declares for that schema, so no second,
+  incompatible TypeScript enum (and no second `--enum-values` array) is named after the pointer.
+  A pointer that indexes a value typed `unknown` is corrected too: one into a schema with no `type`
+  and no object keywords, or, with `--additional-properties`, one past `allOf` of a schema whose parts
+  all read `allOf` through `[key: string]: unknown` (`B["allOf"]["0"]`, TS2339).
+
+  New opt-in fix `ref-pointers` (`--fix ref-pointers`): the same type also where the original compiled
+  through an index signature (`--additional-properties`) as `unknown`.
+
+- [#8](https://github.com/openapi-typesafe/openapi-typesafe/pull/8) [`ff6b717`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ff6b717836b81e929295a4db4e731221e17322ac) Thanks [@fedorello](https://github.com/fedorello)! - The notice for an unknown negated flag names it as written: `--no-alphabetise` is reported as
+  `--no-alphabetise`, not `--alphabetise`.
+
 ## 1.0.0-rc.0
 
 ### Major Changes

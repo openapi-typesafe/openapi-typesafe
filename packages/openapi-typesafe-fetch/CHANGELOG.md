@@ -2,6 +2,62 @@
 
 This package is a fork of `openapi-fetch`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-fetch` versions.
 
+## 1.0.0-rc.1
+
+### Patch Changes
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `createClient<any>()` no longer requires an init argument: `client.GET("/users/me")` compiles.
+  `RequestBodyOption<any>` was `{ body?: never } | { body: any }`, so `body` counted as required
+  (upstream [#2526](https://github.com/openapi-typesafe/openapi-typesafe/issues/2526)). It is now `{ body?: any }`.
+
+- [#11](https://github.com/openapi-typesafe/openapi-typesafe/pull/11) [`578bd5d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/578bd5df6e6937cc3a8870a78ff84bfa6837f0b7) Thanks [@fedorello](https://github.com/fedorello)! - The CommonJS declarations (`dist/index.d.cts`) now say what `require()` returns, as in
+  openapi-fetch and openapi-react-query they did not. For the fetch client it is
+  `{ default, ...named }`: `import createClient = require("openapi-typesafe-fetch")` type-checked
+  and then failed at runtime with "createClient is not a function"; use `.default` or a default
+  import. For the react-query client it is `createClient` itself; the exported types next to its
+  `export =` were an error (TS2309) with `skipLibCheck: false`, and are now in a namespace merged with
+  the function, so `import type { QueryKey } from "openapi-typesafe-react-query"` still works. Default
+  imports and ES modules do not change.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - An operation that declares no 2XX response types `data` with its `default` response, which covers
+  every undeclared status, successes too. `data` was `never` (upstream [#1862](https://github.com/openapi-typesafe/openapi-typesafe/issues/1862)). `SuccessResponse`
+  follows the same rule. With a 2XX response declared, `default` still types only `error`.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - Middleware may return a `Request` or `Response` from the `undici` package, from another realm (an
+  iframe, an Electron host) or of a custom `Request` class. They are recognized by their members, not
+  by `instanceof`, which rejected them with "onRequest: must return new Request()" (upstream [#1847](https://github.com/openapi-typesafe/openapi-typesafe/issues/1847)):
+  a `Request` by its `method`, `url` and `headers`, a `Response` by its `status` and `headers`.
+  `Headers` from the `undici` package passed as `headers` are no longer dropped.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - With a schema of hundreds of paths, a call with a wrong path reports the path and the editor
+  completes paths on TypeScript 5.4 to 6.0. It gave "Type instantiation is excessively deep and
+  possibly infinite" (TS2589) and no completion (upstream [#1882](https://github.com/openapi-typesafe/openapi-typesafe/issues/1882)): the init type of all operations
+  of the method was one deep type, and is now computed per operation. The type matrix checks this
+  with the GitHub schema on every supported TypeScript version.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `Parameters<typeof $api.queryOptions>` (and of `useQuery`, `useSuspenseQuery` and the fetch
+  client's `request`) takes the arguments of every operation; its path was `never` (upstream [#2178](https://github.com/openapi-typesafe/openapi-typesafe/issues/2178)).
+  `PathsWithMethod<paths, HttpMethod>` is now every path that has some method; a known method or set
+  of methods still gives the paths that have each of them, as before. Code that is generic in the
+  paths, such as swr-openapi's hooks, compiles as with openapi-typescript's helpers. The init in those parameters is required when some operation
+  requires one (`IsInitOptional`), so a helper passes `{}` for a path that needs none. A single call
+  is checked as before, also with a union of paths or methods.
+  `ReturnType` of these generic functions stays `any`; the `queryOptions` docs show what to use.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - The method types take the generated `interface paths`: `UseQueryMethod`, `UseSuspenseQueryMethod`,
+  `UseInfiniteQueryMethod`, `UseMutationMethod`, `QueryOptionsFunction`, `QueryKey`,
+  `InfiniteQueryKey`, `ClientMethod` and `ClientRequestMethod` required
+  `Record<string, Record<HttpMethod, {}>>`, which an interface does not satisfy (TS2344, upstream
+  [#2267](https://github.com/openapi-typesafe/openapi-typesafe/issues/2267)). They now take any `Paths`, like `OpenapiQueryClient` and `Client`. `PathOperation` is the
+  new exported lookup of an operation; `MaybeOptionalInit` takes any key as its location.
+
+- [#9](https://github.com/openapi-typesafe/openapi-typesafe/pull/9) [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01) Thanks [@fedorello](https://github.com/fedorello)! - `createClient` and `createPathBasedClient` accept `fetch` and `Request` of another Fetch API
+  implementation, such as the `undici` package (upstream [#2562](https://github.com/openapi-typesafe/openapi-typesafe/issues/2562)). Their types are not the DOM lib's,
+  so an overload with `OtherFetchClientOptions` checks only that `fetch` returns a promise and
+  `Request` is a class. An inline `fetch` still gets a typed `Request` input.
+- Updated dependencies [[`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01), [`14494f5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/14494f5553575d15ad8f4d54f59ddabddb3a3e01)]:
+  - openapi-typesafe-helpers@1.0.0-rc.1
+
 ## 1.0.0-rc.0
 
 ### Minor Changes
