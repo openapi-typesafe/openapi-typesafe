@@ -76,6 +76,7 @@ export function createTransformContext(ctx: GlobalContext): TransformContext {
     discriminators: {
       objectAt: (ref) => ctx.discriminators.objects[ref],
       isHandled: (ref) => ctx.discriminators.refsHandled.includes(ref),
+      otherPropertiesAt: (ref) => ctx.discriminators.otherProperties?.[ref] ?? [],
       enumParentOf: (schema) =>
         ctx.discriminators.enumParents?.get(schema) as DiscriminatorEnumParent | undefined,
     },

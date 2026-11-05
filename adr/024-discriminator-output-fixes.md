@@ -35,7 +35,9 @@ value.
    - `discriminator-values`: the value a discriminator member gets. It takes R12 (one enum of
      every discriminator's values, a mapping before the schema name), #2200 (a schema's own
      mapping before an inherited one), #2124 (no second value where the member declares it) and
-     #1700 (with `--enum`, a member of the owner's enum).
+     #1700 (with `--enum`, a member of the owner's enum). A schema inherits one discriminator per
+     property: keeping an owner's own discriminator must not lose one of another property that
+     the owner inherits, so its members get a value of each.
    - `allof-discriminated-union` (#1464, #1690): an `allOf` `$ref` to a discriminated union. It
      changes which schemas are members and how the union is reused, not the value.
    - `discriminator-member-required` (#2162): the `required` keys next to an `allOf` `$ref` to a

@@ -132,7 +132,12 @@ function allOfItemType(
     unionItem !== undefined &&
     !unionItem.isMapped &&
     request.context.options.fixes.has(OutputFix.ALLOF_DISCRIMINATED_UNION);
-  return propertyName && !isUnion ? omitKeys(type, [propertyName]) : type;
+  if (!propertyName || isUnion) {
+    return type;
+  }
+  // A child redefines every discriminator property the item passes on (`discriminator-values`).
+  const others = isRef ? request.context.discriminators.otherPropertiesAt(item.$ref) : [];
+  return omitKeys(type, [propertyName, ...others]);
 }
 
 function allOfTypes(

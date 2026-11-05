@@ -81,3 +81,51 @@ const named: components["schemas"]["Video"] = { contentType: "Video" };`;
     expect(await fixed(schemas)).toContain('contentType: "Clip";');
   });
 });
+
+describe("discriminator-values fix, an owner of another property", () => {
+  /** `Content` owns `subtype` and inherits `contentType` from `Element`. */
+  const OTHER = {
+    Element: SCHEMAS.Element,
+    Content: {
+      type: "object",
+      required: ["subtype"],
+      allOf: [ref("Element")],
+      properties: { subtype: { type: "string" } },
+      discriminator: { propertyName: "subtype", mapping: { video: ref("Video").$ref } },
+    },
+    Video: { allOf: [ref("Content"), { type: "object", properties: { url: { type: "string" } } }] },
+    Clip: { allOf: [ref("Video")] },
+  };
+  const ASSIGNED = `
+const video: components["schemas"]["Video"] = { contentType: "Video", subtype: "video" };
+const clip: components["schemas"]["Clip"] = { contentType: "Clip", subtype: "Clip" };`;
+
+  it("openapiTS with the fix gives a member both properties, in any order of the schemas", async () => {
+    const { Video, Clip, ...rest } = OTHER;
+
+    for (const schemas of [OTHER, { Video, ...rest, Clip }]) {
+      const code = `${await fixed(schemas)}${ASSIGNED}`;
+
+      expect(code).toContain('contentType: "Video";');
+      expect(typeErrorsOf(code)).toEqual([]);
+    }
+  });
+
+  it("openapiTS with the fix gives the other property its mapped value", async () => {
+    const mapping = { movie: ref("Video").$ref };
+    const element = { ...SCHEMAS.Element, discriminator: { propertyName: "contentType", mapping } };
+
+    const output = await fixed({ ...OTHER, Element: element });
+
+    expect(output).toContain('contentType: "movie";');
+    expect(output).not.toContain('contentType: "Video";');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS without the fix keeps the inherited discriminator instead", async () => {
+    const output = await generate(OTHER);
+
+    expect(output).toContain('contentType: "Video";');
+    expect(output).not.toContain('"subtype" | "contentType"');
+  });
+});

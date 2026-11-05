@@ -56,6 +56,11 @@ export interface Discriminators {
   /** Whether the discriminator property of this `$ref` was already added. */
   isHandled(ref: string): boolean;
   /**
+   * With `discriminator-values`: the properties of the discriminators the schema at `ref`
+   * inherits besides `objectAt`'s, which its `allOf` children redefine as well.
+   */
+  otherPropertiesAt(ref: string): readonly string[];
+  /**
    * With `discriminator-values`: the owner's enum that a member's value narrows, found by
    * the enum schema the discriminator scan added or by the discriminator object of `objectAt`.
    */

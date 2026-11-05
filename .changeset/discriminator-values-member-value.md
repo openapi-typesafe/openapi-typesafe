@@ -11,6 +11,8 @@ new output:
   after the owner got their schema name instead of the mapped value (`contentType:
   "JDocumentContentModel"` instead of `"jDocument"`), and the output depended on the order of the
   schemas (openapi-typescript [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200)).
+  A discriminator of another property that the owner inherits still gives its members a value:
+  `Video` of `Content` (which owns `subtype`) of `Element` (which owns `contentType`) gets both.
 - A member that already requires the property with exactly its values (`enum: [agent]` or
   `const: agent`) gets no second, added property: `{ type: "agent" }`, not
   `{ type: "agent" } & { type: "agent" }`

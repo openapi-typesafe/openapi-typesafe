@@ -214,6 +214,11 @@ export interface GlobalContext {
      * location it is typed at.
      */
     enumParents?: ReadonlyMap<object, { readonly schema: SchemaObject; readonly path: string }>;
+    /**
+     * @internal With the `discriminator-values` fix: for each schema, the properties of the
+     * discriminators it inherits besides `objects[ref]`, which its children redefine too.
+     */
+    otherProperties?: Readonly<Record<string, readonly string[]>>;
   };
   emptyObjectsUnknown: boolean;
   enum: boolean;

@@ -11,6 +11,7 @@ import type {
 import { defaultLogger } from "./default-ports.js";
 import type { EnumPatch } from "./discriminator-enum.js";
 import type { EnumParent } from "./discriminator-enum-parent.js";
+import { applyOtherInferredPatches, inheritOtherOwners } from "./discriminator-other-owners.js";
 import {
   type DiscriminatorScanOptions,
   enumKey,
@@ -165,6 +166,9 @@ function inheritFromRef(state: ScanState, parentRef: string, ref: string): boole
   }
   if (inheritsDiscriminator(state, parentRef, ref)) {
     recordInherited(state, ref, discriminator, parentRef);
+    if (mergesValues(state)) {
+      inheritOtherOwners(state, parentRef, ref);
+    }
   }
   return true;
 }
@@ -196,6 +200,8 @@ export interface DiscriminatorScan {
   refsHandled: string[];
   /** With `discriminator-values`: the owner's enum of each enum the scan added. */
   enumParents: ReadonlyMap<object, EnumParent>;
+  /** With `discriminator-values`: the properties of the other discriminators a schema inherits. */
+  otherProperties: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
@@ -210,6 +216,7 @@ function applyInferredPatches(state: ScanState): void {
       markHandled(state, patch.ref);
     }
   }
+  applyOtherInferredPatches(state, mapped);
 }
 
 /** Find every discriminator in `schema`; warnings go to `logger` unless `silent`. */
@@ -225,6 +232,8 @@ export function findDiscriminators(
     refsHandled: [],
     patchedEnums: new Map(),
     inferredPatches: [],
+    otherInferredPatches: [],
+    otherProperties: {},
     declaredKeys: new Set(),
     enumParents: new Map(),
   };
@@ -232,8 +241,8 @@ export function findDiscriminators(
   // A second pass, because an `allOf` may name a discriminator that is defined later.
   walkDocument(schema, (value, path) => inheritDiscriminators(state, value, path));
   applyInferredPatches(state);
-  const { objects, refsHandled, enumParents } = state;
-  return { objects, refsHandled, enumParents };
+  const { objects, refsHandled, enumParents, otherProperties } = state;
+  return { objects, refsHandled, enumParents, otherProperties };
 }
 
 /**

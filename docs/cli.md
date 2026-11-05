@@ -777,7 +777,10 @@ Cat: Omit<components["schemas"]["Pet"], "kind"> & { kind: "cat" }; // [!code ++]
   discriminator of that property, gives the schema a value. That matches the OpenAPI rule that an
   explicit mapping replaces the implicit one.
 - Two mappings that give one schema different values make one enum with both (`"cat" | "feline"`).
-- Two discriminators with different property names still add two properties.
+- Two discriminators with different property names still add two properties, also through a
+  schema that owns one of them: when `Content` owns `subtype` and `allOf`s `Element`, which owns
+  `contentType`, a `Video` that `allOf`s `Content` gets both, and a schema that `allOf`s `Video`
+  omits both from it (`Omit<Video, "subtype" | "contentType">`).
 - With `--enum`, the merged enum is declared once.
 
 The fix also corrects the value in these cases:
