@@ -88,6 +88,33 @@ describe("createRedoclyConfigSource", () => {
   );
 
   it(
+    "createDefault with a lint-ignore file in the working directory that is no YAML fails with CLI_CONFIG_INVALID",
+    async () => {
+      // Without a config file, Redocly reads the lint-ignore file from the process's directory.
+      const processDir = path.join(workDir, "process");
+      fs.mkdirSync(processDir, { recursive: true });
+      fs.writeFileSync(path.join(processDir, ".redocly.lint-ignore.yaml"), "a.yaml: [\n  b\n");
+      const previousDir = process.cwd();
+      process.chdir(processDir);
+
+      try {
+        const failure = createRedoclyConfigSource(workDir).createDefault();
+
+        await expect(failure).rejects.toMatchObject({
+          code: "CLI_CONFIG_INVALID",
+          details: { configPath: undefined },
+        });
+        await expect(failure).rejects.toThrow(
+          /^Cannot load the default Redocly config or the \.redocly\.lint-ignore\.yaml in the working directory: YAMLException: [^\n]+$/,
+        );
+      } finally {
+        process.chdir(previousDir);
+      }
+    },
+    TIMEOUT,
+  );
+
+  it(
     "createDefault has no APIs",
     async () => {
       const config = await createRedoclyConfigSource(workDir).createDefault();

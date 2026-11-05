@@ -7,10 +7,12 @@ import type {
 } from "../../application/ports/redocly-config-source.js";
 import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
 
-/** The first line of a failure: a YAML error goes on with a snippet of the file. */
+/**
+ * The first line of a failure, with the error's name: a YAML error goes on with a snippet of the
+ * file, and the name tells a YAML error from a file system one.
+ */
 function reasonOf(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.split("\n", 1)[0] ?? message;
+  return String(error).replace(/\n[\s\S]*$/, "");
 }
 
 /**

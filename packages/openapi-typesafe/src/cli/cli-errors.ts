@@ -49,8 +49,8 @@ function loadFailedMessage(error: OpenAPITypesafeError): string {
   if (!(reason instanceof Error)) {
     return error.message;
   }
-  const source = typeof error.details.source === "string" ? ` (${error.details.source})` : "";
-  return `${error.message}: ${reason.message}${source}`;
+  // `loadFailedError`, the only source of this code, always sets the source.
+  return `${error.message}: ${reason.message} (${String(error.details.source)})`;
 }
 
 /** The message js-yaml throws at its nesting limit (docs/security/threat-model.md T2). */
