@@ -244,16 +244,14 @@ Though this is a contrived example, you could use this feature to automatically 
 ::: info Paths that a template also matches
 `${string}` matches `/` too, so `` `/user/${string}` `` also matches `/user/settings` and
 `` `/user/${string}/keys` ``. TypeScript then requires those paths' types to fit the template's
-type, and the output does not compile when they do not (TS2411, TS2413). When a path surely does
-not fit (it has a method or a parameter location the template's path has not, or lacks one it
-has, or its operation or response schema lacks a required property of the template's, read
-through `operations[…]` and `components[…]`), `paths` is written as an intersection,
+type, and the output does not compile when they do not (TS2411, TS2413). The generator checks
+each such path against the template the way TypeScript does: through `operations[…]` and
+`components[…]`, into unions, intersections, arrays, tuples, index signatures and every property
+type. Unless the path's type surely fits, `paths` is written as an intersection,
 `` export type paths = { … } & { [path: `/user/${string}`]: … } ``, with each such template in an
 object of its own. Every path keeps its type: `paths["/user/settings"]` and
 `` paths[`/user/${string}`] `` are the same as before. Output that compiles stays the same,
-`export interface paths` included. Paths that differ only in ways the check does not read (a
-union, an array item, a property type other than an object) are not decided, and that output is
-left as it was.
+`export interface paths` included.
 
 A URL that two templates match, such as `/user/123/keys` for `` `/user/${string}` `` and
 `` `/user/${string}/keys` ``, gets both types: `paths["/user/123/keys"]` is their intersection.

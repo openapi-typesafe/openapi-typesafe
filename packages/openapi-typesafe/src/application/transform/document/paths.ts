@@ -28,6 +28,7 @@ import {
   type PathKeyPart,
   type PathPlaceholder,
 } from "./path-key-overlaps.js";
+import { assignabilityProof } from "./type-assignability.js";
 
 const PATH_PARAMETER_RE = /\{[^}]+\}/g;
 
@@ -123,6 +124,7 @@ function templateText(parts: readonly PathKeyPart[]): string {
 
 /** A path's member, its key and its path item type for the overlap check. */
 export interface PathMember {
+  readonly url: string;
   readonly member: IrMember;
   readonly key: PathKey;
   readonly type: IrType;
@@ -141,7 +143,7 @@ function pathItemMember(
       : null;
   if (parts === null) {
     const member = irProperty(toPropertyName(url), type, { isReadonly });
-    return { member, key: literalKey(url), type };
+    return { url, member, key: literalKey(url), type };
   }
   const member: IrMember = {
     kind: "indexSignature",
@@ -151,7 +153,7 @@ function pathItemMember(
     isReadonly,
     comments: [],
   };
-  return { member, key: { kind: "template", parts }, type };
+  return { url, member, key: { kind: "template", parts }, type };
 }
 
 function literalKey(url: string): PathKey {
@@ -171,6 +173,52 @@ function rejectionOf(paths: readonly PathMember[], isRejected: PathItemRejection
   };
 }
 
+const PATHS_TYPE_NAME = "paths";
+
+/** The URL of `paths["/apps/{id}"]`, or null for any other type. */
+function pathsIndexOf(type: IrType): string | null {
+  if (type.kind !== "indexedAccess" || type.index.kind !== "stringLiteral") {
+    return null;
+  }
+  const { object } = type;
+  const isPaths =
+    object.kind === "reference" &&
+    object.name === PATHS_TYPE_NAME &&
+    object.typeArguments.length === 0;
+  return isPaths ? type.index.value : null;
+}
+
+/**
+ * The lookup, and `paths["/apps/{id}"]` as that path's item. The declarations cannot read it: a
+ * templated path is no property of `paths`, and TypeScript finds it through the signature.
+ */
+function withPathItems(
+  paths: readonly PathMember[],
+  lookup: DeclaredTypeLookup,
+): DeclaredTypeLookup {
+  const byUrl = new Map(paths.map((path) => [path.url, path.type]));
+  return (type) => {
+    const url = pathsIndexOf(type);
+    return (url === null ? undefined : byUrl.get(url)) ?? lookup(type);
+  };
+}
+
+/**
+ * The exact check. Once the declarations are known, a covered path item that is not proven
+ * assignable to the signature's type counts as rejected, so every output compiles. Before that,
+ * only a proven rejection counts: references cannot be read yet.
+ */
+function exactRejection(
+  paths: readonly PathMember[],
+  lookup: DeclaredTypeLookup,
+): PathItemRejection {
+  if (lookup === NO_DECLARED_TYPES) {
+    return pathItemRejection();
+  }
+  const isAssignable = assignabilityProof(withPathItems(paths, lookup));
+  return (covered, covering) => !isAssignable(covered, covering);
+}
+
 /**
  * The members as one object type. When an index signature covers another key, TypeScript checks
  * the covered key's type against it. Where that check surely fails (TS2411, TS2413), each such
@@ -186,7 +234,7 @@ export function pathsObjectType(
   const keys = paths.map(({ key }) => key);
   const covering = coveringTemplateKeys(keys, {
     sampled: rejectionOf(paths, pathItemRejection()),
-    exact: rejectionOf(paths, pathItemRejection(lookup)),
+    exact: rejectionOf(paths, exactRejection(paths, lookup)),
   });
   if (covering.size === 0) {
     return irObject(paths.map(({ member }) => member));
@@ -208,7 +256,7 @@ export function pathMembers(paths: PathsObject, context: TransformContext): Path
     if ("$ref" in pathItem) {
       const options = { isReadonly: context.options.immutable };
       const member = documentMember(url, refType(pathItem.$ref), pathItem, options);
-      members.push({ member, key: literalKey(url), type: member.type });
+      members.push({ url, member, key: literalKey(url), type: member.type });
       continue;
     }
     const startedAt = context.diagnostics.now();
