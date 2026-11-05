@@ -224,12 +224,15 @@ type OperationInit<Operation> =
  * key of `Paths[Path]` (upstream #2267). For a union of operations, the union of their inits: one
  * deep type of every init gave TS2589 on hundreds of paths (upstream #1882).
  */
-export type MaybeOptionalInit<Params, Location extends PropertyKey> =
-  FilterKeys<Params, Location> extends infer Operation
-    ? Operation extends unknown
-      ? OperationInit<Operation>
-      : never
-    : never;
+export type MaybeOptionalInit<Params, Location extends PropertyKey> = OperationInits<FilterKeys<Params, Location>>;
+
+/**
+ * Each operation's init. A distributive alias, not `extends infer Operation`: while the path is
+ * not known, TypeScript reads an `infer` type as `unknown`, so the init lost its type as the
+ * contextual type of an argument and a literal such as `"available"` widened to `string`
+ * (swr-openapi's `Exact<Init>` checks).
+ */
+type OperationInits<Operation> = Operation extends unknown ? OperationInit<Operation> : never;
 
 /** For each init of a union, whether it may be left out: nothing in it is required. */
 type InitOptionality<Init> = Init extends unknown ? (RequiredKeysOf<Init> extends never ? true : false) : never;

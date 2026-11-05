@@ -309,9 +309,12 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   client: FetchClient<Paths, Media>,
 ): OpenapiQueryClient<Paths, Media> {
   const queryFn = async <Method extends HttpMethod, Path extends PathsWithMethod<Paths, Method>>({
-    queryKey: [method, path, init],
+    queryKey,
     signal,
   }: QueryFunctionContext<QueryKey<Paths, Method, Path>>) => {
+    // While `Path` is generic, TypeScript cannot work out that the key is a tuple: the init is a
+    // conditional type per operation (`MaybeOptionalInit`), and the key's type waits for it.
+    const [method, path, init] = queryKey as readonly [Method, Path, unknown?];
     const mth = method.toUpperCase() as Uppercase<typeof method>;
     const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
     const result = await fn(path, { signal, ...(init as any) }); // TODO: find a way to avoid as any
