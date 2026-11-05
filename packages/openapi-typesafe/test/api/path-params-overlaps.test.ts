@@ -109,6 +109,28 @@ const app: paths[\`/apps/\${string}\`]["get"]["parameters"]["path"] = { id: "a" 
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS output with an item response under its array response compiles (conjur)", async () => {
+    const respond = (schema: object) => ({
+      get: {
+        parameters: [ID],
+        responses: { 200: { description: "ok", content: { "application/json": { schema } } } },
+      },
+    });
+    const item = { type: "object", properties: { id: { type: "string" } } };
+    const paths = {
+      "/r/{id}": respond({ type: "array", items: item }),
+      "/r/{id}/x": respond({
+        $ref: "#/paths/~1r~1{id}/get/responses/200/content/application~1json/schema/items",
+      }),
+    };
+
+    const output = await generate(paths);
+
+    expect(output).toContain('["application/json"][number]');
+    expect(output).toContain("export type paths = {");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS moves a signature whose covered path has another method", async () => {
     const restart = { post: { parameters: [ID], responses: { 200: { description: "restart" } } } };
     const paths = { "/apps/{id}": operation("app"), "/apps/{id}/restart": restart };

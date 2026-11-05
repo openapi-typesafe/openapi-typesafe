@@ -283,6 +283,16 @@ describe("assignabilityProof: intersections and references", () => {
     );
   });
 
+  it("assignabilityProof keeps the index signatures of the parts of a merged intersection", () => {
+    const merged = irIntersection([
+      object(required("a")),
+      object(irStringIndexSignature("key", STRING)),
+    ]);
+
+    expect(isAssignable(merged, object(irStringIndexSignature("key", STRING)))).toBe("assignable");
+    expect(isAssignable(merged, object(irStringIndexSignature("key", NUMBER)))).toBe("rejected");
+  });
+
   it("assignabilityProof accepts an intersection with a non-object part when one part fits", () => {
     const parts = irIntersection([object(required("a")), irRaw("Brand")]);
 
@@ -313,6 +323,25 @@ describe("assignabilityProof: intersections and references", () => {
     expect(check(irIndexedAccess(schema("List"), irString("id", "escaped")), STRING)).toBe(
       "undecided",
     );
+  });
+
+  it("assignabilityProof reads the element of an array indexed by number", () => {
+    // `paths["/a"]["get"]["responses"]["200"]["content"]["application/json"][number]` (conjur).
+    const check = proof([
+      schemas({
+        Item: object(required("id")),
+        List: irArray(schema("Item")),
+        Frozen: irReadonly(irArray(schema("Item"))),
+        Pair: irTuple([irTupleElement(schema("Item"))]),
+      }),
+    ]);
+    const element = (name: string) => irIndexedAccess(schema(name), NUMBER);
+
+    expect(check(element("List"), schema("Item"))).toBe("assignable");
+    expect(check(element("List"), schema("List"))).toBe("rejected");
+    expect(check(element("Frozen"), schema("Item"))).toBe("assignable");
+    expect(check(element("Pair"), schema("Item"))).toBe("undecided");
+    expect(check(irIndexedAccess(schema("Item"), NUMBER), STRING)).toBe("undecided");
   });
 
   it("assignabilityProof terminates on recursive types and relates them structurally", () => {
