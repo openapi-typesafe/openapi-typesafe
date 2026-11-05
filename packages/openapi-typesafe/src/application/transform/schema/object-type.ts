@@ -227,7 +227,7 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
  * a deprecated one.
  */
 export function isKeptProperty(schema: SchemaObject, key: string, request: SchemaRequest): boolean {
-  const properties = "properties" in schema ? (schema.properties ?? {}) : {};
+  const properties = schema.properties ?? {};
   if (!Object.hasOwn(properties, key)) {
     return false;
   }
@@ -243,13 +243,13 @@ export function isKeptProperty(schema: SchemaObject, key: string, request: Schem
  * `--exclude-deprecated` drops does not count, so the discriminator property stays.
  */
 function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRequest): IrMember[] {
-  const discriminator = inheritedDiscriminator(schema, request);
-  if (discriminator === undefined) {
+  const inherited = inheritedDiscriminator(schema, request);
+  if (inherited === undefined) {
     return propertyMembers(schema, request);
   }
-  const name = discriminator.propertyName;
+  const name = inherited.discriminator.propertyName;
   if (!isKeptProperty(schema, name, request)) {
-    return [discriminatorMember(discriminator, request), ...propertyMembers(schema, request)];
+    return [discriminatorMember(inherited, request), ...propertyMembers(schema, request)];
   }
   // Without `required`, `--properties-required-by-default` requires every property already; a
   // list of one would make the others optional.
@@ -266,8 +266,8 @@ function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRe
  */
 export function objectType(schema: SchemaObject, request: SchemaRequest): IrType | null {
   if (!hasObjectKeywords(schema)) {
-    const discriminator = inheritedDiscriminator(schema, request);
-    return discriminator ? irObject([discriminatorMember(discriminator, request)]) : null;
+    const inherited = inheritedDiscriminator(schema, request);
+    return inherited ? irObject([discriminatorMember(inherited, request)]) : null;
   }
   const members = discriminatorAndPropertyMembers(schema, request);
   // As in the original, a null `$defs` throws here (Object.keys) instead of being skipped.

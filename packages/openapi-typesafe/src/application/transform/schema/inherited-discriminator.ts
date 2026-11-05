@@ -17,28 +17,36 @@ function isInheritedUnion(path: string, request: SchemaRequest): boolean {
   return union !== undefined && unionReaches(union, path, resolve);
 }
 
-/** The discriminator a parent's mapping implies for this schema, if it adds a property. */
+/** A discriminator a parent's mapping implies for the schema at `path`. */
+export interface InheritedDiscriminator {
+  readonly discriminator: Discriminator;
+  readonly path: string;
+}
+
+/**
+ * The discriminator a parent's mapping implies for this schema, if it adds a property. A schema
+ * with no path (a caller's own schema) is no component, so no mapping names it.
+ */
 export function inheritedDiscriminator(
   schema: SchemaObject,
   request: SchemaRequest,
-): Discriminator | undefined {
-  if (!schema.allOf && !schema.anyOf) {
+): InheritedDiscriminator | undefined {
+  const { path } = request.location;
+  if ((!schema.allOf && !schema.anyOf) || path === undefined) {
     return undefined;
   }
-  const path = request.location.path ?? "";
   const { discriminators } = request.context;
   // A schema does not get the discriminator it defines for its children, nor one added already.
   const isAdded = !schema.discriminator && !discriminators.isHandled(path);
   const discriminator = isAdded ? discriminators.objectAt(path) : undefined;
-  return discriminator && !isInheritedUnion(path, request) ? discriminator : undefined;
+  return discriminator && !isInheritedUnion(path, request) ? { discriminator, path } : undefined;
 }
 
 /** The property of an inherited discriminator, typed as the schema's value. */
 export function discriminatorMember(
-  discriminator: Discriminator,
+  { discriminator, path }: InheritedDiscriminator,
   request: SchemaRequest,
 ): IrMember {
-  const path = request.location.path ?? "";
   // With `discriminator-values`, the value is a member of the owner's enum (#1700).
   const valueType = (value: string | undefined) =>
     ownerEnumMembersType(discriminator, [value], request);

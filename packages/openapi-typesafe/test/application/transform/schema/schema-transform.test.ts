@@ -215,6 +215,24 @@ describe("transformSchema", () => {
     expect(text).not.toContain("kind");
   });
 
+  it("transformSchema with a parent discriminator and no own properties adds the property", () => {
+    const discriminators = { [ROOT.path]: { propertyName: "kind", mapping: { root: ROOT.path } } };
+    const schema = { allOf: [{ type: "object" }], additionalProperties: true };
+
+    const { text } = transform(schema, { discriminators });
+
+    expect(text).toContain('kind: "root";');
+  });
+
+  it("transformSchema without a path adds no inherited discriminator", () => {
+    const { context } = fakeTransformContext({ discriminators: { "": { propertyName: "kind" } } });
+    const schema = { allOf: [{ type: "object" }], properties: { a: { type: "string" } } };
+
+    const text = print(transformSchema(schema as never, {}, context));
+
+    expect(text).not.toContain("kind");
+  });
+
   it("transformSchema with $defs nests them under an optional $defs member", () => {
     const schema = { type: "object", $defs: { a: { type: "string" } } };
 
