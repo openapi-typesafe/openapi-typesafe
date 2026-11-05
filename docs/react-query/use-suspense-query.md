@@ -7,7 +7,8 @@ description: Typed useSuspenseQuery for OpenAPI endpoints
 The `useSuspenseQuery` method allows you to use the original [useSuspenseQuery](https://tanstack.com/query/latest/docs/framework/react/guides/suspense).
 
 - The result is the same as the original function.
-- The `functionKey` is `[method, path, params]`.
+- The query key is the one of [`useQuery`](./use-query): `[method, path, options]`, or
+  `[method, path]` without options.
 - `data` and `error` are fully typed.
 - You can pass queries options as fourth parameter.
 

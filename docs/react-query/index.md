@@ -52,9 +52,36 @@ const MyComponent = () => {
 Install this library along with [openapi-typesafe-fetch](../fetch/) and [openapi-typesafe](../introduction):
 
 ```bash
-npm i openapi-typesafe-react-query openapi-typesafe-fetch
+npm i openapi-typesafe-react-query openapi-typesafe-fetch @tanstack/react-query
 npm i -D openapi-typesafe typescript
 ```
+
+The hooks call TanStack Query's own hooks, which read a `QueryClient` from a
+`QueryClientProvider`. `createClient` gives you the typed hooks (`$api`), not a `QueryClient`, so
+you need both: create the `QueryClient` once and wrap your app in its provider.
+
+::: code-group
+
+```tsx [src/main.tsx]
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
+
+export function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MyComponent />
+    </QueryClientProvider>
+  );
+}
+```
+
+:::
+
+Without a provider every hook throws `No QueryClient set, use QueryClientProvider to set one`;
+you can also pass a `QueryClient` as the last argument of each hook. If you get that error with a
+provider in place, two copies of `@tanstack/react-query` are installed (`npm ls
+@tanstack/react-query`): it is a peer dependency, so the app and this package must share one.
 
 ::: tip Highly recommended
 

@@ -147,5 +147,6 @@ const queryOptions = $api.queryOptions(method, path, options, queryOptions);
 
 - [Query Options](https://tanstack.com/query/latest/docs/framework/react/guides/query-options)
   - Fully typed thus `data` and `error` will be correctly deducted.
-  - `queryKey` is `[method, path, params]`.
+  - `queryKey` is `[method, path, options]`, or `[method, path]` without options. `options` is
+    the whole object passed as `init` (`{ params: { path: { id: 1 } } }`), not only its `params`.
   - `queryFn` is set to a fetcher function.
