@@ -46,6 +46,33 @@ async function tarballPath(sources: FileStore, name: SwitchedPackage): Promise<s
   );
 }
 
+/** The entry points a manifest names (`main`, `types`), relative to the package root. */
+function entryPoints(manifest: string): string[] {
+  const { main, types } = JSON.parse(manifest) as { main?: unknown; types?: unknown };
+  return [main, types].filter((entry): entry is string => typeof entry === "string");
+}
+
+/**
+ * Fail when an entry point is missing from the tarball. `pnpm pack` packs a package that was
+ * never built without a word, and the dependents then lose its types: every candidate check
+ * fails as a regression, though the package is not at fault.
+ */
+async function assertEntryPointsPacked(
+  work: FileStore,
+  tarball: string,
+  manifest: string,
+): Promise<void> {
+  const root = joinPath(DEPENDENTS_WORK_PATHS.packages, UNPACK_DIRECTORY, TARBALL_ROOT);
+  for (const entry of entryPoints(manifest)) {
+    if (!(await work.exists(joinPath(root, entry)))) {
+      throw new HarnessError(
+        HarnessErrorCode.StoredFileInvalid,
+        `${tarball} has no ${entry}: build the package before the dependents check`,
+      );
+    }
+  }
+}
+
 /** Unpack a tarball, pin its sibling dependencies to the other tarballs and pack it again. */
 async function pinTarball(
   dependencies: PackCandidatePackagesDependencies,
@@ -70,6 +97,7 @@ async function pinTarball(
   if (manifest === undefined) {
     throw new HarnessError(HarnessErrorCode.StoredFileInvalid, `No package.json in ${tarball}`);
   }
+  await assertEntryPointsPacked(work, tarball, manifest);
   await work.writeText(manifestPath, pinSwitchedDependencies(manifest, specs).text);
   await run(["tar", "-czf", work.resolve(tarball), "-C", unpacked, TARBALL_ROOT]);
   await dependencies.eraser.erase(unpacked);

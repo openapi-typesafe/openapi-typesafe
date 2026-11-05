@@ -49,7 +49,9 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter openapi-typesafe run build
+      # Every package, not only the generator: the dependents check packs the clients too, and a
+      # client packed before its build has no types, so every project that uses it regresses.
+      - run: pnpm build
       - name: restore corpus documents
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
