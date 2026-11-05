@@ -91,4 +91,16 @@ describe("a declared discriminator property and other options", () => {
             roar?: string;
         } & Omit<components["schemas"]["Pet"], "kind">;`);
   });
+
+  it("openapiTS with propertiesRequiredByDefault keeps the other properties required", async () => {
+    const lion = { properties: { kind: { type: "string" }, roar: { type: "string" } } };
+
+    const output = await generateLion(lion, { propertiesRequiredByDefault: true });
+
+    expect(output).toContain(`Lion: {
+            kind: string;
+            roar: string;
+        } & Omit<components["schemas"]["Pet"], "kind">;`);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
 });

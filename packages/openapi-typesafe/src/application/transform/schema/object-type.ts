@@ -275,7 +275,11 @@ function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRe
   if (!isKeptProperty(schema, name, request)) {
     return [discriminatorMember(discriminator, request), ...propertyMembers(schema, request)];
   }
-  const required = [...(schema.required ?? []), name];
+  // Without `required`, `--properties-required-by-default` requires every property already; a
+  // list of one would make the others optional.
+  const isAllRequired =
+    schema.required === undefined && request.context.options.propertiesRequiredByDefault;
+  const required = isAllRequired ? undefined : [...(schema.required ?? []), name];
   return propertyMembers({ ...schema, required } as SchemaObject, request);
 }
 
