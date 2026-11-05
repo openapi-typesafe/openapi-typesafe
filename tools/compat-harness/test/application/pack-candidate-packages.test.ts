@@ -121,4 +121,33 @@ describe("packCandidatePackages", () => {
 
     await expect(packCandidatePackages(dependencies, 5_000)).rejects.toThrow(/No package.json/);
   });
+
+  it("packCandidatePackages fails when a tarball lacks its main entry point", async () => {
+    const { dependencies } = setUp((run, work) => {
+      if (run.command[1] === "-xzf") {
+        void work.writeText(UNPACKED_MANIFEST, '{ "main": "./dist/index.mjs" }');
+      }
+      return {};
+    });
+
+    await expect(packCandidatePackages(dependencies, 5_000)).rejects.toMatchObject({
+      code: HarnessErrorCode.StoredFileInvalid,
+      message: expect.stringMatching(/has no \.\/dist\/index\.mjs: build the package/),
+    });
+  });
+
+  it("packCandidatePackages accepts a tarball that holds its entry points", async () => {
+    const { dependencies, repacked } = setUp((run, work) => {
+      if (run.command[1] === "-xzf") {
+        void work.writeText(UNPACKED_MANIFEST, '{ "main": "./dist/index.mjs", "types": "x.d.ts" }');
+        void work.writeText("packages/unpacked/package/dist/index.mjs", "");
+        void work.writeText("packages/unpacked/package/x.d.ts", "");
+      }
+      return {};
+    });
+
+    await packCandidatePackages(dependencies, 5_000);
+
+    expect(repacked.size).toBe(NAMES.length);
+  });
 });
