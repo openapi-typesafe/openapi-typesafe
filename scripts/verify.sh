@@ -18,8 +18,9 @@ readonly SUMMARY_FILE="${RUN_DIR}/summary.log"
 readonly WARNING_PATTERN='WARN|warning|Warning|DeprecationWarning|ExperimentalWarning'
 # Vitest lists passed and skipped tests and suites by name (slow ones too, so the list differs per
 # machine); a name such as "discriminator value warnings" is not a warning, so those lines are
-# left out. A failed test fails the step through its exit code.
-readonly TEST_RESULT_PATTERN='^[[:space:]]*(✓|√|↓) '
+# left out, also behind the package prefix that pnpm and turbo add ("pkg test: "). A failed test
+# fails the step through its exit code.
+readonly TEST_RESULT_PATTERN='(^|: )[[:space:]]*(✓|√|↓) '
 
 # Count the warning lines of a log, without colour codes and test result lines.
 count_warnings() {
