@@ -584,6 +584,9 @@ Pages: WithRequired<{ cname?: string; source?: string }, "cname"> | WithRequired
   Otherwise nothing changes; `anyof-properties` then applies as before.
 - A key whose property `--exclude-deprecated` leaves out does not count as one of the schema's
   properties.
+- Only an object has the keys: with a `type` list (`[object, "null"]`) the `object` member gets
+  them, `(WithRequired<…> | WithRequired<…>) | null`; a schema of another type keeps the old
+  output.
 
 #### anyof-properties
 
