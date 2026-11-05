@@ -261,9 +261,9 @@ function isNullish(type: IrType): boolean {
   return type.kind === "keyword" && NULLISH.has(type.keyword);
 }
 
+/** The element of an expanded member; expanding already dropped `readonly`. */
 function arrayElement(type: IrType): IrType | null {
-  const inner = type.kind === "readonly" ? type.type : type;
-  return inner.kind === "array" ? inner.element : null;
+  return type.kind === "array" ? type.element : null;
 }
 
 function intersectionType(types: readonly IrType[]): IrType {

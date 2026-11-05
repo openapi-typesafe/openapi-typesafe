@@ -22,7 +22,6 @@ import {
 
 /** The part of the evaluator these rules use. */
 export interface TypeExpansion {
-  expand(value: Evaluated): Evaluation;
   membersOf(value: Evaluated): readonly Evaluation[];
 }
 
@@ -97,8 +96,9 @@ function isNeverProperty(
   if (sets.includes(null)) {
     return false;
   }
-  const [first, ...rest] = sets as ReadonlySet<Unit>[];
-  const shared = [...(first ?? [])].filter((unit) => rest.every((set) => set.has(unit)));
+  // At least two properties, so at least two sets.
+  const [first, ...rest] = sets as [ReadonlySet<Unit>, ...ReadonlySet<Unit>[]];
+  const shared = [...first].filter((unit) => rest.every((set) => set.has(unit)));
   return shared.length === 0;
 }
 
@@ -178,27 +178,22 @@ export function declaredFirst(
   return parts.filter((_, at) => !(isDeclared && bySignature[at])).map(({ found }) => found);
 }
 
-type Presence = "yes" | "no" | "opaque";
-
 /**
- * Whether a type has `key` as a property that `{ key: unknown }` accepts: written and, outside
- * `FlattenedDeepRequired`, required. An index signature does not count, as in TypeScript.
+ * Whether a member of `membersOf` has `key` as a property that `{ key: unknown }` accepts: written
+ * and, outside `FlattenedDeepRequired`, required. An index signature does not count, as in
+ * TypeScript. Such a member is expanded, parts included, so it is an object, an intersection of
+ * members, or a primitive or array type, which has no such property; a type the evaluator cannot
+ * read makes `membersOf` opaque instead.
  */
-function presenceOf(types: TypeExpansion, value: Evaluated, key: string): Presence {
+function hasKey(value: Evaluated, key: string): boolean {
   const { type } = value;
   if (type.kind === "intersection") {
-    const parts = type.types.map((part) => {
-      const expanded = types.expand({ ...value, type: part });
-      return expanded.kind === "type" ? presenceOf(types, expanded, key) : "opaque";
-    });
-    return parts.includes("yes") ? "yes" : parts.includes("opaque") ? "opaque" : "no";
+    return type.types.some((part) => hasKey({ ...value, type: part }, key));
   }
-  if (type.kind === "object") {
-    const found = propertiesNamed([type], key);
-    return found.some((property) => value.deep || !property.isOptional) ? "yes" : "no";
+  if (type.kind !== "object") {
+    return false;
   }
-  const isOther = ["keyword", "array", "stringLiteral", "numberLiteral", "booleanLiteral"];
-  return isOther.includes(type.kind) ? "no" : "opaque";
+  return propertiesNamed([type], key).some((property) => value.deep || !property.isOptional);
 }
 
 /**
@@ -210,11 +205,7 @@ export function extracted(types: TypeExpansion, value: Evaluated, key: string): 
   if (members.some((member) => member.kind !== "type")) {
     return OPAQUE;
   }
-  const presence = (members as Evaluated[]).map((member) => presenceOf(types, member, key));
-  if (presence.includes("opaque")) {
-    return OPAQUE;
-  }
-  const kept = (members as Evaluated[]).filter((_, index) => presence[index] === "yes");
+  const kept = (members as Evaluated[]).filter((member) => hasKey(member, key));
   if (kept.length === 0) {
     return MISSING;
   }
