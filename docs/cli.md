@@ -582,6 +582,8 @@ Pages: WithRequired<{ cname?: string; source?: string }, "cname"> | WithRequired
 - It applies to `anyOf` and `oneOf` when every variant has only `required` (and `description` or
   `title`), each key is in the schema's own `properties`, and the schema has a type next to them.
   Otherwise nothing changes; `anyof-properties` then applies as before.
+- A key whose property `--exclude-deprecated` leaves out does not count as one of the schema's
+  properties.
 
 #### anyof-properties
 

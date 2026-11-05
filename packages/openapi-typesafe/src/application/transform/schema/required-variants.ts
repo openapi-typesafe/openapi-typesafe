@@ -2,6 +2,7 @@ import type { IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { OutputFix } from "../../../domain/output-fixes.js";
 import { unionOf, withRequiredKeys } from "../type-combinators.js";
+import { isKeptProperty } from "./object-type.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
 /**
@@ -27,7 +28,7 @@ function requiredOnlyKeys(variant: Schema): readonly string[] | null {
 
 /**
  * The union of the parent type with each variant's keys required, or null where the fix is off
- * or the variants are not all required-only ones over the parent's own properties.
+ * or the variants are not all required-only ones over the parent's own, kept properties.
  */
 export function requiredVariantsType(
   previous: IrType | null,
@@ -38,11 +39,11 @@ export function requiredVariantsType(
   if (!request.context.options.fixes.has(OutputFix.ANYOF_ONEOF_REQUIRED) || previous === null) {
     return null;
   }
-  const properties = schema.properties ?? {};
   const keyLists = variants.map(requiredOnlyKeys);
+  // A key of a property the type leaves out (`--exclude-deprecated`) is no key of `WithRequired`.
   const isApplicable =
     keyLists.length > 0 &&
-    keyLists.every((keys) => keys?.every((key) => Object.hasOwn(properties, key)) === true);
+    keyLists.every((keys) => keys?.every((key) => isKeptProperty(schema, key, request)) === true);
   if (!isApplicable) {
     return null;
   }

@@ -62,4 +62,14 @@ describe("anyof-oneof-required fix", () => {
 
     expect(await generate(document, FIX)).not.toContain("WithRequired");
   });
+
+  it("openapiTS with the fix and excludeDeprecated keeps variants that require a dropped property", async () => {
+    const properties = { ...PROPERTIES, cname: { type: "string", deprecated: true } };
+    const document = documentWith({ properties, anyOf: VARIANTS });
+
+    const output = await generate(document, { ...FIX, excludeDeprecated: true });
+
+    expect(output).toContain("} | unknown | unknown;");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
 });
