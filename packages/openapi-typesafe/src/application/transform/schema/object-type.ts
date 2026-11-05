@@ -10,7 +10,7 @@ import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { documentEntries } from "../document-entries.js";
-import { pointerType } from "../pointer-type.js";
+import { schemaRefType } from "../ref-pointer/pointer-type.js";
 import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
@@ -120,7 +120,7 @@ function propertyType(
 ): CustomResult {
   const path = createRef([request.location.path, key]);
   const type = facts.ref
-    ? pointerType(facts.ref)
+    ? schemaRefType(facts.ref, request)
     : request.transformNested(value, { ...request.location, path });
   const custom = request.context.callbacks.transform(value, request.location);
   return custom === null

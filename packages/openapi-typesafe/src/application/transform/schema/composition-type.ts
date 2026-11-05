@@ -3,6 +3,7 @@ import type { IrType } from "../../../domain/ir/nodes.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { OutputFix } from "../../../domain/output-fixes.js";
+import { requirableRefType } from "../ref-pointer/pointer-type.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import {
   intersectionOf,
@@ -74,10 +75,11 @@ function refItemType(
     return type;
   }
   const keys = keysToRequire(item.$ref, resolved, required, request);
-  if (keys.length > 0) {
-    request.context.footer.requireWithRequired();
+  if (keys.length === 0) {
+    return type;
   }
-  return withRequiredKeys(type, keys);
+  request.context.footer.requireWithRequired();
+  return withRequiredKeys(requirableRefType(item.$ref, type, request), keys);
 }
 
 /** An inline item merges the parent's `required` keys with its own. */

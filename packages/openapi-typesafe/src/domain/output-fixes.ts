@@ -34,6 +34,11 @@ export const OutputFix = {
   PREFIX_ITEMS: "prefix-items",
   /** `readOnly` and `writeOnly` of the schema a `$ref` names, or of `allOf` members, count. */
   READ_WRITE_REFS: "read-write-refs",
+  /**
+   * A `$ref` into schema keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it
+   * points at, also where the original type compiles through an index signature.
+   */
+  REF_POINTERS: "ref-pointers",
   /** Schemas of one root type name without the prefix each get an alias, the earlier numbered. */
   ROOT_TYPE_NUMBERING: "root-type-numbering",
   /** `unevaluatedProperties` types the keys no other keyword declares (an index signature). */

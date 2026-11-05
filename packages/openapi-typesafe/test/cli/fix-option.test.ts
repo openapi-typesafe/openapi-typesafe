@@ -79,7 +79,7 @@ describe("--fix", () => {
 
     expect(exitCode).toBe(2);
     expect(cli.logger.messages("error")).toEqual([
-      'Unknown fix "bogus". Known fixes: allof-discriminated-union, allof-required, anyof-oneof-descriptions, anyof-properties, array-length-tuples, dedupe-enum-names, discriminator-member-required, discriminator-values, exploded-query-objects, nullable-enums, prefix-items, read-write-refs, root-type-numbering, unevaluated-properties, all. (OPTION_FIX_UNKNOWN)',
+      'Unknown fix "bogus". Known fixes: allof-discriminated-union, allof-required, anyof-oneof-descriptions, anyof-properties, array-length-tuples, dedupe-enum-names, discriminator-member-required, discriminator-values, exploded-query-objects, nullable-enums, prefix-items, read-write-refs, ref-pointers, root-type-numbering, unevaluated-properties, all. (OPTION_FIX_UNKNOWN)',
     ]);
     expect(cli.generator.calls).toEqual([]);
   });

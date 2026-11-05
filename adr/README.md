@@ -39,3 +39,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [023](./023-inline-source-refs-resolve-in-cwd.md) | Relative `$ref`s of an inline source resolve in `cwd` | Accepted |
 | [024](./024-discriminator-output-fixes.md) | Discriminator fixes: one default for output that does not compile, one name per construct | Accepted |
 | [025](./025-client-fixes-for-rc1.md) | Client fixes for 1.0.0-rc.1, and two more type changes for 2.0 | Accepted |
+| [026](./026-ref-pointer-types.md) | Types of `$ref` pointers into schema keywords | Accepted |

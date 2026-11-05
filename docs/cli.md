@@ -415,6 +415,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `nullable-enums` | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum` | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872) | 1.0 |
 | `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
 | `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
+| `ref-pointers` | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`; where the original does not compile, this is the default | none (found in the compat corpus) | 1.0 |
 | `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
 
@@ -985,6 +986,31 @@ readonly kind?: components["schemas"]["ParticipantType"]; // [!code ++]
 - `anyOf` and `oneOf` members are not read: only one of them may apply.
 - With `--read-write-markers` the property gets `$Read<T>` or `$Write<T>`, so `Readable` and
   `Writable` drop it where it is not sent; a property both flags reach gets no marker.
+
+#### ref-pointers
+
+A `$ref` can point into another schema:
+`#/paths/~1a/get/responses/200/content/application~1json/schema` or
+`#/components/schemas/Base/allOf/0/properties/id`. The original indexed every segment by name
+(`["content"]["application/json"]["schema"]`), but the generated types have no `schema`, `items`
+or `allOf` member. Where that does not compile, 1.0 writes the type the pointer means by default:
+
+```ts
+bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]; // [!code --]
+bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // [!code ++]
+```
+
+- The `schema` of a media type, header or component parameter is left out, `items` is indexed by
+  `[number]`, `additionalProperties` by `[string]`, and an optional or nullable value is wrapped in
+  `NonNullable` before it is indexed.
+- A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation
+  `parameters/0`) gets the target's type written inline; a target that points back at itself keeps
+  the original type.
+
+Where the generated type has an index signature (`--additional-properties`, or the schema's own
+`additionalProperties`), the original compiles: `["schema"]` reads the index signature and is
+`unknown`. Changing it could break code, so it stays without the fix; with `ref-pointers` it gets
+the type above too.
 
 #### root-type-numbering
 

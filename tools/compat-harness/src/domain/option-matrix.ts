@@ -135,6 +135,9 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   { flag: "--fix=prefix-items", with: [[], ["--array-length"], ["--immutable"]] },
   // `read-write-refs` adds `readonly` and the `$Read` / `$Write` markers.
   { flag: "--fix=read-write-refs", with: [[], ["--immutable"], ["--read-write-markers"]] },
+  // `ref-pointers` changes the `$ref`s whose original type an index signature admits, which
+  // `--additional-properties` adds to every object.
+  { flag: "--fix=ref-pointers", with: [[], ["--additional-properties"]] },
   { flag: "--fix=all", with: [[], ["--array-length"], ["--enum"]] },
 ];
 
