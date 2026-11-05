@@ -40,10 +40,17 @@ not a contract: what shipped only in rc.0 may change (maintainer decision, 2026-
    `Request` constructor (`OtherFetchClientOptions`); the DOM overload stays first.
 6. **#1862:** success data comes from `default` when the operation has no `2XX` response.
 7. **#2267:** method types take `Paths extends {}`; `PathOperation` picks the operation.
-8. **#2178:** `PathsWithMethod` distributes over a union of methods, the init is computed per
-   operation, and `IsInitOptional` keeps it optional when one operation needs none. `ReturnType` of
-   the generic hooks stays `any` (TypeScript does not match them to `ReturnType`'s pattern); the docs
-   say so.
+8. **#2178:** `PathsWithMethod<Paths, HttpMethod>` is every path that has some method: TypeScript
+   uses `HttpMethod` where a hook's method is not inferred, as in `Parameters`. For a known set of
+   methods it stays the paths that have each of them. The init is computed per operation, and it is
+   optional only when each operation needs none. `ReturnType` of the generic hooks stays `any`
+   (TypeScript does not match them to `ReturnType`'s pattern); the docs say so.
+
+   *Amended before rc.1:* the first version distributed `PathsWithMethod` over every union of
+   methods and kept the init optional when one operation needed none. A call with a union of paths
+   then compiled without the path parameter one of them needs (the URL kept `{id}`), and a call
+   with a union of methods took a path that lacks one of them. Both had failed in rc.0. A helper
+   over `Parameters` now passes `{}` for a path that needs no init.
 9. **#2458:** the page param type is `initialPageParam` together with the return types of
    `getNextPageParam` and `getPreviousPageParam`. It stays `unknown` when TypeScript cannot infer a
    return type (a return computed from an unannotated `lastPageParam`) or knows only `undefined`/`null`.

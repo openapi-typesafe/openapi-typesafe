@@ -127,24 +127,31 @@ export type FirstErrorStatus<T> =
 
 // OpenAPI type helpers
 
+/** The paths that have each of the methods. */
+type PathsWithEveryMethod<Paths extends {}, PathnameMethod extends HttpMethod> = {
+  [Pathname in keyof Paths]: Paths[Pathname] extends {
+    [K in PathnameMethod]: any;
+  }
+    ? Pathname
+    : never;
+}[keyof Paths];
+
 /**
  * Given an OpenAPI **Paths Object**, find all paths that have the given method. For a union of
- * methods, the paths that have any of them: `PathsWithMethod<Paths, HttpMethod>` is every path,
- * not `never`. TypeScript uses that union where a hook's `Method` is not known yet, as in
- * `Parameters<typeof $api.queryOptions>` (upstream #2178).
+ * methods, the paths that have each of them, so a call with either method finds its operation.
+ * For `HttpMethod` itself, a method not known yet, the paths that have any method: TypeScript uses
+ * it where a hook's `Method` is not inferred, as in `Parameters<typeof $api.queryOptions>`, and
+ * the paths with every method were none (upstream #2178).
  */
-export type PathsWithMethod<
-  Paths extends {},
-  PathnameMethod extends HttpMethod,
-> = PathnameMethod extends HttpMethod
-  ? {
-      [Pathname in keyof Paths]: Paths[Pathname] extends {
-        [K in PathnameMethod]: any;
-      }
-        ? Pathname
-        : never;
-    }[keyof Paths]
-  : never;
+export type PathsWithMethod<Paths extends {}, PathnameMethod extends HttpMethod> = [
+  HttpMethod,
+] extends [PathnameMethod]
+  ? HttpMethod extends infer Method extends HttpMethod
+    ? Method extends HttpMethod
+      ? PathsWithEveryMethod<Paths, Method>
+      : never
+    : never
+  : PathsWithEveryMethod<Paths, PathnameMethod>;
 
 /**
  * DO NOT USE!
