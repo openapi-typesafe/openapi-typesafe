@@ -1,0 +1,2 @@
+B: {$ref: "#/B"}
+C: {type: object, properties: {x: {$ref: "#/B"}}}

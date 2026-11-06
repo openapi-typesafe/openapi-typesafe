@@ -14,6 +14,8 @@ import type { OpenAPI3 } from "../../types.js";
 import { repairBundledRefs } from "./bundled-ref-repair.js";
 import { findMalformedRefs, malformedRefsError } from "./malformed-refs.js";
 import { RefAccessResolver } from "./ref-access.js";
+import { checkRefsResolve } from "./ref-resolution-check.js";
+import { REF_CYCLE_MESSAGE } from "./ref-resolution-steps.js";
 import { resolveConfigWithAccess } from "./remote-fetch.js";
 import {
   loadFailedError,
@@ -103,9 +105,6 @@ function sourceFilePath(source: URL): string {
   }
 }
 
-/** Redocly throws a plain Error for a `$ref` chain that points back to itself. */
-const REF_CYCLE_MESSAGE = "Self-referencing circular pointer";
-
 /**
  * The root document and every other document the resolver loaded, as far as they parsed. A root
  * read from a file or URL is in the resolver cache too, and is listed once.
@@ -190,6 +189,8 @@ class RedoclySchemaLoader implements SchemaLoader {
     shouldLint: boolean,
   ): Promise<OpenAPI3> {
     const rethrow = (error: unknown) => rethrowDocumentError(error, document, resolver);
+    // Redocly leaves unhandled rejections behind when a `$ref` fails in two documents (ADR-030).
+    await checkRefsResolve(document, resolver, this.#options.redoc.styleguide).catch(rethrow);
     if (shouldLint) {
       await this.#lint(document, resolver).catch(rethrow);
     }
