@@ -26,6 +26,7 @@ jobs:
     # repository (ENGINEERING_PLAN 11.2), so a private repository skips the job instead of failing.
     if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,6 +52,7 @@ jobs:
     name: deploy to pages
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       pages: write
       id-token: write

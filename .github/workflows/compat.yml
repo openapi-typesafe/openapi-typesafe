@@ -31,8 +31,10 @@ jobs:
     name: compatibility (${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 'subset' || 'full' }})
     if: ${{ github.event_name != 'schedule' || !github.event.repository.private }}
     runs-on: ubuntu-latest
-    # The full matrix is 3 generators x 23 option sets x ~1,800 documents.
-    timeout-minutes: 240
+    # The subset takes about 6 minutes. The full matrix is 3 generators x 23 option sets x ~1,800
+    # documents (ADR-029).
+    timeout-minutes: >-
+      ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 20 || 240 }}
     env:
       CORPUS: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && '200' || 'all' }}
       OPTION_SETS: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 'default' || 'all' }}

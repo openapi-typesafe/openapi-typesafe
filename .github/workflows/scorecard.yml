@@ -19,6 +19,7 @@ jobs:
     # there. The job starts once the repository is public (ENGINEERING_PLAN 11.2).
     if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       # Upload the results to code scanning.
       security-events: write
