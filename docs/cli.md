@@ -1158,7 +1158,7 @@ Annotated: { kind?: "annotated" } & components["schemas"]["Resource"] & { // [!c
   `null` stays outside.
 - With `--immutable` the index signature is `readonly`.
 
-
+### makePathsEnum
 
 This option is useful for generating an enum for all paths in the schema. This can be useful to use the paths from the schema in your code.
 
