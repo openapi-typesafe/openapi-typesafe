@@ -49,6 +49,26 @@ installed). The generator itself already treats it as the optional TypeScript-no
   `<script>` blocks are looked for after the frontmatter only, so the two never overlap, and the
   rename refuses strings that overlap instead of writing a name twice.
 
+## Amendment (2026-11-06): which files the tool reads
+
+The tool reads the files that git lists (`git ls-files --cached --others --exclude-standard`), so
+build output that `.gitignore` ignores is not rewritten. A review of that change found three gaps,
+each of which skipped files without a word:
+
+- In a folder that an outer repository ignores, git lists nothing, and the migration said there
+  was nothing to change.
+- Git lists a submodule, or a repository nested in the working tree, as one entry. That entry is
+  a directory, not a file, so the files in it were left out; the tree walk used to read them.
+- A file in a merge conflict was listed once per side.
+
+Decision: the git listing is used only when `git check-ignore` says that the folder itself is not
+ignored; otherwise the folder's tree is walked. `--deduplicate` lists each file once (git 2.31;
+an older git fails the listing, and the tree is walked). Every directory that git lists as one
+entry is listed by the same rule, by the git of that directory: its own repository, its own
+`.gitignore`, or a tree walk when git cannot list it. `--recurse-submodules` was not used: it
+works only for tracked files of submodules, not with `--others`, and not for nested repositories
+that are not submodules. The log records, for each folder, whether git or the tree walk listed it.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

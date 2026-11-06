@@ -23,6 +23,8 @@ const SKIPPED_DIRECTORIES: ReadonlySet<string> = new Set([
   "coverage",
 ]);
 
+const CURRENT_DIRECTORY = ".";
+
 /** What the project files read besides the file system. */
 export interface NodeProjectFilesOptions {
   readonly git: GitFileList;
@@ -50,25 +52,49 @@ async function listTree(root: string, relative: string): Promise<string[]> {
   return nested.flat();
 }
 
+/** What a path that git lists is on disk. */
+type ListedEntry = "file" | "directory" | "other";
+
 /**
- * Git also lists links, submodules and tracked files deleted from the working tree; only regular
- * files that exist are the project's files.
+ * Git also lists links and tracked files deleted from the working tree; only regular files that
+ * exist are the project's files. A directory is a submodule or a nested repository.
  */
-async function isRegularFile(root: string, path: string): Promise<boolean> {
+async function entryAt(root: string, path: string): Promise<ListedEntry> {
   try {
-    return (await lstat(join(root, path))).isFile();
+    const stats = await lstat(join(root, path));
+    if (stats.isFile()) {
+      return "file";
+    }
+    return stats.isDirectory() ? "directory" : "other";
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return false;
+      return "other";
     }
     throw error;
   }
 }
 
-async function existingFiles(root: string, paths: readonly string[]): Promise<string[]> {
+interface ListedPaths {
+  readonly files: readonly string[];
+  readonly directories: readonly string[];
+}
+
+/** The files and the nested repositories of a git listing, by paths relative to the root. */
+async function listedPaths(root: string, paths: readonly string[]): Promise<ListedPaths> {
   const candidates = paths.filter((path) => !isInSkippedDirectory(path));
-  const isFile = await Promise.all(candidates.map((path) => isRegularFile(root, path)));
-  return candidates.filter((_path, index) => isFile[index]);
+  const entries = await Promise.all(candidates.map((path) => entryAt(root, path)));
+  const directories = candidates.filter(
+    (path, index) => entries[index] === "directory" && !SKIPPED_DIRECTORIES.has(baseName(path)),
+  );
+  return { files: candidates.filter((_path, index) => entries[index] === "file"), directories };
+}
+
+function baseName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
+
+function joinRelative(directory: string, path: string): string {
+  return directory === "" ? path : `${directory}/${path}`;
 }
 
 class NodeProjectFiles implements ProjectFiles {
@@ -81,22 +107,35 @@ class NodeProjectFiles implements ProjectFiles {
   }
 
   /** Git's view of the project when it is in a git repository, so ignored files stay out. */
-  async listFiles(): Promise<string[]> {
+  listFiles(): Promise<string[]> {
+    return this.#listDirectory("");
+  }
+
+  /**
+   * One directory, by the git repository it is in. Git lists a submodule or a nested repository
+   * as one entry, so each of those is listed the same way, by its own repository and ignore rules.
+   */
+  async #listDirectory(directory: string): Promise<string[]> {
     const { git, logger } = this.#options;
-    const listing = await git.list(this.#root);
-    if (listing.kind === "listed") {
-      const files = await existingFiles(this.#root, listing.paths);
-      logger.info("files_listed", { source: "git", fileCount: files.length });
+    const listing = await git.list(join(this.#root, directory));
+    const logged = { directory: directory === "" ? CURRENT_DIRECTORY : directory };
+    if (listing.kind === "unavailable") {
+      // Not a git repository, no git, or ignored by the repository around it: walk the tree; only
+      // the skipped folders stay out.
+      const files = await listTree(this.#root, directory);
+      logger.info("files_listed", {
+        ...logged,
+        source: "tree",
+        fileCount: files.length,
+        reason: listing.reason,
+      });
       return files;
     }
-    // Not a git repository, or no git: walk the tree; only the skipped folders stay out.
-    const files = await listTree(this.#root, "");
-    logger.info("files_listed", {
-      source: "tree",
-      fileCount: files.length,
-      reason: listing.reason,
-    });
-    return files;
+    const paths = listing.paths.map((path) => joinRelative(directory, path));
+    const { files, directories } = await listedPaths(this.#root, paths);
+    logger.info("files_listed", { ...logged, source: "git", fileCount: files.length });
+    const nested = await Promise.all(directories.map((path) => this.#listDirectory(path)));
+    return [...files, ...nested.flat()];
   }
 
   read(path: string): Promise<string> {

@@ -23,6 +23,16 @@ describe("SpawnedGitFileList", () => {
     await writeFile(join(root, path), text);
   }
 
+  /** Runs git in `directory` of the root, as a fixed author so that commits work anywhere. */
+  function git(directory: string, ...gitArguments: string[]): void {
+    const author = ["-c", "user.name=test", "-c", "user.email=test@example.com"];
+    const options = ["-c", "init.defaultBranch=main", "-c", "protocol.file.allow=always"];
+    execFileSync("git", [...author, ...options, ...gitArguments], {
+      cwd: join(root, directory),
+      stdio: "ignore",
+    });
+  }
+
   it("list gives tracked and untracked files that .gitignore does not ignore", async () => {
     execFileSync("git", ["init", "--quiet"], { cwd: root });
     await put(".gitignore", "cjs/\nesm/\n*.log\n");
@@ -50,6 +60,71 @@ describe("SpawnedGitFileList", () => {
     const listing = await createGitFileList().list(join(root, "apps/web"));
 
     expect(listing).toEqual({ kind: "listed", paths: ["src/a.ts"] });
+  });
+
+  it("list is unavailable for a folder that the repository around it ignores", async () => {
+    git(".", "init", "--quiet");
+    await put(".gitignore", "build/\n");
+    await put("build/project/src/a.ts", "");
+
+    const listing = await createGitFileList().list(join(root, "build/project"));
+
+    expect(listing).toEqual({
+      kind: "unavailable",
+      reason: "the git repository around the folder ignores it",
+    });
+  });
+
+  it("list gives each file of a merge conflict once", async () => {
+    git(".", "init", "--quiet");
+    await put("a.ts", "base");
+    git(".", "add", "a.ts");
+    git(".", "commit", "--quiet", "-m", "base");
+    git(".", "checkout", "--quiet", "-b", "other");
+    await put("a.ts", "other");
+    git(".", "commit", "--quiet", "-am", "other");
+    git(".", "checkout", "--quiet", "main");
+    await put("a.ts", "main");
+    git(".", "commit", "--quiet", "-am", "main");
+    expect(() => git(".", "merge", "other")).toThrow();
+
+    const listing = await createGitFileList().list(root);
+
+    expect(listing).toEqual({ kind: "listed", paths: ["a.ts"] });
+  });
+
+  it("list gives a submodule and a nested repository as one entry each", async () => {
+    git(".", "init", "--quiet", "library");
+    await put("library/index.ts", "");
+    git("library", "add", "index.ts");
+    git("library", "commit", "--quiet", "-m", "library");
+    git(".", "init", "--quiet", "app");
+    git("app", "submodule", "add", "--quiet", "../library", "vendor/library");
+    git("app", "init", "--quiet", "nested");
+    await put("app/nested/b.ts", "");
+
+    const listing = await createGitFileList().list(join(root, "app"));
+
+    expect(listing.kind === "listed" && [...listing.paths].sort()).toEqual([
+      ".gitmodules",
+      "nested",
+      "vendor/library",
+    ]);
+  });
+
+  it("list gives nothing for a submodule that is not checked out", async () => {
+    git(".", "init", "--quiet", "library");
+    await put("library/index.ts", "");
+    git("library", "add", "index.ts");
+    git("library", "commit", "--quiet", "-m", "library");
+    git(".", "init", "--quiet", "app");
+    git("app", "submodule", "add", "--quiet", "../library", "vendor/library");
+    git("app", "commit", "--quiet", "-m", "app");
+    git(".", "clone", "--quiet", "app", "clone");
+
+    const listing = await createGitFileList().list(join(root, "clone/vendor/library"));
+
+    expect(listing).toEqual({ kind: "listed", paths: [] });
   });
 
   it("list is unavailable outside a git repository", async () => {

@@ -24,10 +24,13 @@ Run it with `npx` (or `pnpm dlx`, `yarn dlx`, `bunx`), not as a dependency: it u
 | `openapiTS(source, { transform })` calls                                               | When `transform` is the only callback and returns plain `ts.factory` types (or the helper constants), the returns become type text and `irCallbacks: true` is added.                                                                                                                                                                                                                                                    |
 
 In a git repository the tool reads the files git lists: tracked files, and untracked files that
-`.gitignore` does not ignore, so ignored build output (`cjs/`, `esm/`, `types/`, …) stays out.
-Outside a git repository (or without `git`) it reads the whole tree. Either way `node_modules`,
+`.gitignore` does not ignore, so ignored build output (`cjs/`, `esm/`, `types/`, …) stays out. A
+submodule or a nested repository is read the same way, with its own git and its own `.gitignore`.
+Outside a git repository, without `git` (or with git older than 2.31), and in a folder that the
+repository around it ignores, it reads the whole tree of that folder. Either way `node_modules`,
 `.git`, `dist` and the output folders `.next`, `.nuxt`, `.output`, `.svelte-kit`, `.turbo` and
-`coverage` are skipped, and links are not followed.
+`coverage` are skipped, and links are not followed. The log names the folders and how each one
+was read.
 
 ## What it leaves to you
 

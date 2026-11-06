@@ -31,7 +31,7 @@ npx openapi-typesafe-migrate --write  # change the files
 
 It renames the packages in every `package.json` and in pnpm catalogs, the module specifiers in your sources, and the `openapi-typescript` command in `package.json` scripts, shell scripts, CI files, Makefiles and Dockerfiles. It also writes the new spelling of [CLI flags that openapi-typescript renamed](#renamed-cli-flags). A legacy [`transform` callback](#legacy-callbacks) that only returns `ts.factory` types becomes type text with `irCallbacks: true`.
 
-It reads the files git lists, so files that `.gitignore` ignores (build output, for example) stay as they are.
+It reads the files git lists, so files that `.gitignore` ignores (build output, for example) stay as they are. Submodules and nested repositories are read with their own `.gitignore`.
 
 Whatever it cannot change safely, it lists with the file and line: version specs such as `latest`, `overrides`, renamed peer dependencies, `npx openapi-typescript@<version>`, deep imports, strings that equal a package name outside an import (an object key or a bundler option, for example), [swr-openapi](#swr-openapi), and callbacks it cannot rewrite. Every finding also goes to a log file whose path it prints. See the [tool’s README](https://github.com/openapi-typesafe/openapi-typesafe/tree/main/packages/openapi-typesafe-migrate) for details.
 
