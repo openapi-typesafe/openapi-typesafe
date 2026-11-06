@@ -43,6 +43,7 @@ describe("TypescriptSourceStringScanner", () => {
     ["a constant", 'export const label = "openapi-fetch";'],
     ["a second argument", 'vi.mock("other", "openapi-fetch");'],
     ["another method", 'logger.mock("openapi-fetch");'],
+    ["a JSDoc literal type", '/** @type {"openapi-fetch"} */\nlet name;'],
     ["a plain call", 'load("openapi-fetch");'],
     ["a literal type", 'type Name = "openapi-fetch";'],
     ["a JSX attribute", 'const a = <Badge name="openapi-fetch" />;'],
@@ -70,6 +71,52 @@ describe("TypescriptSourceStringScanner", () => {
     ].join("\n");
 
     expect(specifierFlags(text, "a.js")).toEqual([true, true]);
+  });
+
+  it("scan finds import types in every JSDoc block before a statement", () => {
+    const text = [
+      '/** @typedef {import("openapi-fetch").Client<any>} Client */',
+      "/** @type {Client} */",
+      "const client = 1;",
+    ].join("\n");
+
+    expect(specifierFlags(text, "a.js")).toEqual([true]);
+  });
+
+  it("scan finds import types in a JSDoc block before the doc block of a TypeScript export", () => {
+    const text = [
+      '/** @typedef {import("openapi-fetch").Client<any>} Client */',
+      "/** The client. */",
+      "export const client = 1;",
+    ].join("\n");
+
+    expect(specifierFlags(text)).toEqual([true]);
+  });
+
+  it.each([
+    ["inside an expression", 'const a = f(/** @type {import("openapi-fetch").Client} */ (x), 1);'],
+    [
+      "before a closing brace",
+      'function f() {\n  /** @typedef {import("openapi-fetch").C} C */\n}',
+    ],
+    ["at the end of the file", 'const a = 1;\n/** @typedef {import("openapi-fetch").C} C */\n'],
+    ["in a JSX expression", 'const a = <p>{/** @typedef {import("openapi-fetch").C} C */}</p>;'],
+  ])("scan finds an import type in a JSDoc block %s", (_position, text) => {
+    expect(specifierFlags(text, "a.jsx")).toEqual([true]);
+  });
+
+  it("scan skips JSDoc-like text in JSX", () => {
+    const text = 'const a = <p>/** @import x from "openapi-fetch" */</p>;';
+
+    expect(specifierFlags(text, "a.jsx")).toEqual([]);
+  });
+
+  it("scan gives the offsets of an import type in a later JSDoc block", () => {
+    const text = 'const a = 1;\n/** @typedef {import("openapi-fetch").C} C */\n';
+
+    const found = scanner.scan(text, "a.js").filter((string) => string.value === PACKAGE);
+
+    expect(found.map((string) => text.slice(string.start, string.end))).toEqual([PACKAGE]);
   });
 
   it("scan gives the offsets of the value inside the quotes", () => {

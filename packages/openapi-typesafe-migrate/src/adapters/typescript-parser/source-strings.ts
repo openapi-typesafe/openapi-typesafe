@@ -70,9 +70,15 @@ function isModuleSpecifier(literal: ts.StringLiteralLike): boolean {
   return ts.isExternalModuleReference(parent);
 }
 
-function literalStrings(file: ts.SourceFile, offset: number): Map<number, SourceString> {
-  const found = new Map<number, SourceString>();
-  const visitedDocs = new Set<ts.Node>();
+type FoundStrings = Map<number, SourceString>;
+
+/** Adds the string literals under `root` to `found`; `file` starts at `offset` in the file. */
+function collectStrings(
+  root: ts.Node,
+  file: ts.SourceFile,
+  offset: number,
+  found: FoundStrings,
+): void {
   const visit = (node: ts.Node): void => {
     if (ts.isStringLiteralLike(node)) {
       // The value starts after the opening quote and ends before the closing one.
@@ -85,15 +91,67 @@ function literalStrings(file: ts.SourceFile, offset: number): Map<number, Source
         isModuleSpecifier: isModuleSpecifier(node),
       });
     }
-    for (const doc of ts.getJSDocCommentsAndTags(node)) {
-      if (!visitedDocs.has(doc)) {
-        visitedDocs.add(doc);
-        ts.forEachChild(doc, visit);
-      }
-    }
     ts.forEachChild(node, visit);
   };
+  visit(root);
+}
+
+/**
+ * Every comment of a parsed file. Comments are the trivia in front of tokens, so the ranges in
+ * front of each token cover them all, also where no node owns a JSDoc block. A trailing range
+ * ends at the first line break and a leading one starts after it, so a token needs both. JSX text
+ * is not trivia, and the JSDoc nodes are read from their comments, so neither is walked.
+ */
+function commentRanges(file: ts.SourceFile): ts.CommentRange[] {
+  const ranges = new Map<number, ts.CommentRange>();
+  const add = (found: ts.CommentRange[] | undefined): void => {
+    for (const range of found ?? []) {
+      ranges.set(range.pos, range);
+    }
+  };
+  const visit = (node: ts.Node): void => {
+    if (node.kind === ts.SyntaxKind.JsxText) {
+      return;
+    }
+    const children = node.getChildren(file).filter((child) => !ts.isJSDoc(child));
+    if (children.length === 0) {
+      add(ts.getTrailingCommentRanges(file.text, node.pos));
+      add(ts.getLeadingCommentRanges(file.text, node.pos));
+    }
+    children.forEach(visit);
+  };
   visit(file);
+  return [...ranges.values()];
+}
+
+const JSDOC_START = "/**";
+const EMPTY_BLOCK_COMMENT = "/**/";
+/** A statement for an isolated JSDoc block to belong to, so that the parser reads the block. */
+const JSDOC_HOST = "\nvar host;";
+const JSDOC_FILE_NAME = "jsdoc.js";
+
+/**
+ * Adds the strings of one JSDoc block. The parser reads only the last block before a node it
+ * keeps JSDoc for, so each block is parsed on its own, in front of a statement of its own.
+ */
+function collectJsDocStrings(comment: string, offset: number, found: FoundStrings): void {
+  const text = `${comment}${JSDOC_HOST}`;
+  const file = ts.createSourceFile(JSDOC_FILE_NAME, text, ts.ScriptTarget.Latest, true);
+  const host = file.statements[0] as ts.Statement;
+  for (const doc of ts.getJSDocCommentsAndTags(host)) {
+    collectStrings(doc, file, offset, found);
+  }
+}
+
+function literalStrings(file: ts.SourceFile, offset: number): FoundStrings {
+  const found: FoundStrings = new Map();
+  collectStrings(file, file, offset, found);
+  for (const range of commentRanges(file)) {
+    const comment = file.text.slice(range.pos, range.end);
+    if (comment.startsWith(JSDOC_START) && comment !== EMPTY_BLOCK_COMMENT) {
+      collectJsDocStrings(comment, offset + range.pos, found);
+    }
+  }
   return found;
 }
 
