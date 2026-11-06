@@ -5,7 +5,7 @@ description: A type-safe fetch client for OpenAPI, with typed paths, parameters,
 
 # openapi-typesafe-fetch
 
-openapi-typesafe-fetch is a type-safe fetch client that pulls in your OpenAPI schema. It weighs about **8 kB** minified, has virtually zero runtime, and works with React, Vue, Svelte, or vanilla JS. It is a drop-in successor to [openapi-fetch](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch) 0.17: change the import and nothing else.
+openapi-typesafe-fetch is a type-safe fetch client that pulls in your OpenAPI schema. It weighs about **8.6 kB** minified (3.4 kB gzipped), has virtually zero runtime, and works with React, Vue, Svelte, or vanilla JS. It is a drop-in successor to [openapi-fetch](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch) 0.17: change the import and nothing else.
 
 The syntax is inspired by popular libraries like react-query or Apollo client, but without all the bells and whistles and in a small package.
 
@@ -46,7 +46,7 @@ Notice there are no generics, and no manual typing. Your endpoint’s request an
 - No manual typing of your API
 - Eliminates `any` types that hide bugs
 - Also eliminates `as` type overrides that can also hide bugs
-- All of this in an **8 kB** client package
+- All of this in an **8.6 kB** (minified) client package
 
 ## Setup
 
@@ -238,6 +238,43 @@ overload TypeScript checks the argument count before the argument types.
 With TypeScript 7, `Parameters<typeof client.request>` over hundreds of paths exceeds the
 compiler's limit (TS2859, excessive complexity). Use the method of the call instead, as in
 `Parameters<typeof client.GET>`.
+
+### Libraries built on openapi-fetch
+
+Packages such as [swr-openapi](https://github.com/htunnicliff/swr-openapi) import their client type
+from `openapi-fetch`. They need this package under that name, so alias it:
+
+::: code-group
+
+```json [npm / bun]
+{
+  "overrides": {
+    "openapi-fetch": "npm:openapi-typesafe-fetch@^1.0.0"
+  }
+}
+```
+
+```yaml [pnpm-workspace.yaml]
+overrides:
+  openapi-fetch: npm:openapi-typesafe-fetch@^1.0.0
+```
+
+```json [yarn]
+{
+  "resolutions": {
+    "openapi-fetch": "npm:openapi-typesafe-fetch@^1.0.0"
+  }
+}
+```
+
+:::
+
+Without the alias the package manager installs openapi-fetch for the library, and passing this
+client to it fails with `Argument of type 'Client<paths>' is not assignable to parameter of type
+'Client<{}>'` (TS2345). TypeScript infers the paths of a generic client type only from the same
+declaration, so any client from another package fails there, openapi-fetch 0.15 against
+swr-openapi's openapi-fetch 0.17 too. Types you write yourself in openapi-fetch's shape (a copied
+`InitParam`, a path-based client type) need no alias.
 
 ## Support
 

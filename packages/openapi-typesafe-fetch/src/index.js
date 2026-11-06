@@ -2,9 +2,12 @@
 const PATH_PARAM_RE = /\{[^{}]+\}/g;
 /** A `.` or `..` path segment; URLs resolve it, so a parameter value could leave its path (#2483). */
 const DOT_SEGMENT_RE = /(^|\/)\.\.?(\/|$)/;
+/** Where the path of a URL ends: its query or fragment, which have no segments. */
+const QUERY_OR_FRAGMENT_RE = /[?#]/;
 /** Any JSON media type: `application/json`, `application/problem+json`, with or without parameters. */
 const JSON_MEDIA_TYPE_RE = /json/i;
-const FORM_MEDIA_TYPE = "application/x-www-form-urlencoded";
+/** `application/x-www-form-urlencoded`, with or without parameters such as `charset`. */
+const FORM_MEDIA_TYPE_RE = /^application\/x-www-form-urlencoded(;|$)/i;
 /** `multipart/form-data`, with or without parameters. */
 const MULTIPART_MEDIA_TYPE_RE = /^multipart\/form-data(;|$)/i;
 const NESTED_FORM_VALUE_MESSAGE = "Nested form values need your own `bodySerializer()`.";
@@ -672,7 +675,8 @@ export function defaultPathSerializer(pathname, pathParams) {
     nextURL = nextURL.replace(match, style === "label" ? `.${encodeURIComponent(value)}` : encodeURIComponent(value));
   }
   // `encodeURIComponent` keeps dots, so a value `..` would move the request up a path level (ADR-013).
-  if (DOT_SEGMENT_RE.test(nextURL)) {
+  // Only the path is checked: before a query (`/a/{id}?v=2`), `$` did not match after `..`.
+  if (DOT_SEGMENT_RE.test(nextURL.split(QUERY_OR_FRAGMENT_RE, 1)[0])) {
     throw new Error(`Dot path segment in ${nextURL}`);
   }
   return nextURL;
@@ -694,15 +698,24 @@ function isRawBody(body) {
 
 /**
  * A form body. A nested object has no standard form encoding (servers read `a[b]`, `a.b` or JSON),
- * and `URLSearchParams` wrote it as `[object Object]` (ADR-013, decision 7).
+ * and `URLSearchParams` wrote it as `[object Object]` (ADR-013, decision 7). `null` and `undefined`
+ * fields are left out, as in a multipart body; `URLSearchParams` sent them as the text "null" and
+ * "undefined" (ADR-030). A string or a list of pairs is form data already.
  */
 function formBody(body) {
-  for (const value of Object.values(body)) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return new URLSearchParams(body).toString();
+  }
+  const form = new URLSearchParams();
+  for (const [name, value] of Object.entries(body)) {
     if (value && typeof value === "object" && !Array.isArray(value)) {
       throw new Error(NESTED_FORM_VALUE_MESSAGE);
     }
+    if (value != null) {
+      form.append(name, value);
+    }
   }
-  return new URLSearchParams(body).toString();
+  return form.toString();
 }
 
 /**
@@ -735,14 +748,11 @@ export function defaultBodySerializer(body, headers) {
   if (isRawBody(body)) {
     return body;
   }
-  const contentType = headers
-    ? // `typeof`, not `instanceof Function`: headers from another realm (iframe, `node:vm`) have a
-      // `get` that is not an instance of this realm's Function (upstream #2637).
-      typeof headers.get === "function"
-      ? (headers.get("Content-Type") ?? headers.get("content-type"))
-      : (headers["Content-Type"] ?? headers["content-type"])
-    : undefined;
-  if (contentType === FORM_MEDIA_TYPE) {
+  // Headers with a `get` are read directly: headers from another realm (iframe, `node:vm`) may have
+  // nothing else (upstream #2637). A record or a list of pairs is read through `Headers`, which
+  // matches the name in any letter case.
+  const contentType = headers && (isHeaders(headers) ? headers : mergeHeaders(headers)).get("Content-Type");
+  if (FORM_MEDIA_TYPE_RE.test(contentType)) {
     return formBody(body);
   }
   if (body && typeof body === "object" && MULTIPART_MEDIA_TYPE_RE.test(contentType)) {
@@ -786,7 +796,8 @@ export function mergeHeaders(...allHeaders) {
     if (!h || typeof h !== "object") {
       continue;
     }
-    const iterator = isHeaders(h) ? h.entries() : Object.entries(h);
+    // A list of pairs (`[["x-t", "1"]]`) is a `HeadersInit` too; `Headers` joins a repeated name.
+    const iterator = isHeaders(h) ? h.entries() : Symbol.iterator in h ? new Headers(h).entries() : Object.entries(h);
     for (const [k, v] of iterator) {
       if (v === null) {
         finalHeaders.delete(k);
