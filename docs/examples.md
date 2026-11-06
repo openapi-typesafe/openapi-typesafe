@@ -412,13 +412,13 @@ describe("My API test", () => {
   it("mocks correctly", async () => {
     mockResponses({
       "/users/{user_id}": {
-        // OK: Correct 200 response
+        // the body matches the 200 response of the schema
         get: { status: 200, body: { id: "user-id", name: "User Name" } },
-        // OK: Correct 403 response
+        // the body matches the 403 response; a 204 mock has no body
         delete: { status: 403, body: { code: "403", message: "Unauthorized" } },
       },
       "/users": {
-        // OK: Correct 201 response
+        // the body matches the 201 response
         put: { status: 201, body: { status: "success" } },
       },
     });
@@ -448,7 +448,7 @@ _Note: the test needs `globals: true` in the Vitest config and a setup file that
 And the magic that produces this would live in a `test/utils.ts` file that can be copy + pasted where desired (hidden for simplicity):
 
 <details>
-<summary>📄 <strong>test/utils.ts</strong></summary>
+<summary><strong>test/utils.ts</strong></summary>
 
 ::: code-group
 
