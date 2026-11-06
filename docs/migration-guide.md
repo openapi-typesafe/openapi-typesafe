@@ -18,6 +18,8 @@ All four packages have one version number. The generated types are the same, the
 
 Coming from openapi-typescript **6.x**? Follow the [upstream guide to 7.x](https://openapi-ts.dev/migration-guide) first, then this one.
 
+Coming from openapi-fetch **older than 0.17** or openapi-react-query **older than 0.5.4**? Upgrade them upstream first (`openapi-fetch@0.17`, `openapi-react-query@0.5.4`), run your type check and tests, then follow this guide. openapi-typesafe-fetch continues openapi-fetch 0.17 and openapi-typesafe-react-query continues openapi-react-query 0.5.4, so the changes before those versions are upstream's and are listed in the [openapi-fetch changelog](https://github.com/openapi-ts/openapi-typescript/blob/main/packages/openapi-fetch/CHANGELOG.md) and the [openapi-react-query changelog](https://github.com/openapi-ts/openapi-typescript/blob/main/packages/openapi-react-query/CHANGELOG.md). For example, openapi-fetch 0.14 dropped the minified build (`dist/index.min.js`), and openapi-react-query 0.5.4 needs `@tanstack/react-query` 5.80 or newer. The `openapi-react-query@1.0.0` on npm is older than 0.5.1; upgrade it to 0.5.4 too.
+
 ## 1. Run the migration tool
 
 In the project root, with a clean git tree:
@@ -29,7 +31,9 @@ npx openapi-typesafe-migrate --write  # change the files
 
 It renames the packages in every `package.json` and in pnpm catalogs, the module specifiers in your sources, and the `openapi-typescript` command in `package.json` scripts, shell scripts, CI files, Makefiles and Dockerfiles. It also writes the new spelling of [CLI flags that openapi-typescript renamed](#renamed-cli-flags). A legacy [`transform` callback](#legacy-callbacks) that only returns `ts.factory` types becomes type text with `irCallbacks: true`.
 
-Whatever it cannot change safely, it lists with the file and line: version specs such as `latest`, `overrides`, renamed peer dependencies, `npx openapi-typescript@<version>`, deep imports, and callbacks it cannot rewrite. Every finding also goes to a log file whose path it prints. See the [tool’s README](https://github.com/openapi-typesafe/openapi-typesafe/tree/main/packages/openapi-typesafe-migrate) for details.
+It reads the files git lists, so files that `.gitignore` ignores (build output, for example) stay as they are.
+
+Whatever it cannot change safely, it lists with the file and line: version specs such as `latest`, `overrides`, renamed peer dependencies, `npx openapi-typescript@<version>`, deep imports, strings that equal a package name outside an import (an object key or a bundler option, for example), [swr-openapi](#swr-openapi), and callbacks it cannot rewrite. Every finding also goes to a log file whose path it prints. See the [tool’s README](https://github.com/openapi-typesafe/openapi-typesafe/tree/main/packages/openapi-typesafe-migrate) for details.
 
 Prefer to do it by hand? Rename the packages in the table above in `package.json`, imports and scripts; nothing else is required.
 
@@ -39,6 +43,8 @@ Prefer to do it by hand? Rename the packages in the table above in `package.json
 npm install            # or pnpm install, yarn, bun install
 npm run generate       # your script that runs openapi-typesafe
 ```
+
+With Yarn 4 and `enableImmutableInstalls` (on by default in CI), this first install must change the lockfile: run `yarn install --no-immutable` once and commit `yarn.lock`.
 
 Commit the regenerated files once. Unless one of the [output fixes](#output-fixes) applies, the only changes are the comments that name the generator, first the header line:
 
@@ -76,6 +82,10 @@ The generator does not need the `typescript` package. It prints types itself, so
 ### Legacy callbacks
 
 `transform`, `postTransform` and `transformProperty` that work with TypeScript nodes keep working in 1.x, with a deprecation warning, as long as a TypeScript JavaScript API can be loaded: `typescript` 6 or earlier, or `@typescript/typescript6` in a TypeScript 7 project. Move them to [IR callbacks](/node#ir-callbacks) (`irCallbacks: true`), which return IR or plain type text such as `"Date | null"`. The TypeScript-node forms are removed in 2.0.
+
+### swr-openapi
+
+[swr-openapi](https://github.com/htunnicliff/swr-openapi) 5 has `openapi-fetch` (0.15 or newer) as a peer dependency and takes its types from it. Keep `openapi-fetch` installed next to `openapi-typesafe-fetch`: the migration tool renames it, so add it back to `devDependencies` if your package manager does not install peer dependencies. Then pass swr-openapi the `openapi-typesafe-fetch` client. The tool's report reminds you of this when it finds swr-openapi.
 
 ### Renamed CLI flags
 

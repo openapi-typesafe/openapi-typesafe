@@ -287,7 +287,7 @@ prefixItems:
 
 OpenAPI’s composition tools (`oneOf`/`anyOf`/`allOf`) are powerful tools for reducing the amount of code in your schema while maximizing flexibility. TypeScript unions, however, don’t provide [XOR behavior](https://en.wikipedia.org/wiki/Exclusive_or), which means they don’t map directly to `oneOf`. For that reason, it’s recommended to use `oneOf` by itself, and not combined with other composition methods or other properties. e.g.:
 
-#### Wrong: Bad
+#### Avoid
 
 ::: code-group
 
@@ -329,7 +329,7 @@ This generates the following type which mixes both TypeScript unions and interse
 
 :::
 
-#### OK: Better
+#### Prefer
 
 ::: code-group
 
@@ -436,7 +436,7 @@ Every other array keeps its type.
 components:
   schemas:
     DefType:
-      type: object # OK: `type: "object"` is OK to define $defs on
+      type: object # an object schema keeps its $defs
       $defs:
         myDefType:
           type: string
@@ -462,7 +462,7 @@ export interface components {
       };
     };
     MyType: {
-      myType?: NonNullable<components["schemas"]["DefType"]["$defs"]>["myDefType"]; // OK: Works
+      myType?: NonNullable<components["schemas"]["DefType"]["$defs"]>["myDefType"]; // works
     };
   };
 }
@@ -478,7 +478,7 @@ However, this won’t:
 components:
   schemas:
     DefType:
-      type: string # Wrong: this won’t keep its $defs
+      type: string # a string schema loses its $defs
       $defs:
         myDefType:
           type: string
@@ -499,7 +499,7 @@ export interface components {
   schemas: {
     DefType: string;
     MyType: {
-      myType?: NonNullable<components["schemas"]["DefType"]["$defs"]>["myDefType"]; // Wrong: Property '$defs' does not exist on type 'String'.
+      myType?: NonNullable<components["schemas"]["DefType"]["$defs"]>["myDefType"]; // Error: Property '$defs' does not exist on type 'String'.
     };
   };
 }

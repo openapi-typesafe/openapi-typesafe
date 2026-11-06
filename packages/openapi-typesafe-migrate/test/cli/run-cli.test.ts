@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectFiles } from "../../src/application/ports.js";
+import type { Logger, ProjectFiles } from "../../src/application/ports.js";
 import { HELP_TEXT } from "../../src/cli/cli-text.js";
 import { type CliDependencies, EXIT_CODES, runCli } from "../../src/cli/run-cli.js";
 import { InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
+import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
 import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
 
@@ -13,6 +14,7 @@ function setUp(createFiles: (root: string) => ProjectFiles) {
     stdout: "",
     stderr: "",
     roots: [] as string[],
+    fileLoggers: [] as Logger[],
     logPaths: [] as (string | undefined)[],
   };
   const logger = new RecordingLogger();
@@ -25,8 +27,9 @@ function setUp(createFiles: (root: string) => ProjectFiles) {
     writeStderr: (text) => {
       output.stderr += text;
     },
-    createFiles: (root) => {
+    createFiles: (root, filesLogger) => {
       output.roots.push(root);
+      output.fileLoggers.push(filesLogger);
       return createFiles(root);
     },
     createLogger: (path) => {
@@ -34,6 +37,7 @@ function setUp(createFiles: (root: string) => ProjectFiles) {
       return { logger, path: path ?? LOG_PATH };
     },
     rewriter: new StubCallbackRewriter(),
+    scanner: new QuotedStringScanner(),
     resolvePath: (cwd, path) => (path === "." ? cwd : `${cwd}/${path}`),
   };
   return { dependencies, output, logger };
@@ -67,10 +71,11 @@ describe("runCli", () => {
 
   it("runCli migrates the current directory on a dry run and names the log", async () => {
     const files = project();
-    const { dependencies, output } = setUp(() => files);
+    const { dependencies, output, logger } = setUp(() => files);
 
     expect(await runCli([], dependencies)).toBe(EXIT_CODES.success);
     expect(output.roots).toEqual(["/work"]);
+    expect(output.fileLoggers).toEqual([logger]);
     expect(output.stdout).toContain('"openapi-fetch" → "openapi-typesafe-fetch"');
     expect(output.stdout).toContain("Dry run");
     expect(output.stdout.endsWith(`Log: ${LOG_PATH}\n`)).toBe(true);

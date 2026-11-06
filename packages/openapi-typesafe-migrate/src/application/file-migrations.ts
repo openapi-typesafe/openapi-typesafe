@@ -3,12 +3,13 @@ import { migratePackageManifest } from "../domain/manifest-migration.js";
 import type { Change, FileMigration, ManualStep } from "../domain/migration-findings.js";
 import { migrateModuleSpecifiers, SOURCE_EXTENSIONS } from "../domain/source-migration.js";
 import { migrateWorkspaceCatalogs } from "../domain/workspace-catalog-migration.js";
-import type { CallbackRewriter } from "./ports.js";
+import type { CallbackRewriter, SourceStringScanner } from "./ports.js";
 
 /** What a migration of one kind of file needs besides the text. */
 export interface MigrationContext {
   readonly version: string;
   readonly rewriter: CallbackRewriter;
+  readonly scanner: SourceStringScanner;
 }
 
 /** One kind of file the migration knows, and how to migrate it. */
@@ -55,7 +56,9 @@ const FILE_KINDS: readonly FileKind[] = [
   {
     matches: (path) => SOURCE_EXTENSIONS.has(extensionOf(path)),
     migrate: (text, path, context) =>
-      chain(migrateModuleSpecifiers(text), (renamed) => context.rewriter.rewrite(renamed, path)),
+      chain(migrateModuleSpecifiers(text, context.scanner.scan(text, path)), (renamed) =>
+        context.rewriter.rewrite(renamed, path),
+      ),
   },
   {
     matches: (path) => SCRIPT_EXTENSIONS.has(extensionOf(path)) || SCRIPT_NAMES.has(baseName(path)),

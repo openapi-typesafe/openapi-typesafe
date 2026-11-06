@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { migrateProject } from "../../src/application/migrate-project.js";
 import { InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
+import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
 import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
 
@@ -17,6 +18,7 @@ function setUp(files: Readonly<Record<string, string>> = PROJECT) {
   return {
     files: new InMemoryProjectFiles(files),
     rewriter: new StubCallbackRewriter(),
+    scanner: new QuotedStringScanner(),
     logger: new RecordingLogger(),
   };
 }

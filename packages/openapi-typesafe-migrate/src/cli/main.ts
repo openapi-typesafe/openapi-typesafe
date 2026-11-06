@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { createGitFileList } from "../adapters/git-file-list/git-file-list.js";
 import { createJsonLinesLogger } from "../adapters/json-lines-logger/json-lines-logger.js";
 import { createNodeProjectFiles } from "../adapters/node-project-files/node-project-files.js";
 import { createTypescriptCallbackRewriter } from "../adapters/typescript-parser/rewriter.js";
+import { createTypescriptStringScanner } from "../adapters/typescript-parser/source-strings.js";
 import { type CliDependencies, runCli } from "./run-cli.js";
 
 /**
@@ -36,9 +38,10 @@ const dependencies: CliDependencies = {
   cwd: process.cwd(),
   writeStdout: (text) => process.stdout.write(text),
   writeStderr: (text) => process.stderr.write(text),
-  createFiles: createNodeProjectFiles,
+  createFiles: (root, logger) => createNodeProjectFiles(root, { git: createGitFileList(), logger }),
   createLogger,
   rewriter: createTypescriptCallbackRewriter(),
+  scanner: createTypescriptStringScanner(),
   resolvePath: resolve,
 };
 

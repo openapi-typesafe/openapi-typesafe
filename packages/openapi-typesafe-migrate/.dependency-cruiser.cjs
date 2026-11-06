@@ -5,7 +5,7 @@
  *   adapters/  ->  application/ ports, domain/
  */
 
-/** Only the callback rewriter may load the TypeScript parser. */
+/** Only the parser adapter (callback rewriter and string scanner) may load TypeScript. */
 const PARSER_ADAPTER = "^src/adapters/typescript-parser";
 
 /** @type {import('dependency-cruiser').IConfiguration} */

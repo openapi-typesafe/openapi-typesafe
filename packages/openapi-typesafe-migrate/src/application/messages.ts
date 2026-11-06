@@ -1,5 +1,6 @@
 import { assertNever } from "../domain/assert-never.js";
 import type { Change, ManualStep, TransformKeepReason } from "../domain/migration-findings.js";
+import { PACKAGE_RENAMES } from "../domain/package-names.js";
 
 /** The user-facing text of the report (CODING_PRINCIPLES 7.8: kept apart from the logic). */
 
@@ -37,8 +38,20 @@ const KEEP_REASONS: Readonly<Record<TransformKeepReason, string>> = {
 const PEER_NOTE = "users of this package must switch too (a breaking change for them)";
 const PINNED_NOTE = "change it to openapi-typesafe@<version>";
 const DEEP_IMPORT_NOTE = "imports a file inside the package; check that it exists";
+const STRING_NOTE = "is a string, not a module specifier, so it was kept";
+const STRING_FIX_NOTE = "if it names the package, change it to";
 const KEPT_NOTE = `it works, with a deprecation warning. See ${IR_CALLBACKS_GUIDE}`;
 const LEGACY_CALLBACK_NOTE = `receives TypeScript nodes (deprecated). See ${IR_CALLBACKS_GUIDE}`;
+
+function oldPeerMessage(step: Extract<ManualStep, { kind: "old-peer-needed" }>): string {
+  const { dependent, peer, range } = step;
+  const successor = PACKAGE_RENAMES.get(peer) ?? peer;
+  return (
+    `${dependent} takes its types from ${peer}@${range}, its peer dependency: keep ${peer} ` +
+    `installed next to ${successor} (add it back to devDependencies if your package manager ` +
+    `does not install peers) and pass ${dependent} the ${successor} client`
+  );
+}
 
 export function manualStepMessage(step: ManualStep): string {
   switch (step.kind) {
@@ -54,6 +67,10 @@ export function manualStepMessage(step: ManualStep): string {
       return `${step.location} runs a pinned openapi-typescript@<version>: ${PINNED_NOTE}`;
     case "deep-import":
       return `line ${step.line}: "${step.specifier}" ${DEEP_IMPORT_NOTE}`;
+    case "string-names-package":
+      return `line ${step.line}: "${step.value}" ${STRING_NOTE}; ${STRING_FIX_NOTE} "${step.to}"`;
+    case "old-peer-needed":
+      return oldPeerMessage(step);
     case "transform-not-rewritten":
       return `line ${step.line}: transform kept (${KEEP_REASONS[step.reason]}); ${KEPT_NOTE}`;
     case "legacy-callback":

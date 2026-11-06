@@ -1158,7 +1158,7 @@ Annotated: { kind?: "annotated" } & components["schemas"]["Resource"] & { // [!c
   `null` stays outside.
 - With `--immutable` the index signature is `readonly`.
 
-
+### makePathsEnum
 
 This option is useful for generating an enum for all paths in the schema. This can be useful to use the paths from the schema in your code.
 
@@ -1248,14 +1248,14 @@ import type { paths } from "./my-openapi-3-schema";
 
 const client = createClient<paths>({ baseUrl: "https://api.example.com" });
 
-// OK: TypeScript error: 'id' is readOnly and not allowed in request body
 await client.POST("/users", {
+  // Error: 'id' is readOnly, so a request body cannot have it
   body: { id: 123, name: "Alice", password: "secret" },
 });
 
-// OK: TypeScript error: 'password' is writeOnly and not available in response
 const { data } = await client.GET("/users/{id}", { params: { path: { id: 1 } } });
-console.log(data?.password); // Error!
+// Error: 'password' is writeOnly, so the response data does not have it
+console.log(data?.password);
 ```
 
 :::

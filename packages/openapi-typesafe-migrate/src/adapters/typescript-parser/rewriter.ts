@@ -9,6 +9,7 @@ import {
   unchanged,
 } from "../../domain/migration-findings.js";
 import { collectFileNames, type FileNames } from "./file-names.js";
+import { plainScriptKind } from "./script-regions.js";
 import { returnEdits, returnedExpressions, type TextEdit } from "./transform-returns.js";
 
 /**
@@ -26,22 +27,6 @@ interface CallFindings {
   readonly edits: TextEdit[];
   readonly changes: Change[];
   readonly manualSteps: ManualStep[];
-}
-
-const SCRIPT_KINDS: ReadonlyMap<string, ts.ScriptKind> = new Map([
-  [".ts", ts.ScriptKind.TS],
-  [".mts", ts.ScriptKind.TS],
-  [".cts", ts.ScriptKind.TS],
-  [".tsx", ts.ScriptKind.TSX],
-  [".js", ts.ScriptKind.JS],
-  [".mjs", ts.ScriptKind.JS],
-  [".cjs", ts.ScriptKind.JS],
-  [".jsx", ts.ScriptKind.JSX],
-]);
-
-/** Single-file components (`.vue`, `.svelte`, `.astro`) are not plain scripts; they are left. */
-function scriptKindOf(path: string): ts.ScriptKind | undefined {
-  return SCRIPT_KINDS.get(path.slice(path.lastIndexOf(".")));
 }
 
 function propertyNamed(
@@ -223,7 +208,8 @@ function findCallFindings(file: ts.SourceFile, text: string, names: FileNames): 
 
 class TypescriptCallbackRewriter implements CallbackRewriter {
   rewrite(text: string, path: string): FileMigration {
-    const scriptKind = scriptKindOf(path);
+    // Single-file components (`.vue`, `.svelte`, `.astro`) are not plain scripts; they are left.
+    const scriptKind = plainScriptKind(path);
     if (scriptKind === undefined) {
       return unchanged(text);
     }
