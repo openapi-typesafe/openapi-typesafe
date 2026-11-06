@@ -1,3 +1,4 @@
+import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { GlobalContext, LegacyCallbackName } from "../types.js";
 import { defaultLogger } from "./default-ports.js";
 
@@ -25,5 +26,7 @@ export function warnLegacyCallback(ctx: GlobalContext, name: LegacyCallbackName)
     return;
   }
   ctx.legacyCallbackWarnings.add(name);
-  (ctx.logger ?? defaultLogger(ctx.silent)).warn(message(name));
+  (ctx.logger ?? defaultLogger(ctx.silent)).warn(
+    warningText(message(name), WARNING_CODES.LEGACY_CALLBACK_DEPRECATED),
+  );
 }

@@ -134,7 +134,7 @@ The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plu
 
 ### IR callbacks
 
-With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, prints a deprecation warning once per run, and is removed in 2.0. The examples below use the IR form.
+With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, prints a deprecation warning (`LEGACY_CALLBACK_DEPRECATED`) once per run, and is removed in 2.0. The examples below use the IR form.
 
 - A type result is an IR type (from the helpers, such as `tsUnion([STRING, NULL])`) or a string of TypeScript type text, printed as written.
 - `transform` may also return `{ schema, questionToken: true }` to make the property optional.

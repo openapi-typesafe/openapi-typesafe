@@ -55,6 +55,12 @@ discriminator property: `@description discriminator enum property added by opena
 
 If you check generated files in CI with `--check`, it fails until this commit lands, because the files on disk still carry the old header.
 
+The run may print warnings that openapi-typescript did not print, while the types stay the same.
+Each one ends with a code, such as `PATH_TEMPLATES_IDENTICAL` for paths that differ only in their
+parameter names, or `LINT_PROBLEM` with the rule `operation-operationId-unique` for a repeated
+`operationId`. A warning does not change the output or the exit code; the
+[list of warnings](./cli.md#warnings) says what each one means.
+
 ## 3. Type check and test
 
 Run your type check and tests. For the generator and the client, nothing else changes, with the exceptions below.

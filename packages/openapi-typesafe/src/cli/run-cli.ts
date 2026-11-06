@@ -1,5 +1,6 @@
 import type { Logger } from "../application/ports/logger.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
+import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { SchemaSource } from "../types.js";
 import { ineffectiveFlagNotices, parseCliArguments } from "./cli-arguments.js";
 import type { CliDependencies } from "./cli-dependencies.js";
@@ -84,7 +85,10 @@ async function generate(run: CliRun): Promise<unknown[]> {
   }
   if (run.args.input) {
     run.deps.logger.warn(
-      "APIs are specified both in Redocly Config and CLI argument. Only using Redocly config.",
+      warningText(
+        "APIs are specified both in Redocly Config and CLI argument. Only using Redocly config.",
+        WARNING_CODES.CLI_INPUT_IGNORED,
+      ),
     );
   }
   return generateRedoclyApis(run, redocly);

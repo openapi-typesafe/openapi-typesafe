@@ -10,6 +10,7 @@ import {
 import type { Logger } from "../../application/ports/logger.js";
 import type { SchemaLoader, SchemaLoadRequest } from "../../application/ports/schema-loader.js";
 import { withStackOverflowReportedAsync } from "../../application/stack-overflow.js";
+import { WARNING_CODES, warningText } from "../../domain/warnings.js";
 import type { OpenAPI3 } from "../../types.js";
 import { repairBundledRefs } from "./bundled-ref-repair.js";
 import { findMalformedRefs, malformedRefsError } from "./malformed-refs.js";
@@ -243,13 +244,21 @@ class RedoclySchemaLoader implements SchemaLoader {
         errorMessages.push(message);
         this.#options.logger.error(message);
       } else {
-        this.#options.logger.warn(message);
+        this.#options.logger.warn(lintWarningText(problem));
       }
     }
     if (errorMessages.length > 0) {
       throw schemaInvalidError(errorMessages);
     }
   }
+}
+
+/** A lint warning names its rule, which `redocly.yaml` can turn off, and ends with its code. */
+function lintWarningText(problem: NormalizedProblem): string {
+  return warningText(
+    `${problemMessage(problem)}, rule ${problem.ruleId}`,
+    WARNING_CODES.LINT_PROBLEM,
+  );
 }
 
 function problemMessage(problem: NormalizedProblem): string {
