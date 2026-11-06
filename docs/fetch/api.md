@@ -310,8 +310,9 @@ const { data, error } = await client.GET("/users/{id}", {
 ::: warning
 
 The default path serializer rejects a request when a path parameter makes a `.` or `..` path segment (for
-example `{ id: ".." }`): URL resolution would send it to another endpoint. A custom `pathSerializer` is not
-checked.
+example `{ id: ".." }`): URL resolution would send it to another endpoint. This holds for a path with a
+query string or fragment in its template too (`/echo/{id}?v=2`); the query and fragment themselves are not
+checked. A custom `pathSerializer` is not checked.
 
 :::
 

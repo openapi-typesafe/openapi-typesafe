@@ -2,6 +2,8 @@
 const PATH_PARAM_RE = /\{[^{}]+\}/g;
 /** A `.` or `..` path segment; URLs resolve it, so a parameter value could leave its path (#2483). */
 const DOT_SEGMENT_RE = /(^|\/)\.\.?(\/|$)/;
+/** Where the path of a URL ends: its query or fragment, which have no segments. */
+const QUERY_OR_FRAGMENT_RE = /[?#]/;
 /** Any JSON media type: `application/json`, `application/problem+json`, with or without parameters. */
 const JSON_MEDIA_TYPE_RE = /json/i;
 const FORM_MEDIA_TYPE = "application/x-www-form-urlencoded";
@@ -672,7 +674,8 @@ export function defaultPathSerializer(pathname, pathParams) {
     nextURL = nextURL.replace(match, style === "label" ? `.${encodeURIComponent(value)}` : encodeURIComponent(value));
   }
   // `encodeURIComponent` keeps dots, so a value `..` would move the request up a path level (ADR-013).
-  if (DOT_SEGMENT_RE.test(nextURL)) {
+  // Only the path is checked: before a query (`/a/{id}?v=2`), `$` did not match after `..`.
+  if (DOT_SEGMENT_RE.test(nextURL.split(QUERY_OR_FRAGMENT_RE, 1)[0])) {
     throw new Error(`Dot path segment in ${nextURL}`);
   }
   return nextURL;
