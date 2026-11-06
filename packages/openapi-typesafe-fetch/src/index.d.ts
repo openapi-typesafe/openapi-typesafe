@@ -412,10 +412,35 @@ export declare function createQuerySerializer<T = unknown>(
  */
 export declare function defaultPathSerializer(pathname: string, pathParams: Record<string, unknown>): string;
 
+/** Bodies that `fetch` sends as they are, so `defaultBodySerializer` returns them unchanged. */
+type RawRequestBody = FormData | Blob | URLSearchParams | ArrayBuffer | ArrayBufferView;
+
 /**
- * Serialize body object to string; with a form content type in `headers`, as URL-encoded form data.
+ * The result of `defaultBodySerializer` for a body of type `Body`: the body itself when it is raw,
+ * `undefined` for `undefined` (`JSON.stringify` gives it back), `ObjectResult` for an object, and a
+ * string otherwise. `unknown` (and `any`) may be any of these.
  */
-export declare function defaultBodySerializer<T>(body: T, headers?: HeadersOptions): string;
+type SerializedBody<Body, ObjectResult> = unknown extends Body
+  ? RawRequestBody | string | FormData | undefined
+  : Body extends RawRequestBody
+    ? Body
+    : Body extends undefined
+      ? undefined
+      : Body extends object
+        ? ObjectResult
+        : string;
+
+/**
+ * Serialize a request body. A raw body (`FormData`, `Blob`, `URLSearchParams`, `ArrayBuffer`, a
+ * typed array) is returned as it is. With `headers`: a form `Content-Type` gives URL-encoded form
+ * data, a `multipart/form-data` one turns an object into `FormData`, and another non-JSON one keeps
+ * a string as it is. Anything else is JSON. Without `headers` an object can only become JSON.
+ */
+export declare function defaultBodySerializer<T>(body: T): SerializedBody<T, string>;
+export declare function defaultBodySerializer<T>(
+  body: T,
+  headers?: HeadersOptions,
+): SerializedBody<T, string | FormData>;
 
 /** Construct URL string from baseUrl and handle path and query params */
 export declare function createFinalURL<O>(
