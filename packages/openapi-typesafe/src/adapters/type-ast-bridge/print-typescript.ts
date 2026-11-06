@@ -1,11 +1,13 @@
 import type ts from "typescript";
 import type { TypeScriptModule } from "./load-typescript.js";
+import type { ts as CompilerTypes } from "./typescript-types.js";
 
 /** Options of `astToString` for the TypeScript printer, as in the original. */
 export interface AstToStringOptions {
   fileName?: string;
   sourceText?: string;
-  formatOptions?: ts.PrinterOptions;
+  /** The installed compiler's printer options (ADR-032: named without `ts.PrinterOptions`). */
+  formatOptions?: CompilerTypes.PrinterOptions;
 }
 
 /** Print TypeScript nodes as the original `astToString` did. */

@@ -1,5 +1,6 @@
 import { parseRef } from "@redocly/openapi-core/lib/ref-utils.js";
 import type { Logger } from "../application/ports/logger.js";
+import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import { defaultLogger } from "./default-ports.js";
 
 /** `$ref` resolution and the document walk that the generator's pre-pass uses. */
@@ -28,7 +29,7 @@ export function resolveDocumentRef<T>(
     if (node && typeof node === "object" && node[key]) {
       node = node[key];
     } else {
-      logger.warn(`Could not resolve $ref "${$ref}"`);
+      logger.warn(warningText(`Could not resolve $ref "${$ref}"`, WARNING_CODES.REF_NOT_FOUND));
       return undefined;
     }
   }
@@ -36,7 +37,9 @@ export function resolveDocumentRef<T>(
   // if this is also a $ref, keep tracing
   if (node && typeof node === "object" && node.$ref) {
     if (visited.includes(node.$ref)) {
-      logger.warn(`Could not resolve circular $ref "${$ref}"`);
+      logger.warn(
+        warningText(`Could not resolve circular $ref "${$ref}"`, WARNING_CODES.REF_CIRCULAR),
+      );
       return undefined;
     }
     return resolveDocumentRef(schema, node.$ref, {

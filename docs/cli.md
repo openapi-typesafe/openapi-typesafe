@@ -143,14 +143,21 @@ The following flags are supported in the CLI:
 
 ## Warnings
 
-A warning does not stop the run: the types are written and the exit code stays `0`. A warning about the document ends with its code, as an error does.
+A warning does not stop the run: the types are written and the exit code stays `0`. Every warning (a line that starts with `⚠`) ends with its code, as an error does. A warning from a Redocly lint rule also names the rule, so `redocly.yaml` can change its severity or turn it off; problems listed in a [lint ignore file](#redocly-config) are not printed. A notice about flags, such as `--root-types-keep-casing has no effect without --root-types flag`, has no `⚠` and no code.
 
 | Code | Meaning |
 | :--- | :------ |
+| `CLI_INPUT_IGNORED` | APIs are listed in `redocly.yaml` and an input is given on the command line; the input is ignored and the APIs are generated. See [Multiple schemas](#multiple-schemas) |
+| `DISCRIMINATOR_MAPPING_INVALID` | A discriminator `mapping` names a schema that is neither an object schema nor an `allOf`, so the generator cannot add the discriminator property to it. That schema keeps its type |
 | `DISCRIMINATOR_VALUE_NOT_ALLOWED` | A discriminator gives a schema a value that the schema's own discriminator property does not allow, so no value matches. The Discriminator Object requires the value, from `mapping` or the schema name, to be one the property admits; add a `mapping` entry. See [discriminator values](./advanced.md#discriminator-values) |
 | `ENUM_VALUES_EXCLUDED` | `--enum-values`: other keywords exclude some values of an enum (an `allOf` of enums with other values, a discriminator value the enum does not list), so the array is typed by its own values. See [enum values arrays](./advanced.md#enum-values-arrays) |
+| `FIX_NEEDS_OPTION` | A [fix](#fix) is named without the option it needs (`array-length-tuples` without `--array-length`, `root-type-numbering` without `--root-types`), so it changes nothing |
+| `LEGACY_CALLBACK_DEPRECATED` | A `transform` callback returned a TypeScript node, or `postTransform` or `transformProperty` is used with TypeScript nodes. It works in 1.x and is removed in 2.0; see [IR callbacks](./node.md#ir-callbacks). Printed once per run and callback |
+| `LINT_PROBLEM` | A Redocly lint rule with severity `warn` found a problem, such as `operation-operationId-unique` ("Every operation must have a unique `operationId`"). The rule is named before the code. Without a `redocly.yaml`, the rules of Redocly's `minimal` config apply, with `operation-operationId-unique` as a warning |
 | `PATH_TEMPLATES_IDENTICAL` | Paths differ only in their parameter names, such as `/users/{id}` and `/users/{name}`. The OpenAPI Paths Object forbids this: "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical." See [pathParamsAsTypes](#pathparamsastypes) for the output |
 | `QUERYSTRING_NEXT_TO_QUERY` | An `in: querystring` parameter is next to `in: query` parameters, which OpenAPI 3.2 does not allow; the parameter is left out of the types. See [OpenAPI 3.2 support](./introduction.md#openapi-3-2-support) |
+| `REF_CIRCULAR` | A `$ref` that the generator follows in the bundled document (a discriminator `mapping` value, a `ctx.resolve` call in a callback, the deprecated `resolveRef` export) leads back to itself; it is left unresolved |
+| `REF_NOT_FOUND` | A `$ref` that the generator follows in the bundled document points to nothing there; it is left unresolved |
 
 ## Exit codes
 

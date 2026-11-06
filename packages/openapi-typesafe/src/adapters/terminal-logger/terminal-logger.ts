@@ -76,8 +76,9 @@ class TerminalLogger implements Logger {
       return;
     }
     const name = groupColor(this.#palette, group)(`openapi-ts:${group ?? "info"}`);
+    // The original wrote no space without a duration (`openapi-ts:lintIgnored …`).
     const time =
-      durationMs === undefined ? "" : this.#palette.green(` ${formatDuration(durationMs)} `);
+      durationMs === undefined ? " " : this.#palette.green(` ${formatDuration(durationMs)} `);
     this.#options.sink.debug(`  ${this.#palette.bold(name)}${time}${message}`);
   }
 

@@ -125,7 +125,9 @@ describe("array-length-tuples notice", () => {
   it("createDocumentRun with the fix and without arrayLength warns once", async () => {
     const warnings = await warningsOf({ fix: ["array-length-tuples", "array-length-tuples"] });
 
-    expect(warnings).toEqual(['Fix "array-length-tuples" has no effect without arrayLength (--array-length)']);
+    expect(warnings).toEqual([
+      'Fix "array-length-tuples" has no effect without arrayLength (--array-length) (FIX_NEEDS_OPTION)',
+    ]);
   });
 
   it("createDocumentRun with the fix and arrayLength does not warn", async () => {

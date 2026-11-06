@@ -1,5 +1,6 @@
 import type { Logger } from "../application/ports/logger.js";
 import { OutputFix } from "../domain/output-fixes.js";
+import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { DiscriminatorObject, OpenAPI3, SchemaObject } from "../types.js";
 import { addEnumProperty, declaresValues, type EnumPatch } from "./discriminator-enum.js";
 import {
@@ -141,7 +142,11 @@ export function markHandled(state: ScanState, ref: string): void {
 function warnInvalidMapping(patch: EnumPatch, logger: Logger): void {
   const mapped = `${patch.ref} => ${patch.values.join(", ")}`;
   logger.warn(
-    "Discriminator mapping has an invalid schema (neither an object schema nor an allOf array): " +
-      `${mapped} (Discriminator: ${patch.discriminatorRef})`,
+    warningText(
+      "Discriminator mapping has an invalid schema " +
+        "(neither an object schema nor an allOf array): " +
+        `${mapped} (Discriminator: ${patch.discriminatorRef})`,
+      WARNING_CODES.DISCRIMINATOR_MAPPING_INVALID,
+    ),
   );
 }

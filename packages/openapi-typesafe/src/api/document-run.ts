@@ -11,6 +11,7 @@ import {
   outputFixNamesOf,
   resolveOutputFixes,
 } from "../domain/output-fixes.js";
+import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { GeneratorOptions, GlobalContext, OpenAPI3, SchemaSource } from "../types.js";
 import { warnDiscriminatorValueConflicts } from "./discriminator-conflict-warnings.js";
 import { findDiscriminators } from "./discriminator-scan.js";
@@ -119,7 +120,7 @@ function contextFlags(options: GeneratorOptions): ContextFlags {
 function outputFixesOf(options: GeneratorOptions, logger: Logger): readonly OutputFix[] {
   const names = outputFixNamesOf(options.fix ?? []);
   for (const notice of ineffectiveFixNotices(names, (option) => options[option] === true)) {
-    logger.warn(notice);
+    logger.warn(warningText(notice, WARNING_CODES.FIX_NEEDS_OPTION));
   }
   return [...resolveOutputFixes(names)];
 }

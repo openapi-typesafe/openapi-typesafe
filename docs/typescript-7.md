@@ -92,3 +92,25 @@ A callback or helper uses TypeScript compiler nodes, which needs the TypeScript 
 ```
 
 The better fix is to move the callbacks to [IR callbacks](/node#ir-callbacks), which need no compiler: with `irCallbacks: true`, a callback returns plain type text such as `"Date | null"`. The migration tool rewrites a `transform` that only returns `ts.factory` types for you.
+
+## Type-checking the declarations
+
+The package's declarations type-check with TypeScript 7 and `skipLibCheck: false`. The types of
+the compiler-node forms (`ts.Node`, `ts.TypeNode` and the others in the `transform`,
+`postTransform` and `transformProperty` options, `astToString` and the `ts*` helpers) are read
+from the `typescript` package you have installed. With TypeScript 5 or 6 they are its own node
+types. TypeScript 7 has no node types, so there they are `any`: a callback that builds nodes with
+`@typescript/typescript6` compiles, and the IR callbacks (`irCallbacks: true`) keep their full
+types.
+
+Four errors remain with `skipLibCheck: false`, on every TypeScript version, and come from the
+schema loader, `@redocly/openapi-core` 1.34. Its declarations import `json-schema-to-ts` and
+`js-yaml`, whose types it does not install:
+
+```txt
+node_modules/@redocly/openapi-core/lib/config/types.d.ts(6,33): error TS2307: Cannot find module 'json-schema-to-ts' or its corresponding type declarations.
+node_modules/@redocly/openapi-core/lib/js-yaml/index.d.ts(1,47): error TS7016: Could not find a declaration file for module 'js-yaml'.
+```
+
+openapi-typescript 7.13 has the same errors. Install the two as development dependencies
+(`npm i -D json-schema-to-ts @types/js-yaml`), or keep `skipLibCheck: true`.
