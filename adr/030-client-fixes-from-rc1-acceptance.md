@@ -42,7 +42,11 @@ claim. Each one was reproduced with a failing test first.
    so the docs (`docs/fetch/index.md`, the migration guide) say so and show the alias.
 4. **`defaultBodySerializer`** declares its result from the body type: a raw body is its own type,
    `undefined` is `undefined`, an object is `string | FormData` with `headers` and `string` without,
-   and any other value is `string`. `unknown` gives the union of all of them.
+   and any other value is `string`. `unknown` gives the union of all of them. Headers written as a
+   record literal (a `const` type parameter) tell the object result exactly: `FormData` for a
+   `multipart/form-data` `Content-Type` in any letter case, `string` for another one or none. A
+   `Headers` object, pairs or a `Record<string, …>` do not tell the media type, so they keep
+   `string | FormData`.
 5. **Form bodies.** The form media type is matched as the multipart one is: case-insensitive, with
    or without parameters. `null` and `undefined` fields are left out, as in a multipart body (this
    amends ADR-013, decision 7, which kept `URLSearchParams`' text for them). A string or a list of
@@ -66,6 +70,7 @@ claim. Each one was reproduced with a failing test first.
 | Require the union init in `MaybeOptionalInit` (chosen) | `InitParam` is openapi-fetch's; library checks agree | `MaybeOptionalInit` of a union no longer includes `undefined` when one path needs an init |
 | Make the client fit libraries that import openapi-fetch without an alias | Nothing for users to do | Not possible: shown with a byte-for-byte copy of openapi-fetch 0.17 |
 | One `string \| FormData \| …` result for `defaultBodySerializer` | Simple | Code that used the result as `string` (openapi-fetch's type) stops compiling |
+| Result from the body and a record literal's `Content-Type` (chosen) | An object with written JSON or form headers stays `string`, a multipart one is `FormData` | Headers whose media type the type does not tell still give `string \| FormData` |
 | Repeated keys for form arrays | Consistent with multipart parts | Changes what servers that read `a=1,2` get; not part of these findings |
 
 ## Consequences
@@ -75,6 +80,14 @@ claim. Each one was reproduced with a failing test first.
 - Users of swr-openapi and similar libraries add one alias to `package.json`; the compat harness
   already runs swr-openapi with the packages switched by name.
 - The bundle budget is 8.75 kB.
+- `defaultBodySerializer` breaks some code that compiled against openapi-fetch's `string`: a
+  result used as a string for a raw or `unknown` body, for an object passed with a `Headers`
+  object or a `HeadersOptions` variable, and in a global `bodySerializer`, whose `body` is typed
+  `undefined` (openapi-fetch's `BodySerializer<unknown>`), so the result is typed `undefined`. In
+  each case the body may be a raw body or a multipart object, so `string` was wrong there too. The
+  global case is still not exact: its result is as wrong as the `undefined` body type it comes
+  from, and typing that body `unknown` is a change of its own. The changeset and the migration
+  guide name these cases.
 
 ## Review trigger
 

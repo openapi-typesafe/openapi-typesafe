@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { defaultBodySerializer } from "../../src/index.js";
+import { defaultBodySerializer, type HeadersOptions } from "../../src/index.js";
 
 /**
  * The declared result of `defaultBodySerializer` is what it returns: a raw body as it is, an object
@@ -68,5 +68,44 @@ describe("defaultBodySerializer result type", () => {
       FormData | Blob | URLSearchParams | ArrayBuffer | ArrayBufferView | string | undefined
     >();
     expect(sent).toBe(body);
+  });
+
+  it("defaultBodySerializer of an object with a written JSON content type is a string", () => {
+    const sent = defaultBodySerializer({ a: 1 }, { "Content-Type": "application/json" });
+
+    expectTypeOf(sent).toEqualTypeOf<string>();
+    expect(sent.trim()).toBe('{"a":1}');
+  });
+
+  it("defaultBodySerializer of an object with a written form content type is a string", () => {
+    const headers = { "content-type": "application/x-www-form-urlencoded" } as const;
+
+    const sent = defaultBodySerializer({ a: "1" }, headers);
+
+    expectTypeOf(sent).toEqualTypeOf<string>();
+    expect(sent).toBe("a=1");
+  });
+
+  it("defaultBodySerializer of an object with headers but no content type is a string", () => {
+    const sent = defaultBodySerializer({ a: 1 }, { Authorization: "Bearer x" });
+
+    expectTypeOf(sent).toEqualTypeOf<string>();
+    expect(sent).toBe('{"a":1}');
+  });
+
+  it("defaultBodySerializer of an object with a written multipart content type is FormData", () => {
+    const sent = defaultBodySerializer({ a: "1" }, { "CONTENT-TYPE": " Multipart/Form-Data; x=1" });
+
+    expectTypeOf(sent).toEqualTypeOf<FormData>();
+    expect(sent).toBeInstanceOf(FormData);
+  });
+
+  it("defaultBodySerializer of an object with an unknown content type may be FormData", () => {
+    const headers: HeadersOptions | undefined = new Headers({ "Content-Type": "application/json" });
+
+    const sent = defaultBodySerializer({ a: 1 }, headers);
+
+    expectTypeOf(sent).toEqualTypeOf<string | FormData>();
+    expect(sent).toBe('{"a":1}');
   });
 });

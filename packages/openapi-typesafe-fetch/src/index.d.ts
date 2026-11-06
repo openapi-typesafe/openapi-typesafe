@@ -430,17 +430,59 @@ type SerializedBody<Body, ObjectResult> = unknown extends Body
         ? ObjectResult
         : string;
 
+/** The `Content-Type` values that make `defaultBodySerializer` turn an object into `FormData`. */
+type MultipartMediaType = "multipart/form-data" | `multipart/form-data;${string}`;
+
+/** `Headers` drops the spaces and tabs in front of a value before the media type is read. */
+type TrimmedStart<Text extends string> = Text extends ` ${infer Rest}` | `\t${infer Rest}` ? TrimmedStart<Rest> : Text;
+
+/**
+ * The `Content-Type` of headers written as a record, in any letter case of the name: `never` when
+ * the record has none, `unknown` when the type does not tell (`Headers`, pairs, a string record).
+ */
+type ContentTypeOf<GivenHeaders> = GivenHeaders extends undefined
+  ? never
+  : GivenHeaders extends readonly unknown[] | { get(name: string): unknown }
+    ? unknown
+    : string extends keyof GivenHeaders
+      ? unknown
+      : ContentTypeEntries<GivenHeaders>[keyof GivenHeaders];
+
+/** For each entry of a header record: its value when it is the `Content-Type`, else `never`. */
+type ContentTypeEntries<Record> = { [Name in keyof Record]: ContentTypeEntry<Name, Record[Name]> };
+
+/** The value of a header record entry when its name is `Content-Type` in any letter case. */
+type ContentTypeEntry<Name, Value> = Lowercase<Name & string> extends "content-type" ? Value : never;
+
+/**
+ * What an object becomes with a `Content-Type` of type `ContentType`: `FormData` for a multipart
+ * one, a string for any other one or for none, and either when the type is not a literal.
+ */
+type ObjectBodyResult<ContentType> = [ContentType] extends [never]
+  ? string
+  : ContentType extends null | undefined
+    ? string
+    : ContentType extends string
+      ? string extends ContentType
+        ? string | FormData
+        : Lowercase<TrimmedStart<ContentType>> extends MultipartMediaType
+          ? FormData
+          : string
+      : string | FormData;
+
 /**
  * Serialize a request body. A raw body (`FormData`, `Blob`, `URLSearchParams`, `ArrayBuffer`, a
  * typed array) is returned as it is. With `headers`: a form `Content-Type` gives URL-encoded form
  * data, a `multipart/form-data` one turns an object into `FormData`, and another non-JSON one keeps
  * a string as it is. Anything else is JSON. Without `headers` an object can only become JSON.
+ * Headers written as a record literal tell the result type of an object body: `FormData` for a
+ * multipart `Content-Type`, `string` for another one or none. Other headers: `string | FormData`.
  */
 export declare function defaultBodySerializer<T>(body: T): SerializedBody<T, string>;
-export declare function defaultBodySerializer<T>(
+export declare function defaultBodySerializer<T, const GivenHeaders extends HeadersOptions | undefined>(
   body: T,
-  headers?: HeadersOptions,
-): SerializedBody<T, string | FormData>;
+  headers: GivenHeaders,
+): SerializedBody<T, ObjectBodyResult<ContentTypeOf<GivenHeaders>>>;
 
 /** Construct URL string from baseUrl and handle path and query params */
 export declare function createFinalURL<O>(

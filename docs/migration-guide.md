@@ -187,6 +187,7 @@ aliased to `openapi-typesafe-fetch` with `overrides` (npm, bun, `pnpm-workspace.
 - A nested object in an `application/x-www-form-urlencoded` body throws instead of being sent as `[object Object]`; write a `bodySerializer` for the format your server reads.
 - An object body with `Content-Type: multipart/form-data` is sent as `FormData` (one part per field), not as JSON, and a `multipart/form-data` header without a boundary no longer breaks a `FormData` upload.
 - A path that already has a query string gets `&` before `params.query`, not a second `?`.
+- `defaultBodySerializer` declares the type it returns instead of `string`: a raw body as its own type, `undefined` for `undefined`, and `FormData` or `string | FormData` for an object with a multipart or an unknown `Content-Type`. An object without headers, or with headers written as a record, is still `string` unless the `Content-Type` is multipart. Code that used the result as a `string` in the other cases, or in a global `bodySerializer` (its `body` is typed `undefined`), no longer compiles: check `typeof result === "string"`.
 - `Readable` and `Writable` keep function types, so a `Blob` or `Date` in response data keeps its methods (`data.file.arrayBuffer()`).
 
 The full list, with the upstream issues each change closes, is in the [changelog](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/packages/openapi-typesafe/CHANGELOG.md).
