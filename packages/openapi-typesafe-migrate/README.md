@@ -23,8 +23,11 @@ Run it with `npx` (or `pnpm dlx`, `yarn dlx`, `bunx`), not as a dependency: it u
 | Sources (`.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, `.vue`, `.svelte`, `.astro`, …)         | Module specifiers only: `import` / `export … from`, `import()`, `require()`, `require.resolve()`, `import("…")` types (JSDoc too), `declare module`, `/// <reference types>`, and `vi` / `jest` mocks such as `vi.mock()`. Components: their `<script>` blocks and Astro's frontmatter. |
 | `openapiTS(source, { transform })` calls                                               | When `transform` is the only callback and returns plain `ts.factory` types (or the helper constants), the returns become type text and `irCallbacks: true` is added.                                                                                                                    |
 
-`node_modules`, `.git`, `dist` and the output folders `.next`, `.nuxt`, `.output`, `.svelte-kit`,
-`.turbo` and `coverage` are skipped; links are not followed.
+In a git repository the tool reads the files git lists: tracked files, and untracked files that
+`.gitignore` does not ignore, so ignored build output (`cjs/`, `esm/`, `types/`, …) stays out.
+Outside a git repository (or without `git`) it reads the whole tree. Either way `node_modules`,
+`.git`, `dist` and the output folders `.next`, `.nuxt`, `.output`, `.svelte-kit`, `.turbo` and
+`coverage` are skipped, and links are not followed.
 
 ## What it leaves to you
 

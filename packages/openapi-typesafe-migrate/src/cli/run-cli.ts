@@ -15,7 +15,7 @@ export interface CliDependencies {
   readonly cwd: string;
   readonly writeStdout: (text: string) => void;
   readonly writeStderr: (text: string) => void;
-  readonly createFiles: (root: string) => ProjectFiles;
+  readonly createFiles: (root: string, logger: Logger) => ProjectFiles;
   readonly createLogger: (path: string | undefined) => {
     readonly logger: Logger;
     readonly path: string;
@@ -50,7 +50,7 @@ async function runMigration(
   const root = dependencies.resolvePath(dependencies.cwd, request.root ?? ".");
   const { logger, path } = dependencies.createLogger(request.logPath);
   try {
-    const files = dependencies.createFiles(root);
+    const files = dependencies.createFiles(root, logger);
     const { rewriter, scanner } = dependencies;
     const input = { version: dependencies.version, isWrite: request.isWrite };
     const reports = await migrateProject({ files, rewriter, scanner, logger }, input);
