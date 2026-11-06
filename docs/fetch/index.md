@@ -239,6 +239,43 @@ With TypeScript 7, `Parameters<typeof client.request>` over hundreds of paths ex
 compiler's limit (TS2859, excessive complexity). Use the method of the call instead, as in
 `Parameters<typeof client.GET>`.
 
+### Libraries built on openapi-fetch
+
+Packages such as [swr-openapi](https://github.com/htunnicliff/swr-openapi) import their client type
+from `openapi-fetch`. They need this package under that name, so alias it:
+
+::: code-group
+
+```json [npm / bun]
+{
+  "overrides": {
+    "openapi-fetch": "npm:openapi-typesafe-fetch@^1.0.0"
+  }
+}
+```
+
+```yaml [pnpm-workspace.yaml]
+overrides:
+  openapi-fetch: npm:openapi-typesafe-fetch@^1.0.0
+```
+
+```json [yarn]
+{
+  "resolutions": {
+    "openapi-fetch": "npm:openapi-typesafe-fetch@^1.0.0"
+  }
+}
+```
+
+:::
+
+Without the alias the package manager installs openapi-fetch for the library, and passing this
+client to it fails with `Argument of type 'Client<paths>' is not assignable to parameter of type
+'Client<{}>'` (TS2345). TypeScript infers the paths of a generic client type only from the same
+declaration, so any client from another package fails there, openapi-fetch 0.15 against
+swr-openapi's openapi-fetch 0.17 too. Types you write yourself in openapi-fetch's shape (a copied
+`InitParam`, a path-based client type) need no alias.
+
 ## Support
 
 | Platform       | Support                                                                                                                                            |

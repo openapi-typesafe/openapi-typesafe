@@ -155,6 +155,12 @@ These are off by default, so the output does not change until you turn one on.
   `ref-pointers` gives a `$ref` into another schema's keywords the type it points at also where
   an index signature made the original compile as `unknown`.
 
+### Libraries built on openapi-fetch
+
+A library that imports types from `openapi-fetch`, such as swr-openapi, needs `openapi-fetch`
+aliased to `openapi-typesafe-fetch` with `overrides` (npm, bun, `pnpm-workspace.yaml`) or `resolutions` (yarn). See
+[Libraries built on openapi-fetch](/fetch/#libraries-built-on-openapi-fetch).
+
 ### Client fixes
 
 - A string body with a non-JSON `Content-Type` such as `text/plain` is sent as is, not JSON-encoded.
