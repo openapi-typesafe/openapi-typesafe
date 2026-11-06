@@ -215,9 +215,9 @@ const { data, error } = await client.PUT("/submit", {
   },
   bodySerializer(body) {
     const fd = new FormData();
-    for (const name in body) {
-      fd.append(name, body[name]);
-    }
+    fd.append("name", body.name);
+    // the nested object becomes a JSON part with its own content type
+    fd.append("query", new Blob([JSON.stringify(body.query)], { type: "application/json" }));
     return fd;
   },
 });
