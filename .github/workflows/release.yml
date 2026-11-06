@@ -34,6 +34,7 @@ jobs:
     # scripts/repo/apply-settings.sh, and provenance needs a public repository.
     if: github.event_name == 'push' && github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: write
       contents: write
@@ -91,6 +92,7 @@ jobs:
       needs.version.outputs.has-changesets == 'false' &&
       needs.version.outputs.has-unpublished == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # Required reviewers on this environment are the manual approval (9.4); the trusted publisher
     # accepts tokens from this environment only.
     environment: npm-publish
@@ -128,6 +130,7 @@ jobs:
     name: publish dry run
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -1,6 +1,7 @@
 # Quality gate for every pull request and every push to main (ENGINEERING_PLAN 1.7, Definition of Done §8).
 # Actions are pinned by commit SHA (supply-chain hardening); the comment names the release.
 # Releases are in release.yml.
+# Every job has a time limit of about three times its slowest normal run (ADR-029).
 name: ci
 
 on:
@@ -29,6 +30,7 @@ jobs:
     name: conventional commits
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,6 +54,7 @@ jobs:
   lint:
     name: lint, types, layers
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -74,6 +77,7 @@ jobs:
   test:
     name: test (node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -101,6 +105,7 @@ jobs:
   coverage:
     name: coverage gate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -123,6 +128,7 @@ jobs:
   types:
     name: types (typescript ${{ matrix.typescript }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -155,6 +161,7 @@ jobs:
   runtimes:
     name: runtime (${{ matrix.runtime }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -198,6 +205,7 @@ jobs:
   size:
     name: bundle size
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -220,6 +228,7 @@ jobs:
   docs:
     name: docs (build, links)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -237,6 +246,7 @@ jobs:
   skill-tasks:
     name: skill eval tasks (reference solutions)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -263,6 +273,7 @@ jobs:
   e2e:
     name: client e2e (browsers)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -289,6 +300,7 @@ jobs:
     name: test (${{ matrix.os }})
     if: ${{ !github.event.repository.private }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
