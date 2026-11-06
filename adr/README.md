@@ -43,5 +43,5 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [027](./027-enum-values-and-discriminator-checks.md) | Checked `--enum-values` types, discriminator value warnings, required-only variants | Accepted |
 | [028](./028-path-template-overlaps.md) | `--path-params-as-types` overlaps move a template only on a proven error | Accepted |
 | [029](./029-ci-job-timeouts.md) | A time limit on every CI job | Accepted |
-| [030](./030-ref-resolution-check.md) | A `$ref` resolution check before Redocly lints and bundles | Accepted |
-| [031](./031-compiler-types-from-the-installed-typescript.md) | Public declarations read compiler types from the installed `typescript` | Accepted |
+| [031](./031-ref-resolution-check.md) | A `$ref` resolution check before Redocly lints and bundles | Accepted |
+| [032](./032-compiler-types-from-the-installed-typescript.md) | Public declarations read compiler types from the installed `typescript` | Accepted |

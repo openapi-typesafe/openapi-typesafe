@@ -9,7 +9,7 @@ import { afterAll, describe, expect, it } from "vitest";
 /**
  * The published declarations, checked as a consumer checks them (`skipLibCheck: false`) with the
  * consumer's own `typescript` package: 5.4 (the lowest supported, ADR-006), 6.x and 7.0. With
- * TypeScript 7, whose package has no compiler API, `ts.Node` was error TS2694 (ADR-031). Each
+ * TypeScript 7, whose package has no compiler API, `ts.Node` was error TS2694 (ADR-032). Each
  * consumer gets a copy of `dist` in its own `node_modules`, so `typescript` resolves to the
  * version under test and not to this package's development compiler. Needs `pnpm run build`.
  */

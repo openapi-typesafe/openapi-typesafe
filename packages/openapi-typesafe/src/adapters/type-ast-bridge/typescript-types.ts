@@ -2,7 +2,7 @@ import type * as TypeScript from "typescript";
 
 /**
  * The TypeScript compiler's node types for code outside the bridge and for the public
- * declarations (ADR-004, decision 4; ADR-031). Type-only: importing it never loads TypeScript.
+ * declarations (ADR-004, decision 4; ADR-032). Type-only: importing it never loads TypeScript.
  *
  * Each type is read from the compiler API of the `typescript` package the consumer has installed
  * (`factory`, `createPrinter`), not named as `ts.Node`. TypeScript 5.x and 6.x have that API, so
@@ -17,7 +17,7 @@ type Factory = Api extends { readonly factory: infer F } ? F : undefined;
  * A compiler type when the installed `typescript` has no compiler API (TypeScript 7). It is `any`
  * because that is what these types already were for such a consumer with `skipLibCheck: true`
  * (an unresolved type in a declaration file is `any`), so callbacks that build or read nodes of
- * `@typescript/typescript6` keep compiling (ADR-031). The cost, as before: a union with a node
+ * `@typescript/typescript6` keep compiling (ADR-032). The cost, as before: a union with a node
  * type, such as the result of `transform`, accepts any value there.
  */
 type WithoutCompilerApi = any;

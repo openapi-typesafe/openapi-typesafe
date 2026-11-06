@@ -29,7 +29,7 @@ import {
  * Redocly 1.34 resolves `$ref`s with `Promise.all` over the lookups it has started and stops at
  * the first one that fails. Lookups it starts after that (the walk of a document that was still
  * loading) are never awaited: when one of them fails too, its rejection is unhandled, and Node.js
- * ends the process on an unhandled rejection (ADR-030). Redocly 2.x has the same loop.
+ * ends the process on an unhandled rejection (ADR-031). Redocly 2.x has the same loop.
  *
  * This is a port of Redocly's `resolveDocument` (`lib/resolve.js`, 1.34.22, MIT) that waits for
  * every lookup and then throws the first failure. The loader runs it before Redocly lints or

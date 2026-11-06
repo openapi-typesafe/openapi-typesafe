@@ -3,7 +3,7 @@ import { parseRefPointer } from "../../domain/openapi/json-pointer.js";
 
 /**
  * The pieces of Redocly 1.34's `$ref` resolution (`lib/resolve.js`, `lib/ref-utils.js`, MIT) that
- * the resolution check (`ref-resolution-check.ts`, ADR-030) walks with, kept as Redocly has them.
+ * the resolution check (`ref-resolution-check.ts`, ADR-031) walks with, kept as Redocly has them.
  */
 
 type RedoclyTypes = ReturnType<typeof normalizeTypes>;

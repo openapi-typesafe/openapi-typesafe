@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { checkRefsResolve } from "../../../src/adapters/redocly-loader/ref-resolution-check.js";
 
 /**
- * The check is a port of Redocly's `resolveDocument` (ADR-030): where only one lookup fails, both
+ * The check is a port of Redocly's `resolveDocument` (ADR-031): where only one lookup fails, both
  * must give the same outcome. Documents live in memory, behind a resolver that reads no files.
  */
 

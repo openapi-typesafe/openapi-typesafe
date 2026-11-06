@@ -190,7 +190,7 @@ class RedoclySchemaLoader implements SchemaLoader {
     shouldLint: boolean,
   ): Promise<OpenAPI3> {
     const rethrow = (error: unknown) => rethrowDocumentError(error, document, resolver);
-    // Redocly leaves unhandled rejections behind when a `$ref` fails in two documents (ADR-030).
+    // Redocly leaves unhandled rejections behind when a `$ref` fails in two documents (ADR-031).
     await checkRefsResolve(document, resolver, this.#options.redoc.styleguide).catch(rethrow);
     if (shouldLint) {
       await this.#lint(document, resolver).catch(rethrow);

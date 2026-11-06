@@ -1,4 +1,4 @@
-# ADR-030: A `$ref` resolution check before Redocly lints and bundles
+# ADR-031: A `$ref` resolution check before Redocly lints and bundles
 
 - Status: Accepted
 - Date: 2026-11-06

@@ -1,4 +1,4 @@
-# ADR-031: Public declarations read compiler types from the installed `typescript`
+# ADR-032: Public declarations read compiler types from the installed `typescript`
 
 - Status: Accepted
 - Date: 2026-11-06

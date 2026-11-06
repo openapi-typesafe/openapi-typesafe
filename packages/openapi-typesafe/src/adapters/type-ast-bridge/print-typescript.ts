@@ -6,7 +6,7 @@ import type { ts as CompilerTypes } from "./typescript-types.js";
 export interface AstToStringOptions {
   fileName?: string;
   sourceText?: string;
-  /** The installed compiler's printer options (ADR-031: named without `ts.PrinterOptions`). */
+  /** The installed compiler's printer options (ADR-032: named without `ts.PrinterOptions`). */
   formatOptions?: CompilerTypes.PrinterOptions;
 }
 
