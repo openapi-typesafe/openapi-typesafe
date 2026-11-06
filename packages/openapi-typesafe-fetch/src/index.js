@@ -748,13 +748,10 @@ export function defaultBodySerializer(body, headers) {
   if (isRawBody(body)) {
     return body;
   }
-  const contentType = headers
-    ? // `typeof`, not `instanceof Function`: headers from another realm (iframe, `node:vm`) have a
-      // `get` that is not an instance of this realm's Function (upstream #2637).
-      typeof headers.get === "function"
-      ? (headers.get("Content-Type") ?? headers.get("content-type"))
-      : (headers["Content-Type"] ?? headers["content-type"])
-    : undefined;
+  // Headers with a `get` are read directly: headers from another realm (iframe, `node:vm`) may have
+  // nothing else (upstream #2637). A record or a list of pairs is read through `Headers`, which
+  // matches the name in any letter case.
+  const contentType = headers && (isHeaders(headers) ? headers : mergeHeaders(headers)).get("Content-Type");
   if (FORM_MEDIA_TYPE_RE.test(contentType)) {
     return formBody(body);
   }
@@ -799,7 +796,8 @@ export function mergeHeaders(...allHeaders) {
     if (!h || typeof h !== "object") {
       continue;
     }
-    const iterator = isHeaders(h) ? h.entries() : Object.entries(h);
+    // A list of pairs (`[["x-t", "1"]]`) is a `HeadersInit` too; `Headers` joins a repeated name.
+    const iterator = isHeaders(h) ? h.entries() : Symbol.iterator in h ? new Headers(h).entries() : Object.entries(h);
     for (const [k, v] of iterator) {
       if (v === null) {
         finalHeaders.delete(k);
