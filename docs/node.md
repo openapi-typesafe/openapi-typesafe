@@ -17,6 +17,8 @@ npm i --save-dev openapi-typesafe typescript
 
 The generator does not need the `typescript` package. Only callbacks or helpers that use TypeScript compiler nodes (the legacy forms, see [IR callbacks](#ir-callbacks)) load it: `typescript` 6 or earlier, or `@typescript/typescript6` in a TypeScript 7 project.
 
+The declarations type-check with TypeScript 5.4 to 7 and `skipLibCheck: false`, except for four errors from the schema loader's own declarations; see [Type-checking the declarations](./typescript-7.md#type-checking-the-declarations).
+
 :::
 
 ::: tip Recommended
