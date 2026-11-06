@@ -18,6 +18,7 @@ const STEPS: readonly ManualStep[] = [
   { kind: "override-names-package", field: "overrides", name: "a" },
   { kind: "versioned-command", location: "ci.yml:3" },
   { kind: "deep-import", line: 2, specifier: "b/x" },
+  { kind: "string-names-package", line: 6, value: "openapi-fetch", to: "openapi-typesafe-fetch" },
   { kind: "transform-not-rewritten", line: 4, reason: "other-callbacks" },
   { kind: "transform-not-rewritten", line: 4, reason: "not-a-function" },
   { kind: "transform-not-rewritten", line: 4, reason: "shared-function" },

@@ -18,11 +18,15 @@ installed). The generator itself already treats it as the optional TypeScript-no
 ## Decision
 
 1. The migration tool has one runtime dependency, `@typescript/typescript6` (`^6.0.2`). It is used
-   only by `src/adapters/typescript-parser/`, behind the `CallbackRewriter` port; dependency-cruiser
-   fails the lint if another module imports it.
+   only by `src/adapters/typescript-parser/`, behind the `CallbackRewriter` and
+   `SourceStringScanner` ports; dependency-cruiser fails the lint if another module imports it.
 2. The parser only reads: edits are offsets into the original text, so formatting and comments
    outside the replaced expressions stay as written.
-3. A callback is rewritten only when every return is a known type-building form (references,
+3. The parser also finds the module specifiers that the package rename changes (imports, exports,
+   `import()`, `require()`, `import("…")` types, `declare module`, `/// <reference types>`, module
+   mocks). A string that equals a package name in any other place is reported, not renamed: only
+   the syntax tells a module specifier from a label or an object key.
+4. A callback is rewritten only when every return is a known type-building form (references,
    keywords, literal types, unions, intersections, arrays, the helper constants, module constants
    bound to these). Anything else is left and reported as a manual step.
 
@@ -40,8 +44,8 @@ installed). The generator itself already treats it as the optional TypeScript-no
 
 - `npx openapi-typesafe-migrate` downloads TypeScript 6 once; the tool is not a dependency of any
   project, so the size does not reach users' installs.
-- Single-file components (`.vue`, `.svelte`, `.astro`) get the specifier rename but no callback
-  rewrite, because they are not plain scripts.
+- Single-file components (`.vue`, `.svelte`, `.astro`) get the specifier rename in their
+  `<script>` blocks (and Astro's frontmatter), but no callback rewrite; their markup is not read.
 
 ## Review trigger
 

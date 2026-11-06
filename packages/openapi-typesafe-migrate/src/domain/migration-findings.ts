@@ -35,6 +35,12 @@ export type ManualStep =
   | { readonly kind: "versioned-command"; readonly location: string }
   | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
   | {
+      readonly kind: "string-names-package";
+      readonly line: number;
+      readonly value: string;
+      readonly to: string;
+    }
+  | {
       readonly kind: "transform-not-rewritten";
       readonly line: number;
       readonly reason: TransformKeepReason;

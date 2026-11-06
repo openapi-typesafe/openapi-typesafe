@@ -1,5 +1,10 @@
 import { migrateProject } from "../application/migrate-project.js";
-import type { CallbackRewriter, Logger, ProjectFiles } from "../application/ports.js";
+import type {
+  CallbackRewriter,
+  Logger,
+  ProjectFiles,
+  SourceStringScanner,
+} from "../application/ports.js";
 import { renderReport } from "../application/report.js";
 import { type CliRequest, parseCliArguments } from "./cli-arguments.js";
 import { HELP_TEXT, logNote, usageError } from "./cli-text.js";
@@ -16,6 +21,7 @@ export interface CliDependencies {
     readonly path: string;
   };
   readonly rewriter: CallbackRewriter;
+  readonly scanner: SourceStringScanner;
   readonly resolvePath: (cwd: string, path: string) => string;
 }
 
@@ -45,8 +51,9 @@ async function runMigration(
   const { logger, path } = dependencies.createLogger(request.logPath);
   try {
     const files = dependencies.createFiles(root);
+    const { rewriter, scanner } = dependencies;
     const input = { version: dependencies.version, isWrite: request.isWrite };
-    const reports = await migrateProject({ files, rewriter: dependencies.rewriter, logger }, input);
+    const reports = await migrateProject({ files, rewriter, scanner, logger }, input);
     dependencies.writeStdout(renderReport(reports, request.isWrite));
     return EXIT_CODES.success;
   } catch (error) {

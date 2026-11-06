@@ -2,16 +2,18 @@ import { type Change, type FileMigration, lineAt, type ManualStep } from "./migr
 import { PACKAGE_RENAMES } from "./package-names.js";
 
 /**
- * Module specifiers in source files: `"openapi-fetch"` and `'openapi-fetch/subpath'` in
- * imports, `require()`, `import()`, `vi.mock()`, `declare module` and tool configs alike. Only a
- * whole quoted string that is exactly a package name, or a name and a subpath, is renamed, so
- * text that merely mentions a package (comments, `@scope/openapi-fetch`, `openapi-fetch-gen`)
- * stays.
+ * A string literal of a source file, as a parser finds it. `start` and `end` are the offsets of
+ * its value, inside the quotes. `isModuleSpecifier` is true where the string names a module:
+ * `import … from`, `export … from`, `import()`, `require()`, `import x = require()`,
+ * `import("…")` types, `declare module`, `/// <reference types>` and the module mocks of vitest
+ * and jest.
  */
-const SPECIFIER_RE = new RegExp(
-  `(["'\`])(${[...PACKAGE_RENAMES.keys()].join("|")})(/[^"'\`\\s]*)?\\1`,
-  "g",
-);
+export interface SourceString {
+  readonly start: number;
+  readonly end: number;
+  readonly value: string;
+  readonly isModuleSpecifier: boolean;
+}
 
 /** Source file extensions whose text can hold module specifiers. */
 export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
@@ -28,23 +30,52 @@ export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
   ".astro",
 ]);
 
-/** Rename the original packages in the module specifiers of one source file. */
-export function migrateModuleSpecifiers(text: string): FileMigration {
+interface RenamedValue {
+  readonly to: string;
+  readonly isDeep: boolean;
+}
+
+/** The new name of a whole package name, or of a name and a subpath (`openapi-fetch/x`). */
+function renamedValue(value: string): RenamedValue | undefined {
+  const slash = value.indexOf("/");
+  const name = slash === -1 ? value : value.slice(0, slash);
+  const renamed = PACKAGE_RENAMES.get(name);
+  if (renamed === undefined) {
+    return undefined;
+  }
+  return { to: `${renamed}${value.slice(name.length)}`, isDeep: slash !== -1 };
+}
+
+/**
+ * Rename the original packages where a source file names them as modules. A string that equals a
+ * package name anywhere else (an object key, a label, a config value) may mean the package or
+ * may not, so it is reported, not changed. Comments are not strings and stay as written.
+ */
+export function migrateModuleSpecifiers(
+  text: string,
+  strings: readonly SourceString[],
+): FileMigration {
   const changes: Change[] = [];
   const manualSteps: ManualStep[] = [];
   let migrated = "";
   let copiedUpTo = 0;
-  for (const match of text.matchAll(SPECIFIER_RE)) {
-    const [whole, quote, name, subpath] = match as unknown as [string, string, string, string?];
-    const line = lineAt(text, match.index);
-    const to = `${PACKAGE_RENAMES.get(name) as string}${subpath ?? ""}`;
-    changes.push({ kind: "specifier-renamed", line, from: whole.slice(1, -1), to });
-    // A deep import reaches into the package's files, whose layout is not part of the contract.
-    if (subpath !== undefined) {
-      manualSteps.push({ kind: "deep-import", line, specifier: to });
+  for (const found of [...strings].sort((left, right) => left.start - right.start)) {
+    const renamed = renamedValue(found.value);
+    if (renamed === undefined) {
+      continue;
     }
-    migrated += `${text.slice(copiedUpTo, match.index)}${quote}${to}${quote}`;
-    copiedUpTo = match.index + whole.length;
+    const line = lineAt(text, found.start);
+    if (!found.isModuleSpecifier) {
+      manualSteps.push({ kind: "string-names-package", line, value: found.value, to: renamed.to });
+      continue;
+    }
+    changes.push({ kind: "specifier-renamed", line, from: found.value, to: renamed.to });
+    // A deep import reaches into the package's files, whose layout is not part of the contract.
+    if (renamed.isDeep) {
+      manualSteps.push({ kind: "deep-import", line, specifier: renamed.to });
+    }
+    migrated += `${text.slice(copiedUpTo, found.start)}${renamed.to}`;
+    copiedUpTo = found.end;
   }
   return { text: migrated + text.slice(copiedUpTo), changes, manualSteps };
 }

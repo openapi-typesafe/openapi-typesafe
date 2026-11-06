@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { createJsonLinesLogger } from "../adapters/json-lines-logger/json-lines-logger.js";
 import { createNodeProjectFiles } from "../adapters/node-project-files/node-project-files.js";
 import { createTypescriptCallbackRewriter } from "../adapters/typescript-parser/rewriter.js";
+import { createTypescriptStringScanner } from "../adapters/typescript-parser/source-strings.js";
 import { type CliDependencies, runCli } from "./run-cli.js";
 
 /**
@@ -39,6 +40,7 @@ const dependencies: CliDependencies = {
   createFiles: createNodeProjectFiles,
   createLogger,
   rewriter: createTypescriptCallbackRewriter(),
+  scanner: createTypescriptStringScanner(),
   resolvePath: resolve,
 };
 

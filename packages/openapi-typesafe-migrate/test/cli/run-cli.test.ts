@@ -3,6 +3,7 @@ import type { ProjectFiles } from "../../src/application/ports.js";
 import { HELP_TEXT } from "../../src/cli/cli-text.js";
 import { type CliDependencies, EXIT_CODES, runCli } from "../../src/cli/run-cli.js";
 import { InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
+import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
 import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
 
@@ -34,6 +35,7 @@ function setUp(createFiles: (root: string) => ProjectFiles) {
       return { logger, path: path ?? LOG_PATH };
     },
     rewriter: new StubCallbackRewriter(),
+    scanner: new QuotedStringScanner(),
     resolvePath: (cwd, path) => (path === "." ? cwd : `${cwd}/${path}`),
   };
   return { dependencies, output, logger };
