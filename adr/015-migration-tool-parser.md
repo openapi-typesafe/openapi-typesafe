@@ -23,8 +23,8 @@ installed). The generator itself already treats it as the optional TypeScript-no
 2. The parser only reads: edits are offsets into the original text, so formatting and comments
    outside the replaced expressions stay as written.
 3. The parser also finds the module specifiers that the package rename changes (imports, exports,
-   `import()`, `require()`, `import("…")` types, `declare module`, `/// <reference types>`, module
-   mocks). A string that equals a package name in any other place is reported, not renamed: only
+   `import()`, `require()`, `import("…")` types and `@import` tags in any JSDoc block,
+   `declare module`, `/// <reference types>`, the module methods of vitest, jest and bun). A string that equals a package name in any other place is reported, not renamed: only
    the syntax tells a module specifier from a label or an object key.
 4. A callback is rewritten only when every return is a known type-building form (references,
    keywords, literal types, unions, intersections, arrays, the helper constants, module constants

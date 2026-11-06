@@ -9,38 +9,52 @@ import { type ScriptRegion, scriptRegions } from "./script-regions.js";
  * and tells module specifiers from other strings by the syntax around them.
  */
 
-/** Mock and module-loading methods of vitest (`vi`) and jest whose first argument is a module. */
-const MOCK_OBJECTS: ReadonlySet<string> = new Set(["vi", "jest"]);
-const MOCK_METHODS: ReadonlySet<string> = new Set([
+const REQUIRE = "require";
+const RESOLVE = "resolve";
+/** Methods of vitest's `vi` whose first argument is a module. */
+const VITEST_METHODS: ReadonlySet<string> = new Set([
   "mock",
   "doMock",
   "unmock",
   "doUnmock",
   "importActual",
   "importMock",
+]);
+/** Methods of `jest` whose first argument is a module, older names included. */
+const JEST_METHODS: ReadonlySet<string> = new Set([
+  "mock",
+  "doMock",
+  "unmock",
+  "dontMock",
+  "deepUnmock",
+  "setMock",
   "requireActual",
   "requireMock",
   "createMockFromModule",
+  "genMockFromModule",
   "unstable_mockModule",
+  "unstable_unmockModule",
 ]);
-const REQUIRE = "require";
-const RESOLVE = "resolve";
+/** `vi.mock`, `jest.setMock`, bun's `mock.module` and `require.resolve`, by object. */
+const MODULE_METHODS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ["vi", VITEST_METHODS],
+  ["jest", JEST_METHODS],
+  ["mock", new Set(["module"])],
+  [REQUIRE, new Set([RESOLVE])],
+]);
 
-function isIdentifierNamed(node: ts.Node, names: ReadonlySet<string> | string): boolean {
-  if (!ts.isIdentifier(node)) {
-    return false;
-  }
-  return typeof names === "string" ? node.text === names : names.has(node.text);
+function isIdentifierNamed(node: ts.Node, name: string): boolean {
+  return ts.isIdentifier(node) && node.text === name;
 }
 
-/** `vi.mock`, `jest.requireActual`, `require.resolve` and `import.meta.resolve`. */
+/** The module methods, and `import.meta.resolve`. */
 function isModuleMethod(callee: ts.PropertyAccessExpression): boolean {
   const object = callee.expression;
   const method = callee.name.text;
-  if (isIdentifierNamed(object, MOCK_OBJECTS)) {
-    return MOCK_METHODS.has(method);
+  if (ts.isIdentifier(object)) {
+    return MODULE_METHODS.get(object.text)?.has(method) ?? false;
   }
-  return method === RESOLVE && (isIdentifierNamed(object, REQUIRE) || ts.isMetaProperty(object));
+  return method === RESOLVE && ts.isMetaProperty(object);
 }
 
 /** Calls whose first argument is a module: `import()`, `require()` and the module methods. */
@@ -54,7 +68,11 @@ function isModuleCall(call: ts.CallExpression): boolean {
 
 function isModuleSpecifier(literal: ts.StringLiteralLike): boolean {
   const parent = literal.parent;
-  if (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) {
+  if (
+    ts.isImportDeclaration(parent) ||
+    ts.isExportDeclaration(parent) ||
+    ts.isJSDocImportTag(parent)
+  ) {
     return parent.moduleSpecifier === literal;
   }
   if (ts.isCallExpression(parent)) {

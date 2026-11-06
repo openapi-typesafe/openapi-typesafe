@@ -5,8 +5,8 @@ import { PACKAGE_RENAMES } from "./package-names.js";
  * A string literal of a source file, as a parser finds it. `start` and `end` are the offsets of
  * its value, inside the quotes. `isModuleSpecifier` is true where the string names a module:
  * `import … from`, `export … from`, `import()`, `require()`, `import x = require()`,
- * `import("…")` types, `declare module`, `/// <reference types>` and the module mocks of vitest
- * and jest.
+ * `import("…")` types and JSDoc `@import` tags, `declare module`, `/// <reference types>` and the
+ * module mocks of vitest, jest and bun.
  */
 export interface SourceString {
   readonly start: number;
