@@ -7,6 +7,9 @@ import { PACKAGE_RENAMES } from "../domain/package-names.js";
 // The same guide the generator links in its deprecation warning.
 const IR_CALLBACKS_GUIDE =
   "https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks";
+const OPENAPI_FETCH_ALIAS_GUIDE =
+  "https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/fetch/index.md" +
+  "#libraries-built-on-openapi-fetch";
 
 export function changeMessage(change: Change): string {
   switch (change.kind) {
@@ -47,9 +50,9 @@ function oldPeerMessage(step: Extract<ManualStep, { kind: "old-peer-needed" }>):
   const { dependent, peer, range } = step;
   const successor = PACKAGE_RENAMES.get(peer) ?? peer;
   return (
-    `${dependent} takes its types from ${peer}@${range}, its peer dependency: keep ${peer} ` +
-    `installed next to ${successor} (add it back to devDependencies if your package manager ` +
-    `does not install peers) and pass ${dependent} the ${successor} client`
+    `${dependent} takes its client type from ${peer}@${range}, its peer dependency: alias ` +
+    `${peer} to ${successor} with overrides or resolutions, or passing it the ${successor} ` +
+    `client fails to type-check. See ${OPENAPI_FETCH_ALIAS_GUIDE}`
   );
 }
 

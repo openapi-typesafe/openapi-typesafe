@@ -20,7 +20,7 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "ci.yml:3 runs a pinned openapi-typescript@<version>: change it to openapi-typesafe@<version>",
   "line 2: "b/x" imports a file inside the package; check that it exists",
   "line 6: "openapi-fetch" is a string, not a module specifier, so it was kept; if it names the package, change it to "openapi-typesafe-fetch"",
-  "swr-openapi takes its types from openapi-fetch@>=0.15, its peer dependency: keep openapi-fetch installed next to openapi-typesafe-fetch (add it back to devDependencies if your package manager does not install peers) and pass swr-openapi the openapi-typesafe-fetch client",
+  "swr-openapi takes its client type from openapi-fetch@>=0.15, its peer dependency: alias openapi-fetch to openapi-typesafe-fetch with overrides or resolutions, or passing it the openapi-typesafe-fetch client fails to type-check. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/fetch/index.md#libraries-built-on-openapi-fetch",
   "line 4: transform kept (postTransform or transformProperty are set too, and they need TypeScript nodes); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 4: transform kept (it is not an inline function or a function of this file); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 4: transform kept (the function it names is used elsewhere too); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",

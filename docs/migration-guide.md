@@ -85,7 +85,7 @@ The generator does not need the `typescript` package. It prints types itself, so
 
 ### swr-openapi
 
-[swr-openapi](https://github.com/htunnicliff/swr-openapi) 5 has `openapi-fetch` (0.15 or newer) as a peer dependency and takes its types from it. Keep `openapi-fetch` installed next to `openapi-typesafe-fetch`: the migration tool renames it, so add it back to `devDependencies` if your package manager does not install peer dependencies. Then pass swr-openapi the `openapi-typesafe-fetch` client. The tool's report reminds you of this when it finds swr-openapi.
+[swr-openapi](https://github.com/htunnicliff/swr-openapi) 5 has `openapi-fetch` (0.15 or newer) as a peer dependency and takes its client type from it. Alias `openapi-fetch` to `openapi-typesafe-fetch` with `overrides` or `resolutions`, as [Libraries built on openapi-fetch](/fetch/#libraries-built-on-openapi-fetch) shows; without the alias, passing it the `openapi-typesafe-fetch` client fails with TS2345. The tool's report reminds you of this when it finds swr-openapi.
 
 ### Renamed CLI flags
 
