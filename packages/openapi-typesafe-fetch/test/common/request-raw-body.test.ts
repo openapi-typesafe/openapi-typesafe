@@ -65,7 +65,37 @@ describe("form bodies", () => {
   const FORM_HEADERS = { "Content-Type": "application/x-www-form-urlencoded" };
 
   it("defaultBodySerializer keeps arrays and primitives as before", () => {
-    expect(defaultBodySerializer({ ids: [1, 2], n: null }, FORM_HEADERS)).toBe("ids=1%2C2&n=null");
+    expect(defaultBodySerializer({ ids: [1, 2], n: 0, b: false }, FORM_HEADERS)).toBe("ids=1%2C2&n=0&b=false");
+  });
+
+  it("defaultBodySerializer leaves out null and undefined fields, as in a multipart body", () => {
+    expect(defaultBodySerializer({ a: undefined, b: null, c: "1" }, FORM_HEADERS)).toBe("c=1");
+  });
+
+  it.each(["application/x-www-form-urlencoded; charset=UTF-8", "Application/X-WWW-Form-Urlencoded"])(
+    "defaultBodySerializer encodes a form for the content type %j",
+    (contentType) => {
+      expect(defaultBodySerializer({ a: "1" }, { "Content-Type": contentType })).toBe("a=1");
+    },
+  );
+
+  it("defaultBodySerializer keeps JSON for a content type that only starts like a form", () => {
+    const contentType = "application/x-www-form-urlencoded-json";
+
+    expect(defaultBodySerializer({ a: "1" }, { "Content-Type": contentType })).toBe('{"a":"1"}');
+  });
+
+  it("defaultBodySerializer keeps a string form body", () => {
+    expect(defaultBodySerializer("a=1&b=2", FORM_HEADERS)).toBe("a=1&b=2");
+  });
+
+  it("a form body with a charset parameter is sent as a form", async () => {
+    const contentType = "application/x-www-form-urlencoded; charset=UTF-8";
+
+    const request = await sentRequest({ a: 1, b: null }, { "Content-Type": contentType });
+
+    expect(await request.text()).toBe("a=1");
+    expect(request.headers.get("Content-Type")).toBe(contentType);
   });
 
   it("defaultBodySerializer rejects a nested object instead of sending [object Object]", () => {

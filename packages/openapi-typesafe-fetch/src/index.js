@@ -6,7 +6,8 @@ const DOT_SEGMENT_RE = /(^|\/)\.\.?(\/|$)/;
 const QUERY_OR_FRAGMENT_RE = /[?#]/;
 /** Any JSON media type: `application/json`, `application/problem+json`, with or without parameters. */
 const JSON_MEDIA_TYPE_RE = /json/i;
-const FORM_MEDIA_TYPE = "application/x-www-form-urlencoded";
+/** `application/x-www-form-urlencoded`, with or without parameters such as `charset`. */
+const FORM_MEDIA_TYPE_RE = /^application\/x-www-form-urlencoded(;|$)/i;
 /** `multipart/form-data`, with or without parameters. */
 const MULTIPART_MEDIA_TYPE_RE = /^multipart\/form-data(;|$)/i;
 const NESTED_FORM_VALUE_MESSAGE = "Nested form values need your own `bodySerializer()`.";
@@ -697,15 +698,24 @@ function isRawBody(body) {
 
 /**
  * A form body. A nested object has no standard form encoding (servers read `a[b]`, `a.b` or JSON),
- * and `URLSearchParams` wrote it as `[object Object]` (ADR-013, decision 7).
+ * and `URLSearchParams` wrote it as `[object Object]` (ADR-013, decision 7). `null` and `undefined`
+ * fields are left out, as in a multipart body; `URLSearchParams` sent them as the text "null" and
+ * "undefined" (ADR-030). A string or a list of pairs is form data already.
  */
 function formBody(body) {
-  for (const value of Object.values(body)) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return new URLSearchParams(body).toString();
+  }
+  const form = new URLSearchParams();
+  for (const [name, value] of Object.entries(body)) {
     if (value && typeof value === "object" && !Array.isArray(value)) {
       throw new Error(NESTED_FORM_VALUE_MESSAGE);
     }
+    if (value != null) {
+      form.append(name, value);
+    }
   }
-  return new URLSearchParams(body).toString();
+  return form.toString();
 }
 
 /**
@@ -745,7 +755,7 @@ export function defaultBodySerializer(body, headers) {
       ? (headers.get("Content-Type") ?? headers.get("content-type"))
       : (headers["Content-Type"] ?? headers["content-type"])
     : undefined;
-  if (contentType === FORM_MEDIA_TYPE) {
+  if (FORM_MEDIA_TYPE_RE.test(contentType)) {
     return formBody(body);
   }
   if (body && typeof body === "object" && MULTIPART_MEDIA_TYPE_RE.test(contentType)) {

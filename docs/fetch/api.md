@@ -263,7 +263,7 @@ const { data, error } = await client.PUT("/files/{name}", {
 
 ### URL-encoded body
 
-To send a body request in `application/x-www-form-urlencoded` format, which is commonly used to transmit key-value pairs in APIs like OAuth 2.0, pass the appropriate header and body as an object. `openapi-typesafe-fetch` will automatically encode the body to the correct format.
+To send a body request in `application/x-www-form-urlencoded` format, which is commonly used to transmit key-value pairs in APIs like OAuth 2.0, pass the appropriate header (parameters such as `; charset=UTF-8` may follow) and body as an object. `openapi-typesafe-fetch` will automatically encode the body to the correct format.
 
 ```ts
 const { data, error } = await client.POST("/tokens", {
@@ -278,8 +278,9 @@ const { data, error } = await client.POST("/tokens", {
 ```
 
 Form encoding has no standard for nested objects (servers read `a[b]`, `a.b` or JSON), so a nested
-object value throws an error instead of being sent as `[object Object]`. Arrays become repeated keys.
-For nested values, write a `bodySerializer` in the format your server reads.
+object value throws an error instead of being sent as `[object Object]`. An array becomes one
+comma-separated value (`ids=1%2C2`), and a `null` or `undefined` field is left out, as in a multipart
+body. For nested values or repeated keys, write a `bodySerializer` in the format your server reads.
 
 ## pathSerializer
 
