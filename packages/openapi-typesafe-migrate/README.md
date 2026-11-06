@@ -42,6 +42,8 @@ The report lists each of these with the file and line:
 - strings that equal an old package name outside a module specifier (an object key, a label, a
   bundler option such as `external: ["openapi-fetch"]`): they are kept, because only you know
   whether they mean the package. Comments are not changed or reported;
+- `swr-openapi` in your dependencies: it takes its types from `openapi-fetch` (a peer
+  dependency), so keep `openapi-fetch` installed next to `openapi-typesafe-fetch`;
 - `transform` callbacks it cannot rewrite, and `postTransform` / `transformProperty`: they keep
   working with a deprecation warning; see
   [IR callbacks](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks).

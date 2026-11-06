@@ -41,6 +41,12 @@ export type ManualStep =
       readonly to: string;
     }
   | {
+      readonly kind: "old-peer-needed";
+      readonly dependent: string;
+      readonly peer: string;
+      readonly range: string;
+    }
+  | {
       readonly kind: "transform-not-rewritten";
       readonly line: number;
       readonly reason: TransformKeepReason;
