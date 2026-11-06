@@ -464,16 +464,18 @@ const BASE_URL = "https://myapi.com/v1";
 type FilterKeys<Obj, Matchers> = {
   [K in keyof Obj]: K extends Matchers ? Obj[K] : never;
 }[keyof Obj];
-type PathResponses<T> = T extends { responses: any } ? T["responses"] : unknown;
-type OperationContent<T> = T extends { content: any } ? T["content"] : unknown;
+type PathResponses<T> = T extends { responses: infer Responses } ? Responses : never;
 type MediaType = `${string}/${string}`;
-type MockedResponse<T, Status extends keyof T = keyof T> =
-  FilterKeys<OperationContent<T[Status]>, MediaType> extends never
+// the body of one response; never when it has no content (a 204, for example)
+type ResponseBody<Response> = Response extends { content: infer Content }
+  ? FilterKeys<Content, MediaType>
+  : never;
+// one case per status, so a status without content does not affect the others
+type MockedResponse<Responses> = {
+  [Status in keyof Responses]: [ResponseBody<Responses[Status]>] extends [never]
     ? { status: Status; body?: never }
-    : {
-        status: Status;
-        body: FilterKeys<OperationContent<T[Status]>, MediaType>;
-      };
+    : { status: Status; body: ResponseBody<Responses[Status]> };
+}[keyof Responses];
 
 /**
  * Mock fetch() calls and type against OpenAPI schema
