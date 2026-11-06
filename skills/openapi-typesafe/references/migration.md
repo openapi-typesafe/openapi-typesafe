@@ -59,6 +59,8 @@ that runs `openapi-typescript`. Nothing else is required.
 | Renamed peer dependency in a library | Publish a new major of the library: its users must install the new name |
 | `npx openapi-typescript@<version>` | Use `npx openapi-typesafe@<version>` with a 1.x version; the versions restart at 1.0 |
 | Deep import (`openapi-fetch/dist/...`) | Check that the file exists in the new package; prefer the package root |
+| A string equal to an old package name outside an import (object key, label, bundler option) | Rename it if it means the package; the tool renames module specifiers only |
+| `swr-openapi` in the dependencies | Keep `openapi-fetch` installed for its types (a peer dependency) and pass it the `openapi-typesafe-fetch` client |
 | `transform` it cannot rewrite, `postTransform`, `transformProperty` | They keep working with a deprecation warning; move them to IR callbacks (below) |
 
 ## Differences to know
