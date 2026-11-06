@@ -1,22 +1,23 @@
 # openapi-typesafe
 
-Generate TypeScript types from [OpenAPI 3.0 and 3.1](https://spec.openapis.org/oas/latest.html) schemas.
+Generate TypeScript types from [OpenAPI 3.0, 3.1 and 3.2](https://spec.openapis.org/oas/latest.html) schemas.
 Runs on Node.js; no Java, no running server, no runtime code in the output.
 
 A maintained, drop-in successor to `openapi-typescript` (see the [repository README](../../README.md)).
 
-> **Status: in development; not published to npm yet.**
+> **Status: release candidate.** `1.0.0-rc.1` is on npm under the `next` tag; until 1.0.0 is
+> released, install it with `npm i -D openapi-typesafe@next`.
 
 ## Features
 
-- OpenAPI 3.0 and 3.1, including discriminators, `oneOf` / `anyOf` / `allOf`, and `$ref` across files.
+- OpenAPI 3.0, 3.1 and 3.2, including discriminators, `oneOf` / `anyOf` / `allOf`, and `$ref` across files.
 - Runtime-free output: only types.
 - Local or remote schemas, YAML or JSON.
 - Swagger 2.0 is not supported.
 
 ## Setup
 
-Requires Node.js 22 or newer.
+Requires Node.js 22.12 or newer. TypeScript 5.4 or newer, including 6 and 7, type-checks the output.
 
 ```sh
 npm i -D openapi-typesafe typescript
