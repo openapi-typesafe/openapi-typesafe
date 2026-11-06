@@ -73,4 +73,33 @@ describe("migrateModuleSpecifiers", () => {
 
     expect(migrateModuleSpecifiers(text, strings)).toEqual({ text, changes: [], manualSteps: [] });
   });
+
+  it("migrateModuleSpecifiers renames a string found twice once", () => {
+    const text = 'import x from "openapi-fetch";';
+    const found = stringIn(text, "openapi-fetch");
+
+    const migrated = migrateModuleSpecifiers(text, [found, { ...found, isModuleSpecifier: false }]);
+
+    expect(migrated).toEqual({
+      text: 'import x from "openapi-typesafe-fetch";',
+      changes: [
+        { kind: "specifier-renamed", line: 1, from: "openapi-fetch", to: "openapi-typesafe-fetch" },
+      ],
+      manualSteps: [],
+    });
+  });
+
+  it("migrateModuleSpecifiers rejects strings that overlap", () => {
+    const text = 'import x from "openapi-fetch/client";';
+    const whole = stringIn(text, "openapi-fetch/client");
+    const value = "openapi-fetch";
+    const part = {
+      start: whole.start,
+      end: whole.start + value.length,
+      value,
+      isModuleSpecifier: true,
+    };
+
+    expect(() => migrateModuleSpecifiers(text, [whole, part])).toThrow(/overlap/);
+  });
 });

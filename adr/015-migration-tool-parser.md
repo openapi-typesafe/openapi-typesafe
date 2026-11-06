@@ -46,6 +46,8 @@ installed). The generator itself already treats it as the optional TypeScript-no
   project, so the size does not reach users' installs.
 - Single-file components (`.vue`, `.svelte`, `.astro`) get the specifier rename in their
   `<script>` blocks (and Astro's frontmatter), but no callback rewrite; their markup is not read.
+  `<script>` blocks are looked for after the frontmatter only, so the two never overlap, and the
+  rename refuses strings that overlap instead of writing a name twice.
 
 ## Review trigger
 

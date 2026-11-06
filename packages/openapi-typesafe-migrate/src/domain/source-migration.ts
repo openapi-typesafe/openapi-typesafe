@@ -47,6 +47,30 @@ function renamedValue(value: string): RenamedValue | undefined {
 }
 
 /**
+ * The strings in file order, each span once. A span found twice (two scripts of a component that
+ * overlap) is one string, and a module specifier if either finding says so. Spans that overlap
+ * otherwise cannot both be replaced: that is a scanner bug, and editing on would corrupt the file.
+ */
+function distinctStrings(strings: readonly SourceString[]): SourceString[] {
+  const distinct: SourceString[] = [];
+  for (const found of [...strings].sort((left, right) => left.start - right.start)) {
+    const previous = distinct.at(-1);
+    if (previous === undefined || found.start >= previous.end) {
+      distinct.push(found);
+    } else if (found.start === previous.start && found.end === previous.end) {
+      const isModuleSpecifier = previous.isModuleSpecifier || found.isModuleSpecifier;
+      distinct[distinct.length - 1] = { ...previous, isModuleSpecifier };
+    } else {
+      throw new Error(
+        `Source strings overlap at offsets ${previous.start}-${previous.end} and ` +
+          `${found.start}-${found.end}; the file was not changed.`,
+      );
+    }
+  }
+  return distinct;
+}
+
+/**
  * Rename the original packages where a source file names them as modules. A string that equals a
  * package name anywhere else (an object key, a label, a config value) may mean the package or
  * may not, so it is reported, not changed. Comments are not strings and stay as written.
@@ -59,7 +83,7 @@ export function migrateModuleSpecifiers(
   const manualSteps: ManualStep[] = [];
   let migrated = "";
   let copiedUpTo = 0;
-  for (const found of [...strings].sort((left, right) => left.start - right.start)) {
+  for (const found of distinctStrings(strings)) {
     const renamed = renamedValue(found.value);
     if (renamed === undefined) {
       continue;

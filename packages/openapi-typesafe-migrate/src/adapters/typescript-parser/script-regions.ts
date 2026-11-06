@@ -47,16 +47,26 @@ function blockKind(attributes: string, isAstro: boolean): ts.ScriptKind {
   return (lang === undefined ? undefined : LANG_KINDS.get(lang)) ?? fallback;
 }
 
-function componentRegions(text: string, isAstro: boolean): ScriptRegion[] {
-  const regions: ScriptRegion[] = [];
-  const frontmatter = isAstro ? ASTRO_FRONTMATTER_RE.exec(text) : null;
-  if (frontmatter !== null) {
-    const [, fence, content] = frontmatter as unknown as [string, string, string];
-    regions.push({ offset: fence.length, text: content, kind: ts.ScriptKind.TS });
+/** Astro's frontmatter, and where the markup after it starts; the markup is the whole text else. */
+function astroFrontmatter(text: string): { region?: ScriptRegion; markupStart: number } {
+  const frontmatter = ASTRO_FRONTMATTER_RE.exec(text);
+  if (frontmatter === null) {
+    return { markupStart: 0 };
   }
-  for (const match of text.matchAll(SCRIPT_BLOCK_RE)) {
+  const [whole, fence, content] = frontmatter as unknown as [string, string, string];
+  const region = { offset: fence.length, text: content, kind: ts.ScriptKind.TS };
+  return { region, markupStart: whole.length };
+}
+
+function componentRegions(text: string, isAstro: boolean): ScriptRegion[] {
+  const { region, markupStart } = isAstro ? astroFrontmatter(text) : { markupStart: 0 };
+  const regions: ScriptRegion[] = region === undefined ? [] : [region];
+  // Script blocks are read in the markup only: a "<script>" string in the frontmatter is code, and
+  // a block found there would overlap the frontmatter, so its strings would be edited twice.
+  const markup = text.slice(markupStart);
+  for (const match of markup.matchAll(SCRIPT_BLOCK_RE)) {
     const [whole, attributes, content] = match as unknown as [string, string, string];
-    const offset = match.index + whole.indexOf(">") + 1;
+    const offset = markupStart + match.index + whole.indexOf(">") + 1;
     regions.push({ offset, text: content, kind: blockKind(attributes, isAstro) });
   }
   return regions;

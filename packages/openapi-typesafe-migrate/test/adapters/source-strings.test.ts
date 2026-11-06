@@ -174,6 +174,38 @@ describe("TypescriptSourceStringScanner", () => {
     expect(specifierFlags(text, "Page.astro")).toEqual([true, true]);
   });
 
+  it("scan reads script tags in Astro's frontmatter as strings, not as script blocks", () => {
+    const text = [
+      "---",
+      'const open = "<script>";',
+      'import createClient from "openapi-fetch";',
+      'const close = "</script>";',
+      "---",
+      '<script>import("openapi-fetch");</script>',
+    ].join("\n");
+
+    const found = scanner.scan(text, "Page.astro").filter((string) => string.value === PACKAGE);
+
+    expect(found.map((string) => [string.start, string.isModuleSpecifier])).toEqual([
+      [text.indexOf(PACKAGE), true],
+      [text.lastIndexOf(PACKAGE), true],
+    ]);
+  });
+
+  it("scan with migrateModuleSpecifiers renames a specifier in Astro's frontmatter once", () => {
+    const text = [
+      "---",
+      "// <script>",
+      'import x from "openapi-fetch";',
+      "// </script>",
+      "---",
+    ].join("\n");
+
+    const migrated = migrateModuleSpecifiers(text, scanner.scan(text, "Page.astro"));
+
+    expect(migrated.text).toBe(text.replace(PACKAGE, "openapi-typesafe-fetch"));
+  });
+
   it("scan finds nothing in a component without scripts", () => {
     expect(scanner.scan('<p title="openapi-fetch">x</p>', "Badge.svelte")).toEqual([]);
   });
