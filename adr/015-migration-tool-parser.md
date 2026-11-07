@@ -94,6 +94,16 @@ now treats the tree as untrusted input:
   `file_skipped` warning for each, because such an index is a sign of a planted repository.
   `read` and `write` check the real path again, so no caller can reach outside the root.
 
+- **Hard links.** `writeFile` writes into the same inode, so a project file hard-linked to a file
+  outside the root (an archive can hold such links) changed that file too. Two fixes were
+  weighed: skip a file with more than one link and report it, or write a new file and rename it
+  over the old one. The tool renames: the user asked for the project file to change, and it does;
+  the other link keeps its old text, and the log has a `hard_link_separated` warning. The rename
+  also never writes through a link that appears after the listing, and a failed run leaves the
+  old file whole. The new file gets the old mode; it is owned by the user who runs the tool, and
+  the folder must be writable. A leftover temporary file is not overwritten (`wx`); the error
+  names it.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

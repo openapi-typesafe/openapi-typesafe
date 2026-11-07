@@ -36,7 +36,8 @@ The tool does not trust the folder it migrates. Git runs with `core.fsmonitor` t
 nested repository's `.git/config` cannot make it run a command, and it does not open a bare
 repository that is not named explicitly. A path that git lists but that leads outside the folder
 (`../`, an absolute path, or a linked parent folder) is not read or written; the report lists it
-under "Skipped".
+under "Skipped". A file is written as a new file that replaces the old one (same mode), so a hard
+link to a file elsewhere keeps its old text; the log notes it.
 
 ## What it leaves to you
 

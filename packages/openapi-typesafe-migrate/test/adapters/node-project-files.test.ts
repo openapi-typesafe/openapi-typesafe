@@ -1,5 +1,17 @@
 import { execFileSync } from "node:child_process";
-import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  link,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -246,6 +258,52 @@ describe("NodeProjectFiles", () => {
     await expect(files.write("../a.ts", "new")).rejects.toThrow("outside the project folder");
     expect(await readFile(join(outside, "a.ts"), "utf8")).toBe("outside");
     await rm(outside, { recursive: true, force: true });
+  });
+
+  it("write replaces a hard-linked file, so the other link keeps its text", async () => {
+    const outside = await mkdtemp(join(tmpdir(), "migrate-outside-"));
+    await writeFile(join(outside, "a.ts"), "old");
+    await mkdir(join(root, "src"));
+    await link(join(outside, "a.ts"), join(root, "src/a.ts"));
+    const { files, logger } = filesWith(NOT_A_REPOSITORY);
+
+    await files.write("src/a.ts", "new");
+
+    expect(await readFile(join(root, "src/a.ts"), "utf8")).toBe("new");
+    expect(await readFile(join(outside, "a.ts"), "utf8")).toBe("old");
+    expect(logger.events).toEqual([
+      { level: "warn", event: "hard_link_separated", fields: { path: "src/a.ts", linkCount: 2 } },
+    ]);
+    await rm(outside, { recursive: true, force: true });
+  });
+
+  it("write keeps the file mode and leaves no temporary file", async () => {
+    await put("scripts/gen.sh", "old");
+    await chmod(join(root, "scripts/gen.sh"), 0o750);
+    const { files, logger } = filesWith(NOT_A_REPOSITORY);
+
+    await files.write("scripts/gen.sh", "new");
+
+    expect((await stat(join(root, "scripts/gen.sh"))).mode & 0o777).toBe(0o750);
+    expect(await readdir(join(root, "scripts"))).toEqual(["gen.sh"]);
+    expect(logger.events).toEqual([]);
+  });
+
+  it("write does not overwrite a leftover temporary file", async () => {
+    await put("src/a.ts", "old");
+    await put("src/.a.ts.openapi-typesafe-migrate.tmp", "leftover");
+    const { files } = filesWith(NOT_A_REPOSITORY);
+
+    await expect(files.write("src/a.ts", "new")).rejects.toThrow("EEXIST");
+    expect(await readFile(join(root, "src/a.ts"), "utf8")).toBe("old");
+  });
+
+  it("write removes the temporary file when the rename fails", async () => {
+    await put("src/a/b.ts", "");
+    const { files } = filesWith(NOT_A_REPOSITORY);
+
+    await expect(files.write("src/a", "new")).rejects.toThrow();
+    expect(await readdir(join(root, "src"))).toEqual(["a"]);
   });
 
   it("read and write work on paths relative to the root", async () => {

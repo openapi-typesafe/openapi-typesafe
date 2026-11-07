@@ -1,6 +1,6 @@
 import type { Dirent } from "node:fs";
-import { lstat, readdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { chmod, lstat, readdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import type {
   Logger,
   ProjectFileList,
@@ -29,6 +29,11 @@ const SKIPPED_DIRECTORIES: ReadonlySet<string> = new Set([
 ]);
 
 const CURRENT_DIRECTORY = ".";
+/** The new text is written next to the file under this suffix, then renamed over it. */
+const TEMPORARY_SUFFIX = ".openapi-typesafe-migrate.tmp";
+const PERMISSION_BITS = 0o7777;
+/** Only the owner can read the new text until it has the mode of the file it replaces. */
+const TEMPORARY_MODE = 0o600;
 const PARENT_DIRECTORY = "..";
 
 /** What the project files read besides the file system. */
@@ -201,8 +206,28 @@ class NodeProjectFiles implements ProjectFiles {
     return readFile(await this.#pathInRoot(path), "utf8");
   }
 
+  /**
+   * Writes a new file and renames it over the old one, so the write never goes through a link: a
+   * hard link to a file outside the root keeps its old text, and is reported in the log. The new
+   * file keeps the mode of the old one.
+   */
   async write(path: string, text: string): Promise<void> {
-    return writeFile(await this.#pathInRoot(path), text, "utf8");
+    const target = await this.#pathInRoot(path);
+    const { mode, nlink } = await lstat(target);
+    // `wx`: a leftover of a failed run is not overwritten; the error names it.
+    const temporary = join(dirname(target), `.${basename(target)}${TEMPORARY_SUFFIX}`);
+    await writeFile(temporary, text, { encoding: "utf8", flag: "wx", mode: TEMPORARY_MODE });
+    try {
+      // The mode is set after the write, because `writeFile`'s mode is reduced by the umask.
+      await chmod(temporary, mode & PERMISSION_BITS);
+      await rename(temporary, target);
+    } catch (error) {
+      await rm(temporary, { force: true });
+      throw error;
+    }
+    if (nlink > 1) {
+      this.#options.logger.warn("hard_link_separated", { path, linkCount: nlink });
+    }
   }
 
   /** The real path of a project file; refuses one that resolves outside the root. */
