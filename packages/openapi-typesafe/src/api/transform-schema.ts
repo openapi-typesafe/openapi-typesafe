@@ -16,6 +16,7 @@ import { documentDeclarations, type TransformedDocument } from "./document-decla
 import { excludedValuesWarning } from "./enum-values-warnings.js";
 import { type FooterEntry, isIrDeclaration } from "./footer-entry.js";
 import { ContextFooterSink } from "./footer-sink.js";
+import type { RunContext } from "./run-context.js";
 import { createTransformContext } from "./transform-context.js";
 
 const OPERATIONS_NAME = "operations";
@@ -46,11 +47,11 @@ interface EnumNameRecorder extends SharedEnumNames {
  */
 function sharedEnumNamesOf(
   document: DocumentObject,
-  ctx: GlobalContext,
+  ctx: RunContext,
   recorder: EnumNameRecorder,
 ): SharedEnumNames {
   const injectFooter: FooterEntry[] = [];
-  const scratch: GlobalContext = {
+  const scratch: RunContext = {
     ...ctx,
     injectFooter,
     runFooter: new RunFooter(new ContextFooterSink(injectFooter), true, recorder),
@@ -71,7 +72,7 @@ function enumNameRecorderOf(ctx: GlobalContext): EnumNameRecorder | null {
 }
 
 /** With a naming fix, `--enum` and `--dedupe-enums`, the run's footer names shared enums. */
-function withSharedEnumNames(document: DocumentObject, ctx: GlobalContext): void {
+function withSharedEnumNames(document: DocumentObject, ctx: RunContext): void {
   const recorder = ctx.runFooter === undefined ? enumNameRecorderOf(ctx) : null;
   if (recorder === null || !ctx.enum || !ctx.dedupeEnums) {
     return;
@@ -87,7 +88,7 @@ function withSharedEnumNames(document: DocumentObject, ctx: GlobalContext): void
 function enumValuesChecked(
   body: readonly IrDeclaration[],
   footer: FooterEntry[],
-  ctx: GlobalContext,
+  ctx: RunContext,
 ): FooterEntry[] {
   if (!ctx.enumValues) {
     return footer;
@@ -102,7 +103,7 @@ function enumValuesChecked(
 }
 
 /** @internal Root types, the footer, then the closing declarations (Phase 5, step 6). */
-export function transformDocument(schema: OpenAPI3, ctx: GlobalContext): TransformedDocument {
+export function transformDocument(schema: OpenAPI3, ctx: RunContext): TransformedDocument {
   const document = schema as DocumentObject;
   withSharedEnumNames(document, ctx);
   const context = createTransformContext(ctx);
