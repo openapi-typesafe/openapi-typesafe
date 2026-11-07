@@ -66,3 +66,22 @@ describe("path object keys", () => {
     expect(url).toBe("https://api.example/users/..%2Fadmin,1");
   });
 });
+
+/** `String.prototype.replace` reads `$'`, `` $` ``, `$&` and `$$` in a string replacement. */
+describe("replacement patterns in path values", () => {
+  it.each([
+    ["$'", "$'"],
+    ["$`", "$%60"],
+    ["$&", "$%26"],
+    ["$$", "$$"],
+    ["$1", "$1"],
+  ])("defaultPathSerializer writes the object key %j as text", (key, written) => {
+    const serialized = defaultPathSerializer("/{filter}/{id}?v=1", { filter: { [key]: "" }, id: "evil.example" });
+
+    expect(serialized).toBe(`/${written},/evil.example?v=1`);
+  });
+
+  it.each(["$'", "$`", "$&", "$$"])("defaultPathSerializer writes the primitive %j as text", (value) => {
+    expect(defaultPathSerializer("/a/{id}/b", { id: value })).toBe(`/a/${encodeURIComponent(value)}/b`);
+  });
+});

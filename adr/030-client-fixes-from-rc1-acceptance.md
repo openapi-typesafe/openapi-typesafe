@@ -89,6 +89,31 @@ claim. Each one was reproduced with a failing test first.
   from, and typing that body `unknown` is a change of its own. The changeset and the migration
   guide name these cases.
 
+## Amendment (2026-11-06): an empty first path segment
+
+The security audit before 1.0.0 (B2, F9) found a gap next to decision 1. With the default
+`baseUrl` `""`, `/{org}/{repo}` with `org: ""` (or `[]`, or `{}`) and `repo: "evil.example"`
+gives `//evil.example`. A browser resolves that protocol-relative URL against the page to
+`https://evil.example/` and sends the request there, with every header from `headers`,
+`params.header` and middleware. The dot segment check did not see it: the segment is empty, not a
+dot. openapi-fetch 0.17 builds the same URL.
+
+1. `defaultPathSerializer` throws `Empty first path segment in …` when the path part of its result
+   (before `?` or `#`) starts with `//`, as it throws for a dot segment. A custom `pathSerializer`
+   is not checked (ADR-013, decision 2).
+2. Empty values stay allowed everywhere else: RFC 6570 allows them, and `/acme/` or `/a//x` name a
+   path on the same host.
+3. The check does not depend on `baseUrl`. With an absolute one the result is a path
+   (`https://api.example//evil.example`), but an empty first segment is a bug in the caller there
+   too, and the serializer does not know the base.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Reject a result that starts with `//` (chosen) | Closes exactly the shape that changes the host; no other empty value changes | A template that itself starts with `//` (not a valid path) rejects too |
+| Reject every empty path value | Simple to state | RFC 6570 allows empty values; `/files/{dir}/` style calls that work today would reject |
+| Reject only when `baseUrl` is relative | No change with an absolute base | The serializer does not see the base; `createFinalURL` would need a second check |
+| Encode an empty first value as `%2F` or similar | No error | Sends a request to a path no server expects; hides the caller's bug |
+
 ## Review trigger
 
 A TypeScript release that relates generic signatures across declarations; a library that types

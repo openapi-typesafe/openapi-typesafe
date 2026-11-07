@@ -24,7 +24,8 @@ import type { TransformContext } from "../transform-context.js";
 import { isExplodedQueryObject } from "./exploded-query.js";
 import { parameterType } from "./parameter.js";
 
-const PATH_TEMPLATE_RE = /\{([^}]+)\}/g;
+/** `[^{}]` keeps the scan linear: `[^}]` retried from every `{` of a long run of them. */
+const PATH_TEMPLATE_RE = /\{([^{}]+)\}/g;
 
 /** A parameter as written in the document, and the object its `$ref` points to. */
 interface ParameterEntry {

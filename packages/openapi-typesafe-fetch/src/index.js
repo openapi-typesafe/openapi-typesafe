@@ -660,24 +660,28 @@ export function defaultPathSerializer(pathname, pathParams) {
       continue;
     }
     const value = pathParams[name];
+    let serialized;
     if (Array.isArray(value)) {
-      nextURL = nextURL.replace(match, serializeArrayParam(name, value, { style, explode }));
-      continue;
+      serialized = serializeArrayParam(name, value, { style, explode });
+    } else if (typeof value === "object") {
+      serialized = serializeObjectParam(name, value, { style, explode });
+    } else if (style === "matrix") {
+      serialized = `;${serializePrimitiveParam(name, value)}`;
+    } else {
+      serialized = style === "label" ? `.${encodeURIComponent(value)}` : encodeURIComponent(value);
     }
-    if (typeof value === "object") {
-      nextURL = nextURL.replace(match, serializeObjectParam(name, value, { style, explode }));
-      continue;
-    }
-    if (style === "matrix") {
-      nextURL = nextURL.replace(match, `;${serializePrimitiveParam(name, value)}`);
-      continue;
-    }
-    nextURL = nextURL.replace(match, style === "label" ? `.${encodeURIComponent(value)}` : encodeURIComponent(value));
+    // A function: a string replacement reads `$'`, `$&` and the like, which object keys keep.
+    nextURL = nextURL.replace(match, () => serialized);
   }
+  const path = nextURL.split(QUERY_OR_FRAGMENT_RE, 1)[0];
   // `encodeURIComponent` keeps dots, so a value `..` would move the request up a path level (ADR-013).
   // Only the path is checked: before a query (`/a/{id}?v=2`), `$` did not match after `..`.
-  if (DOT_SEGMENT_RE.test(nextURL.split(QUERY_OR_FRAGMENT_RE, 1)[0])) {
+  if (DOT_SEGMENT_RE.test(path)) {
     throw new Error(`Dot path segment in ${nextURL}`);
+  }
+  // `//host/…` is a protocol-relative URL: with a relative baseUrl a browser sends it to that host.
+  if (path.startsWith("//")) {
+    throw new Error(`Empty first path segment in ${nextURL}`);
   }
   return nextURL;
 }

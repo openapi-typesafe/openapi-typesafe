@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 import { createConfig } from "@redocly/openapi-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/redocly-schema-loader.js";
-import { defaultRedoclyConfig } from "../../src/api/default-ports.js";
+import { DEFAULT_REMOTE_DOCUMENT_LIMITS, defaultRedoclyConfig } from "../../src/api/default-ports.js";
 import type { RefAccess } from "../../src/application/ports/schema-loader.js";
 import openapiTS, { astToString, type OpenAPITypesafeError } from "../../src/index.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
@@ -40,6 +40,12 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
     "/to-other-host.json": () => response.writeHead(302, { location: `${otherHostURL}/person.json` }).end(),
     "/to-same-host.json": () => response.writeHead(301, { location: "/person.json" }).end(),
     "/loop.json": () => response.writeHead(302, { location: "/loop.json" }).end(),
+    "/drive-letter.json": () =>
+      response.writeHead(200, { "content-type": "application/json" }).end(documentWithRef("C:/secrets/person.json")),
+    "/file-url.json": () =>
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(documentWithRef(pathToFileURL(path.join(workDir, "secrets", "person.json")).href)),
   };
   (routes[request.url ?? ""] ?? (() => response.writeHead(404).end("Not Found")))();
 }
@@ -78,6 +84,7 @@ async function load(source: URL, refAccess: RefAccess, shouldLint = true) {
     logger: new RecordingLogger(),
     now: () => 0,
     remoteRefTimeoutMs: 2_000,
+    remoteDocumentLimits: DEFAULT_REMOTE_DOCUMENT_LIMITS,
   });
   return loader.load({ source, cwd: pathToFileURL(`${workDir}/`), shouldLint, refAccess });
 }
@@ -255,7 +262,7 @@ describe("remote $ref hosts (R2)", () => {
     const error = await loadFailure(root, { remoteHosts: ["127.0.0.1"] });
 
     expect(error.code).toBe("SCHEMA_INVALID");
-    expect(error.message).toContain("More than 5 redirects");
+    expect(error.message).toContain("More than 20 redirects");
   });
 
   it("a remote root document is loaded from a host that is not listed; its $refs are limited", async () => {
@@ -273,12 +280,30 @@ describe("remote $ref hosts (R2)", () => {
       logger: new RecordingLogger(),
       now: () => 0,
       remoteRefTimeoutMs: 2_000,
+      remoteDocumentLimits: DEFAULT_REMOTE_DOCUMENT_LIMITS,
     });
     const request = { source: root, cwd: pathToFileURL(`${workDir}/`), shouldLint: true };
 
     await expect(loader.load({ ...request, refAccess: { remoteHosts: [] } })).rejects.toMatchObject({
       code: "SCHEMA_REF_FORBIDDEN",
     });
+  });
+});
+
+describe("local files from a remote document (T3)", () => {
+  // `new URL("C:/x", "https://vendor/spec.yaml")` is `c:/x`, which Redocly reads from disk: on
+  // Windows an absolute path, elsewhere a path relative to the working directory.
+  it.each([
+    ["a drive letter", "/drive-letter.json"],
+    ["a file: URL", "/file-url.json"],
+  ])("a $ref with %s in a remote document is refused, without any limits set", async (_, file) => {
+    const error = await loadFailure(new URL(`${baseURL}${file}`), {});
+
+    expect(error).toMatchObject({
+      code: "SCHEMA_REF_FORBIDDEN",
+      details: { reason: "local-ref-from-remote" },
+    });
+    expect(error.message).toMatch(/^Refused to load .*: it is not an http\(s\) URL, and the \$ref is in /);
   });
 });
 

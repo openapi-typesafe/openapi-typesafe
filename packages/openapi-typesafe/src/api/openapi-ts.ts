@@ -3,6 +3,7 @@ import { withStackOverflowReported } from "../application/stack-overflow.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { GeneratorOptions, SchemaSource } from "../types.js";
 import {
+  DEFAULT_REMOTE_DOCUMENT_LIMITS,
   defaultLogger,
   defaultRedoclyConfig,
   monotonicNow,
@@ -42,6 +43,7 @@ export async function defaultGeneratorPorts(options: GeneratorOptions): Promise<
     logger,
     now: monotonicNow,
     remoteRefTimeoutMs: REMOTE_REF_TIMEOUT_MS,
+    remoteDocumentLimits: DEFAULT_REMOTE_DOCUMENT_LIMITS,
   });
   return { loader, logger, redoc, now: monotonicNow };
 }

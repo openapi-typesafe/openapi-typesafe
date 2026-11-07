@@ -10,6 +10,7 @@ import {
 } from "@redocly/openapi-core";
 import type { RefAccess } from "../../application/ports/schema-loader.js";
 import { ERROR_CODES, type OpenAPITypesafeError } from "../../domain/errors.js";
+import { redactUrlCredentials } from "../../domain/url-credentials.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
 import { isHostAllowed } from "./allowed-hosts.js";
 import { refForbiddenError } from "./schema-load-errors.js";
@@ -80,19 +81,44 @@ export async function refusalOf(
 }
 
 /**
+ * A remote document may refer only to other URLs (threat model T3). Redocly resolves a `$ref`
+ * against a URL base with `new URL()`, so `C:/x` becomes `c:/x` and `file:///x` stays as it is;
+ * Redocly then reads either from disk, and on Windows a drive letter is an absolute path.
+ */
+function localFromRemoteRefusal(
+  base: string,
+  absoluteRef: string,
+): OpenAPITypesafeError | undefined {
+  if (!isRemoteRef(base) || isRemoteRef(absoluteRef)) {
+    return undefined;
+  }
+  const shownBase = redactUrlCredentials(base);
+  return refForbiddenError(absoluteRef, { reason: "local-ref-from-remote", base: shownBase });
+}
+
+/** The limits one resolver checks; each load gets its own resolver. */
+export interface RefAccessLimits {
+  readonly access: RefAccess;
+  /** Remote documents one load may fetch, the root included (threat model T2). */
+  readonly maxRemoteDocuments: number;
+}
+
+/**
  * A Redocly resolver that checks each document before it loads it. Redocly turns a failed load
  * into an unresolved-`$ref` problem, so the refusals are also kept for the loader to report as
  * the typed error.
  */
 export class RefAccessResolver extends BaseResolver {
-  readonly #access: RefAccess;
+  readonly #limits: RefAccessLimits;
   readonly #refusals: OpenAPITypesafeError[] = [];
   /** The root document's ref: it is chosen by the developer, so it is not limited. */
   #rootRef: string | undefined;
+  /** Remote documents asked for so far; Redocly caches each one, so each is counted once. */
+  #remoteDocumentCount = 0;
 
-  constructor(config: ResolveConfig, access: RefAccess) {
+  constructor(config: ResolveConfig, limits: RefAccessLimits) {
     super(config);
-    this.#access = access;
+    this.#limits = limits;
   }
 
   /** The first document that was refused, if any. */
@@ -108,6 +134,12 @@ export class RefAccessResolver extends BaseResolver {
     if (isRoot) {
       this.#rootRef = this.resolveExternalRef(base, ref);
     }
+    const refusal =
+      base === null ? undefined : localFromRemoteRefusal(base, this.resolveExternalRef(base, ref));
+    if (refusal !== undefined) {
+      this.#refusals.push(refusal);
+      return Promise.reject(refusal);
+    }
     return super.resolveDocument(base, ref, isRoot);
   }
 
@@ -122,8 +154,7 @@ export class RefAccessResolver extends BaseResolver {
   }
 
   override async loadExternalRef(absoluteRef: string): Promise<Source> {
-    const refusal =
-      absoluteRef === this.#rootRef ? undefined : await refusalOf(absoluteRef, this.#access);
+    const refusal = this.#countRefusal(absoluteRef) ?? (await this.#accessRefusal(absoluteRef));
     if (refusal !== undefined) {
       this.#refusals.push(refusal);
       throw refusal;
@@ -138,6 +169,30 @@ export class RefAccessResolver extends BaseResolver {
       }
       throw error;
     }
+  }
+
+  #accessRefusal(absoluteRef: string): Promise<OpenAPITypesafeError | undefined> {
+    return absoluteRef === this.#rootRef
+      ? Promise.resolve(undefined)
+      : refusalOf(absoluteRef, this.#limits.access);
+  }
+
+  /**
+   * A document that changes all its URLs can fan out without end: 150 `$ref`s per document, three
+   * levels deep, made 16,212 requests and exhausted the local ports (audit B2, F4).
+   */
+  #countRefusal(absoluteRef: string): OpenAPITypesafeError | undefined {
+    if (!isRemoteRef(absoluteRef)) {
+      return undefined;
+    }
+    this.#remoteDocumentCount += 1;
+    const { maxRemoteDocuments } = this.#limits;
+    return this.#remoteDocumentCount > maxRemoteDocuments
+      ? refForbiddenError(absoluteRef, {
+          reason: "too-many-remote-documents",
+          maxDocuments: maxRemoteDocuments,
+        })
+      : undefined;
   }
 }
 

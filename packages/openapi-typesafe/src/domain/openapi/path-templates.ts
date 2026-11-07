@@ -4,7 +4,8 @@
  * `/a/{name}`, match the same URLs, so a client cannot tell which one a request is for.
  */
 
-const PATH_PARAMETER_RE = /\{[^}]+\}/g;
+/** `[^{}]` keeps the scan linear: `[^}]` retried from every `{` of a long run of them. */
+const PATH_PARAMETER_RE = /\{[^{}]+\}/g;
 const PATH_PREFIX = "/";
 const UNNAMED_PARAMETER = "{}";
 

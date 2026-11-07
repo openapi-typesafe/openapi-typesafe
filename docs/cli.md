@@ -102,6 +102,18 @@ resolve:
 
 Refer to the [Redocly docs](https://redocly.com/docs/cli/configuration/#resolve-non-public-or-non-remote-urls) for additional options.
 
+The headers often carry credentials, so openapi-typesafe sends them more carefully than Redocly
+does:
+
+- A pattern is matched against the protocol, host and path of the parsed URL. The query, the
+  fragment and user info are not part of it, so a `*` cannot match across a `?` into another
+  host's URL.
+- A header goes over HTTPS only. To send it over plain HTTP (a local dev server), start its
+  pattern with `http://`, for example `matches: http://localhost:8080/**`.
+- The loader follows redirects itself (at most 20) and chooses the headers again for each URL. A
+  redirect to a URL that no pattern matches gets none of them. Fetch alone keeps every header but
+  `Authorization`, `Cookie` and `Proxy-Authorization` on a redirect to another origin.
+
 ## Flags
 
 The following flags are supported in the CLI:

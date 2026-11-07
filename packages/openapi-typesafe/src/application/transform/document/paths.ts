@@ -35,7 +35,8 @@ import {
 } from "./path-template-replace.js";
 import { assignabilityProof } from "./type-assignability.js";
 
-const PATH_PARAMETER_RE = /\{[^}]+\}/g;
+/** `[^{}]` keeps the scan linear: `[^}]` retried from every `{` of a long run of them. */
+const PATH_PARAMETER_RE = /\{[^{}]+\}/g;
 
 /** Placeholders by parameter schema type; anything else is a string placeholder. */
 const PLACEHOLDERS: ReadonlyMap<unknown, PathPlaceholder> = new Map([
