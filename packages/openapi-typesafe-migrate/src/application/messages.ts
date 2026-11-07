@@ -1,6 +1,7 @@
 import { assertNever } from "../domain/assert-never.js";
 import type { Change, ManualStep, TransformKeepReason } from "../domain/migration-findings.js";
 import { PACKAGE_RENAMES } from "../domain/package-names.js";
+import type { SkipReason } from "./ports.js";
 
 /** The user-facing text of the report (CODING_PRINCIPLES 7.8: kept apart from the logic). */
 
@@ -81,6 +82,17 @@ export function manualStepMessage(step: ManualStep): string {
     default:
       return assertNever(step);
   }
+}
+
+export const SKIPPED_HEADING = "Skipped (not read, not written):";
+
+const SKIP_REASONS: Readonly<Record<SkipReason, string>> = {
+  "outside-root":
+    "git listed it, but it is outside the project folder; check where this git index came from",
+};
+
+export function skipReasonMessage(reason: SkipReason): string {
+  return SKIP_REASONS[reason];
 }
 
 export const NEXT_STEPS: readonly string[] = [

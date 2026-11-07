@@ -1,6 +1,8 @@
 /**
  * What a migration found in one file: changes it made, and steps it leaves to the user. Both are
  * closed sets of facts, not text; the report turns them into messages (application/report.ts).
+ * They go to the report and the log, so a version spec in them has its URL credentials hidden
+ * (domain/url-credentials.ts).
  */
 
 export type Change =

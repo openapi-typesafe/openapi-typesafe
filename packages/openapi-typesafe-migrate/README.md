@@ -18,7 +18,7 @@ Run it with `npx` (or `pnpm dlx`, `yarn dlx`, `bunx`), not as a dependency: it u
 | Where                                                                                  | Change                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Every `package.json`                                                                   | `dependencies`, `devDependencies`, `peerDependencies` and `optionalDependencies` get the new names, with the version of this tool; `^`, `~` and exact ranges keep their style. `catalog:` and `workspace:` stay.                                                                                                                                                                                                        |
-| `pnpm-workspace.yaml`                                                                  | Entries of `catalog:` and `catalogs:`. Comments and formatting stay.                                                                                                                                                                                                                                                                                                                                                    |
+| `pnpm-workspace.yaml`                                                                  | Entries of `catalog:` and `catalogs:`. Comments, formatting and line endings stay.                                                                                                                                                                                                                                                                                                                                      |
 | `package.json` scripts, shell scripts, YAML (CI), `Makefile`, `justfile`, `Dockerfile` | The `openapi-typescript` command, and the flags it renamed: `--immutable-types` / `-it` → `--immutable`, `--support-array-length` → `--array-length`, `--redoc` → `--redocly`, `-ap` → `--additional-properties`.                                                                                                                                                                                                       |
 | Sources (`.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, `.vue`, `.svelte`, `.astro`, …)         | Module specifiers only: `import` / `export … from`, `import()`, `require()`, `require.resolve()`, `import("…")` types and `@import` tags in JSDoc (every block), `declare module`, `/// <reference types>`, and module mocks: `vi.mock()` and the other `vi` / `jest` module methods (`jest.setMock()`, `jest.requireActual()`, …), bun's `mock.module()`. Components: their `<script>` blocks and Astro's frontmatter. |
 | `openapiTS(source, { transform })` calls                                               | When `transform` is the only callback and returns plain `ts.factory` types (or the helper constants), the returns become type text and `irCallbacks: true` is added.                                                                                                                                                                                                                                                    |
@@ -31,6 +31,15 @@ repository around it ignores, it reads the whole tree of that folder. Either way
 `.git`, `dist` and the output folders `.next`, `.nuxt`, `.output`, `.svelte-kit`, `.turbo` and
 `coverage` are skipped, and links are not followed. The log names the folders and how each one
 was read.
+
+The tool does not trust the folder it migrates. Git runs with `core.fsmonitor` turned off, so a
+nested repository's `.git/config` cannot make it run a command, and it does not open a bare
+repository that is not named explicitly. A path that git lists but that leads outside the folder
+(`../`, an absolute path, or a linked parent folder) is not read or written; the report lists it
+under "Skipped". A file is written as a new file that replaces the old one (same mode), so a hard
+link to a file elsewhere keeps its old text; the log notes it.
+The report and the log show a spec with credentials (`git+https://<token>@…`) as
+`git+https://***@…`; the file keeps it as written.
 
 ## What it leaves to you
 
@@ -58,11 +67,14 @@ now, so `--check` fails until you do), and run your type check and tests.
 
 ## Options
 
-| Option         | Default                                                                      |
-| -------------- | ---------------------------------------------------------------------------- |
-| `--write`      | Dry run: nothing is written                                                  |
-| `--root <dir>` | The current directory                                                        |
-| `--log <file>` | A new JSON Lines file in the system temporary directory; its path is printed |
+| Option         | Default                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| `--write`      | Dry run: nothing is written                                                                   |
+| `--root <dir>` | The current directory                                                                         |
+| `--log <file>` | A new JSON Lines file in a new private folder in the temporary directory; its path is printed |
+
+The default log folder is new for each run and only you can open it (mode 0700). A `--log` file
+that exists gets the new lines appended.
 
 Exit codes: `0` done, `1` the migration failed (the message and the log say why), `2` unknown
 option.

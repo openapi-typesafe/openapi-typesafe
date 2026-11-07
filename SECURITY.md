@@ -36,6 +36,9 @@ In scope:
   another host (headers from `redocly.yaml`, credentials in URLs printed to logs);
 - vulnerabilities in the fetch client and React Query bindings, such as a parameter value that sends a
   request to another path or host;
+- the migration tool (`openapi-typesafe-migrate`) running code, reading or writing outside the
+  folder it migrates, or copying credentials into its output, when the folder holds crafted files
+  (it treats the project tree as untrusted input);
 - compromise of the release process or published packages.
 
 Out of scope: vulnerabilities in the APIs you generate types for, issues in unsupported versions, and

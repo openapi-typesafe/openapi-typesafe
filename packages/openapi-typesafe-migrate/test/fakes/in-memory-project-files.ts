@@ -1,16 +1,18 @@
-import type { ProjectFiles } from "../../src/application/ports.js";
+import type { ProjectFileList, ProjectFiles, SkippedFile } from "../../src/application/ports.js";
 
 /** A project tree in memory; `written` records every write in order. */
 export class InMemoryProjectFiles implements ProjectFiles {
   readonly files: Map<string, string>;
   readonly written: string[] = [];
+  readonly #skipped: readonly SkippedFile[];
 
-  constructor(files: Readonly<Record<string, string>>) {
+  constructor(files: Readonly<Record<string, string>>, skipped: readonly SkippedFile[] = []) {
     this.files = new Map(Object.entries(files));
+    this.#skipped = skipped;
   }
 
-  listFiles(): Promise<string[]> {
-    return Promise.resolve([...this.files.keys()]);
+  listFiles(): Promise<ProjectFileList> {
+    return Promise.resolve({ files: [...this.files.keys()], skipped: this.#skipped });
   }
 
   read(path: string): Promise<string> {
