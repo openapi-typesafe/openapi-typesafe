@@ -21,6 +21,8 @@ import { checkRefsResolve } from "../../../src/adapters/redocly-loader/ref-resol
  */
 
 const ROOT = "/api/openapi.yaml";
+// Redocly resolves `./b.yaml` with `path.resolve`, which adds the drive letter on Windows.
+const B_FILE = path.resolve("/api/b.yaml");
 const FIXTURES = fileURLToPath(new URL("../../fixtures/", import.meta.url));
 
 /** A resolver over in-memory files; a missing file fails to load, as a missing file on disk does. */
@@ -131,7 +133,7 @@ describe("checkRefsResolve", () => {
   it("checkRefsResolve with a discriminator mapping to a ring in another file fails with the cycle", async () => {
     const schemas =
       "    P: {oneOf: [{type: object}], discriminator: {propertyName: k, mapping: {a: './b.yaml#/S'}}}\n";
-    const files = { "/api/b.yaml": "S: {$ref: '#/S'}\n" };
+    const files = { [B_FILE]: "S: {$ref: '#/S'}\n" };
 
     const { check } = await outcomes(documentWithSchemas(schemas), files);
 
@@ -140,7 +142,7 @@ describe("checkRefsResolve", () => {
 
   it("checkRefsResolve with failures in two files fails with the first and waits for the other", async () => {
     const root = `${DOCUMENT_START}paths:\n  /a:\n    get:\n      responses:\n        "200": {$ref: './b.yaml#/B'}\n        "201": {$ref: './b.yaml#/C'}\n`;
-    const files = { "/api/b.yaml": "B: {$ref: '#/B'}\nC: {description: c, x-n: {$ref: '#/B'}}\n" };
+    const files = { [B_FILE]: "B: {$ref: '#/B'}\nC: {description: c, x-n: {$ref: '#/B'}}\n" };
 
     const check = await outcomeOf(() =>
       checkRefsResolve(
@@ -154,7 +156,7 @@ describe("checkRefsResolve", () => {
   });
 
   it("checkRefsResolve loads documents into the resolver cache, so Redocly reads them once", async () => {
-    const resolver = new InMemoryResolver({ "/api/b.yaml": "B: {type: string}\n" });
+    const resolver = new InMemoryResolver({ [B_FILE]: "B: {type: string}\n" });
     const document = makeDocumentFromString(
       documentWithSchemas("    A: {$ref: './b.yaml#/B'}\n"),
       ROOT,
@@ -162,7 +164,7 @@ describe("checkRefsResolve", () => {
 
     await checkRefsResolve(document as Document, resolver, styleguide);
 
-    expect([...resolver.cache.keys()]).toEqual(["/api/b.yaml"]);
+    expect([...resolver.cache.keys()]).toEqual([B_FILE]);
   });
 
   const fixtureDocuments = fs
