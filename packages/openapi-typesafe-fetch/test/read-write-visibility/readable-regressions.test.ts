@@ -24,7 +24,9 @@ describe("Readable without markers", () => {
 
   it("keeps tuples (upstream #2632, #2673, #2842)", () => {
     expectTypeOf<Readable<[string, number]>>().toEqualTypeOf<[string, number]>();
-    expectTypeOf<Readable<readonly [string, ...number[]]>>().toEqualTypeOf<readonly [string, ...number[]]>();
+    expectTypeOf<Readable<readonly [string, ...number[]]>>().toEqualTypeOf<
+      readonly [string, ...number[]]
+    >();
   });
 
   it("keeps branded primitives (upstream #2765)", () => {
@@ -36,7 +38,9 @@ describe("Readable without markers", () => {
       read: () => Promise<string>;
     }>();
     expectTypeOf<Readable<{ file: Blob }>["file"]>().toExtend<Blob>();
-    expectTypeOf<Readable<{ file: Blob }>["file"]["arrayBuffer"]>().toEqualTypeOf<Blob["arrayBuffer"]>();
+    expectTypeOf<Readable<{ file: Blob }>["file"]["arrayBuffer"]>().toEqualTypeOf<
+      Blob["arrayBuffer"]
+    >();
   });
 
   it("Writable accepts a File where the schema has a Blob", () => {
@@ -48,7 +52,9 @@ describe("Readable without markers", () => {
     const data = {} as Readable<Foo | Bar>;
 
     if (data["@type"] === "Foo") {
-      expectTypeOf(data.littleOnes[0]?.tinyOnes[0]?.tinyFooProp).toEqualTypeOf<string | undefined>();
+      expectTypeOf(data.littleOnes[0]?.tinyOnes[0]?.tinyFooProp).toEqualTypeOf<
+        string | undefined
+      >();
     }
   });
 });
@@ -61,7 +67,9 @@ describe("Readable and Writable with markers", () => {
   });
 
   it("Writable strips $Read and unwraps $Write", () => {
-    expectTypeOf<Writable<Pet>>().toEqualTypeOf<{ secret: string; tags: never[] } & { id?: never }>();
+    expectTypeOf<Writable<Pet>>().toEqualTypeOf<
+      { secret: string; tags: never[] } & { id?: never }
+    >();
   });
 
   it("Writable keeps optional null-only properties (upstream #2717, #2825)", () => {

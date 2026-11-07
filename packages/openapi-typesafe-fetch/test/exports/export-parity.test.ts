@@ -18,7 +18,11 @@ const RUNTIME_ONLY_EXPORTS: readonly string[] = ["randomID"];
 
 /** Return the names of value exports (functions, constants, default) declared in a `.d.ts` file. */
 function readDeclaredValueExports(declarationsPath: URL): string[] {
-  const source = ts.createSourceFile("index.d.ts", readFileSync(declarationsPath, "utf8"), ts.ScriptTarget.Latest);
+  const source = ts.createSourceFile(
+    "index.d.ts",
+    readFileSync(declarationsPath, "utf8"),
+    ts.ScriptTarget.Latest,
+  );
   const names: string[] = [];
   for (const statement of source.statements) {
     const modifiers = ts.canHaveModifiers(statement) ? (ts.getModifiers(statement) ?? []) : [];

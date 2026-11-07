@@ -17,6 +17,12 @@
   },
   "overrides": [
     {
+      "includes": ["src/**", "test/**"],
+      "formatter": {
+        "lineWidth": 100
+      }
+    },
+    {
       "includes": ["test/**"],
       "linter": {
         "rules": {

@@ -64,7 +64,9 @@ test("can modify response", async () => {
     updated_at: "2024-01-20T00:00:00Z",
   };
 
-  const client = createObservedClient<paths>({}, async () => Response.json(rawBody, { headers: { foo: "bar" } }));
+  const client = createObservedClient<paths>({}, async () =>
+    Response.json(rawBody, { headers: { foo: "bar" } }),
+  );
 
   client.use({
     // convert date string to unix time
@@ -457,7 +459,8 @@ test("auth header", async () => {
 test("type error occurs only when neither onRequest nor onResponse is specified", async () => {
   expectTypeOf<Middleware>().not.toEqualTypeOf({});
   const onRequest = async ({ request }: MiddlewareCallbackParams) => request;
-  const onResponse = async ({ response }: MiddlewareCallbackParams & { response: Response }) => response;
+  const onResponse = async ({ response }: MiddlewareCallbackParams & { response: Response }) =>
+    response;
   assertType<Middleware>({ onRequest });
   assertType<Middleware>({ onResponse });
   assertType<Middleware>({ onRequest, onResponse });

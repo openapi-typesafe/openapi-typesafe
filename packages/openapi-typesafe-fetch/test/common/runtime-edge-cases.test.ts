@@ -13,7 +13,10 @@ import createClient, {
 
 type Operation = { responses: { 200: { content: { "application/json": { ok: boolean } } } } };
 type Paths = {
-  "/items": Record<"get" | "put" | "post" | "delete" | "options" | "head" | "patch" | "trace", Operation>;
+  "/items": Record<
+    "get" | "put" | "post" | "delete" | "options" | "head" | "patch" | "trace",
+    Operation
+  >;
 };
 
 const BASE_URL = "https://api.example.com";

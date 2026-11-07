@@ -1,4 +1,8 @@
-import { Headers as UndiciHeaders, Request as UndiciRequest, Response as UndiciResponse } from "undici";
+import {
+  Headers as UndiciHeaders,
+  Request as UndiciRequest,
+  Response as UndiciResponse,
+} from "undici";
 import { describe, expect, it } from "vitest";
 import createClient, { type Middleware, mergeHeaders } from "../../src/index.js";
 
@@ -40,7 +44,9 @@ function asDom<T>(value: unknown): T {
 describe("middleware results from another fetch implementation", () => {
   it("onRequest returning an undici package Request sends that request", async () => {
     const { client, requests } = createRecordingClient();
-    const replacement = asDom<Request>(new UndiciRequest(ITEMS_URL, { headers: { "X-Test": "1" } }));
+    const replacement = asDom<Request>(
+      new UndiciRequest(ITEMS_URL, { headers: { "X-Test": "1" } }),
+    );
     client.use({ onRequest: () => replacement });
 
     await client.GET("/items");
@@ -61,7 +67,9 @@ describe("middleware results from another fetch implementation", () => {
 
   it("onResponse returning an undici package Response returns its data", async () => {
     const { client } = createRecordingClient();
-    client.use({ onResponse: () => asDom<Response>(UndiciResponse.json({ source: "middleware" })) });
+    client.use({
+      onResponse: () => asDom<Response>(UndiciResponse.json({ source: "middleware" })),
+    });
 
     const { data } = await client.GET("/items");
 

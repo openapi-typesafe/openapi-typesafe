@@ -1,10 +1,15 @@
 // settings & const
 const PATH_PARAM_RE = /\{[^{}]+\}/g;
-/** A `.` or `..` path segment; URLs resolve it, so a parameter value could leave its path (#2483). */
+/**
+ * A `.` or `..` path segment; URLs resolve it, so a parameter value could leave its path (#2483).
+ */
 const DOT_SEGMENT_RE = /(^|\/)\.\.?(\/|$)/;
 /** Where the path of a URL ends: its query or fragment, which have no segments. */
 const QUERY_OR_FRAGMENT_RE = /[?#]/;
-/** Any JSON media type: `application/json`, `application/problem+json`, with or without parameters. */
+/**
+ * Any JSON media type: `application/json`, `application/problem+json`, with or without
+ * parameters.
+ */
 const JSON_MEDIA_TYPE_RE = /json/i;
 /** `application/x-www-form-urlencoded`, with or without parameters such as `charset`. */
 const FORM_MEDIA_TYPE_RE = /^application\/x-www-form-urlencoded(;|$)/i;
@@ -104,11 +109,12 @@ export default function createClient(clientOptions) {
         ? undefined
         : bodySerializer(
             body,
-            // Note: we declare mergeHeaders() both here and below because it’s a bit of a chicken-or-egg situation:
-            // bodySerializer() needs all headers so we aren’t dropping ones set by the user, however,
-            // the result of this ALSO sets the lowest-priority content-type header. So we re-merge below,
-            // setting the content-type at the very beginning to be overwritten.
-            // Lastly, based on the way headers work, it’s not a simple “present-or-not” check becauase null intentionally un-sets headers.
+            // Note: we declare mergeHeaders() both here and below because it’s a bit of a
+            // chicken-or-egg situation: bodySerializer() needs all headers so we aren’t dropping
+            // ones set by the user, however, the result of this ALSO sets the lowest-priority
+            // content-type header. So we re-merge below, setting the content-type at the very
+            // beginning to be overwritten. Lastly, based on the way headers work, it’s not a simple
+            // “present-or-not” check because null intentionally un-sets headers.
             mergeHeaders(baseHeaders, headers, params.header),
           );
     const finalHeaders = mergeHeaders(
@@ -127,7 +133,10 @@ export default function createClient(clientOptions) {
     // `fetch` sends a FormData as multipart with a boundary only it knows. A `Content-Type` without
     // that boundary, set by hand, replaced the platform's, and the server could not split the parts
     // (upstream #1214), so it goes and the platform sets its own (ADR-013, decision 10).
-    if (serializedBody instanceof FormData && !BOUNDARY_PARAMETER_RE.test(finalHeaders.get("Content-Type"))) {
+    if (
+      serializedBody instanceof FormData &&
+      !BOUNDARY_PARAMETER_RE.test(finalHeaders.get("Content-Type"))
+    ) {
       finalHeaders.delete("Content-Type");
     }
 
@@ -145,7 +154,12 @@ export default function createClient(clientOptions) {
     let id;
     let options;
     let request = new Request(
-      createFinalURL(schemaPath, { baseUrl: finalBaseUrl, params, querySerializer, pathSerializer }),
+      createFinalURL(schemaPath, {
+        baseUrl: finalBaseUrl,
+        params,
+        querySerializer,
+        pathSerializer,
+      }),
       requestInit,
     );
     let response;
@@ -185,7 +199,9 @@ export default function createClient(clientOptions) {
               response = result;
               break;
             } else {
-              throw new Error("onRequest: must return new Request() or Response() when modifying the request");
+              throw new Error(
+                "onRequest: must return new Request() or Response() when modifying the request",
+              );
             }
           }
         }
@@ -253,7 +269,9 @@ export default function createClient(clientOptions) {
             });
             if (result) {
               if (!isResponse(result)) {
-                throw new Error("onResponse: must return new Response() when modifying the response");
+                throw new Error(
+                  "onResponse: must return new Response() when modifying the response",
+                );
               }
               response = result;
             }
@@ -281,7 +299,8 @@ export default function createClient(clientOptions) {
         }
 
         if (parseAs === "json" && !contentLength) {
-          // use text() when no content-length is provided to avoid errors parsing empty bodies (200 with no content)
+          // use text() when no content-length is provided to avoid errors parsing empty bodies
+          // (200 with no content)
           const raw = await response.text();
           return raw ? JSON.parse(raw) : undefined;
         }
@@ -353,7 +372,9 @@ export default function createClient(clientOptions) {
           continue;
         }
         if (typeof m !== "object" || !("onRequest" in m || "onResponse" in m || "onError" in m)) {
-          throw new Error("Middleware must be an object with one of `onRequest()`, `onResponse()` or `onError()`");
+          throw new Error(
+            "Middleware must be an object with one of `onRequest()`, `onResponse()` or `onError()`",
+          );
         }
         globalMiddlewares.push(m);
       }
@@ -464,7 +485,9 @@ function isHeaders(value) {
 }
 
 function isRequest(value) {
-  return typeof value?.method === "string" && typeof value.url === "string" && isHeaders(value.headers);
+  return (
+    typeof value?.method === "string" && typeof value.url === "string" && isHeaders(value.headers)
+  );
 }
 
 function isResponse(value) {
@@ -514,9 +537,13 @@ export function serializeObjectParam(name, value, options) {
   // explode: false
   if (options.style !== "deepObject" && options.explode === false) {
     for (const k in value) {
-      values.push(encodeName(k), options.allowReserved === true ? value[k] : encodeURIComponent(value[k]));
+      values.push(
+        encodeName(k),
+        options.allowReserved === true ? value[k] : encodeURIComponent(value[k]),
+      );
     }
-    const final = values.join(","); // note: values are always joined by comma in explode: false (but joiner can prefix)
+    // note: values are always joined by comma in explode: false (but joiner can prefix)
+    const final = values.join(",");
     switch (options.style) {
       case "form": {
         return `${name}=${final}`;
@@ -553,8 +580,11 @@ export function serializeArrayParam(name, value, options) {
 
   // explode: false
   if (options.explode === false) {
-    const joiner = { form: ",", spaceDelimited: "%20", pipeDelimited: "|" }[options.style] || ","; // note: for arrays, joiners vary wildly based on style + explode behavior
-    const final = (options.allowReserved === true ? value : value.map((v) => encodeURIComponent(v))).join(joiner);
+    // note: for arrays, joiners vary wildly based on style + explode behavior
+    const joiner = { form: ",", spaceDelimited: "%20", pipeDelimited: "|" }[options.style] || ",";
+    const final = (
+      options.allowReserved === true ? value : value.map((v) => encodeURIComponent(v))
+    ).join(joiner);
     switch (options.style) {
       case "simple": {
         return final;
@@ -674,12 +704,14 @@ export function defaultPathSerializer(pathname, pathParams) {
     nextURL = nextURL.replace(match, () => serialized);
   }
   const path = nextURL.split(QUERY_OR_FRAGMENT_RE, 1)[0];
-  // `encodeURIComponent` keeps dots, so a value `..` would move the request up a path level (ADR-013).
+  // `encodeURIComponent` keeps dots, so a value `..` would move the request up a path level
+  // (ADR-013).
   // Only the path is checked: before a query (`/a/{id}?v=2`), `$` did not match after `..`.
   if (DOT_SEGMENT_RE.test(path)) {
     throw new Error(`Dot path segment in ${nextURL}`);
   }
-  // `//host/…` is a protocol-relative URL: with a relative baseUrl a browser sends it to that host.
+  // `//host/…` is a protocol-relative URL: with a relative baseUrl a browser sends it to that
+  // host.
   if (path.startsWith("//")) {
     throw new Error(`Empty first path segment in ${nextURL}`);
   }
@@ -755,7 +787,8 @@ export function defaultBodySerializer(body, headers) {
   // Headers with a `get` are read directly: headers from another realm (iframe, `node:vm`) may have
   // nothing else (upstream #2637). A record or a list of pairs is read through `Headers`, which
   // matches the name in any letter case.
-  const contentType = headers && (isHeaders(headers) ? headers : mergeHeaders(headers)).get("Content-Type");
+  const contentType =
+    headers && (isHeaders(headers) ? headers : mergeHeaders(headers)).get("Content-Type");
   if (FORM_MEDIA_TYPE_RE.test(contentType)) {
     return formBody(body);
   }
@@ -801,7 +834,11 @@ export function mergeHeaders(...allHeaders) {
       continue;
     }
     // A list of pairs (`[["x-t", "1"]]`) is a `HeadersInit` too; `Headers` joins a repeated name.
-    const iterator = isHeaders(h) ? h.entries() : Symbol.iterator in h ? new Headers(h).entries() : Object.entries(h);
+    const iterator = isHeaders(h)
+      ? h.entries()
+      : Symbol.iterator in h
+        ? new Headers(h).entries()
+        : Object.entries(h);
     for (const [k, v] of iterator) {
       if (v === null) {
         finalHeaders.delete(k);

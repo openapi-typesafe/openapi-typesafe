@@ -10,7 +10,11 @@ describe("POST", () => {
       return Response.json({});
     });
     await client.POST("/posts", {
-      body: { title: "My Post", body: "Post body", publish_date: new Date("2024-06-06T12:00:00Z").getTime() },
+      body: {
+        title: "My Post",
+        body: "Post body",
+        publish_date: new Date("2024-06-06T12:00:00Z").getTime(),
+      },
     });
     expect(method).toBe("POST");
   });

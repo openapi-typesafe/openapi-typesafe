@@ -24,9 +24,13 @@ test("basic", async ({ page }) => {
 async function mockAPI(page: Page) {
   await Promise.all([
     // GET /api/v1/get
-    page.route("/api/v1/get", (route) => route.fulfill({ status: 200, body: JSON.stringify({ message: "success" }) })),
+    page.route("/api/v1/get", (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify({ message: "success" }) }),
+    ),
     // POST /api/v1/post
-    page.route("/api/v1/post", (route) => route.fulfill({ status: 200, body: JSON.stringify({ message: "success" }) })),
+    page.route("/api/v1/post", (route) =>
+      route.fulfill({ status: 200, body: JSON.stringify({ message: "success" }) }),
+    ),
     // POST /api/v1/multi-form: answers 400 unless the body is a multipart upload of the file
     page.route("/api/v1/multi-form", (route) => {
       const isUpload = isMultipartUpload(route.request());

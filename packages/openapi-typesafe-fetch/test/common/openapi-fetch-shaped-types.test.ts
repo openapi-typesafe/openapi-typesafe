@@ -1,4 +1,9 @@
-import type { HttpMethod, MediaType, PathsWithMethod, RequiredKeysOf } from "openapi-typesafe-helpers";
+import type {
+  HttpMethod,
+  MediaType,
+  PathsWithMethod,
+  RequiredKeysOf,
+} from "openapi-typesafe-helpers";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import createClient, {
   type Client,
@@ -40,13 +45,16 @@ const PET: Pet = { id: "1", name: "Rex" };
 
 // openapi-fetch 0.17's types, as a user copies them.
 type UpstreamInitParam<Init> =
-  RequiredKeysOf<Init> extends never ? [(Init & { [key: string]: unknown })?] : [Init & { [key: string]: unknown }];
+  RequiredKeysOf<Init> extends never
+    ? [(Init & { [key: string]: unknown })?]
+    : [Init & { [key: string]: unknown }];
 
-// biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's constraint, as its users copy it
-type UpstreamClientMethod<P extends Record<string, any>, Method extends HttpMethod, Media extends MediaType> = <
-  Path extends PathsWithMethod<P, Method>,
-  Init extends MaybeOptionalInit<P[Path], Method>,
->(
+type UpstreamClientMethod<
+  // biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's constraint, as its users copy it
+  P extends Record<string, any>,
+  Method extends HttpMethod,
+  Media extends MediaType,
+> = <Path extends PathsWithMethod<P, Method>, Init extends MaybeOptionalInit<P[Path], Method>>(
   url: Path,
   ...init: UpstreamInitParam<Init>
 ) => Promise<FetchResponse<P[Path][Method], Init, Media>>;
@@ -56,15 +64,23 @@ type UpstreamClient<P extends Record<string, any>, Media extends MediaType = Med
   GET: UpstreamClientMethod<P, "get", Media>;
 };
 
-// biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's constraint, as its users copy it
-type UpstreamClientForPath<PathInfo extends Record<string | number, any>, Media extends MediaType> = {
-  [Method in keyof PathInfo as Uppercase<string & Method>]: <Init extends MaybeOptionalInit<PathInfo, Method>>(
+type UpstreamClientForPath<
+  // biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's constraint, as its users copy it
+  PathInfo extends Record<string | number, any>,
+  Media extends MediaType,
+> = {
+  [Method in keyof PathInfo as Uppercase<string & Method>]: <
+    Init extends MaybeOptionalInit<PathInfo, Method>,
+  >(
     ...init: UpstreamInitParam<Init>
   ) => Promise<FetchResponse<PathInfo[Method], Init, Media>>;
 };
 
-// biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's constraint, as its users copy it
-type UpstreamPathBasedClient<P extends Record<string | number, any>, Media extends MediaType = MediaType> = {
+type UpstreamPathBasedClient<
+  // biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's constraint, as its users copy it
+  P extends Record<string | number, any>,
+  Media extends MediaType = MediaType,
+> = {
   [Path in keyof P]: UpstreamClientForPath<P[Path], Media>;
 };
 
@@ -78,7 +94,9 @@ function createQueryHook<P extends {}, Media extends MediaType>(client: Client<P
 
 /** openapi-react-query 0.5.4's `useQuery` rest parameter, without the TanStack types. */
 type ReactQueryInit<Init> =
-  RequiredKeysOf<Init> extends never ? [(Init & { [key: string]: unknown })?] : [Init & { [key: string]: unknown }];
+  RequiredKeysOf<Init> extends never
+    ? [(Init & { [key: string]: unknown })?]
+    : [Init & { [key: string]: unknown }];
 
 function createQueryOptions<P extends {}, Media extends MediaType>(client: Client<P, Media>) {
   return <
@@ -115,7 +133,8 @@ describe("client types written like openapi-fetch's", () => {
   });
 
   it("code generic in the paths casts the path-based client to a type copied from openapi-fetch", async () => {
-    const wrap = <P extends {}>(client: Client<P>) => wrapAsPathBasedClient(client) as UpstreamPathBasedClient<P>;
+    const wrap = <P extends {}>(client: Client<P>) =>
+      wrapAsPathBasedClient(client) as UpstreamPathBasedClient<P>;
     const client = wrap(createPetClient());
 
     const { data } = await client["/pets/{id}"].GET({ params: { path: { id: "1" } } });
@@ -128,8 +147,12 @@ describe("client types written like openapi-fetch's", () => {
 
     // @ts-expect-error `parameters` is not a method
     expect(client["/pets"].PARAMETERS).toBeUndefined();
-    expectTypeOf<undefined extends (typeof client)["/pets"]["PUT"] ? true : false>().toEqualTypeOf<true>();
-    expectTypeOf<undefined extends (typeof client)["/pets"]["GET"] ? true : false>().toEqualTypeOf<false>();
+    expectTypeOf<
+      undefined extends (typeof client)["/pets"]["PUT"] ? true : false
+    >().toEqualTypeOf<true>();
+    expectTypeOf<
+      undefined extends (typeof client)["/pets"]["GET"] ? true : false
+    >().toEqualTypeOf<false>();
   });
 });
 
@@ -163,9 +186,13 @@ describe("hook factories in the shape of swr-openapi and openapi-react-query", (
     // @ts-expect-error "/pets/{id}" needs its path parameter
     useQuery(path);
 
-    expectTypeOf<undefined extends MaybeOptionalInit<Paths["/pets"], "get"> ? true : false>().toEqualTypeOf<true>();
     expectTypeOf<
-      undefined extends MaybeOptionalInit<Paths["/pets"] | Paths["/pets/{id}"], "get"> ? true : false
+      undefined extends MaybeOptionalInit<Paths["/pets"], "get"> ? true : false
+    >().toEqualTypeOf<true>();
+    expectTypeOf<
+      undefined extends MaybeOptionalInit<Paths["/pets"] | Paths["/pets/{id}"], "get">
+        ? true
+        : false
     >().toEqualTypeOf<false>();
   });
 });

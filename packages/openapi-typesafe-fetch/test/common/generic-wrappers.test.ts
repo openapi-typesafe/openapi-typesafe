@@ -34,11 +34,11 @@ type GetPaths<Paths extends Record<string | number, any>> = PathsWithMethod<
   Extract<"get", keyof Paths[keyof Paths]>
 >;
 
-// biome-ignore lint/suspicious/noExplicitAny: swr-openapi's constraint, as its users write it
-type GetInit<Paths extends Record<string | number, any>, Path extends GetPaths<Paths>> = MaybeOptionalInit<
-  Paths[Path],
-  Extract<"get", keyof Paths[keyof Paths]>
->;
+type GetInit<
+  // biome-ignore lint/suspicious/noExplicitAny: swr-openapi's constraint, as its users write it
+  Paths extends Record<string | number, any>,
+  Path extends GetPaths<Paths>,
+> = MaybeOptionalInit<Paths[Path], Extract<"get", keyof Paths[keyof Paths]>>;
 
 /** A hook factory in the shape of swr-openapi's `createInfiniteHook`. */
 // biome-ignore lint/suspicious/noExplicitAny: swr-openapi's constraint, as its users write it

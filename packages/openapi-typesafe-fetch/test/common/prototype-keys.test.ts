@@ -53,9 +53,12 @@ describe("prototype keys in parameters", () => {
       },
     });
 
-    await (client.GET as (path: string, init: unknown) => Promise<unknown>)("https://api.example/h", {
-      headers: fromJson('{"__proto__": "v"}'),
-    });
+    await (client.GET as (path: string, init: unknown) => Promise<unknown>)(
+      "https://api.example/h",
+      {
+        headers: fromJson('{"__proto__": "v"}'),
+      },
+    );
 
     expect(requests[0]?.headers.get("__proto__")).toBe("v");
   });

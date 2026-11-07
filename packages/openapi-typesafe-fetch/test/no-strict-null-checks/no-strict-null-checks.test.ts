@@ -18,7 +18,9 @@ describe("params", () => {
         const found = [resource1, resource2, resource3].find(
           (post) => String(post.id) === req.url.split("/resources/")[1],
         );
-        return found ? Response.json(found) : Response.json({ code: 404, message: "Not found" }, { status: 404 });
+        return found
+          ? Response.json(found)
+          : Response.json({ code: 404, message: "Not found" }, { status: 404 });
       });
 
       // assert missing options throws error
@@ -61,7 +63,9 @@ describe("params", () => {
     });
 
     test("typechecks (empty path params)", async () => {
-      const client = createObservedClient<paths>({}, async () => Response.json([resource1, resource2, resource3]));
+      const client = createObservedClient<paths>({}, async () =>
+        Response.json([resource1, resource2, resource3]),
+      );
 
       // assert unneeded path params throws type error
       await client.GET("/resources", {

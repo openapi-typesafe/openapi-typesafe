@@ -50,10 +50,13 @@ describe("request", () => {
 
     test('default headers are unset with "null"', async () => {
       let headers = new Headers();
-      const client = createObservedClient<paths>({ headers: { foo: "bar", bar: "baz" } }, async (req) => {
-        headers = req.headers;
-        return Response.json([resource1, resource2, resource3]);
-      });
+      const client = createObservedClient<paths>(
+        { headers: { foo: "bar", bar: "baz" } },
+        async (req) => {
+          headers = req.headers;
+          return Response.json([resource1, resource2, resource3]);
+        },
+      );
       await client.GET("/resources", { headers: { foo: null } });
       expect(headersToObj(headers)).toEqual({
         // "foo" removed!
@@ -104,10 +107,13 @@ describe("request", () => {
     }) {
       let actualRequest = new Request("https://fakeurl.example");
       // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
-      const client = createObservedClient<any>({ bodySerializer: options.bodySerializer }, async (req) => {
-        actualRequest = req.clone();
-        return Response.json([]);
-      });
+      const client = createObservedClient<any>(
+        { bodySerializer: options.bodySerializer },
+        async (req) => {
+          actualRequest = req.clone();
+          return Response.json([]);
+        },
+      );
       // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
       await client[options.method]("/blogposts-optional", options.fetchOptions as any);
       const bodyText = await actualRequest.text();
@@ -128,7 +134,10 @@ describe("request", () => {
     });
 
     test.each(ALL_METHODS)("missing body (without body serializer) - %s", async (method) => {
-      const { bodyUsed, bodyText } = await fireRequestAndGetBodyInformation({ method, fetchOptions: {} });
+      const { bodyUsed, bodyText } = await fireRequestAndGetBodyInformation({
+        method,
+        fetchOptions: {},
+      });
 
       expect(bodyUsed).toBe(false);
       expect(bodyText).toBe("");
@@ -176,44 +185,53 @@ describe("request", () => {
       expect(bodySerializer).toBeCalled();
     });
 
-    test.each(BODY_ACCEPTING_METHODS)("`null` body (without body serializer) - %s", async (method) => {
-      const { bodyUsed, bodyText } = await fireRequestAndGetBodyInformation({
-        method,
-        fetchOptions: {
-          body: null,
-        },
-      });
+    test.each(BODY_ACCEPTING_METHODS)(
+      "`null` body (without body serializer) - %s",
+      async (method) => {
+        const { bodyUsed, bodyText } = await fireRequestAndGetBodyInformation({
+          method,
+          fetchOptions: {
+            body: null,
+          },
+        });
 
-      expect(bodyUsed).toBe(true);
-      expect(bodyText).toBe("null");
-    });
+        expect(bodyUsed).toBe(true);
+        expect(bodyText).toBe("null");
+      },
+    );
 
-    test.each(BODY_ACCEPTING_METHODS)("`false` body (with body serializer) - %s", async (method) => {
-      const bodySerializer = vi.fn((body) => `Serialized: ${JSON.stringify(body)}`);
-      const { bodyUsed, bodyText } = await fireRequestAndGetBodyInformation({
-        bodySerializer,
-        method,
-        fetchOptions: {
-          body: false,
-        },
-      });
+    test.each(BODY_ACCEPTING_METHODS)(
+      "`false` body (with body serializer) - %s",
+      async (method) => {
+        const bodySerializer = vi.fn((body) => `Serialized: ${JSON.stringify(body)}`);
+        const { bodyUsed, bodyText } = await fireRequestAndGetBodyInformation({
+          bodySerializer,
+          method,
+          fetchOptions: {
+            body: false,
+          },
+        });
 
-      expect(bodyUsed).toBe(true);
-      expect(bodyText).toBe("Serialized: false");
-      expect(bodySerializer).toBeCalled();
-    });
+        expect(bodyUsed).toBe(true);
+        expect(bodyText).toBe("Serialized: false");
+        expect(bodySerializer).toBeCalled();
+      },
+    );
 
-    test.each(BODY_ACCEPTING_METHODS)("`false` body (without body serializer) - %s", async (method) => {
-      const { bodyUsed, bodyText } = await fireRequestAndGetBodyInformation({
-        method,
-        fetchOptions: {
-          body: false,
-        },
-      });
+    test.each(BODY_ACCEPTING_METHODS)(
+      "`false` body (without body serializer) - %s",
+      async (method) => {
+        const { bodyUsed, bodyText } = await fireRequestAndGetBodyInformation({
+          method,
+          fetchOptions: {
+            body: false,
+          },
+        });
 
-      expect(bodyUsed).toBe(true);
-      expect(bodyText).toBe("false");
-    });
+        expect(bodyUsed).toBe(true);
+        expect(bodyText).toBe("false");
+      },
+    );
 
     test.each(BODY_ACCEPTING_METHODS)("`''` body (with body serializer) - %s", async (method) => {
       const bodySerializer = vi.fn((body) => `Serialized: ${JSON.stringify(body)}`);
@@ -230,17 +248,20 @@ describe("request", () => {
       expect(bodySerializer).toBeCalled();
     });
 
-    test.each(BODY_ACCEPTING_METHODS)("`''` body (without body serializer) - %s", async (method) => {
-      const { bodyUsed, bodyText } = await fireRequestAndGetBodyInformation({
-        method,
-        fetchOptions: {
-          body: "",
-        },
-      });
+    test.each(BODY_ACCEPTING_METHODS)(
+      "`''` body (without body serializer) - %s",
+      async (method) => {
+        const { bodyUsed, bodyText } = await fireRequestAndGetBodyInformation({
+          method,
+          fetchOptions: {
+            body: "",
+          },
+        });
 
-      expect(bodyUsed).toBe(true);
-      expect(bodyText).toBe('""');
-    });
+        expect(bodyUsed).toBe(true);
+        expect(bodyText).toBe('""');
+      },
+    );
 
     test.each(BODY_ACCEPTING_METHODS)("`0` body (with body serializer) - %s", async (method) => {
       const bodySerializer = vi.fn((body) => `Serialized: ${JSON.stringify(body)}`);

@@ -47,9 +47,12 @@ describe("useInfiniteQuery edge cases", () => {
   it("useInfiniteQuery without params sends only the page param", async () => {
     const { client, urls } = createRecordingClient(() => Response.json({ items: [1] }));
 
-    const { result } = renderHook(() => client.useInfiniteQuery("get", "/items", {}, PAGE_OPTIONS), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => client.useInfiniteQuery("get", "/items", {}, PAGE_OPTIONS),
+      {
+        wrapper: createWrapper(),
+      },
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(urls[0]?.search).toBe("?cursor=0");
@@ -57,11 +60,16 @@ describe("useInfiniteQuery edge cases", () => {
   });
 
   it("useInfiniteQuery with an error response fails with the error body", async () => {
-    const { client } = createRecordingClient(() => Response.json({ code: SERVER_ERROR }, { status: SERVER_ERROR }));
+    const { client } = createRecordingClient(() =>
+      Response.json({ code: SERVER_ERROR }, { status: SERVER_ERROR }),
+    );
 
-    const { result } = renderHook(() => client.useInfiniteQuery("get", "/items", {}, PAGE_OPTIONS), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => client.useInfiniteQuery("get", "/items", {}, PAGE_OPTIONS),
+      {
+        wrapper: createWrapper(),
+      },
+    );
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error).toEqual({ code: SERVER_ERROR });

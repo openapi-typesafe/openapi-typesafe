@@ -22,5 +22,13 @@
         "noConfusingVoidType": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/**", "test/**"],
+      "formatter": {
+        "lineWidth": 100
+      }
+    }
+  ]
 }
