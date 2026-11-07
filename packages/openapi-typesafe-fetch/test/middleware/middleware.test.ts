@@ -84,10 +84,12 @@ test("can modify response", async () => {
   const { data, response } = await client.GET("/posts/{id}", { params: { path: { id: 123 } } });
 
   // assert body was modified
-  expect((data as any).created_at).toBe(toUnix(rawBody.created_at));
-  expect((data as any).updated_at).toBe(toUnix(rawBody.updated_at));
-  // assert rest of body was preserved
-  expect((data as any).email).toBe(rawBody.email);
+  expect(data).toMatchObject({
+    created_at: toUnix(rawBody.created_at),
+    updated_at: toUnix(rawBody.updated_at),
+    // assert rest of body was preserved
+    email: rawBody.email,
+  });
   // assert status changed
   expect(response.status).toBe(201);
   // assert server headers were preserved

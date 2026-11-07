@@ -21,6 +21,7 @@ export type SchemaObject = {
   /** Additional external documentation for this schema. */
   externalDocs?: ExternalDocumentationObject;
   /** @deprecated */
+  // biome-ignore lint/suspicious/noExplicitAny: public type under semver (ADR-034)
   example?: any;
   title?: string;
   description?: string;
@@ -47,6 +48,7 @@ export type SchemaObject = {
   allOf?: (SchemaObject | ReferenceObject)[];
   anyOf?: (SchemaObject | ReferenceObject)[];
   required?: string[];
+  // biome-ignore lint/suspicious/noExplicitAny: public type under semver (ADR-034)
   [key: `x-${string}`]: any;
 } & (
   | StringSubtype

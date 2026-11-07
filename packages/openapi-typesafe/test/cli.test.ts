@@ -11,7 +11,7 @@ const cmd = "./bin/cli.js";
 const TIMEOUT = 90_000;
 
 describe("CLI", () => {
-  const tests: TestCase<any, any>[] = [
+  const tests: TestCase<string[]>[] = [
     [
       "snapshot > GitHub API",
       {

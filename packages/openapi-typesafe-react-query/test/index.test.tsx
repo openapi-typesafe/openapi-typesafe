@@ -231,6 +231,7 @@ describe("client", () => {
     });
 
     it("returns query options that can be passed to useQuery", async () => {
+      // biome-ignore lint/suspicious/noExplicitAny: the skipped branch takes the other branch's key type
       const SKIP = { queryKey: [] as any, queryFn: skipToken } as const;
 
       const fetchClient = createFetchClient<minimalGetPaths>({ baseUrl });

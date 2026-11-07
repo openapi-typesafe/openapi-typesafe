@@ -390,7 +390,7 @@ describe("params", () => {
 
         await client.GET("/query-params", {
           params: {
-            query: { string: undefined, number: null as any },
+            query: { string: undefined, number: null as unknown as number },
           },
         });
 

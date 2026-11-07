@@ -99,13 +99,16 @@ describe("request", () => {
     async function fireRequestAndGetBodyInformation(options: {
       bodySerializer?: BodySerializer<unknown>;
       method: (typeof ALL_METHODS)[number][number];
+      // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
       fetchOptions: FetchOptions<any>;
     }) {
       let actualRequest = new Request("https://fakeurl.example");
+      // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
       const client = createObservedClient<any>({ bodySerializer: options.bodySerializer }, async (req) => {
         actualRequest = req.clone();
         return Response.json([]);
       });
+      // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
       await client[options.method]("/blogposts-optional", options.fetchOptions as any);
       const bodyText = await actualRequest.text();
       return { bodyUsed: actualRequest.bodyUsed, bodyText };
@@ -337,7 +340,7 @@ describe("request", () => {
   });
 
   test("can attach custom properties to request", async () => {
-    function createCustomFetch(data: any) {
+    function createCustomFetch(data: unknown) {
       const response = {
         clone: () => ({ ...response }),
         headers: new Headers(),

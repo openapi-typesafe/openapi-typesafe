@@ -55,6 +55,7 @@ export type HeadersOptions =
   | Record<string, string | number | boolean | (string | number | boolean)[] | null | undefined>;
 
 export type QuerySerializer<T> = (
+  // biome-ignore lint/suspicious/noExplicitAny: T["parameters"]["query"] needs an any constraint
   query: T extends { parameters: any } ? NonNullable<T["parameters"]["query"]> : Record<string, unknown>,
 ) => string;
 
@@ -84,6 +85,7 @@ export type QuerySerializerOptions = {
   allowReserved?: boolean;
 };
 
+// biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's type, kept for parity (ADR-030); the result is the fetch body
 export type BodySerializer<T> = (body: OperationRequestBodyContent<T>) => any;
 
 export type PathSerializer = (pathname: string, pathParams: Record<string, unknown>) => string;
@@ -109,7 +111,7 @@ export interface DefaultParamsOption {
 }
 
 export type ParamsOption<T> = T extends {
-  parameters: any;
+  parameters: unknown;
 }
   ? RequiredKeysOf<T["parameters"]> extends never
     ? { params?: T["parameters"] }
@@ -124,7 +126,8 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
 // gave `{ body?: never } | { body: any }` and so a required init (upstream #2526).
 export type RequestBodyOption<T> =
   IsAny<T> extends true
-    ? { body?: any }
+    ? // biome-ignore lint/suspicious/noExplicitAny: an any schema takes any body (upstream #2526)
+      { body?: any }
     : Writable<OperationRequestBodyContent<T>> extends never
       ? { body?: never }
       : IsOperationRequestBodyOptional<T> extends true
@@ -134,6 +137,7 @@ export type RequestBodyOption<T> =
 export type FetchOptions<T> = RequestOptions<T> & Omit<RequestInit, "body" | "headers">;
 
 // Readable<T> strips $Write markers (writeOnly properties excluded from response)
+// biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type FetchResponse<T extends Record<string | number, any>, Options, Media extends MediaType> =
   | {
       data: ParseAsResponse<Readable<SuccessResponse<ResponseObjectMap<T>, Media>>, Options>;
@@ -266,6 +270,7 @@ type WithAnyKeys<Init> = Init & { [key: string]: unknown };
  */
 export type PathOperation<Paths, Path, Method> = Extract<
   FilterKeys<Paths[Path & keyof Paths], Method>,
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   Record<string | number, any>
 >;
 
@@ -291,11 +296,13 @@ export type ClientRequestMethod<Paths extends {}, Media extends MediaType> = <
 // They are left out by `Pick`, which keeps the `?` of a method, not by the key remapping: that is
 // openapi-fetch's, and TypeScript relates two generic mapped types only when their key remappings
 // are the same, so a path-based client type written like openapi-fetch's failed a cast (TS2352).
+// biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type ClientForPath<PathInfo extends Record<string | number, any>, Media extends MediaType> = PathMethodCalls<
   Pick<PathInfo, HttpMethod & keyof PathInfo>,
   Media
 >;
 
+// biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 type PathMethodCalls<PathInfo extends Record<string | number, any>, Media extends MediaType> = {
   [Method in keyof PathInfo as Uppercase<string & Method>]: <Init extends MaybeOptionalInit<PathInfo, Method>>(
     ...init: InitParam<Init>
@@ -328,15 +335,18 @@ export interface Client<Paths extends {}, Media extends MediaType = MediaType> {
   eject(...middleware: Middleware[]): void;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: matches a client of any paths, as in openapi-fetch
 export type ClientPathsWithMethod<CreatedClient extends Client<any, any>, Method extends HttpMethod> =
   CreatedClient extends Client<infer Paths, infer _Media> ? PathsWithMethod<Paths, Method> : never;
 
 export type MethodResponse<
+  // biome-ignore lint/suspicious/noExplicitAny: matches a client of any paths, as in openapi-fetch
   CreatedClient extends Client<any, any>,
   Method extends HttpMethod,
   Path extends ClientPathsWithMethod<CreatedClient, Method>,
   Options = {},
 > =
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   CreatedClient extends Client<infer Paths extends { [key: string]: any }, infer Media extends MediaType>
     ? NonNullable<FetchResponse<Paths[Path][Method], Options, Media>["data"]>
     : never;
@@ -348,6 +358,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   clientOptions?: CustomFetchClientOptions,
 ): Client<Paths, Media>;
 
+// biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type PathBasedClient<Paths extends Record<string | number, any>, Media extends MediaType = MediaType> = {
   [Path in keyof Paths]: ClientForPath<Paths[Path], Media>;
 };

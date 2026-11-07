@@ -42,6 +42,7 @@ const PET: Pet = { id: "1", name: "Rex" };
 type UpstreamInitParam<Init> =
   RequiredKeysOf<Init> extends never ? [(Init & { [key: string]: unknown })?] : [Init & { [key: string]: unknown }];
 
+// biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's constraint, as its users copy it
 type UpstreamClientMethod<P extends Record<string, any>, Method extends HttpMethod, Media extends MediaType> = <
   Path extends PathsWithMethod<P, Method>,
   Init extends MaybeOptionalInit<P[Path], Method>,
@@ -50,16 +51,19 @@ type UpstreamClientMethod<P extends Record<string, any>, Method extends HttpMeth
   ...init: UpstreamInitParam<Init>
 ) => Promise<FetchResponse<P[Path][Method], Init, Media>>;
 
+// biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's constraint, as its users copy it
 type UpstreamClient<P extends Record<string, any>, Media extends MediaType = MediaType> = {
   GET: UpstreamClientMethod<P, "get", Media>;
 };
 
+// biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's constraint, as its users copy it
 type UpstreamClientForPath<PathInfo extends Record<string | number, any>, Media extends MediaType> = {
   [Method in keyof PathInfo as Uppercase<string & Method>]: <Init extends MaybeOptionalInit<PathInfo, Method>>(
     ...init: UpstreamInitParam<Init>
   ) => Promise<FetchResponse<PathInfo[Method], Init, Media>>;
 };
 
+// biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's constraint, as its users copy it
 type UpstreamPathBasedClient<P extends Record<string | number, any>, Media extends MediaType = MediaType> = {
   [Path in keyof P]: UpstreamClientForPath<P[Path], Media>;
 };

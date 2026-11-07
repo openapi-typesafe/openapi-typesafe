@@ -73,64 +73,64 @@ export type OKStatusUnion<T> = FilterKeys<T, OkStatus>;
 /** Get first error status, in order */
 // biome-ignore format: this is dumb but reliable
 export type FirstErrorStatus<T> =
-  T extends { 500: any }   ? T[500] :
-  T extends { 501: any }   ? T[501] :
-  T extends { 502: any }   ? T[502] :
-  T extends { 503: any }   ? T[503] :
-  T extends { 504: any }   ? T[504] :
-  T extends { 505: any }   ? T[505] :
-  T extends { 506: any }   ? T[506] :
-  T extends { 507: any }   ? T[507] :
-  T extends { 508: any }   ? T[508] :
-  T extends { 510: any }   ? T[510] :
-  T extends { 511: any }   ? T[511] :
-  T extends { "5XX": any } ? T["5XX"] :
-  T extends { 400: any }   ? T[400] :
-  T extends { 401: any }   ? T[401] :
-  T extends { 402: any }   ? T[402] :
-  T extends { 403: any }   ? T[403] :
-  T extends { 404: any }   ? T[404] :
-  T extends { 405: any }   ? T[405] :
-  T extends { 406: any }   ? T[406] :
-  T extends { 407: any }   ? T[407] :
-  T extends { 408: any }   ? T[408] :
-  T extends { 409: any }   ? T[409] :
-  T extends { 410: any }   ? T[410] :
-  T extends { 411: any }   ? T[411] :
-  T extends { 412: any }   ? T[412] :
-  T extends { 413: any }   ? T[413] :
-  T extends { 414: any }   ? T[414] :
-  T extends { 415: any }   ? T[415] :
-  T extends { 416: any }   ? T[416] :
-  T extends { 417: any }   ? T[417] :
-  T extends { 418: any }   ? T[418] :
-  T extends { 420: any }   ? T[420] :
-  T extends { 421: any }   ? T[421] :
-  T extends { 422: any }   ? T[422] :
-  T extends { 423: any }   ? T[423] :
-  T extends { 424: any }   ? T[424] :
-  T extends { 425: any }   ? T[425] :
-  T extends { 426: any }   ? T[426] :
-  T extends { 427: any }   ? T[427] :
-  T extends { 428: any }   ? T[428] :
-  T extends { 429: any }   ? T[429] :
-  T extends { 430: any }   ? T[430] :
-  T extends { 431: any }   ? T[431] :
-  T extends { 444: any }   ? T[444] :
-  T extends { 450: any }   ? T[450] :
-  T extends { 451: any }   ? T[451] :
-  T extends { 497: any }   ? T[497] :
-  T extends { 498: any }   ? T[498] :
-  T extends { 499: any }   ? T[499] :
-  T extends { "4XX": any } ? T["4XX"] :
-  T extends { default: any } ? T["default"] : never;
+  T extends { 500: unknown }   ? T[500] :
+  T extends { 501: unknown }   ? T[501] :
+  T extends { 502: unknown }   ? T[502] :
+  T extends { 503: unknown }   ? T[503] :
+  T extends { 504: unknown }   ? T[504] :
+  T extends { 505: unknown }   ? T[505] :
+  T extends { 506: unknown }   ? T[506] :
+  T extends { 507: unknown }   ? T[507] :
+  T extends { 508: unknown }   ? T[508] :
+  T extends { 510: unknown }   ? T[510] :
+  T extends { 511: unknown }   ? T[511] :
+  T extends { "5XX": unknown } ? T["5XX"] :
+  T extends { 400: unknown }   ? T[400] :
+  T extends { 401: unknown }   ? T[401] :
+  T extends { 402: unknown }   ? T[402] :
+  T extends { 403: unknown }   ? T[403] :
+  T extends { 404: unknown }   ? T[404] :
+  T extends { 405: unknown }   ? T[405] :
+  T extends { 406: unknown }   ? T[406] :
+  T extends { 407: unknown }   ? T[407] :
+  T extends { 408: unknown }   ? T[408] :
+  T extends { 409: unknown }   ? T[409] :
+  T extends { 410: unknown }   ? T[410] :
+  T extends { 411: unknown }   ? T[411] :
+  T extends { 412: unknown }   ? T[412] :
+  T extends { 413: unknown }   ? T[413] :
+  T extends { 414: unknown }   ? T[414] :
+  T extends { 415: unknown }   ? T[415] :
+  T extends { 416: unknown }   ? T[416] :
+  T extends { 417: unknown }   ? T[417] :
+  T extends { 418: unknown }   ? T[418] :
+  T extends { 420: unknown }   ? T[420] :
+  T extends { 421: unknown }   ? T[421] :
+  T extends { 422: unknown }   ? T[422] :
+  T extends { 423: unknown }   ? T[423] :
+  T extends { 424: unknown }   ? T[424] :
+  T extends { 425: unknown }   ? T[425] :
+  T extends { 426: unknown }   ? T[426] :
+  T extends { 427: unknown }   ? T[427] :
+  T extends { 428: unknown }   ? T[428] :
+  T extends { 429: unknown }   ? T[429] :
+  T extends { 430: unknown }   ? T[430] :
+  T extends { 431: unknown }   ? T[431] :
+  T extends { 444: unknown }   ? T[444] :
+  T extends { 450: unknown }   ? T[450] :
+  T extends { 451: unknown }   ? T[451] :
+  T extends { 497: unknown }   ? T[497] :
+  T extends { 498: unknown }   ? T[498] :
+  T extends { 499: unknown }   ? T[499] :
+  T extends { "4XX": unknown } ? T["4XX"] :
+  T extends { default: unknown } ? T["default"] : never;
 
 // OpenAPI type helpers
 
 /** The paths that have each of the methods: upstream's `PathsWithMethod`. */
 type PathsWithEveryMethod<Paths extends {}, PathnameMethod extends HttpMethod> = {
   [Pathname in keyof Paths]: Paths[Pathname] extends {
-    [K in PathnameMethod]: any;
+    [K in PathnameMethod]: unknown;
   }
     ? Pathname
     : never;
@@ -139,7 +139,7 @@ type PathsWithEveryMethod<Paths extends {}, PathnameMethod extends HttpMethod> =
 /** The paths that have at least one method. */
 type PathsWithAnyMethod<Paths extends {}> = {
   [Pathname in keyof Paths]: {
-    [Method in HttpMethod]: Paths[Pathname] extends { [K in Method]: any } ? Pathname : never;
+    [Method in HttpMethod]: Paths[Pathname] extends { [K in Method]: unknown } ? Pathname : never;
   }[HttpMethod];
 }[keyof Paths];
 
@@ -164,20 +164,28 @@ export type PathsWithMethod<Paths extends {}, PathnameMethod extends HttpMethod>
  * Only used only for OperationObject type inference
  */
 export interface OperationObject {
+  // biome-ignore lint/suspicious/noExplicitAny: upstream's type; operations are inferred against it
   parameters: any;
+  // biome-ignore lint/suspicious/noExplicitAny: upstream's type; operations are inferred against it
   requestBody: any; // note: "any" will get overridden in inference
+  // biome-ignore lint/suspicious/noExplicitAny: upstream's type; operations are inferred against it
   responses: any;
 }
 
 /** Internal helper used in PathsWithMethod */
 export type PathItemObject = {
   [M in HttpMethod]: OperationObject;
-} & { parameters?: any };
+} & {
+  // biome-ignore lint/suspicious/noExplicitAny: upstream's type; operations are inferred against it
+  parameters?: any;
+};
 
 /** Return `responses` for an Operation Object */
+// biome-ignore lint/suspicious/noExplicitAny: the result must meet the `Record` constraints below
 export type ResponseObjectMap<T> = T extends { responses: any } ? T["responses"] : unknown;
 
 /** Return `content` for a Response Object */
+// biome-ignore lint/suspicious/noExplicitAny: upstream's type; `unknown` changes generic results
 export type ResponseContent<T> = T extends { content: any } ? T["content"] : unknown;
 
 /** Return type of `requestBody` for an Operation Object */
@@ -212,16 +220,19 @@ type SuccessStatus<T> = [Extract<keyof T, OkStatus>] extends [never] ? "default"
 
 /** Return all 2XX responses from a Response Object Map, or `default` if it declares no 2XX one */
 export type SuccessResponse<
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
 > = GetResponseContent<T, Media, SuccessStatus<T>>;
 
 export type GetResponseContent<
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
   ResponseCode extends keyof T = keyof T,
 > = ResponseCode extends keyof T
   ? {
+      // biome-ignore lint/suspicious/noExplicitAny: unknown rejects interface content types
       [K in ResponseCode]: T[K]["content"] extends Record<string, any>
         ? FilterKeys<T[K]["content"], Media> extends never
           ? T[K]["content"]
@@ -236,17 +247,20 @@ export type GetResponseContent<
  * Return all 5XX and 4XX responses (in that order) from a Response Object Map
  */
 export type ErrorResponse<
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
 > = GetResponseContent<T, Media, ErrorStatus>;
 
 /** Return first JSON-like 2XX response from a path + HTTP method */
+// biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type SuccessResponseJSON<PathMethod extends Record<string | number, any>> = SuccessResponse<
   ResponseObjectMap<PathMethod>,
   `${string}/json`
 >;
 
 /** Return first JSON-like 5XX or 4XX response from a path + HTTP method */
+// biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type ErrorResponseJSON<PathMethod extends Record<string | number, any>> = ErrorResponse<
   ResponseObjectMap<PathMethod>,
   `${string}/json`
@@ -266,7 +280,7 @@ export type FilterKeys<Obj, Matchers> = Obj[keyof Obj & Matchers];
  * Get the type of a value of an input object with a given key. If the key is
  * not found, return a default type. Works with unions of objects too.
  */
-export type GetValueWithDefault<Obj, KeyPattern, Default> = Obj extends any
+export type GetValueWithDefault<Obj, KeyPattern, Default> = Obj extends unknown
   ? FilterKeys<Obj, KeyPattern> extends never
     ? Default
     : FilterKeys<Obj, KeyPattern>
@@ -360,6 +374,8 @@ type ReadWriteResolve<T, Resolved extends "read" | "write"> = Resolved extends "
   ? Readable<T>
   : Writable<T>;
 
+// The markers are matched with `any`, as in the helper types that the generator writes.
+// biome-ignore-start lint/suspicious/noExplicitAny: the same text as the generated helper types
 /**
  * Resolve type for reading (responses): strips $Write properties, unwraps $Read
  * - $Read<T> → T (readable), continues recursion
@@ -409,3 +425,4 @@ export type Writable<T> =
                 [K in ReadWriteMarkedKeys<T, $Read<any>>]?: never;
               }
             : T;
+// biome-ignore-end lint/suspicious/noExplicitAny: the same text as the generated helper types

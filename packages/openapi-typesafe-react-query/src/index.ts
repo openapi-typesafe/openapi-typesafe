@@ -265,6 +265,7 @@ export interface OpenapiQueryClient<Paths extends {}, Media extends MediaType = 
 }
 
 export type MethodResponse<
+  // biome-ignore lint/suspicious/noExplicitAny: matches a client of any paths, as upstream's
   CreatedClient extends OpenapiQueryClient<any, any>,
   Method extends HttpMethod,
   Path extends CreatedClient extends OpenapiQueryClient<infer Paths, infer _Media>
@@ -272,6 +273,7 @@ export type MethodResponse<
     : never,
   Options = object,
 > =
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   CreatedClient extends OpenapiQueryClient<infer Paths extends { [key: string]: any }, infer Media extends MediaType>
     ? NonNullable<FetchResponse<Paths[Path][Method], Options, Media>["data"]>
     : never;
@@ -325,6 +327,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
     // The init is `unknown` here. An `any` init lets the call infer the generic response type
     // that `queryOptions` declares; a typed init makes TypeScript compare two unresolved
     // conditional types, which it cannot do.
+    // biome-ignore lint/suspicious/noExplicitAny: see the comment above
     const result = await fn(path, { signal, ...(init as any) });
     throwIfFailed(result);
     // TanStack Query rejects `undefined` query data. The fetch client gives `undefined` for every
@@ -336,7 +339,9 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   const queryOptions: QueryOptionsFunction<Paths, Media> = (method, path, ...[init, options]) => ({
     queryKey: (init === undefined ? ([method, path] as const) : ([method, path, init] as const)) as DataTag<
       QueryKey<Paths, typeof method, typeof path>,
+      // biome-ignore lint/suspicious/noExplicitAny: the declared return type sets the data type
       any,
+      // biome-ignore lint/suspicious/noExplicitAny: the declared return type sets the error type
       any
     >,
     queryFn,
@@ -359,6 +364,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
           queryKey: [...queryKey, INFINITE_QUERY_KEY_MARKER] as const,
           // The request comes from the arguments; the key only identifies the cache entry.
           queryFn: async ({ pageParam, signal }) => {
+            // biome-ignore lint/suspicious/noExplicitAny: a generic init cannot be checked here; see queryFn
             const result = await fn(path, pageInit(init, { pageParamName, pageParam, signal }) as any);
             throwIfFailed(result);
             // An empty page stays `undefined`, as in upstream: TanStack Query rejects only
@@ -368,6 +374,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
           ...restOptions,
           // Typed with an `unknown` page param for the caller (`InfinitePlaceholderData`). TanStack
           // passes the previous data of this query, with its own page params, and takes it back.
+          // biome-ignore lint/suspicious/noExplicitAny: TanStack's type carries its own page params
           placeholderData: placeholderData as any,
         },
         queryClient,

@@ -64,13 +64,16 @@ describe("createClient options", () => {
     async function fireRequestAndGetContentType(options: {
       defaultHeaders?: HeadersOptions;
       method: (typeof ALL_METHODS)[number][number];
+      // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
       fetchOptions: FetchOptions<any>;
     }) {
       let headers = new Headers();
+      // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
       const client = createObservedClient<any>({ headers: options.defaultHeaders }, async (req) => {
         headers = req.headers;
         return Response.json([]);
       });
+      // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
       await client[options.method]("/resources", options.fetchOptions as any);
       return headers.get("content-type");
     }

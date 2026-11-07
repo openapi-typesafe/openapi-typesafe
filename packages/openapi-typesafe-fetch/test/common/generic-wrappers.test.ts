@@ -28,17 +28,20 @@ type Paths = {
 const BASE_URL = "https://api.example.com";
 
 /** swr-openapi's `TypesForGetRequest`: the get method as a type still generic in `Paths`. */
+// biome-ignore lint/suspicious/noExplicitAny: swr-openapi's constraint, as its users write it
 type GetPaths<Paths extends Record<string | number, any>> = PathsWithMethod<
   Paths,
   Extract<"get", keyof Paths[keyof Paths]>
 >;
 
+// biome-ignore lint/suspicious/noExplicitAny: swr-openapi's constraint, as its users write it
 type GetInit<Paths extends Record<string | number, any>, Path extends GetPaths<Paths>> = MaybeOptionalInit<
   Paths[Path],
   Extract<"get", keyof Paths[keyof Paths]>
 >;
 
 /** A hook factory in the shape of swr-openapi's `createInfiniteHook`. */
+// biome-ignore lint/suspicious/noExplicitAny: swr-openapi's constraint, as its users write it
 function createLoader<Paths extends Record<string | number, any>, Media extends MediaType>(
   client: Client<Paths, Media>,
 ) {
@@ -50,6 +53,7 @@ function createLoader<Paths extends Record<string | number, any>, Media extends 
 
 describe("code generic in the paths", () => {
   it("PathsWithMethod of a method relates to PathsWithMethod of a generic method", () => {
+    // biome-ignore lint/suspicious/noExplicitAny: swr-openapi's constraint, as its users write it
     type Relates<Paths extends Record<string | number, any>> =
       PathsWithMethod<Paths, "get"> extends GetPaths<Paths> ? true : false;
 
