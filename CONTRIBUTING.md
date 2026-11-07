@@ -5,8 +5,8 @@ Thank you for helping. This guide covers setup, the rules every change must foll
 ## Before you start
 
 - For a bug fix, open an issue (or comment on an existing one) with a minimal schema that reproduces the problem.
-- For a feature or a breaking change, **open an issue first**. The scope for 1.0 is fixed in
-  [ENGINEERING_PLAN.md](./ENGINEERING_PLAN.md) §1; new features are planned after 1.0.
+- For a feature or a breaking change, **open an issue first**. New features follow the ranked backlog
+  ([research/backlog.md](./research/backlog.md)); a breaking change waits for the next major version.
 
 ## Setup
 
@@ -54,8 +54,8 @@ Every pull request must meet the Definition of Done in [ENGINEERING_PLAN.md](./E
 
 ### `openapi-typesafe` (generator)
 
-- Tests live in `test/` (`test/transform/` and `test/lib/` mirror `src/`; `node-api.test.ts` and `cli.test.ts`
-  cover the public surfaces). Prefer a small schema fragment per test over a full-schema snapshot.
+- Tests live in `test/`, by layer like `src/` (`domain/`, `application/`, `adapters/`, `api/`, `cli/`,
+  `transform/`); `node-api.test.ts` and `cli.test.ts` cover the public surfaces. Prefer a small schema fragment per test over a full-schema snapshot.
 - `examples/` holds generated output for real APIs. It is type-checked in CI (`pnpm run test:examples`).
   Regenerate it only when a change is meant to alter the output: `pnpm run update:examples` (downloads remote
   schemas). Review the diff line by line.

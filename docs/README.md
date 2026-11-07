@@ -16,7 +16,7 @@ That serves the site at `http://localhost:5173`.
 ## Build and check
 
 ```sh
-pnpm --filter openapi-typesafe-docs build    # builds the packages, then the site
+pnpm --filter openapi-typesafe-docs build-docs    # builds the site
 pnpm --filter openapi-typesafe-docs check-links
 ```
 

@@ -2,8 +2,8 @@
 
 ## Supported versions
 
-Only the latest released minor version of each package receives security fixes. Before 1.0 there are no released
-versions; the policy applies from the first published release.
+Only the latest released version line receives security fixes: until 1.0.0, the latest `1.0.0-rc`; from 1.0.0,
+the latest 1.x minor version.
 
 ## Reporting a vulnerability
 
