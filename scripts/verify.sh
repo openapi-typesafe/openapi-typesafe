@@ -22,8 +22,9 @@ readonly WARNING_PATTERN='WARN|warning|Warning|DeprecationWarning|ExperimentalWa
 # fails the step through its exit code.
 readonly TEST_RESULT_PATTERN='(^|: )[[:space:]]*(✓|√|↓) '
 # unbuild lists each built file with its size and exported names; a file such as
-# `dist/domain/warnings.mjs` or an export such as `WARNING_CODES` is not a warning either.
-readonly BUILD_LISTING_PATTERN='(^|: )[[:space:]]*(└─ )?dist/[^ ]+ \((total size: |[0-9.]+ k?B\))'
+# `dist/domain/warnings.mjs` or an export such as `WARNING_CODES` is not a warning either. Without a
+# terminal (CI), its logger puts `[log]` before each line.
+readonly BUILD_LISTING_PATTERN='(^|: )[[:space:]]*(\[log\][[:space:]]*)?(└─ )?dist/[^ ]+ \((total size: |[0-9.]+ k?B\))'
 
 # Count the warning lines of a log, without colour codes, test result lines and build listings.
 count_warnings() {
