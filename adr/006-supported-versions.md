@@ -18,7 +18,7 @@
 1. **Node:** `engines: { node: ">=22" }` for every package, except the generator:
    `">=22.12.0"`, because its CommonJS build loads ESM-only dependencies with `require()`, which
    Node.js supports without a flag from 22.12. CI tests Node 22, 24 and 26. Within 1.x the floor
-   rises only in a minor release, for a line that reached its end of life (ADR-033).
+   rises only in a minor release, for a line that reached its end of life (ADR-034).
 2. **TypeScript for consumers:** generated output and the client support **TypeScript ≥ 5.4**, including 6.x and
    7.x. CI type-checks with 5.4, 5.9, 6.0 and 7.0 (task 8.1).
 3. **TypeScript for the generator:** until Phase 6 the generator still needs the compiler API at runtime, so it keeps

@@ -130,7 +130,7 @@ project has), and all 18 files they generate are the same as before.
 
 From 1.0.0 the packages follow [semantic versioning](https://semver.org/), and all five always
 have the same version. The full rule is
-[ADR-033](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/adr/033-what-semver-covers-in-1x.md).
+[ADR-034](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/adr/034-what-semver-covers-in-1x.md).
 
 **Stable in 1.x.** A minor or patch release does not remove, rename or narrow:
 

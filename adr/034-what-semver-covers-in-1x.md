@@ -1,4 +1,4 @@
-# ADR-033: What the semver contract of 1.x covers
+# ADR-034: What the semver contract of 1.x covers
 
 - Status: Accepted
 - Date: 2026-11-06

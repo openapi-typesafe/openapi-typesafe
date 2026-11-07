@@ -257,7 +257,7 @@ type InitParam<Init> = RequiredKeysOf<Init> extends never ? [WithAnyKeys<Init>?]
 type WithAnyKeys<Init> = Init & { [key: string]: unknown };
 
 /**
- * @internal Exported for openapi-typesafe-react-query only; not part of the API (ADR-033).
+ * @internal Exported for openapi-typesafe-react-query only; not part of the API (ADR-034).
  * The operation of `Method` on `Path`. Not `Paths[Path][Method]`: `Paths` is only `{}`, because
  * the generated `interface paths` has no index signature and failed a `Record<string, …>`
  * constraint with TS2344 (upstream #2267), so TypeScript does not know `Method` is a key. For a

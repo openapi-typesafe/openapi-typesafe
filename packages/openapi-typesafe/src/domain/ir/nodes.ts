@@ -3,7 +3,7 @@
  * the generator emits (ENGINEERING_PLAN §4.2, ADR-002). Nodes are plain readonly data with a `kind`
  * discriminator; every consumer in this package dispatches with an exhaustive `switch`, so a new
  * kind breaks the build wherever it must be handled. For users the set is open: a minor release
- * may add a kind (ADR-033), so code outside the package must keep a node of an unknown kind as it
+ * may add a kind (ADR-034), so code outside the package must keep a node of an unknown kind as it
  * is, and a `switch` over `kind` needs a `default` branch.
  *
  * Utility types (`Omit`, `Record`, `WithRequired`, `Extract`) are `reference` nodes with type
