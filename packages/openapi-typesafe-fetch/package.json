@@ -1,7 +1,7 @@
 {
   "name": "openapi-typesafe-fetch",
   "description": "Fast, type-safe fetch client for your OpenAPI schema. About 8.7 kB minified, 3.4 kB gzipped. Works with React, Vue, Svelte, or vanilla JS.",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "author": {
     "name": "Fedor Chishchin",
     "url": "https://github.com/fedorello"
