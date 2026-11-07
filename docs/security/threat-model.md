@@ -86,6 +86,19 @@ This matters in CI and on servers that generate types from user-supplied documen
   is not checked after DNS resolution.
 - Tests: `test/security/ref-access.test.ts`, `test/adapters/redocly-loader/ref-access.test.ts`.
 
+### T4a. Configured credentials sent to another host — Controlled
+
+`resolve.http.headers` in `redocly.yaml` often carries an API key. A document, or a server it
+names, tries to get it sent somewhere else: through a redirect to another origin (fetch keeps every
+header but `Authorization`, `Cookie` and `Proxy-Authorization`), through a URL whose query makes a
+`*` pattern match (`https://evil.example?.trusted.example/x.yaml`), or over plain HTTP.
+
+- Controls: the loader chooses the headers itself for every request and every redirect hop, from
+  the protocol, host and path of the parsed URL; a header goes over HTTPS only, unless its pattern
+  starts with `http://`; redirects are always followed by hand (ADR-033).
+- Tests: `test/security/configured-headers.test.ts`,
+  `test/adapters/redocly-loader/ref-access.test.ts`.
+
 ### T5. Unsafe requests from the fetch client — Controlled
 
 User-supplied path parameters move the request to another path (`..`), query and header values

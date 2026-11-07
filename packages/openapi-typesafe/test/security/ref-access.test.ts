@@ -255,7 +255,7 @@ describe("remote $ref hosts (R2)", () => {
     const error = await loadFailure(root, { remoteHosts: ["127.0.0.1"] });
 
     expect(error.code).toBe("SCHEMA_INVALID");
-    expect(error.message).toContain("More than 5 redirects");
+    expect(error.message).toContain("More than 20 redirects");
   });
 
   it("a remote root document is loaded from a host that is not listed; its $refs are limited", async () => {

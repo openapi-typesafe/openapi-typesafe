@@ -534,9 +534,11 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   written as `name` (any port) or `name:port`. Hosts are compared as URLs write them, so case,
   a trailing dot, Unicode names, IPv6 with or without brackets (`::1`, `[::1]:8080`) and a
   default port (`api.example.com:443`) all match. An empty list (`--remote-ref-hosts=`) allows no
-  remote `$ref`. Each redirect is checked against the list, at most 5 are followed, and headers
-  from your Redocly config are not sent on to another origin. A listed name is trusted: it is not
-  checked again after DNS resolution.
+  remote `$ref`. Each redirect is checked against the list and at most 20 are followed. A listed
+  name is trusted: it is not checked again after DNS resolution.
+- Headers from your Redocly config go only to the URLs their patterns match, over HTTPS unless a
+  pattern starts with `http://`, and not on through a redirect ([Auth](/cli#auth)). This holds
+  with or without the two flags.
 - The document you pass to the generator is never limited, only what it refers to.
 
 A refused `$ref` fails with `SCHEMA_REF_FORBIDDEN` (CLI exit code `3`); `err.details` has the
