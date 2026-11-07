@@ -277,16 +277,25 @@ describe("NodeProjectFiles", () => {
     await rm(outside, { recursive: true, force: true });
   });
 
-  it("write keeps the file mode and leaves no temporary file", async () => {
+  it("write leaves no temporary file", async () => {
     await put("scripts/gen.sh", "old");
-    await chmod(join(root, "scripts/gen.sh"), 0o750);
     const { files, logger } = filesWith(NOT_A_REPOSITORY);
 
     await files.write("scripts/gen.sh", "new");
 
-    expect((await stat(join(root, "scripts/gen.sh"))).mode & 0o777).toBe(0o750);
     expect(await readdir(join(root, "scripts"))).toEqual(["gen.sh"]);
     expect(logger.events).toEqual([]);
+  });
+
+  // Windows has no POSIX permission bits: Node reports 0o666 for every file.
+  it.skipIf(process.platform === "win32")("write keeps the file mode", async () => {
+    await put("scripts/gen.sh", "old");
+    await chmod(join(root, "scripts/gen.sh"), 0o750);
+    const { files } = filesWith(NOT_A_REPOSITORY);
+
+    await files.write("scripts/gen.sh", "new");
+
+    expect((await stat(join(root, "scripts/gen.sh"))).mode & 0o777).toBe(0o750);
   });
 
   it("write does not overwrite a leftover temporary file", async () => {
