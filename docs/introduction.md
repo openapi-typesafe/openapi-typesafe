@@ -9,6 +9,11 @@ openapi-typesafe turns [OpenAPI 3.x](https://spec.openapis.org/oas/latest.html) 
 
 It is a drop-in successor to [openapi-typescript](https://github.com/openapi-ts/openapi-typescript) 7.13: the same CLI flags, the same Node API and the same output, checked byte for byte on a corpus of real-world documents ([compatibility report](./compatibility.md)). The difference is inside: openapi-typesafe prints types itself instead of through the TypeScript compiler API, so it works in projects on TypeScript 7 (see [TypeScript 7](/typescript-7)). Coming from openapi-typescript? See the [migration guide](/migration-guide).
 
+::: info Release candidate
+The current version is a 1.0.0 release candidate (`1.0.0-rc.N`); names and output can still
+change before 1.0.0.
+:::
+
 The code is [MIT-licensed](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/LICENSE) and free to use.
 
 ::: tip

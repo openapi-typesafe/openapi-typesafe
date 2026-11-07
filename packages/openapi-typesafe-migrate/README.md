@@ -10,6 +10,9 @@ npx openapi-typesafe-migrate --write  # change the files
 
 Run it in the project root, with a clean git tree, so you can review the diff.
 
+> **Release candidate.** The current version is a 1.0.0 release candidate (`1.0.0-rc.N`);
+> names and output can still change before 1.0.0.
+
 Run it with `npx` (or `pnpm dlx`, `yarn dlx`, `bunx`), not as a dependency: it uses TypeScript 6
 (`@typescript/typescript6`), and an npm install of it links the project's `tsc` to TypeScript 6.
 

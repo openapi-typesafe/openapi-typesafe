@@ -10,9 +10,8 @@ fully typed `fetch` client.
 author [stopped maintaining them](https://github.com/openapi-ts/openapi-typescript/issues/2874) in
 September 2026. It is a fork with the full upstream history (see [NOTICE](./NOTICE)).
 
-> **Status: release candidate.** `1.0.0-rc` releases are on npm under the `next` tag
-> (`npm install -D openapi-typesafe@next`). The goals below describe the 1.0 release. Progress is
-> tracked in [ENGINEERING_PLAN.md](./ENGINEERING_PLAN.md).
+> **Release candidate.** The current version is a 1.0.0 release candidate (`1.0.0-rc.N`);
+> names and output can still change before 1.0.0.
 
 ## Goals for 1.0
 

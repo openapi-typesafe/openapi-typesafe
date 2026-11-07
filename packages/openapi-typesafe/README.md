@@ -5,8 +5,8 @@ Runs on Node.js; no Java, no running server, no runtime code in the output.
 
 A maintained, drop-in successor to `openapi-typescript` (see the [repository README](../../README.md)).
 
-> **Status: release candidate.** `1.0.0-rc` releases are on npm under the `next` tag; until
-> 1.0.0 is released, install with `npm i -D openapi-typesafe@next`.
+> **Release candidate.** The current version is a 1.0.0 release candidate (`1.0.0-rc.N`);
+> names and output can still change before 1.0.0.
 
 ## Features
 
