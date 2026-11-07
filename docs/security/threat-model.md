@@ -66,9 +66,12 @@ the generator.
 
 A local document can refer to any file the process can read (`$ref: ../../home/me/.kube/config`).
 A YAML or JSON file is parsed, and its content can land in the generated file, for example as an
-`example` in a comment. A document loaded from a URL cannot do this: its relative and `file:`
-references resolve against the URL, and only `http(s)` URLs are fetched.
+`example` in a comment. A document loaded from a URL could do this too until 1.0: Redocly resolves
+its `$ref`s with `new URL()`, so `C:/Users/me/x.json` (a drive letter, an absolute path on
+Windows) and `file:///…` became local paths that were read from disk.
 
+- Control, always on: a `$ref` in a remote document that does not resolve to an `http(s)` URL is
+  refused with `SCHEMA_REF_FORBIDDEN` (reason `local-ref-from-remote`, ADR-033).
 - Control: `--local-ref-root <dir>` (`localRefRoot`) refuses a local `$ref` outside the directory,
   after links are resolved, with `SCHEMA_REF_FORBIDDEN` (ADR-017). It is off by default, because
   the behavior is inherited and documents rely on references outside their directory.

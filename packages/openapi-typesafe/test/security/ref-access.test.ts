@@ -40,6 +40,12 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
     "/to-other-host.json": () => response.writeHead(302, { location: `${otherHostURL}/person.json` }).end(),
     "/to-same-host.json": () => response.writeHead(301, { location: "/person.json" }).end(),
     "/loop.json": () => response.writeHead(302, { location: "/loop.json" }).end(),
+    "/drive-letter.json": () =>
+      response.writeHead(200, { "content-type": "application/json" }).end(documentWithRef("C:/secrets/person.json")),
+    "/file-url.json": () =>
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(documentWithRef(pathToFileURL(path.join(workDir, "secrets", "person.json")).href)),
   };
   (routes[request.url ?? ""] ?? (() => response.writeHead(404).end("Not Found")))();
 }
@@ -279,6 +285,23 @@ describe("remote $ref hosts (R2)", () => {
     await expect(loader.load({ ...request, refAccess: { remoteHosts: [] } })).rejects.toMatchObject({
       code: "SCHEMA_REF_FORBIDDEN",
     });
+  });
+});
+
+describe("local files from a remote document (T3)", () => {
+  // `new URL("C:/x", "https://vendor/spec.yaml")` is `c:/x`, which Redocly reads from disk: on
+  // Windows an absolute path, elsewhere a path relative to the working directory.
+  it.each([
+    ["a drive letter", "/drive-letter.json"],
+    ["a file: URL", "/file-url.json"],
+  ])("a $ref with %s in a remote document is refused, without any limits set", async (_, file) => {
+    const error = await loadFailure(new URL(`${baseURL}${file}`), {});
+
+    expect(error).toMatchObject({
+      code: "SCHEMA_REF_FORBIDDEN",
+      details: { reason: "local-ref-from-remote" },
+    });
+    expect(error.message).toMatch(/^Refused to load .*: it is not an http\(s\) URL, and the \$ref is in /);
   });
 });
 

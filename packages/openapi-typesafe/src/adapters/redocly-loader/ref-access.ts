@@ -80,6 +80,21 @@ export async function refusalOf(
 }
 
 /**
+ * A remote document may refer only to other URLs (threat model T3). Redocly resolves a `$ref`
+ * against a URL base with `new URL()`, so `C:/x` becomes `c:/x` and `file:///x` stays as it is;
+ * Redocly then reads either from disk, and on Windows a drive letter is an absolute path.
+ */
+function localFromRemoteRefusal(
+  base: string,
+  absoluteRef: string,
+): OpenAPITypesafeError | undefined {
+  if (!isRemoteRef(base) || isRemoteRef(absoluteRef)) {
+    return undefined;
+  }
+  return refForbiddenError(absoluteRef, { reason: "local-ref-from-remote", base });
+}
+
+/**
  * A Redocly resolver that checks each document before it loads it. Redocly turns a failed load
  * into an unresolved-`$ref` problem, so the refusals are also kept for the loader to report as
  * the typed error.
@@ -107,6 +122,12 @@ export class RefAccessResolver extends BaseResolver {
   ): ReturnType<BaseResolver["resolveDocument"]> {
     if (isRoot) {
       this.#rootRef = this.resolveExternalRef(base, ref);
+    }
+    const refusal =
+      base === null ? undefined : localFromRemoteRefusal(base, this.resolveExternalRef(base, ref));
+    if (refusal !== undefined) {
+      this.#refusals.push(refusal);
+      return Promise.reject(refusal);
     }
     return super.resolveDocument(base, ref, isRoot);
   }

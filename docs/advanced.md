@@ -540,9 +540,11 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   pattern starts with `http://`, and not on through a redirect ([Auth](/cli#auth)). This holds
   with or without the two flags.
 - The document you pass to the generator is never limited, only what it refers to.
+- A remote document may refer only to other `http(s)` URLs. A `$ref` in it that names a local file
+  (`file:///…`, or `C:/…`, which a URL base turns into a drive-letter path) is always refused.
 
 A refused `$ref` fails with `SCHEMA_REF_FORBIDDEN` (CLI exit code `3`); `err.details` has the
-`ref` and the `reason` (`outside-local-root` or `host-not-allowed`). The
+`ref` and the `reason` (`outside-local-root`, `host-not-allowed` or `local-ref-from-remote`). The
 [threat model](/security/threat-model) explains the risks (T3, T4).
 
 ## Limits
