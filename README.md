@@ -18,8 +18,10 @@ September 2026. It is a fork with the full upstream history (see [NOTICE](./NOTI
 - **Drop-in.** Migrate by changing package names. Generated output and the client API stay compatible.
 - **TypeScript 7 ready.** The generator will not depend on the TypeScript compiler API, so it works the
   same on TypeScript 5, 6 and 7.
-- **Verifiably compatible.** Every release ships a public compatibility report against more than
-  1,800 real-world OpenAPI 3.x schemas.
+- **Verifiably compatible.** A public [compatibility report](./docs/compatibility.md) compares the
+  output with openapi-typescript on more than 1,800 real-world OpenAPI 3.x schemas. CI runs the full
+  corpus every night; the report is refreshed from that run for every release candidate and every
+  major or minor release, and the GitHub release notes link it.
 - **Secure releases.** Minimal dependencies, npm provenance, no long-lived publish tokens.
 - **Stable API.** Semantic versioning from 1.0.0; [Versioning](./docs/compatibility.md#versioning)
   lists what a version promises.

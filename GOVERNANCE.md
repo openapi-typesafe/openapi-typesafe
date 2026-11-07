@@ -44,7 +44,10 @@ out of scope.
   may grow in a minor, is listed in [ADR-034](./adr/034-what-semver-covers-in-1x.md) and in the
   [compatibility report](./docs/compatibility.md#versioning).
 - Releases are produced from CI only, with npm provenance and trusted publishing; nobody publishes from a laptop.
-- Every release includes the compatibility report and a changelog generated from changesets.
+- Every release has a changelog generated from changesets. The
+  [compatibility report](./docs/compatibility.md) is refreshed from the full nightly corpus run for
+  every release candidate and every major or minor release, and the maintainer links it from the
+  GitHub release notes.
 
 ## Moderation
 
