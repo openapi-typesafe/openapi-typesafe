@@ -537,6 +537,9 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   remote `$ref`. Each redirect is checked against the list, at most 5 are followed, and headers
   from your Redocly config are not sent on to another origin. A listed name is trusted: it is not
   checked again after DNS resolution.
+- In `redocly.yaml`, an API can set its own limits as `local-ref-root` and `remote-ref-hosts`
+  under `x-openapi-ts`; they replace the flags for that API (see
+  [Multiple schemas](/cli#multiple-schemas)).
 - The document you pass to the generator is never limited, only what it refers to.
 
 A refused `$ref` fails with `SCHEMA_REF_FORBIDDEN` (CLI exit code `3`); `err.details` has the

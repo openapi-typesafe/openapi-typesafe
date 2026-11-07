@@ -50,6 +50,8 @@ apis:
 
 :::
 
+Under `x-openapi-ts`, an API can set `output`, every boolean flag of the [flags table](#flags), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint.
+
 ::: tip
 
 This will preserve schemas 1:1 input:output. To bundle multiple schemas into one, use Redocly’s [bundle command](https://redocly.com/docs/resources/multi-file-definitions/#bundle)
@@ -148,6 +150,7 @@ A warning does not stop the run: the types are written and the exit code stays `
 | Code | Meaning |
 | :--- | :------ |
 | `CLI_INPUT_IGNORED` | APIs are listed in `redocly.yaml` and an input is given on the command line; the input is ignored and the APIs are generated. See [Multiple schemas](#multiple-schemas) |
+| `CONFIG_SETTING_UNKNOWN` | An API's `x-openapi-ts` block in `redocly.yaml` has a key that is not an openapi-typesafe setting, for example a misspelled flag; the key is ignored. See [Multiple schemas](#multiple-schemas) |
 | `DISCRIMINATOR_MAPPING_INVALID` | A discriminator `mapping` names a schema that is neither an object schema nor an `allOf`, so the generator cannot add the discriminator property to it. That schema keeps its type |
 | `DISCRIMINATOR_VALUE_NOT_ALLOWED` | A discriminator gives a schema a value that the schema's own discriminator property does not allow, so no value matches. The Discriminator Object requires the value, from `mapping` or the schema name, to be one the property admits; add a `mapping` entry. See [discriminator values](./advanced.md#discriminator-values) |
 | `ENUM_VALUES_EXCLUDED` | `--enum-values`: other keywords exclude some values of an enum (an `allOf` of enums with other values, a discriminator value the enum does not list), so the array is typed by its own values. See [enum values arrays](./advanced.md#enum-values-arrays) |

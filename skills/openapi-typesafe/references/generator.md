@@ -37,7 +37,8 @@ Common flags (all default to off unless noted):
 | `--local-ref-root <dir>` | Local `$ref` files only from this directory (for documents you did not write) |
 | `--remote-ref-hosts <a,b>` | Remote `$ref` documents only from these hosts; empty allows none |
 
-Flags can also go under `x-openapi-ts` per API in `redocly.yaml`.
+Flags can also go under `x-openapi-ts` per API in `redocly.yaml` (including `fix`,
+`local-ref-root` and `remote-ref-hosts`); an unknown key warns with `CONFIG_SETTING_UNKNOWN`.
 
 OpenAPI 3.2 needs no flag. A path item's `query` operation is a `query` member (only where
 declared); `additionalOperations` keeps exact method names; `itemSchema` adds an `itemContent` map
