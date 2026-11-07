@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { createConfig } from "@redocly/openapi-core";
 import { describe, expect, it } from "vitest";
 import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/redocly-schema-loader.js";
@@ -5,6 +6,8 @@ import { resolveDocumentRef } from "../../src/api/document-refs.js";
 import { createDocumentRun } from "../../src/api/document-run.js";
 import { warnLegacyCallback } from "../../src/api/legacy-callback-warning.js";
 import { defaultGeneratorPorts } from "../../src/api/openapi-ts.js";
+import { WARNING_CODES as DOMAIN_WARNING_CODES } from "../../src/domain/warnings.js";
+import { WARNING_CODES } from "../../src/index.js";
 import type { GlobalContext } from "../../src/types.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
 
@@ -84,5 +87,14 @@ describe("warning codes", () => {
     expect(logger.messages("warn")).toEqual([
       expect.stringMatching(/irCallbacks: true .* \(LEGACY_CALLBACK_DEPRECATED\)$/),
     ]);
+  });
+
+  it("the package entry exports every warning code, and docs/cli.md lists each one", () => {
+    const docs = fs.readFileSync(new URL("../../../../docs/cli.md", import.meta.url), "utf8");
+
+    expect(WARNING_CODES).toEqual(DOMAIN_WARNING_CODES);
+    for (const code of Object.values(WARNING_CODES)) {
+      expect(docs).toContain(`| \`${code}\` |`);
+    }
   });
 });

@@ -159,6 +159,8 @@ A warning does not stop the run: the types are written and the exit code stays `
 | `REF_CIRCULAR` | A `$ref` that the generator follows in the bundled document (a discriminator `mapping` value, a `ctx.resolve` call in a callback, the deprecated `resolveRef` export) leads back to itself; it is left unresolved |
 | `REF_NOT_FOUND` | A `$ref` that the generator follows in the bundled document points to nothing there; it is left unresolved |
 
+The Node API exports the codes as `WARNING_CODES` and their union as `WarningCode`, as it exports `ERROR_CODES` and `ErrorCode`. A minor release may add a code; an existing code keeps its meaning (see [Versioning](./compatibility.md#versioning)).
+
 ## Exit codes
 
 The CLI exits with a code that tells what went wrong. On failure it prints one line with the message and the error code, for example `✘  Generated types are not up-to-date! src/api.ts differs from its schema. (OUTPUT_STALE)`.
