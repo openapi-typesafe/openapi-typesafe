@@ -87,7 +87,7 @@ These exports keep working in 1.x and are removed in 2.0:
   `node --no-deprecation` or `--throw-deprecation` work on it as on Node's own deprecations.
 - `resolveRef`, `scanDiscriminators`, `walk`, `c`, `debug`, `warn` and `error`, and the TypeScript
   node helpers `addJSDocComment`, `tsArrayLiteralExpression`, `tsDedupe`, `tsEnum`, `tsEnumMember`,
-  `tsIsPrimitive`, `tsModifiers`, `tsPropertyIndex`, `tsReadonlyArray`, `QUESTION` and
+  `tsIsPrimitive`, `tsModifiers`, `tsPropertyIndex`, `tsReadonlyArray`, `QUESTION_TOKEN` and
   `enumCache`: rarely used internals, marked `@deprecated` in the types (no runtime warning).
 
 ### Redoc config
