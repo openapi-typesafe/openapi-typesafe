@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { migrateWorkspaceCatalogs } from "../../src/domain/workspace-catalog-migration.js";
 
+/** Far above the few milliseconds a linear scan takes, far below the seconds of a quadratic one. */
+const TIME_LIMIT_MS = 1000;
+const LONG_LINE_LENGTH = 160_000;
+
+function timed<T>(run: () => T): { result: T; milliseconds: number } {
+  const started = performance.now();
+  const result = run();
+  return { result, milliseconds: performance.now() - started };
+}
+
 describe("migrateWorkspaceCatalogs", () => {
   it("migrateWorkspaceCatalogs renames entries of the default and named catalogs", () => {
     const text = [
@@ -81,6 +91,35 @@ describe("migrateWorkspaceCatalogs", () => {
     );
     expect(migrated.manualSteps).toEqual([
       { kind: "spec-kept", name: "openapi-typesafe-fetch", spec: "https://***@npm.acme/x.tgz" },
+    ]);
+  });
+
+  it("migrateWorkspaceCatalogs takes linear time on a long catalog entry with a lone CR", () => {
+    const text = `catalog:\n  openapi-fetch: ${"x".repeat(LONG_LINE_LENGTH)}\ry\n`;
+
+    const { milliseconds } = timed(() => migrateWorkspaceCatalogs(text, "1.0.0"));
+
+    expect(milliseconds).toBeLessThan(TIME_LIMIT_MS);
+  });
+
+  it("migrateWorkspaceCatalogs takes linear time on a long override line without a colon", () => {
+    const half = LONG_LINE_LENGTH / 2;
+    const text = `overrides:\n${" ".repeat(half)}${"a".repeat(half)}\n`;
+
+    const { result, milliseconds } = timed(() => migrateWorkspaceCatalogs(text, "1.0.0"));
+
+    expect(result.manualSteps).toEqual([]);
+    expect(milliseconds).toBeLessThan(TIME_LIMIT_MS);
+  });
+
+  it("migrateWorkspaceCatalogs reports an override key that has a colon inside", () => {
+    const text = "overrides:\n  a:b>openapi-fetch: 0.13.0\n  'c:d>openapi-typescript': 7\n";
+
+    const migrated = migrateWorkspaceCatalogs(text, "1.0.0");
+
+    expect(migrated.manualSteps).toEqual([
+      { kind: "override-names-package", field: "overrides", name: "openapi-fetch" },
+      { kind: "override-names-package", field: "overrides", name: "openapi-typescript" },
     ]);
   });
 });

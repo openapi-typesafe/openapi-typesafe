@@ -17,11 +17,19 @@ import { migrateVersionSpec } from "./version-spec.js";
  * the same fields of package.json.
  */
 
-/** `  openapi-fetch: ^0.13.1`, `  "openapi-fetch": "0.13"`; groups: indent, quote, name, spec. */
-const ENTRY_RE = /^(\s+)(["']?)([\w@./-]+)\2:\s*(["']?)([^"'#\s]+)\4(.*)$/;
+/*
+ * The patterns below run on every line of a file from the project, so each must stay linear in
+ * the line length. A trailing `(.*)$` (the rest of an entry) and a key that could start inside the
+ * indent before it made them quadratic: seconds on a crafted line of 160 kB.
+ */
+/**
+ * `  openapi-fetch: ^0.13.1`, `  "openapi-fetch": "0.13"`; groups: indent, quote, name, spec. The
+ * rest of the line (a comment) is what follows the match.
+ */
+const ENTRY_RE = /^(\s+)(["']?)([\w@./-]+)\2:\s*(["']?)([^"'#\s]+)\4/;
 const TOP_LEVEL_KEY_RE = /^([\w-]+):/;
-/** `  "app>openapi-fetch": 1.0.0`; groups: quote, key. */
-const KEY_RE = /^\s+(["']?)(.+?)\1:(?:\s|$)/;
+/** `  "app>openapi-fetch": 1.0.0`; groups: quote, key. The key starts after the indent. */
+const KEY_RE = /^\s+(["']?)(\S.*?)\1:(?:\s|$)/;
 const CATALOG_SECTIONS: ReadonlySet<string> = new Set(["catalog", "catalogs"]);
 const REPORTED_SECTIONS: ReadonlySet<string> = new Set(["overrides", "patchedDependencies"]);
 
@@ -37,7 +45,8 @@ function migrateEntry(line: string, version: string): LineResult {
   if (entry === null || renamed === undefined) {
     return { line };
   }
-  const [, indent, keyQuote, name, specQuote, spec, rest] = entry as unknown as string[];
+  const [whole, indent, keyQuote, name, specQuote, spec] = entry as unknown as string[];
+  const rest = line.slice((whole as string).length);
   const decision = migrateVersionSpec(spec as string, version);
   const key = `${keyQuote}${renamed}${keyQuote}`;
   const migrated = `${indent}${key}: ${specQuote}${decision.spec}${specQuote}${rest}`;

@@ -117,6 +117,16 @@ now treats the tree as untrusted input:
   included. A `--log` path is the user's choice: it is appended to, as before, and created with
   mode 0600.
 
+- **Slow patterns.** Three regular expressions took time quadratic in their input: `<script>`
+  blocks (a lazy body rescanned from every unclosed tag; 6.8 s on a crafted 640 kB `.vue`), and
+  the catalog entry and override key patterns of `pnpm-workspace.yaml` (10 to 15 s on a 160 kB
+  line). Script blocks are now found by searches from left to right that never go back. The entry
+  pattern no longer ends in `(.*)$` (the rest of the line is what follows the match), and an
+  override key must start after the indent (`\S`), so the indent and the key cannot split the
+  same spaces. recheck reports the new patterns as safe; tests bound the time on large input.
+  A YAML parser was not added: the file is edited line by line so that comments and formatting
+  stay, and the tool has no YAML dependency.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.
