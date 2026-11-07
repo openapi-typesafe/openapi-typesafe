@@ -84,3 +84,57 @@ describe("prototype keys", () => {
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 });
+
+/**
+ * A map entry named `constructor` whose value has a string `name`: Redocly 1.x looks up
+ * `properties.constructor`, finds `Object`, calls it, and takes the value itself for a node type.
+ */
+const NAMED_CONSTRUCTOR_DOCUMENTS: readonly [string, Record<string, unknown>, string][] = [
+  [
+    "a security scheme",
+    { paths: {}, components: { securitySchemes: { constructor: { type: "apiKey", in: "header", name: "x" } } } },
+    "#/components/securitySchemes/constructor",
+  ],
+  [
+    "a response header",
+    {
+      paths: {
+        "/a": {
+          get: {
+            responses: {
+              200: { description: "OK", headers: { constructor: { name: "x", schema: { type: "string" } } } },
+            },
+          },
+        },
+      },
+    },
+    "#/paths/~1a/get/responses/200/headers/constructor",
+  ],
+];
+
+const textOf = (document: Record<string, unknown>) =>
+  JSON.stringify({ openapi: "3.1.0", info: { title: "t", version: "1" }, ...document });
+
+describe("prototype keys as map entries", () => {
+  it.each(["__proto__", "prototype"])("a security scheme named %s generates", async (key) => {
+    const scheme = { type: "apiKey", in: "header", name: "x" };
+
+    const output = astToString(
+      await openapiTS(textOf({ paths: {}, components: { securitySchemes: { [key]: scheme } } }), { silent: true }),
+    );
+
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it.each(NAMED_CONSTRUCTOR_DOCUMENTS)(
+    "%s named constructor with a `name` fails with SCHEMA_KEY_UNSUPPORTED",
+    async (_, document, pointer) => {
+      const generation = openapiTS(textOf(document), { silent: true });
+
+      await expect(generation).rejects.toMatchObject({
+        code: "SCHEMA_KEY_UNSUPPORTED",
+        details: { keys: [{ key: "constructor", pointer }] },
+      });
+    },
+  );
+});

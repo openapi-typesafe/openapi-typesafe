@@ -138,7 +138,10 @@ A compromised dependency, GitHub Action or npm token publishes a malicious versi
 `__proto__`, `constructor` and `prototype` as schema, property, path, parameter, operation and enum
 names are kept and generate valid TypeScript, and the fetch client serializes them as names without
 writing to `Object.prototype` (`test/security/prototype-keys.test.ts`,
-`packages/openapi-typesafe-fetch/test/common/prototype-keys.test.ts`). A document passed to the Node
+`packages/openapi-typesafe-fetch/test/common/prototype-keys.test.ts`). The schema loader
+(Redocly 1.x) cannot read a few of them where it reads keys (`valueOf` and the like, or a
+`constructor` entry whose value has a string `name`, such as a security scheme); those fail with
+the typed error `SCHEMA_KEY_UNSUPPORTED`, which names each key (docs/advanced.md, "Limits"). A document passed to the Node
 API as a JavaScript object literal loses a `__proto__: …` key before the generator sees it, because
 the literal sets the prototype; use a computed key (`["__proto__"]: …`) or pass JSON or YAML text.
 

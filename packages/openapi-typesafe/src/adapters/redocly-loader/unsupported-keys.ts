@@ -4,7 +4,7 @@ import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
  * Keys Redocly 1.34 cannot walk. It looks up the type of every key with `type.properties[key]`,
  * which also finds inherited `Object.prototype` members; it then calls a found function with no
  * `this`, and these methods throw a `TypeError` for that. Redocly 2.x looks up own keys only
- * (ADR-005 keeps 1.34). `toString` and `constructor` do not throw, and load as they should.
+ * (ADR-005 keeps 1.34). `toString` does not throw, and loads as it should.
  *
  * Redocly does not walk every value (`default` and `const` are data), so a document with such a
  * key is not rejected up front: the loader looks for them only after Redocly threw a `TypeError`.
@@ -20,6 +20,21 @@ export const UNSUPPORTED_KEYS: ReadonlySet<string> = new Set([
   "__lookupGetter__",
   "__lookupSetter__",
 ]);
+
+/**
+ * `constructor` finds `Object`, which returns the value it is called with. Redocly then takes the
+ * value for a node type when it has a string `name` (a security scheme, a header with a `name`),
+ * and fails reading the type's fields. Any other `constructor` key loads.
+ */
+const CONSTRUCTOR_KEY = "constructor";
+
+function isUnsupportedEntry(key: string, value: unknown): boolean {
+  if (UNSUPPORTED_KEYS.has(key)) {
+    return true;
+  }
+  const name = (value as { name?: unknown } | null | undefined)?.name;
+  return key === CONSTRUCTOR_KEY && typeof value === "object" && typeof name === "string";
+}
 
 /** Enough found keys in the message to act on; `details.keys` has all of them. */
 const KEYS_IN_MESSAGE = 5;
@@ -66,7 +81,7 @@ function unsupportedKeysOf(document: LoadedDocument): UnsupportedKey[] {
   for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
     for (const [key, child] of Object.entries(node.value)) {
       const pointer = `${node.pointer}/${escapePointerSegment(key)}`;
-      if (UNSUPPORTED_KEYS.has(key)) {
+      if (isUnsupportedEntry(key, child)) {
         found.push({ key, pointer, source: document.source });
       }
       enqueue(child, pointer);
