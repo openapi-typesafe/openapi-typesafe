@@ -70,4 +70,17 @@ describe("migrateWorkspaceCatalogs", () => {
       { kind: "override-names-package", field: "patchedDependencies", name: "openapi-typescript" },
     ]);
   });
+
+  it("migrateWorkspaceCatalogs hides URL credentials in the findings, not in the file", () => {
+    const text = "catalog:\n  openapi-fetch: https://u:SECRET@npm.acme/x.tgz\n";
+
+    const migrated = migrateWorkspaceCatalogs(text, "1.0.0");
+
+    expect(migrated.text).toBe(
+      "catalog:\n  openapi-typesafe-fetch: https://u:SECRET@npm.acme/x.tgz\n",
+    );
+    expect(migrated.manualSteps).toEqual([
+      { kind: "spec-kept", name: "openapi-typesafe-fetch", spec: "https://***@npm.acme/x.tgz" },
+    ]);
+  });
 });

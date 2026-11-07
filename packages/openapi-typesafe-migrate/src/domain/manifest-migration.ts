@@ -12,6 +12,7 @@ import {
   OVERRIDE_FIELDS,
   PACKAGE_RENAMES,
 } from "./package-names.js";
+import { hideUrlCredentials } from "./url-credentials.js";
 import { migrateVersionSpec } from "./version-spec.js";
 
 type JsonObject = Record<string, unknown>;
@@ -54,10 +55,14 @@ function renameDependencies(
         field,
         from: name,
         to: renamed,
-        spec: decision.spec,
+        spec: hideUrlCredentials(decision.spec),
       });
       if (decision.kind === "kept" && decision.isReported) {
-        findings.manualSteps.push({ kind: "spec-kept", name: renamed, spec });
+        findings.manualSteps.push({
+          kind: "spec-kept",
+          name: renamed,
+          spec: hideUrlCredentials(spec),
+        });
       }
       if (field === "peerDependencies") {
         findings.manualSteps.push({ kind: "peer-dependency-renamed", name: renamed });
@@ -130,7 +135,8 @@ export function migratePackageManifest(text: string, version: string): FileMigra
     manifest = JSON.parse(text);
   } catch (error) {
     // A package.json that does not parse is not ours to fix; the user is told where it is.
-    const reason = error instanceof Error ? error.message : String(error);
+    // V8 quotes a short text in the message, so it can hold a credential too.
+    const reason = hideUrlCredentials(error instanceof Error ? error.message : String(error));
     return { ...unchanged(text), manualSteps: [{ kind: "manifest-unreadable", reason }] };
   }
   if (!isObject(manifest)) {

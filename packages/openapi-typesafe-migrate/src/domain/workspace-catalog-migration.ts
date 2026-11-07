@@ -6,6 +6,7 @@ import {
 } from "./migration-findings.js";
 import { overriddenPackages } from "./override-targets.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
+import { hideUrlCredentials } from "./url-credentials.js";
 import { migrateVersionSpec } from "./version-spec.js";
 
 /**
@@ -45,7 +46,7 @@ function migrateEntry(line: string, version: string): LineResult {
     return {
       line: migrated,
       change,
-      manualStep: { kind: "spec-kept", name: renamed, spec: spec as string },
+      manualStep: { kind: "spec-kept", name: renamed, spec: hideUrlCredentials(spec as string) },
     };
   }
   return { line: migrated, change };

@@ -104,6 +104,12 @@ now treats the tree as untrusted input:
   the folder must be writable. A leftover temporary file is not overwritten (`wx`); the error
   names it.
 
+- **Credentials in specs.** A dependency spec such as `git+https://<token>@github.com/…` was
+  copied into the report and the log. The findings now hide the userinfo of every URL
+  (`https://***@host/…`), in kept specs and in the JSON parse error of a `package.json`; the
+  files keep the spec as written. The scan is a loop over `://`, not a regular expression, so it
+  stays linear.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

@@ -38,6 +38,8 @@ repository that is not named explicitly. A path that git lists but that leads ou
 (`../`, an absolute path, or a linked parent folder) is not read or written; the report lists it
 under "Skipped". A file is written as a new file that replaces the old one (same mode), so a hard
 link to a file elsewhere keeps its old text; the log notes it.
+The report and the log show a spec with credentials (`git+https://<token>@…`) as
+`git+https://***@…`; the file keeps it as written.
 
 ## What it leaves to you
 
