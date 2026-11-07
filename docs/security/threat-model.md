@@ -5,7 +5,7 @@ description: How openapi-typesafe treats untrusted OpenAPI documents, what it de
 
 # Threat model
 
-ENGINEERING_PLAN 9.1. Reviewed on 2026-11-02 against the code at the commit that adds this file,
+Reviewed on 2026-11-02 against the code at the commit that adds this file,
 and again on 2026-11-06 after the security audit before 1.0.0 (ADR-033; ADR-030, amendment).
 Review it again when a new input, option or output is added, and before each major release.
 
@@ -26,7 +26,7 @@ Review it again when a new input, option or output is added, and before each maj
 | CLI flags, `redocly.yaml`, Node API options | Yes | Chosen by the developer |
 | `transform`, `postTransform` and other callbacks, `inject` text | Yes | The developer's own code; it may write any TypeScript on purpose |
 | Values passed to the fetch client at run time (path, query, body, headers) | **No** | Often come from end users |
-| Dependencies and the release pipeline | Verified | Lockfile, pinned actions, provenance (Phase 9) |
+| Dependencies and the release pipeline | Verified | Lockfile, pinned actions, provenance |
 
 ## Threats and controls
 
@@ -135,14 +135,14 @@ parameter or a path segment.
 - Tests: the fetch client's serializer tests, `test/common/path-dot-segments.test.ts` and
   `test/common/param-name-encoding.test.ts`.
 
-### T6. Supply chain — Controlled from Phase 9
+### T6. Supply chain — Controlled
 
 A compromised dependency, GitHub Action or npm token publishes a malicious version.
 
 - Controls: lockfile with exact versions; GitHub Actions pinned by commit SHA; few runtime
   dependencies (ADR-005 for the schema loader); `attw` and packed-tarball checks; trusted
-  publishing with provenance and no npm tokens (9.3); SBOM (9.5); dependency review and update
-  bots (9.7); Scorecard (9.6); branch rulesets at publication (9.8).
+  publishing with provenance and no npm tokens; SBOM; dependency review and update bots;
+  Scorecard; branch rulesets.
 - Known: `@redocly/openapi-core` 1.x pulls in dependencies with published advisories
   (research/backlog.md, item 2); ADR-005 keeps 1.x for 1.0, and its review trigger covers this.
   The latest review (GHSA-g3hv-75wg-m249, minimatch) is in ADR-005, "Reviews".
@@ -178,4 +178,4 @@ others change them has a code-review problem, not a generator problem.
 ## Open risks
 
 None. R1 and R2 are controlled by opt-in options (ADR-017). Whether they become the default is
-decided for 2.0; that decision is tracked as an issue when the repository goes public (task 11.2).
+decided in the 2.0 planning, as ADR-017 (decision 5) records.
