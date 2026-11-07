@@ -5,7 +5,8 @@ description: How openapi-typesafe treats untrusted OpenAPI documents, what it de
 
 # Threat model
 
-ENGINEERING_PLAN 9.1. Reviewed on 2026-11-02 against the code at the commit that adds this file.
+ENGINEERING_PLAN 9.1. Reviewed on 2026-11-02 against the code at the commit that adds this file,
+and again on 2026-11-06 after the security audit before 1.0.0 (ADR-033; ADR-030, amendment).
 Review it again when a new input, option or output is added, and before each major release.
 
 ## What we protect
