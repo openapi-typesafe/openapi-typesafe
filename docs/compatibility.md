@@ -162,7 +162,8 @@ have the same version. The full rule is
 - the keys of an error's `details`, except those the docs name;
 - log formats (`DEBUG=openapi-ts:*` lines, the migration tool's `--log` file) and the generated
   header comment;
-- fields and members marked `@internal`, and the generator's own state on `options.ctx`.
+- exports, fields and members marked `@internal`, and the generator's own state on
+  `options.ctx`.
 
 **Node.js and TypeScript.** A minor release may raise the lowest supported Node.js version, only
 to drop a line that has reached its end of life (Node.js 22 on 2027-04-30), and its changelog says

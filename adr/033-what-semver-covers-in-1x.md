@@ -64,7 +64,9 @@ source files without `node_modules`. GitHub code search was not available.
    - log formats: the `DEBUG=openapi-ts:*` lines and the migration tool's `--log` JSON Lines;
    - the text of the generated header (`COMMENT_HEADER`), which names the generator;
    - the run state that the generator keeps on the context object it passes as `options.ctx`
-     (internal `RunContext`), and members marked `@internal`, such as `IrRawType.origin`;
+     (internal `RunContext`), and exports and members marked `@internal`, such as
+     `IrRawType.origin` and the fetch client's `PathOperation`, which exists for the react-query
+     package;
    - types that are reachable through public signatures but not exported by name.
 4. **Engines.** The Node.js floor rises within 1.x only in a minor release, only for a Node.js
    line that has reached its end of life, and the changeset says so (ADR-006: Node.js 22 reaches
