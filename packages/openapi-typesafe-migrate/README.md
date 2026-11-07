@@ -74,10 +74,10 @@ now, so `--check` fails until you do), and run your type check and tests.
 | `--log <file>` | A new JSON Lines file in a new private folder in the temporary directory; its path is printed |
 
 The default log folder is new for each run and only you can open it (mode 0700). A `--log` file
-that exists gets the new lines appended.
+that exists gets the new lines appended, and missing parent folders are created.
 
-Exit codes: `0` done, `1` the migration failed (the message and the log say why), `2` unknown
-option.
+Exit codes: `0` done, `1` the migration failed (the message and the log say why) or the log could
+not be created (nothing is changed then), `2` unknown option or argument.
 
 ## Versioning
 

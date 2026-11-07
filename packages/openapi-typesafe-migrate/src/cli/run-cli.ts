@@ -7,7 +7,7 @@ import type {
 } from "../application/ports.js";
 import { renderReport } from "../application/report.js";
 import { type CliRequest, parseCliArguments } from "./cli-arguments.js";
-import { HELP_TEXT, logNote, usageError } from "./cli-text.js";
+import { HELP_TEXT, logError, logNote, usageError } from "./cli-text.js";
 
 /** Everything the command takes from the process, so tests run it with fakes. */
 export interface CliDependencies {
@@ -43,12 +43,37 @@ function parseRequest(
   }
 }
 
+type MigrateRequest = Extract<CliRequest, { kind: "migrate" }>;
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+/**
+ * The log is created before any file is read, so a log that cannot be written (a parent that is
+ * a file, a read-only folder) stops the run before it changes anything.
+ */
+function openLog(
+  request: MigrateRequest,
+  dependencies: CliDependencies,
+): ReturnType<CliDependencies["createLogger"]> | undefined {
+  try {
+    return dependencies.createLogger(request.logPath);
+  } catch (error) {
+    dependencies.writeStderr(logError(request.logPath, errorMessage(error)));
+    return undefined;
+  }
+}
+
 async function runMigration(
-  request: Extract<CliRequest, { kind: "migrate" }>,
+  request: MigrateRequest,
   dependencies: CliDependencies,
 ): Promise<number> {
+  const log = openLog(request, dependencies);
+  if (log === undefined) {
+    return EXIT_CODES.failure;
+  }
+  const { logger, path } = log;
   const root = dependencies.resolvePath(dependencies.cwd, request.root ?? ".");
-  const { logger, path } = dependencies.createLogger(request.logPath);
   try {
     const files = dependencies.createFiles(root, logger);
     const { rewriter, scanner } = dependencies;
@@ -57,7 +82,7 @@ async function runMigration(
     dependencies.writeStdout(renderReport(migration, request.isWrite));
     return EXIT_CODES.success;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     logger.warn("migration_failed", { root, message });
     dependencies.writeStderr(`${message}\n`);
     return EXIT_CODES.failure;
