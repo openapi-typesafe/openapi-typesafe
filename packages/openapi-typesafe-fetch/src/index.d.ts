@@ -228,10 +228,14 @@ export type MaybeOptionalInit<Params, Location extends PropertyKey> = OperationI
  * union of operations (a union of paths, or `Parameters<typeof client.request>`), `undefined`
  * would make the whole init optional, although a call to one of the paths sends the init it gets,
  * and a path parameter left out stays `{id}` in the URL.
+ * One conditional type, as openapi-fetch's, not a union with a conditional `undefined`: while the
+ * operation is generic, a union made `FetchResponse` distribute over its members, so the `data` of
+ * a generic wrapper's call no longer related to `FetchResponse<Paths[Path][Method], Init, Media>`.
  */
 type OperationInits<Operation> =
-  | OperationFetchOptions<Operation>
-  | (RequiredKeysOf<OperationFetchOptions<Operation>> extends never ? undefined : never);
+  RequiredKeysOf<OperationFetchOptions<Operation>> extends never
+    ? OperationFetchOptions<Operation> | undefined
+    : OperationFetchOptions<Operation>;
 
 /**
  * Each operation's init. A distributive alias, not `extends infer Operation`: while the path is
