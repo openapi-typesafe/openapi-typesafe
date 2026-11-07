@@ -30,7 +30,12 @@ type PageParamsOf<Query extends () => { data: unknown }> =
 describe("useInfiniteQuery page param type", () => {
   it("a page number API gets number page params", () => {
     const query = () =>
-      $api.useInfiniteQuery("get", "/items", {}, { initialPageParam: 0, getNextPageParam: (last) => last.nextPage });
+      $api.useInfiniteQuery(
+        "get",
+        "/items",
+        {},
+        { initialPageParam: 0, getNextPageParam: (last) => last.nextPage },
+      );
 
     expectTypeOf<PageParamsOf<typeof query>>().toEqualTypeOf<number>();
   });
@@ -97,7 +102,10 @@ describe("useInfiniteQuery page param type", () => {
         "get",
         "/items",
         {},
-        { initialPageParam: 0, getNextPageParam: (_last, _all, lastPageParam: number) => lastPageParam + 1 },
+        {
+          initialPageParam: 0,
+          getNextPageParam: (_last, _all, lastPageParam: number) => lastPageParam + 1,
+        },
       );
 
     expectTypeOf<PageParamsOf<typeof query>>().toEqualTypeOf<number>();

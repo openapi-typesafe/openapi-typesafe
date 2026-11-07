@@ -7,7 +7,8 @@ import { createFinalURL, createQuerySerializer, defaultPathSerializer } from "..
  * parameter and a key `a/b` added a path segment (ADR-013, decision 9).
  */
 
-const serialize = (query: Record<string, unknown>, options = {}) => createQuerySerializer(options)(query);
+const serialize = (query: Record<string, unknown>, options = {}) =>
+  createQuerySerializer(options)(query);
 
 describe("query parameter names", () => {
   it.each([
@@ -37,7 +38,9 @@ describe("query parameter names", () => {
     const object = { "x&y": "1" };
 
     expect(serialize({ f: object }, { object: { style: "form", explode: true } })).toBe("x%26y=1");
-    expect(serialize({ f: object }, { object: { style: "form", explode: false } })).toBe("f=x%26y,1");
+    expect(serialize({ f: object }, { object: { style: "form", explode: false } })).toBe(
+      "f=x%26y,1",
+    );
   });
 
   it("allowReserved keeps values as written but still encodes names", () => {
@@ -76,12 +79,20 @@ describe("replacement patterns in path values", () => {
     ["$$", "$$"],
     ["$1", "$1"],
   ])("defaultPathSerializer writes the object key %j as text", (key, written) => {
-    const serialized = defaultPathSerializer("/{filter}/{id}?v=1", { filter: { [key]: "" }, id: "evil.example" });
+    const serialized = defaultPathSerializer("/{filter}/{id}?v=1", {
+      filter: { [key]: "" },
+      id: "evil.example",
+    });
 
     expect(serialized).toBe(`/${written},/evil.example?v=1`);
   });
 
-  it.each(["$'", "$`", "$&", "$$"])("defaultPathSerializer writes the primitive %j as text", (value) => {
-    expect(defaultPathSerializer("/a/{id}/b", { id: value })).toBe(`/a/${encodeURIComponent(value)}/b`);
-  });
+  it.each(["$'", "$`", "$&", "$$"])(
+    "defaultPathSerializer writes the primitive %j as text",
+    (value) => {
+      expect(defaultPathSerializer("/a/{id}/b", { id: value })).toBe(
+        `/a/${encodeURIComponent(value)}/b`,
+      );
+    },
+  );
 });

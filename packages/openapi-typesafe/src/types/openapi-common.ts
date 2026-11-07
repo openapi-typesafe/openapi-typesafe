@@ -7,6 +7,7 @@
 // for ways schemas _can_ be written, not necessarily how they _should_ be.
 
 export interface Extensable {
+  // biome-ignore lint/suspicious/noExplicitAny: public type under semver (ADR-034)
   [key: `x-${string}`]: any;
 }
 

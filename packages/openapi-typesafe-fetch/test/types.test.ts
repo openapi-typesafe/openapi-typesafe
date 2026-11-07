@@ -1,4 +1,9 @@
-import type { ErrorResponse, GetResponseContent, OkStatus, SuccessResponse } from "openapi-typesafe-helpers";
+import type {
+  ErrorResponse,
+  GetResponseContent,
+  OkStatus,
+  SuccessResponse,
+} from "openapi-typesafe-helpers";
 import { assertType, describe, test } from "vitest";
 
 describe("types", () => {

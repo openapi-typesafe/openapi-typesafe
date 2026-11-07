@@ -41,13 +41,27 @@ export const DEFAULT_CTX: GlobalContext = {
   readWriteMarkers: false,
 };
 
+/**
+ * A `resolve` callback for a test: `find` returns the document node of a `$ref`, or `undefined`.
+ * The generic `resolve` returns the type its caller asks for, so the node is cast once here.
+ */
+export function fixtureResolver(find: ($ref: string) => unknown): GlobalContext["resolve"] {
+  return <T>($ref: string) => find($ref) as T | undefined;
+}
+
+/**
+ * The `given` value of a fixture. Fixtures include loose and invalid schemas on purpose, and
+ * `any` lets them reach the function under test without a cast in every suite.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: loose and invalid fixtures must reach the code under test
+export type LooseFixture = any;
+
 /** Generic test case */
-export type TestCase<T = any, O = TransformNodeOptions> = [
+export type TestCase<T = LooseFixture, O = TransformNodeOptions> = [
   string,
   {
     /**
-     * The OpenAPI schema.  * Typing as `any` is good because it lets us test
-     * any invalid or unexpected formats without fighting with TypeScript.
+     * The OpenAPI schema; see `LooseFixture`.
      */
     given: T;
     /**

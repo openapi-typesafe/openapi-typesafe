@@ -6,30 +6,39 @@ import type { paths } from "./schemas/common.js";
 describe("createClient options", () => {
   test("baseUrl", async () => {
     let actualURL = new URL("https://fakeurl.example");
-    const client = createObservedClient<paths>({ baseUrl: "https://api.foo.bar/v2" }, async (req) => {
-      actualURL = new URL(req.url);
-      return Response.json([]);
-    });
+    const client = createObservedClient<paths>(
+      { baseUrl: "https://api.foo.bar/v2" },
+      async (req) => {
+        actualURL = new URL(req.url);
+        return Response.json([]);
+      },
+    );
     await client.GET("/resources");
     expect(actualURL.href).toBe("https://api.foo.bar/v2/resources");
   });
 
   test("baseUrl removes trailing slash", async () => {
     let actualURL = new URL("https://fakeurl.example");
-    const client = createObservedClient<paths>({ baseUrl: "https://api.foo.bar/v3/" }, async (req) => {
-      actualURL = new URL(req.url);
-      return Response.json([]);
-    });
+    const client = createObservedClient<paths>(
+      { baseUrl: "https://api.foo.bar/v3/" },
+      async (req) => {
+        actualURL = new URL(req.url);
+        return Response.json([]);
+      },
+    );
     await client.GET("/resources");
     expect(actualURL.href).toBe("https://api.foo.bar/v3/resources");
   });
 
   test("baseUrl per request", async () => {
     let actualURL = new URL("https://fakeurl.example");
-    const client = createObservedClient<paths>({ baseUrl: "https://fakeurl.example" }, async (req) => {
-      actualURL = new URL(req.url);
-      return Response.json([]);
-    });
+    const client = createObservedClient<paths>(
+      { baseUrl: "https://fakeurl.example" },
+      async (req) => {
+        actualURL = new URL(req.url);
+        return Response.json([]);
+      },
+    );
 
     const localBaseUrl = "https://api.foo.bar/v3";
     await client.GET("/resources", { baseUrl: localBaseUrl });
@@ -40,10 +49,13 @@ describe("createClient options", () => {
 
   test("baseUrl per request causes no override on default baseUrl", async () => {
     let actualURL = new URL("https://fakeurl.example");
-    const client = createObservedClient<paths>({ baseUrl: "https://api.foo.bar/v2/" }, async (req) => {
-      actualURL = new URL(req.url);
-      return Response.json([]);
-    });
+    const client = createObservedClient<paths>(
+      { baseUrl: "https://api.foo.bar/v2/" },
+      async (req) => {
+        actualURL = new URL(req.url);
+        return Response.json([]);
+      },
+    );
 
     const localBaseUrl = "https://api.foo.bar/v3";
     await client.GET("/resources", { baseUrl: localBaseUrl });
@@ -64,13 +76,16 @@ describe("createClient options", () => {
     async function fireRequestAndGetContentType(options: {
       defaultHeaders?: HeadersOptions;
       method: (typeof ALL_METHODS)[number][number];
+      // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
       fetchOptions: FetchOptions<any>;
     }) {
       let headers = new Headers();
+      // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
       const client = createObservedClient<any>({ headers: options.defaultHeaders }, async (req) => {
         headers = req.headers;
         return Response.json([]);
       });
+      // biome-ignore lint/suspicious/noExplicitAny: one helper sends every method to a path the schema lacks
       await client[options.method]("/resources", options.fetchOptions as any);
       return headers.get("content-type");
     }
@@ -93,7 +108,17 @@ describe("createClient options", () => {
       expect(contentType).toBe(null);
     });
 
-    const BODIES = [{ prop: "a" }, {}, "", "str", null, false, 0, 1, new Date("2024-08-07T09:52:00.836Z")] as const;
+    const BODIES = [
+      { prop: "a" },
+      {},
+      "",
+      "str",
+      null,
+      false,
+      0,
+      1,
+      new Date("2024-08-07T09:52:00.836Z"),
+    ] as const;
     const METHOD_BODY_COMBINATIONS = BODY_ACCEPTING_METHODS.flatMap(([method]) =>
       BODIES.map((body) => [method, body] as const),
     );

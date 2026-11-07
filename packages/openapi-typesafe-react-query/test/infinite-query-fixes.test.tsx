@@ -64,7 +64,9 @@ describe("useInfiniteQuery and useQuery with the same request", () => {
       { wrapper: wrapperOf(createQueryClient()) },
     );
 
-    await waitFor(() => expect(result.current.infinite.isSuccess && result.current.query.isSuccess).toBe(true));
+    await waitFor(() =>
+      expect(result.current.infinite.isSuccess && result.current.query.isSuccess).toBe(true),
+    );
     expect(result.current.query.data).toEqual(FIRST_PAGE);
     expect(result.current.infinite.data?.pages).toEqual([FIRST_PAGE]);
   });
@@ -74,9 +76,12 @@ describe("useInfiniteQuery and useQuery with the same request", () => {
     const queryClient = createQueryClient();
     const init = { params: { query: { limit: 2 } } };
 
-    const { result } = renderHook(() => client.useInfiniteQuery("get", "/items", init, CURSOR_OPTIONS), {
-      wrapper: wrapperOf(queryClient),
-    });
+    const { result } = renderHook(
+      () => client.useInfiniteQuery("get", "/items", init, CURSOR_OPTIONS),
+      {
+        wrapper: wrapperOf(queryClient),
+      },
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const keys = queryClient
@@ -89,9 +94,12 @@ describe("useInfiniteQuery and useQuery with the same request", () => {
   it("invalidating the method and path prefix refetches the infinite query", async () => {
     const { client, urls } = createRecordingClient();
     const queryClient = createQueryClient();
-    const { result } = renderHook(() => client.useInfiniteQuery("get", "/items", {}, CURSOR_OPTIONS), {
-      wrapper: wrapperOf(queryClient),
-    });
+    const { result } = renderHook(
+      () => client.useInfiniteQuery("get", "/items", {}, CURSOR_OPTIONS),
+      {
+        wrapper: wrapperOf(queryClient),
+      },
+    );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     await queryClient.invalidateQueries({ queryKey: ["get", "/items"] });
@@ -104,9 +112,12 @@ describe("useInfiniteQuery page param", () => {
   it("useInfiniteQuery with an undefined initialPageParam sends no page param on the first page", async () => {
     const { client, urls } = createRecordingClient();
 
-    const { result } = renderHook(() => client.useInfiniteQuery("get", "/items", {}, CURSOR_OPTIONS), {
-      wrapper: wrapperOf(createQueryClient()),
-    });
+    const { result } = renderHook(
+      () => client.useInfiniteQuery("get", "/items", {}, CURSOR_OPTIONS),
+      {
+        wrapper: wrapperOf(createQueryClient()),
+      },
+    );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const next = await act(() => result.current.fetchNextPage());
 

@@ -7,6 +7,8 @@ describe("TRACE()", () => {
   // Node.js does not support TRACE with new Request().
   test("(not supported in Node.js)", async () => {
     const client = createObservedClient<paths>();
-    await expect(() => client.TRACE("/resources/{id}", { params: { path: { id: 123 } } })).rejects.toThrow();
+    await expect(() =>
+      client.TRACE("/resources/{id}", { params: { path: { id: 123 } } }),
+    ).rejects.toThrow();
   });
 });

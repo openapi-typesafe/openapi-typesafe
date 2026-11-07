@@ -27,7 +27,7 @@
       },
       "suspicious": {
         "noConsole": "error",
-        "noExplicitAny": "off"
+        "noExplicitAny": "error"
       },
       "style": {
         "noUselessElse": "off",

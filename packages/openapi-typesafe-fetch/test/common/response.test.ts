@@ -60,7 +60,9 @@ describe("response", () => {
       if (result.data) {
         expectTypeOf(result.data).toEqualTypeOf<Resource | Resource[]>();
       } else {
-        expectTypeOf(result.error).extract<{ code: number }>().toEqualTypeOf<{ code: number; message: string }>();
+        expectTypeOf(result.error)
+          .extract<{ code: number }>()
+          .toEqualTypeOf<{ code: number; message: string }>();
         expectTypeOf(result.error).exclude<{ code: number }>().toEqualTypeOf<never>();
       }
     });
@@ -70,10 +72,14 @@ describe("response", () => {
       const result = await client.GET("/mismatched-errors");
       if (result.data) {
         expectTypeOf(result.data).toEqualTypeOf<Resource>();
-        expectTypeOf(result.data).toEqualTypeOf<MethodResponse<typeof client, "get", "/mismatched-errors">>();
+        expectTypeOf(result.data).toEqualTypeOf<
+          MethodResponse<typeof client, "get", "/mismatched-errors">
+        >();
       } else {
         expectTypeOf(result.data).toBeUndefined();
-        expectTypeOf(result.error).extract<{ code: number }>().toEqualTypeOf<{ code: number; message: string }>();
+        expectTypeOf(result.error)
+          .extract<{ code: number }>()
+          .toEqualTypeOf<{ code: number; message: string }>();
         expectTypeOf(result.error).exclude<{ code: number }>().toEqualTypeOf(undefined);
       }
     });
@@ -114,8 +120,10 @@ describe("response", () => {
     });
 
     test("`default` is an error", async () => {
-      const client = createObservedClient<paths>({ headers: { "Cache-Control": "max-age=10000000" } }, async () =>
-        Response.json({ code: 500, message: "An unexpected error occurred" }, { status: 500 }),
+      const client = createObservedClient<paths>(
+        { headers: { "Cache-Control": "max-age=10000000" } },
+        async () =>
+          Response.json({ code: 500, message: "An unexpected error occurred" }, { status: 500 }),
       );
 
       const { error } = await client.GET("/error-default");
@@ -195,7 +203,9 @@ describe("response", () => {
     });
 
     test("use the selected content", async () => {
-      const client = createObservedClient<paths, "application/ld+json">({}, async () => Response.json({ bar: "bar" }));
+      const client = createObservedClient<paths, "application/ld+json">({}, async () =>
+        Response.json({ bar: "bar" }),
+      );
       const { data } = await client.GET("/media-multiple", {
         headers: { Accept: "application/ld+json" },
       });

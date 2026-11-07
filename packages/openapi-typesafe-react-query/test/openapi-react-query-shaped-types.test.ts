@@ -40,7 +40,9 @@ type UpstreamQueryOptions<P extends {}> = <
 >(
   method: Method,
   path: Path,
-  ...rest: RequiredKeysOf<Init> extends never ? [InitWithUnknowns<Init>?, never?] : [InitWithUnknowns<Init>, never?]
+  ...rest: RequiredKeysOf<Init> extends never
+    ? [InitWithUnknowns<Init>?, never?]
+    : [InitWithUnknowns<Init>, never?]
 ) => { readonly queryKey: readonly unknown[] };
 
 /** A helper generic in the paths, as a library built on openapi-react-query writes it. */

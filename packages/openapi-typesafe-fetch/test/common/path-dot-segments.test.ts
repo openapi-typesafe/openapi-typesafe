@@ -37,16 +37,25 @@ function recordingClient<P extends {} = Paths>(requests: Request[]) {
 
 describe("dot path segments (upstream #2483)", () => {
   it.each([".", ".."])("defaultPathSerializer rejects the path parameter %j", (value) => {
-    expect(() => defaultPathSerializer("/books/{category}", { category: value })).toThrow(/Dot path segment/);
+    expect(() => defaultPathSerializer("/books/{category}", { category: value })).toThrow(
+      /Dot path segment/,
+    );
   });
 
   it("defaultPathSerializer rejects an array that serializes to a dot segment", () => {
-    expect(() => defaultPathSerializer("/books/{category}", { category: [".."] })).toThrow(/Dot path segment/);
+    expect(() => defaultPathSerializer("/books/{category}", { category: [".."] })).toThrow(
+      /Dot path segment/,
+    );
   });
 
-  it.each(["...", "a..", ".hidden", "%2e%2e"])("defaultPathSerializer keeps the path parameter %j", (value) => {
-    expect(defaultPathSerializer("/books/{category}", { category: value })).toBe(`/books/${encodeURIComponent(value)}`);
-  });
+  it.each(["...", "a..", ".hidden", "%2e%2e"])(
+    "defaultPathSerializer keeps the path parameter %j",
+    (value) => {
+      expect(defaultPathSerializer("/books/{category}", { category: value })).toBe(
+        `/books/${encodeURIComponent(value)}`,
+      );
+    },
+  );
 
   it.each([
     ["/books/{category}?v=2", "."],
@@ -54,9 +63,12 @@ describe("dot path segments (upstream #2483)", () => {
     ["/books/{category}#top", "."],
     ["/books/{category}#top", ".."],
     ["/books/{category}?v=2#top", ".."],
-  ])("defaultPathSerializer rejects a dot segment before the query or fragment of %s (%j)", (path, value) => {
-    expect(() => defaultPathSerializer(path, { category: value })).toThrow(/Dot path segment/);
-  });
+  ])(
+    "defaultPathSerializer rejects a dot segment before the query or fragment of %s (%j)",
+    (path, value) => {
+      expect(() => defaultPathSerializer(path, { category: value })).toThrow(/Dot path segment/);
+    },
+  );
 
   it("defaultPathSerializer does not read the query of the path template as segments", () => {
     expect(defaultPathSerializer("/books/{category}?next=/../x#/./y", { category: "a" })).toBe(
@@ -98,13 +110,15 @@ describe("empty first path segment", () => {
     ["an empty array", { org: [], repo: "evil.example" }],
     ["an empty object", { org: {}, repo: "evil.example" }],
   ])("defaultPathSerializer rejects %s as the first segment", (_, params) => {
-    expect(() => defaultPathSerializer("/{org}/{repo}", params)).toThrow(/Empty first path segment/);
+    expect(() => defaultPathSerializer("/{org}/{repo}", params)).toThrow(
+      /Empty first path segment/,
+    );
   });
 
   it("defaultPathSerializer rejects it before a query string", () => {
-    expect(() => defaultPathSerializer("/{org}/{repo}?v=2", { org: "", repo: "evil.example" })).toThrow(
-      /Empty first path segment/,
-    );
+    expect(() =>
+      defaultPathSerializer("/{org}/{repo}?v=2", { org: "", repo: "evil.example" }),
+    ).toThrow(/Empty first path segment/);
   });
 
   it.each([
@@ -112,9 +126,12 @@ describe("empty first path segment", () => {
     ["/files/{id}", { id: "" }, "/files/"],
     ["/a/{org}/{repo}", { org: "", repo: "x" }, "/a//x"],
     ["/{org}", { org: "" }, "/"],
-  ])("defaultPathSerializer keeps an empty segment that is not first: %s %j", (path, params, expected) => {
-    expect(defaultPathSerializer(path, params)).toBe(expected);
-  });
+  ])(
+    "defaultPathSerializer keeps an empty segment that is not first: %s %j",
+    (path, params, expected) => {
+      expect(defaultPathSerializer(path, params)).toBe(expected);
+    },
+  );
 
   it("a request with an empty first segment rejects before fetch is called", async () => {
     const requests: Request[] = [];
@@ -133,7 +150,9 @@ describe("empty first path segment", () => {
       },
     });
 
-    const request = client.GET("/{org}/{repo}", { params: { path: { org: "", repo: "evil.example" } } });
+    const request = client.GET("/{org}/{repo}", {
+      params: { path: { org: "", repo: "evil.example" } },
+    });
 
     await expect(request).rejects.toThrow(/Empty first path segment/);
     expect(requests).toEqual([]);

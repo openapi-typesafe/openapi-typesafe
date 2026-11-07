@@ -1,10 +1,10 @@
 import { fileURLToPath } from "node:url";
 import openapiTS, { astToString, type OpenAPITSOptions } from "../src/index.js";
-import type { TestCase } from "./test-helpers.js";
+import type { LooseFixture, TestCase } from "./test-helpers.js";
 import { typeErrorsOf } from "./typescript-diagnostics.js";
 
 describe("3.1 discriminators", () => {
-  const tests: TestCase<any, OpenAPITSOptions>[] = [
+  const tests: TestCase<LooseFixture, OpenAPITSOptions>[] = [
     [
       "allOf > mapping",
       {
@@ -256,7 +256,7 @@ export type operations = Record<string, never>;`,
                     dog: "#/components/schemas/Dog",
                   },
                 },
-              } as any,
+              },
               Cat: {
                 type: "object",
                 properties: {

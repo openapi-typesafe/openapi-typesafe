@@ -33,7 +33,10 @@ function createWrapper() {
 }
 
 function clientAnswering(response: () => Response) {
-  const fetchClient = createFetchClient<Paths>({ baseUrl: BASE_URL, fetch: async () => response() });
+  const fetchClient = createFetchClient<Paths>({
+    baseUrl: BASE_URL,
+    fetch: async () => response(),
+  });
   return createClient(fetchClient);
 }
 
@@ -69,9 +72,12 @@ describe("successful responses without a body", () => {
   it("useInfiniteQuery of an empty page keeps an undefined page, as in upstream", async () => {
     const client = clientAnswering(() => new Response(null, { status: NO_CONTENT }));
 
-    const { result } = renderHook(() => client.useInfiniteQuery("get", "/items", {}, PAGE_OPTIONS), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => client.useInfiniteQuery("get", "/items", {}, PAGE_OPTIONS),
+      {
+        wrapper: createWrapper(),
+      },
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.pages).toEqual([undefined]);
@@ -80,7 +86,9 @@ describe("successful responses without a body", () => {
   it("useMutation of a 204 resolves to undefined, as in upstream", async () => {
     const client = clientAnswering(() => new Response(null, { status: NO_CONTENT }));
 
-    const { result } = renderHook(() => client.useMutation("post", "/items"), { wrapper: createWrapper() });
+    const { result } = renderHook(() => client.useMutation("post", "/items"), {
+      wrapper: createWrapper(),
+    });
     const data = await act(() => result.current.mutateAsync({}));
 
     expect(data).toBeUndefined();
@@ -102,7 +110,10 @@ describe("successful responses without a body", () => {
 describe("query data types of responses without a body", () => {
   type Paths = {
     "/items": { get: Operation };
-    "/ping": { get: { responses: { 204: { content?: never } } }; post: { responses: { 204: { content?: never } } } };
+    "/ping": {
+      get: { responses: { 204: { content?: never } } };
+      post: { responses: { 204: { content?: never } } };
+    };
     "/item": { get: { responses: { 200: { content: { "application/json": Item } } } } };
   };
   const $api = createClient(createFetchClient<Paths>({ baseUrl: BASE_URL }));
@@ -130,13 +141,17 @@ describe("query data types of responses without a body", () => {
   it("useInfiniteQuery pages of a 200 or 204 operation are the body or undefined, the value queryFn gives", () => {
     const query = () => $api.useInfiniteQuery("get", "/items", {}, PAGE_OPTIONS);
 
-    expectTypeOf<NonNullable<ReturnType<typeof query>["data"]>["pages"]>().toEqualTypeOf<(Item | undefined)[]>();
+    expectTypeOf<NonNullable<ReturnType<typeof query>["data"]>["pages"]>().toEqualTypeOf<
+      (Item | undefined)[]
+    >();
   });
 
   it("useMutation data of a 204 operation is undefined, the value mutationFn gives", () => {
     const mutation = () => $api.useMutation("post", "/ping");
 
-    expectTypeOf<Awaited<ReturnType<ReturnType<typeof mutation>["mutateAsync"]>>>().toEqualTypeOf<undefined>();
+    expectTypeOf<
+      Awaited<ReturnType<ReturnType<typeof mutation>["mutateAsync"]>>
+    >().toEqualTypeOf<undefined>();
   });
 
   it("select of a 200 or 204 operation gets the body or null", () => {

@@ -65,7 +65,15 @@ describe("multipart/form-data bodies", () => {
 
     await client.POST("/avatars", {
       headers: MULTIPART_HEADERS,
-      body: { file, gallery: [file, file], description: "Me", tags: ["a", "b"], width: 3, isPublic: false, note: null },
+      body: {
+        file,
+        gallery: [file, file],
+        description: "Me",
+        tags: ["a", "b"],
+        width: 3,
+        isPublic: false,
+        note: null,
+      },
     });
 
     const form = await onlyRequest(requests).formData();
@@ -89,7 +97,9 @@ describe("multipart/form-data bodies", () => {
       body: { file: new Blob(["x"]) },
     });
 
-    expect(onlyRequest(requests).headers.get("Content-Type")).toMatch(/^multipart\/form-data; boundary=/);
+    expect(onlyRequest(requests).headers.get("Content-Type")).toMatch(
+      /^multipart\/form-data; boundary=/,
+    );
   });
 
   it("POST with a FormData body and a multipart header without boundary sends a readable body", async () => {
@@ -130,15 +140,20 @@ describe("multipart/form-data bodies", () => {
   it.each([
     ["a nested object", { meta: { a: 1 } }],
     ["an array of objects", { items: [{ a: 1 }] }],
-  ])("defaultBodySerializer with %s in a multipart body throws and names bodySerializer", (_name, body) => {
-    expect(() => defaultBodySerializer(body, MULTIPART_HEADERS)).toThrow("bodySerializer");
-  });
+  ])(
+    "defaultBodySerializer with %s in a multipart body throws and names bodySerializer",
+    (_name, body) => {
+      expect(() => defaultBodySerializer(body, MULTIPART_HEADERS)).toThrow("bodySerializer");
+    },
+  );
 });
 
 describe("binary responses", () => {
   it("GET with parseAs blob returns the bytes as a Blob", async () => {
     const png = new Uint8Array([137, 80, 78, 71]);
-    const { client } = recordingClient(() => new Response(png, { headers: { "Content-Type": "image/png" } }));
+    const { client } = recordingClient(
+      () => new Response(png, { headers: { "Content-Type": "image/png" } }),
+    );
 
     const { data } = await client.GET("/avatars/{id}", {
       params: { path: { id: 1 } },

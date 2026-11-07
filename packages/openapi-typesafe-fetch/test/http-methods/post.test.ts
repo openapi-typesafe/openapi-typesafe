@@ -10,7 +10,11 @@ describe("POST", () => {
       return Response.json({});
     });
     await client.POST("/posts", {
-      body: { title: "My Post", body: "Post body", publish_date: new Date("2024-06-06T12:00:00Z").getTime() },
+      body: {
+        title: "My Post",
+        body: "Post body",
+        publish_date: new Date("2024-06-06T12:00:00Z").getTime(),
+      },
     });
     expect(method).toBe("POST");
   });
@@ -169,7 +173,8 @@ describe("POST", () => {
       });
 
       const { data } = await client.POST("/multipart-form-data-file-upload", {
-        // TODO: how to get this to accept FormData?
+        // The body type is the schema's (`string` for `format: binary`), not `FormData`, so a
+        // ready `FormData` needs a cast. `bodySerializer` is the typed way to send one.
         body: formData as unknown as string,
       });
 

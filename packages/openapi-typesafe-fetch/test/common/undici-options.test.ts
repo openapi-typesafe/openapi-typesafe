@@ -1,6 +1,9 @@
 import { MockAgent, Request as UndiciRequest, fetch as undiciFetch } from "undici";
 import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
-import createClient, { type CustomFetchClientOptions, createPathBasedClient } from "../../src/index.js";
+import createClient, {
+  type CustomFetchClientOptions,
+  createPathBasedClient,
+} from "../../src/index.js";
 
 /**
  * `fetch` and `Request` of the `undici` package work at runtime, but their types are not the DOM
@@ -74,8 +77,14 @@ describe("createClient with the undici package", () => {
   });
 
   it("CustomFetchClientOptions takes the undici fetch and Request", () => {
-    const options: CustomFetchClientOptions = { baseUrl: ORIGIN, fetch: undiciFetch, Request: UndiciRequest };
+    const options: CustomFetchClientOptions = {
+      baseUrl: ORIGIN,
+      fetch: undiciFetch,
+      Request: UndiciRequest,
+    };
 
-    expectTypeOf(createClient<Paths>(options)).toEqualTypeOf(createClient<Paths>({ baseUrl: ORIGIN }));
+    expectTypeOf(createClient<Paths>(options)).toEqualTypeOf(
+      createClient<Paths>({ baseUrl: ORIGIN }),
+    );
   });
 });
