@@ -22,11 +22,10 @@ import type {
   DefaultParamsOption,
   Client as FetchClient,
   FetchResponse,
-  IsInitOptional,
   MaybeOptionalInit,
   PathOperation,
 } from "openapi-typesafe-fetch";
-import type { HttpMethod, MediaType, PathsWithMethod } from "openapi-typesafe-helpers";
+import type { HttpMethod, MediaType, PathsWithMethod, RequiredKeysOf } from "openapi-typesafe-helpers";
 
 // Helper type to dynamically infer the type from the `select` property
 type InferSelectReturnType<TData, TSelect> = TSelect extends (data: TData) => infer R ? R : TData;
@@ -41,11 +40,14 @@ type InitWithUnknowns<Init> = Init & { [key: string]: unknown };
 
 /**
  * The arguments after the path: the init, required when the operation requires a parameter or a
- * body, then `Rest`. `IsInitOptional` keeps the init optional in
- * `Parameters<typeof $api.queryOptions>`, where it is the union of all inits (upstream #2178).
+ * body, then `Rest`. The condition is openapi-react-query's, as `InitParam` of the fetch client
+ * is openapi-fetch's (ADR-030, decision 2): TypeScript relates two conditional types only when
+ * their `extends` types are the same, so a hook type copied from openapi-react-query takes these
+ * hooks. For a union of inits, `MaybeOptionalInit` leaves out `undefined` when one is required,
+ * so `Parameters<typeof $api.queryOptions>` still requires it then (upstream #2178).
  */
 type InitArguments<Init, Rest extends unknown[]> =
-  IsInitOptional<Init> extends true ? [InitWithUnknowns<Init>?, ...Rest] : [InitWithUnknowns<Init>, ...Rest];
+  RequiredKeysOf<Init> extends never ? [InitWithUnknowns<Init>?, ...Rest] : [InitWithUnknowns<Init>, ...Rest];
 
 export type QueryKey<
   Paths extends {},

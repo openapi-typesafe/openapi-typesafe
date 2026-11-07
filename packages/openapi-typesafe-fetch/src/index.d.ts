@@ -241,15 +241,6 @@ type OperationInits<Operation> =
  */
 type OperationFetchOptions<Operation> = Operation extends unknown ? FetchOptions<Operation> : never;
 
-/** For each init of a union, whether it may be left out: nothing in it is required. */
-type InitOptionality<Init> = Init extends unknown ? (RequiredKeysOf<Init> extends never ? true : false) : never;
-
-/**
- * `true` when the init may be left out: nothing in it is required. For a union of inits, only
- * when each of them may be left out.
- */
-export type IsInitOptional<Init> = InitOptionality<Init> extends true ? true : false;
-
 // The final init param to accept.
 // - Determines if the param is optional or not.
 // - Performs arbitrary [key: string] addition.
@@ -266,6 +257,7 @@ type InitParam<Init> = RequiredKeysOf<Init> extends never ? [WithAnyKeys<Init>?]
 type WithAnyKeys<Init> = Init & { [key: string]: unknown };
 
 /**
+ * @internal Exported for openapi-typesafe-react-query only; not part of the API (ADR-033).
  * The operation of `Method` on `Path`. Not `Paths[Path][Method]`: `Paths` is only `{}`, because
  * the generated `interface paths` has no index signature and failed a `Record<string, …>`
  * constraint with TS2344 (upstream #2267), so TypeScript does not know `Method` is a key. For a

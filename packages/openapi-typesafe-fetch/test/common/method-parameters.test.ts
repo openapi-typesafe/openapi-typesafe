@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import createClient, { type IsInitOptional } from "../../src/index.js";
+import createClient from "../../src/index.js";
 
 /**
  * `Parameters<typeof client.request>` had `path: never` (upstream #2178): TypeScript replaces the
@@ -41,13 +41,6 @@ describe("Parameters of client.request", () => {
     const list: RequestArguments = ["get", "/items"];
 
     expectTypeOf(list).toExtend<RequestArguments>();
-  });
-
-  it("IsInitOptional of a union is false when one init is required", () => {
-    expectTypeOf<IsInitOptional<{ params: { id: number } } | undefined>>().toEqualTypeOf<false>();
-    expectTypeOf<IsInitOptional<{ params?: { id: number } } | undefined>>().toEqualTypeOf<true>();
-    expectTypeOf<IsInitOptional<{ params: { id: number } }>>().toEqualTypeOf<false>();
-    expectTypeOf<IsInitOptional<{ params?: { id: number } }>>().toEqualTypeOf<true>();
   });
 
   it("a call with a union of paths requires the init that one of them requires", async () => {

@@ -37,6 +37,10 @@ claim. Each one was reproduced with a failing test first.
    - A type test (`openapi-fetch-shaped-types.test.ts`) checks a client type and a path-based
      client type copied from openapi-fetch 0.17, and hook factories in the shape of swr-openapi
      5.6.0 and openapi-react-query 0.5.4.
+   - The react-query hooks use openapi-react-query 0.5.4's condition the same way
+     (`RequiredKeysOf<Init> extends never`, amended 2026-11-06 after the public API audit):
+     `openapi-react-query-shaped-types.test.ts` assigns `queryOptions` to a hook type copied from
+     it in code generic in the paths.
 3. **Libraries that import openapi-fetch** need `openapi-fetch` aliased to this package
    (`overrides`, `resolutions`). No type change can make a client of another declaration fit them,
    so the docs (`docs/fetch/index.md`, the migration guide) say so and show the alias.
