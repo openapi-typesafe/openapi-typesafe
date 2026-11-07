@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Check the published types of the package in the current directory with are-the-types-wrong,
-# the manifest with publint, and that the tarball holds only the paths in `files` plus the files npm always adds.
+# the kept `@deprecated` tags, the manifest with publint, and that the tarball holds only the paths in `files` plus the files npm always adds.
 #
 # Usage: run from a package directory after `pnpm run build` (each package's `test:exports`).
 #        `--cli-only` skips the types check, for a package that ships only a command.
@@ -29,6 +29,8 @@ if [[ "${MODE}" != "--cli-only" ]]; then
     echo "check-exports: ${PACKAGE_DIR} publishes no types" >&2
     exit 1
   fi
+  # The declarations must keep JSDoc, so that `@deprecated` exports show as deprecated in editors.
+  node "${ROOT_DIR}/scripts/check-deprecated-declarations.mjs" 2>&1 | tee -a "${LOG_FILE}"
 fi
 
 # publint checks the manifest against the files. It fails on errors only: the one warning it
