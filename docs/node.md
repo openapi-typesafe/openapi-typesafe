@@ -87,7 +87,7 @@ These exports keep working in 1.x and are removed in 2.0:
   `node --no-deprecation` or `--throw-deprecation` work on it as on Node's own deprecations.
 - `resolveRef`, `scanDiscriminators`, `walk`, `c`, `debug`, `warn` and `error`, and the TypeScript
   node helpers `addJSDocComment`, `tsArrayLiteralExpression`, `tsDedupe`, `tsEnum`, `tsEnumMember`,
-  `tsIsPrimitive`, `tsModifiers`, `tsPropertyIndex`, `tsReadonlyArray`, `QUESTION` and
+  `tsIsPrimitive`, `tsModifiers`, `tsPropertyIndex`, `tsReadonlyArray`, `QUESTION_TOKEN` and
   `enumCache`: rarely used internals, marked `@deprecated` in the types (no runtime warning).
 
 ### Redoc config
@@ -167,6 +167,20 @@ const contents = astToString(ast);
 ```
 
 :::
+
+#### Building and reading IR
+
+- To build a type, use the helpers and constants (`tsUnion`, `tsIntersection`, `tsLiteral`,
+  `tsRecord`, `tsNullable`, `tsOmit`, `tsWithRequired`, `oapiRef`, `STRING`, `NUMBER`, `NULL`,
+  `UNKNOWN`, …) or return TypeScript type text as a string. These are the supported ways; the
+  constructors inside the package (`dist/domain/ir/…`) are not part of the API.
+- To change a property or a type you receive, spread it and replace fields:
+  `{ ...property, isReadonly: true }`.
+- The node types (`IrType`, `IrPropertySignature`, `IrDeclaration`, …) are exported for reading.
+  A minor release may add a node kind, so a `switch` over `kind` needs a `default` branch that
+  keeps an unknown node as it is (see [Versioning](./compatibility.md#versioning)).
+- `encoding` on a string literal and `origin` on a raw type are printer details: leave
+  `encoding` out (the printer writes JSON text) and never set `origin`.
 
 ### transform / postTransform
 

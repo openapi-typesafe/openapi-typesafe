@@ -69,6 +69,12 @@ Replace the package and the binary name; options and output are the same.
 
 The header of generated files names the new generator, so regenerate and commit the output once.
 
+## Versioning
+
+Semantic versioning from 1.0.0, with one version for all openapi-typesafe packages. What the
+version promises, and what may grow in a minor release, is listed under
+[Versioning](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/compatibility.md#versioning).
+
 ## License
 
 [MIT](./LICENSE)

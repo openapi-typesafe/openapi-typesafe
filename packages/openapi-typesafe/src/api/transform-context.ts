@@ -11,22 +11,24 @@ import type {
   TransformDiagnostics,
   TransformOptions,
 } from "../application/transform/transform-context.js";
-import type { GlobalContext, TransformNodeOptions } from "../types.js";
+import type { TransformNodeOptions } from "../types.js";
 import { defaultLogger, monotonicNow } from "./default-ports.js";
 import { ContextFooterSink } from "./footer-sink.js";
+import type { RunContext } from "./run-context.js";
 import { schemaCallbacks } from "./schema-callbacks.js";
 
 /**
- * Builds the ported transformers' context from the original `GlobalContext`: options, refs,
- * discriminators, the run footer and the user callbacks (see `schema-callbacks.ts`).
+ * Builds the ported transformers' context from the original `GlobalContext` (in a run, a
+ * `RunContext`): options, refs, discriminators, the run footer and the user callbacks (see
+ * `schema-callbacks.ts`).
  */
 
-function transformOptions(ctx: GlobalContext): TransformOptions {
+function transformOptions(ctx: RunContext): TransformOptions {
   return {
     additionalProperties: ctx.additionalProperties,
     alphabetize: ctx.alphabetize,
     arrayLength: ctx.arrayLength,
-    binaryAsBlob: ctx.binaryAsBlob,
+    binaryAsBlob: ctx.binaryAsBlob ?? false,
     conditionalEnums: ctx.conditionalEnums,
     dedupeEnums: ctx.dedupeEnums,
     defaultNonNullable: ctx.defaultNonNullable,
@@ -50,7 +52,7 @@ function transformOptions(ctx: GlobalContext): TransformOptions {
 }
 
 /** One footer per run: it holds the enum registry, so it lives on the run's context. */
-function runFooter(ctx: GlobalContext): DocumentFooter {
+function runFooter(ctx: RunContext): DocumentFooter {
   ctx.runFooter ??= new RunFooter(new ContextFooterSink(ctx.injectFooter), ctx.dedupeEnums);
   return ctx.runFooter;
 }
@@ -60,7 +62,7 @@ const CASING: NameCasing = { pascalCase: (text) => changeCase.pascalCase(text) }
 /**
  * A monotonic clock and the run's logger (the default one for a user's own context), "ts" group.
  */
-function diagnostics(ctx: GlobalContext): TransformDiagnostics {
+function diagnostics(ctx: RunContext): TransformDiagnostics {
   const logger = ctx.logger ?? defaultLogger(ctx.silent);
   return {
     now: monotonicNow,
@@ -69,7 +71,7 @@ function diagnostics(ctx: GlobalContext): TransformDiagnostics {
 }
 
 /** The ported transformers' context for one call from a legacy transformer. */
-export function createTransformContext(ctx: GlobalContext): TransformContext {
+export function createTransformContext(ctx: RunContext): TransformContext {
   return {
     options: transformOptions(ctx),
     refs: { resolve: (ref) => ctx.resolve(ref) },

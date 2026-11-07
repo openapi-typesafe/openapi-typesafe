@@ -12,11 +12,12 @@ import {
   resolveOutputFixes,
 } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
-import type { GeneratorOptions, GlobalContext, OpenAPI3, SchemaSource } from "../types.js";
+import type { GeneratorOptions, OpenAPI3, SchemaSource } from "../types.js";
 import { warnDiscriminatorValueConflicts } from "./discriminator-conflict-warnings.js";
 import { findDiscriminators } from "./discriminator-scan.js";
 import { resolveDocumentRef } from "./document-refs.js";
 import { warnIdenticalPathTemplates } from "./path-template-warnings.js";
+import type { RunContext } from "./run-context.js";
 import { warnUnsupportedFeatures } from "./unsupported-feature-warnings.js";
 
 /** The ports of one generator run, wired by the Node API or the CLI (ENGINEERING_PLAN 4.5). */
@@ -32,12 +33,12 @@ export interface GeneratorPorts {
 /** A validated, bundled document and the context of one generator run. */
 export interface DocumentRun {
   readonly schema: OpenAPI3;
-  readonly ctx: GlobalContext;
+  readonly ctx: RunContext;
 }
 
 /** The context fields that are user flags, with the original defaults. */
 type ContextFlags = Omit<
-  GlobalContext,
+  RunContext,
   | "discriminators"
   | "injectFooter"
   | "redoc"
@@ -157,7 +158,7 @@ export async function createDocumentRun(
     refAccess: refAccessOf(options, cwd),
   });
   warnAboutDocument(schema, fix, logger);
-  const ctx: GlobalContext = {
+  const ctx: RunContext = {
     ...contextFlags(options),
     fix,
     // The scan walks every schema before the transform does, so on a larger stack, where loading

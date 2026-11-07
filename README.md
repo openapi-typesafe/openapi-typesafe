@@ -22,6 +22,8 @@ September 2026. It is a fork with the full upstream history (see [NOTICE](./NOTI
 - **Verifiably compatible.** Every release ships a public compatibility report against more than
   1,800 real-world OpenAPI 3.x schemas.
 - **Secure releases.** Minimal dependencies, npm provenance, no long-lived publish tokens.
+- **Stable API.** Semantic versioning from 1.0.0; [Versioning](./docs/compatibility.md#versioning)
+  lists what a version promises.
 
 ## Packages
 

@@ -40,7 +40,7 @@ export interface ClientOptions extends Omit<RequestInit, "headers"> {
  * of the same implementation; middleware and results still use the DOM types. The `createClient`
  * overload with `ClientOptions` comes first, so an inline `fetch` gets a typed `Request` input.
  */
-export interface OtherFetchClientOptions extends Omit<ClientOptions, "fetch" | "Request"> {
+export interface CustomFetchClientOptions extends Omit<ClientOptions, "fetch" | "Request"> {
   /** `fetch` of another implementation (for example `fetch` from `undici`) */
   fetch?: (input: never, init?: never) => PromiseLike<object>;
   /** `Request` of the same implementation (for example `Request` from `undici`) */
@@ -241,15 +241,6 @@ type OperationInits<Operation> =
  */
 type OperationFetchOptions<Operation> = Operation extends unknown ? FetchOptions<Operation> : never;
 
-/** For each init of a union, whether it may be left out: nothing in it is required. */
-type InitOptionality<Init> = Init extends unknown ? (RequiredKeysOf<Init> extends never ? true : false) : never;
-
-/**
- * `true` when the init may be left out: nothing in it is required. For a union of inits, only
- * when each of them may be left out.
- */
-export type IsInitOptional<Init> = InitOptionality<Init> extends true ? true : false;
-
 // The final init param to accept.
 // - Determines if the param is optional or not.
 // - Performs arbitrary [key: string] addition.
@@ -266,6 +257,7 @@ type InitParam<Init> = RequiredKeysOf<Init> extends never ? [WithAnyKeys<Init>?]
 type WithAnyKeys<Init> = Init & { [key: string]: unknown };
 
 /**
+ * @internal Exported for openapi-typesafe-react-query only; not part of the API (ADR-034).
  * The operation of `Method` on `Path`. Not `Paths[Path][Method]`: `Paths` is only `{}`, because
  * the generated `interface paths` has no index signature and failed a `Record<string, …>`
  * constraint with TS2344 (upstream #2267), so TypeScript does not know `Method` is a key. For a
@@ -353,7 +345,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   clientOptions?: ClientOptions,
 ): Client<Paths, Media>;
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
-  clientOptions?: OtherFetchClientOptions,
+  clientOptions?: CustomFetchClientOptions,
 ): Client<Paths, Media>;
 
 export type PathBasedClient<Paths extends Record<string | number, any>, Media extends MediaType = MediaType> = {
@@ -368,7 +360,7 @@ export declare function createPathBasedClient<Paths extends {}, Media extends Me
   clientOptions?: ClientOptions,
 ): PathBasedClient<Paths, Media>;
 export declare function createPathBasedClient<Paths extends {}, Media extends MediaType = MediaType>(
-  clientOptions?: OtherFetchClientOptions,
+  clientOptions?: CustomFetchClientOptions,
 ): PathBasedClient<Paths, Media>;
 
 /** Serialize primitive params to string */
