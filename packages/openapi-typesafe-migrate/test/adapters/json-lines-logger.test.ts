@@ -11,6 +11,8 @@ const TIME = new Date("2026-11-02T10:00:00.000Z");
 const OWNER_ONLY_FILE = 0o600;
 const OWNER_ONLY_FOLDER = 0o700;
 const PERMISSION_BITS = 0o777;
+// Windows has no POSIX permission bits (Node reports 0o666), so the mode checks run elsewhere only.
+const HAS_POSIX_MODES = process.platform !== "win32";
 
 describe("JsonLinesLogger", () => {
   let directory: string;
@@ -41,8 +43,18 @@ describe("JsonLinesLogger", () => {
       { time: "2026-11-02T10:00:00.000Z", level: "info", event: "migration_started", fileCount: 2 },
       { time: "2026-11-02T10:00:00.000Z", level: "warn", event: "migration_failed" },
     ]);
-    expect((await stat(path)).mode & PERMISSION_BITS).toBe(OWNER_ONLY_FILE);
   });
+
+  it.skipIf(!HAS_POSIX_MODES)(
+    "a logger that is not exclusive creates its file for the owner only",
+    async () => {
+      const path = join(directory, "nested", "run.jsonl");
+
+      createJsonLinesLogger({ path, now: () => TIME, isExclusive: false }).info("started");
+
+      expect((await stat(path)).mode & PERMISSION_BITS).toBe(OWNER_ONLY_FILE);
+    },
+  );
 
   it("a logger that is not exclusive appends to an existing file", async () => {
     const path = join(directory, "run.jsonl");
@@ -68,14 +80,17 @@ describe("JsonLinesLogger", () => {
     expect(await readFile(target, "utf8")).toBe("victim");
   });
 
-  it("an exclusive logger creates its file for the owner only", async () => {
-    const path = join(directory, "run.jsonl");
+  it.skipIf(!HAS_POSIX_MODES)(
+    "an exclusive logger creates its file for the owner only",
+    async () => {
+      const path = join(directory, "run.jsonl");
 
-    createJsonLinesLogger({ path, now: () => TIME, isExclusive: true }).info("started");
+      createJsonLinesLogger({ path, now: () => TIME, isExclusive: true }).info("started");
 
-    expect((await lstat(path)).mode & PERMISSION_BITS).toBe(OWNER_ONLY_FILE);
-    expect(await readLines(path)).toHaveLength(1);
-  });
+      expect((await lstat(path)).mode & PERMISSION_BITS).toBe(OWNER_ONLY_FILE);
+      expect(await readLines(path)).toHaveLength(1);
+    },
+  );
 });
 
 describe("createTemporaryLogPath", () => {
@@ -89,7 +104,7 @@ describe("createTemporaryLogPath", () => {
     await rm(parent, { recursive: true, force: true });
   });
 
-  it("createTemporaryLogPath makes a new owner-only folder per run, named by the time", async () => {
+  it("createTemporaryLogPath makes a new folder per run, named by the time", async () => {
     const first = createTemporaryLogPath(parent, TIME);
     const second = createTemporaryLogPath(parent, TIME);
 
@@ -97,6 +112,14 @@ describe("createTemporaryLogPath", () => {
     expect(dirname(dirname(first))).toBe(parent);
     expect(basename(dirname(first))).toMatch(/^openapi-typesafe-migrate-/);
     expect(basename(first)).toBe("2026-11-02T10-00-00.000Z.jsonl");
-    expect((await stat(dirname(first))).mode & PERMISSION_BITS).toBe(OWNER_ONLY_FOLDER);
   });
+
+  it.skipIf(!HAS_POSIX_MODES)(
+    "createTemporaryLogPath makes its folder for the owner only",
+    async () => {
+      const path = createTemporaryLogPath(parent, TIME);
+
+      expect((await stat(dirname(path))).mode & PERMISSION_BITS).toBe(OWNER_ONLY_FOLDER);
+    },
+  );
 });
