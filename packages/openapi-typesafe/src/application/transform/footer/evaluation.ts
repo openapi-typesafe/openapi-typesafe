@@ -23,6 +23,16 @@ export function unionType(types: readonly IrType[]): IrType {
   return types.length === 0 ? NEVER : { kind: "union", types };
 }
 
+export function intersectionType(types: readonly IrType[]): IrType {
+  return types.length === 1 ? (types[0] as IrType) : { kind: "intersection", types };
+}
+
+const NULLISH: ReadonlySet<string> = new Set(["null", "undefined"]);
+
+export function isNullish(type: IrType): boolean {
+  return type.kind === "keyword" && NULLISH.has(type.keyword);
+}
+
 export function propertyKey(name: IrPropertyName): string {
   return name.kind === "string" ? name.value : name.text;
 }

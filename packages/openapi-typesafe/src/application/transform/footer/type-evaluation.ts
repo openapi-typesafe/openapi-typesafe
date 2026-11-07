@@ -1,21 +1,16 @@
-import type { IrDeclaration, IrMember, IrType } from "../../../domain/ir/nodes.js";
+import type { IrDeclaration, IrType } from "../../../domain/ir/nodes.js";
 import {
   absorbed,
   type Evaluated,
   type Evaluation,
-  MISSING,
-  NEVER,
+  intersectionType,
+  isNullish,
   OPAQUE,
   propertyKey,
   unionType,
 } from "./evaluation.js";
-import {
-  declaredFirst,
-  extracted,
-  isNeverIntersection,
-  markerObject,
-  omitted,
-} from "./type-rules.js";
+import { indexType } from "./type-indexing.js";
+import { extracted, markerObject, omitted } from "./type-rules.js";
 
 /**
  * A small evaluator of the generated types, as TypeScript reads them, for the `--enum-values`
@@ -30,7 +25,6 @@ const MAX_EXPANSIONS = 200;
 const DEEP_PREFIX = "FlattenedDeepRequired<";
 /** How many members distributing an intersection may give; more is opaque. */
 const MAX_DISTRIBUTED = 64;
-const NULLISH: ReadonlySet<string> = new Set(["null", "undefined"]);
 
 export class TypeEvaluator {
   private readonly declared = new Map<string, IrType>();
@@ -168,127 +162,6 @@ export class TypeEvaluator {
 
   /** `value[index]` for a string literal, `string` or `number` index. */
   index(value: Evaluated, index: IrType): Evaluation {
-    const owner = this.expand(value);
-    if (owner.kind !== "type") {
-      return owner;
-    }
-    if (this.membersOf(owner).length > 1) {
-      return this.unionIndex(owner, index);
-    }
-    const { type } = owner;
-    switch (type.kind) {
-      case "object":
-        return this.memberType(owner, type.members, index);
-      case "intersection":
-        return this.partsIndex(owner, type.types, index);
-      case "union":
-        return this.unionIndex(owner, index);
-      case "array":
-        return isNumberIndex(index) ? this.flattened(owner, type.element) : builtInIndex(index);
-      case "keyword":
-        return type.keyword === "never" ? owner : builtInIndex(index);
-      default:
-        return builtInIndex(index);
-    }
+    return indexType(this, value, index);
   }
-
-  private memberType(owner: Evaluated, members: readonly IrMember[], index: IrType): Evaluation {
-    const key = indexKey(index);
-    const property = members.find(
-      (member) => member.kind === "property" && key !== null && propertyKey(member.name) === key,
-    );
-    if (property !== undefined) {
-      return this.flattened(owner, property.type);
-    }
-    const signature = members.find((member) => member.kind === "indexSignature");
-    if (signature !== undefined) {
-      return this.flattened(owner, signature.type);
-    }
-    return key === null || isObjectBuiltIn(key) ? OPAQUE : MISSING;
-  }
-
-  private partsIndex(owner: Evaluated, parts: readonly IrType[], index: IrType): Evaluation {
-    if (isNeverIntersection(this, owner, parts)) {
-      return { ...owner, type: NEVER };
-    }
-    const found = parts.map((type) => this.index({ ...owner, type }, index));
-    if (found.some((part) => part.kind === "opaque")) {
-      return OPAQUE;
-    }
-    const read = parts.map((type, at) => ({ type, found: found[at] as Evaluation }));
-    const types = declaredFirst(this, owner, indexKey(index), read).flatMap((part) =>
-      part.kind === "type" ? [part.type] : [],
-    );
-    return types.length === 0 ? MISSING : { ...owner, type: intersectionType(types) };
-  }
-
-  private unionIndex(owner: Evaluated, index: IrType): Evaluation {
-    const found = this.membersOf(owner).map((member) =>
-      member.kind === "type" ? this.index(member, index) : member,
-    );
-    if (found.some((member) => member.kind === "missing")) {
-      return MISSING;
-    }
-    if (found.some((member) => member.kind === "opaque")) {
-      return OPAQUE;
-    }
-    return { ...owner, type: unionType((found as Evaluated[]).map((member) => member.type)) };
-  }
-
-  /**
-   * A member read through `FlattenedDeepRequired`: a value that is only arrays (and `undefined` or
-   * `null`) is replaced by its elements, anything else loses `undefined` and `null`.
-   */
-  private flattened(owner: Evaluated, type: IrType): Evaluation {
-    const member: Evaluated = { ...owner, type };
-    if (!owner.deep) {
-      return this.expand(member);
-    }
-    const members = this.membersOf(member);
-    if (members.some((candidate) => candidate.kind !== "type")) {
-      return OPAQUE;
-    }
-    const present = (members as Evaluated[]).filter((candidate) => !isNullish(candidate.type));
-    const elements = present.map((candidate) => arrayElement(candidate.type));
-    if (present.length > 0 && elements.every((element) => element !== null)) {
-      return this.expand({ ...owner, type: unionType(elements as IrType[]) });
-    }
-    return { ...owner, type: unionType(present.map((candidate) => candidate.type)) };
-  }
-}
-
-function isNullish(type: IrType): boolean {
-  return type.kind === "keyword" && NULLISH.has(type.keyword);
-}
-
-/** The element of an expanded member; expanding already dropped `readonly`. */
-function arrayElement(type: IrType): IrType | null {
-  return type.kind === "array" ? type.element : null;
-}
-
-function intersectionType(types: readonly IrType[]): IrType {
-  return types.length === 1 ? (types[0] as IrType) : { kind: "intersection", types };
-}
-
-function indexKey(index: IrType): string | null {
-  if (index.kind === "stringLiteral") {
-    return index.value;
-  }
-  return index.kind === "numberLiteral" ? String(index.value) : null;
-}
-
-function isNumberIndex(index: IrType): boolean {
-  const key = indexKey(index);
-  return (index.kind === "keyword" && index.keyword === "number") || /^\d+$/.test(key ?? "");
-}
-
-function isObjectBuiltIn(key: string): boolean {
-  return key in {};
-}
-
-/** A key of a primitive or an array: a built-in member is opaque, any other key is missing. */
-function builtInIndex(index: IrType): Evaluation {
-  const key = indexKey(index);
-  const isBuiltIn = key === null || key in String.prototype || key in Array.prototype;
-  return isBuiltIn || key in Number.prototype ? OPAQUE : MISSING;
 }
