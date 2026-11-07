@@ -21,10 +21,14 @@ readonly WARNING_PATTERN='WARN|warning|Warning|DeprecationWarning|ExperimentalWa
 # left out, also behind the package prefix that pnpm and turbo add ("pkg test: "). A failed test
 # fails the step through its exit code.
 readonly TEST_RESULT_PATTERN='(^|: )[[:space:]]*(✓|√|↓) '
+# unbuild lists each built file with its size and exported names; a file such as
+# `dist/domain/warnings.mjs` or an export such as `WARNING_CODES` is not a warning either.
+readonly BUILD_LISTING_PATTERN='(^|: )[[:space:]]*(└─ )?dist/[^ ]+ \((total size: |[0-9.]+ k?B\))'
 
-# Count the warning lines of a log, without colour codes and test result lines.
+# Count the warning lines of a log, without colour codes, test result lines and build listings.
 count_warnings() {
-  sed 's/\x1b\[[0-9;]*m//g' "$1" | grep -vE "${TEST_RESULT_PATTERN}" | grep -cE "${WARNING_PATTERN}"
+  sed 's/\x1b\[[0-9;]*m//g' "$1" | grep -vE "${TEST_RESULT_PATTERN}" | grep -vE "${BUILD_LISTING_PATTERN}" |
+    grep -cE "${WARNING_PATTERN}"
 }
 
 # A case statement instead of an associative array keeps the script working on bash 3.2 (macOS default).
