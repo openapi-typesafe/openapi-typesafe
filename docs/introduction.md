@@ -27,7 +27,7 @@ New to OpenAPI? Speakeasy’s [Intro to OpenAPI](https://www.speakeasyapi.dev/op
 - Supports OpenAPI 3.0, 3.1 and 3.2 (including advanced features like [discriminators](https://spec.openapis.org/oas/v3.1.0#discriminator-object); see [OpenAPI 3.2 features](#openapi-3-2-support))
 - Generates **runtime-free types**
 - Loads documents from YAML or JSON, locally or remotely
-- Generates types for large documents in milliseconds
+- Generates types for a large document in about a second (GitHub's REST API)
 - Works with TypeScript 5.4 and newer, including 6 and 7; the generator itself needs no TypeScript package
 
 OpenAPI 2.x (Swagger) is not supported.

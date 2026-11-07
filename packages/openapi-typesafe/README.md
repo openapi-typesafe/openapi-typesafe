@@ -60,7 +60,7 @@ Run `npx openapi-typesafe --help` for all options. Generated examples for real A
 
 ## Migrating from openapi-typescript
 
-Replace the package and the binary name; options and output are the same.
+Replace the package and the binary name; the options and the types are the same.
 
 ```diff
 - npx openapi-typescript ./schema.yaml -o ./schema.d.ts

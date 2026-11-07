@@ -10,8 +10,10 @@ The Node API may be useful if dealing with dynamically-created schemas, or you�
 ## Setup
 
 ```bash
-npm i --save-dev openapi-typesafe typescript
+npm i --save-dev openapi-typesafe
 ```
+
+Add `typescript` (`npm i --save-dev typescript`) to type-check the generated file; the generator does not need it.
 
 ::: info TypeScript is optional
 
@@ -62,7 +64,7 @@ fs.writeFileSync("./my-schema.ts", contents);
 
 ### Errors
 
-When generation fails, `openapiTS()` rejects with an `OpenAPITypesafeError`. Each error has a stable `code` (for example `SCHEMA_INVALID` or `SCHEMA_LOAD_FAILED`) and structured `details`; `cause` holds the lower-level error, if any. Decide by `code`: messages are for people and may change. The codes are listed under [CLI exit codes](/cli#exit-codes).
+When generation fails, `openapiTS()` rejects with an `OpenAPITypesafeError`. Each error has a stable `code` (for example `SCHEMA_INVALID` or `SCHEMA_LOAD_FAILED`) and structured `details`; `cause` holds the lower-level error, if any. Decide by `code`: messages are for people and may change. The codes are listed under [CLI exit codes](/cli#exit-codes). Of `details`, only `problems` (`SCHEMA_INVALID`) and `ref` and `reason` (`SCHEMA_REF_FORBIDDEN`, see [Untrusted documents](./advanced.md#untrusted-documents)) are stable; other keys may change in any release ([Versioning](./compatibility.md#versioning)).
 
 ```ts
 import openapiTS, { isOpenAPITypesafeError } from "openapi-typesafe";
@@ -90,9 +92,9 @@ These exports keep working in 1.x and are removed in 2.0:
   `tsIsPrimitive`, `tsModifiers`, `tsPropertyIndex`, `tsReadonlyArray`, `QUESTION_TOKEN` and
   `enumCache`: rarely used internals, marked `@deprecated` in the types (no runtime warning).
 
-### Redoc config
+### Redocly config
 
-A Redoc config isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redoc config to the Node API. You can do this with the helpers in `@redocly/openapi-core` version 1, the version openapi-typesafe uses (`npm i -D @redocly/openapi-core@1`):
+A Redocly config isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redocly config to the Node API. You can do this with the helpers in `@redocly/openapi-core` version 1, the version openapi-typesafe uses (`npm i -D @redocly/openapi-core@1`):
 
 ::: code-group
 
@@ -116,11 +118,11 @@ const ast = await openapiTS(mySchema, { redocly: inMemory });
 
 ## Options
 
-The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plus the following additional options:
+The Node API takes the generator flags of the [flags table](/cli#flags) in camelCase (`--no-lint` is `lint: false`; `--output`, `--redocly`, `--check`, `--help` and `--version` are CLI only), plus the following options:
 
 | Name               |      Type       |     Default     | Description                                                                                  |
 | :----------------- | :-------------: | :-------------: | :------------------------------------------------------------------------------------------- |
-| `transform`        |   `Function`    |                 | Override the default Schema Object ➝ TypeScript transformer in certain scenarios             |
+| `transform`        |   `Function`    |                 | Override the default Schema Object → TypeScript transformer in certain scenarios             |
 | `postTransform`    |   `Function`    |                 | Same as `transform` but runs _after_ the TypeScript transformation                           |
 | `transformProperty`|   `Function`    |                 | Transform individual property signatures for Schema Object properties                        |
 | `irCallbacks`      |    `boolean`    |     `false`     | Callbacks receive and return IR nodes instead of TypeScript nodes (see [IR callbacks](#ir-callbacks)) |
@@ -131,7 +133,7 @@ The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plu
 | `remoteRefHosts`   |   `string[]`    |                 | Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` allows none |
 | `fix`              | `OutputFixName[]` |               | Opt-in fixes of the output, by name, or `["all"]`; see [fix](/cli#fix). `OUTPUT_FIXES` lists them |
 | `inject`           |    `string`     |                 | Inject arbitrary TypeScript types into the start of the file                                 |
-| `redocly`          |     `Config`    |                 | A Redocly config object; see [Redoc config](#redoc-config). Without it, the built-in `minimal` config; the Node API does not look for `redocly.yaml`
+| `redocly`          |     `Config`    |                 | A Redocly config object; see [Redocly config](#redocly-config). Without it, Redocly's `minimal` config with `operation-operationId-unique` as an error (the CLI makes it a warning); the Node API does not look for `redocly.yaml`
 | `version`          |     `number`    |                 | Accepted for compatibility with openapi-typescript; no code reads it
 
 ### IR callbacks

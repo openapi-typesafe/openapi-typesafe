@@ -72,7 +72,7 @@ export interface OpenAPITSBaseOptions {
   lint?: boolean;
   /** (optional) Should logging be suppressed? (necessary for STDOUT) */
   silent?: boolean;
-  /** (optional) OpenAPI version. Must be present if parsing raw schema */
+  /** Accepted for compatibility with openapi-typescript; not read. */
   version?: number;
   /** (optional) Export type instead of interface */
   exportType?: boolean;
