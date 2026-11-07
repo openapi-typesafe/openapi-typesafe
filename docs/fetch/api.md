@@ -21,6 +21,7 @@ createClient<paths>(options);
 | `querySerializer` | QuerySerializer | (optional) Provide a [querySerializer](#queryserializer)                                                                                |
 | `bodySerializer`  | BodySerializer  | (optional) Provide a [bodySerializer](#bodyserializer)                                                                                  |
 | `pathSerializer`  | PathSerializer  | (optional) Provide a [pathSerializer](#pathserializer)                                                                                  |
+| `requestInitExt`  | `Record<string, unknown>` | (optional) Passed as the second argument to `fetch`, for options of Node.js's fetch (undici) such as `dispatcher`; other platforms ignore it |
 | (Fetch options)   |                 | Any valid fetch option (`headers`, `mode`, `cache`, `signal` …) ([docs](https://developer.mozilla.org/en-US/docs/Web/API/fetch#options) |
 
 ### Another fetch implementation
@@ -58,6 +59,13 @@ client.GET("/my-url", options);
 | `middleware`      | `Middleware[]`                                                    | [See docs](/fetch/middleware-auth)                                                                                                                                                                                        |
 | (Fetch options)   |                                                                   | Any valid fetch option (`headers`, `mode`, `cache`, `signal`, …) ([docs](https://developer.mozilla.org/en-US/docs/Web/API/fetch#options))                                                                                         |
 
+### Headers
+
+`headers` can be set on the client, on a request, and as `params.header`; for the same name the
+request wins over the client, and `params.header` over both. They can be a `Headers` object, a
+list of `[name, value]` pairs or a record. A record value can be a string, a number, a boolean or
+an array of them (each item is appended), and `null` removes a header set at a lower level.
+
 ::: info Cookie parameters
 
 `params.cookie` is typed but not sent, as in openapi-fetch. Browsers do not let scripts set the
@@ -77,7 +85,7 @@ const pathBasedClient = wrapAsPathBasedClient(client);
 pathBasedClient["/my-url"].GET(fetchOptions);
 ```
 
-The `fetchOptions` are the same than for the base client.
+The `fetchOptions` are the same as for the base client.
 
 A path based client can lead to better type inference but comes at a runtime cost due to the use of a Proxy.
 
@@ -378,8 +386,8 @@ Each middleware callback receives the following `options` object with the follow
 | `request`    | `Request`       | The current `Request` to be sent to the endpoint.                |
 | `schemaPath` | `string`        | The original OpenAPI path called (e.g. `/users/{user_id}`)       |
 | `params`     | `Object`        | The original `params` object passed to `GET()` / `POST()` / etc. |
-| `id`         | `string`        | A random, unique ID for this request.                            |
-| `options`    | `ClientOptions` | The readonly options passed to `createClient()`.                 |
+| `id`         | `string`        | A unique ID for this request: a counter, shared by all clients in the process. |
+| `options`    | `MergedOptions` | The options of this request after merging the client and request options (read-only): `baseUrl`, `fetch`, `parseAs`, `querySerializer`, `bodySerializer` and `pathSerializer`. |
 
 In addition to these, the `onResponse` callback receives an additional `response` property:
 
@@ -410,9 +418,13 @@ none of them and throws.
 
 To remove middleware, call `client.eject(middleware)`:
 
-```ts{9}
-const myMiddleware = {
-  // …
+```ts{11}
+import type { Middleware } from "openapi-typesafe-fetch";
+
+const myMiddleware: Middleware = {
+  onRequest({ request }) {
+    // …
+  },
 };
 
 // register middleware
@@ -423,3 +435,29 @@ client.eject(myMiddleware);
 ```
 
 For additional guides & examples, see [Middleware & Auth](/fetch/middleware-auth)
+
+## Other exports
+
+The package also exports the helpers the client is built from. They follow semantic versioning
+like the rest of the API.
+
+| Name | Description |
+| :--- | :---------- |
+| `defaultBodySerializer(body, headers?)` | The default [bodySerializer](#bodyserializer). See below for its result type. |
+| `defaultPathSerializer(pathname, pathParams)` | The default [pathSerializer](#default-path-serializer). |
+| `createQuerySerializer(options?)` | Builds the default [querySerializer](#queryserializer) from its object options. |
+| `serializePrimitiveParam`, `serializeObjectParam`, `serializeArrayParam` | Serialize one parameter with an OpenAPI `style` and `explode`. |
+| `createFinalURL(pathname, options)` | Builds the request URL from `baseUrl`, the path and the query parameters. |
+| `mergeHeaders(...headers)` | Merges header sets into one `Headers`; later ones win, and `null` removes a header. |
+| `removeTrailingSlash(url)` | Removes one trailing `/`. |
+| `ClientPathsWithMethod<Client, Method>`, `MethodResponse<Client, Method, Path>` | Types: the paths of a client that have a method, and the `data` type of one call. |
+
+`defaultBodySerializer` returns by the body type:
+
+- A raw body (`FormData`, `Blob`, `URLSearchParams`, `ArrayBuffer`, a typed array) is returned as it is.
+- `undefined` gives `undefined`.
+- An object gives `string` (JSON, or URL-encoded form data with a form `Content-Type`). With a
+  `multipart/form-data` `Content-Type` in headers written as a record literal it gives `FormData`;
+  with headers of another form (`Headers`, pairs, a `string`-typed value) the type is
+  `string | FormData`.
+- Any other value gives `string`.

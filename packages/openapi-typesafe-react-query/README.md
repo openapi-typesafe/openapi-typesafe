@@ -15,7 +15,7 @@ A maintained, drop-in successor to `openapi-react-query` (see the [repository RE
 Install this library along with [openapi-typesafe-fetch](../openapi-typesafe-fetch) and [openapi-typesafe](../openapi-typesafe):
 
 ```bash
-npm i openapi-typesafe-react-query openapi-typesafe-fetch
+npm i openapi-typesafe-react-query openapi-typesafe-fetch @tanstack/react-query
 npm i -D openapi-typesafe typescript
 ```
 

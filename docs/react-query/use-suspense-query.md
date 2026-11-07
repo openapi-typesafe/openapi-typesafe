@@ -10,7 +10,7 @@ The `useSuspenseQuery` method allows you to use the original [useSuspenseQuery](
 - The query key is the one of [`useQuery`](./use-query): `[method, path, options]`, or
   `[method, path]` without options.
 - `data` and `error` are fully typed.
-- You can pass queries options as fourth parameter.
+- You can pass query options as fourth parameter.
 
 ::: tip
 You can find more information about `useSuspenseQuery` on the [@tanstack/react-query documentation](https://tanstack.com/query/latest/docs/framework/react/guides/suspense).

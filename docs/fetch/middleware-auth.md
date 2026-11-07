@@ -9,7 +9,7 @@ Middleware allows you to modify either the request, response, or both for all fe
 
 ## Middleware
 
-Each middleware can provide `onRequest()`, `onResponse()` and `onError` callbacks, which can observe and/or mutate requests, responses and `fetch` errors.
+Each middleware can provide `onRequest()`, `onResponse()` and `onError()` callbacks, which can observe and/or mutate requests, responses and `fetch` errors.
 
 ::: code-group
 
@@ -157,7 +157,7 @@ onError({ error }) {
 
 ::: tip
 
-`onError` _does not_ handle error responses with `4xx` or `5xx` HTTP status codes, since these are considered "successful" responses but with a bad status code. In these cases you need to check the response's  status property or `ok()` method via the `onResponse` callback.
+`onError` _does not_ handle error responses with `4xx` or `5xx` HTTP status codes, since these are considered "successful" responses but with a bad status code. In these cases you need to check the response's  `status` or `ok` property via the `onResponse` callback.
 
 :::
 
@@ -166,9 +166,13 @@ onError({ error }) {
 
 To remove middleware, call `client.eject(middleware)`:
 
-```ts{9}
-const myMiddleware = {
-  // …
+```ts{11}
+import type { Middleware } from "openapi-typesafe-fetch";
+
+const myMiddleware: Middleware = {
+  onRequest({ request }) {
+    // …
+  },
 };
 
 // register middleware

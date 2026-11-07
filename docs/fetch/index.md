@@ -5,7 +5,7 @@ description: A type-safe fetch client for OpenAPI, with typed paths, parameters,
 
 # openapi-typesafe-fetch
 
-openapi-typesafe-fetch is a type-safe fetch client that pulls in your OpenAPI schema. It weighs about **8.6 kB** minified (3.4 kB gzipped), has virtually zero runtime, and works with React, Vue, Svelte, or vanilla JS. It is a drop-in successor to [openapi-fetch](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch) 0.17: change the import and nothing else.
+openapi-typesafe-fetch is a type-safe fetch client that pulls in your OpenAPI schema. It weighs about **8.7 kB** minified (3.4 kB gzipped), has virtually zero runtime, and works with React, Vue, Svelte, or vanilla JS. It is a drop-in successor to [openapi-fetch](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch) 0.17: in most projects you change only the import. The [migration guide](/migration-guide) lists the few differences.
 
 The syntax is inspired by popular libraries like react-query or Apollo client, but without all the bells and whistles and in a small package.
 
@@ -46,7 +46,7 @@ Notice there are no generics, and no manual typing. Your endpoint’s request an
 - No manual typing of your API
 - Eliminates `any` types that hide bugs
 - Also eliminates `as` type overrides that can also hide bugs
-- All of this in an **8.6 kB** (minified) client package
+- All of this in an **8.7 kB** (minified) client package
 
 ## Setup
 
@@ -130,7 +130,7 @@ const { data: updated, error: updateError } = await client.PUT("/blogposts", {
 
 :::
 
-1. The HTTP method is pulled directly from `createClient()`
+1. You call the method (`GET()`, `PUT()`, …) on the client that `createClient()` returns
 2. You pass in your desired `path` to `GET()`, `PUT()`, etc.
 3. TypeScript takes over the rest and returns helpful errors for anything missing or invalid
 
