@@ -40,9 +40,11 @@ short.
    each redirect hop. A pattern is matched against `protocol//host/path` of the parsed URL: no user
    info, query or fragment. Redocly's own matcher does the matching (`readFileFromUrl` with a fetch
    that only records the headers), so a pattern and an `envVariable` mean what they mean in Redocly.
-2. **HTTPS only, unless the pattern says `http://`.** A pattern without a protocol, or with
-   `https://`, applies to `https:` URLs only. A pattern that starts with `http://` is an explicit
-   choice for a local or internal server and applies to `http:` URLs.
+2. **HTTPS or loopback, unless the pattern says `http://`.** A pattern without a protocol, or with
+   `https://`, applies to `https:` URLs and to `http:` URLs of this machine (`localhost`,
+   `127.0.0.0/8`, `[::1]`): loopback traffic does not cross the network, and a local dev server
+   with a pattern like `localhost:8080/**` keeps working. A pattern that starts with `http://` is
+   an explicit choice for an internal server and applies to `http:` URLs of any host.
 3. **Redirects are always followed by the loader**, with or without a host list, at most 20 (the
    Fetch standard's limit, which applied without a host list before; ADR-017 had 5 with one). A
    hop gets only the headers its own URL matches.

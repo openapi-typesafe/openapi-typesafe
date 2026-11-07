@@ -536,8 +536,8 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   default port (`api.example.com:443`) all match. An empty list (`--remote-ref-hosts=`) allows no
   remote `$ref`. Each redirect is checked against the list and at most 20 are followed. A listed
   name is trusted: it is not checked again after DNS resolution.
-- Headers from your Redocly config go only to the URLs their patterns match, over HTTPS unless a
-  pattern starts with `http://`, and not on through a redirect ([Auth](/cli#auth)). This holds
+- Headers from your Redocly config go only to the URLs their patterns match, over HTTPS or to this
+  machine unless a pattern starts with `http://`, and not on through a redirect ([Auth](/cli#auth)). This holds
   with or without the two flags.
 - In `redocly.yaml`, an API can set its own limits as `local-ref-root` and `remote-ref-hosts`
   under `x-openapi-ts`; they replace the flags for that API (see

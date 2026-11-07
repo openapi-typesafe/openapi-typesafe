@@ -118,10 +118,12 @@ describe("configured headers", () => {
     expect(received[0]?.key).toBeUndefined();
   });
 
-  it("a pattern without a protocol sends its header over HTTPS only", async () => {
+  // Plain HTTP to another machine needs `http://` in the pattern; ref-access.test.ts covers that
+  // case, since this server can only listen on this machine.
+  it("a pattern without a protocol sends its header over plain HTTP to this machine", async () => {
     await load(`${trustedURL}/person.json`, `127.0.0.1:${new URL(trustedURL).port}/**`);
 
     expect(received).toHaveLength(1);
-    expect(received[0]?.key).toBeUndefined();
+    expect(received[0]?.key).toBe(SECRET);
   });
 });

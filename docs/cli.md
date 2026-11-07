@@ -110,8 +110,9 @@ does:
 - A pattern is matched against the protocol, host and path of the parsed URL. The query, the
   fragment and user info are not part of it, so a `*` cannot match across a `?` into another
   host's URL.
-- A header goes over HTTPS only. To send it over plain HTTP (a local dev server), start its
-  pattern with `http://`, for example `matches: http://localhost:8080/**`.
+- A header goes over HTTPS, or over plain HTTP to this machine (`localhost`, `127.0.0.1`, `::1`),
+  such as a local dev server. To send it over plain HTTP to another machine, start its pattern
+  with `http://`, for example `matches: http://api.internal:8080/**`.
 - The loader follows redirects itself (at most 20) and chooses the headers again for each URL. A
   redirect to a URL that no pattern matches gets none of them. Fetch alone keeps every header but
   `Authorization`, `Cookie` and `Proxy-Authorization` on a redirect to another origin.

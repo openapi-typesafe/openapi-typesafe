@@ -3,7 +3,8 @@ import { type Config as RedoclyConfig, readFileFromUrl } from "@redocly/openapi-
 /**
  * Which `resolve.http.headers` of the Redocly config go with a request (threat model T4a). The
  * headers often carry credentials, so they are chosen again for every request and every redirect,
- * from the parsed URL, and never sent over plain HTTP unless the pattern asks for it.
+ * from the parsed URL, and never sent over plain HTTP to another machine unless the pattern asks
+ * for it.
  */
 
 /** One `resolve.http.headers` entry: a name, a value or an environment variable, a pattern. */
@@ -12,9 +13,25 @@ export type ConfiguredHeader = RedoclyConfig["resolve"]["http"]["headers"][numbe
 /** Redocly matches the protocol only when the pattern starts with one; the same test. */
 const EXPLICIT_HTTP_PATTERN = /^http:\/\//;
 
-/** A header goes over HTTPS, or over HTTP when its pattern names `http://` itself. */
+/** Hosts that never leave the machine: plain HTTP to them cannot be read on the network. */
+const LOOPBACK_HOSTNAMES: ReadonlySet<string> = new Set(["localhost", "[::1]"]);
+// The URL parser has already turned every IPv4 form (`2130706433`, `0x7f.1`) into dotted decimal.
+const LOOPBACK_IPV4 = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+
+function isLoopback(url: URL): boolean {
+  return LOOPBACK_HOSTNAMES.has(url.hostname) || LOOPBACK_IPV4.test(url.hostname);
+}
+
+/**
+ * A header goes over HTTPS, over HTTP to this machine (a local dev server), or over HTTP to
+ * another machine when its pattern names `http://` itself.
+ */
 function isProtocolAllowed(header: ConfiguredHeader, url: URL): boolean {
-  return url.protocol === "https:" || EXPLICIT_HTTP_PATTERN.test(header.matches);
+  return (
+    url.protocol === "https:" ||
+    (url.protocol === "http:" && isLoopback(url)) ||
+    EXPLICIT_HTTP_PATTERN.test(header.matches)
+  );
 }
 
 /**

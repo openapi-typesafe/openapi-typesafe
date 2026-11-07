@@ -100,8 +100,8 @@ header but `Authorization`, `Cookie` and `Proxy-Authorization`), through a URL w
 `*` pattern match (`https://evil.example?.trusted.example/x.yaml`), or over plain HTTP.
 
 - Controls: the loader chooses the headers itself for every request and every redirect hop, from
-  the protocol, host and path of the parsed URL; a header goes over HTTPS only, unless its pattern
-  starts with `http://`; redirects are always followed by hand (ADR-033).
+  the protocol, host and path of the parsed URL; a header goes over HTTPS or to a loopback host,
+  and over plain HTTP to another host only when its pattern starts with `http://`; redirects are always followed by hand (ADR-033).
 - Tests: `test/security/configured-headers.test.ts`,
   `test/adapters/redocly-loader/ref-access.test.ts`.
 

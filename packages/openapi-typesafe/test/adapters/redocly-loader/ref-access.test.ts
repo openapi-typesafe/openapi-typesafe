@@ -169,6 +169,12 @@ describe("headersFor", () => {
     ["http://a.example/x.yaml", "https://a.example/**", false],
     ["http://a.example/x.yaml", "http://a.example/**", true],
     ["https://a.example/x.yaml", "http://a.example/**", false],
+    // Plain HTTP to this machine needs no `http://` in the pattern: it does not cross the network.
+    ["http://localhost:8080/x.yaml", "localhost:8080/**", true],
+    ["http://127.0.0.1:8080/x.yaml", "127.0.0.1:8080/**", true],
+    // A glob reads `[::1]` as a character class, so this pattern names the host with `*`.
+    ["http://[::1]:8080/x.yaml", "*/x.yaml", true],
+    ["http://localhost.evil.example/x.yaml", "localhost*/**", false],
     // A `*` cannot reach past the host and path: query, fragment and user info are not matched.
     ["https://evil.example?.a.example/x.yaml", "*.a.example/**", false],
     ["https://evil.example#.a.example/x.yaml", "*.a.example/**", false],
