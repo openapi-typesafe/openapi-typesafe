@@ -2,8 +2,5 @@
 "openapi-typesafe-fetch": patch
 ---
 
-Middleware may return a `Request` or `Response` from the `undici` package, from another realm (an
-iframe, an Electron host) or of a custom `Request` class. They are recognized by their members, not
-by `instanceof`, which rejected them with "onRequest: must return new Request()" (upstream #1847):
-a `Request` by its `method`, `url` and `headers`, a `Response` by its `status` and `headers`.
-`Headers` from the `undici` package passed as `headers` are no longer dropped.
+`fetch`, `Request`, `Response` and `Headers` from `undici` or another realm are accepted, in options
+and from middleware (upstream [#1847](https://github.com/openapi-ts/openapi-typescript/issues/1847), [#2562](https://github.com/openapi-ts/openapi-typescript/issues/2562)).

@@ -1,11 +1,8 @@
 ---
-"openapi-typesafe": patch
+"openapi-typesafe": minor
 ---
 
-Every warning now ends with a code, as docs/cli.md promises. New codes: `LINT_PROBLEM` for a
-Redocly lint rule with severity `warn` (the line also names the rule, for example
-`rule operation-operationId-unique`, so `redocly.yaml` can turn it off),
-`DISCRIMINATOR_MAPPING_INVALID`, `REF_NOT_FOUND`, `REF_CIRCULAR`, `FIX_NEEDS_OPTION`,
-`LEGACY_CALLBACK_DEPRECATED` and `CLI_INPUT_IGNORED`. The text before the code is unchanged.
-The migration guide now says that regenerating can print warnings that openapi-typescript did
-not print, while the output stays the same.
+Every warning ends with a stable code (exported as `WARNING_CODES`); lint warnings name their
+Redocly rule. New warnings, which change neither output nor exit code: a repeated `operationId`,
+paths that differ only in parameter names, a discriminator value its member does not allow, an
+unknown `x-openapi-ts` key, and an unknown CLI flag.

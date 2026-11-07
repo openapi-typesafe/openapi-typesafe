@@ -2,4 +2,5 @@
 "openapi-typesafe": patch
 ---
 
-Fix kebab-case boolean flags before the schema path (for example `openapi-typesafe --root-types schema.yaml`): the flag took the path as its value, so the CLI waited on stdin. Fixes upstream #2523, #1651, #2764, #2694.
+A kebab-case boolean flag before the schema path no longer takes the path as its value (upstream
+[#2523](https://github.com/openapi-ts/openapi-typescript/issues/2523), [#1651](https://github.com/openapi-ts/openapi-typescript/issues/1651), [#2764](https://github.com/openapi-ts/openapi-typescript/issues/2764), [#2694](https://github.com/openapi-ts/openapi-typescript/issues/2694)).
