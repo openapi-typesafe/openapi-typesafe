@@ -6,6 +6,7 @@ export const HarnessErrorCode = {
   DuplicateCorpusEntry: "DUPLICATE_CORPUS_ENTRY",
   StoredFileInvalid: "STORED_FILE_INVALID",
   SettingsInvalid: "SETTINGS_INVALID",
+  ShardsInvalid: "SHARDS_INVALID",
   UnknownOptionSet: "UNKNOWN_OPTION_SET",
 } as const;
 

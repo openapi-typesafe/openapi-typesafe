@@ -3,6 +3,7 @@ import type { CorpusEntryId } from "../../src/domain/corpus-entry.ts";
 import {
   type ComparisonResult,
   ComparisonStatus,
+  isComparisonMismatch,
   summarizeComparisons,
 } from "../../src/domain/run-result.ts";
 
@@ -70,5 +71,19 @@ describe("summarizeComparisons", () => {
 
     expect(summary.typeIdentityRate).toBe(0.25);
     expect(summary.keptTypeRate).toBe(0.5);
+  });
+});
+
+describe("isComparisonMismatch", () => {
+  it.each([
+    [ComparisonStatus.Identical, false],
+    [ComparisonStatus.TypeIdentical, false],
+    [ComparisonStatus.GoldenFailed, false],
+    [ComparisonStatus.GoldenInvalid, false],
+    [ComparisonStatus.TypesAdded, true],
+    [ComparisonStatus.Different, true],
+    [ComparisonStatus.CandidateFailed, true],
+  ])("isComparisonMismatch of %s is %s", (status, expected) => {
+    expect(isComparisonMismatch(status)).toBe(expected);
   });
 });

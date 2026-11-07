@@ -59,6 +59,21 @@ export interface ComparisonResult {
   readonly intentionalDifferenceIds: readonly string[];
 }
 
+const MATCHING_STATUSES: ReadonlySet<ComparisonStatus> = new Set([
+  ComparisonStatus.Identical,
+  ComparisonStatus.TypeIdentical,
+  ComparisonStatus.GoldenFailed,
+  ComparisonStatus.GoldenInvalid,
+]);
+
+/**
+ * Whether a case fails the release gate: the candidate changed a type, failed, or (with types
+ * not checked) changed the text. Added types fail too, because the gate asks for the same output.
+ */
+export function isComparisonMismatch(status: ComparisonStatus): boolean {
+  return !MATCHING_STATUSES.has(status);
+}
+
 /** Totals per comparison status, plus the share of comparable cases that match. */
 export interface ComparisonSummary {
   readonly total: number;

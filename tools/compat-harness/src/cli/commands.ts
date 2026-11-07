@@ -1,4 +1,6 @@
 import { CliGeneratorRunner } from "../adapters/cli-generator-runner.ts";
+import { NodeDirectoryLister } from "../adapters/node-directory-lister.ts";
+import { NodeFileStore } from "../adapters/node-file-store.ts";
 import { TypeScriptIdentityChecker } from "../adapters/typescript-identity-checker.ts";
 import { TypeScriptOutputCompiler } from "../adapters/typescript-output-compiler.ts";
 import { decodeManifest } from "../application/codecs.ts";
@@ -6,10 +8,12 @@ import { decodeDependentsManifest } from "../application/dependents-codecs.ts";
 import { REPOSITORY_PATHS } from "../application/layout.ts";
 import { buildManifest } from "../application/use-cases/build-manifest.ts";
 import { checkDependents } from "../application/use-cases/check-dependents.ts";
+import { checkGate, type GateCount } from "../application/use-cases/check-gate.ts";
 import { checkOptInOutputs } from "../application/use-cases/check-opt-in-outputs.ts";
 import { compareOutputs } from "../application/use-cases/compare-outputs.ts";
 import { FetchStatus, fetchCorpus } from "../application/use-cases/fetch-corpus.ts";
 import { generateOutputs } from "../application/use-cases/generate-outputs.ts";
+import { mergeShardResults } from "../application/use-cases/merge-shard-results.ts";
 import { packCandidatePackages } from "../application/use-cases/pack-candidate-packages.ts";
 import { renderReport } from "../application/use-cases/render-report.ts";
 import type { CorpusEntry } from "../domain/corpus-entry.ts";
@@ -21,7 +25,7 @@ import { INTENTIONAL_DIFFERENCES } from "../domain/intentional-differences.ts";
 import type { CorpusManifest } from "../domain/manifest.ts";
 import { isOptInRegression, summarizeOptInChecks } from "../domain/opt-in-check.ts";
 import { buildOptInOptionSets, selectOptionSets } from "../domain/option-matrix.ts";
-import { ComparisonStatus, GenerationStatus } from "../domain/run-result.ts";
+import { GenerationStatus, isComparisonMismatch } from "../domain/run-result.ts";
 import type { HarnessContainer } from "./container.ts";
 import { HARNESS_DEFAULTS, HarnessCommand, requireOption } from "./settings.ts";
 import { printLine } from "./terminal.ts";
@@ -83,6 +87,7 @@ async function runGenerate(container: HarnessContainer): Promise<ExitCode> {
     {
       label: requireOption(settings.label, "label", HarnessCommand.Generate),
       entries: selectEntries(container, manifest),
+      ...(settings.shard === undefined ? {} : { shard: settings.shard }),
       optionSets: selectOptionSets(settings.optionSets),
       concurrency: settings.concurrency ?? HARNESS_DEFAULTS.workConcurrency,
       timeoutMs: settings.timeoutMs ?? HARNESS_DEFAULTS.generatorTimeoutMs,
@@ -122,14 +127,8 @@ async function runCompare(container: HarnessContainer): Promise<ExitCode> {
       concurrency: settings.concurrency ?? HARNESS_DEFAULTS.workConcurrency,
     },
   );
-  const matching: readonly string[] = [
-    ComparisonStatus.Identical,
-    ComparisonStatus.TypeIdentical,
-    ComparisonStatus.GoldenFailed,
-    ComparisonStatus.GoldenInvalid,
-  ];
-  const mismatches = comparisons.filter(
-    (comparison) => !matching.includes(comparison.status),
+  const mismatches = comparisons.filter((comparison) =>
+    isComparisonMismatch(comparison.status),
   ).length;
   printLine(`Compare: ${comparisons.length} cases, ${mismatches} mismatches`);
   return mismatches === 0 ? 0 : 1;
@@ -215,6 +214,36 @@ async function runDependents(container: HarnessContainer): Promise<ExitCode> {
   return summary.passed === summary.total ? 0 : 1;
 }
 
+async function runMerge(container: HarnessContainer): Promise<ExitCode> {
+  const directory = container.resolvePath(
+    requireOption(container.settings.shards, "shards", HarnessCommand.Merge),
+  );
+  const summary = await mergeShardResults({
+    ...container,
+    shards: new NodeFileStore(directory),
+    shardLister: new NodeDirectoryLister(directory),
+  });
+  printLine(`Merge: ${summary.shardCount} shards, ${summary.files.length} result files`);
+  return 0;
+}
+
+const describeCount = (count: GateCount, failures: string): string =>
+  `${count.caseCount} cases, ${count.failureCount} ${failures}`;
+
+/** Exit code 1 on a mismatch or an opt-in regression; `--label` adds the opt-in check. */
+async function runGate(container: HarnessContainer): Promise<ExitCode> {
+  const { label } = container.settings;
+  const verdict = await checkGate(container.cache, {
+    ...readLabels(container, HarnessCommand.Gate),
+    ...(label === undefined ? {} : { optInLabel: label }),
+  });
+  printLine(`Gate compare: ${describeCount(verdict.comparison, "mismatches")}`);
+  if (verdict.optIn !== null) {
+    printLine(`Gate opt-in: ${describeCount(verdict.optIn, "regressions")}`);
+  }
+  return verdict.isPassed ? 0 : 1;
+}
+
 /** Command table: a new command is a new entry here, not a new branch in `main`. */
 export const COMMANDS: Readonly<
   Record<HarnessCommand, (container: HarnessContainer) => Promise<ExitCode>>
@@ -226,4 +255,6 @@ export const COMMANDS: Readonly<
   [HarnessCommand.CheckOptIn]: runCheckOptIn,
   [HarnessCommand.Report]: runReport,
   [HarnessCommand.Dependents]: runDependents,
+  [HarnessCommand.Merge]: runMerge,
+  [HarnessCommand.Gate]: runGate,
 };
