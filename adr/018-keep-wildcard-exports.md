@@ -32,6 +32,10 @@ docs use, is not affected; `attw` finds no problems in any package.
 
 - Upgrading from upstream keeps deep imports working.
 - Deep imports stay outside the documented API; the migration tool reports them as manual steps.
+  ADR-033 makes this explicit: deep paths are not covered by semver in 1.x. Seven deep modules
+  of openapi-typescript 7.13 do not exist in openapi-typesafe, so for the generator the option
+  keeps only the paths that still exist; a search of 110 dependents found no import of a missing
+  one (ADR-033, decision 6).
 - The publint check in CI cannot tell this warning from a new one at the warning level, so it runs
   at the error level, and this ADR lists the one known warning.
 

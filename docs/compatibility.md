@@ -126,6 +126,52 @@ project has), and all 18 files they generate are the same as before.
 | [forge-dashboard-sdk](https://github.com/alrayyes/forge-dashboard-sdk-node) | `e1f00f9d8e9a` |
 | [openapi-axios](https://github.com/web-bee-ru/openapi-axios) | `4fc0ddec4eed` |
 
+## Versioning
+
+From 1.0.0 the packages follow [semantic versioning](https://semver.org/), and all five always
+have the same version. The full rule is
+[ADR-033](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/adr/033-what-semver-covers-in-1x.md).
+
+**Stable in 1.x.** A minor or patch release does not remove, rename or narrow:
+
+- the package entry points (`import … from "openapi-typesafe"` and the same for the other
+  packages), their exported names and documented types, and the `openapi-typesafe` and
+  `openapi-typesafe-migrate` commands;
+- the [CLI flags](./cli.md#flags), the `x-openapi-ts` settings in `redocly.yaml`, the
+  [Node API options](./node.md#options) and their defaults;
+- the [error codes and exit codes](./cli.md#exit-codes), the [warning codes](./cli.md#warnings)
+  and the [fix names](./cli.md#fix): a code keeps its meaning;
+- the generated types: the same document with the same options gives the same exported types.
+  A change to output that compiles is an opt-in [fix](./cli.md#fix); output that does not compile
+  can be fixed in any release.
+
+**What a minor release may add.** New exports, options, flags, error and warning codes, fix names
+(`fix: ["all"]` then includes the new fix), IR node kinds, members of exported unions such as
+`ErrorCode`, `WarningCode`, `OutputFix`, `IrType` and `HttpMethod`, and optional fields. So:
+
+- give a `switch` over a code or a `kind` a `default` branch;
+- return an IR node of a kind you do not know unchanged;
+- do not treat `ERROR_CODES`, `WARNING_CODES` or `OUTPUT_FIXES` as a complete list.
+
+**Not covered.** These may change in any release:
+
+- deep imports such as `openapi-typesafe/dist/…` or `openapi-typesafe/src/…`; they keep resolving
+  where openapi-typescript had the same file, but are not part of the API;
+- the text of messages, warnings and notices (match on the `code`), and the CLI's decorated
+  output;
+- the keys of an error's `details`, except those the docs name;
+- log formats (`DEBUG=openapi-ts:*` lines, the migration tool's `--log` file) and the generated
+  header comment;
+- fields and members marked `@internal`, and the generator's own state on `options.ctx`.
+
+**Node.js and TypeScript.** A minor release may raise the lowest supported Node.js version, only
+to drop a line that has reached its end of life (Node.js 22 on 2027-04-30), and its changelog says
+so. The lowest TypeScript version for type-checking the output and the clients (5.4) rises only in
+a major release.
+
+**Deprecations.** Nothing is removed before the next major version. A deprecated export is marked
+`@deprecated` in the types, so editors strike it through, and the docs say what to use instead.
+
 ## Run it yourself
 
 The comparison tool lives in

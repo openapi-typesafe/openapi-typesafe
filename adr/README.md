@@ -46,3 +46,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [030](./030-client-fixes-from-rc1-acceptance.md) | Client fixes from the rc.1 acceptance tests | Accepted |
 | [031](./031-ref-resolution-check.md) | A `$ref` resolution check before Redocly lints and bundles | Accepted |
 | [032](./032-compiler-types-from-the-installed-typescript.md) | Public declarations read compiler types from the installed `typescript` | Accepted |
+| [033](./033-what-semver-covers-in-1x.md) | What the semver contract of 1.x covers | Accepted |

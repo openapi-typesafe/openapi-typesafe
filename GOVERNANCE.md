@@ -40,7 +40,9 @@ out of scope.
 ## Versioning and releases
 
 - Packages follow [Semantic Versioning](https://semver.org/). Below 1.0, a minor version may contain breaking
-  changes; at and above 1.0, breaking changes require a new major version.
+  changes; at and above 1.0, breaking changes require a new major version. What counts as public, and what
+  may grow in a minor, is listed in [ADR-033](./adr/033-what-semver-covers-in-1x.md) and in the
+  [compatibility report](./docs/compatibility.md#versioning).
 - Releases are produced from CI only, with npm provenance and trusted publishing; nobody publishes from a laptop.
 - Every release includes the compatibility report and a changelog generated from changesets.
 

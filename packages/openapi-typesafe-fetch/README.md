@@ -50,6 +50,12 @@ for non-JSON responses, and a path-based client (`createPathBasedClient`).
 + import createClient from "openapi-typesafe-fetch";
 ```
 
+## Versioning
+
+Semantic versioning from 1.0.0, with one version for all openapi-typesafe packages. What the
+version promises, and what may grow in a minor release, is listed under
+[Versioning](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/compatibility.md#versioning).
+
 ## License
 
 [MIT](./LICENSE)

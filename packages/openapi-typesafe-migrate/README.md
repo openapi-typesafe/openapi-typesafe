@@ -67,6 +67,12 @@ now, so `--check` fails until you do), and run your type check and tests.
 Exit codes: `0` done, `1` the migration failed (the message and the log say why), `2` unknown
 option.
 
+## Versioning
+
+Semantic versioning from 1.0.0, with one version for all openapi-typesafe packages. What the
+version promises, and what may grow in a minor release, is listed under
+[Versioning](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/compatibility.md#versioning).
+
 ## License
 
 [MIT](./LICENSE)
