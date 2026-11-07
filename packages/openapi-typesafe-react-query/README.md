@@ -7,12 +7,15 @@ no `any` and no `as` assertions.
 
 A maintained, drop-in successor to `openapi-react-query` (see the [repository README](../../README.md)).
 
+> **Release candidate.** The current version is a 1.0.0 release candidate (`1.0.0-rc.N`);
+> names and output can still change before 1.0.0.
+
 ## Setup
 
 Install this library along with [openapi-typesafe-fetch](../openapi-typesafe-fetch) and [openapi-typesafe](../openapi-typesafe):
 
 ```bash
-npm i openapi-typesafe-react-query openapi-typesafe-fetch
+npm i openapi-typesafe-react-query openapi-typesafe-fetch @tanstack/react-query
 npm i -D openapi-typesafe typescript
 ```
 

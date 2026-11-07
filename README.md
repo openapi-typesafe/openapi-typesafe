@@ -10,17 +10,18 @@ fully typed `fetch` client.
 author [stopped maintaining them](https://github.com/openapi-ts/openapi-typescript/issues/2874) in
 September 2026. It is a fork with the full upstream history (see [NOTICE](./NOTICE)).
 
-> **Status: release candidate.** `1.0.0-rc` releases are on npm under the `next` tag
-> (`npm install -D openapi-typesafe@next`). The goals below describe the 1.0 release. Progress is
-> tracked in [ENGINEERING_PLAN.md](./ENGINEERING_PLAN.md).
+> **Release candidate.** The current version is a 1.0.0 release candidate (`1.0.0-rc.N`);
+> names and output can still change before 1.0.0.
 
-## Goals for 1.0
+## Design goals
 
 - **Drop-in.** Migrate by changing package names. Generated output and the client API stay compatible.
-- **TypeScript 7 ready.** The generator will not depend on the TypeScript compiler API, so it works the
-  same on TypeScript 5, 6 and 7.
-- **Verifiably compatible.** Every release ships a public compatibility report against more than
-  1,800 real-world OpenAPI 3.x schemas.
+- **TypeScript 7 ready.** The generator does not use the TypeScript compiler API, so it works the
+  same on TypeScript 5.4, 6 and 7.
+- **Verifiably compatible.** A public [compatibility report](./docs/compatibility.md) compares the
+  output with openapi-typescript on more than 1,800 real-world OpenAPI 3.x schemas. CI runs the full
+  corpus every night; the report is refreshed from that run for every release candidate and every
+  major or minor release, and the GitHub release notes link it.
 - **Secure releases.** Minimal dependencies, npm provenance, no long-lived publish tokens.
 - **Stable API.** Semantic versioning from 1.0.0; [Versioning](./docs/compatibility.md#versioning)
   lists what a version promises.
@@ -29,7 +30,7 @@ September 2026. It is a fork with the full upstream history (see [NOTICE](./NOTI
 
 | Package | Replaces | Purpose |
 |---|---|---|
-| [`openapi-typesafe`](./packages/openapi-typesafe) | `openapi-typescript` | CLI and Node API: OpenAPI 3.0 / 3.1 → TypeScript types |
+| [`openapi-typesafe`](./packages/openapi-typesafe) | `openapi-typescript` | CLI and Node API: OpenAPI 3.0, 3.1 and 3.2 → TypeScript types |
 | [`openapi-typesafe-fetch`](./packages/openapi-typesafe-fetch) | `openapi-fetch` | Type-safe `fetch` client for the generated types |
 | [`openapi-typesafe-helpers`](./packages/openapi-typesafe-helpers) | `openapi-typescript-helpers` | Shared type helpers |
 | [`openapi-typesafe-react-query`](./packages/openapi-typesafe-react-query) | `openapi-react-query` | TanStack Query bindings |

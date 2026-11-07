@@ -1,12 +1,12 @@
 # Launch checklist
 
-The steps left before and after the repository goes public (ENGINEERING_PLAN phases 10–11).
-Every step below is a one-way action, so the maintainer decides when each one starts. The
-commands and details are in [RELEASING.md](RELEASING.md).
+The steps of the 1.0 launch. Every step below is a one-way action, so the maintainer decides when
+each one starts. The commands and details are in [RELEASING.md](RELEASING.md).
 
-State on 2026-11-02: everything that can be done in the private repository is done, and CI on
-`main` is green (`ci`, `compat`). `docs`, `release` and `scorecard` skip themselves until the
-repository is public.
+State on 2026-11-07: the repository is public since 2026-11-04. `1.0.0-rc.0` (2026-11-04) and
+`1.0.0-rc.1` (2026-11-05) are on npm under `next`, with provenance. Trusted publishing is on and
+token publishing is off for all five packages. The rc.1 acceptance fixes are merged (PR #15); the
+pre-1.0 audit fixes are in PR #16. Left: `1.0.0-rc.2`, `1.0.0` and the skill registry.
 
 ## Done
 
@@ -18,7 +18,7 @@ repository is public.
 - [x] GitHub Actions enabled for the repository.
 - [x] `fork-base` tag pushed; the compat workflow builds the golden generator from it.
 
-## 1. Closed beta (11.1)
+## 1. Closed beta
 
 - [x] npm organization `openapi-typesafe` created (owner `fedorello`): it guards the
       `@openapi-typesafe` scope. The packages themselves are unscoped.
@@ -32,45 +32,55 @@ repository is public.
       `beta-1.0.0-beta.3` with the five tarballs and `SHA256SUMS`. Checked as a tester would:
       checksums, install, generate, type-check, ESM and CJS with npm, pnpm, Yarn and Bun, and
       the migration command. The earlier `beta.1` and `beta.2` releases, which nobody had, were
-      deleted so testers see one beta.
-- [ ] Add 10–20 testers as read-only collaborators.
-- [ ] Triage tester reports as issues; fix with changesets; pack `beta.<n+1>` when needed.
+      deleted so testers see one beta. `beta.4` (2026-11-03) and `beta.5` (2026-11-04) followed
+      the same way; `beta.4` was deleted after rc.1.
+- [x] Testers: replaced. Eight invitations sent on 2026-11-03 got no reply, so on 2026-11-06 the
+      maintainer replaced human testers with agent acceptance tests.
+- [x] Tester reports: replaced by the findings of those acceptance tests, fixed in PR #15.
 
-## 2. Make the repository public (11.2)
+## 2. Make the repository public
 
-- [ ] Beta issues fixed.
-- [ ] Check once more that no personal files are in the repository or its history.
-- [ ] Make the repository public.
-- [ ] `scripts/repo/apply-settings.sh` (dry run), then `scripts/repo/apply-settings.sh --apply`:
-      rulesets, secret scanning with push protection, private vulnerability reporting, the
-      `npm-publish` environment, pull requests opened by workflows, GitHub Pages.
-- [ ] Decide on the `sha_pinning_required` Actions setting (all actions are already SHA-pinned).
-- [ ] Check that `docs`, `scorecard` and `release` now run and pass; the docs site is live.
-- [ ] Start the macOS and Windows test jobs (they skip on a private repository).
+Done on 2026-11-04.
 
-## 3. Release candidate on npm (11.3)
+- [x] Beta issues fixed.
+- [x] Check once more that no personal files are in the repository or its history.
+- [x] Make the repository public.
+- [x] `scripts/repo/apply-settings.sh --apply`: rulesets for `main` and release tags, secret
+      scanning with push protection, private vulnerability reporting, the `npm-publish`
+      environment, pull requests opened by workflows, GitHub Pages.
+- [ ] Decide on the `sha_pinning_required` Actions setting (all actions are already SHA-pinned;
+      the setting is still off).
+- [x] `docs`, `scorecard` and `release` run and pass; the docs site is live.
+- [x] The macOS and Windows test jobs run (macOS on `macos-15-intel`).
 
-- [ ] Add a trusted publisher to each of the five packages on npmjs.com (`release.yml`,
-      environment `npm-publish`), just before the first release.
-- [ ] Turn off token publishing for each package.
-- [ ] `pnpm exec changeset pre enter rc`, major changesets, merge the version pull request.
-- [ ] Approve the `publish` job; check provenance on npm for `1.0.0-rc.0` (`next` tag).
-- [ ] Publish the compatibility report: ≥ 99% byte match, 100% type identity.
-  The page is `docs/compatibility.md` (numbers from the 2026-11-03 full run); refresh it from the
-  full run of the release candidate before the docs site goes live.
+## 3. Release candidates on npm
 
-## 4. Stable release (11.4)
+- [x] Add a trusted publisher to each of the five packages on npmjs.com (`release.yml`,
+      environment `npm-publish`); "Allow npm dist-tag" turned on 2026-11-05.
+- [x] Turn off token publishing for each package (`npm access set mfa=publish`).
+- [x] `pnpm exec changeset pre enter rc`, major changesets, merge the version pull request.
+- [x] `1.0.0-rc.0` (2026-11-04) and `1.0.0-rc.1` (2026-11-05) published under `next` with
+      provenance.
+- [x] Publish the compatibility report (`docs/compatibility.md`, run of 2026-11-04).
+- [ ] Merge PR #16, then the version pull request for `1.0.0-rc.2`, and approve `publish`. The
+      workflow tags it `latest` as well as `next`, which replaces the `0.0.0` placeholder on
+      `latest`.
+- [ ] Refresh `docs/compatibility.md` from the full nightly run of the release candidate, and
+      link it from the GitHub release notes.
+
+## 4. Stable release
 
 - [ ] `pnpm exec changeset pre exit`, merge the version pull request, approve `publish`.
 - [ ] `1.0.0` on the `latest` tag with provenance.
+- [ ] Remove the "Release candidate" sentence from the READMEs and the docs introduction.
 
-## 5. Agent skill (10.3)
+## 5. Agent skill
 
 - [ ] Publish `skills/openapi-typesafe/SKILL.md` to the skills registry.
 
 ## Working rules
 
-- CI minutes on the private repository are limited: verify locally first
+- Verify locally first
   (`VERIFY_FAIL_ON_WARNINGS=1 scripts/verify.sh build lint test size coverage types skills`,
   plus the tests on Node.js 22 and 24 with `npx node@22` / `npx node@24`), and push several
-  fixes at once.
+  fixes at once to save runner time.

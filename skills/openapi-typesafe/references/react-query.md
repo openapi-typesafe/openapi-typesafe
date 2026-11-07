@@ -29,27 +29,35 @@ The HTTP method is **lower-case** here, and the options object is the same as in
 `client.GET(...)` (`params`, `body`, `headers`, ...).
 
 ```tsx
-const { data, error, isPending } = $api.useQuery("get", "/pets/{petId}", {
-  params: { path: { petId } },
-});
+import { useQueryClient } from "@tanstack/react-query";
 
-const { data } = $api.useSuspenseQuery("get", "/pets");
+function PetPage({ petId }: { petId: number }) {
+  const queryClient = useQueryClient();
 
-const createPet = $api.useMutation("post", "/pets", {
-  onSuccess: () => queryClient.invalidateQueries({ queryKey: ["get", "/pets"] }),
-});
-createPet.mutate({ body: { name: "Rex" } });
+  const { data, error, isPending } = $api.useQuery("get", "/pets/{petId}", {
+    params: { path: { petId } },
+  });
 
-const pages = $api.useInfiniteQuery(
-  "get",
-  "/pets",
-  { params: { query: { limit: 20 } } },
-  {
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
-    initialPageParam: 0,
-    pageParamName: "cursor", // the query parameter that receives the page param; default "cursor"
-  },
-);
+  const { data: pets } = $api.useSuspenseQuery("get", "/pets");
+
+  const createPet = $api.useMutation("post", "/pets", {
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["get", "/pets"] }),
+  });
+  const addRex = () => createPet.mutate({ body: { name: "Rex" } });
+
+  const pages = $api.useInfiniteQuery(
+    "get",
+    "/pets",
+    { params: { query: { limit: 20 } } },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      initialPageParam: 0,
+      pageParamName: "cursor", // the query parameter that receives the page param; default "cursor"
+    },
+  );
+  // render data, pets and pages; call addRex from a button
+  return null;
+}
 ```
 
 Signatures:

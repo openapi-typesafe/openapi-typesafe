@@ -2,8 +2,8 @@
 
 ## Supported versions
 
-Only the latest released minor version of each package receives security fixes. Until 1.0.0 is out, that is the
-latest release candidate (the `next` tag on npm, for example `1.0.0-rc.1`).
+Only the latest released version line receives security fixes: until 1.0.0, the latest `1.0.0-rc`; from 1.0.0,
+the latest 1.x minor version.
 
 ## Reporting a vulnerability
 

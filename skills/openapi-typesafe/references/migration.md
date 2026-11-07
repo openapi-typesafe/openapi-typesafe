@@ -1,7 +1,8 @@
 # Moving to openapi-typesafe
 
 openapi-typesafe is a drop-in successor. The generated types, the CLI flags, the Node API options
-and the client API are the same; only the package names change.
+and the client API are the same. For most projects only the package names change; the differences
+are listed under [Differences to know](#differences-to-know).
 
 | Before | After |
 | :-- | :-- |
@@ -84,8 +85,15 @@ that runs `openapi-typescript`. Nothing else is required.
   `-it` → `--immutable`, `--support-array-length` → `--array-length`, `--redoc` → `--redocly`,
   `-ap` → `--additional-properties`.
 - **Client fixes**: a string body with a non-JSON `Content-Type` (such as `text/plain`) is sent as
-  is; a path parameter that makes a `.` or `..` segment is rejected before the request; react-query
-  hooks fail on every non-OK response, also an empty one.
+  is; a path parameter that makes a `.` or `..` segment is rejected before the request; a path
+  whose first segment is empty (`/{org}/…` with `org: ""`, giving `//host`) throws
+  `Empty first path segment`; a form `Content-Type` with parameters (`; charset=UTF-8`) is encoded
+  as a form, and `null` / `undefined` form fields are left out; headers given as a list of pairs
+  are sent; `defaultBodySerializer` returns `string`, `FormData` or the raw body by body type, not
+  always `string`; react-query hooks fail on every non-OK response, also an empty one.
+- **Remote `$ref`s**: headers from `redocly.yaml` go over plain HTTP only to this machine or to
+  `http://` patterns, each redirect hop gets only the headers its URL matches, and a remote
+  document cannot point to a local file (`SCHEMA_REF_FORBIDDEN`).
 
 ## Callbacks to IR callbacks
 

@@ -14,7 +14,7 @@ openapi-typesafe is a drop-in successor. A project on these packages moves by ch
 | `openapi-react-query` | `openapi-typesafe-react-query` |
 | `openapi-typescript-helpers` | `openapi-typesafe-helpers` |
 
-All four packages have one version number. The generated types are the same (except for the [changes below](#what-is-different)), the CLI flags are the same, and `redocly.yaml` keeps its `x-openapi-ts` settings.
+All openapi-typesafe packages have one version number. The generated types are the same (except for the [changes below](#what-is-different)), the CLI flags are the same, and `redocly.yaml` keeps its `x-openapi-ts` settings.
 
 Coming from openapi-typescript **6.x**? Follow the [upstream guide to 7.x](https://openapi-ts.dev/migration-guide) first, then this one.
 

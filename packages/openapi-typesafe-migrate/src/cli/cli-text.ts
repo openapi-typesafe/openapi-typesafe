@@ -15,7 +15,7 @@ Options
 
 Exit codes
   0  Done
-  1  The migration failed (the message and the log say why)
+  1  The migration failed (the message and the log say why), or the log could not be created
   2  Unknown option or argument
 `;
 
@@ -23,3 +23,7 @@ export const usageError = (message: string): string =>
   `${message}\nRun openapi-typesafe-migrate --help for the options.\n`;
 
 export const logNote = (path: string): string => `Log: ${path}\n`;
+
+/** `path` is the `--log` value as given; without one the log goes to the temporary directory. */
+export const logError = (path: string | undefined, message: string): string =>
+  `Cannot create the log ${path ?? "in the temporary directory"}: ${message}\n`;

@@ -97,7 +97,7 @@ npx openapi-typesafe ./path/to/api/v1.yaml -o ./src/lib/api/v1.d.ts
 
 ## Basic usage
 
-Once your types has been generated from your schema, you can create a [fetch client](../introduction.md), a react-query client and start querying your API.
+Once your types have been generated from your schema, you can create a [fetch client](../fetch/), a react-query client and start querying your API.
 
 ::: code-group
 

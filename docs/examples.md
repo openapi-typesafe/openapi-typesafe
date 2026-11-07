@@ -253,7 +253,7 @@ export default app;
 
 ::: tip
 
-TypeChecking in server environments can be tricky, as you’re often querying databases and talking to other endpoints that TypeScript can’t introspect. But using generics will alert you of the obvious errors that TypeScript _can_ catch (and more things in your stack may have types than you realize!).
+TypeChecking in server environments can be tricky, as you’re often querying databases and talking to other endpoints that TypeScript can’t introspect. But passing the response type as a type argument to `ctx.json` will alert you of the obvious errors that TypeScript _can_ catch (and more things in your stack may have types than you realize!).
 
 :::
 

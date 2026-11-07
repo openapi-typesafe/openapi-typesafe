@@ -10,6 +10,9 @@ npx openapi-typesafe-migrate --write  # change the files
 
 Run it in the project root, with a clean git tree, so you can review the diff.
 
+> **Release candidate.** The current version is a 1.0.0 release candidate (`1.0.0-rc.N`);
+> names and output can still change before 1.0.0.
+
 Run it with `npx` (or `pnpm dlx`, `yarn dlx`, `bunx`), not as a dependency: it uses TypeScript 6
 (`@typescript/typescript6`), and an npm install of it links the project's `tsc` to TypeScript 6.
 
@@ -22,6 +25,9 @@ Run it with `npx` (or `pnpm dlx`, `yarn dlx`, `bunx`), not as a dependency: it u
 | `package.json` scripts, shell scripts, YAML (CI), `Makefile`, `justfile`, `Dockerfile` | The `openapi-typescript` command, and the flags it renamed: `--immutable-types` / `-it` → `--immutable`, `--support-array-length` → `--array-length`, `--redoc` → `--redocly`, `-ap` → `--additional-properties`.                                                                                                                                                                                                       |
 | Sources (`.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, `.vue`, `.svelte`, `.astro`, …)         | Module specifiers only: `import` / `export … from`, `import()`, `require()`, `require.resolve()`, `import("…")` types and `@import` tags in JSDoc (every block), `declare module`, `/// <reference types>`, and module mocks: `vi.mock()` and the other `vi` / `jest` module methods (`jest.setMock()`, `jest.requireActual()`, …), bun's `mock.module()`. Components: their `<script>` blocks and Astro's frontmatter. |
 | `openapiTS(source, { transform })` calls                                               | When `transform` is the only callback and returns plain `ts.factory` types (or the helper constants), the returns become type text and `irCallbacks: true` is added.                                                                                                                                                                                                                                                    |
+
+`Makefile`, `justfile` and `Dockerfile` are read only under exactly these names, so
+`Dockerfile.dev` is not changed.
 
 In a git repository the tool reads the files git lists: tracked files, and untracked files that
 `.gitignore` does not ignore, so ignored build output (`cjs/`, `esm/`, `types/`, …) stays out. A
@@ -67,17 +73,19 @@ now, so `--check` fails until you do), and run your type check and tests.
 
 ## Options
 
-| Option         | Default                                                                                       |
-| -------------- | --------------------------------------------------------------------------------------------- |
-| `--write`      | Dry run: nothing is written                                                                   |
-| `--root <dir>` | The current directory                                                                         |
-| `--log <file>` | A new JSON Lines file in a new private folder in the temporary directory; its path is printed |
+| Option            | Default                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| `--write`         | Dry run: nothing is written                                                                   |
+| `--root <dir>`    | The current directory                                                                         |
+| `--log <file>`    | A new JSON Lines file in a new private folder in the temporary directory; its path is printed |
+| `--help`, `-h`    | Show the help                                                                                 |
+| `--version`, `-v` | Show the version                                                                              |
 
 The default log folder is new for each run and only you can open it (mode 0700). A `--log` file
-that exists gets the new lines appended.
+that exists gets the new lines appended, and missing parent folders are created.
 
-Exit codes: `0` done, `1` the migration failed (the message and the log say why), `2` unknown
-option.
+Exit codes: `0` done, `1` the migration failed (the message and the log say why) or the log could
+not be created (nothing is changed then), `2` unknown option or argument.
 
 ## Versioning
 

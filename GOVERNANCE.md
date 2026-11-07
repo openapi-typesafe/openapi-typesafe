@@ -10,14 +10,14 @@ This document describes how decisions are made in openapi-typesafe.
   sustained, high-quality contributions (reviews, fixes, issue triage) over at least three months.
 - **Contributor.** Anyone who opens an issue, a discussion or a pull request.
 
-The project currently has a single maintainer. Recruiting at least one co-maintainer before 1.0 is an explicit goal,
-so that no release or security fix depends on one person.
+The project has a single maintainer. Recruiting a co-maintainer is an open goal, so that no release or security fix
+depends on one person.
 
 ## Scope
 
 The project turns OpenAPI 3.x documents into TypeScript types and provides type-safe clients for them.
-For 1.0 the scope is the inherited feature set plus top-ranked bug fixes (see
-[ENGINEERING_PLAN.md](./ENGINEERING_PLAN.md) §1). Swagger 2.0 input, runtime validation and server frameworks are
+For 1.x the scope is the inherited feature set plus fixes; new features follow the ranked backlog
+([research/backlog.md](./research/backlog.md)). Swagger 2.0 input, runtime validation and server frameworks are
 out of scope.
 
 ## Decisions
@@ -44,7 +44,10 @@ out of scope.
   may grow in a minor, is listed in [ADR-034](./adr/034-what-semver-covers-in-1x.md) and in the
   [compatibility report](./docs/compatibility.md#versioning).
 - Releases are produced from CI only, with npm provenance and trusted publishing; nobody publishes from a laptop.
-- Every release includes the compatibility report and a changelog generated from changesets.
+- Every release has a changelog generated from changesets. The
+  [compatibility report](./docs/compatibility.md) is refreshed from the full nightly corpus run for
+  every release candidate and every major or minor release, and the maintainer links it from the
+  GitHub release notes.
 
 ## Moderation
 

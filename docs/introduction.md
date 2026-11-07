@@ -7,7 +7,12 @@ description: Quickstart
 
 openapi-typesafe turns [OpenAPI 3.x](https://spec.openapis.org/oas/latest.html) documents into TypeScript types with Node.js. No Java, no node-gyp, no running OpenAPI server.
 
-It is a drop-in successor to [openapi-typescript](https://github.com/openapi-ts/openapi-typescript) 7.13: the same CLI flags, the same Node API and the same output, checked byte for byte on a corpus of real-world documents ([compatibility report](./compatibility.md)). The difference is inside: openapi-typesafe prints types itself instead of through the TypeScript compiler API, so it works in projects on TypeScript 7 (see [TypeScript 7](/typescript-7)). Coming from openapi-typescript? See the [migration guide](/migration-guide).
+It is a drop-in successor to [openapi-typescript](https://github.com/openapi-ts/openapi-typescript) 7.13, with the same CLI flags and the same Node API. Its output is compared with openapi-typescript's on 1,820 real-world documents with 28 option sets (50,960 cases): 99.99% of the outputs are the same byte for byte and 100% have the same types ([compatibility report](./compatibility.md)). The [migration guide](/migration-guide) lists the changes: output that did not compile or had wrong types, and open string enums, a change merged upstream after 7.13.0. The difference is inside: openapi-typesafe prints types itself instead of through the TypeScript compiler API, so it works in projects on TypeScript 7 (see [TypeScript 7](/typescript-7)). Coming from openapi-typescript? See the [migration guide](/migration-guide).
+
+::: info Release candidate
+The current version is a 1.0.0 release candidate (`1.0.0-rc.N`); names and output can still
+change before 1.0.0.
+:::
 
 The code is [MIT-licensed](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/LICENSE) and free to use.
 
@@ -22,7 +27,7 @@ New to OpenAPI? Speakeasy’s [Intro to OpenAPI](https://www.speakeasyapi.dev/op
 - Supports OpenAPI 3.0, 3.1 and 3.2 (including advanced features like [discriminators](https://spec.openapis.org/oas/v3.1.0#discriminator-object); see [OpenAPI 3.2 features](#openapi-3-2-support))
 - Generates **runtime-free types**
 - Loads documents from YAML or JSON, locally or remotely
-- Generates types for large documents in milliseconds
+- Generates types for a large document in about a second (GitHub's REST API)
 - Works with TypeScript 5.4 and newer, including 6 and 7; the generator itself needs no TypeScript package
 
 OpenAPI 2.x (Swagger) is not supported.

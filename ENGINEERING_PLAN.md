@@ -1,8 +1,11 @@
 # Engineering Plan
 
-> Status: draft v6 — 2026-11-02 (fifth review: CLI source and flags, full client export list, Node API return type).
+> Status on 2026-11-07: the plan as of draft v6 (2026-11-02), kept for context. Phases 0–10 are
+> done. 11.1 (closed beta) was replaced by agent acceptance tests on 2026-11-06; 11.2 (public
+> repository) was done on 2026-11-04; 11.3 is done for `1.0.0-rc.0` and `1.0.0-rc.1`; 11.4 (1.0.0)
+> is open. The current state is in [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md), decisions are in
+> the [ADRs](adr/README.md), and product goals live in the README.
 > Scope: the engineering path from the inherited `openapi-typescript` codebase to `openapi-typesafe` 1.0.
-> This document is the single source of truth for *how* we build. Product goals live in the README.
 
 ---
 
@@ -399,18 +402,8 @@ Test conventions: `describe("<unit>")` + `it("<function> <scenario> <expected>")
 
 ## 10. Architecture Decision Records
 
-| ADR | Decision | When |
-|---|---|---|
-| 001 | Fork with full history (not a rewrite from scratch) | Phase 1 |
-| 002 | Own Type IR + string printer; no TypeScript compiler API at runtime | Phase 1 |
-| 003 | Dependency policy and initial dependency review | Phase 1 |
-| 004 | Legacy `ts.Node` callbacks and `stringToAST`: compat bridge vs deprecation | After 3.1 (before Phase 6) |
-| 005 | Schema loader and `$ref` bundling: keep Redocly or replace | After 3.5 |
-| 006 | Supported versions (lowest TS 5.x, Node ≥ 22) and strict compiler flags rollout | Phase 1 |
-| 007 | Release, provenance and npm name reservation | Phase 9 |
-| 008 | Client source language: keep JS + hand-written `.d.ts`, or convert to TypeScript | Phase 1 |
-
-Format: context → decision → alternatives with trade-offs → consequences → review trigger.
+The decisions are listed in [adr/README.md](adr/README.md). Format: context → decision →
+alternatives with trade-offs → consequences → review trigger.
 
 ---
 
@@ -428,13 +421,10 @@ Format: context → decision → alternatives with trade-offs → consequences �
 | Strictness flags create a large one-time diff | Per-directory rollout (1.9); new code strict from day one |
 | Scope creep | Non-goals (§1); new features only from the ranked backlog after 1.0 |
 | Schedule slips (8 weeks is aggressive for one engineer) | Scope-cut list, in this order, if a gate is late by more than one week: (1) Bun / Deno matrix → after 1.0; (2) automatic rewriting of legacy callbacks in the codemod → manual guide only; (3) `openapi-typesafe-react-query` → separate later release; (4) backlog fixes (7.4) → 1.1. Never cut: compatibility harness, type identity gate, release security |
-| Single maintainer | Small modules, docs, ADRs, automation; recruit co-maintainers before going public |
+| Single maintainer | Small modules, docs, ADRs, automation; recruiting a co-maintainer is an open goal (GOVERNANCE.md) |
 
 ---
 
-## 12. Immediate next steps
+## 12. Next steps
 
-1. Phase 0: baseline build and tests with the inherited toolchain (TS 5.9); record metrics.
-2. Phase 1.5: verify current stable versions of the toolchain.
-3. Phase 2.1–2.2: start the corpus download and golden generation (long-running, background).
-4. Phase 3.1: measure Node API / callback usage.
+Release `1.0.0-rc.2` and then `1.0.0`; see [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md), sections 3 and 4.

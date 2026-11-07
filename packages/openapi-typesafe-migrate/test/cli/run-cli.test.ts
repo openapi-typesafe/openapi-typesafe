@@ -111,6 +111,40 @@ describe("runCli", () => {
     });
   });
 
+  it("runCli with a log that cannot be created fails with a message and touches no file", async () => {
+    const files = project();
+    const { dependencies, output } = setUp(() => files);
+    const failing: CliDependencies = {
+      ...dependencies,
+      createLogger: () => {
+        throw new Error("EEXIST: file already exists, mkdir '/work/file'");
+      },
+    };
+
+    expect(await runCli(["--write", "--log", "file/x.jsonl"], failing)).toBe(EXIT_CODES.failure);
+    expect(output.stderr).toBe(
+      "Cannot create the log file/x.jsonl: EEXIST: file already exists, mkdir '/work/file'\n",
+    );
+    expect(output.stdout).toBe("");
+    expect(output.roots).toEqual([]);
+    expect(files.written).toEqual([]);
+  });
+
+  it("runCli without --log names the temporary directory when its log cannot be created", async () => {
+    const { dependencies, output } = setUp(project);
+    const failing: CliDependencies = {
+      ...dependencies,
+      createLogger: () => {
+        throw new Error("ENOSPC: no space left on device");
+      },
+    };
+
+    expect(await runCli([], failing)).toBe(EXIT_CODES.failure);
+    expect(output.stderr).toBe(
+      "Cannot create the log in the temporary directory: ENOSPC: no space left on device\n",
+    );
+  });
+
   it("runCli passes on errors that are not usage errors", async () => {
     const { dependencies } = setUp(project);
     const failing = {

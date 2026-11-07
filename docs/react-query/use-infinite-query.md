@@ -8,8 +8,7 @@ description: Typed useInfiniteQuery for paginated OpenAPI endpoints
 The `useInfiniteQuery` method allows you to use the original [useInfiniteQuery](https://tanstack.com/query/latest/docs/framework/react/guides/infinite-queries)
 
 - The result is the same as the original function.
-- The `queryKey` is `[method, path, options, "infinite"]` (`[method, path, "infinite"]` without
-  options): the `queryKey` of
+- The `queryKey` is `[method, path, options, "infinite"]`: the `queryKey` of
   [`queryOptions`](./query-options) with `"infinite"` after it, so `useQuery` and
   `useInfiniteQuery` for the same request do not share a cache entry, and `[method, path]` still
   matches both in `invalidateQueries`. Its type is `InfiniteQueryKey`.
@@ -98,11 +97,12 @@ const query = $api.useInfiniteQuery(
   - The pathname to use for the request.
   - Must be an available path for the given method in your schema.
   - The pathname is used as key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
-- `options`
+- `options` **(required)**
   - The fetch options to use for the request.
-  - Only required if the OpenApi schema requires parameters.
+  - Pass `{}` when the operation has no parameters.
   - The whole options object (`params`, `headers`, `body` and the rest) is part of the key. See [Query Keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys) for more information.
-- `infiniteQueryOptions`
+- `infiniteQueryOptions` **(required)**
+  - At least `initialPageParam` and `getNextPageParam`, as in the original `useInfiniteQuery`.
   - `pageParamName` The query param name used for pagination, `"cursor"` by default.
   - The page param is sent in that query param. When it is `undefined` (the first page with
     `initialPageParam: undefined`, as cursor APIs need), the query param is left out.

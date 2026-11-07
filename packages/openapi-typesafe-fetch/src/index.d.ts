@@ -183,7 +183,7 @@ export interface MiddlewareCallbackParams {
   readonly params: MiddlewareRequestParams;
   /** Unique ID for this request */
   readonly id: string;
-  /** createClient options (read-only) */
+  /** The options of this request after merging the client and request options (read-only) */
   readonly options: MergedOptions;
 }
 
