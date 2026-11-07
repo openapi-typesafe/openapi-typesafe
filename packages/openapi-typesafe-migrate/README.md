@@ -26,6 +26,9 @@ Run it with `npx` (or `pnpm dlx`, `yarn dlx`, `bunx`), not as a dependency: it u
 | Sources (`.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, `.vue`, `.svelte`, `.astro`, …)         | Module specifiers only: `import` / `export … from`, `import()`, `require()`, `require.resolve()`, `import("…")` types and `@import` tags in JSDoc (every block), `declare module`, `/// <reference types>`, and module mocks: `vi.mock()` and the other `vi` / `jest` module methods (`jest.setMock()`, `jest.requireActual()`, …), bun's `mock.module()`. Components: their `<script>` blocks and Astro's frontmatter. |
 | `openapiTS(source, { transform })` calls                                               | When `transform` is the only callback and returns plain `ts.factory` types (or the helper constants), the returns become type text and `irCallbacks: true` is added.                                                                                                                                                                                                                                                    |
 
+`Makefile`, `justfile` and `Dockerfile` are read only under exactly these names, so
+`Dockerfile.dev` is not changed.
+
 In a git repository the tool reads the files git lists: tracked files, and untracked files that
 `.gitignore` does not ignore, so ignored build output (`cjs/`, `esm/`, `types/`, …) stays out. A
 submodule or a nested repository is read the same way, with its own git and its own `.gitignore`.
@@ -70,11 +73,13 @@ now, so `--check` fails until you do), and run your type check and tests.
 
 ## Options
 
-| Option         | Default                                                                                       |
-| -------------- | --------------------------------------------------------------------------------------------- |
-| `--write`      | Dry run: nothing is written                                                                   |
-| `--root <dir>` | The current directory                                                                         |
-| `--log <file>` | A new JSON Lines file in a new private folder in the temporary directory; its path is printed |
+| Option            | Default                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| `--write`         | Dry run: nothing is written                                                                   |
+| `--root <dir>`    | The current directory                                                                         |
+| `--log <file>`    | A new JSON Lines file in a new private folder in the temporary directory; its path is printed |
+| `--help`, `-h`    | Show the help                                                                                 |
+| `--version`, `-v` | Show the version                                                                              |
 
 The default log folder is new for each run and only you can open it (mode 0700). A `--log` file
 that exists gets the new lines appended, and missing parent folders are created.
