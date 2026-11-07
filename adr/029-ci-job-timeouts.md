@@ -1,6 +1,6 @@
 # ADR-029: A time limit on every CI job
 
-- Status: Accepted
+- Status: Accepted, amended by ADR-038 (the full compatibility run)
 - Date: 2026-11-05
 
 ## Context
@@ -26,7 +26,8 @@ Measured on the successful runs of 2026-11-02 to 2026-11-05 (up to 15 runs per w
 ## Decision
 
 Every job has `timeout-minutes`: about three times its slowest normal run, rounded up to 10, 15,
-20 or 30 minutes, and at least 10.
+20 or 30 minutes, and at least 10. Above 30 minutes, the limit is rounded up to a multiple of 30
+(ADR-038).
 
 | Limit | Jobs |
 |---|---|
@@ -34,7 +35,7 @@ Every job has `timeout-minutes`: about three times its slowest normal run, round
 | 15 | test (node), coverage gate, deploy to pages |
 | 20 | client e2e, compatibility subset, release publish, publish dry run |
 | 30 | test (macos-15-intel, windows-latest) |
-| 240 | compatibility full (unchanged) |
+| 15, 60, 210 | compatibility full: report, real projects, each of the 16 shards (ADR-038; was one job with 240) |
 
 The 54-minute e2e run is not a normal run: a job that slow is better failed and re-run than
 waited for. The publish limit does not include the wait for approval, which happens before the job
