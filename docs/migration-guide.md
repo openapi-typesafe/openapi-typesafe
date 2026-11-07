@@ -121,7 +121,7 @@ by default. It changes valid output, so check the types of such schemas after yo
 ### Headers for remote documents
 
 Headers from `resolve.http.headers` in `redocly.yaml` go over plain HTTP only to this machine
-(`localhost`, `127.0.0.1`, `::1`) or when the pattern starts with `http://`. A header for a plain
+(`localhost`, `127.0.0.0/8`, `::1`) or when the pattern starts with `http://`. A header for a plain
 HTTP server on another machine needs its pattern written as `http://api.internal:8080/**`. Headers
 are no longer sent on through a redirect to another origin.
 

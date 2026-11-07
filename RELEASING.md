@@ -60,6 +60,9 @@ The beta runs while the repository is private, so nothing goes to npm.
 5. The `release` job creates the tag `<name>@<version>` on the built commit and a GitHub release
    with the changelog section, the CycloneDX SBOM and the npm provenance bundle
    (`scripts/release/create-github-releases.sh`).
+6. For a release candidate or a minor or major release, refresh `docs/compatibility.md` from the
+   latest full run of the `compat` workflow (its `compat-all` artifact), and link the page from the
+   GitHub release notes.
 
 Prereleases (a version with `-`) go to the `next` tag and are marked as prereleases on GitHub.
 Until a stable release exists, each prerelease also takes `latest` (ADR-007): the last step of the
