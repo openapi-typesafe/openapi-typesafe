@@ -544,7 +544,8 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   (`file:///…`, or `C:/…`, which a URL base turns into a drive-letter path) is always refused.
 
 A refused `$ref` fails with `SCHEMA_REF_FORBIDDEN` (CLI exit code `3`); `err.details` has the
-`ref` and the `reason` (`outside-local-root`, `host-not-allowed` or `local-ref-from-remote`). The
+`ref` and the `reason` (`outside-local-root`, `host-not-allowed`, `local-ref-from-remote`, or
+`too-many-remote-documents` from [Limits](#limits)). The
 [threat model](/security/threat-model) explains the risks (T3, T4).
 
 ## Limits
@@ -559,6 +560,7 @@ hanging when a document reaches one of these limits.
 | A `$ref` that points at itself, or two `$ref`s that point at each other, with no schema in between | The cycle has no type | `SCHEMA_REF_INVALID` |
 | A key named `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `valueOf` or one of the `__define…` / `__lookup…` methods, where the schema loader reads keys | The schema loader (Redocly 1.x) cannot read it; the error lists every such key | `SCHEMA_KEY_UNSUPPORTED` |
 | YAML aliases (`*name`) that expand a file to more than 1,000,000 nodes and to more than 100 times its written size (a "billion laughs" document) | The file is refused right after parsing, before anything walks it | `SCHEMA_PARSE_FAILED` |
+| More than 10,000 remote documents in one run (each document that refers to new URLs, without end) | The next remote document is refused before it is fetched. At most 16 remote documents are fetched at the same time | `SCHEMA_REF_FORBIDDEN` (reason `too-many-remote-documents`) |
 | A remote `$ref` or remote document that does not answer, or does not finish sending its body, within 60 seconds | The fetch stops. A `customFetch` in your Redocly config replaces this limit | `SCHEMA_INVALID` (a `$ref`) or `SCHEMA_LOAD_FAILED` (the document) |
 
 Cyclic schemas are fine when the cycle goes through an object property

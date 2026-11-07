@@ -59,7 +59,9 @@ the generator.
 - Controls: typed errors `SCHEMA_TOO_DEEP`, `SCHEMA_REF_INVALID`, `SCHEMA_KEY_UNSUPPORTED`; a
   60-second limit on every remote fetch, body included; the YAML parser stops at 100 levels; a
   YAML file whose aliases expand it more than 100 times past 1,000,000 nodes fails with
-  `SCHEMA_PARSE_FAILED`.
+  `SCHEMA_PARSE_FAILED`; at most 10,000 remote documents per run, fetched at most 16 at a time,
+  so a document that keeps referring to new URLs ends with `SCHEMA_REF_FORBIDDEN` instead of
+  sending requests until the local ports run out (ADR-033); path keys are scanned in linear time.
 - Tests: `test/defensive/`. Limits are listed in docs/advanced.md, "Limits".
 
 ### T3. Local file read through `$ref` — Controlled by an option (R1)

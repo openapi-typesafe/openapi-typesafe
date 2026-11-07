@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { createConfig, type Config as RedoclyConfig } from "@redocly/openapi-core";
 import supportsColor from "supports-color";
+import type { RemoteDocumentLimits } from "../adapters/redocly-loader/remote-fetch.js";
 import { createTerminalLogger } from "../adapters/terminal-logger/terminal-logger.js";
 import type { Logger } from "../application/ports/logger.js";
 
@@ -31,6 +32,16 @@ export function defaultLogger(silent: boolean): Logger {
  * wait five minutes for a server that never answers (ENGINEERING_PLAN 8.5).
  */
 export const REMOTE_REF_TIMEOUT_MS = 60_000;
+
+/**
+ * Bounds on the remote documents of one run (ADR-033). Large split documents have a few thousand
+ * files, so 10,000 leaves room and still ends an endless fan-out. 16 parallel fetches keep a
+ * multi-file document fast without exhausting local ports.
+ */
+export const DEFAULT_REMOTE_DOCUMENT_LIMITS: RemoteDocumentLimits = {
+  maxDocuments: 10_000,
+  maxParallelFetches: 16,
+};
 
 /** A monotonic clock in milliseconds, for debug durations. */
 export function monotonicNow(): number {

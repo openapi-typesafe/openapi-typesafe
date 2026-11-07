@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { createConfig } from "@redocly/openapi-core";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/redocly-schema-loader.js";
+import { DEFAULT_REMOTE_DOCUMENT_LIMITS } from "../../src/api/default-ports.js";
 import type { RefAccess } from "../../src/application/ports/schema-loader.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
 
@@ -73,6 +74,7 @@ async function load(ref: string, matches: string, refAccess: RefAccess = {}) {
     logger: new RecordingLogger(),
     now: () => 0,
     remoteRefTimeoutMs: 2_000,
+    remoteDocumentLimits: DEFAULT_REMOTE_DOCUMENT_LIMITS,
   });
   const source = documentWithRef(ref);
   return loader.load({ source, cwd: pathToFileURL(`${process.cwd()}/`), shouldLint: false, refAccess });

@@ -96,16 +96,52 @@ export function fetchWithCheckedRedirects(
   };
 }
 
+/** Bounds on the remote documents of one load (threat model T2, ADR-033). */
+export interface RemoteDocumentLimits {
+  /** Remote documents one load may fetch, the root included; one more is refused. */
+  readonly maxDocuments: number;
+  /** Remote documents fetched at the same time; the others wait for a free slot. */
+  readonly maxParallelFetches: number;
+}
+
+/**
+ * At most `limit` calls of the fetch run at once; the others wait in order. A finished call hands
+ * its slot to the next waiting one.
+ */
+export function fetchWithConcurrencyLimit(fetchImpl: RemoteFetch, limit: number): RemoteFetch {
+  let running = 0;
+  const waiting: (() => void)[] = [];
+  return async (input, init) => {
+    if (running < limit) {
+      running += 1;
+    } else {
+      await new Promise<void>((resolve) => waiting.push(resolve));
+    }
+    try {
+      return await fetchImpl(input, init);
+    } finally {
+      const next = waiting.shift();
+      if (next === undefined) {
+        running -= 1;
+      } else {
+        next();
+      }
+    }
+  };
+}
+
 export interface RemoteFetchOptions {
   /** Time limit of one fetch and its body, unless the Redocly config has its own `customFetch`. */
   readonly timeoutMs: number;
   readonly access: RefAccess;
+  readonly maxParallelFetches: number;
 }
 
 /**
  * The resolve config with the fetch the loader uses. A `customFetch` of the Redocly config is
- * kept and wrapped, so that each redirect is checked. The configured headers move into that
- * wrapper: Redocly would match them against the raw URL and send them on through redirects.
+ * kept and wrapped, so that each redirect is checked and only a few documents load at once. The
+ * configured headers move into that wrapper: Redocly would match them against the raw URL and
+ * send them on through redirects.
  */
 export function resolveConfigWithAccess(
   resolve: ResolveConfig,
@@ -114,9 +150,11 @@ export function resolveConfigWithAccess(
   // Redocly types `customFetch` as `Function`; it is called as fetch is.
   const configured = resolve.http.customFetch as RemoteFetch | undefined;
   const base = configured ?? fetchWithTimeout(options.timeoutMs);
-  const customFetch = fetchWithCheckedRedirects(base, {
+  const checked = fetchWithCheckedRedirects(base, {
     headers: resolve.http.headers,
     hosts: options.access.remoteHosts,
   });
+  // The limit is outside the redirects, so all hops of one document share one slot.
+  const customFetch = fetchWithConcurrencyLimit(checked, options.maxParallelFetches);
   return { ...resolve, http: { ...resolve.http, headers: [], customFetch } };
 }

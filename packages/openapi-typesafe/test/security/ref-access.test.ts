@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 import { createConfig } from "@redocly/openapi-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/redocly-schema-loader.js";
-import { defaultRedoclyConfig } from "../../src/api/default-ports.js";
+import { DEFAULT_REMOTE_DOCUMENT_LIMITS, defaultRedoclyConfig } from "../../src/api/default-ports.js";
 import type { RefAccess } from "../../src/application/ports/schema-loader.js";
 import openapiTS, { astToString, type OpenAPITypesafeError } from "../../src/index.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
@@ -84,6 +84,7 @@ async function load(source: URL, refAccess: RefAccess, shouldLint = true) {
     logger: new RecordingLogger(),
     now: () => 0,
     remoteRefTimeoutMs: 2_000,
+    remoteDocumentLimits: DEFAULT_REMOTE_DOCUMENT_LIMITS,
   });
   return loader.load({ source, cwd: pathToFileURL(`${workDir}/`), shouldLint, refAccess });
 }
@@ -279,6 +280,7 @@ describe("remote $ref hosts (R2)", () => {
       logger: new RecordingLogger(),
       now: () => 0,
       remoteRefTimeoutMs: 2_000,
+      remoteDocumentLimits: DEFAULT_REMOTE_DOCUMENT_LIMITS,
     });
     const request = { source: root, cwd: pathToFileURL(`${workDir}/`), shouldLint: true };
 

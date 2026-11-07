@@ -110,7 +110,8 @@ function hostListText(hosts: readonly string[]): string {
 export type RefRefusalDetails =
   | { readonly reason: "outside-local-root"; readonly localRoot: string }
   | { readonly reason: "host-not-allowed"; readonly allowedHosts: readonly string[] }
-  | { readonly reason: "local-ref-from-remote"; readonly base: string };
+  | { readonly reason: "local-ref-from-remote"; readonly base: string }
+  | { readonly reason: "too-many-remote-documents"; readonly maxDocuments: number };
 
 function limitText(details: RefRefusalDetails): string {
   switch (details.reason) {
@@ -122,14 +123,16 @@ function limitText(details: RefRefusalDetails): string {
     }
     case "local-ref-from-remote":
       return `it is not an http(s) URL, and the $ref is in the remote document ${details.base}`;
+    case "too-many-remote-documents":
+      return `the document refers to more than ${details.maxDocuments} remote documents`;
     default:
       return assertNever(details);
   }
 }
 
 /**
- * A `$ref` is outside the local root, its host is not allowed (threat model R1, R2), or a remote
- * document refers to a local file (T3).
+ * A `$ref` is outside the local root, its host is not allowed (threat model R1, R2), a remote
+ * document refers to a local file (T3), or there are too many remote documents (T2).
  */
 export function refForbiddenError(ref: string, details: RefRefusalDetails): OpenAPITypesafeError {
   const limit = limitText(details);
