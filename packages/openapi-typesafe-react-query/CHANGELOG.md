@@ -2,6 +2,31 @@
 
 This package is a fork of `openapi-react-query`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-react-query` versions.
 
+## 1.0.0-rc.2
+
+### Major Changes
+
+- [#18](https://github.com/openapi-typesafe/openapi-typesafe/pull/18) [`bfd3e60`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bfd3e605bdbe240d7a8a327a59d8924781016fbd) Thanks [@fedorello](https://github.com/fedorello)! - First stable release of openapi-typesafe-react-query, the successor of openapi-react-query 0.5.4.
+  Its peer dependency is now `openapi-typesafe-fetch` instead of `openapi-fetch`, next to
+  `@tanstack/react-query` 5.80 or newer. From 1.0 the package follows semver.
+
+  Changes that can need work when you move from openapi-react-query 0.5.4:
+  - `engines.node` is `>=22`.
+  - Queries and mutations fail on every non-OK response, also one without a body or with a falsy
+    body such as `0` (upstream [#2070](https://github.com/openapi-ts/openapi-typescript/issues/2070), [#2531](https://github.com/openapi-ts/openapi-typescript/issues/2531)).
+  - `useInfiniteQuery` has its own key, `[...queryKey, "infinite"]`, so it no longer shares a cache
+    entry with `useQuery` (upstream [#2184](https://github.com/openapi-ts/openapi-typescript/issues/2184)). Prefix matches still work; code that uses the exact
+    key must append `"infinite"`.
+  - An `undefined` page param is left out of the request; it was sent as `0` (upstream [#2715](https://github.com/openapi-ts/openapi-typescript/issues/2715),
+    [#2340](https://github.com/openapi-ts/openapi-typescript/issues/2340)).
+
+### Patch Changes
+
+- [#16](https://github.com/openapi-typesafe/openapi-typesafe/pull/16) [`cd79dbd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cd79dbd39d33dc913ec101a4c46560dff801da4e) Thanks [@fedorello](https://github.com/fedorello)! - The type declarations keep their JSDoc, so editors show descriptions and mark deprecated exports.
+- Updated dependencies [[`cd79dbd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cd79dbd39d33dc913ec101a4c46560dff801da4e), [`bfd3e60`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bfd3e605bdbe240d7a8a327a59d8924781016fbd), [`bfd3e60`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bfd3e605bdbe240d7a8a327a59d8924781016fbd), [`5837bac`](https://github.com/openapi-typesafe/openapi-typesafe/commit/5837baca3bbcd58bd132622d9a4723e97bc5a9bc), [`5837bac`](https://github.com/openapi-typesafe/openapi-typesafe/commit/5837baca3bbcd58bd132622d9a4723e97bc5a9bc), [`cd79dbd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cd79dbd39d33dc913ec101a4c46560dff801da4e)]:
+  - openapi-typesafe-helpers@1.0.0-rc.2
+  - openapi-typesafe-fetch@1.0.0-rc.2
+
 ## 1.0.0-rc.1
 
 ### Patch Changes
