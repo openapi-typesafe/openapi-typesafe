@@ -48,3 +48,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [032](./032-compiler-types-from-the-installed-typescript.md) | Public declarations read compiler types from the installed `typescript` | Accepted |
 | [033](./033-remote-ref-hardening.md) | Remote `$ref` loading is hardened by default | Accepted |
 | [034](./034-what-semver-covers-in-1x.md) | What the semver contract of 1.x covers | Accepted |
+| [035](./035-dev-only-advisories-we-accept.md) | Dev-only advisories we accept | Accepted |
