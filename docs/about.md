@@ -42,6 +42,6 @@ How the generator treats documents it does not trust, and what is still open, is
 
 ## Credits
 
-openapi-typescript and openapi-fetch were created by [Drew Powers](https://github.com/drwpow), and openapi-react-query by [Martin Paucot](https://github.com/kerwanp). This project exists because of their work and the work of the 170 people who contributed to openapi-typescript before the fork:
+openapi-typescript and openapi-fetch were created by [Drew Powers](https://github.com/drwpow), and openapi-react-query by [Martin Paucot](https://github.com/kerwanp). This project exists because of their work and the work of the more than 230 people who contributed to openapi-typescript before the fork, some of them below:
 
 <Contributors :contributors="data.contributors" />

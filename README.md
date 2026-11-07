@@ -13,11 +13,11 @@ September 2026. It is a fork with the full upstream history (see [NOTICE](./NOTI
 > **Release candidate.** The current version is a 1.0.0 release candidate (`1.0.0-rc.N`);
 > names and output can still change before 1.0.0.
 
-## Goals for 1.0
+## Design goals
 
 - **Drop-in.** Migrate by changing package names. Generated output and the client API stay compatible.
-- **TypeScript 7 ready.** The generator will not depend on the TypeScript compiler API, so it works the
-  same on TypeScript 5, 6 and 7.
+- **TypeScript 7 ready.** The generator does not use the TypeScript compiler API, so it works the
+  same on TypeScript 5.4, 6 and 7.
 - **Verifiably compatible.** A public [compatibility report](./docs/compatibility.md) compares the
   output with openapi-typescript on more than 1,800 real-world OpenAPI 3.x schemas. CI runs the full
   corpus every night; the report is refreshed from that run for every release candidate and every
@@ -30,7 +30,7 @@ September 2026. It is a fork with the full upstream history (see [NOTICE](./NOTI
 
 | Package | Replaces | Purpose |
 |---|---|---|
-| [`openapi-typesafe`](./packages/openapi-typesafe) | `openapi-typescript` | CLI and Node API: OpenAPI 3.0 / 3.1 → TypeScript types |
+| [`openapi-typesafe`](./packages/openapi-typesafe) | `openapi-typescript` | CLI and Node API: OpenAPI 3.0, 3.1 and 3.2 → TypeScript types |
 | [`openapi-typesafe-fetch`](./packages/openapi-typesafe-fetch) | `openapi-fetch` | Type-safe `fetch` client for the generated types |
 | [`openapi-typesafe-helpers`](./packages/openapi-typesafe-helpers) | `openapi-typescript-helpers` | Shared type helpers |
 | [`openapi-typesafe-react-query`](./packages/openapi-typesafe-react-query) | `openapi-react-query` | TanStack Query bindings |
