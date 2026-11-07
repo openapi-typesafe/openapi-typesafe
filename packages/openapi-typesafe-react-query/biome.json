@@ -31,6 +31,27 @@
           }
         }
       }
+    },
+    {
+      "includes": ["src/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveLinesPerFunction": {
+              "level": "error",
+              "options": {
+                "maxLines": 30
+              }
+            },
+            "useMaxParams": {
+              "level": "error",
+              "options": {
+                "max": 4
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

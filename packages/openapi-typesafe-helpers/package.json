@@ -38,14 +38,16 @@
   "scripts": {
     "build": "unbuild",
     "format": "biome format src --write",
-    "lint": "pnpm run lint:js && pnpm run lint:ts",
+    "lint": "pnpm run lint:js && pnpm run lint:ts && pnpm run lint:sizes",
     "lint:js": "biome check src",
     "lint:ts": "tsc --noEmit",
+    "lint:sizes": "vite-node ../openapi-typesafe/scripts/size-rules/check-sizes.ts src",
     "test": "pnpm run test:exports",
     "test:exports": "pnpm run build && ../../scripts/check-exports.sh"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite-node": "6.0.0"
   },
   "engines": {
     "node": ">=22"

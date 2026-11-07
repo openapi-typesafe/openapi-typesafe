@@ -375,6 +375,9 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.3.5(@types/node@22.20.5)(jiti@2.7.0)(yaml@2.9.1)
+      vite-node:
+        specifier: 6.0.0
+        version: 6.0.0(@types/node@22.20.5)(jiti@2.7.0)(yaml@2.9.1)
 
   packages/openapi-typesafe-fetch/examples/nextjs:
     dependencies:
@@ -470,6 +473,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vite-node:
+        specifier: 6.0.0
+        version: 6.0.0(@types/node@22.20.5)(jiti@2.7.0)(yaml@2.9.1)
 
   packages/openapi-typesafe-migrate:
     dependencies:
@@ -529,6 +535,9 @@ importers:
       react-error-boundary:
         specifier: 6.1.6
         version: 6.1.6(@types/react@19.3.0)(react@19.3.1)
+      vite-node:
+        specifier: 6.0.0
+        version: 6.0.0(@types/node@22.20.5)(jiti@2.7.0)(yaml@2.9.1)
 
   tools/compat-harness:
     dependencies:

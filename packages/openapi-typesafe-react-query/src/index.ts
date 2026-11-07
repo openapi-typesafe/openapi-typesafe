@@ -234,6 +234,7 @@ export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = 
   Initial = unknown,
   Next = never,
   Previous = NoPreviousPageParam,
+  // biome-ignore lint/complexity/useMaxParams: public signature of 1.x (ADR-036)
 >(
   method: Method,
   url: Path,
@@ -349,6 +350,7 @@ function pageInit(init: unknown, { pageParamName, pageParam, signal }: PageReque
  * Hooks and query options for a fetch client. A `QueryClient` other than the one from the React
  * context is passed to each hook as its last argument; `createClient` does not take one.
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
   client: FetchClient<Paths, Media>,
 ): OpenapiQueryClient<Paths, Media> {
@@ -399,6 +401,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
         queryOptions(method, path, init as InitWithUnknowns<typeof init>, options),
         queryClient,
       ),
+    // biome-ignore lint/complexity/useMaxParams: public signature of 1.x (ADR-036)
     useInfiniteQuery: (method, path, init, options, queryClient) => {
       const { pageParamName = DEFAULT_PAGE_PARAM_NAME, placeholderData, ...restOptions } = options;
       const { queryKey } = queryOptions(method, path, init);

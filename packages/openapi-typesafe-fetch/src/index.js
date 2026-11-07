@@ -47,6 +47,7 @@ export function randomID() {
  * Create an openapi-typesafe-fetch client.
  * @type {import("./index.js").default}
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export default function createClient(clientOptions) {
   let {
     baseUrl = "",
@@ -68,6 +69,7 @@ export default function createClient(clientOptions) {
    * @param {T} url
    * @param {import('./index.js').FetchOptions<T>} fetchOptions
    */
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
   async function coreFetch(schemaPath, fetchOptions) {
     const {
       baseUrl: localBaseUrl,
@@ -522,6 +524,7 @@ export function serializePrimitiveParam(name, value, options) {
  * Serialize object param (shallow only)
  * @type {import("./index.js").serializeObjectParam}
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export function serializeObjectParam(name, value, options) {
   if (!value || typeof value !== "object") {
     return "";
@@ -573,6 +576,7 @@ export function serializeObjectParam(name, value, options) {
  * Serialize array param (shallow only)
  * @type {import("./index.js").serializeArrayParam}
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export function serializeArrayParam(name, value, options) {
   if (!Array.isArray(value)) {
     return "";
@@ -669,6 +673,7 @@ export function createQuerySerializer(options) {
  * @type {import("./index.js").defaultPathSerializer}
  * @see https://swagger.io/docs/specification/serialization/#path
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export function defaultPathSerializer(pathname, pathParams) {
   let nextURL = pathname;
   for (const match of pathname.match(PATH_PARAM_RE) ?? []) {
