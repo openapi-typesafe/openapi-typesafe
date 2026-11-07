@@ -73,30 +73,49 @@ function reportEntry(line: string, field: string): ManualStep[] {
       }));
 }
 
+const LINE_FEED = "\n";
+const CARRIAGE_RETURN = "\r";
+
+/**
+ * A line without its carriage return, and a function that puts it back. Lines are split at LF,
+ * so a CRLF line keeps its CR; the patterns see the line without it, and each line keeps its own
+ * ending when the file is written again.
+ */
+function withoutCarriageReturn(line: string): { body: string; restore: (body: string) => string } {
+  if (!line.endsWith(CARRIAGE_RETURN)) {
+    return { body: line, restore: (body) => body };
+  }
+  return {
+    body: line.slice(0, -CARRIAGE_RETURN.length),
+    restore: (body) => `${body}${CARRIAGE_RETURN}`,
+  };
+}
+
 /** Rename the original packages in the catalogs of a pnpm-workspace.yaml; report its overrides. */
 export function migrateWorkspaceCatalogs(text: string, version: string): FileMigration {
   const changes: Change[] = [];
   const manualSteps: ManualStep[] = [];
   let section: string | undefined;
-  const lines = text.split("\n").map((line) => {
+  const lines = text.split(LINE_FEED).map((rawLine) => {
+    const { body: line, restore } = withoutCarriageReturn(rawLine);
     const topLevelKey = TOP_LEVEL_KEY_RE.exec(line)?.[1];
     if (topLevelKey !== undefined) {
       section = topLevelKey;
-      return line;
+      return rawLine;
     }
     if (section !== undefined && REPORTED_SECTIONS.has(section)) {
       manualSteps.push(...reportEntry(line, section));
-      return line;
+      return rawLine;
     }
     if (section === undefined || !CATALOG_SECTIONS.has(section)) {
-      return line;
+      return rawLine;
     }
     const result = migrateEntry(line, version);
     changes.push(...(result.change ? [result.change] : []));
     manualSteps.push(...(result.manualStep ? [result.manualStep] : []));
-    return result.line;
+    return restore(result.line);
   });
   return changes.length === 0
     ? { ...unchanged(text), manualSteps }
-    : { text: lines.join("\n"), changes, manualSteps };
+    : { text: lines.join(LINE_FEED), changes, manualSteps };
 }

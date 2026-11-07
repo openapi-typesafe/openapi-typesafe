@@ -122,4 +122,42 @@ describe("migrateWorkspaceCatalogs", () => {
       { kind: "override-names-package", field: "overrides", name: "openapi-typescript" },
     ]);
   });
+
+  it("migrateWorkspaceCatalogs migrates a file with CRLF line endings and keeps them", () => {
+    const text = [
+      "catalog:",
+      "  openapi-fetch: ^0.17.0",
+      "  'openapi-typescript': '7.13.0' # generator",
+      "overrides:",
+      '  "app>openapi-fetch": 0.17.0',
+      "",
+    ].join("\r\n");
+
+    const migrated = migrateWorkspaceCatalogs(text, "1.0.0");
+
+    expect(migrated.text).toBe(
+      [
+        "catalog:",
+        "  openapi-typesafe-fetch: ^1.0.0",
+        "  'openapi-typesafe': '1.0.0' # generator",
+        "overrides:",
+        '  "app>openapi-fetch": 0.17.0',
+        "",
+      ].join("\r\n"),
+    );
+    expect(migrated.changes).toHaveLength(2);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "override-names-package", field: "overrides", name: "openapi-fetch" },
+    ]);
+  });
+
+  it("migrateWorkspaceCatalogs keeps the ending of each line in a file with mixed endings", () => {
+    const text = "catalog:\r\n  openapi-fetch: ^0.17.0\n  openapi-typescript: 7.13.0\r\n";
+
+    const migrated = migrateWorkspaceCatalogs(text, "1.0.0");
+
+    expect(migrated.text).toBe(
+      "catalog:\r\n  openapi-typesafe-fetch: ^1.0.0\n  openapi-typesafe: 1.0.0\r\n",
+    );
+  });
 });

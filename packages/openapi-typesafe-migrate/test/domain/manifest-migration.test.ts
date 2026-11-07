@@ -167,4 +167,17 @@ describe("migratePackageManifest", () => {
       { kind: "manifest-unreadable", reason: expect.stringContaining("https://***@h.io") },
     ]);
   });
+
+  it("migratePackageManifest keeps CRLF line endings", () => {
+    const text = manifest({ devDependencies: { "openapi-typescript": "^7.13.0" } }).replaceAll(
+      "\n",
+      "\r\n",
+    );
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(
+      manifest({ devDependencies: { "openapi-typesafe": "^1.0.0" } }).replaceAll("\n", "\r\n"),
+    );
+  });
 });
