@@ -67,11 +67,14 @@ now, so `--check` fails until you do), and run your type check and tests.
 
 ## Options
 
-| Option         | Default                                                                      |
-| -------------- | ---------------------------------------------------------------------------- |
-| `--write`      | Dry run: nothing is written                                                  |
-| `--root <dir>` | The current directory                                                        |
-| `--log <file>` | A new JSON Lines file in the system temporary directory; its path is printed |
+| Option         | Default                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| `--write`      | Dry run: nothing is written                                                                   |
+| `--root <dir>` | The current directory                                                                         |
+| `--log <file>` | A new JSON Lines file in a new private folder in the temporary directory; its path is printed |
+
+The default log folder is new for each run and only you can open it (mode 0700). A `--log` file
+that exists gets the new lines appended.
 
 Exit codes: `0` done, `1` the migration failed (the message and the log say why), `2` unknown
 option.

@@ -1,14 +1,28 @@
-import { appendFileSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { Logger } from "../../application/ports.js";
 
-/** The log file and the clock of the timestamps. */
+/** The log file, the clock of the timestamps, and whether the file must be new. */
 export interface JsonLinesLoggerOptions {
   readonly path: string;
   readonly now: () => Date;
+  /**
+   * The file must not exist yet: it is created with `O_CREAT | O_EXCL`, which also refuses a
+   * link at the path instead of following it. Used for the default log in the temporary folder.
+   * Without it, an existing file (the user's `--log`) gets the new lines appended.
+   */
+  readonly isExclusive: boolean;
 }
 
 type Level = "info" | "warn";
+
+/** The log can name files and changes of a private project, so only its owner can read it. */
+const LOG_FILE_MODE = 0o600;
+const TEMPORARY_FOLDER_PREFIX = "openapi-typesafe-migrate-";
+const LOG_EXTENSION = ".jsonl";
+const TIME_SEPARATOR = ":";
+/** `:` is not allowed in Windows file names. */
+const FILE_NAME_TIME_SEPARATOR = "-";
 
 /**
  * The Logger port as a JSON Lines file: one object per event with a UTC timestamp, the level and
@@ -20,7 +34,11 @@ class JsonLinesLogger implements Logger {
 
   constructor(options: JsonLinesLoggerOptions) {
     this.#options = options;
-    mkdirSync(dirname(options.path), { recursive: true });
+    if (options.isExclusive) {
+      writeFileSync(options.path, "", { flag: "wx", mode: LOG_FILE_MODE });
+    } else {
+      mkdirSync(dirname(options.path), { recursive: true });
+    }
   }
 
   info(event: string, fields: Readonly<Record<string, unknown>> = {}): void {
@@ -33,11 +51,23 @@ class JsonLinesLogger implements Logger {
 
   #append(level: Level, event: string, fields: Readonly<Record<string, unknown>>): void {
     const time = this.#options.now().toISOString();
-    appendFileSync(this.#options.path, `${JSON.stringify({ time, level, event, ...fields })}\n`);
+    const line = `${JSON.stringify({ time, level, event, ...fields })}\n`;
+    appendFileSync(this.#options.path, line, { mode: LOG_FILE_MODE });
   }
 }
 
 /** A logger that appends to the JSON Lines file at `options.path`, creating its directory. */
 export function createJsonLinesLogger(options: JsonLinesLoggerOptions): Logger {
   return new JsonLinesLogger(options);
+}
+
+/**
+ * The path of a run's log in a new folder under `parent` (the system temporary folder), named by
+ * the run's UTC start time. `mkdtemp` gives the folder a name no other user can guess and mode
+ * 0700, so on a shared host nobody else can plant a file or a link in it.
+ */
+export function createTemporaryLogPath(parent: string, startTime: Date): string {
+  const folder = mkdtempSync(join(parent, TEMPORARY_FOLDER_PREFIX));
+  const name = startTime.toISOString().replaceAll(TIME_SEPARATOR, FILE_NAME_TIME_SEPARATOR);
+  return join(folder, `${name}${LOG_EXTENSION}`);
 }

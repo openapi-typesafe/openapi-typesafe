@@ -110,6 +110,13 @@ now treats the tree as untrusted input:
   files keep the spec as written. The scan is a loop over `://`, not a regular expression, so it
   stays linear.
 
+- **The default log file.** It was `<tmpdir>/openapi-typesafe-migrate/<time>.jsonl`: a fixed
+  folder that another user of a shared `/tmp` could create first, and a name they could guess and
+  plant a link at. The folder now comes from `mkdtemp` (a random name, mode 0700), and the file
+  is created with `wx` (`O_CREAT | O_EXCL`, mode 0600), which refuses an existing path, a link
+  included. A `--log` path is the user's choice: it is appended to, as before, and created with
+  mode 0600.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.
