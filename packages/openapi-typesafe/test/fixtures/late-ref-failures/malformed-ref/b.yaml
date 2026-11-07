@@ -1,0 +1,1 @@
+B: {type: object, properties: {back: {$ref: "./api.yaml#/components/schemas/5%"}}}

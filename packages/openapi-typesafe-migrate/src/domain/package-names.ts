@@ -39,3 +39,19 @@ export type DependencyField = (typeof DEPENDENCY_FIELDS)[number];
 
 /** Fields that can name a package without installing it; they are reported, not rewritten. */
 export const OVERRIDE_FIELDS = ["overrides", "resolutions", "pnpm"] as const;
+
+/** An original package that another package still needs as a peer dependency. */
+export interface OldPeer {
+  readonly peer: string;
+  readonly range: string;
+}
+
+/**
+ * Packages that keep a peer dependency on an original package after the migration. swr-openapi 5
+ * takes its client type from openapi-fetch (`peerDependencies: { "openapi-fetch": ">=0.15" }`).
+ * TypeScript infers the paths of that generic type only from the same declaration, so the
+ * project must alias openapi-fetch to openapi-typesafe-fetch (ADR-030).
+ */
+export const OLD_PEER_DEPENDENTS: ReadonlyMap<string, OldPeer> = new Map([
+  ["swr-openapi", { peer: "openapi-fetch", range: ">=0.15" }],
+]);

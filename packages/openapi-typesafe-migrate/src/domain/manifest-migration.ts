@@ -6,7 +6,12 @@ import {
   unchanged,
 } from "./migration-findings.js";
 import { overriddenPackages } from "./override-targets.js";
-import { DEPENDENCY_FIELDS, OVERRIDE_FIELDS, PACKAGE_RENAMES } from "./package-names.js";
+import {
+  DEPENDENCY_FIELDS,
+  OLD_PEER_DEPENDENTS,
+  OVERRIDE_FIELDS,
+  PACKAGE_RENAMES,
+} from "./package-names.js";
 import { migrateVersionSpec } from "./version-spec.js";
 
 type JsonObject = Record<string, unknown>;
@@ -85,6 +90,19 @@ function reportOverrides(manifest: JsonObject, findings: Findings): void {
   }
 }
 
+/** A dependency that needs an original package as its peer keeps needing it after the rename. */
+function reportOldPeers(manifest: JsonObject, findings: Findings): void {
+  for (const [dependent, { peer, range }] of OLD_PEER_DEPENDENTS) {
+    const isDependency = DEPENDENCY_FIELDS.some((field) => {
+      const dependencies = manifest[field];
+      return isObject(dependencies) && Object.hasOwn(dependencies, dependent);
+    });
+    if (isDependency) {
+      findings.manualSteps.push({ kind: "old-peer-needed", dependent, peer, range });
+    }
+  }
+}
+
 function migrateFields(manifest: JsonObject, version: string, findings: Findings): JsonObject {
   const migrated: JsonObject = { ...manifest };
   for (const field of DEPENDENCY_FIELDS) {
@@ -97,6 +115,7 @@ function migrateFields(manifest: JsonObject, version: string, findings: Findings
     migrated.scripts = migrateScripts(manifest.scripts, findings);
   }
   reportOverrides(manifest, findings);
+  reportOldPeers(manifest, findings);
   return migrated;
 }
 

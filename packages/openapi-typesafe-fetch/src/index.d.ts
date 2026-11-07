@@ -214,10 +214,6 @@ export type Middleware =
       onError: MiddlewareOnError;
     };
 
-/** The init of one operation, `undefined` too when nothing in it is required. */
-type OperationInit<Operation> =
-  RequiredKeysOf<FetchOptions<Operation>> extends never ? FetchOptions<Operation> | undefined : FetchOptions<Operation>;
-
 /**
  * This type helper makes the 2nd function param required if params/requestBody are required;
  * otherwise, optional. `Location` is any key: with `Paths extends {}` a method is not known to be a
@@ -227,21 +223,30 @@ type OperationInit<Operation> =
 export type MaybeOptionalInit<Params, Location extends PropertyKey> = OperationInits<FilterKeys<Params, Location>>;
 
 /**
+ * The inits of the operations, and `undefined` only when none of them requires anything. One
+ * operation's init is `undefined` too when nothing in it is required, as in openapi-fetch. For a
+ * union of operations (a union of paths, or `Parameters<typeof client.request>`), `undefined`
+ * would make the whole init optional, although a call to one of the paths sends the init it gets,
+ * and a path parameter left out stays `{id}` in the URL.
+ */
+type OperationInits<Operation> =
+  | OperationFetchOptions<Operation>
+  | (RequiredKeysOf<OperationFetchOptions<Operation>> extends never ? undefined : never);
+
+/**
  * Each operation's init. A distributive alias, not `extends infer Operation`: while the path is
  * not known, TypeScript reads an `infer` type as `unknown`, so the init lost its type as the
  * contextual type of an argument and a literal such as `"available"` widened to `string`
  * (swr-openapi's `Exact<Init>` checks).
  */
-type OperationInits<Operation> = Operation extends unknown ? OperationInit<Operation> : never;
+type OperationFetchOptions<Operation> = Operation extends unknown ? FetchOptions<Operation> : never;
 
 /** For each init of a union, whether it may be left out: nothing in it is required. */
 type InitOptionality<Init> = Init extends unknown ? (RequiredKeysOf<Init> extends never ? true : false) : never;
 
 /**
- * `true` when the init may be left out: nothing in it is required. For a union of inits (a union
- * of paths, or `Parameters<typeof client.request>`), only when each of them may be left out: a
- * call to one of the paths sends the init it gets, and a path parameter left out stays `{id}` in
- * the URL.
+ * `true` when the init may be left out: nothing in it is required. For a union of inits, only
+ * when each of them may be left out.
  */
 export type IsInitOptional<Init> = InitOptionality<Init> extends true ? true : false;
 
@@ -249,9 +254,13 @@ export type IsInitOptional<Init> = InitOptionality<Init> extends true ? true : f
 // - Determines if the param is optional or not.
 // - Performs arbitrary [key: string] addition.
 // Note: the addition MUST happen after all the inference happens (otherwise TS can’t infer if init is required or not).
-// - Reads `InitOptionality` and names the addition: through `IsInitOptional`, or with the addition
-//   written out in both branches, TypeScript gave `never` for `Parameters` of the methods.
-type InitParam<Init> = InitOptionality<Init> extends true ? [WithAnyKeys<Init>?] : [WithAnyKeys<Init>];
+// - The condition is openapi-fetch's. TypeScript relates two conditional types only when their
+//   `extends` types are the same and their check types relate, so a client type written against
+//   openapi-fetch's `InitParam` (a wrapper, a cast) accepted this client only with this condition.
+//   A union of inits is required through `MaybeOptionalInit`, which then leaves out `undefined`.
+// - The addition is a named alias: written out in both branches, TypeScript gave `never` for
+//   `Parameters` of the methods.
+type InitParam<Init> = RequiredKeysOf<Init> extends never ? [WithAnyKeys<Init>?] : [WithAnyKeys<Init>];
 
 /** The init with any other key (`[key: string]: unknown`), added after inference. */
 type WithAnyKeys<Init> = Init & { [key: string]: unknown };
@@ -287,10 +296,16 @@ export type ClientRequestMethod<Paths extends {}, Media extends MediaType> = <
 ) => Promise<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>;
 
 // Only HTTP method keys become calls: `parameters` and `additionalOperations` are not methods.
-export type ClientForPath<PathInfo extends Record<string | number, any>, Media extends MediaType> = {
-  [Method in keyof PathInfo as Method extends HttpMethod ? Uppercase<Method> : never]: <
-    Init extends MaybeOptionalInit<PathInfo, Method>,
-  >(
+// They are left out by `Pick`, which keeps the `?` of a method, not by the key remapping: that is
+// openapi-fetch's, and TypeScript relates two generic mapped types only when their key remappings
+// are the same, so a path-based client type written like openapi-fetch's failed a cast (TS2352).
+export type ClientForPath<PathInfo extends Record<string | number, any>, Media extends MediaType> = PathMethodCalls<
+  Pick<PathInfo, HttpMethod & keyof PathInfo>,
+  Media
+>;
+
+type PathMethodCalls<PathInfo extends Record<string | number, any>, Media extends MediaType> = {
+  [Method in keyof PathInfo as Uppercase<string & Method>]: <Init extends MaybeOptionalInit<PathInfo, Method>>(
     ...init: InitParam<Init>
   ) => Promise<FetchResponse<PathInfo[Method], Init, Media>>;
 };
@@ -397,10 +412,77 @@ export declare function createQuerySerializer<T = unknown>(
  */
 export declare function defaultPathSerializer(pathname: string, pathParams: Record<string, unknown>): string;
 
+/** Bodies that `fetch` sends as they are, so `defaultBodySerializer` returns them unchanged. */
+type RawRequestBody = FormData | Blob | URLSearchParams | ArrayBuffer | ArrayBufferView;
+
 /**
- * Serialize body object to string; with a form content type in `headers`, as URL-encoded form data.
+ * The result of `defaultBodySerializer` for a body of type `Body`: the body itself when it is raw,
+ * `undefined` for `undefined` (`JSON.stringify` gives it back), `ObjectResult` for an object, and a
+ * string otherwise. `unknown` (and `any`) may be any of these.
  */
-export declare function defaultBodySerializer<T>(body: T, headers?: HeadersOptions): string;
+type SerializedBody<Body, ObjectResult> = unknown extends Body
+  ? RawRequestBody | string | FormData | undefined
+  : Body extends RawRequestBody
+    ? Body
+    : Body extends undefined
+      ? undefined
+      : Body extends object
+        ? ObjectResult
+        : string;
+
+/** The `Content-Type` values that make `defaultBodySerializer` turn an object into `FormData`. */
+type MultipartMediaType = "multipart/form-data" | `multipart/form-data;${string}`;
+
+/** `Headers` drops the spaces and tabs in front of a value before the media type is read. */
+type TrimmedStart<Text extends string> = Text extends ` ${infer Rest}` | `\t${infer Rest}` ? TrimmedStart<Rest> : Text;
+
+/**
+ * The `Content-Type` of headers written as a record, in any letter case of the name: `never` when
+ * the record has none, `unknown` when the type does not tell (`Headers`, pairs, a string record).
+ */
+type ContentTypeOf<GivenHeaders> = GivenHeaders extends undefined
+  ? never
+  : GivenHeaders extends readonly unknown[] | { get(name: string): unknown }
+    ? unknown
+    : string extends keyof GivenHeaders
+      ? unknown
+      : ContentTypeEntries<GivenHeaders>[keyof GivenHeaders];
+
+/** For each entry of a header record: its value when it is the `Content-Type`, else `never`. */
+type ContentTypeEntries<Record> = { [Name in keyof Record]: ContentTypeEntry<Name, Record[Name]> };
+
+/** The value of a header record entry when its name is `Content-Type` in any letter case. */
+type ContentTypeEntry<Name, Value> = Lowercase<Name & string> extends "content-type" ? Value : never;
+
+/**
+ * What an object becomes with a `Content-Type` of type `ContentType`: `FormData` for a multipart
+ * one, a string for any other one or for none, and either when the type is not a literal.
+ */
+type ObjectBodyResult<ContentType> = [ContentType] extends [never]
+  ? string
+  : ContentType extends null | undefined
+    ? string
+    : ContentType extends string
+      ? string extends ContentType
+        ? string | FormData
+        : Lowercase<TrimmedStart<ContentType>> extends MultipartMediaType
+          ? FormData
+          : string
+      : string | FormData;
+
+/**
+ * Serialize a request body. A raw body (`FormData`, `Blob`, `URLSearchParams`, `ArrayBuffer`, a
+ * typed array) is returned as it is. With `headers`: a form `Content-Type` gives URL-encoded form
+ * data, a `multipart/form-data` one turns an object into `FormData`, and another non-JSON one keeps
+ * a string as it is. Anything else is JSON. Without `headers` an object can only become JSON.
+ * Headers written as a record literal tell the result type of an object body: `FormData` for a
+ * multipart `Content-Type`, `string` for another one or none. Other headers: `string | FormData`.
+ */
+export declare function defaultBodySerializer<T>(body: T): SerializedBody<T, string>;
+export declare function defaultBodySerializer<T, const GivenHeaders extends HeadersOptions | undefined>(
+  body: T,
+  headers: GivenHeaders,
+): SerializedBody<T, ObjectBodyResult<ContentTypeOf<GivenHeaders>>>;
 
 /** Construct URL string from baseUrl and handle path and query params */
 export declare function createFinalURL<O>(

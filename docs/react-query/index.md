@@ -4,7 +4,7 @@ description: Type-safe TanStack Query hooks generated from your OpenAPI schema
 ---
 # Introduction
 
-openapi-typesafe-react-query is a type-safe tiny wrapper (1 kb) around [@tanstack/react-query](https://tanstack.com/query/latest/docs/framework/react/overview) to work with OpenAPI schema.
+openapi-typesafe-react-query is a type-safe tiny wrapper (about 1 kB minified) around [@tanstack/react-query](https://tanstack.com/query/latest/docs/framework/react/overview) to work with OpenAPI schema.
 
 It works by using [openapi-typesafe-fetch](../fetch/) and [openapi-typesafe](../introduction) so you get all the following features:
 

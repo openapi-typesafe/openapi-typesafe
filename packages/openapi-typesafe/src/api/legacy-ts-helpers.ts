@@ -103,7 +103,7 @@ export function tsDedupe(types: TypeInput[]): ts.TypeNode[] {
 }
 
 /** @deprecated The generator keeps its own enum registry per run; kept for 1.x (ADR-004). */
-export const enumCache = new Map<string, ts.EnumDeclaration>();
+export const enumCache: Map<string, ts.EnumDeclaration> = new Map();
 
 /**
  * Create a TS enum (with sanitized name and members)
@@ -114,7 +114,7 @@ export function tsEnum(
   members: (string | number)[],
   metadata?: { name?: string; description?: string | null }[],
   options?: { export?: boolean; shouldCache?: boolean },
-) {
+): ts.EnumDeclaration {
   const ts = loadTypeScript();
   let enumName = sanitizeMemberName(name);
   enumName = `${enumName.charAt(0).toUpperCase()}${enumName.substring(1)}`;
@@ -149,7 +149,7 @@ export function tsArrayLiteralExpression(
   elementType: TypeInput,
   values: (string | number)[],
   options?: { export?: boolean; readonly?: boolean; injectFooter?: FooterEntry[] },
-) {
+): ts.VariableStatement {
   const ts = loadTypeScript();
   let variableName = sanitizeMemberName(name);
   variableName = `${variableName.charAt(0).toLowerCase()}${variableName.substring(1)}`;
@@ -223,7 +223,7 @@ function enumMemberName(value: string | number, explicitName: string | undefined
 export function tsEnumMember(
   value: string | number,
   metadata: { name?: string; description?: string | null } = {},
-) {
+): ts.EnumMember {
   const ts = loadTypeScript();
   const name = enumMemberName(value, metadata.name);
   const member = ts.factory.createEnumMember(name, toValueExpression(ts, value));
@@ -281,7 +281,9 @@ export function tsModifiers(modifiers: { readonly?: boolean; export?: boolean })
  * Create a valid property index
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
-export function tsPropertyIndex(index: string | number) {
+export function tsPropertyIndex(
+  index: string | number,
+): ts.Identifier | ts.NumericLiteral | ts.StringLiteral {
   const ts = loadTypeScript();
   if (
     (typeof index === "number" && !(index < 0)) ||

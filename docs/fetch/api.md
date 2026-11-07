@@ -215,9 +215,9 @@ const { data, error } = await client.PUT("/submit", {
   },
   bodySerializer(body) {
     const fd = new FormData();
-    for (const name in body) {
-      fd.append(name, body[name]);
-    }
+    fd.append("name", body.name);
+    // the nested object becomes a JSON part with its own content type
+    fd.append("query", new Blob([JSON.stringify(body.query)], { type: "application/json" }));
     return fd;
   },
 });
@@ -263,7 +263,7 @@ const { data, error } = await client.PUT("/files/{name}", {
 
 ### URL-encoded body
 
-To send a body request in `application/x-www-form-urlencoded` format, which is commonly used to transmit key-value pairs in APIs like OAuth 2.0, pass the appropriate header and body as an object. `openapi-typesafe-fetch` will automatically encode the body to the correct format.
+To send a body request in `application/x-www-form-urlencoded` format, which is commonly used to transmit key-value pairs in APIs like OAuth 2.0, pass the appropriate header (parameters such as `; charset=UTF-8` may follow) and body as an object. `openapi-typesafe-fetch` will automatically encode the body to the correct format.
 
 ```ts
 const { data, error } = await client.POST("/tokens", {
@@ -278,8 +278,9 @@ const { data, error } = await client.POST("/tokens", {
 ```
 
 Form encoding has no standard for nested objects (servers read `a[b]`, `a.b` or JSON), so a nested
-object value throws an error instead of being sent as `[object Object]`. Arrays become repeated keys.
-For nested values, write a `bodySerializer` in the format your server reads.
+object value throws an error instead of being sent as `[object Object]`. An array becomes one
+comma-separated value (`ids=1%2C2`), and a `null` or `undefined` field is left out, as in a multipart
+body. For nested values or repeated keys, write a `bodySerializer` in the format your server reads.
 
 ## pathSerializer
 
@@ -310,8 +311,9 @@ const { data, error } = await client.GET("/users/{id}", {
 ::: warning
 
 The default path serializer rejects a request when a path parameter makes a `.` or `..` path segment (for
-example `{ id: ".." }`): URL resolution would send it to another endpoint. A custom `pathSerializer` is not
-checked.
+example `{ id: ".." }`): URL resolution would send it to another endpoint. This holds for a path with a
+query string or fragment in its template too (`/echo/{id}?v=2`); the query and fragment themselves are not
+checked. A custom `pathSerializer` is not checked.
 
 :::
 

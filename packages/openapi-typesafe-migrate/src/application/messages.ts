@@ -1,11 +1,15 @@
 import { assertNever } from "../domain/assert-never.js";
 import type { Change, ManualStep, TransformKeepReason } from "../domain/migration-findings.js";
+import { PACKAGE_RENAMES } from "../domain/package-names.js";
 
 /** The user-facing text of the report (CODING_PRINCIPLES 7.8: kept apart from the logic). */
 
 // The same guide the generator links in its deprecation warning.
 const IR_CALLBACKS_GUIDE =
   "https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks";
+const OPENAPI_FETCH_ALIAS_GUIDE =
+  "https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/fetch/index.md" +
+  "#libraries-built-on-openapi-fetch";
 
 export function changeMessage(change: Change): string {
   switch (change.kind) {
@@ -37,8 +41,20 @@ const KEEP_REASONS: Readonly<Record<TransformKeepReason, string>> = {
 const PEER_NOTE = "users of this package must switch too (a breaking change for them)";
 const PINNED_NOTE = "change it to openapi-typesafe@<version>";
 const DEEP_IMPORT_NOTE = "imports a file inside the package; check that it exists";
+const STRING_NOTE = "is a string, not a module specifier, so it was kept";
+const STRING_FIX_NOTE = "if it names the package, change it to";
 const KEPT_NOTE = `it works, with a deprecation warning. See ${IR_CALLBACKS_GUIDE}`;
 const LEGACY_CALLBACK_NOTE = `receives TypeScript nodes (deprecated). See ${IR_CALLBACKS_GUIDE}`;
+
+function oldPeerMessage(step: Extract<ManualStep, { kind: "old-peer-needed" }>): string {
+  const { dependent, peer, range } = step;
+  const successor = PACKAGE_RENAMES.get(peer) ?? peer;
+  return (
+    `${dependent} takes its client type from ${peer}@${range}, its peer dependency: alias ` +
+    `${peer} to ${successor} with overrides or resolutions, or passing it the ${successor} ` +
+    `client fails to type-check. See ${OPENAPI_FETCH_ALIAS_GUIDE}`
+  );
+}
 
 export function manualStepMessage(step: ManualStep): string {
   switch (step.kind) {
@@ -54,6 +70,10 @@ export function manualStepMessage(step: ManualStep): string {
       return `${step.location} runs a pinned openapi-typescript@<version>: ${PINNED_NOTE}`;
     case "deep-import":
       return `line ${step.line}: "${step.specifier}" ${DEEP_IMPORT_NOTE}`;
+    case "string-names-package":
+      return `line ${step.line}: "${step.value}" ${STRING_NOTE}; ${STRING_FIX_NOTE} "${step.to}"`;
+    case "old-peer-needed":
+      return oldPeerMessage(step);
     case "transform-not-rewritten":
       return `line ${step.line}: transform kept (${KEEP_REASONS[step.reason]}); ${KEPT_NOTE}`;
     case "legacy-callback":

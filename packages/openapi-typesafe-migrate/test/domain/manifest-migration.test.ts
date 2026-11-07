@@ -86,6 +86,28 @@ describe("migratePackageManifest", () => {
     ]);
   });
 
+  it("migratePackageManifest reports that swr-openapi still needs openapi-fetch as its peer", () => {
+    const text = manifest({
+      dependencies: { "openapi-fetch": "^0.13.1", "swr-openapi": "^5.6.0" },
+      devDependencies: { "swr-openapi": "^5.6.0" },
+    });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.manualSteps).toEqual([
+      { kind: "old-peer-needed", dependent: "swr-openapi", peer: "openapi-fetch", range: ">=0.15" },
+    ]);
+  });
+
+  it("migratePackageManifest does not report swr-openapi outside the dependency fields", () => {
+    const text = manifest({
+      dependencies: { "openapi-fetch": "^0.13.1" },
+      keywords: ["swr-openapi"],
+    });
+
+    expect(migratePackageManifest(text, "1.0.0").manualSteps).toEqual([]);
+  });
+
   it("migratePackageManifest does not take a scoped package for an original one", () => {
     const text = manifest({ resolutions: { "@acme/openapi-fetch": "1.0.0" } });
 

@@ -246,7 +246,7 @@ describe("runCli with the APIs of a Redocly config", () => {
     await runCli(["ignored.yaml"], cli.deps);
 
     expect(cli.logger.messages("warn")).toEqual([
-      "APIs are specified both in Redocly Config and CLI argument. Only using Redocly config.",
+      "APIs are specified both in Redocly Config and CLI argument. Only using Redocly config. (CLI_INPUT_IGNORED)",
     ]);
     expect(cli.generator.calls.map((call) => String(call.source))).toEqual([fakeUrl("/work/api/api.yaml")]);
   });

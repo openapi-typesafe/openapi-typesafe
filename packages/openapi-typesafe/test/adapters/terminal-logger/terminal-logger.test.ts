@@ -81,12 +81,26 @@ describe("createTerminalLogger", () => {
     const { logger, sink } = loggerWith({ debugFilter: "openapi-ts:*" });
 
     logger.debug("Bundled schema", "bundle", 12.34);
-    logger.debug("Started");
+
+    expect(sink.lines).toEqual(["debug:  openapi-ts:bundle 12.3ms Bundled schema"]);
+  });
+
+  it("debug without a duration separates the group from the message with a space", () => {
+    const { logger, sink } = loggerWith({ debugFilter: "openapi-ts:lint" });
+
+    logger.debug("Ignored by the lint ignore file: a problem", "lint");
 
     expect(sink.lines).toEqual([
-      "debug:  openapi-ts:bundle 12.3ms Bundled schema",
-      "debug:  openapi-ts:infoStarted",
+      "debug:  openapi-ts:lint Ignored by the lint ignore file: a problem",
     ]);
+  });
+
+  it("debug without a group or a duration writes the info group and a space", () => {
+    const { logger, sink } = loggerWith({ debugFilter: "openapi-ts:*" });
+
+    logger.debug("Started");
+
+    expect(sink.lines).toEqual(["debug:  openapi-ts:info Started"]);
   });
 
   it("debug writes nothing without DEBUG", () => {

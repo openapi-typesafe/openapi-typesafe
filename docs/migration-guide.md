@@ -18,6 +18,8 @@ All four packages have one version number. The generated types are the same, the
 
 Coming from openapi-typescript **6.x**? Follow the [upstream guide to 7.x](https://openapi-ts.dev/migration-guide) first, then this one.
 
+Coming from openapi-fetch **older than 0.17** or openapi-react-query **older than 0.5.4**? Upgrade them upstream first (`openapi-fetch@0.17`, `openapi-react-query@0.5.4`), run your type check and tests, then follow this guide. openapi-typesafe-fetch continues openapi-fetch 0.17 and openapi-typesafe-react-query continues openapi-react-query 0.5.4, so the changes before those versions are upstream's and are listed in the [openapi-fetch changelog](https://github.com/openapi-ts/openapi-typescript/blob/main/packages/openapi-fetch/CHANGELOG.md) and the [openapi-react-query changelog](https://github.com/openapi-ts/openapi-typescript/blob/main/packages/openapi-react-query/CHANGELOG.md). For example, openapi-fetch 0.14 dropped the minified build (`dist/index.min.js`), and openapi-react-query 0.5.4 needs `@tanstack/react-query` 5.80 or newer. The `openapi-react-query@1.0.0` on npm is older than 0.5.1; upgrade it to 0.5.4 too.
+
 ## 1. Run the migration tool
 
 In the project root, with a clean git tree:
@@ -29,7 +31,9 @@ npx openapi-typesafe-migrate --write  # change the files
 
 It renames the packages in every `package.json` and in pnpm catalogs, the module specifiers in your sources, and the `openapi-typescript` command in `package.json` scripts, shell scripts, CI files, Makefiles and Dockerfiles. It also writes the new spelling of [CLI flags that openapi-typescript renamed](#renamed-cli-flags). A legacy [`transform` callback](#legacy-callbacks) that only returns `ts.factory` types becomes type text with `irCallbacks: true`.
 
-Whatever it cannot change safely, it lists with the file and line: version specs such as `latest`, `overrides`, renamed peer dependencies, `npx openapi-typescript@<version>`, deep imports, and callbacks it cannot rewrite. Every finding also goes to a log file whose path it prints. See the [tool’s README](https://github.com/openapi-typesafe/openapi-typesafe/tree/main/packages/openapi-typesafe-migrate) for details.
+It reads the files git lists, so files that `.gitignore` ignores (build output, for example) stay as they are. Submodules and nested repositories are read with their own `.gitignore`.
+
+Whatever it cannot change safely, it lists with the file and line: version specs such as `latest`, `overrides`, renamed peer dependencies, `npx openapi-typescript@<version>`, deep imports, strings that equal a package name outside an import (an object key or a bundler option, for example), [swr-openapi](#swr-openapi), and callbacks it cannot rewrite. Every finding also goes to a log file whose path it prints. See the [tool’s README](https://github.com/openapi-typesafe/openapi-typesafe/tree/main/packages/openapi-typesafe-migrate) for details.
 
 Prefer to do it by hand? Rename the packages in the table above in `package.json`, imports and scripts; nothing else is required.
 
@@ -39,6 +43,8 @@ Prefer to do it by hand? Rename the packages in the table above in `package.json
 npm install            # or pnpm install, yarn, bun install
 npm run generate       # your script that runs openapi-typesafe
 ```
+
+With Yarn 4 and `enableImmutableInstalls` (on by default in CI), this first install must change the lockfile: run `yarn install --no-immutable` once and commit `yarn.lock`.
 
 Commit the regenerated files once. Unless one of the [output fixes](#output-fixes) applies, the only changes are the comments that name the generator, first the header line:
 
@@ -54,6 +60,12 @@ A schema with a `discriminator` also gets the generator's name in the comment of
 discriminator property: `@description discriminator enum property added by openapi-typesafe`.
 
 If you check generated files in CI with `--check`, it fails until this commit lands, because the files on disk still carry the old header.
+
+The run may print warnings that openapi-typescript did not print, while the types stay the same.
+Each one ends with a code, such as `PATH_TEMPLATES_IDENTICAL` for paths that differ only in their
+parameter names, or `LINT_PROBLEM` with the rule `operation-operationId-unique` for a repeated
+`operationId`. A warning does not change the output or the exit code; the
+[list of warnings](./cli.md#warnings) says what each one means.
 
 ## 3. Type check and test
 
@@ -76,6 +88,10 @@ The generator does not need the `typescript` package. It prints types itself, so
 ### Legacy callbacks
 
 `transform`, `postTransform` and `transformProperty` that work with TypeScript nodes keep working in 1.x, with a deprecation warning, as long as a TypeScript JavaScript API can be loaded: `typescript` 6 or earlier, or `@typescript/typescript6` in a TypeScript 7 project. Move them to [IR callbacks](/node#ir-callbacks) (`irCallbacks: true`), which return IR or plain type text such as `"Date | null"`. The TypeScript-node forms are removed in 2.0.
+
+### swr-openapi
+
+[swr-openapi](https://github.com/htunnicliff/swr-openapi) 5 has `openapi-fetch` (0.15 or newer) as a peer dependency and takes its client type from it. Alias `openapi-fetch` to `openapi-typesafe-fetch` with `overrides` or `resolutions`, as [Libraries built on openapi-fetch](/fetch/#libraries-built-on-openapi-fetch) shows; without the alias, passing it the `openapi-typesafe-fetch` client fails with TS2345. The tool's report reminds you of this when it finds swr-openapi.
 
 ### Renamed CLI flags
 
@@ -155,6 +171,12 @@ These are off by default, so the output does not change until you turn one on.
   `ref-pointers` gives a `$ref` into another schema's keywords the type it points at also where
   an index signature made the original compile as `unknown`.
 
+### Libraries built on openapi-fetch
+
+A library that imports types from `openapi-fetch`, such as swr-openapi, needs `openapi-fetch`
+aliased to `openapi-typesafe-fetch` with `overrides` (npm, bun, `pnpm-workspace.yaml`) or `resolutions` (yarn). See
+[Libraries built on openapi-fetch](/fetch/#libraries-built-on-openapi-fetch).
+
 ### Client fixes
 
 - A string body with a non-JSON `Content-Type` such as `text/plain` is sent as is, not JSON-encoded.
@@ -165,6 +187,7 @@ These are off by default, so the output does not change until you turn one on.
 - A nested object in an `application/x-www-form-urlencoded` body throws instead of being sent as `[object Object]`; write a `bodySerializer` for the format your server reads.
 - An object body with `Content-Type: multipart/form-data` is sent as `FormData` (one part per field), not as JSON, and a `multipart/form-data` header without a boundary no longer breaks a `FormData` upload.
 - A path that already has a query string gets `&` before `params.query`, not a second `?`.
+- `defaultBodySerializer` declares the type it returns instead of `string`: a raw body as its own type, `undefined` for `undefined`, and `FormData` or `string | FormData` for an object with a multipart or an unknown `Content-Type`. An object without headers, or with headers written as a record, is still `string` unless the `Content-Type` is multipart. Code that used the result as a `string` in the other cases, or in a global `bodySerializer` (its `body` is typed `undefined`), no longer compiles: check `typeof result === "string"`.
 - `Readable` and `Writable` keep function types, so a `Blob` or `Date` in response data keeps its methods (`data.file.arrayBuffer()`).
 
 The full list, with the upstream issues each change closes, is in the [changelog](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/packages/openapi-typesafe/CHANGELOG.md).

@@ -114,6 +114,20 @@ describe("CLI exit codes", () => {
   );
 
   it(
+    "cli with a $ref cycle reached from two documents exits with 3 and SCHEMA_REF_INVALID, without a stack trace",
+    async () => {
+      const schema = fileURLToPath(new URL("../fixtures/late-ref-failures/self-ref/api.yaml", import.meta.url));
+
+      const { exitCode, stderr } = await runCli([schema, "-o", workFile("self-ref.ts")]);
+
+      expect(exitCode).toBe(3);
+      expect(stderr).toContain("Self-referencing circular pointer (SCHEMA_REF_INVALID)");
+      expect(stderr).not.toContain("    at ");
+    },
+    TIMEOUT,
+  );
+
+  it(
     "cli with lint errors prints each one, then exits with 3 and SCHEMA_INVALID",
     async () => {
       const cwd = fileURLToPath(new URL("../fixtures/redocly-lint-error/", import.meta.url));

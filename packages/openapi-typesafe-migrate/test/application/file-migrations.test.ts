@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { fileMigrationFor } from "../../src/application/file-migrations.js";
+import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
 
-const context = { version: "1.0.0", rewriter: new StubCallbackRewriter() };
+const scanner = new QuotedStringScanner();
+const context = { version: "1.0.0", rewriter: new StubCallbackRewriter(), scanner };
 
 describe("fileMigrationFor", () => {
   it.each([
@@ -40,6 +42,7 @@ describe("fileMigrationFor", () => {
     const migration = migrate?.('import "openapi-fetch/x";', "a.ts", {
       version: "1.0.0",
       rewriter,
+      scanner,
     });
 
     expect(migration?.text).toBe("rewritten");

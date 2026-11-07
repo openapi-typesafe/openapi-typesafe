@@ -17,6 +17,8 @@ npm i --save-dev openapi-typesafe typescript
 
 The generator does not need the `typescript` package. Only callbacks or helpers that use TypeScript compiler nodes (the legacy forms, see [IR callbacks](#ir-callbacks)) load it: `typescript` 6 or earlier, or `@typescript/typescript6` in a TypeScript 7 project.
 
+The declarations type-check with TypeScript 5.4 to 7 and `skipLibCheck: false`, except for four errors from the schema loader's own declarations; see [Type-checking the declarations](./typescript-7.md#type-checking-the-declarations).
+
 :::
 
 ::: tip Recommended
@@ -134,7 +136,7 @@ The Node API supports all the [CLI flags](/cli#flags) in `camelCase` format, plu
 
 ### IR callbacks
 
-With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, prints a deprecation warning once per run, and is removed in 2.0. The examples below use the IR form.
+With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, prints a deprecation warning (`LEGACY_CALLBACK_DEPRECATED`) once per run, and is removed in 2.0. The examples below use the IR form.
 
 - A type result is an IR type (from the helpers, such as `tsUnion([STRING, NULL])`) or a string of TypeScript type text, printed as written.
 - `transform` may also return `{ schema, questionToken: true }` to make the property optional.

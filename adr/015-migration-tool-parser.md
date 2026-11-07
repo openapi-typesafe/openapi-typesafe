@@ -18,11 +18,15 @@ installed). The generator itself already treats it as the optional TypeScript-no
 ## Decision
 
 1. The migration tool has one runtime dependency, `@typescript/typescript6` (`^6.0.2`). It is used
-   only by `src/adapters/typescript-parser/`, behind the `CallbackRewriter` port; dependency-cruiser
-   fails the lint if another module imports it.
+   only by `src/adapters/typescript-parser/`, behind the `CallbackRewriter` and
+   `SourceStringScanner` ports; dependency-cruiser fails the lint if another module imports it.
 2. The parser only reads: edits are offsets into the original text, so formatting and comments
    outside the replaced expressions stay as written.
-3. A callback is rewritten only when every return is a known type-building form (references,
+3. The parser also finds the module specifiers that the package rename changes (imports, exports,
+   `import()`, `require()`, `import("…")` types and `@import` tags in any JSDoc block,
+   `declare module`, `/// <reference types>`, the module methods of vitest, jest and bun). A string that equals a package name in any other place is reported, not renamed: only
+   the syntax tells a module specifier from a label or an object key.
+4. A callback is rewritten only when every return is a known type-building form (references,
    keywords, literal types, unions, intersections, arrays, the helper constants, module constants
    bound to these). Anything else is left and reported as a manual step.
 
@@ -40,8 +44,30 @@ installed). The generator itself already treats it as the optional TypeScript-no
 
 - `npx openapi-typesafe-migrate` downloads TypeScript 6 once; the tool is not a dependency of any
   project, so the size does not reach users' installs.
-- Single-file components (`.vue`, `.svelte`, `.astro`) get the specifier rename but no callback
-  rewrite, because they are not plain scripts.
+- Single-file components (`.vue`, `.svelte`, `.astro`) get the specifier rename in their
+  `<script>` blocks (and Astro's frontmatter), but no callback rewrite; their markup is not read.
+  `<script>` blocks are looked for after the frontmatter only, so the two never overlap, and the
+  rename refuses strings that overlap instead of writing a name twice.
+
+## Amendment (2026-11-06): which files the tool reads
+
+The tool reads the files that git lists (`git ls-files --cached --others --exclude-standard`), so
+build output that `.gitignore` ignores is not rewritten. A review of that change found three gaps,
+each of which skipped files without a word:
+
+- In a folder that an outer repository ignores, git lists nothing, and the migration said there
+  was nothing to change.
+- Git lists a submodule, or a repository nested in the working tree, as one entry. That entry is
+  a directory, not a file, so the files in it were left out; the tree walk used to read them.
+- A file in a merge conflict was listed once per side.
+
+Decision: the git listing is used only when `git check-ignore` says that the folder itself is not
+ignored; otherwise the folder's tree is walked. `--deduplicate` lists each file once (git 2.31;
+an older git fails the listing, and the tree is walked). Every directory that git lists as one
+entry is listed by the same rule, by the git of that directory: its own repository, its own
+`.gitignore`, or a tree walk when git cannot list it. `--recurse-submodules` was not used: it
+works only for tracked files of submodules, not with `--others`, and not for nested repositories
+that are not submodules. The log records, for each folder, whether git or the tree walk listed it.
 
 ## Review trigger
 
