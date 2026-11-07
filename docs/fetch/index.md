@@ -249,25 +249,28 @@ from `openapi-fetch`. They need this package under that name, so alias it:
 ```json [npm / bun]
 {
   "overrides": {
-    "openapi-fetch": "npm:openapi-typesafe-fetch@^1.0.0"
+    "openapi-fetch": "npm:openapi-typesafe-fetch@^1.0.0-rc"
   }
 }
 ```
 
 ```yaml [pnpm-workspace.yaml]
 overrides:
-  openapi-fetch: npm:openapi-typesafe-fetch@^1.0.0
+  openapi-fetch: npm:openapi-typesafe-fetch@^1.0.0-rc
 ```
 
 ```json [yarn]
 {
   "resolutions": {
-    "openapi-fetch": "npm:openapi-typesafe-fetch@^1.0.0"
+    "openapi-fetch": "npm:openapi-typesafe-fetch@^1.0.0-rc"
   }
 }
 ```
 
 :::
+
+`^1.0.0-rc` matches the 1.0.0 release candidates as well as 1.0.0 and every later 1.x version; a
+plain `^1.0.0` would leave out the release candidates.
 
 Without the alias the package manager installs openapi-fetch for the library, and passing this
 client to it fails with `Argument of type 'Client<paths>' is not assignable to parameter of type

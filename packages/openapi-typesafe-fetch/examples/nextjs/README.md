@@ -23,7 +23,7 @@ You’ll see the server running at `localhost:3000`
 Outside this repository `workspace:^` and `catalog:` do not resolve. In `package.json`, replace
 them with published versions:
 
-- `openapi-typesafe-fetch` and `openapi-typesafe`: `workspace:^` → `^1.0.0`
+- `openapi-typesafe-fetch` and `openapi-typesafe`: `workspace:^` → `^1.0.0-rc`
 - `typescript`: `catalog:` → `^6.0.3`
 
 Then install with your package manager and run `npm run dev`. To regenerate the types from the
