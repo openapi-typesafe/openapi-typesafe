@@ -1,6 +1,12 @@
 import type { Change, ManualStep } from "../domain/migration-findings.js";
 import { fileMigrationFor, type MigrationContext } from "./file-migrations.js";
-import type { CallbackRewriter, Logger, ProjectFiles, SourceStringScanner } from "./ports.js";
+import type {
+  CallbackRewriter,
+  Logger,
+  ProjectFiles,
+  SkippedFile,
+  SourceStringScanner,
+} from "./ports.js";
 
 export interface MigrateProjectDependencies {
   readonly files: ProjectFiles;
@@ -14,6 +20,12 @@ export interface MigrateProjectInput {
   readonly version: string;
   /** Write the changed files; without it the migration only reports (dry run). */
   readonly isWrite: boolean;
+}
+
+/** What the migration found: the files with changes or manual steps, and the skipped paths. */
+export interface ProjectMigration {
+  readonly files: readonly FileReport[];
+  readonly skipped: readonly SkippedFile[];
 }
 
 /** What the migration found in one file. */
@@ -51,13 +63,15 @@ async function migrateFile(
 /**
  * Migrate every file of a project (ENGINEERING_PLAN 10.1): package.json files, pnpm catalogs,
  * module specifiers and `transform` callbacks in sources, and the generator command in scripts.
- * Writes only with `isWrite`. Returns the files with changes or manual steps, in path order.
+ * Writes only with `isWrite`. Gives the files with changes or manual steps, in path order, and
+ * the listed paths that were skipped.
  */
 export async function migrateProject(
   dependencies: MigrateProjectDependencies,
   input: MigrateProjectInput,
-): Promise<FileReport[]> {
-  const paths = (await dependencies.files.listFiles()).sort();
+): Promise<ProjectMigration> {
+  const { files, skipped } = await dependencies.files.listFiles();
+  const paths = [...files].sort();
   dependencies.logger.info("migration_started", { fileCount: paths.length, ...input });
   const reports: FileReport[] = [];
   for (const path of paths) {
@@ -66,6 +80,9 @@ export async function migrateProject(
       reports.push(report);
     }
   }
-  dependencies.logger.info("migration_finished", { changedFiles: reports.length });
-  return reports;
+  dependencies.logger.info("migration_finished", {
+    changedFiles: reports.length,
+    skippedFiles: skipped.length,
+  });
+  return { files: reports, skipped };
 }

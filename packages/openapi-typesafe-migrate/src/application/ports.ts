@@ -1,11 +1,28 @@
 import type { FileMigration } from "../domain/migration-findings.js";
 import type { SourceString } from "../domain/source-migration.js";
 
+/** Why a listed file is not read: it resolves to a place outside the project folder. */
+export type SkipReason = "outside-root";
+
+/** A path that a listing named but the migration does not read or write. */
+export interface SkippedFile {
+  readonly path: string;
+  readonly reason: SkipReason;
+}
+
+/** The files of a project, and the listed paths that were left out. */
+export interface ProjectFileList {
+  readonly files: readonly string[];
+  readonly skipped: readonly SkippedFile[];
+}
+
 /** The project's files, by paths relative to the project root, with `/` separators. */
 export interface ProjectFiles {
   /** Every file of the project, without installed packages, git metadata and build output. */
-  listFiles(): Promise<string[]>;
+  listFiles(): Promise<ProjectFileList>;
+  /** Fails for a path that resolves outside the project folder. */
   read(path: string): Promise<string>;
+  /** Fails for a path that resolves outside the project folder. */
   write(path: string, text: string): Promise<void>;
 }
 

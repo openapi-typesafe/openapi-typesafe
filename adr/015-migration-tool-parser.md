@@ -86,6 +86,14 @@ now treats the tree as untrusted input:
   tree. `-c` is used, not `GIT_CONFIG_PARAMETERS`, so the settings are visible in the arguments.
   System and global config stay: the user and the administrator wrote them.
 
+- **Paths from a foreign git index.** Git checks a path when it adds it to the index, but it
+  prints an index that it did not write as it is. A planted index listed `../../outside/a.ts`, and
+  `--write` changed that file. A listed path is now used only when it has no `..` segment, is not
+  absolute, and its real path (links resolved, parent folders too) is inside the real path of the
+  root. Other paths are not read; the report lists them under "Skipped" and the log has a
+  `file_skipped` warning for each, because such an index is a sign of a planted repository.
+  `read` and `write` check the real path again, so no caller can reach outside the root.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

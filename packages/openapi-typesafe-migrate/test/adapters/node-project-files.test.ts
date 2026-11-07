@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createGitFileList,
@@ -44,7 +44,7 @@ describe("NodeProjectFiles", () => {
     const paths = ["package.json", "src/api.ts", "dist/index.js", "linked", "src/deleted.ts"];
     const { files, git, logger } = filesWith({ kind: "listed", paths });
 
-    const listed = await files.listFiles();
+    const listed = (await files.listFiles()).files;
 
     expect(listed).toEqual(["package.json", "src/api.ts"]);
     expect(git.directories).toEqual([root]);
@@ -55,6 +55,45 @@ describe("NodeProjectFiles", () => {
         fields: { directory: ".", source: "git", fileCount: 2 },
       },
     ]);
+  });
+
+  it("listFiles skips listed paths that resolve outside the root and logs them", async () => {
+    const outside = await mkdtemp(join(tmpdir(), "migrate-outside-"));
+    await writeFile(join(outside, "package.json"), "{}");
+    await put("vendor/lib/a.ts", "");
+    await symlink(outside, join(root, "linked"));
+    const escaping = `vendor/lib/../../${relative(root, outside)}/package.json`;
+    const paths = ["vendor/lib/a.ts", escaping, "/etc/hosts", "linked/package.json"];
+    const { files, logger } = filesWith({ kind: "listed", paths });
+
+    const listed = await files.listFiles();
+    await rm(outside, { recursive: true, force: true });
+
+    expect(listed.files).toEqual(["vendor/lib/a.ts"]);
+    const skipped = [escaping, "/etc/hosts", "linked/package.json"].map((path) => ({
+      path,
+      reason: "outside-root",
+    }));
+    expect(listed.skipped).toEqual(skipped);
+    expect(logger.events.filter((event) => event.level === "warn")).toEqual(
+      skipped.map((fields) => ({ level: "warn", event: "file_skipped", fields })),
+    );
+  });
+
+  it("listFiles skips paths outside the root that a nested repository lists", async () => {
+    await put("vendor/lib/a.ts", "");
+    await put("outside.ts", "");
+    const nested = new Map<string, GitListing>([
+      [join(root, "vendor/lib"), { kind: "listed", paths: ["a.ts", "../../outside.ts"] }],
+    ]);
+    const { files } = filesWith({ kind: "listed", paths: ["vendor/lib"] }, nested);
+
+    const listed = await files.listFiles();
+
+    expect(listed).toEqual({
+      files: ["vendor/lib/a.ts"],
+      skipped: [{ path: "vendor/lib/../../outside.ts", reason: "outside-root" }],
+    });
   });
 
   it("listFiles walks the tree outside a git repository, without the skipped folders", async () => {
@@ -70,9 +109,9 @@ describe("NodeProjectFiles", () => {
     await symlink(join(root, "src"), join(root, "linked"));
     const { files, logger } = filesWith(NOT_A_REPOSITORY);
 
-    const listed = await files.listFiles();
+    const listed = (await files.listFiles()).files;
 
-    expect(listed.sort()).toEqual(["package.json", "src/api/client.ts"]);
+    expect([...listed].sort()).toEqual(["package.json", "src/api/client.ts"]);
     expect(logger.events[0]?.fields).toEqual({
       directory: ".",
       source: "tree",
@@ -93,7 +132,7 @@ describe("NodeProjectFiles", () => {
       nested,
     );
 
-    const listed = await files.listFiles();
+    const listed = (await files.listFiles()).files;
 
     expect(listed).toEqual(["src/a.ts", "vendor/library/index.ts"]);
     expect(git.directories).toEqual([root, join(root, "vendor/library")]);
@@ -109,7 +148,7 @@ describe("NodeProjectFiles", () => {
     const nested = new Map<string, GitListing>([[join(root, "nested"), NOT_A_REPOSITORY]]);
     const { files, logger } = filesWith({ kind: "listed", paths: ["nested"] }, nested);
 
-    const listed = await files.listFiles();
+    const listed = (await files.listFiles()).files;
 
     expect(listed).toEqual(["nested/b.ts"]);
     expect(logger.events[1]?.fields).toEqual({
@@ -126,7 +165,7 @@ describe("NodeProjectFiles", () => {
     const paths = ["node_modules/x", "packages/web/dist"];
     const { files, git } = filesWith({ kind: "listed", paths });
 
-    const listed = await files.listFiles();
+    const listed = (await files.listFiles()).files;
 
     expect(listed).toEqual([]);
     expect(git.directories).toEqual([root]);
@@ -149,9 +188,9 @@ describe("NodeProjectFiles", () => {
     await put("build/app/cjs/a.cjs", "");
     const { files, logger } = filesWithGit("build/app");
 
-    const listed = await files.listFiles();
+    const listed = (await files.listFiles()).files;
 
-    expect(listed.sort()).toEqual(["cjs/a.cjs", "src/a.ts"]);
+    expect([...listed].sort()).toEqual(["cjs/a.cjs", "src/a.ts"]);
     expect(logger.events[0]?.fields).toMatchObject({ directory: ".", source: "tree" });
   });
 
@@ -167,9 +206,9 @@ describe("NodeProjectFiles", () => {
     await put("nested/out/b.js", "");
     const { files, logger } = filesWithGit(".");
 
-    const listed = await files.listFiles();
+    const listed = (await files.listFiles()).files;
 
-    expect(listed.sort()).toEqual([
+    expect([...listed].sort()).toEqual([
       ".gitignore",
       "nested/.gitignore",
       "nested/b.ts",
@@ -190,10 +229,23 @@ describe("NodeProjectFiles", () => {
     gitIn("vendor/library", "config", "core.fsmonitor", `touch '${marker}'; false`);
     const { files } = filesWithGit(".");
 
-    const listed = await files.listFiles();
+    const listed = (await files.listFiles()).files;
 
     expect(listed).toEqual(["vendor/library/index.ts"]);
     await expect(access(marker)).rejects.toThrow();
+  });
+
+  it("read and write refuse a path that resolves outside the root", async () => {
+    const outside = await mkdtemp(join(tmpdir(), "migrate-outside-"));
+    await writeFile(join(outside, "a.ts"), "outside");
+    await symlink(outside, join(root, "linked"));
+    const { files } = filesWith(NOT_A_REPOSITORY);
+
+    await expect(files.read("linked/a.ts")).rejects.toThrow("outside the project folder");
+    await expect(files.write("linked/a.ts", "new")).rejects.toThrow("outside the project folder");
+    await expect(files.write("../a.ts", "new")).rejects.toThrow("outside the project folder");
+    expect(await readFile(join(outside, "a.ts"), "utf8")).toBe("outside");
+    await rm(outside, { recursive: true, force: true });
   });
 
   it("read and write work on paths relative to the root", async () => {

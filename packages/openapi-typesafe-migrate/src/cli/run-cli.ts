@@ -53,8 +53,8 @@ async function runMigration(
     const files = dependencies.createFiles(root, logger);
     const { rewriter, scanner } = dependencies;
     const input = { version: dependencies.version, isWrite: request.isWrite };
-    const reports = await migrateProject({ files, rewriter, scanner, logger }, input);
-    dependencies.writeStdout(renderReport(reports, request.isWrite));
+    const migration = await migrateProject({ files, rewriter, scanner, logger }, input);
+    dependencies.writeStdout(renderReport(migration, request.isWrite));
     return EXIT_CODES.success;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

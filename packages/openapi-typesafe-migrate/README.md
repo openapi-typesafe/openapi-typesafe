@@ -34,7 +34,9 @@ was read.
 
 The tool does not trust the folder it migrates. Git runs with `core.fsmonitor` turned off, so a
 nested repository's `.git/config` cannot make it run a command, and it does not open a bare
-repository that is not named explicitly.
+repository that is not named explicitly. A path that git lists but that leads outside the folder
+(`../`, an absolute path, or a linked parent folder) is not read or written; the report lists it
+under "Skipped".
 
 ## What it leaves to you
 
