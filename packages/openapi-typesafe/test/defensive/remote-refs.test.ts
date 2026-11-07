@@ -201,3 +201,23 @@ describe("remote $ref fan-out", () => {
     expect(fanRequests.maxInFlight).toBeLessThanOrEqual(limits.maxParallelFetches);
   });
 });
+
+describe("credentials in remote URLs", () => {
+  it("a $ref URL with user info fails without the credentials in the error", async () => {
+    const withCredentials = baseURL.replace("//", "//tok:URL-SECRET@");
+
+    const error = await loadFailure(documentWith({ Person: { $ref: `${withCredentials}/person.json` } }));
+
+    expect(error.code).toBe("SCHEMA_INVALID");
+    expect(JSON.stringify({ message: error.message, details: error.details })).not.toContain("URL-SECRET");
+  });
+
+  it("a source URL with user info fails without the credentials in the error", async () => {
+    const withCredentials = baseURL.replace("//", "//tok:URL-SECRET@");
+
+    const error = await loadFailure(new URL(`${withCredentials}/person.json`));
+
+    expect(error.code).toBe("SCHEMA_LOAD_FAILED");
+    expect(JSON.stringify({ message: error.message, details: error.details })).not.toContain("URL-SECRET");
+  });
+});

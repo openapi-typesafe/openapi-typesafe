@@ -10,6 +10,7 @@ import {
 } from "@redocly/openapi-core";
 import type { RefAccess } from "../../application/ports/schema-loader.js";
 import { ERROR_CODES, type OpenAPITypesafeError } from "../../domain/errors.js";
+import { redactUrlCredentials } from "../../domain/url-credentials.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
 import { isHostAllowed } from "./allowed-hosts.js";
 import { refForbiddenError } from "./schema-load-errors.js";
@@ -91,7 +92,8 @@ function localFromRemoteRefusal(
   if (!isRemoteRef(base) || isRemoteRef(absoluteRef)) {
     return undefined;
   }
-  return refForbiddenError(absoluteRef, { reason: "local-ref-from-remote", base });
+  const shownBase = redactUrlCredentials(base);
+  return refForbiddenError(absoluteRef, { reason: "local-ref-from-remote", base: shownBase });
 }
 
 /** The limits one resolver checks; each load gets its own resolver. */

@@ -1,9 +1,11 @@
 import { assertNever } from "../../domain/assert-never.js";
 import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
+import { redactUrlCredentials } from "../../domain/url-credentials.js";
 
 /**
  * The typed errors of loading, validating and bundling a document (ADR-011). Messages are the
- * original messages, so Node API users who match on them keep working.
+ * original messages, so Node API users who match on them keep working; URLs in them and in the
+ * details never show user info.
  */
 
 /** No source was given, or the source is empty. */
@@ -49,7 +51,7 @@ export function loadFailedError(absoluteRef: string, cause: unknown): OpenAPITyp
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_LOAD_FAILED,
     message: causeMessage(cause),
-    details: { source: absoluteRef },
+    details: { source: redactUrlCredentials(absoluteRef) },
     cause,
   });
 }
@@ -63,7 +65,7 @@ export function parseFailedError(
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_PARSE_FAILED,
     message: causeMessage(cause),
-    details: { format, source: absoluteRef },
+    details: { format, source: redactUrlCredentials(absoluteRef) },
     cause,
   });
 }
@@ -88,7 +90,7 @@ export function schemaInvalidError(problems: readonly string[]): OpenAPITypesafe
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_INVALID,
     message: problems.at(-1) ?? "",
-    details: { problems: [...problems] },
+    details: { problems: problems.map(redactUrlCredentials) },
   });
 }
 
@@ -139,6 +141,6 @@ export function refForbiddenError(ref: string, details: RefRefusalDetails): Open
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_REF_FORBIDDEN,
     message: `Refused to load ${ref}: ${limit}`,
-    details: { ref, ...details },
+    details: { ref: redactUrlCredentials(ref), ...details },
   });
 }

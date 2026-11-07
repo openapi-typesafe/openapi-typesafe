@@ -122,3 +122,16 @@ describe("createTerminalLogger", () => {
     expect(sink.lines.every((line) => line.includes("\u001b["))).toBe(true);
   });
 });
+
+describe("credentials in URLs", () => {
+  it("every line hides the user info of URLs", () => {
+    const { logger, sink } = loggerWith({ debugFilter: "*" });
+
+    logger.debug("loading https://tok:SECRET@api.example/x.yaml", "redoc");
+    logger.warn("redirected to http://tok:SECRET@api.example/y.yaml");
+    logger.error("Failed to load http://tok:SECRET@api.example/z.yaml");
+
+    expect(sink.lines.join("\n")).not.toContain("SECRET");
+    expect(sink.lines).toHaveLength(3);
+  });
+});
