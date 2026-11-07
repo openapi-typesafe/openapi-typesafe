@@ -1,0 +1,6 @@
+# Advisories that OSV-Scanner (and so the Scorecard "Vulnerabilities" check) should skip, each with
+# its reason. Decisions and review triggers: adr/035-dev-only-advisories-we-accept.md.
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+reason = "deepmerge 4.3.1 has no fixed release. It is a dev dependency only (unbuild and the SvelteKit example) and merges only configuration from this repository (ADR-035)."

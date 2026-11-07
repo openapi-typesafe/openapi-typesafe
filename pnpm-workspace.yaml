@@ -21,6 +21,16 @@ peerDependencyRules:
   allowedVersions:
     unbuild>typescript: "6"
 
+# Dev-only advisories with a fix the dependents do not ask for yet (audit B3, ADR-035). Each line
+# goes when the dependent moves on its own: VitePress 1.6.4 (its latest stable release) still wants
+# vite 5, where the fixes of vite 6.4.4 and of its esbuild are missing; linkinator 8.1.0 wants
+# glob 13 and vitepress-plugin-llms 1.14.0 wants minimatch 10. The docs build and link check pass
+# with these versions.
+overrides:
+  vitepress>vite: ^6.4.5
+  linkinator>glob: ^14.0.4
+  minimatch@>=7 <11.0.1: ^11.0.5
+
 # pnpm 11+ blocks dependency build scripts unless listed here (true = allowed to run, false = skipped).
 allowBuilds:
   '@biomejs/biome': true

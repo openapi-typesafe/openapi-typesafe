@@ -82,7 +82,68 @@ rc.1 keeps its tags until then.
 - A user who installs a prerelease through `latest` gets the range `^1.0.0-rc.N`, which 1.0.0
   satisfies, so they move to the stable release with a normal update.
 
+## Amendment (2026-11-07): build, publish and release are separate jobs
+
+Audit B3 (supply chain, 2026-11-07) found that the one `publish` job held `id-token: write` and a
+persisted `contents: write` token while it ran `pnpm install` and the whole verify gate (vitest,
+biome, unbuild, size-limit and about 1,000 transitive dev packages). Any of them could read the
+OIDC request variables, get a token for the `npm-publish` environment, and publish any version of
+all five packages with valid provenance. The environment approval does not help: it approves the
+job, and the job then runs that code.
+
+Decision: `release.yml` has four jobs after `version`.
+
+| Job | Permissions | Runs |
+|---|---|---|
+| `build` | `contents: read` | `pnpm install`, `scripts/verify.sh build lint test size`, `scripts/release/pack-release.sh`: tarballs, SBOMs, changelog sections, `manifest.tsv` (dependency order) and `SHA256SUMS`, uploaded as an artifact. The hash of `SHA256SUMS` is a job output. |
+| `publish` | `contents: read`, `id-token: write`, environment `npm-publish` | npm (pinned), then small bash scripts with no dependencies: `verify-tarballs.sh` checks every file against the job output, `npm publish <tarball>` for each version not on npm, `check-provenance.sh` after each, `tag-latest.sh` last. |
+| `release` | `contents: write` | `create-github-releases.sh`: tag and GitHub release per package, created through the releases API on the built commit, with SBOM and provenance bundle. |
+| `dry-run` | `contents: read` | Manual runs only: the same tarballs with `npm publish --dry-run`. |
+
+- **No dependency code next to the publishing right.** The publish job installs only npm itself,
+  restores no cache and keeps no git credentials (`persist-credentials: false`). The build job
+  restores no cache either, because its tarballs are what gets published.
+- **Integrity chain.** The expected hash of `SHA256SUMS` travels as a job output, not inside the
+  artifact, so a changed artifact cannot bring its own matching list.
+- **Provenance check.** It reads the SLSA provenance from the registry and requires this
+  repository, `.github/workflows/release.yml`, and, for a version published in this run, the
+  SHA-512 of the tarball that `build` packed. The registry serves reads from a CDN cache, so a
+  version published seconds ago can be missing for a short while: curl retries 7 times with a
+  doubling wait (1 to 64 s, 127 s in total; CODING_PRINCIPLES 8.6). That covers the usual delay of
+  a few seconds with a wide margin and stays far inside the job limit. Before, one empty read failed
+  the job in the middle of a release.
+- **`latest` before the first stable release** (amendment of 2026-11-05) is now the last step of
+  the publish job, before the GitHub releases instead of after them. The release job runs whenever
+  every package is on npm with checked provenance (a job output set before the `latest` step), so a
+  failed `latest` step still leaves every package published and released.
+- **Reruns.** A rerun publishes nothing twice (versions on npm are skipped and their provenance is
+  checked again), creates only the GitHub releases that are missing, replaces a draft left by a
+  failed upload, and stops when a tag exists on another commit.
+- **Immutable releases.** `gh release create` with files creates a draft, uploads the files and
+  then publishes it, which is the order immutable releases need, so they are turned on
+  (`scripts/repo/apply-settings.sh`). A published release's tag and files can then not change.
+- **Tag creation is not restricted by the ruleset.** A `creation` rule on `refs/tags/*@*` would
+  also block the release job unless the workflow token could bypass it. GitHub's ruleset docs list
+  roles, teams, installed apps and deploy keys as bypass actors, not the built-in GitHub Actions
+  integration, and users report that the API rejects it. Instead, the release job creates each tag
+  itself and fails when a tag already exists on another commit, and immutable releases lock the
+  tag once its release is out. Who can create such a tag at all: the maintainer, and the `version`
+  and `release` jobs (the only jobs with `contents: write`).
+- **Time limits** (ADR-029, same rule): `build` 20 minutes (it runs what the old publish job ran),
+  `publish` 20 (five packages, each with a provenance wait of up to 127 s), `release` and `dry-run`
+  10.
+- **npm 12.2.2**, the current release, replaces 12.2.1.
+- **Scorecard "Packaging"** now finds the workflow, because `npm publish` is a step of release.yml
+  and `actions/setup-node` names the npm registry.
+
+Alternatives: keep one job and only drop the cache (the dev toolchain still runs next to the OIDC
+right); a separate workflow for publishing (every trusted publisher names `release.yml`, so five
+npm settings would change, and passing the tarballs between workflows needs a `workflow_run`
+trigger, a common source of unsafe workflows); `actions/attest-build-provenance` with our own
+signature (npm already writes SLSA provenance through trusted publishing).
+
 ## Review trigger
 
 npm allows a trusted publisher for a package that does not exist yet; pnpm fails on a failed OIDC
-exchange; or the beta plan (11.1) changes.
+exchange; the beta plan (11.1) changes; or a ruleset can name GitHub Actions as a bypass actor
+(then restrict tag creation).

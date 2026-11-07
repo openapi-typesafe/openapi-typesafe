@@ -2,13 +2,17 @@
 
 ## Supported versions
 
-Only the latest released minor version of each package receives security fixes. Before 1.0 there are no released
-versions; the policy applies from the first published release.
+Only the latest released minor version of each package receives security fixes. Until 1.0.0 is out, that is the
+latest release candidate (the `next` tag on npm, for example `1.0.0-rc.1`).
 
 ## Reporting a vulnerability
 
 **Do not open a public issue.** Report privately through GitHub:
-**Security → Report a vulnerability** on this repository (private vulnerability reporting).
+**Security → Report a vulnerability** on this repository (private vulnerability reporting), or open
+<https://github.com/openapi-typesafe/openapi-typesafe/security/advisories/new> directly.
+
+Published advisories are listed at <https://github.com/openapi-typesafe/openapi-typesafe/security/advisories>, and this policy is shown at
+<https://github.com/openapi-typesafe/openapi-typesafe/security/policy>.
 
 Please include:
 
@@ -45,10 +49,12 @@ Out of scope: vulnerabilities in the APIs you generate types for, issues in unsu
 platform behavior the client inherits from `fetch` (for example custom headers kept on a redirect, see
 [Middleware & Auth](docs/fetch/middleware-auth.md#redirects-and-custom-auth-headers)).
 
-The [threat model](docs/security/threat-model.md) lists what the generator and the client defend
+The [threat model](docs/security/threat-model.md)
+(<https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/security/threat-model.md>) lists what the generator and the client defend
 against and how.
 
 ## Release integrity
 
 Packages are published from GitHub Actions with npm trusted publishing (OIDC) and provenance. Verify a package with
-`npm audit signatures`. A release without provenance is not an official release.
+`npm audit signatures`. A release without provenance is not an official release. Each GitHub release also carries the
+SBOM and the npm provenance bundle of its package ([RELEASING.md](RELEASING.md)).

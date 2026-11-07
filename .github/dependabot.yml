@@ -26,6 +26,11 @@ updates:
       # The types match the lowest supported Node.js, so newer APIs cannot slip in (ADR-006).
       - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
+      # The type matrix installs TypeScript 5.4 and 5.9 as `npm:` aliases on purpose (ADR-006).
+      # Dependabot reads them as `typescript` and proposed 6.0.3 -> 5.9.3 for the default
+      # TypeScript (pull request #1), so no update may go below 6.
+      - dependency-name: typescript
+        versions: ["< 6.0.0"]
     groups:
       # React and its type packages only work at one major version, so they move together.
       react:
