@@ -268,3 +268,25 @@ const authMiddleware: Middleware = {
 ```
 
 :::
+
+### Redirects and custom auth headers
+
+`fetch` follows redirects by default (`redirect: "follow"`), and so does this client. On a redirect to
+another origin, the platform drops only `Authorization`, `Cookie` and `Proxy-Authorization`. Every other
+header goes on to the new origin, so a key in a custom header (`X-API-Key`, `X-Auth-Token`) reaches
+whatever host the API redirects to. This is the rule of the Fetch standard, not of this client;
+openapi-fetch behaves the same.
+
+When the API should never redirect to another host, or when you send credentials in a custom header, turn
+automatic redirects off for the client and handle a redirect yourself:
+
+```ts
+const client = createClient<paths>({
+  baseUrl: "https://myapi.dev/v1/",
+  headers: { "X-API-Key": apiKey },
+  redirect: "error", // or "manual" to read the 3xx response yourself
+});
+```
+
+Prefer `Authorization` for credentials where the API allows it: it is the one header the platform removes
+on a cross-origin redirect.
