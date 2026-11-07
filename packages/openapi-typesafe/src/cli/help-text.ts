@@ -4,7 +4,7 @@ export const HELP_TEXT = [
   "  $ openapi-typesafe [input] [options]",
   "",
   "Options",
-  "  --help                     Display this",
+  "  --help                     Show this help",
   "  --version                  Display the version",
   "  --redocly [path], -c       Specify path to Redocly config (default: redocly.yaml)",
   "  --output, -o               Specify output file (if not specified in redocly.yaml)",
@@ -20,8 +20,8 @@ export const HELP_TEXT = [
   "  --additional-properties    Treat schema objects as if `additionalProperties: true` is set",
   "  --empty-objects-unknown    Generate `unknown` instead of" +
     " `Record<string, never>` for empty objects",
-  "  --default-non-nullable     Set to `false` to ignore default values" +
-    " when generating non-nullable types",
+  "  --default-non-nullable     A property with a `default` is required" +
+    " (default: true; =false makes it optional)",
   "  --properties-required-by-default",
   "                             Treat schema objects as if `required` is" +
     " set to all properties by default",
@@ -35,7 +35,7 @@ export const HELP_TEXT = [
     " undefined by schema",
   "  --alphabetize              Sort object keys alphabetically",
   "  --exclude-deprecated       Exclude deprecated types",
-  "  --root-types               Export schemas types at root level",
+  "  --root-types               Export `components` types as root-level aliases",
   "  --root-types-no-schema-prefix",
   '                             Do not add "Schema" prefix to types at' +
     " the root level (should only be used with --root-types)",
