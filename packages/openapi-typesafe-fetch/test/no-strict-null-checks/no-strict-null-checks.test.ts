@@ -87,7 +87,8 @@ describe("params", () => {
         expect(data).toEqual([resource1, resource2, resource3]); // also test runtime, too
       } else {
         // note: even though this is not a reachable code path, type tests still work!
-        // @ts-expect-error: FIXME: data is undefined for strictNullChecks: false
+        // Without strictNullChecks TypeScript does not narrow `data` to `undefined` here.
+        // @ts-expect-error: `data` keeps its success type
         assertType<undefined>(data);
       }
     });

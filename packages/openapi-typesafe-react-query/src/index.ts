@@ -306,7 +306,10 @@ function pageInit(init: unknown, { pageParamName, pageParam, signal }: PageReque
   return { ...rest, signal, params: { ...params, query: { ...params?.query, ...page } } };
 }
 
-// TODO: Add the ability to bring queryClient as argument
+/**
+ * Hooks and query options for a fetch client. A `QueryClient` other than the one from the React
+ * context is passed to each hook as its last argument; `createClient` does not take one.
+ */
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
   client: FetchClient<Paths, Media>,
 ): OpenapiQueryClient<Paths, Media> {
@@ -319,7 +322,10 @@ export default function createClient<Paths extends {}, Media extends MediaType =
     const [method, path, init] = queryKey as readonly [Method, Path, unknown?];
     const mth = method.toUpperCase() as Uppercase<typeof method>;
     const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
-    const result = await fn(path, { signal, ...(init as any) }); // TODO: find a way to avoid as any
+    // The init is `unknown` here. An `any` init lets the call infer the generic response type
+    // that `queryOptions` declares; a typed init makes TypeScript compare two unresolved
+    // conditional types, which it cannot do.
+    const result = await fn(path, { signal, ...(init as any) });
     throwIfFailed(result);
     // TanStack Query rejects `undefined` query data. The fetch client gives `undefined` for every
     // success without a body: a 204, `Content-Length: 0`, an empty chunked body, a HEAD request

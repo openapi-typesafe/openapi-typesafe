@@ -169,7 +169,8 @@ describe("POST", () => {
       });
 
       const { data } = await client.POST("/multipart-form-data-file-upload", {
-        // TODO: how to get this to accept FormData?
+        // The body type is the schema's (`string` for `format: binary`), not `FormData`, so a
+        // ready `FormData` needs a cast. `bodySerializer` is the typed way to send one.
         body: formData as unknown as string,
       });
 
