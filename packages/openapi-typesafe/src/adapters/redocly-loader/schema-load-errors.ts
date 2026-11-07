@@ -1,8 +1,11 @@
+import { assertNever } from "../../domain/assert-never.js";
 import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
+import { redactUrlCredentials } from "../../domain/url-credentials.js";
 
 /**
  * The typed errors of loading, validating and bundling a document (ADR-011). Messages are the
- * original messages, so Node API users who match on them keep working.
+ * original messages, so Node API users who match on them keep working; URLs in them and in the
+ * details never show user info.
  */
 
 /** No source was given, or the source is empty. */
@@ -48,7 +51,7 @@ export function loadFailedError(absoluteRef: string, cause: unknown): OpenAPITyp
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_LOAD_FAILED,
     message: causeMessage(cause),
-    details: { source: absoluteRef },
+    details: { source: redactUrlCredentials(absoluteRef) },
     cause,
   });
 }
@@ -62,7 +65,7 @@ export function parseFailedError(
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_PARSE_FAILED,
     message: causeMessage(cause),
-    details: { format, source: absoluteRef },
+    details: { format, source: redactUrlCredentials(absoluteRef) },
     cause,
   });
 }
@@ -87,7 +90,7 @@ export function schemaInvalidError(problems: readonly string[]): OpenAPITypesafe
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_INVALID,
     message: problems.at(-1) ?? "",
-    details: { problems: [...problems] },
+    details: { problems: problems.map(redactUrlCredentials) },
   });
 }
 
@@ -108,17 +111,36 @@ function hostListText(hosts: readonly string[]): string {
 /** Why a `$ref` document was refused, with the limit it broke (ADR-017). */
 export type RefRefusalDetails =
   | { readonly reason: "outside-local-root"; readonly localRoot: string }
-  | { readonly reason: "host-not-allowed"; readonly allowedHosts: readonly string[] };
+  | { readonly reason: "host-not-allowed"; readonly allowedHosts: readonly string[] }
+  | { readonly reason: "local-ref-from-remote"; readonly base: string }
+  | { readonly reason: "too-many-remote-documents"; readonly maxDocuments: number };
 
-/** A `$ref` is outside the local root, or its host is not allowed (threat model R1, R2). */
+function limitText(details: RefRefusalDetails): string {
+  switch (details.reason) {
+    case "outside-local-root":
+      return `it is outside the local $ref root ${details.localRoot}`;
+    case "host-not-allowed": {
+      const hosts = hostListText(details.allowedHosts);
+      return `its host is not in the allowed remote $ref hosts (${hosts})`;
+    }
+    case "local-ref-from-remote":
+      return `it is not an http(s) URL, and the $ref is in the remote document ${details.base}`;
+    case "too-many-remote-documents":
+      return `the document refers to more than ${details.maxDocuments} remote documents`;
+    default:
+      return assertNever(details);
+  }
+}
+
+/**
+ * A `$ref` is outside the local root, its host is not allowed (threat model R1, R2), a remote
+ * document refers to a local file (T3), or there are too many remote documents (T2).
+ */
 export function refForbiddenError(ref: string, details: RefRefusalDetails): OpenAPITypesafeError {
-  const limit =
-    details.reason === "outside-local-root"
-      ? `it is outside the local $ref root ${details.localRoot}`
-      : `its host is not in the allowed remote $ref hosts (${hostListText(details.allowedHosts)})`;
+  const limit = limitText(details);
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_REF_FORBIDDEN,
     message: `Refused to load ${ref}: ${limit}`,
-    details: { ref, ...details },
+    details: { ref: redactUrlCredentials(ref), ...details },
   });
 }

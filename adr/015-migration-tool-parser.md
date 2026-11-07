@@ -69,6 +69,64 @@ entry is listed by the same rule, by the git of that directory: its own reposito
 works only for tracked files of submodules, not with `--others`, and not for nested repositories
 that are not submodules. The log records, for each folder, whether git or the tree walk listed it.
 
+## Amendment (2026-11-06): the project tree is not trusted
+
+A security review found that the tool trusted more of the project folder than its own sources.
+A project can hold files that its user did not write or check: a folder unpacked from an archive,
+a repository committed inside a cloned one, a dependency vendored with its own `.git`. The tool
+now treats the tree as untrusted input:
+
+- **Git config of nested repositories.** Git reads the config of the repository it runs in, and
+  `core.fsmonitor` in that config is a command that `ls-files` and `check-ignore` run. A planted
+  `.git/config` ran code in a dry run. Every git command now gets `-c core.fsmonitor=false -c
+  safe.bareRepository=explicit`; command-line settings win over every config file. Checked by
+  hand on git 2.54: these two commands write no index (so no hook runs) and start no filter,
+  pager or network helper, so `core.fsmonitor` is the only command they take from config. An
+  embedded bare repository is refused (`--root` pointed at one), and that folder is walked as a
+  tree. `-c` is used, not `GIT_CONFIG_PARAMETERS`, so the settings are visible in the arguments.
+  System and global config stay: the user and the administrator wrote them.
+
+- **Paths from a foreign git index.** Git checks a path when it adds it to the index, but it
+  prints an index that it did not write as it is. A planted index listed `../../outside/a.ts`, and
+  `--write` changed that file. A listed path is now used only when it has no `..` segment, is not
+  absolute, and its real path (links resolved, parent folders too) is inside the real path of the
+  root. Other paths are not read; the report lists them under "Skipped" and the log has a
+  `file_skipped` warning for each, because such an index is a sign of a planted repository.
+  `read` and `write` check the real path again, so no caller can reach outside the root.
+
+- **Hard links.** `writeFile` writes into the same inode, so a project file hard-linked to a file
+  outside the root (an archive can hold such links) changed that file too. Two fixes were
+  weighed: skip a file with more than one link and report it, or write a new file and rename it
+  over the old one. The tool renames: the user asked for the project file to change, and it does;
+  the other link keeps its old text, and the log has a `hard_link_separated` warning. The rename
+  also never writes through a link that appears after the listing, and a failed run leaves the
+  old file whole. The new file gets the old mode; it is owned by the user who runs the tool, and
+  the folder must be writable. A leftover temporary file is not overwritten (`wx`); the error
+  names it.
+
+- **Credentials in specs.** A dependency spec such as `git+https://<token>@github.com/…` was
+  copied into the report and the log. The findings now hide the userinfo of every URL
+  (`https://***@host/…`), in kept specs and in the JSON parse error of a `package.json`; the
+  files keep the spec as written. The scan is a loop over `://`, not a regular expression, so it
+  stays linear.
+
+- **The default log file.** It was `<tmpdir>/openapi-typesafe-migrate/<time>.jsonl`: a fixed
+  folder that another user of a shared `/tmp` could create first, and a name they could guess and
+  plant a link at. The folder now comes from `mkdtemp` (a random name, mode 0700), and the file
+  is created with `wx` (`O_CREAT | O_EXCL`, mode 0600), which refuses an existing path, a link
+  included. A `--log` path is the user's choice: it is appended to, as before, and created with
+  mode 0600.
+
+- **Slow patterns.** Three regular expressions took time quadratic in their input: `<script>`
+  blocks (a lazy body rescanned from every unclosed tag; 6.8 s on a crafted 640 kB `.vue`), and
+  the catalog entry and override key patterns of `pnpm-workspace.yaml` (10 to 15 s on a 160 kB
+  line). Script blocks are now found by searches from left to right that never go back. The entry
+  pattern no longer ends in `(.*)$` (the rest of the line is what follows the match), and an
+  override key must start after the indent (`\S`), so the indent and the key cannot split the
+  same spaces. recheck reports the new patterns as safe; tests bound the time on large input.
+  A YAML parser was not added: the file is edited line by line so that comments and formatting
+  stay, and the tool has no YAML dependency.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

@@ -1,4 +1,5 @@
 import { assertNever } from "../../domain/assert-never.js";
+import { DEFAULT_STRING_ENCODING } from "../../domain/ir/constructors.js";
 import type {
   IrIndexedAccessType,
   IrMember,
@@ -196,7 +197,7 @@ function printLeafType(type: IrLeafType): string {
     case "keyword":
       return type.keyword;
     case "stringLiteral":
-      return printStringLiteral(type.value, type.encoding);
+      return printStringLiteral(type.value, type.encoding ?? DEFAULT_STRING_ENCODING);
     case "numberLiteral":
       return printNumberLiteral(type.value);
     case "booleanLiteral":

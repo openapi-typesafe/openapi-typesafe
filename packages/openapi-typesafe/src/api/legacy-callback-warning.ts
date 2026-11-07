@@ -1,6 +1,7 @@
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
-import type { GlobalContext, LegacyCallbackName } from "../types.js";
+import type { LegacyCallbackName } from "../types.js";
 import { defaultLogger } from "./default-ports.js";
+import type { RunContext } from "./run-context.js";
 
 /** Where the IR callbacks are documented; the warning points users there. */
 export const IR_CALLBACKS_GUIDE_URL =
@@ -20,7 +21,7 @@ function message(name: LegacyCallbackName): string {
 }
 
 /** Warn once per run and callback; `silent` runs record the use but print nothing. */
-export function warnLegacyCallback(ctx: GlobalContext, name: LegacyCallbackName): void {
+export function warnLegacyCallback(ctx: RunContext, name: LegacyCallbackName): void {
   ctx.legacyCallbackWarnings ??= new Set();
   if (ctx.legacyCallbackWarnings.has(name)) {
     return;

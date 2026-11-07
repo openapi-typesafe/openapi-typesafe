@@ -12,6 +12,7 @@ import {
   OVERRIDE_FIELDS,
   PACKAGE_RENAMES,
 } from "./package-names.js";
+import { hideUrlCredentials } from "./url-credentials.js";
 import { migrateVersionSpec } from "./version-spec.js";
 
 type JsonObject = Record<string, unknown>;
@@ -23,16 +24,23 @@ interface Findings {
 
 const INDENT_RE = /^[ \t]+(?=")/m;
 const DEFAULT_INDENT = "  ";
+const LF = "\n";
+const CRLF = "\r\n";
 
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** The manifest as written again: same indentation, and a final newline only if it had one. */
+/**
+ * The manifest as written again: same indentation, the same line ending (CRLF when the file has
+ * one), and a final newline only if it had one. `JSON.stringify` escapes line breaks in strings,
+ * so every LF in its output is a line ending.
+ */
 function formatLike(original: string, manifest: JsonObject): string {
   const indent = INDENT_RE.exec(original)?.[0] ?? DEFAULT_INDENT;
-  const ending = original.endsWith("\n") ? "\n" : "";
-  return `${JSON.stringify(manifest, null, indent)}${ending}`;
+  const lineEnding = original.includes(CRLF) ? CRLF : LF;
+  const finalNewline = original.endsWith(LF) ? lineEnding : "";
+  return `${JSON.stringify(manifest, null, indent).replaceAll(LF, lineEnding)}${finalNewline}`;
 }
 
 function renameDependencies(
@@ -54,10 +62,14 @@ function renameDependencies(
         field,
         from: name,
         to: renamed,
-        spec: decision.spec,
+        spec: hideUrlCredentials(decision.spec),
       });
       if (decision.kind === "kept" && decision.isReported) {
-        findings.manualSteps.push({ kind: "spec-kept", name: renamed, spec });
+        findings.manualSteps.push({
+          kind: "spec-kept",
+          name: renamed,
+          spec: hideUrlCredentials(spec),
+        });
       }
       if (field === "peerDependencies") {
         findings.manualSteps.push({ kind: "peer-dependency-renamed", name: renamed });
@@ -130,7 +142,8 @@ export function migratePackageManifest(text: string, version: string): FileMigra
     manifest = JSON.parse(text);
   } catch (error) {
     // A package.json that does not parse is not ours to fix; the user is told where it is.
-    const reason = error instanceof Error ? error.message : String(error);
+    // V8 quotes a short text in the message, so it can hold a credential too.
+    const reason = hideUrlCredentials(error instanceof Error ? error.message : String(error));
     return { ...unchanged(text), manualSteps: [{ kind: "manifest-unreadable", reason }] };
   }
   if (!isObject(manifest)) {

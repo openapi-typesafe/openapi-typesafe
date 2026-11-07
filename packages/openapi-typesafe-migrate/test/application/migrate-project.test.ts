@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { migrateProject } from "../../src/application/migrate-project.js";
+import type { SkippedFile } from "../../src/application/ports.js";
 import { InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
@@ -14,9 +15,9 @@ const PROJECT = {
   "src/plain.ts": "export const x = 1;\n",
 };
 
-function setUp(files: Readonly<Record<string, string>> = PROJECT) {
+function setUp(files: Readonly<Record<string, string>> = PROJECT, skipped: SkippedFile[] = []) {
   return {
-    files: new InMemoryProjectFiles(files),
+    files: new InMemoryProjectFiles(files, skipped),
     rewriter: new StubCallbackRewriter(),
     scanner: new QuotedStringScanner(),
     logger: new RecordingLogger(),
@@ -27,15 +28,15 @@ describe("migrateProject", () => {
   it("migrateProject reports every changed file in path order without writing on a dry run", async () => {
     const dependencies = setUp();
 
-    const reports = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
+    const { files } = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
 
-    expect(reports.map((report) => report.path)).toEqual([
+    expect(files.map((report) => report.path)).toEqual([
       "package.json",
       "pnpm-workspace.yaml",
       "scripts/gen.sh",
       "src/api.ts",
     ]);
-    expect(reports.every((report) => report.isChanged)).toBe(true);
+    expect(files.every((report) => report.isChanged)).toBe(true);
     expect(dependencies.files.written).toEqual([]);
   });
 
@@ -69,9 +70,9 @@ describe("migrateProject", () => {
   it("migrateProject reports a file with manual steps only", async () => {
     const dependencies = setUp({ "ci.yml": "run: npx openapi-typescript@7 a.yaml\n" });
 
-    const reports = await migrateProject(dependencies, { version: "1.0.0", isWrite: true });
+    const { files } = await migrateProject(dependencies, { version: "1.0.0", isWrite: true });
 
-    expect(reports).toEqual([
+    expect(files).toEqual([
       {
         path: "ci.yml",
         isChanged: false,
@@ -96,6 +97,19 @@ describe("migrateProject", () => {
       fileCount: 2,
       version: "1.0.0",
       isWrite: false,
+    });
+  });
+
+  it("migrateProject gives the skipped paths of the listing and logs their count", async () => {
+    const skipped: SkippedFile[] = [{ path: "vendor/../../x.ts", reason: "outside-root" }];
+    const dependencies = setUp({ "src/b.ts": "" }, skipped);
+
+    const migration = await migrateProject(dependencies, { version: "1.0.0", isWrite: true });
+
+    expect(migration).toEqual({ files: [], skipped });
+    expect(dependencies.logger.events.at(-1)?.fields).toEqual({
+      changedFiles: 0,
+      skippedFiles: 1,
     });
   });
 });

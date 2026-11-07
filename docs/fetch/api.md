@@ -27,7 +27,7 @@ createClient<paths>(options);
 
 `fetch` and `Request` of another Fetch API implementation, such as the `undici` package, are typed
 by that package, not by the DOM lib, so TypeScript cannot relate them to `Request` and `Response`.
-`createClient` and `createPathBasedClient` take them anyway (`OtherFetchClientOptions`) and check
+`createClient` and `createPathBasedClient` take them anyway (`CustomFetchClientOptions`) and check
 only that `fetch` returns a promise and `Request` is a class. Pass both from the same package: the
 undici `fetch` reads a request of another class as the URL `[object Request]`.
 
@@ -313,7 +313,10 @@ const { data, error } = await client.GET("/users/{id}", {
 The default path serializer rejects a request when a path parameter makes a `.` or `..` path segment (for
 example `{ id: ".." }`): URL resolution would send it to another endpoint. This holds for a path with a
 query string or fragment in its template too (`/echo/{id}?v=2`); the query and fragment themselves are not
-checked. A custom `pathSerializer` is not checked.
+checked. It also rejects a path that starts with `//` once the parameters are in (an empty first
+parameter, as in `/{org}/{repo}` with `org: ""`): with a relative `baseUrl` (the default `""`) a browser
+reads `//evil.example` as another host and sends the request, headers included, there. An empty value in a
+later segment (`/acme/`) is sent as before. A custom `pathSerializer` is not checked.
 
 :::
 

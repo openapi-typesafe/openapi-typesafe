@@ -4,7 +4,8 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/redocly-schema-loader.js";
-import { defaultRedoclyConfig } from "../../src/api/default-ports.js";
+import type { RemoteDocumentLimits } from "../../src/adapters/redocly-loader/remote-fetch.js";
+import { DEFAULT_REMOTE_DOCUMENT_LIMITS, defaultRedoclyConfig } from "../../src/api/default-ports.js";
 import type { OpenAPITypesafeError } from "../../src/domain/errors.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
 import { documentWith } from "./defensive-helpers.js";
@@ -27,6 +28,28 @@ function drip(response: ServerResponse): void {
   response.on("close", () => clearInterval(timer));
 }
 
+/** Refs in each fan-out document: each one names a new document, so the fan-out never ends. */
+const FAN_OUT = 10;
+/** How long a fan-out answer waits, so that parallel fetches overlap at the server. */
+const FAN_DELAY_MS = 10;
+const fanRequests = { total: 0, inFlight: 0, maxInFlight: 0 };
+
+/** A document whose properties are $refs to FAN_OUT more documents below its own path. */
+function fan(request: IncomingMessage, response: ServerResponse): void {
+  fanRequests.total += 1;
+  fanRequests.inFlight += 1;
+  fanRequests.maxInFlight = Math.max(fanRequests.maxInFlight, fanRequests.inFlight);
+  const base = (request.url ?? "").replace(/\.json$/, "");
+  const properties = Object.fromEntries(
+    Array.from({ length: FAN_OUT }, (_, index) => [`p${index}`, { $ref: `${base}/${index}.json` }]),
+  );
+  setTimeout(() => {
+    fanRequests.inFlight -= 1;
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ type: "object", properties }));
+  }, FAN_DELAY_MS);
+}
+
 /** The routes of the local server: a schema, a missing file, a redirect loop, no answer and a slow body. */
 function answer(request: IncomingMessage, response: ServerResponse): void {
   const routes: Record<string, () => void> = {
@@ -36,6 +59,10 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
     "/hang.json": () => undefined,
     "/drip.json": () => drip(response),
   };
+  if (request.url?.startsWith("/fan/")) {
+    fan(request, response);
+    return;
+  }
   (routes[request.url ?? ""] ?? (() => response.writeHead(404).end("Not Found")))();
 }
 
@@ -56,12 +83,16 @@ afterAll(async () => {
   await new Promise((resolve) => server.close(resolve));
 });
 
-async function loadDocument(source: unknown) {
+async function loadDocument(
+  source: unknown,
+  remoteDocumentLimits: RemoteDocumentLimits = DEFAULT_REMOTE_DOCUMENT_LIMITS,
+) {
   const loader = createRedoclySchemaLoader({
     redoc: await defaultRedoclyConfig(),
     logger: new RecordingLogger(),
     now: () => 0,
     remoteRefTimeoutMs: TEST_TIMEOUT_MS,
+    remoteDocumentLimits,
   });
   return loader.load({
     source: source as never,
@@ -71,9 +102,9 @@ async function loadDocument(source: unknown) {
   });
 }
 
-async function loadFailure(source: unknown): Promise<OpenAPITypesafeError> {
+async function loadFailure(source: unknown, limits?: RemoteDocumentLimits): Promise<OpenAPITypesafeError> {
   try {
-    await loadDocument(source);
+    await loadDocument(source, limits);
   } catch (error) {
     return error as OpenAPITypesafeError;
   }
@@ -142,5 +173,51 @@ describe("remote $ref", () => {
         keys: [{ key: "valueOf", pointer: "#/properties/valueOf", source: `${baseURL}/unsupported-key.json` }],
       },
     });
+  });
+});
+
+describe("remote $ref fan-out", () => {
+  const limits: RemoteDocumentLimits = { maxDocuments: 50, maxParallelFetches: 4 };
+
+  it("a fan-out of remote documents stops at the document limit with SCHEMA_REF_FORBIDDEN", async () => {
+    fanRequests.total = 0;
+
+    const error = await loadFailure(withRemoteRef("/fan/root.json"), limits);
+
+    expect(error).toMatchObject({
+      code: "SCHEMA_REF_FORBIDDEN",
+      details: { reason: "too-many-remote-documents", maxDocuments: limits.maxDocuments },
+    });
+    expect(error.message).toContain("more than 50 remote documents");
+    expect(fanRequests.total).toBe(limits.maxDocuments);
+  });
+
+  it("remote documents are fetched at most a few at a time", async () => {
+    fanRequests.maxInFlight = 0;
+
+    await loadFailure(withRemoteRef("/fan/root.json"), limits);
+
+    expect(fanRequests.maxInFlight).toBeGreaterThan(1);
+    expect(fanRequests.maxInFlight).toBeLessThanOrEqual(limits.maxParallelFetches);
+  });
+});
+
+describe("credentials in remote URLs", () => {
+  it("a $ref URL with user info fails without the credentials in the error", async () => {
+    const withCredentials = baseURL.replace("//", "//tok:URL-SECRET@");
+
+    const error = await loadFailure(documentWith({ Person: { $ref: `${withCredentials}/person.json` } }));
+
+    expect(error.code).toBe("SCHEMA_INVALID");
+    expect(JSON.stringify({ message: error.message, details: error.details })).not.toContain("URL-SECRET");
+  });
+
+  it("a source URL with user info fails without the credentials in the error", async () => {
+    const withCredentials = baseURL.replace("//", "//tok:URL-SECRET@");
+
+    const error = await loadFailure(new URL(`${withCredentials}/person.json`));
+
+    expect(error.code).toBe("SCHEMA_LOAD_FAILED");
+    expect(JSON.stringify({ message: error.message, details: error.details })).not.toContain("URL-SECRET");
   });
 });

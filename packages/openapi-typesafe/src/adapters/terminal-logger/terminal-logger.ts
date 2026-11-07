@@ -1,9 +1,11 @@
 import colors from "ansi-colors";
 import type { DebugGroup, Logger } from "../../application/ports/logger.js";
+import { redactUrlCredentials } from "../../domain/url-credentials.js";
 
 /**
  * The Logger port on a terminal, with the original output format: ` ⚠  ` warnings, ` ✘  `
- * errors, and `openapi-ts:<group>` debug lines filtered by `DEBUG` (ENGINEERING_PLAN 4.5).
+ * errors, and `openapi-ts:<group>` debug lines filtered by `DEBUG` (ENGINEERING_PLAN 4.5). No
+ * line shows the user info of a URL.
  */
 
 /** Where the lines go: `console` in production, a recording sink in tests. */
@@ -79,17 +81,18 @@ class TerminalLogger implements Logger {
     // The original wrote no space without a duration (`openapi-ts:lintIgnored …`).
     const time =
       durationMs === undefined ? " " : this.#palette.green(` ${formatDuration(durationMs)} `);
-    this.#options.sink.debug(`  ${this.#palette.bold(name)}${time}${message}`);
+    const text = redactUrlCredentials(message);
+    this.#options.sink.debug(`  ${this.#palette.bold(name)}${time}${text}`);
   }
 
   warn(message: string): void {
     if (!this.#options.silent) {
-      this.#options.sink.warn(this.#palette.yellow(` ⚠  ${message}`));
+      this.#options.sink.warn(this.#palette.yellow(` ⚠  ${redactUrlCredentials(message)}`));
     }
   }
 
   error(message: string): void {
-    this.#options.sink.error(this.#palette.red(` ✘  ${message}`));
+    this.#options.sink.error(this.#palette.red(` ✘  ${redactUrlCredentials(message)}`));
   }
 }
 

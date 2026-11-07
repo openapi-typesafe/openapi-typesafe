@@ -19,8 +19,8 @@ const SCRIPT_KINDS: ReadonlyMap<string, ts.ScriptKind> = new Map([
 ]);
 
 const ASTRO_EXTENSION = ".astro";
-/** The `<script>` blocks of a Vue, Svelte or Astro component: attributes, then the content. */
-const SCRIPT_BLOCK_RE = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+const SCRIPT_OPEN_TAG = "<script";
+const TAG_END = ">";
 /** Astro's component script: the fenced block at the top of the file. */
 const ASTRO_FRONTMATTER_RE = /^(\s*---\r?\n)([\s\S]*?)\r?\n---/;
 const LANG_RE = /\blang\s*=\s*["']?([a-z]+)/i;
@@ -58,16 +58,49 @@ function astroFrontmatter(text: string): { region?: ScriptRegion; markupStart: n
   return { region, markupStart: whole.length };
 }
 
+/** A `<script>` block of component markup: its attributes, and its content and where it starts. */
+interface ScriptBlock {
+  readonly attributes: string;
+  readonly contentStart: number;
+  readonly content: string;
+}
+
+/**
+ * The `<script>` blocks of a Vue, Svelte or Astro component, each up to the first closing tag
+ * after it. Searches from left to right that never go back, not one regular expression with a
+ * lazy body: that one scanned the rest of the file again from every unclosed tag, which took
+ * seconds on a crafted file. When a tag or a block is not closed, no later one is either.
+ */
+function scriptBlocks(markup: string): ScriptBlock[] {
+  const openTag = /<script\b/gi;
+  const closeTag = /<\/script\s*>/gi;
+  const blocks: ScriptBlock[] = [];
+  for (let opening = openTag.exec(markup); opening !== null; opening = openTag.exec(markup)) {
+    const tagEnd = markup.indexOf(TAG_END, opening.index);
+    closeTag.lastIndex = tagEnd + 1;
+    const closing = tagEnd === -1 ? null : closeTag.exec(markup);
+    if (closing === null) {
+      break;
+    }
+    const attributes = markup.slice(opening.index + SCRIPT_OPEN_TAG.length, tagEnd);
+    blocks.push({
+      attributes,
+      contentStart: tagEnd + 1,
+      content: markup.slice(tagEnd + 1, closing.index),
+    });
+    openTag.lastIndex = closeTag.lastIndex;
+  }
+  return blocks;
+}
+
 function componentRegions(text: string, isAstro: boolean): ScriptRegion[] {
   const { region, markupStart } = isAstro ? astroFrontmatter(text) : { markupStart: 0 };
   const regions: ScriptRegion[] = region === undefined ? [] : [region];
   // Script blocks are read in the markup only: a "<script>" string in the frontmatter is code, and
   // a block found there would overlap the frontmatter, so its strings would be edited twice.
-  const markup = text.slice(markupStart);
-  for (const match of markup.matchAll(SCRIPT_BLOCK_RE)) {
-    const [whole, attributes, content] = match as unknown as [string, string, string];
-    const offset = markupStart + match.index + whole.indexOf(">") + 1;
-    regions.push({ offset, text: content, kind: blockKind(attributes, isAstro) });
+  for (const block of scriptBlocks(text.slice(markupStart))) {
+    const offset = markupStart + block.contentStart;
+    regions.push({ offset, text: block.content, kind: blockKind(block.attributes, isAstro) });
   }
   return regions;
 }

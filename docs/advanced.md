@@ -534,13 +534,21 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   written as `name` (any port) or `name:port`. Hosts are compared as URLs write them, so case,
   a trailing dot, Unicode names, IPv6 with or without brackets (`::1`, `[::1]:8080`) and a
   default port (`api.example.com:443`) all match. An empty list (`--remote-ref-hosts=`) allows no
-  remote `$ref`. Each redirect is checked against the list, at most 5 are followed, and headers
-  from your Redocly config are not sent on to another origin. A listed name is trusted: it is not
-  checked again after DNS resolution.
+  remote `$ref`. Each redirect is checked against the list and at most 20 are followed. A listed
+  name is trusted: it is not checked again after DNS resolution.
+- Headers from your Redocly config go only to the URLs their patterns match, over HTTPS or to this
+  machine unless a pattern starts with `http://`, and not on through a redirect ([Auth](/cli#auth)). This holds
+  with or without the two flags.
+- In `redocly.yaml`, an API can set its own limits as `local-ref-root` and `remote-ref-hosts`
+  under `x-openapi-ts`; they replace the flags for that API (see
+  [Multiple schemas](/cli#multiple-schemas)).
 - The document you pass to the generator is never limited, only what it refers to.
+- A remote document may refer only to other `http(s)` URLs. A `$ref` in it that names a local file
+  (`file:///…`, or `C:/…`, which a URL base turns into a drive-letter path) is always refused.
 
 A refused `$ref` fails with `SCHEMA_REF_FORBIDDEN` (CLI exit code `3`); `err.details` has the
-`ref` and the `reason` (`outside-local-root` or `host-not-allowed`). The
+`ref` and the `reason` (`outside-local-root`, `host-not-allowed`, `local-ref-from-remote`, or
+`too-many-remote-documents` from [Limits](#limits)). The
 [threat model](/security/threat-model) explains the risks (T3, T4).
 
 ## Limits
@@ -553,8 +561,9 @@ hanging when a document reaches one of these limits.
 | A YAML or JSON file nested more than 100 levels deep | The YAML parser stops. A document passed as an object or as JSON text skips this limit | `SCHEMA_PARSE_FAILED` |
 | About 550 levels of inline schemas, or a chain of about 900 `$ref`s where each schema refers to the next | The call stack runs out. The numbers are for the default Node.js stack and vary a little between runs and runtimes | `SCHEMA_TOO_DEEP` |
 | A `$ref` that points at itself, or two `$ref`s that point at each other, with no schema in between | The cycle has no type | `SCHEMA_REF_INVALID` |
-| A key named `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `valueOf` or one of the `__define…` / `__lookup…` methods, where the schema loader reads keys | The schema loader (Redocly 1.x) cannot read it; the error lists every such key | `SCHEMA_KEY_UNSUPPORTED` |
+| A key named `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `valueOf` or one of the `__define…` / `__lookup…` methods, where the schema loader reads keys, or a `constructor` entry whose value has a string `name` (a security scheme or header named `constructor`) | The schema loader (Redocly 1.x) cannot read it; the error lists every such key | `SCHEMA_KEY_UNSUPPORTED` |
 | YAML aliases (`*name`) that expand a file to more than 1,000,000 nodes and to more than 100 times its written size (a "billion laughs" document) | The file is refused right after parsing, before anything walks it | `SCHEMA_PARSE_FAILED` |
+| More than 10,000 remote documents in one run (each document that refers to new URLs, without end) | The next remote document is refused before it is fetched. At most 16 remote documents are fetched at the same time | `SCHEMA_REF_FORBIDDEN` (reason `too-many-remote-documents`) |
 | A remote `$ref` or remote document that does not answer, or does not finish sending its body, within 60 seconds | The fetch stops. A `customFetch` in your Redocly config replaces this limit | `SCHEMA_INVALID` (a `$ref`) or `SCHEMA_LOAD_FAILED` (the document) |
 
 Cyclic schemas are fine when the cycle goes through an object property

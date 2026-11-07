@@ -25,6 +25,12 @@ describe("printNodes", () => {
     );
   });
 
+  it("printNodes writes a string literal without an encoding as JSON text", () => {
+    const type: IrType = { kind: "stringLiteral", value: 'naïve "quoted"' };
+
+    expect(printNodes([alias(type)])).toBe('export type A = "naïve \\"quoted\\"";\n');
+  });
+
   it("printNodes writes raw declarations and raw types as given", () => {
     const raw: IrDeclaration = { kind: "rawDeclaration", text: "type B = 1;" };
 

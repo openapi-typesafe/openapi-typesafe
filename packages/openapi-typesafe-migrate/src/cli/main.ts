@@ -1,8 +1,11 @@
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { createGitFileList } from "../adapters/git-file-list/git-file-list.js";
-import { createJsonLinesLogger } from "../adapters/json-lines-logger/json-lines-logger.js";
+import {
+  createJsonLinesLogger,
+  createTemporaryLogPath,
+} from "../adapters/json-lines-logger/json-lines-logger.js";
 import { createNodeProjectFiles } from "../adapters/node-project-files/node-project-files.js";
 import { createTypescriptCallbackRewriter } from "../adapters/typescript-parser/rewriter.js";
 import { createTypescriptStringScanner } from "../adapters/typescript-parser/source-strings.js";
@@ -15,7 +18,6 @@ import { type CliDependencies, runCli } from "./run-cli.js";
 
 /** The same path from `src/cli/` and from the built `dist/cli/`. */
 const PACKAGE_JSON = new URL("../../package.json", import.meta.url);
-const LOG_DIRECTORY = "openapi-typesafe-migrate";
 
 function readVersion(): string {
   const packageJson: { version: string } = JSON.parse(readFileSync(PACKAGE_JSON, "utf8"));
@@ -24,13 +26,14 @@ function readVersion(): string {
 
 const now = (): Date => new Date();
 
-/** Without `--log`, a new file per run in the temporary directory, named by its UTC start time. */
+/**
+ * Without `--log`, a new file per run in a new private folder in the temporary directory, named
+ * by its UTC start time. A `--log` file is the user's choice and gets the lines appended.
+ */
 function createLogger(path: string | undefined): ReturnType<CliDependencies["createLogger"]> {
-  const logPath =
-    path === undefined
-      ? join(tmpdir(), LOG_DIRECTORY, `${now().toISOString().replaceAll(":", "-")}.jsonl`)
-      : resolve(path);
-  return { logger: createJsonLinesLogger({ path: logPath, now }), path: logPath };
+  const isExclusive = path === undefined;
+  const logPath = isExclusive ? createTemporaryLogPath(tmpdir(), now()) : resolve(path);
+  return { logger: createJsonLinesLogger({ path: logPath, now, isExclusive }), path: logPath };
 }
 
 const dependencies: CliDependencies = {

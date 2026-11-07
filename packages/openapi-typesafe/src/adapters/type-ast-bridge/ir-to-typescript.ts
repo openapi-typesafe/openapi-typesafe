@@ -1,5 +1,6 @@
 import type ts from "typescript";
 import { assertNever } from "../../domain/assert-never.js";
+import { DEFAULT_STRING_ENCODING } from "../../domain/ir/constructors.js";
 import type {
   IrComment,
   IrKeyword,
@@ -90,7 +91,7 @@ function toLeafTypeNode(ts: TypeScriptModule, type: LeafType): ts.TypeNode {
     case "keyword":
       return toKeywordType(ts, type.keyword);
     case "stringLiteral":
-      return toStringLiteralType(ts, type.value, type.encoding);
+      return toStringLiteralType(ts, type.value, type.encoding ?? DEFAULT_STRING_ENCODING);
     case "numberLiteral":
       return ts.factory.createLiteralTypeNode(toNumberExpression(ts, type.value));
     case "booleanLiteral":

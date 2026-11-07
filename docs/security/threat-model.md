@@ -5,7 +5,8 @@ description: How openapi-typesafe treats untrusted OpenAPI documents, what it de
 
 # Threat model
 
-ENGINEERING_PLAN 9.1. Reviewed on 2026-11-02 against the code at the commit that adds this file.
+ENGINEERING_PLAN 9.1. Reviewed on 2026-11-02 against the code at the commit that adds this file,
+and again on 2026-11-06 after the security audit before 1.0.0 (ADR-033; ADR-030, amendment).
 Review it again when a new input, option or output is added, and before each major release.
 
 ## What we protect
@@ -59,16 +60,21 @@ the generator.
 - Controls: typed errors `SCHEMA_TOO_DEEP`, `SCHEMA_REF_INVALID`, `SCHEMA_KEY_UNSUPPORTED`; a
   60-second limit on every remote fetch, body included; the YAML parser stops at 100 levels; a
   YAML file whose aliases expand it more than 100 times past 1,000,000 nodes fails with
-  `SCHEMA_PARSE_FAILED`.
+  `SCHEMA_PARSE_FAILED`; at most 10,000 remote documents per run, fetched at most 16 at a time,
+  so a document that keeps referring to new URLs ends with `SCHEMA_REF_FORBIDDEN` instead of
+  sending requests until the local ports run out (ADR-033); path keys are scanned in linear time.
 - Tests: `test/defensive/`. Limits are listed in docs/advanced.md, "Limits".
 
 ### T3. Local file read through `$ref` — Controlled by an option (R1)
 
 A local document can refer to any file the process can read (`$ref: ../../home/me/.kube/config`).
 A YAML or JSON file is parsed, and its content can land in the generated file, for example as an
-`example` in a comment. A document loaded from a URL cannot do this: its relative and `file:`
-references resolve against the URL, and only `http(s)` URLs are fetched.
+`example` in a comment. A document loaded from a URL could do this too until 1.0: Redocly resolves
+its `$ref`s with `new URL()`, so `C:/Users/me/x.json` (a drive letter, an absolute path on
+Windows) and `file:///…` became local paths that were read from disk.
 
+- Control, always on: a `$ref` in a remote document that does not resolve to an `http(s)` URL is
+  refused with `SCHEMA_REF_FORBIDDEN` (reason `local-ref-from-remote`, ADR-033).
 - Control: `--local-ref-root <dir>` (`localRefRoot`) refuses a local `$ref` outside the directory,
   after links are resolved, with `SCHEMA_REF_FORBIDDEN` (ADR-017). It is off by default, because
   the behavior is inherited and documents rely on references outside their directory.
@@ -86,17 +92,46 @@ This matters in CI and on servers that generate types from user-supplied documen
   is not checked after DNS resolution.
 - Tests: `test/security/ref-access.test.ts`, `test/adapters/redocly-loader/ref-access.test.ts`.
 
+### T4a. Configured credentials sent to another host — Controlled
+
+`resolve.http.headers` in `redocly.yaml` often carries an API key. A document, or a server it
+names, tries to get it sent somewhere else: through a redirect to another origin (fetch keeps every
+header but `Authorization`, `Cookie` and `Proxy-Authorization`), through a URL whose query makes a
+`*` pattern match (`https://evil.example?.trusted.example/x.yaml`), or over plain HTTP.
+
+- Controls: the loader chooses the headers itself for every request and every redirect hop, from
+  the protocol, host and path of the parsed URL; a header goes over HTTPS or to a loopback host,
+  and over plain HTTP to another host only when its pattern starts with `http://`; redirects are always followed by hand (ADR-033).
+- Tests: `test/security/configured-headers.test.ts`,
+  `test/adapters/redocly-loader/ref-access.test.ts`.
+
+### T4b. Credentials in messages and logs — Controlled
+
+A URL with user info (`https://user:token@host/spec.yaml`) as the input, in a `$ref` or in a
+redirect fails, because fetch refuses such URLs, and the message named the whole URL. In CI the
+token ended up in the job log.
+
+- Controls: every typed error message, the URLs in `details` and every line the terminal logger
+  writes show such a URL as `https://***@host/…`. Header values from `redocly.yaml` are never
+  printed.
+- Tests: `test/domain/url-credentials.test.ts`, `test/defensive/remote-refs.test.ts`,
+  `test/adapters/terminal-logger/terminal-logger.test.ts`.
+
 ### T5. Unsafe requests from the fetch client — Controlled
 
-User-supplied path parameters move the request to another path (`..`), query and header values
+User-supplied path parameters move the request to another path (`..`) or, with an empty first
+value and a relative `baseUrl`, to another host (`//evil.example`), query and header values
 break the request, or keys of an object parameter (data from `additionalProperties`) add a
 parameter or a path segment.
 
 - Controls: path values are always percent-encoded, and query values unless the parameter sets
   `allowReserved`; a path value that would form a `.` or `..` segment makes the call throw
-  (`Dot path segment in …`, ADR-013), because percent-encoding keeps dots; query parameter names
-  and object keys are percent-encoded too, except `[ ] $ : @ ,` (ADR-013, decision 9); headers go
-  through the platform `Headers` class, which rejects line breaks.
+  (`Dot path segment in …`, ADR-013), because percent-encoding keeps dots; a path that starts with
+  `//` once the values are in (an empty first value) throws too, because a browser reads it as
+  another host (ADR-030, amendment); values go into the template as text, never as replacement
+  patterns; query parameter names and object keys are percent-encoded too, except
+  `[ ] $ : @ ,` (ADR-013, decision 9); headers go through the platform `Headers` class, which
+  rejects line breaks.
 - Tests: the fetch client's serializer tests, `test/common/path-dot-segments.test.ts` and
   `test/common/param-name-encoding.test.ts`.
 
@@ -120,7 +155,10 @@ A compromised dependency, GitHub Action or npm token publishes a malicious versi
 `__proto__`, `constructor` and `prototype` as schema, property, path, parameter, operation and enum
 names are kept and generate valid TypeScript, and the fetch client serializes them as names without
 writing to `Object.prototype` (`test/security/prototype-keys.test.ts`,
-`packages/openapi-typesafe-fetch/test/common/prototype-keys.test.ts`). A document passed to the Node
+`packages/openapi-typesafe-fetch/test/common/prototype-keys.test.ts`). The schema loader
+(Redocly 1.x) cannot read a few of them where it reads keys (`valueOf` and the like, or a
+`constructor` entry whose value has a string `name`, such as a security scheme); those fail with
+the typed error `SCHEMA_KEY_UNSUPPORTED`, which names each key (docs/advanced.md, "Limits"). A document passed to the Node
 API as a JavaScript object literal loses a `__proto__: …` key before the generator sees it, because
 the literal sets the prototype; use a computed key (`["__proto__"]: …`) or pass JSON or YAML text.
 

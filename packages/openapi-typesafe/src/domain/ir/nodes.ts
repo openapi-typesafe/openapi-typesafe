@@ -1,8 +1,10 @@
 /**
  * Type IR: the closed set of immutable nodes that describes the TypeScript types and declarations
  * the generator emits (ENGINEERING_PLAN §4.2, ADR-002). Nodes are plain readonly data with a `kind`
- * discriminator; every consumer dispatches with an exhaustive `switch`, so a new kind breaks the
- * build wherever it must be handled.
+ * discriminator; every consumer in this package dispatches with an exhaustive `switch`, so a new
+ * kind breaks the build wherever it must be handled. For users the set is open: a minor release
+ * may add a kind (ADR-034), so code outside the package must keep a node of an unknown kind as it
+ * is, and a `switch` over `kind` needs a `default` branch.
  *
  * Utility types (`Omit`, `Record`, `WithRequired`, `Extract`) are `reference` nodes with type
  * arguments, built by named constructors: the printer has nothing special to do for them.
@@ -35,7 +37,8 @@ export interface IrKeywordType {
 export interface IrStringLiteralType {
   readonly kind: "stringLiteral";
   readonly value: string;
-  readonly encoding: IrStringEncoding;
+  /** How the printer writes the value; unset is `json`. A detail of the printer. */
+  readonly encoding?: IrStringEncoding;
 }
 
 /** Finite number; a negative value prints with a leading minus sign. */
@@ -112,9 +115,9 @@ export interface IrRawType {
   readonly kind: "raw";
   readonly text: string;
   /**
-   * The outside node the text was printed from, opaque to the IR. While the Node API still
-   * returns `ts.Node`s (until Phase 6), the bridge hands this node back unchanged, exactly as the
-   * original did. Removed with the reverse bridge in Phase 6.
+   * @internal The TypeScript node the bridge printed the text from. The reverse bridge (the
+   * deprecated `ts.Node` callbacks, ADR-004) hands it back unchanged. Set by the generator only:
+   * read it as opaque, never set it, and expect it to go away in 2.0.
    */
   readonly origin?: unknown;
 }

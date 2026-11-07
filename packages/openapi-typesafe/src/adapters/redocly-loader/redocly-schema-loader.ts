@@ -17,7 +17,7 @@ import { findMalformedRefs, malformedRefsError } from "./malformed-refs.js";
 import { RefAccessResolver } from "./ref-access.js";
 import { checkRefsResolve } from "./ref-resolution-check.js";
 import { REF_CYCLE_MESSAGE } from "./ref-resolution-steps.js";
-import { resolveConfigWithAccess } from "./remote-fetch.js";
+import { type RemoteDocumentLimits, resolveConfigWithAccess } from "./remote-fetch.js";
 import {
   loadFailedError,
   refCycleError,
@@ -42,6 +42,7 @@ export interface RedoclySchemaLoaderOptions {
   readonly now: () => number;
   /** Time limit of one remote fetch, unless the Redocly config brings its own `customFetch`. */
   readonly remoteRefTimeoutMs: number;
+  readonly remoteDocumentLimits: RemoteDocumentLimits;
 }
 
 const UNSUPPORTED_FORMAT_MESSAGE = "Unsupported schema format, expected `openapi: 3.x`";
@@ -176,12 +177,16 @@ class RedoclySchemaLoader implements SchemaLoader {
   }
 
   #resolver(request: SchemaLoadRequest): RefAccessResolver {
-    const { redoc, remoteRefTimeoutMs } = this.#options;
+    const { redoc, remoteRefTimeoutMs, remoteDocumentLimits } = this.#options;
     const config = resolveConfigWithAccess(redoc.resolve, {
       timeoutMs: remoteRefTimeoutMs,
       access: request.refAccess,
+      maxParallelFetches: remoteDocumentLimits.maxParallelFetches,
     });
-    return new RefAccessResolver(config, request.refAccess);
+    return new RefAccessResolver(config, {
+      access: request.refAccess,
+      maxRemoteDocuments: remoteDocumentLimits.maxDocuments,
+    });
   }
 
   async #lintAndBundle(

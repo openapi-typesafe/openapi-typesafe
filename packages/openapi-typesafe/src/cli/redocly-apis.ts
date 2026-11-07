@@ -2,6 +2,13 @@ import { kebabCase } from "scule";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
 import type { OutputFixName } from "../domain/output-fixes.js";
 import type { GeneratorOptions } from "../types.js";
+import {
+  type ApiSettings,
+  apiRefLimitOptions,
+  FIX_SETTING,
+  OUTPUT_SETTING,
+  unknownSettingWarnings,
+} from "./api-settings.js";
 import { GENERATOR_FLAGS, type GeneratorFlags } from "./cli-arguments.js";
 import { cliError } from "./cli-errors.js";
 import { type CliRun, emitOutput, resolveLocationUrl } from "./cli-output.js";
@@ -13,11 +20,6 @@ import { refLimitOptions } from "./ref-limits.js";
 
 /** The key of an API's openapi-typesafe settings in `redocly.yaml`. */
 const REDOCLY_CONFIG_KEY = "x-openapi-ts";
-
-/** The setting of an API that lists its output fixes. */
-const FIX_SETTING = "fix";
-
-type ApiSettings = Readonly<Record<string, unknown>>;
 
 interface RedoclyApi {
   readonly name: string;
@@ -59,19 +61,23 @@ function configRootOf(redocly: RedoclyConfig, cwd: URL): URL {
 }
 
 async function generateApi(run: CliRun, redocly: RedoclyConfig, api: RedoclyApi): Promise<void> {
-  if (!api.settings?.output) {
+  if (!api.settings?.[OUTPUT_SETTING]) {
     throw cliError(
       "CLI_CONFIG_OUTPUT_MISSING",
       `API ${api.name} is missing an \`${REDOCLY_CONFIG_KEY}.output\` key. ` +
         `See ${MULTIPLE_SCHEMAS_DOCS_URL}`,
     );
   }
-  const output = String(api.settings.output);
+  for (const warning of unknownSettingWarnings(api.name, api.settings)) {
+    run.deps.logger.warn(warning);
+  }
+  const output = String(api.settings[OUTPUT_SETTING]);
   const configRoot = configRootOf(redocly, run.deps.cwd);
   const options: GeneratorOptions = {
     ...run.args.generatorFlags,
     ...apiFlags(api.settings),
     ...refLimitOptions(run.args, run.deps.cwd),
+    ...apiRefLimitOptions(api.name, api.settings, configRoot),
     ...fixOption(apiFixNames(api.settings) ?? run.args.fix),
     redocly,
   };

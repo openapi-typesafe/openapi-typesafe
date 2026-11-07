@@ -1,3 +1,5 @@
+import { redactUrlCredentials } from "./url-credentials.js";
+
 /**
  * Typed errors (ENGINEERING_PLAN 4.6, ADR-011). Every expected failure of the generator and the CLI
  * is an `OpenAPITypesafeError` with a stable machine-readable `code` and structured `details`. The
@@ -48,13 +50,17 @@ export interface OpenAPITypesafeErrorInit {
   readonly cause?: unknown;
 }
 
-/** The base of every expected failure; check `code`, not the class or the message. */
+/**
+ * The base of every expected failure; check `code`, not the class or the message. The message
+ * never shows the user info of a URL (`url-credentials.ts`).
+ */
 export class OpenAPITypesafeError extends Error {
   readonly code: ErrorCode;
   readonly details: ErrorDetails;
 
   constructor(init: OpenAPITypesafeErrorInit) {
-    super(init.message, init.cause === undefined ? undefined : { cause: init.cause });
+    const message = redactUrlCredentials(init.message);
+    super(message, init.cause === undefined ? undefined : { cause: init.cause });
     this.name = "OpenAPITypesafeError";
     this.code = init.code;
     this.details = init.details ?? {};

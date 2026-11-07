@@ -33,6 +33,9 @@ export function irKeyword(keyword: IrKeyword): IrKeywordType {
   return { kind: "keyword", keyword };
 }
 
+/** The encoding of a string literal that does not name one. */
+export const DEFAULT_STRING_ENCODING: IrStringEncoding = "json";
+
 export function irString(value: string, encoding: IrStringEncoding): IrStringLiteralType {
   return { kind: "stringLiteral", value, encoding };
 }

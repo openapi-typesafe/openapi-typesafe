@@ -122,8 +122,11 @@ function lastString(value: unknown): string | undefined {
   return optionalString(Array.isArray(value) ? value.at(-1) : value);
 }
 
-/** `--remote-ref-hosts a.example,b.example`, repeatable; an empty value allows no host. */
-function hostList(value: unknown): string[] | undefined {
+/**
+ * `--remote-ref-hosts a.example,b.example`, repeatable; an empty value allows no host. The
+ * `remote-ref-hosts` setting of a `redocly.yaml` API is read the same way.
+ */
+export function hostList(value: unknown): string[] | undefined {
   if (value === undefined) {
     return undefined;
   }

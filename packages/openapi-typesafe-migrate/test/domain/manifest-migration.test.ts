@@ -144,4 +144,40 @@ describe("migratePackageManifest", () => {
       { kind: "manifest-unreadable", reason: expect.any(String) },
     ]);
   });
+
+  it("migratePackageManifest hides URL credentials in the findings, not in the file", () => {
+    const spec = "git+https://ghp_SECRET@github.com/acme/openapi-fetch.git";
+    const text = manifest({ dependencies: { "openapi-fetch": spec } });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(manifest({ dependencies: { "openapi-typesafe-fetch": spec } }));
+    const hidden = "git+https://***@github.com/acme/openapi-fetch.git";
+    expect(migrated.changes).toEqual([expect.objectContaining({ spec: hidden })]);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "spec-kept", name: "openapi-typesafe-fetch", spec: hidden },
+    ]);
+  });
+
+  it("migratePackageManifest hides URL credentials in the parse error", () => {
+    // V8 quotes a short text whole in the message.
+    const migrated = migratePackageManifest("https://SECRET@h.io", "1.0.0");
+
+    expect(migrated.manualSteps).toEqual([
+      { kind: "manifest-unreadable", reason: expect.stringContaining("https://***@h.io") },
+    ]);
+  });
+
+  it("migratePackageManifest keeps CRLF line endings", () => {
+    const text = manifest({ devDependencies: { "openapi-typescript": "^7.13.0" } }).replaceAll(
+      "\n",
+      "\r\n",
+    );
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(
+      manifest({ devDependencies: { "openapi-typesafe": "^1.0.0" } }).replaceAll("\n", "\r\n"),
+    );
+  });
 });

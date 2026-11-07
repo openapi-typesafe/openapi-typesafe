@@ -3,8 +3,6 @@ import type { Readable } from "node:stream";
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import type { FooterEntry } from "../api/footer-entry.js";
-import type { Logger } from "../application/ports/logger.js";
-import type { DocumentFooter } from "../application/transform/transform-context.js";
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
 import type { OutputFix, OutputFixName } from "../domain/output-fixes.js";
 import type { ReferenceObject } from "./openapi-common.js";
@@ -197,28 +195,22 @@ export interface OpenAPITSIrOptions extends OpenAPITSBaseOptions, IrCallbackOpti
 /** Either form of the generator options. */
 export type GeneratorOptions = OpenAPITSOptions | OpenAPITSIrOptions;
 
-/** Context passed to all submodules */
+/**
+ * Context passed to all submodules, and to the callbacks as `options.ctx`. To call an exported
+ * transformer outside a run, build one with the fields of openapi-typescript's context; the
+ * fields openapi-typesafe added are optional.
+ */
 export interface GlobalContext {
   // user options
   additionalProperties: boolean;
   alphabetize: boolean;
   arrayLength: boolean;
-  binaryAsBlob: boolean;
+  /** `format: binary` and `contentMediaType` strings become `Blob` (default: false). */
+  binaryAsBlob?: boolean;
   defaultNonNullable: boolean;
   discriminators: {
     objects: Record<string, DiscriminatorObject>;
     refsHandled: string[];
-    /**
-     * @internal With the `discriminator-values` fix: for each enum the scan added to a
-     * member and each inherited discriminator object, the enum of the owner's property and the
-     * location it is typed at.
-     */
-    enumParents?: ReadonlyMap<object, { readonly schema: SchemaObject; readonly path: string }>;
-    /**
-     * @internal With the `discriminator-values` fix: for each schema, the properties of the
-     * discriminators it inherits besides `objects[ref]`, which it redefines too.
-     */
-    otherProperties?: Readonly<Record<string, readonly string[]>>;
   };
   emptyObjectsUnknown: boolean;
   enum: boolean;
@@ -235,24 +227,12 @@ export interface GlobalContext {
    * callbacks may add IR declarations or TypeScript nodes.
    */
   injectFooter: FooterEntry[];
-  /**
-   * @internal Footer state of this run (enum registry and enum naming), created on first use by
-   * the transform context adapter. Not an option; do not set it.
-   */
-  runFooter?: DocumentFooter;
-  /**
-   * @internal The deprecated callback forms this run has warned about (once each). Not an
-   * option; do not set it.
-   */
-  legacyCallbackWarnings?: Set<LegacyCallbackName>;
-  /**
-   * @internal Where this run reports warnings and debug output. Not an option; a context without
-   * it logs to the terminal.
-   */
-  logger?: Logger;
   pathParamsAsTypes: boolean;
-  /** Whether the callbacks below take IR (`OpenAPITSIrOptions`) or TypeScript nodes. */
-  irCallbacks: boolean;
+  /**
+   * Whether the callbacks below take IR (`OpenAPITSIrOptions`) or TypeScript nodes
+   * (default: false, TypeScript nodes).
+   */
+  irCallbacks?: boolean;
   postTransform: GeneratorOptions["postTransform"];
   propertiesRequiredByDefault: boolean;
   rootTypes: boolean;
