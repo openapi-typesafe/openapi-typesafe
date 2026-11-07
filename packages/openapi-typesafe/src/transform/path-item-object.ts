@@ -1,10 +1,14 @@
 import { createTransformContext, schemaLocation } from "../api/transform-context.js";
 import { pathItemType } from "../application/transform/document/path-item.js";
 import type { IrType } from "../domain/ir/nodes.js";
-import type { HttpMethod } from "../domain/openapi/path-item-object.js";
+import type { PathItemMethod } from "../domain/openapi/path-item-object.js";
 import type { PathItemObject, TransformNodeOptions } from "../types.js";
 
-export type Method = HttpMethod;
+/**
+ * The operation methods of a path item: openapi-typescript's eight, plus the OpenAPI 3.2 `query`
+ * (ADR-020), as `HttpMethod` of openapi-typesafe-helpers lists them.
+ */
+export type Method = PathItemMethod;
 
 /**
  * Transform PathItem nodes (4.8.9)
