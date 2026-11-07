@@ -44,31 +44,55 @@ The beta runs while the repository is private, so nothing goes to npm.
 1. Pull requests carry changesets (`pnpm changeset`).
 2. On `main`, the release workflow keeps the "chore(release): version packages" pull request up to
    date. Merge it when the release is ready.
-3. The `publish` job waits for approval in the `npm-publish` environment. Approve it. A push to
+3. The `build` job runs the verify gate and packs every public package
+   (`scripts/release/pack-release.sh`): tarballs, SBOMs, changelog sections, `manifest.tsv` and
+   `SHA256SUMS`, uploaded as the `release-packages` artifact. It has no publishing right. A push to
    `main` with no changesets and no version missing from npm (`scripts/release/list-unpublished.sh`)
-   skips the job, so it asks for approval only when there is something to publish.
-4. The job runs the verify gate, publishes each package that is not on npm yet (in dependency
-   order), fails if a version has no provenance, then tags `<name>@<version>` and creates a GitHub
-   release with the changelog section and a CycloneDX SBOM.
+   skips it and the jobs after it, so the workflow asks for approval only when there is something
+   to publish.
+4. The `publish` job waits for approval in the `npm-publish` environment. Approve it. It installs
+   only npm, checks every file against the hash that `build` wrote in its outputs
+   (`scripts/release/verify-tarballs.sh`), and publishes each tarball that is not on npm yet, in
+   dependency order. After each one it checks the provenance
+   (`scripts/release/check-provenance.sh`): it must name this repository, `release.yml` and the
+   SHA-512 of the tarball that `build` packed. The registry can lag behind a publish, so the check
+   retries for up to about two minutes.
+5. The `release` job creates the tag `<name>@<version>` on the built commit and a GitHub release
+   with the changelog section, the CycloneDX SBOM and the npm provenance bundle
+   (`scripts/release/create-github-releases.sh`).
 
 Prereleases (a version with `-`) go to the `next` tag and are marked as prereleases on GitHub.
-Until a stable release exists, each prerelease also takes `latest` (ADR-007). That is the last
-step, after the GitHub releases; if it fails (for example, "Allow npm dist-tag" is off), turn the
-permission on and run `npm dist-tag add <name>@<version> latest` for each package, logged in with
-2FA.
+Until a stable release exists, each prerelease also takes `latest` (ADR-007): the last step of the
+`publish` job (`scripts/release/tag-latest.sh`). If it fails (for example, "Allow npm dist-tag" is
+off), the `release` job still runs. Turn the permission on and re-run the failed jobs, or run
+`npm dist-tag add <name>@<version> latest` for each package, logged in with 2FA.
 `pnpm exec changeset pre exit` before 1.0.0.
+
+### When a run fails
+
+Re-run the failed jobs. Nothing is done twice:
+
+- `publish` skips every version that is already on npm and checks its provenance again;
+- `release` skips every GitHub release that exists, replaces a draft that a failed upload left, and
+  stops if a tag already exists on another commit (then find out who created it before you go on);
+- a re-run of `build` packs again and replaces the artifact. Packing is reproducible, but a version
+  that is already on npm is not compared with the new tarball, only checked for provenance.
 
 ## Dry run
 
-Actions → release → Run workflow. The `dry-run` job packs every package and runs
-`npm publish --dry-run`; it needs no approval and publishes nothing. Locally:
-`scripts/release/publish.sh --dry-run`. npm notes that you are not logged in; for a dry run that
-is expected.
+Actions → release → Run workflow. The `build` job packs every package, and the `dry-run` job checks
+the tarballs and runs `npm publish --dry-run` for each one that is not on npm yet; it needs no
+approval and publishes nothing. Locally, after `pnpm build`:
+`scripts/release/pack-release.sh .release/npm`, then `npm publish --dry-run <tarball>` for a
+tarball in `.release/npm/`. npm notes that you are not logged in; for a dry run that is expected.
 
 ## Check a release
 
 - `npm audit signatures` in a project that installs it: every package has a verified attestation.
 - The package page on npmjs.com shows "Provenance" with a link to the workflow run.
-- The GitHub release has the `<name>@<version>.cdx.json` SBOM attached.
+- The GitHub release has the `<name>@<version>.cdx.json` SBOM and the
+  `<name>@<version>.provenance.sigstore.json` npm provenance bundle attached. With immutable
+  releases on (`scripts/repo/apply-settings.sh`), GitHub marks the release immutable: its tag and
+  files cannot change.
 
-Logs of each run are in the `release-logs` artifact (`.logs/release/` locally).
+The verify logs of each run are in the `release-verify-logs` artifact (`.logs/verify/` locally).
