@@ -69,6 +69,23 @@ entry is listed by the same rule, by the git of that directory: its own reposito
 works only for tracked files of submodules, not with `--others`, and not for nested repositories
 that are not submodules. The log records, for each folder, whether git or the tree walk listed it.
 
+## Amendment (2026-11-06): the project tree is not trusted
+
+A security review found that the tool trusted more of the project folder than its own sources.
+A project can hold files that its user did not write or check: a folder unpacked from an archive,
+a repository committed inside a cloned one, a dependency vendored with its own `.git`. The tool
+now treats the tree as untrusted input:
+
+- **Git config of nested repositories.** Git reads the config of the repository it runs in, and
+  `core.fsmonitor` in that config is a command that `ls-files` and `check-ignore` run. A planted
+  `.git/config` ran code in a dry run. Every git command now gets `-c core.fsmonitor=false -c
+  safe.bareRepository=explicit`; command-line settings win over every config file. Checked by
+  hand on git 2.54: these two commands write no index (so no hook runs) and start no filter,
+  pager or network helper, so `core.fsmonitor` is the only command they take from config. An
+  embedded bare repository is refused (`--root` pointed at one), and that folder is walked as a
+  tree. `-c` is used, not `GIT_CONFIG_PARAMETERS`, so the settings are visible in the arguments.
+  System and global config stay: the user and the administrator wrote them.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

@@ -35,6 +35,21 @@ const IGNORED_EXIT_CODE = 0;
 const NOT_IGNORED_EXIT_CODE = 1;
 const IGNORED_REASON = "the git repository around the folder ignores it";
 const GIT_COMMAND = "git";
+/**
+ * Settings that win over every config file, because the tool runs git in folders it did not
+ * create: a nested repository unpacked from an archive, or a bare repository committed inside a
+ * cloned one. Their config is not trusted. `core.fsmonitor` is the one setting that makes
+ * `ls-files` and `check-ignore` run a command (they write no index, so no hook runs, and they
+ * start no filter, pager or network helper). `safe.bareRepository=explicit` refuses a bare
+ * repository found by walking up from the folder, so its config is not read at all; the folder
+ * is then walked as a tree.
+ */
+const HARDENED_CONFIG = [
+  "-c",
+  "core.fsmonitor=false",
+  "-c",
+  "safe.bareRepository=explicit",
+] as const;
 /** An untracked nested repository is listed with a slash, and the directory itself as `./`. */
 const TRAILING_SLASH_RE = /\/$/;
 const SELF_PATHS: ReadonlySet<string> = new Set(["", "."]);
@@ -51,7 +66,7 @@ type GitRun =
 function runGit(directory: string, gitArguments: readonly string[]): Promise<GitRun> {
   return new Promise((resolve) => {
     // spawn, not execFile: the output of a large repository has no buffer limit this way.
-    const child = spawn(GIT_COMMAND, gitArguments, { cwd: directory });
+    const child = spawn(GIT_COMMAND, [...HARDENED_CONFIG, ...gitArguments], { cwd: directory });
     const output: Buffer[] = [];
     const errors: Buffer[] = [];
     child.stdout.on("data", (chunk: Buffer) => output.push(chunk));

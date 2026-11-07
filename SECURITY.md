@@ -33,6 +33,9 @@ In scope:
 - code injection into generated output through crafted schema content (names, descriptions, enum values, examples);
 - crashes or unbounded resource use triggered by a crafted schema (for example cyclic or remote `$ref`);
 - vulnerabilities in the fetch client and React Query bindings;
+- the migration tool (`openapi-typesafe-migrate`) running code, reading or writing outside the
+  folder it migrates, or copying credentials into its output, when the folder holds crafted files
+  (it treats the project tree as untrusted input);
 - compromise of the release process or published packages.
 
 Out of scope: vulnerabilities in the APIs you generate types for, and issues in unsupported versions.

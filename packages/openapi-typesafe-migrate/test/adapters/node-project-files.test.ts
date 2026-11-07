@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -180,6 +180,20 @@ describe("NodeProjectFiles", () => {
       { directory: ".", source: "git" },
       { directory: "nested", source: "git" },
     ]);
+  });
+
+  it("listFiles with git does not run the core.fsmonitor command of a nested repository", async () => {
+    gitIn(".", "init", "--quiet");
+    gitIn(".", "init", "--quiet", "vendor/library");
+    await put("vendor/library/index.ts", "");
+    const marker = join(root, "MARKER");
+    gitIn("vendor/library", "config", "core.fsmonitor", `touch '${marker}'; false`);
+    const { files } = filesWithGit(".");
+
+    const listed = await files.listFiles();
+
+    expect(listed).toEqual(["vendor/library/index.ts"]);
+    await expect(access(marker)).rejects.toThrow();
   });
 
   it("read and write work on paths relative to the root", async () => {

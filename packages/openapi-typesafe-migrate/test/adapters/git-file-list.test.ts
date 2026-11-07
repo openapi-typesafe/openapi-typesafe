@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -125,6 +125,43 @@ describe("SpawnedGitFileList", () => {
     const listing = await createGitFileList().list(join(root, "clone/vendor/library"));
 
     expect(listing).toEqual({ kind: "listed", paths: [] });
+  });
+
+  async function exists(path: string): Promise<boolean> {
+    return access(join(root, path)).then(
+      () => true,
+      () => false,
+    );
+  }
+
+  /** A command for `core.fsmonitor` that leaves a marker file when git runs it. */
+  function markerCommand(): string {
+    return `touch '${join(root, "MARKER")}'; false`;
+  }
+
+  it("list does not run the core.fsmonitor command of a nested repository", async () => {
+    git(".", "init", "--quiet");
+    git(".", "init", "--quiet", "vendor/library");
+    await put("vendor/library/index.ts", "");
+    git("vendor/library", "config", "core.fsmonitor", markerCommand());
+
+    const listing = await createGitFileList().list(join(root, "vendor/library"));
+
+    expect(listing).toEqual({ kind: "listed", paths: ["index.ts"] });
+    expect(await exists("MARKER")).toBe(false);
+  });
+
+  it("list is unavailable for an embedded bare repository and does not run its config", async () => {
+    git(".", "init", "--quiet");
+    git(".", "init", "--quiet", "--bare", "packages/api");
+    git("packages/api", "config", "core.bare", "false");
+    git("packages/api", "config", "core.worktree", ".");
+    git("packages/api", "config", "core.fsmonitor", markerCommand());
+
+    const listing = await createGitFileList().list(join(root, "packages/api"));
+
+    expect(listing.kind).toBe("unavailable");
+    expect(await exists("MARKER")).toBe(false);
   });
 
   it("list is unavailable outside a git repository", async () => {

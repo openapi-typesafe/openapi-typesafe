@@ -32,6 +32,10 @@ repository around it ignores, it reads the whole tree of that folder. Either way
 `coverage` are skipped, and links are not followed. The log names the folders and how each one
 was read.
 
+The tool does not trust the folder it migrates. Git runs with `core.fsmonitor` turned off, so a
+nested repository's `.git/config` cannot make it run a command, and it does not open a bare
+repository that is not named explicitly.
+
 ## What it leaves to you
 
 The report lists each of these with the file and line:
