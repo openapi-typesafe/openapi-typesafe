@@ -56,7 +56,7 @@ Pinning `typescript` to 5.x or 6.x for the whole project is the only fix within 
 
 ## The fix
 
-Switch to openapi-typesafe. It is a drop-in successor: the same flags, Node API and output.
+Switch to openapi-typesafe. It is a drop-in successor: the same flags, Node API and types (only the header comment differs).
 
 ```bash
 npx openapi-typesafe-migrate --write

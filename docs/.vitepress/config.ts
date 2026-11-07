@@ -90,9 +90,10 @@ export default defineConfig({
         domain: SITE_URL.origin,
         ignoreFiles: ["README.md", "CONTRIBUTING.md"],
         details: [
-          "Four packages share one version: `openapi-typesafe` (generator: CLI and Node API),",
-          "`openapi-typesafe-fetch` (client), `openapi-typesafe-react-query` (TanStack Query hooks)",
-          "and `openapi-typesafe-helpers` (utility types). Coding agents can also load the agent",
+          "Five packages share one version: `openapi-typesafe` (generator: CLI and Node API),",
+          "`openapi-typesafe-fetch` (client), `openapi-typesafe-react-query` (TanStack Query hooks),",
+          "`openapi-typesafe-helpers` (utility types) and `openapi-typesafe-migrate` (a one-off",
+          "migration command, run with `npx`). Coding agents can also load the agent",
           `skill: ${REPOSITORY_URL}/tree/main/skills/openapi-typesafe`,
         ].join(" "),
       }),

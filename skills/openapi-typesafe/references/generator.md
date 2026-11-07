@@ -120,8 +120,12 @@ try {
 
 | Group | Codes |
 | :-- | :-- |
-| Usage / config | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE` |
+| Usage / config | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
 | Document | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | Output | `OUTPUT_STALE`, `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 
 `ERROR_CODES` exports them all. A lower-level error (file system, parser) is in `cause`.
+
+Warnings do not fail the run; their codes are `WARNING_CODES` (union `WarningCode`), listed in
+https://openapi-typesafe.github.io/openapi-typesafe/cli#warnings. A minor release may add error
+or warning codes, so give a `switch` over them a `default` branch.

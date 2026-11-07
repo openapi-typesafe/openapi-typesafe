@@ -1,5 +1,6 @@
 ---
-"openapi-typesafe-react-query": patch
+"openapi-typesafe-react-query": minor
 ---
 
-Tag generated querykeys with `DataTag`, allowing us to infer the return type (data/error) associated with a given queryKey, making methods like `queryClient.setQueryData()` type-safe.
+Query keys are tagged with `DataTag`, so `queryClient.setQueryData()` and similar methods know the
+data and error types (upstream PR [#1950](https://github.com/openapi-ts/openapi-typescript/pull/1950)).

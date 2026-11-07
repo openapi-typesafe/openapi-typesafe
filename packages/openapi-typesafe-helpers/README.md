@@ -6,6 +6,9 @@ Type helpers shared by `openapi-typesafe-fetch` and `openapi-typesafe-react-quer
 A maintained successor to `openapi-typescript-helpers` (see the [repository README](../../README.md)).
 Most projects do not need to install it directly.
 
+> **Release candidate.** The current version is a 1.0.0 release candidate (`1.0.0-rc.N`);
+> names and output can still change before 1.0.0.
+
 ## Versioning
 
 Semantic versioning from 1.0.0, with one version for all openapi-typesafe packages. What the

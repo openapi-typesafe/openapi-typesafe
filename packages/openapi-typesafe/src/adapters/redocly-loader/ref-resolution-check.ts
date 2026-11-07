@@ -43,7 +43,8 @@ class RefResolutionWalk {
   readonly #resolver: BaseResolver;
   /** Redocly's `SpecExtension` type: its values are walked like values of no known type. */
   readonly specExtension: WalkType;
-  readonly #seenNodes = new Set<string>();
+  /** Walked nodes per type name; a node walked again with the same type starts the same lookups. */
+  readonly #seenNodes = new Map<string, WeakSet<object>>();
   readonly #lookups: Promise<void>[] = [];
 
   constructor(resolver: BaseResolver, specExtension: WalkType) {
@@ -69,11 +70,17 @@ class RefResolutionWalk {
   }
 
   /** Whether the node was walked with this type before; marks it walked. */
-  isSeen(type: WalkType, absoluteRef: string): boolean {
-    const nodeId = `${type.name}::${absoluteRef}`;
-    const isSeen = this.#seenNodes.has(nodeId);
-    this.#seenNodes.add(nodeId);
-    return isSeen;
+  isSeen(type: WalkType, node: object): boolean {
+    let seen = this.#seenNodes.get(type.name);
+    if (seen === undefined) {
+      seen = new WeakSet();
+      this.#seenNodes.set(type.name, seen);
+    }
+    if (seen.has(node)) {
+      return true;
+    }
+    seen.add(node);
+    return false;
   }
 
   track(lookup: Promise<ResolvedRef>, type: WalkType): void {
@@ -108,7 +115,7 @@ class DocumentWalk {
   }
 
   walk(node: unknown, type: WalkType, absoluteRef: string): void {
-    if (typeof node !== "object" || node === null || this.#walk.isSeen(type, absoluteRef)) {
+    if (typeof node !== "object" || node === null || this.#walk.isSeen(type, node)) {
       return;
     }
     const anchor = (node as { $anchor?: unknown }).$anchor;

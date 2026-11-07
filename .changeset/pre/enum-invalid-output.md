@@ -2,4 +2,5 @@
 "openapi-typesafe": patch
 ---
 
-Fix `--enum` output that did not compile: an empty string value now gives the member `"" = ""`, a member name that must be quoted is escaped (`"\\"` instead of `"\"`), and a line break in `x-enum-descriptions` no longer ends the `//` comment early (it becomes a space). The deprecated `tsEnum` / `tsEnumMember` helpers get the same fixes. Fixes upstream #2807, #2812, #2614, #2838.
+`--enum` output compiles: empty values, quoted names, line breaks in descriptions, colliding member
+names and enums declared twice (upstream [#2807](https://github.com/openapi-ts/openapi-typescript/issues/2807), [#2812](https://github.com/openapi-ts/openapi-typescript/issues/2812), [#2614](https://github.com/openapi-ts/openapi-typescript/issues/2614), [#2838](https://github.com/openapi-ts/openapi-typescript/issues/2838)).

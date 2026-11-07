@@ -1,5 +1,7 @@
 ---
-"openapi-typesafe": patch
+"openapi-typesafe": minor
 ---
 
-Support `additionalProperties: true` on string enums by generating a loose autocomplete union (`(enum literals) | (string & {})`), preserving editor suggestions while still accepting arbitrary string values.
+A `type: string` enum with `additionalProperties: true` is typed `("a" | "b") | (string & {})`, so
+editors suggest the values while other strings are accepted (upstream PR [#2415](https://github.com/openapi-ts/openapi-typescript/pull/2415)). On by
+default: openapi-typescript 7.13.0 typed such enums `"a" | "b"`.

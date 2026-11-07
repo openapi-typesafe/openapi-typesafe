@@ -6,7 +6,9 @@ description: How the output of openapi-typesafe compares with openapi-typescript
 # Compatibility report
 
 openapi-typesafe promises the same output as openapi-typescript 7.13, except where the output is a
-bug. This page shows how that is checked and what the last run found.
+bug. This page shows how that is checked and what the last run found. CI runs the full corpus
+every night; this page is refreshed from that run for every release candidate and every major or
+minor release, and the GitHub release notes link it.
 
 **Result (2026-11-04):** 50,960 cases, 0 unexpected differences. 99.99% of the outputs are the
 same byte for byte, and 100% have the same types.

@@ -55,6 +55,30 @@ describe("ContextFooterSink", () => {
     expect(footer[0]).toMatchObject({ kind: "interface", name: "operations", members: [MEMBER, MEMBER] });
   });
 
+  it("addOperation leaves an operations entry that user code put in its place unchanged", () => {
+    const footer: FooterEntry[] = [];
+    const sink = new ContextFooterSink(footer);
+    sink.addOperation(() => MEMBER);
+    const replaced = { ...(footer[0] as IrDeclaration), members: [] } as IrDeclaration;
+    footer[0] = replaced;
+
+    sink.addOperation(() => MEMBER);
+
+    expect(replaced).toMatchObject({ members: [] });
+    expect(footer[0]).toMatchObject({ kind: "interface", members: [MEMBER] });
+  });
+
+  it("addOperation copies a given IR operations interface before adding to it", () => {
+    const given = { kind: "interface", name: "operations", isExported: true, members: [], comments: [] };
+    const footer: FooterEntry[] = [given as IrDeclaration];
+    const sink = new ContextFooterSink(footer);
+
+    sink.addOperation(() => MEMBER);
+
+    expect(given.members).toEqual([]);
+    expect(footer[0]).toMatchObject({ members: [MEMBER] });
+  });
+
   it("addOperation declares the interface before what the member build adds", () => {
     const footer: FooterEntry[] = [];
     const sink = new ContextFooterSink(footer);

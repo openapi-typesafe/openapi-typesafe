@@ -14,7 +14,7 @@ openapi-typesafe is a drop-in successor. A project on these packages moves by ch
 | `openapi-react-query` | `openapi-typesafe-react-query` |
 | `openapi-typescript-helpers` | `openapi-typesafe-helpers` |
 
-All four packages have one version number. The generated types are the same, the CLI flags are the same, and `redocly.yaml` keeps its `x-openapi-ts` settings.
+All openapi-typesafe packages have one version number. The generated types are the same (except for the [changes below](#what-is-different)), the CLI flags are the same, and `redocly.yaml` keeps its `x-openapi-ts` settings.
 
 Coming from openapi-typescript **6.x**? Follow the [upstream guide to 7.x](https://openapi-ts.dev/migration-guide) first, then this one.
 
@@ -46,7 +46,7 @@ npm run generate       # your script that runs openapi-typesafe
 
 With Yarn 4 and `enableImmutableInstalls` (on by default in CI), this first install must change the lockfile: run `yarn install --no-immutable` once and commit `yarn.lock`.
 
-Commit the regenerated files once. Unless one of the [output fixes](#output-fixes) applies, the only changes are the comments that name the generator, first the header line:
+Commit the regenerated files once. Unless your schemas have [open string enums](#open-string-enums) or one of the [output fixes](#output-fixes) applies, the only changes are the comments that name the generator, first the header line:
 
 ```diff
  /**
@@ -105,6 +105,26 @@ OpenAPI 3.2 documents get types for `query` and `additionalOperations` operation
 
 Errors thrown by the Node API are `OpenAPITypesafeError`s with a stable `code` (see [errors](/node#errors)). The messages are unchanged. A file system error is kept as `cause`: check `error.cause.code` instead of `error.code === "ENOENT"`.
 
+### Open string enums
+
+A `type: string` enum with `additionalProperties: true` is typed with any other string added, so
+editors still suggest the values while other strings are accepted:
+
+```ts
+status: ("active" | "inactive") | (string & {}); // openapi-typescript 7.13.0: "active" | "inactive"
+```
+
+This change was merged upstream after 7.13.0 was published
+([openapi-typescript#2415](https://github.com/openapi-ts/openapi-typescript/pull/2415)) and is on
+by default. It changes valid output, so check the types of such schemas after you regenerate.
+
+### Headers for remote documents
+
+Headers from `resolve.http.headers` in `redocly.yaml` go over plain HTTP only to this machine
+(`localhost`, `127.0.0.0/8`, `::1`) or when the pattern starts with `http://`. A header for a plain
+HTTP server on another machine needs its pattern written as `http://api.internal:8080/**`. Headers
+are no longer sent on through a redirect to another origin.
+
 ### Output fixes
 
 Where openapi-typescript’s output did not compile, was unsafe or had wrong types, it changes:
@@ -126,7 +146,10 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
   When `Pet` inherits the discriminator through `allOf`, neither `Pet` nor its keywords get the
   value `"Pet"`, which every member would contradict.
 
-All other output is byte-identical.
+All other output stays the same. The [compatibility report](./compatibility.md) checks this on
+1,820 real-world documents with 28 option sets (50,960 cases): 99.99% of the outputs are the same
+byte for byte and 100% have the same types. Its golden output is the 7.13 code at tag `fork-base`,
+which already has the [open string enums](#open-string-enums) change.
 
 ### New options
 
@@ -183,6 +206,9 @@ aliased to `openapi-typesafe-fetch` with `overrides` (npm, bun, `pnpm-workspace.
 - A path parameter that makes a `.` or `..` segment is rejected before the request is sent.
 - openapi-typesafe-react-query fails on every non-OK response, also one without a body.
 - Middleware request ids come from a counter instead of `Math.random()`.
+- A path that starts with `//` once the path parameters are in (an empty first parameter) is rejected before the request is sent, since a browser sends it to another host.
+- An error response with an empty body gives `error: undefined`, also without `Content-Length`; it gave `""`.
+- openapi-typesafe-react-query: `useInfiniteQuery` has its own query key, `[...queryKey, "infinite"]`, so it no longer shares a cache entry with `useQuery`. `[method, path]` still matches it as a prefix; code that reads or writes the entry with the exact key must append `"infinite"`.
 - A `Blob`, `File`, `ArrayBuffer`, typed array or `URLSearchParams` body is sent as is; before, it was JSON-encoded to `{}`.
 - A nested object in an `application/x-www-form-urlencoded` body throws instead of being sent as `[object Object]`; write a `bodySerializer` for the format your server reads.
 - An object body with `Content-Type: multipart/form-data` is sent as `FormData` (one part per field), not as JSON, and a `multipart/form-data` header without a boundary no longer breaks a `FormData` upload.

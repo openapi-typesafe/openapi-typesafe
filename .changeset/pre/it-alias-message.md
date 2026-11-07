@@ -2,4 +2,5 @@
 "openapi-typesafe": patch
 ---
 
-The error for the removed `-it` alias now names `--immutable`. It named `--immutable-types`, which is removed too.
+Small CLI fixes: the `-it` error names `--immutable`, `--help` lists `--generate-path-params`, and
+untimed `DEBUG` lines have a space after the group.

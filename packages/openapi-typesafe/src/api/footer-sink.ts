@@ -4,6 +4,7 @@ import type { FooterSink } from "../application/transform/footer/document-footer
 import type {
   IrDeclaration,
   IrInterfaceDeclaration,
+  IrMember,
   IrPropertySignature,
 } from "../domain/ir/nodes.js";
 import { declaresTypeAlias, type FooterEntry, isIrDeclaration } from "./footer-entry.js";
@@ -16,6 +17,12 @@ const OPERATIONS_NAME = "operations";
  */
 export class ContextFooterSink implements FooterSink {
   private readonly footer: FooterEntry[];
+  /**
+   * The IR `operations` entry this sink wrote last, with its members array that only this sink
+   * holds. Adding to it in place keeps a run linear: copying the members on every operation was
+   * quadratic (about 0.4 s on Microsoft Graph beta).
+   */
+  private owned: OwnedOperations | null = null;
 
   constructor(footer: FooterEntry[]) {
     this.footer = footer;
@@ -35,6 +42,11 @@ export class ContextFooterSink implements FooterSink {
    * the member in place, as in the original.
    */
   addOperation(build: () => IrPropertySignature): void {
+    const owned = this.currentOwnedOperations();
+    if (owned !== null) {
+      owned.members.push(build());
+      return;
+    }
     const existing = this.findOperations();
     if (existing !== null && !isIrDeclaration(existing.entry)) {
       const ts = loadTypeScript();
@@ -45,9 +57,23 @@ export class ContextFooterSink implements FooterSink {
       return;
     }
     const index = existing?.index ?? this.footer.push(emptyOperations()) - 1;
-    const member = build();
+    this.takeOwnership(index).members.push(build());
+  }
+
+  /** The owned entry, unless user code replaced or moved it in the footer since. */
+  private currentOwnedOperations(): OwnedOperations | null {
+    const owned = this.owned;
+    return owned !== null && this.footer[owned.index] === owned.entry ? owned : null;
+  }
+
+  /** Replace the IR entry at `index` with a copy whose members array only this sink holds. */
+  private takeOwnership(index: number): OwnedOperations {
     const operations = this.footer[index] as IrInterfaceDeclaration;
-    this.footer[index] = { ...operations, members: [...operations.members, member] };
+    const members: IrMember[] = [...operations.members];
+    const entry: IrInterfaceDeclaration = { ...operations, members };
+    this.footer[index] = entry;
+    this.owned = { entry, members, index };
+    return this.owned;
   }
 
   /** The first `operations` interface: the generator's (IR) or a user's (TypeScript). */
@@ -60,6 +86,12 @@ export class ContextFooterSink implements FooterSink {
     const entry = this.footer[index];
     return entry === undefined ? null : { entry, index };
   }
+}
+
+interface OwnedOperations {
+  readonly entry: IrInterfaceDeclaration;
+  readonly members: IrMember[];
+  readonly index: number;
 }
 
 function emptyOperations(): IrInterfaceDeclaration {

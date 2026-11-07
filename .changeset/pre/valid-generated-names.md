@@ -2,8 +2,6 @@
 "openapi-typesafe": patch
 ---
 
-Always generate names that parse. An `--enum` or `--enum-values` name that starts with a digit
-after invalid characters are removed now gets the `Value` prefix (`0 a-b` gave `value0 a-b`).
-With `--root-types-keep-casing`, characters that cannot be in an identifier become `_`
-(`Schemamy pet` is now `Schemamy_pet`). With `--root-types-no-schema-prefix`, a name that would
-start with a digit keeps its prefix (`Schema1`). Names that were valid before do not change.
+Generated names always compile: `--root-types` aliases that clash with an enum, a helper or a used
+global type get a number, invalid characters and reserved words are handled, and
+`--make-paths-enum` names are unique (upstream [#2099](https://github.com/openapi-ts/openapi-typescript/issues/2099), [#2341](https://github.com/openapi-ts/openapi-typescript/issues/2341), [#2206](https://github.com/openapi-ts/openapi-typescript/issues/2206)).

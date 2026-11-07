@@ -2,4 +2,6 @@
 "openapi-typesafe": patch
 ---
 
-Fix `--enum-values` output that did not compile: the `FlattenedDeepRequired` helper now flattens readonly arrays (with `--immutable`) and looks through nullable parent objects, and the `ReadonlyArray` helper accepts readonly arrays. The helper text in the generated footer changes accordingly; the exported types stay the same where they compiled before. Fixes upstream #2714, #2749, #2737.
+`--enum-values` output compiles: readonly and nullable parents, arrays declared twice, colliding
+names, path item parameters and locations that cannot hold the values (upstream [#2714](https://github.com/openapi-ts/openapi-typescript/issues/2714),
+[#2749](https://github.com/openapi-ts/openapi-typescript/issues/2749)).

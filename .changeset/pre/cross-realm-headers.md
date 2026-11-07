@@ -2,4 +2,5 @@
 "openapi-typesafe-fetch": patch
 ---
 
-`defaultBodySerializer` recognizes headers from another JavaScript realm (an iframe, `node:vm`, Jest VM modules), so an `application/x-www-form-urlencoded` body is no longer sent as JSON there. Its type now declares the optional `headers` parameter. Fixes upstream #2637.
+`defaultBodySerializer` reads headers from another realm (iframe, `node:vm`, Jest) (upstream
+[#2637](https://github.com/openapi-ts/openapi-typescript/issues/2637)).

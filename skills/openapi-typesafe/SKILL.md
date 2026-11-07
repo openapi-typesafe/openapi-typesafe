@@ -7,15 +7,16 @@ license: MIT
 # openapi-typesafe
 
 openapi-typesafe turns an OpenAPI 3.0, 3.1 or 3.2 document into TypeScript types. It is a drop-in
-successor to openapi-typescript 7.13 that also works with TypeScript 7. Four packages share one
+successor to openapi-typescript 7.13 that also works with TypeScript 7. Five packages share one
 version number:
 
 | Package | Role | Replaces |
 | :-- | :-- | :-- |
 | `openapi-typesafe` | Generator: CLI and Node API (dev dependency) | `openapi-typescript` |
-| `openapi-typesafe-fetch` | Typed `fetch` client, about 8 kB | `openapi-fetch` |
+| `openapi-typesafe-fetch` | Typed `fetch` client, about 8.7 kB minified | `openapi-fetch` |
 | `openapi-typesafe-react-query` | TanStack Query v5 hooks on top of the client | `openapi-react-query` |
 | `openapi-typesafe-helpers` | Shared utility types | `openapi-typescript-helpers` |
+| `openapi-typesafe-migrate` | One-off migration command, run with `npx` | none |
 
 Requirements: Node.js 22.12+ for the generator, Node.js 22+ (or a browser, Bun, Deno) for the
 client, TypeScript 5.4 or newer (6.x and 7.x included).
@@ -55,8 +56,9 @@ export const client = createClient<paths>({ baseUrl: "https://api.example.com/v1
 ```
 
 Create one client per base URL and reuse it. `createClient` also takes `headers` (sent with every
-request), `fetch` (a custom fetch, used in tests), `querySerializer`, `bodySerializer` and any
-`RequestInit` field such as `credentials`.
+request), `fetch` (a custom fetch, used in tests), `querySerializer`, `bodySerializer`, `requestInitExt`
+(the second `fetch` argument on Node.js, such as an undici `dispatcher`) and any `RequestInit`
+field such as `credentials`.
 
 ## 3. Call an endpoint
 
@@ -84,7 +86,8 @@ const created = await client.POST("/pets", {
 - The request body is `body`, a plain object for JSON. The client serializes it; do not call
   `JSON.stringify` yourself.
 - The client sends `Content-Type: application/json` unless you set another one; it does not read
-  the media type from the document. For other bodies set the header in `headers`:
+  the media type from the document. Raw bodies (`FormData`, `Blob`, `URLSearchParams`,
+  `ArrayBuffer`, typed arrays) get no default `Content-Type`; the platform sets it. For other bodies set the header in `headers`:
   - text: `body: notes, headers: { "Content-Type": "text/plain" }`; a string is then sent as is
     (with a JSON type it would be a JSON string, in quotes);
   - form: `headers: { "Content-Type": "application/x-www-form-urlencoded" }` with a plain object;
@@ -98,7 +101,11 @@ const created = await client.POST("/pets", {
   `paths`; a cast hides the bugs the types exist to catch.
 - `parseAs: "text" | "blob" | "arrayBuffer" | "stream"` changes how a success body is read
   (default `"json"`).
-- Per-request `headers`, `signal`, `baseUrl` and `fetch` override the client options.
+- Per-request `headers`, `signal`, `baseUrl` and `fetch` override the client options. Headers can
+  be a record, a `Headers` object or a list of pairs; `null` removes a client header, and
+  `params.header` wins over both.
+- A path parameter that makes a `.` or `..` segment, or an empty first segment (`//host`), throws
+  before the request.
 
 ## 4. Handle the result
 
@@ -115,14 +122,16 @@ An error response **without a body** has `error: undefined`, and so does any `20
 response. So `if (error)` alone misses an empty `500`. Check `response.ok`:
 
 ```ts
-const { data, error, response } = await client.GET("/pets/{petId}", {
-  params: { path: { petId } },
-});
-if (!response.ok) {
-  // `error` is the typed error body, or undefined when the server sent none.
-  throw new ApiError(response.status, error);
+async function loadPet(petId: number) {
+  const { data, error, response } = await client.GET("/pets/{petId}", {
+    params: { path: { petId } },
+  });
+  if (!response.ok) {
+    // `error` is the typed error body, or undefined when the server sent none.
+    throw new ApiError(response.status, error);
+  }
+  return data; // typed as the 2xx body
 }
-return data; // typed as the 2xx body
 ```
 
 - Narrow on `error` or `response.ok` before you read `data`; `data` and `error` are a

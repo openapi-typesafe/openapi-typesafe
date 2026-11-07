@@ -2,8 +2,8 @@
 # Tell whether a package version is already on npm: prints `true` or `false`.
 #
 # Usage: scripts/release/is-on-npm.sh <name> <version>
-#        Used by publish-package.sh (skip a published version) and list-unpublished.sh (skip the
-#        approval when nothing is left to publish).
+#        Used by the publish and dry-run jobs of release.yml (skip a published version) and by
+#        list-unpublished.sh (skip the approval when nothing is left to publish).
 #
 # `npm view` prints nothing for a missing version of an existing package and fails with E404 for a
 # package that does not exist yet; any other failure (network, registry) exits non-zero, so the

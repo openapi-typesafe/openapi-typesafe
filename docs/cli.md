@@ -50,7 +50,7 @@ apis:
 
 :::
 
-Under `x-openapi-ts`, an API can set `output`, every boolean flag of the [flags table](#flags), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint.
+Under `x-openapi-ts`, an API can set `output`, every generator flag of the [flags table](#flags) (the boolean flags except `--check`, `--help` and `--version`; `lint: false` is `--no-lint`), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint. `content-never` is accepted and has no effect, as on the command line.
 
 ::: tip
 
@@ -66,7 +66,7 @@ npx openapi-typesafe
 
 ::: warning
 
-In previous versions globbing was supported, but that has been **deprecated** in v7 in favor of `redocly.yaml`. You’ll be able to control per-schema output locations better, as well as getting unique per-schema settings.
+Globs are not supported (openapi-typescript 7 removed them): the CLI fails with `CLI_GLOB_UNSUPPORTED`. List the schemas under `apis` in `redocly.yaml` instead, which also gives each schema its own output location and settings.
 
 :::
 
@@ -78,7 +78,7 @@ A `redocly.yaml` file isn’t required to use openapi-typesafe. By default it ex
 npx openapi-typesafe --redocly ./path/to/redocly.yaml
 ```
 
-You can read more about the Redoc’s configuration options [in their docs](https://redocly.com/docs/cli/configuration/).
+You can read more about the Redocly configuration options [in their docs](https://redocly.com/docs/cli/configuration/).
 
 Problems listed in a `.redocly.lint-ignore.yaml` next to `redocly.yaml` (as `redocly lint --generate-ignore-file` writes it) are skipped, as `redocly lint` skips them; with `DEBUG=openapi-ts:*` each one is printed. Without a `redocly.yaml`, the file is read from the current directory.
 
@@ -110,7 +110,7 @@ does:
 - A pattern is matched against the protocol, host and path of the parsed URL. The query, the
   fragment and user info are not part of it, so a `*` cannot match across a `?` into another
   host's URL.
-- A header goes over HTTPS, or over plain HTTP to this machine (`localhost`, `127.0.0.1`, `::1`),
+- A header goes over HTTPS, or over plain HTTP to this machine (`localhost`, `127.0.0.0/8`, `[::1]`),
   such as a local dev server. To send it over plain HTTP to another machine, start its pattern
   with `http://`, for example `matches: http://api.internal:8080/**`.
 - The loader follows redirects itself (at most 20) and chooses the headers again for each URL. A
@@ -126,7 +126,7 @@ The following flags are supported in the CLI:
 | `--help`                           |       |          | Display inline help message and exit                                                                                |
 | `--version`                        |       |          | Display this library’s version and exit                                                                             |
 | `--output [location]`              | `-o`  | (stdout) | Where should the output file be saved?                                                                              |
-| `--redocly [location]`             | `-c`  |          | Path to a `redocly.yaml` file (see [Multiple schemas](#multiple-schemas))                                           |
+| `--redocly [location]`             | `-c`  | `redocly.yaml` | Path to a `redocly.yaml` file (see [Multiple schemas](#multiple-schemas))                                           |
 | `--additional-properties`          |       | `false`  | Allow arbitrary properties for all schema objects without `additionalProperties: false`                             |
 | `--alphabetize`                    |       | `false`  | Sort types alphabetically                                                                                           |
 | `--array-length`                   |       | `false`  | Generate tuples using array `minItems` / `maxItems`                                                                 |
@@ -150,7 +150,7 @@ The following flags are supported in the CLI:
 | `--make-paths-enum`                |       | `false`  | Generate ApiPaths enum for all paths                                                                                |
 | `--generate-path-params`           |       | `false`  | Generate path parameters for all paths where they are undefined by schema                                           |
 | `--read-write-markers`             |       | `false`  | Generate `$Read<T>`/`$Write<T>` markers for readOnly/writeOnly properties                                           |
-| `--no-lint`                        |       | `false`  | Skip the Redocly lint. Bundling errors (for example a broken `$ref`) still fail                                     |
+| `--no-lint`                        |       | (lint on) | Skip the Redocly lint. Bundling errors (for example a broken `$ref`) still fail                                     |
 | `--local-ref-root [dir]`           |       |          | Load local `$ref` files only from this directory and below it; without a value, the working directory (see [Untrusted documents](/advanced#untrusted-documents)) |
 | `--remote-ref-hosts [hosts]`       |       |          | Load remote `$ref` documents only from these comma-separated hosts; an empty value allows none                        |
 
@@ -158,7 +158,7 @@ The following flags are supported in the CLI:
 
 ## Warnings
 
-A warning does not stop the run: the types are written and the exit code stays `0`. Every warning (a line that starts with `⚠`) ends with its code, as an error does. A warning from a Redocly lint rule also names the rule, so `redocly.yaml` can change its severity or turn it off; problems listed in a [lint ignore file](#redocly-config) are not printed. A notice about flags, such as `--root-types-keep-casing has no effect without --root-types flag`, has no `⚠` and no code.
+A warning does not stop the run: the types are written and the exit code stays `0`. Every warning (a line that starts with `⚠`) ends with its code, as an error does. A warning from a Redocly lint rule also names the rule, so `redocly.yaml` can change its severity or turn it off; problems listed in a [lint ignore file](#redocly-config) are not printed. A notice about flags, such as `--root-types-keep-casing has no effect without --root-types flag` or `Unknown flag --x is ignored (see --help)`, has no `⚠` and no code.
 
 | Code | Meaning |
 | :--- | :------ |
@@ -346,7 +346,7 @@ The output is kept so that existing types do not change. Only `minItems` alone
 Add [`--fix array-length-tuples`](#array-length-tuples) for the right ones.
 :::
 
-_Note: this has a reasonable limit, so for example `maxItems: 100` would simply flatten back down to `string[];`_
+_Note: when the tuples would have 30 or more elements in all, the type stays `string[]` (for example with `maxItems: 100`)._
 
 _Thanks, [@kgtkr](https://github.com/kgtkr)!_
 
@@ -690,8 +690,7 @@ Rows: [string[]]; // [!code ++]
 - With `--immutable` every length tuple is `readonly`, like other arrays.
 - A `prefixItems` tuple stays as it is; `minItems` does not wrap it in length tuples.
 
-The fix needs `--array-length` and changes nothing without it; naming it without that flag prints a
-notice (`--fix all` does not). Arrays with too many possible tuples stay `T[]`, as before.
+The fix needs `--array-length` and changes nothing without it; naming it without that flag prints the warning `FIX_NEEDS_OPTION` (`--fix all` does not). Arrays with too many possible tuples stay `T[]`, as before.
 
 #### dedupe-enum-names
 
@@ -717,7 +716,7 @@ export enum PetState { // [!code ++]
 - The schemas are known only at the end, so the document is transformed twice; `transform`,
   `transformProperty` and `postTransform` callbacks run in both passes.
 - It needs `--enum` and `--dedupe-enums` and changes nothing without them; naming it without them
-  prints a notice (`--fix all` does not).
+  prints the warning `FIX_NEEDS_OPTION` (`--fix all` does not).
 - An `x-enum-name` extension is not read: no tool of the ecosystem defines it.
 
 #### discriminator-member-required
@@ -1007,7 +1006,7 @@ export enum Values { // [!code ++]
 - `x-enum-varnames` and `x-enum-descriptions` keep their positions: the entry for `null` is
   skipped.
 - An enum of only `null` stays `null`.
-- It needs `--enum` and changes nothing without it; naming it without it prints a notice (`--fix
+- It needs `--enum` and changes nothing without it; naming it without it prints the warning `FIX_NEEDS_OPTION` (`--fix
   all` does not).
 
 #### path-param-type-names
@@ -1028,7 +1027,7 @@ earlier parameter got instead of its own:
 
 Without the fix the key matches `` `/invoices/$1/lines/{number}` `` only. With it every parameter
 gets its own placeholder. It needs `--path-params-as-types` and changes nothing without it; naming
-it without the flag prints a notice (`--fix all` does not).
+it without the flag prints the warning `FIX_NEEDS_OPTION` (`--fix all` does not).
 
 #### prefix-items
 
@@ -1135,7 +1134,7 @@ export type PetStore_2 = components['schemas']['PetStore']; // [!code ++]
   is numbered with or without the fix (`Record_2`); the earlier schemas get the numbers after it.
 - With the prefix the names do not clash (`SchemaPetStore`, `SchemaPetStore_2`), so the fix needs
   `--root-types` and `--root-types-no-schema-prefix` and changes nothing without them; naming it
-  without them prints a notice (`--fix all` does not).
+  without them prints the warning `FIX_NEEDS_OPTION` (`--fix all` does not).
 
 #### unevaluated-properties
 
