@@ -40,7 +40,7 @@ export interface ClientOptions extends Omit<RequestInit, "headers"> {
  * of the same implementation; middleware and results still use the DOM types. The `createClient`
  * overload with `ClientOptions` comes first, so an inline `fetch` gets a typed `Request` input.
  */
-export interface OtherFetchClientOptions extends Omit<ClientOptions, "fetch" | "Request"> {
+export interface CustomFetchClientOptions extends Omit<ClientOptions, "fetch" | "Request"> {
   /** `fetch` of another implementation (for example `fetch` from `undici`) */
   fetch?: (input: never, init?: never) => PromiseLike<object>;
   /** `Request` of the same implementation (for example `Request` from `undici`) */
@@ -345,7 +345,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   clientOptions?: ClientOptions,
 ): Client<Paths, Media>;
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
-  clientOptions?: OtherFetchClientOptions,
+  clientOptions?: CustomFetchClientOptions,
 ): Client<Paths, Media>;
 
 export type PathBasedClient<Paths extends Record<string | number, any>, Media extends MediaType = MediaType> = {
@@ -360,7 +360,7 @@ export declare function createPathBasedClient<Paths extends {}, Media extends Me
   clientOptions?: ClientOptions,
 ): PathBasedClient<Paths, Media>;
 export declare function createPathBasedClient<Paths extends {}, Media extends MediaType = MediaType>(
-  clientOptions?: OtherFetchClientOptions,
+  clientOptions?: CustomFetchClientOptions,
 ): PathBasedClient<Paths, Media>;
 
 /** Serialize primitive params to string */

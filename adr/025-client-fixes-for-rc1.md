@@ -38,7 +38,8 @@ not a contract: what shipped only in rc.0 may change (maintainer decision, 2026-
    so `null` there would only break working code.
 4. **#2526:** `RequestBodyOption` checks `IsAny` first and gives `{ body?: any }`.
 5. **#2562:** a second overload of `createClient` and `createPathBasedClient` takes any `fetch` and
-   `Request` constructor (`OtherFetchClientOptions`); the DOM overload stays first.
+   `Request` constructor (`CustomFetchClientOptions`, named `OtherFetchClientOptions` in the rc
+   versions); the DOM overload stays first.
 6. **#1862:** success data comes from `default` when the operation has no `2XX` response.
 7. **#2267:** method types take `Paths extends {}`; `PathOperation` picks the operation.
 8. **#2178:** `PathsWithMethod<Paths, HttpMethod>` is every path that has some method: TypeScript

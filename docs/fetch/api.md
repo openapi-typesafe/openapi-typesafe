@@ -27,7 +27,7 @@ createClient<paths>(options);
 
 `fetch` and `Request` of another Fetch API implementation, such as the `undici` package, are typed
 by that package, not by the DOM lib, so TypeScript cannot relate them to `Request` and `Response`.
-`createClient` and `createPathBasedClient` take them anyway (`OtherFetchClientOptions`) and check
+`createClient` and `createPathBasedClient` take them anyway (`CustomFetchClientOptions`) and check
 only that `fetch` returns a promise and `Request` is a class. Pass both from the same package: the
 undici `fetch` reads a request of another class as the URL `[object Request]`.
 
