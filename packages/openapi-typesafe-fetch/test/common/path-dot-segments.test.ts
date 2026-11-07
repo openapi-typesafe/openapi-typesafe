@@ -86,3 +86,56 @@ describe("dot path segments (upstream #2483)", () => {
     expect(requests).toEqual([]);
   });
 });
+
+/**
+ * A path that starts with `//` after the parameters are put in is a protocol-relative URL. With a
+ * relative `baseUrl` (the default `""`) a browser resolves `//evil.example` to another host and
+ * sends the request there, credentials included (ADR-030, amendment).
+ */
+describe("empty first path segment", () => {
+  it.each([
+    ["an empty string", { org: "", repo: "evil.example" }],
+    ["an empty array", { org: [], repo: "evil.example" }],
+    ["an empty object", { org: {}, repo: "evil.example" }],
+  ])("defaultPathSerializer rejects %s as the first segment", (_, params) => {
+    expect(() => defaultPathSerializer("/{org}/{repo}", params)).toThrow(/Empty first path segment/);
+  });
+
+  it("defaultPathSerializer rejects it before a query string", () => {
+    expect(() => defaultPathSerializer("/{org}/{repo}?v=2", { org: "", repo: "evil.example" })).toThrow(
+      /Empty first path segment/,
+    );
+  });
+
+  it.each([
+    ["/{org}/{repo}", { org: "acme", repo: "" }, "/acme/"],
+    ["/files/{id}", { id: "" }, "/files/"],
+    ["/a/{org}/{repo}", { org: "", repo: "x" }, "/a//x"],
+    ["/{org}", { org: "" }, "/"],
+  ])("defaultPathSerializer keeps an empty segment that is not first: %s %j", (path, params, expected) => {
+    expect(defaultPathSerializer(path, params)).toBe(expected);
+  });
+
+  it("a request with an empty first segment rejects before fetch is called", async () => {
+    const requests: Request[] = [];
+    const client = createClient<{
+      "/{org}/{repo}": {
+        get: {
+          parameters: { path: { org: string; repo: string } };
+          responses: { 200: { content: { "application/json": { ok: boolean } } } };
+        };
+      };
+    }>({
+      baseUrl: "",
+      fetch: async (request) => {
+        requests.push(request);
+        return Response.json({ ok: true });
+      },
+    });
+
+    const request = client.GET("/{org}/{repo}", { params: { path: { org: "", repo: "evil.example" } } });
+
+    await expect(request).rejects.toThrow(/Empty first path segment/);
+    expect(requests).toEqual([]);
+  });
+});

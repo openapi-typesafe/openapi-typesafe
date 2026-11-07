@@ -679,6 +679,10 @@ export function defaultPathSerializer(pathname, pathParams) {
   if (DOT_SEGMENT_RE.test(path)) {
     throw new Error(`Dot path segment in ${nextURL}`);
   }
+  // `//host/…` is a protocol-relative URL: with a relative baseUrl a browser sends it to that host.
+  if (path.startsWith("//")) {
+    throw new Error(`Empty first path segment in ${nextURL}`);
+  }
   return nextURL;
 }
 

@@ -118,15 +118,19 @@ token ended up in the job log.
 
 ### T5. Unsafe requests from the fetch client — Controlled
 
-User-supplied path parameters move the request to another path (`..`), query and header values
+User-supplied path parameters move the request to another path (`..`) or, with an empty first
+value and a relative `baseUrl`, to another host (`//evil.example`), query and header values
 break the request, or keys of an object parameter (data from `additionalProperties`) add a
 parameter or a path segment.
 
 - Controls: path values are always percent-encoded, and query values unless the parameter sets
   `allowReserved`; a path value that would form a `.` or `..` segment makes the call throw
-  (`Dot path segment in …`, ADR-013), because percent-encoding keeps dots; query parameter names
-  and object keys are percent-encoded too, except `[ ] $ : @ ,` (ADR-013, decision 9); headers go
-  through the platform `Headers` class, which rejects line breaks.
+  (`Dot path segment in …`, ADR-013), because percent-encoding keeps dots; a path that starts with
+  `//` once the values are in (an empty first value) throws too, because a browser reads it as
+  another host (ADR-030, amendment); values go into the template as text, never as replacement
+  patterns; query parameter names and object keys are percent-encoded too, except
+  `[ ] $ : @ ,` (ADR-013, decision 9); headers go through the platform `Headers` class, which
+  rejects line breaks.
 - Tests: the fetch client's serializer tests, `test/common/path-dot-segments.test.ts` and
   `test/common/param-name-encoding.test.ts`.
 
