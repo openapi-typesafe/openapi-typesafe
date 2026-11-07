@@ -118,6 +118,36 @@ dot. openapi-fetch 0.17 builds the same URL.
 | Reject only when `baseUrl` is relative | No change with an absolute base | The serializer does not see the base; `createFinalURL` would need a second check |
 | Encode an empty first value as `%2F` or similar | No error | Sends a request to a path no server expects; hides the caller's bug |
 
+## Amendment (2026-11-07): one conditional type for `MaybeOptionalInit`
+
+The full compat run before rc.2 (audit B5) found that permit-cli, which type-checks with
+openapi-fetch 0.17, failed with 11 errors TS2322. Its wrappers are generic in the path, call
+`client.GET(path, init)` and return the result as `FetchResponse<paths[Path]["get"], Init,
+"application/json">`. The init cannot be checked against a generic path, so TypeScript gives the
+call the init type `MaybeOptionalInit<paths[Path], "get">`.
+
+Decision 2 wrote that type as a union, `FetchOptions | (RequiredKeysOf<…> extends never ?
+undefined : never)`. `ParseAsResponse` in `FetchResponse` distributes over its options, so the
+call's `data` became a union too, of members that TypeScript could not relate to the wrapper's
+generic `FetchResponse`. openapi-fetch's `MaybeOptionalInit`, and ours in
+rc.1, is one conditional type: it stays deferred, and TypeScript relates the two `ParseAsResponse`
+types by their check types.
+
+1. `MaybeOptionalInit` is openapi-fetch's conditional over the distributive init of decision 2:
+   `RequiredKeysOf<Inits> extends never ? Inits | undefined : Inits`. The init of a union of paths
+   stays required when one path requires one.
+2. The methods keep `PathOperation<Paths, Path, Method>` in their result. `Paths[Path][Method]` is
+   not valid while `Paths` is only `{}` (upstream #2267), and with the conditional above the result
+   relates to `FetchResponse<Paths[Path][Method], …>` as in rc.1.
+3. `generic-wrapper-responses.test.ts` checks wrappers in permit-cli's shape for every method,
+   `request()`, and a media type of their own.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| One conditional type (chosen) | openapi-fetch's shape; generic wrappers relate again; the union rule stays | none found |
+| `Paths[Path][Method]` in the method result | upstream's expression | needs `Paths extends Record<…>`, which brings back TS2344 (upstream #2267); the union still distributes |
+| Keep the union | no change | code written against openapi-fetch fails to compile |
+
 ## Review trigger
 
 A TypeScript release that relates generic signatures across declarations; a library that types
