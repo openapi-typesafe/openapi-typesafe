@@ -1,0 +1,19 @@
+{
+  "recurse": true,
+  "cleanUrls": true,
+  "checkFragments": true,
+  "concurrency": 10,
+  "retry": false,
+  "retryErrors": true,
+  "retryErrorsCount": 3,
+  "retryErrorsJitter": 3000,
+  "timeout": 20000,
+  "skip": [
+    "^http://localhost/",
+    "^https?://myapi\\.dev",
+    "^https?://api\\.example\\.com",
+    "^https://github\\.com/openapi-typesafe/openapi-typesafe",
+    "^https://github\\.com/[^/]+/?$",
+    "^https://avatars\\.githubusercontent\\.com/"
+  ]
+}

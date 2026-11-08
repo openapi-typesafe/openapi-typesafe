@@ -1,6 +1,6 @@
 # ADR-029: A time limit on every CI job
 
-- Status: Accepted, amended by ADR-038 (the full compatibility run)
+- Status: Accepted, amended by ADR-038 (the full compatibility run) and ADR-039 (docs external links)
 - Date: 2026-11-05
 
 ## Context
@@ -31,7 +31,7 @@ Every job has `timeout-minutes`: about three times its slowest normal run, round
 
 | Limit | Jobs |
 |---|---|
-| 10 | conventional commits, lint, types, runtimes, bundle size, docs, skill eval tasks, docs build, release version, dependency review, scorecard |
+| 10 | conventional commits, lint, types, runtimes, bundle size, docs, docs external links (ADR-039), skill eval tasks, docs build, release version, dependency review, scorecard |
 | 15 | test (node), coverage gate, deploy to pages |
 | 20 | client e2e, compatibility subset, release publish, publish dry run |
 | 30 | test (macos-15-intel, windows-latest) |

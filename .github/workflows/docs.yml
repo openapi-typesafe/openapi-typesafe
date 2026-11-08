@@ -1,5 +1,6 @@
 # Deploy the docs site to GitHub Pages on every push to main (ENGINEERING_PLAN 10.2, 10.5).
-# ci.yml builds the site and checks its links on every pull request; this workflow only publishes.
+# ci.yml builds the site and checks its internal links on every pull request, docs-links.yml its
+# external links (ADR-039); this workflow only publishes.
 # Actions are pinned by commit SHA (supply-chain hardening); the comment names the release.
 name: docs
 

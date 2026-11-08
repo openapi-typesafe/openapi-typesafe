@@ -3,14 +3,6 @@
   "cleanUrls": true,
   "checkFragments": true,
   "concurrency": 20,
-  "retry": true,
-  "retryErrors": true,
-  "retryErrorsCount": 3,
-  "timeout": 20000,
-  "skip": [
-    "^http://localhost/",
-    "^https?://myapi\\.dev",
-    "^https?://api\\.example\\.com",
-    "^https://github\\.com/openapi-typesafe/openapi-typesafe"
-  ]
+  "timeout": 10000,
+  "skip": ["^(?!http://127\\.0\\.0\\.1:\\d+/)"]
 }

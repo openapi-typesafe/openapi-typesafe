@@ -240,7 +240,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter openapi-typesafe-docs build-docs
-      # Builds a second copy at the root path, then checks every link, anchor and repository path.
+      # Builds a second copy at the root path, then checks the links and anchors inside the site and
+      # the repository paths. External links are checked by docs-links.yml, not here (ADR-039).
       - run: pnpm --filter openapi-typesafe-docs check-links
 
   skill-tasks:
