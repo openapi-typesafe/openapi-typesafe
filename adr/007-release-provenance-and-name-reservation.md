@@ -170,3 +170,17 @@ the order made one slow read leave a release half published.
 
 Review trigger: a provenance read that takes more than 5 minutes, or npm documenting the delay.
 
+
+## Amendment (2026-11-08): a missed `latest` tag is fixed on the next push
+
+rc.3 left `latest` on rc.2: `has-stable-release.sh` used `npm view <name>@*`, which resolves `*`
+to the `latest` tag once that tag points at a prerelease, so rc.2 looked stable. The script now
+reads the registry document and looks for a version without a prerelease part that is not
+deprecated.
+
+A tag that a release missed also stayed wrong until the next release, because the publish job ran
+only for unpublished versions. `list-untagged.sh` now finds prereleases on npm that are not
+`latest` while the package has no stable release, and such a push runs the build and publish jobs
+too: the publish step skips every version on npm and checks its provenance again, and
+`tag-latest.sh` moves the tag. It still waits for the `npm-publish` approval, like any job that can
+change what `npm install` gets.

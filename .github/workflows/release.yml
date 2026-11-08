@@ -48,6 +48,7 @@ jobs:
     outputs:
       has-changesets: ${{ steps.changesets.outputs.has-changesets }}
       has-unpublished: ${{ steps.unpublished.outputs.has-unpublished }}
+      has-untagged: ${{ steps.untagged.outputs.has-untagged }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,6 +91,17 @@ jobs:
           has_unpublished=false
           [[ -n "${unpublished}" ]] && has_unpublished=true
           echo "has-unpublished=${has_unpublished}" >> "${GITHUB_OUTPUT}"
+      # A prerelease on npm that is not `latest` yet (before the first stable release) also runs
+      # the publish job: it publishes nothing and only moves the tag (tag-latest.sh).
+      - id: untagged
+        name: find prereleases that are not latest yet
+        if: steps.changesets.outputs.has-changesets == 'false'
+        run: |
+          untagged="$(scripts/release/list-untagged.sh)"
+          echo "${untagged:-nothing to tag}"
+          has_untagged=false
+          [[ -n "${untagged}" ]] && has_untagged=true
+          echo "has-untagged=${has_untagged}" >> "${GITHUB_OUTPUT}"
 
   build:
     name: build and pack
@@ -99,7 +111,8 @@ jobs:
       !cancelled() && (github.event_name == 'workflow_dispatch' || (
         needs.version.result == 'success' &&
         needs.version.outputs.has-changesets == 'false' &&
-        needs.version.outputs.has-unpublished == 'true'))
+        (needs.version.outputs.has-unpublished == 'true' ||
+          needs.version.outputs.has-untagged == 'true')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -143,8 +156,8 @@ jobs:
     needs: build
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    # Up to five packages, each with a provenance check that may wait up to 127 s for the registry
-    # (fetch-provenance.sh); the approval wait comes before the job starts.
+    # Up to five packages, then one provenance wait of up to 10 minutes for all of them
+    # (fetch-provenance.sh, ADR-007); the approval wait comes before the job starts.
     timeout-minutes: 20
     # Required reviewers on this environment are the manual approval (9.4); the trusted publisher
     # accepts tokens from this workflow and environment only.

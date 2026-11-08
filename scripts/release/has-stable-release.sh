@@ -6,24 +6,37 @@
 #        Used by tag-latest.sh: until a stable release exists, a prerelease also takes the
 #        `latest` tag, so `npm install <name>` gets working code instead of the placeholder.
 #
-# `npm view <name>@*` lists stable versions only (a `*` range excludes prereleases). A package that
-# does not exist yet fails with E404, which means no stable release; any other failure exits
-# non-zero.
+# The versions are read from the registry document, not with `npm view <name>@*`: once `latest`
+# points at a prerelease, npm resolves `*` to that tag, and the prerelease looked stable (rc.3 kept
+# `latest` on rc.2 on 2026-11-08). A package that does not exist yet (404) has no stable release;
+# any other failure exits non-zero.
 set -euo pipefail
 
 readonly NAME="${1:?usage: has-stable-release.sh <name>}"
-ERROR_FILE="$(mktemp)"
-readonly ERROR_FILE
-trap 'rm -f "${ERROR_FILE}"' EXIT
+readonly REGISTRY_URL="https://registry.npmjs.org"
+# A few seconds per read; three retries cover a short registry hiccup (CODING_PRINCIPLES 8.6).
+readonly RETRY_COUNT=3
+readonly REQUEST_TIMEOUT_SECONDS=30
+DOCUMENT_FILE="$(mktemp)"
+readonly DOCUMENT_FILE
+trap 'rm -f "${DOCUMENT_FILE}"' EXIT
 
-if ! releases="$(npm view "${NAME}@*" version deprecated --json 2>"${ERROR_FILE}")"; then
-  grep -q "E404" "${ERROR_FILE}" || { cat "${ERROR_FILE}" >&2; exit 1; }
-  releases=""
+status="$(
+  curl --silent --show-error --retry "${RETRY_COUNT}" --max-time "${REQUEST_TIMEOUT_SECONDS}" \
+    --output "${DOCUMENT_FILE}" --write-out "%{http_code}" "${REGISTRY_URL}/${NAME}"
+)"
+if [[ "${status}" == "404" ]]; then
+  echo false
+  exit 0
 fi
-# One matching version prints an object, several print an array, none print nothing.
-RELEASES="${releases}" node -p '
-  const text = process.env.RELEASES.trim();
-  const parsed = text === "" ? [] : JSON.parse(text);
-  const releases = Array.isArray(parsed) ? parsed : [parsed];
-  String(releases.some((release) => !release.deprecated));
+if [[ "${status}" != "200" ]]; then
+  echo "has-stable-release: ${NAME}: the registry answered HTTP ${status}" >&2
+  exit 1
+fi
+# A stable version has no prerelease part (`1.0.0`, not `1.0.0-rc.3`).
+export DOCUMENT_FILE
+node -p '
+  const document = JSON.parse(require("node:fs").readFileSync(process.env.DOCUMENT_FILE, "utf8"));
+  const versions = Object.entries(document.versions ?? {});
+  String(versions.some(([version, manifest]) => !version.includes("-") && !manifest.deprecated));
 '
