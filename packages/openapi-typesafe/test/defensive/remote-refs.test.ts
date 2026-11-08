@@ -52,18 +52,28 @@ function fan(request: IncomingMessage, response: ServerResponse): void {
 
 /** The routes of the local server: a schema, a missing file, a redirect loop, no answer and a slow body. */
 function answer(request: IncomingMessage, response: ServerResponse): void {
-  const routes: Record<string, () => void> = {
-    "/person.json": () => response.writeHead(200, { "content-type": "application/json" }).end(PERSON),
-    "/unsupported-key.json": () => response.writeHead(200, { "content-type": "application/json" }).end(UNSUPPORTED_KEY),
-    "/loop.json": () => response.writeHead(302, { location: "/loop.json" }).end(),
-    "/hang.json": () => undefined,
-    "/drip.json": () => drip(response),
-  };
+  // A Map, so a request path such as `/constructor` cannot reach an object prototype method.
+  const routes = new Map<string, () => void>(
+    Object.entries({
+      "/person.json": () => response.writeHead(200, { "content-type": "application/json" }).end(PERSON),
+      "/unsupported-key.json": () =>
+        response.writeHead(200, { "content-type": "application/json" }).end(UNSUPPORTED_KEY),
+      "/loop.json": () => response.writeHead(302, { location: "/loop.json" }).end(),
+      "/hang.json": () => undefined,
+      "/drip.json": () => drip(response),
+    }),
+  );
   if (request.url?.startsWith("/fan/")) {
     fan(request, response);
     return;
   }
-  (routes[request.url ?? ""] ?? (() => response.writeHead(404).end("Not Found")))();
+  const route = routes.get(request.url ?? "");
+  // The explicit check is the guard CodeQL expects before calling a handler chosen by a request.
+  if (typeof route !== "function") {
+    response.writeHead(404).end("Not Found");
+    return;
+  }
+  route();
 }
 
 let server: Server;
