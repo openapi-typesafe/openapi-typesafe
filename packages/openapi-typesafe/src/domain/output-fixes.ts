@@ -3,9 +3,10 @@ import { ERROR_CODES, OpenAPITypesafeError } from "./errors.js";
 /**
  * Opt-in fixes of the output of valid schemas (ADR-021). Each one changes only the cases it names;
  * without any, the output is the same as openapi-typescript 7.13 gives. In 2.0 they become the
- * default.
+ * default. The object names the fixes for this package's code; the public API is the `OutputFix`
+ * union and the `OUTPUT_FIXES` list (ADR-021, amendment 1).
  */
-export const OutputFix = {
+export const FIX = {
   /** An `allOf` `$ref` to a discriminated union is the union, without `Omit` or a schema name. */
   ALLOF_DISCRIMINATED_UNION: "allof-discriminated-union",
   /** An `allOf` member with only `required` makes those properties of the others required. */
@@ -48,18 +49,19 @@ export const OutputFix = {
   /** `unevaluatedProperties` types the keys no other keyword declares (an index signature). */
   UNEVALUATED_PROPERTIES: "unevaluated-properties",
 } as const;
-export type OutputFix = (typeof OutputFix)[keyof typeof OutputFix];
+/** The name of one opt-in output fix. */
+export type OutputFix = (typeof FIX)[keyof typeof FIX];
 
 /** Every fix of this version, in the order the docs list them. */
-export const OUTPUT_FIXES: readonly OutputFix[] = Object.values(OutputFix);
+export const OUTPUT_FIXES: readonly OutputFix[] = Object.values(FIX);
 
 /** The name that turns on every fix of the installed version. */
-export const ALL_OUTPUT_FIXES = "all";
+const ALL_FIXES = "all";
 
-/** A name the `fix` option accepts: one fix, or `all`. */
-export type OutputFixName = OutputFix | typeof ALL_OUTPUT_FIXES;
+/** A name the `fix` option accepts: one fix, or `"all"`. */
+export type OutputFixName = OutputFix | typeof ALL_FIXES;
 
-const KNOWN_NAMES: ReadonlySet<string> = new Set<string>([...OUTPUT_FIXES, ALL_OUTPUT_FIXES]);
+const KNOWN_NAMES: ReadonlySet<string> = new Set<string>([...OUTPUT_FIXES, ALL_FIXES]);
 
 function isOutputFixName(value: unknown): value is OutputFixName {
   return typeof value === "string" && KNOWN_NAMES.has(value);
@@ -82,7 +84,7 @@ export function outputFixNamesOf(values: readonly unknown[]): readonly OutputFix
 
 /** The fixes the names turn on; `all` stands for every fix of this version. */
 export function resolveOutputFixes(names: readonly OutputFixName[]): ReadonlySet<OutputFix> {
-  return new Set(names.flatMap((name) => (name === ALL_OUTPUT_FIXES ? OUTPUT_FIXES : [name])));
+  return new Set(names.flatMap((name) => (name === ALL_FIXES ? OUTPUT_FIXES : [name])));
 }
 
 /** A generator option that a fix works with; without it, the fix changes nothing (ADR-021). */
@@ -106,13 +108,11 @@ const NO_SCHEMA_PREFIX = {
 
 /** The options each fix needs, by fix name; `all` has none. */
 const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, readonly OutputFixRequirement[]>>> = {
-  [OutputFix.ARRAY_LENGTH_TUPLES]: [{ option: "arrayLength", flag: "--array-length" }],
-  [OutputFix.DEDUPE_ENUM_NAMES]: [ENUM, { option: "dedupeEnums", flag: "--dedupe-enums" }],
-  [OutputFix.NULLABLE_ENUMS]: [ENUM],
-  [OutputFix.PATH_PARAM_TYPE_NAMES]: [
-    { option: "pathParamsAsTypes", flag: "--path-params-as-types" },
-  ],
-  [OutputFix.ROOT_TYPE_NUMBERING]: [ROOT_TYPES, NO_SCHEMA_PREFIX],
+  [FIX.ARRAY_LENGTH_TUPLES]: [{ option: "arrayLength", flag: "--array-length" }],
+  [FIX.DEDUPE_ENUM_NAMES]: [ENUM, { option: "dedupeEnums", flag: "--dedupe-enums" }],
+  [FIX.NULLABLE_ENUMS]: [ENUM],
+  [FIX.PATH_PARAM_TYPE_NAMES]: [{ option: "pathParamsAsTypes", flag: "--path-params-as-types" }],
+  [FIX.ROOT_TYPE_NUMBERING]: [ROOT_TYPES, NO_SCHEMA_PREFIX],
 };
 
 function describeRequirement(requirement: OutputFixRequirement): string {

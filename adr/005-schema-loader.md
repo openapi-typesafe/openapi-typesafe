@@ -60,3 +60,46 @@ openapi-typesafe 2.0 starts; the harness shows a 1.34.x patch changing generated
   only to match a URL against the `resolve.http.headers[].matches` patterns of the Redocly config, which
   is a trusted input (threat model T7); a document controls only the URL. The advisory is not reachable
   from a document, so the decision stands. It is listed in `research/backlog.md`, item 2.
+
+## Amendment (2026-11-08): the `redocly` option keeps Redocly 1's `Config` type in 1.x
+
+The public API audit before 1.0 (finding P2-4) pointed out that `redocly?: Config` and
+`GlobalContext.redoc: Config` import the type from `@redocly/openapi-core` 1.x. If the 1.x line
+stops getting fixes during openapi-typesafe 1.x, decision 3 leaves 2.0 as the only way to move to
+Redocly 2. The audit asked for a small structural interface of what the generator reads, which
+the `Config` of Redocly 1 and of Redocly 2 would both satisfy, so that the move could be a minor.
+
+We compared the two classes (`@redocly/openapi-core` 1.34.23 and 2.76.0, 2026-11-08):
+
+- Redocly 1's `Config` has `styleguide`, `apis`, `configFile`, `rawConfig` and `resolve`. Redocly
+  2's has `rules`, `configPath`, `resolvedConfig`, `resolve` and no `styleguide` or `apis`. Only
+  `resolve` is common.
+- The generator does not only read fields. The loader passes the object itself to Redocly 1's
+  `bundle()`, and its `styleguide` to `lintDocument()`; the CLI reads `apis` and `configFile`.
+
+1. **The type stays Redocly 1's `Config`.** It is honest: the object must be one that Redocly 1
+   can use. A type that both versions satisfy would contain only `resolve`, would accept a Redocly
+   2 config that then fails at run time, and would not make the move a minor: which objects work
+   would still change, and ADR-034 counts that as breaking whatever the type says. `Config` is
+   also what openapi-typescript 7.13 declares, so code typed against it (an options object, or a
+   read of `ctx.redoc` in a callback) keeps compiling. `unknown` with a run-time check was
+   rejected for the same reason and because it breaks those reads.
+2. **The risk is accepted for 1.x, with this plan.** The 1.x line is patched under the
+   `v1-archive` dist-tag (1.34.24 on 2026-11-08). When an advisory reaches Redocly 1.x, we check
+   first whether a document can reach it (as in the 2026-11-02 review); an unreachable one is
+   recorded and the decision stands. A reachable one without a 1.x fix, or the end of 1.x
+   patches, starts openapi-typesafe 2.0 planning for the move (new ADR, decision 3), which also
+   checks the `redocly.yaml` keys that change in Redocly 2. Until then a patch release may work
+   around the affected code in the loader, as ADR-031 does with its port of Redocly's resolver (a
+   `pnpm patch` would not reach users' installs).
+3. `docs/node.md` (Redocly config) says that the option takes a config of
+   `@redocly/openapi-core` 1, and that one made with version 2 does not work.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Keep Redocly 1's `Config` (chosen) | the type says which objects work; upstream-identical | a forced move to Redocly 2 needs a major |
+| A structural interface for both versions | the declarations no longer name Redocly 1 | only `resolve` is common; accepts objects that fail at run time; the move still changes which objects work |
+| `unknown` and a run-time check | no Redocly type in the declarations | no checks for users; breaks code that reads `ctx.redoc` as upstream types it |
+
+Review trigger: the triggers above, and a user who needs a Redocly 2 config with openapi-typesafe
+1.x.

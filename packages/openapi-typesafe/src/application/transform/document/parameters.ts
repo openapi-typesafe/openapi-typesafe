@@ -16,7 +16,7 @@ import {
   QUERYSTRING_LOCATION,
 } from "../../../domain/openapi/parameter-object.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import { refType } from "../ref-type.js";
 import type { SchemaLocation } from "../schema/schema-context.js";
 import { withSchemaComment } from "../schema-comment.js";
@@ -166,7 +166,7 @@ function querystringMember(
 /** With `exploded-query-objects`, whether the parameter's object keys are keys of `query`. */
 function isExplodedEntry(entry: ResolvedEntry, context: TransformContext): boolean {
   return (
-    context.options.fixes.has(OutputFix.EXPLODED_QUERY_OBJECTS) &&
+    context.options.fixes.has(FIX.EXPLODED_QUERY_OBJECTS) &&
     isExplodedQueryObject(entry.resolved, context.refs)
   );
 }

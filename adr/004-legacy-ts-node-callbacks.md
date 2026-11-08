@@ -98,6 +98,71 @@ so a node can only be read with the same `typescript` module that created it.
 - The bridge gets the TypeScript module as an argument from `loadTypeScript()`, which resolves it at the
   call through Node's module cache. No module keeps a loaded compiler in its own state.
 
+## Amendment (2026-11-08): one deprecation channel
+
+The public API audit before 1.0 (finding P2-6) found two channels for the deprecations of
+decisions 5 to 7. `stringToAST` emitted a Node.js `DeprecationWarning` with the code
+`OPENAPI_TYPESAFE_DEP_STRING_TO_AST` (exported as `STRING_TO_AST_DEPRECATION_CODE`). The callback
+forms printed a warning line through the run's logger with the warning code
+`LEGACY_CALLBACK_DEPRECATED`, which `silent` hid and `node --no-deprecation` did not.
+
+1. **Every runtime deprecation of something 2.0 removes is a Node.js `DeprecationWarning`** with
+   an `OPENAPI_TYPESAFE_DEP_*` code, emitted through `util.deprecate`, so Node shows each code
+   once per process. The codes are `OPENAPI_TYPESAFE_DEP_STRING_TO_AST`,
+   `OPENAPI_TYPESAFE_DEP_TS_TRANSFORM`, `OPENAPI_TYPESAFE_DEP_TS_POST_TRANSFORM` and
+   `OPENAPI_TYPESAFE_DEP_TS_TRANSFORM_PROPERTY`, one per form, so that each one is shown. The
+   deprecation notices of `fix` in 2.x (ADR-021 decision 8) use the same channel.
+2. **`DEPRECATION_CODES`** (and the union `DeprecationCode`) is exported next to `ERROR_CODES`
+   and `WARNING_CODES`, and is covered like them (ADR-034 decisions 1 and 2: a code keeps its
+   meaning, a minor may add codes). `STRING_TO_AST_DEPRECATION_CODE` and the warning code
+   `LEGACY_CALLBACK_DEPRECATED` are removed; only rc versions had them.
+3. **`silent` does not hide deprecations.** It exists so that the types can go to stdout;
+   Node writes warnings to stderr. Node's own switches apply: `--no-deprecation`,
+   `--throw-deprecation`, `--trace-deprecation`, `process.on("warning")`.
+4. The run reports through a `DeprecationReporter` port (`application/ports/`); the Node.js
+   adapter is wired in the composition root, and tests use an in-memory fake. This also amends
+   ADR-034 decision 5: where a deprecation has a runtime warning, it is this one.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Node.js `DeprecationWarning` for all (chosen) | the standard channel; works for functions called outside a run, such as `stringToAST`; tools and CI can filter, trace or fail on it by code | `silent` no longer hides the callback notice |
+| The logger and warning codes for all | one list of codes with the other warnings; `silent` hides them | `stringToAST` has no run and no logger, so it would print to the console with no way to turn it off; Node's switches do not work |
+| Keep both | no change | two ways to find, filter and silence the same kind of notice |
+
+## Amendment (2026-11-08): `irCallbacks` and the options type names in 2.0
+
+The public API audit before 1.0 (finding P2-7) noted that decision 6 removes the `irCallbacks`
+option in 2.0. `{ irCallbacks: true }` would then be an excess-property error for exactly the
+users who followed the 1.x advice. The options types also do not line up: `OpenAPITSOptions`, the
+upstream name, means only the TypeScript-node form, `OpenAPITSIrOptions` the IR form, and
+`GeneratorOptions` the union of both.
+
+This amends decision 6 for 2.0. Nothing changes in 1.x.
+
+1. **`irCallbacks?: true` stays accepted in 2.x** and does nothing, since IR is the only form. It
+   gets `@deprecated` in the declarations and a Node.js `DeprecationWarning` with its own
+   `OPENAPI_TYPESAFE_DEP_*` code (amendment above). It is removed in 3.0, as ADR-021 decision 8
+   does for `fix`. `irCallbacks: false` asks for a form that no longer exists; 2.0 rejects it with
+   a typed error that links the migration guide, instead of passing IR nodes to callbacks written
+   for TypeScript nodes.
+2. **`GeneratorOptions` is the canonical options type**, today and in 2.0. In 1.x it is the union
+   of both forms; in 2.0 it is the base options with the IR callbacks and the deprecated
+   `irCallbacks?: true`.
+3. **Compatibility names.** `OpenAPITSOptions` (openapi-typescript's name) and
+   `OpenAPITSIrOptions` keep their 1.x meaning in 1.x. In 2.0 both become `@deprecated` aliases of
+   `GeneratorOptions`, so imports keep compiling; they are removed in 3.0. `OpenAPITSBaseOptions`,
+   `IrCallbackOptions` and the `Ir*` callback types keep their names. `LegacyCallbackOptions`,
+   `LegacyCallbackName` and the TypeScript-node members are removed in 2.0 with the forms they
+   describe.
+4. `docs/node.md` (Options types) tells users to type options as `GeneratorOptions` and names the
+   compatibility names.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Keep `irCallbacks: true` as a deprecated no-op in 2.x (chosen) | 1.x code that followed the advice compiles on 2.0; one more major to clean up | an option that does nothing for one major |
+| Remove `irCallbacks` in 2.0 (decision 6 as written) | smaller 2.0 options | breaks exactly the users who migrated early |
+| Make `OpenAPITSOptions` the canonical 2.0 name | upstream's name | its 1.x meaning is the TypeScript-node form, so 2.0 would change what it means |
+
 ## Review trigger
 
 - The Phase 8 real-project check finds a 7.x pattern that the bridge cannot convert, or

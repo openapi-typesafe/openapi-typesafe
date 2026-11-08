@@ -6,7 +6,7 @@ import {
 } from "../../../domain/ir/constructors.js";
 import type { IrMember, IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import { HELPER_TYPES } from "../helper-types.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { unionOf } from "../type-combinators.js";
@@ -32,7 +32,7 @@ import type { SchemaRequest } from "./schema-rule.js";
 function unevaluatedSchemaOf(schema: SchemaObject, request: SchemaRequest): Schema | null {
   const { unevaluatedProperties } = schema;
   if (
-    !request.context.options.fixes.has(OutputFix.UNEVALUATED_PROPERTIES) ||
+    !request.context.options.fixes.has(FIX.UNEVALUATED_PROPERTIES) ||
     unevaluatedProperties === undefined ||
     unevaluatedProperties === false ||
     schema.additionalProperties !== undefined

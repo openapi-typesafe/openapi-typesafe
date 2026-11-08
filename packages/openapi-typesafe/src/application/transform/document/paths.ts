@@ -14,7 +14,7 @@ import {
   pathItemOperations,
 } from "../../../domain/openapi/path-item-object.js";
 import type { ReferenceSchema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import { documentEntries } from "../document-entries.js";
 import { refType } from "../ref-type.js";
 import type { TransformContext } from "../transform-context.js";
@@ -112,7 +112,7 @@ function pathTemplateParts(
     const schema = parameters.get(match.slice(1, -1))?.schema as SchemaObject | undefined;
     return { match, type: PLACEHOLDERS.get(schema?.type) ?? STRING_PLACEHOLDER };
   });
-  return context.options.fixes.has(OutputFix.PATH_PARAM_TYPE_NAMES)
+  return context.options.fixes.has(FIX.PATH_PARAM_TYPE_NAMES)
     ? splitTemplateParts(url, matches)
     : replacedTemplateParts(url, matches);
 }

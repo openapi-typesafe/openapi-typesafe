@@ -7,7 +7,10 @@ import { redactUrlCredentials } from "./url-credentials.js";
  * invariant) is a plain `Error`, not one of these.
  */
 
-/** Every error code. The set is closed: a new code must be handled by the CLI exit-code table. */
+/**
+ * Every error code. A minor release may add codes (ADR-034); each one needs a row in the CLI's
+ * exit-code table, which the compiler checks.
+ */
 export const ERROR_CODES = {
   SCHEMA_SOURCE_EMPTY: "SCHEMA_SOURCE_EMPTY",
   SCHEMA_SOURCE_INVALID: "SCHEMA_SOURCE_INVALID",
@@ -39,7 +42,10 @@ export const ERROR_CODES = {
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
-/** Structured, JSON-serializable facts about a failure, for programs and logs. */
+/**
+ * Structured, JSON-serializable facts about a failure, for programs and logs. Only the keys that
+ * docs/node.md (Errors) lists are stable (ADR-034, amendment of 2026-11-08).
+ */
 export type ErrorDetails = Readonly<Record<string, unknown>>;
 
 export interface OpenAPITypesafeErrorInit {

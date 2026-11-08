@@ -8,11 +8,11 @@ import {
   isEnumSchema,
   singularizeComponentKind,
 } from "../../../../src/domain/openapi/components-object.js";
-import { OutputFix } from "../../../../src/domain/output-fixes.js";
+import { FIX } from "../../../../src/domain/output-fixes.js";
 import { type FakeContextInput, fakeTransformContext } from "../../../fakes/transform-context.js";
 
 /** `--root-types` with the `root-type-numbering` fix (ADR-021, roadmap R13). */
-const NUMBERED = { rootTypes: true, fixes: new Set([OutputFix.ROOT_TYPE_NUMBERING]) };
+const NUMBERED = { rootTypes: true, fixes: new Set([FIX.ROOT_TYPE_NUMBERING]) };
 
 function transform(components: unknown, input: FakeContextInput = {}) {
   const fake = fakeTransformContext(input);

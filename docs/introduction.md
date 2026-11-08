@@ -39,6 +39,14 @@ OpenAPI 2.x (Swagger) is not supported.
 A 3.2 document generates the same types as a 3.1 document with the same content, plus types for
 the 3.2 additions. A document that uses none of them gets the same output as before.
 
+::: warning Experimental
+The types generated for the 3.2 additions in the table below are experimental in 1.x: a minor
+release may change their shape, for example to match openapi-typescript once it supports 3.2.
+Such a change is named in the changelog. The output of documents that use none of these keys,
+`client.QUERY()` and the `"query"` member of `HttpMethod` are not experimental
+([Versioning](./compatibility.md#versioning)).
+:::
+
 | 3.2 feature | Generated types |
 | --- | --- |
 | `query` operation | a `query` member after `trace`, only in path items that have one; `client.QUERY()` calls it |

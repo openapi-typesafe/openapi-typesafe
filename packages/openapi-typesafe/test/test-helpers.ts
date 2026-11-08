@@ -1,9 +1,16 @@
 import { createConfig } from "@redocly/openapi-core";
 import { resolveRef } from "../src/api/legacy-utils.js";
-import type { GlobalContext, TransformNodeOptions } from "../src/types.js";
+import { defaultGeneratorPorts, generateDeclarations } from "../src/api/openapi-ts.js";
+import type { RunContext } from "../src/api/run-context.js";
+import type { IrDeclaration } from "../src/domain/ir/nodes.js";
+import type { GeneratorOptions, GlobalContext, SchemaSource, TransformNodeOptions } from "../src/types.js";
+import { RecordingDeprecations } from "./fakes/recording-deprecations.js";
 
-/** Default options for all transform* functions */
-export const DEFAULT_CTX: GlobalContext = {
+/**
+ * Default options for all transform* functions. Deprecated callback forms are recorded, not
+ * printed: the tests of the deprecations themselves are in `api/deprecations.test.ts`.
+ */
+export const DEFAULT_CTX: RunContext = {
   additionalProperties: false,
   alphabetize: false,
   arrayLength: false,
@@ -39,7 +46,21 @@ export const DEFAULT_CTX: GlobalContext = {
   makePathsEnum: false,
   generatePathParams: false,
   readWriteMarkers: false,
+  deprecations: new RecordingDeprecations(),
 };
+
+/**
+ * `openapiTS` with the default ports, except that deprecated callback forms are recorded in
+ * `deprecations` instead of printed as Node.js warnings.
+ */
+export async function generateRecordingDeprecations(
+  source: SchemaSource,
+  options: GeneratorOptions = {},
+  deprecations = new RecordingDeprecations(),
+): Promise<IrDeclaration[]> {
+  const ports = { ...(await defaultGeneratorPorts(options)), deprecations };
+  return generateDeclarations(source, options, ports);
+}
 
 /**
  * A `resolve` callback for a test: `find` returns the document node of a `$ref`, or `undefined`.

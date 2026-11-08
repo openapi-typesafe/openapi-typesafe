@@ -1,5 +1,5 @@
 import type { Logger } from "../application/ports/logger.js";
-import { OutputFix } from "../domain/output-fixes.js";
+import { FIX, type OutputFix } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { DiscriminatorObject, OpenAPI3, SchemaObject } from "../types.js";
 import { addEnumProperty, declaresValues, type EnumPatch } from "./discriminator-enum.js";
@@ -46,7 +46,7 @@ export interface ScanState extends DiscriminatorScanOptions {
 
 /** Whether `discriminator-values` is on: values of two discriminators merge into one enum. */
 export function mergesValues(state: ScanState): boolean {
-  return state.fixes.has(OutputFix.DISCRIMINATOR_VALUES);
+  return state.fixes.has(FIX.DISCRIMINATOR_VALUES);
 }
 
 function patchedSchema(state: ScanState, patch: EnumPatch): SchemaObject | undefined {
@@ -60,8 +60,7 @@ function patchedSchema(state: ScanState, patch: EnumPatch): SchemaObject | undef
  */
 function isDeclared(state: ScanState, patch: EnumPatch): boolean {
   return (
-    state.fixes.has(OutputFix.DISCRIMINATOR_VALUES) &&
-    declaresValues(patchedSchema(state, patch), patch)
+    state.fixes.has(FIX.DISCRIMINATOR_VALUES) && declaresValues(patchedSchema(state, patch), patch)
   );
 }
 
@@ -70,7 +69,7 @@ function isDeclared(state: ScanState, patch: EnumPatch): boolean {
  * added, or a discriminator object that a schema inherited.
  */
 export function recordEnumParent(state: ScanState, owner: DiscriminatorOwner, key: object): void {
-  if (!state.fixes.has(OutputFix.DISCRIMINATOR_VALUES)) {
+  if (!state.fixes.has(FIX.DISCRIMINATOR_VALUES)) {
     return;
   }
   const { silent, logger } = state;
