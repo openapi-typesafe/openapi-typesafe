@@ -11,6 +11,10 @@ updates:
     # reject it anyway, and enough for most compromised releases to be found and pulled.
     cooldown:
       default-days: 3
+    # Ranges move only when a new version falls outside them; the lockfile takes the rest. A raised
+    # floor in a published package blocks installs under a minimum release age (bun's 7 days
+    # refused @redocly/openapi-core ^1.34.23 in the dependents check on 2026-11-08).
+    versioning-strategy: increase-if-necessary
     commit-message:
       prefix: build
       include: scope
