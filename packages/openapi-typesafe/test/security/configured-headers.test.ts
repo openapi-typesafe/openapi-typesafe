@@ -39,13 +39,16 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
     url: request.url ?? "",
     key: typeof key === "string" ? key : undefined,
   });
-  const routes: Record<string, () => void> = {
-    "/person.json": () => response.writeHead(200, { "content-type": "application/json" }).end(PERSON),
-    "/to-other.json": () => response.writeHead(302, { location: `${otherURL}/person.json` }).end(),
-    "/to-same.json": () => response.writeHead(302, { location: "/person.json" }).end(),
-  };
+  // A Map, so a request path such as `/constructor` cannot reach an object prototype method.
+  const routes = new Map<string, () => void>(
+    Object.entries({
+      "/person.json": () => response.writeHead(200, { "content-type": "application/json" }).end(PERSON),
+      "/to-other.json": () => response.writeHead(302, { location: `${otherURL}/person.json` }).end(),
+      "/to-same.json": () => response.writeHead(302, { location: "/person.json" }).end(),
+    }),
+  );
   const path = (request.url ?? "").split("?")[0] ?? "";
-  (routes[path] ?? (() => response.writeHead(404).end("Not Found")))();
+  (routes.get(path) ?? (() => response.writeHead(404).end("Not Found")))();
 }
 
 beforeAll(async () => {

@@ -33,21 +33,24 @@ let baseURL: string;
 let otherHostURL: string;
 
 function answer(request: IncomingMessage, response: ServerResponse): void {
-  const routes: Record<string, () => void> = {
-    "/person.json": () => response.writeHead(200, { "content-type": "application/json" }).end(PERSON),
-    "/root.json": () =>
-      response.writeHead(200, { "content-type": "application/json" }).end(documentWithRef("./person.json")),
-    "/to-other-host.json": () => response.writeHead(302, { location: `${otherHostURL}/person.json` }).end(),
-    "/to-same-host.json": () => response.writeHead(301, { location: "/person.json" }).end(),
-    "/loop.json": () => response.writeHead(302, { location: "/loop.json" }).end(),
-    "/drive-letter.json": () =>
-      response.writeHead(200, { "content-type": "application/json" }).end(documentWithRef("C:/secrets/person.json")),
-    "/file-url.json": () =>
-      response
-        .writeHead(200, { "content-type": "application/json" })
-        .end(documentWithRef(pathToFileURL(path.join(workDir, "secrets", "person.json")).href)),
-  };
-  (routes[request.url ?? ""] ?? (() => response.writeHead(404).end("Not Found")))();
+  // A Map, so a request path such as `/constructor` cannot reach an object prototype method.
+  const routes = new Map<string, () => void>(
+    Object.entries({
+      "/person.json": () => response.writeHead(200, { "content-type": "application/json" }).end(PERSON),
+      "/root.json": () =>
+        response.writeHead(200, { "content-type": "application/json" }).end(documentWithRef("./person.json")),
+      "/to-other-host.json": () => response.writeHead(302, { location: `${otherHostURL}/person.json` }).end(),
+      "/to-same-host.json": () => response.writeHead(301, { location: "/person.json" }).end(),
+      "/loop.json": () => response.writeHead(302, { location: "/loop.json" }).end(),
+      "/drive-letter.json": () =>
+        response.writeHead(200, { "content-type": "application/json" }).end(documentWithRef("C:/secrets/person.json")),
+      "/file-url.json": () =>
+        response
+          .writeHead(200, { "content-type": "application/json" })
+          .end(documentWithRef(pathToFileURL(path.join(workDir, "secrets", "person.json")).href)),
+    }),
+  );
+  (routes.get(request.url ?? "") ?? (() => response.writeHead(404).end("Not Found")))();
 }
 
 beforeAll(async () => {
