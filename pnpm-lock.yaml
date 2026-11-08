@@ -281,7 +281,7 @@ importers:
   packages/openapi-typesafe:
     dependencies:
       '@redocly/openapi-core':
-        specifier: ^1.34.23
+        specifier: ^1.34.22
         version: 1.34.23(supports-color@11.0.0)
       ansi-colors:
         specifier: ^4.1.3
