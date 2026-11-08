@@ -214,4 +214,21 @@ describe("CLI exit codes", () => {
     },
     TIMEOUT,
   );
+
+  it(
+    "cli with an output that links to the schema exits with 2 and leaves the schema unchanged",
+    async () => {
+      const schemaText = fs.readFileSync(SIMPLE_SCHEMA, "utf8");
+      const schema = workFile("linked-schema.yaml", schemaText);
+      const link = workFile("schema-link.yaml");
+      fs.symlinkSync(schema, link);
+
+      const { exitCode, stderr } = await runCli([schema, "-o", link]);
+
+      expect(exitCode).toBe(2);
+      expect(stderr).toContain("(CLI_OUTPUT_IS_INPUT)");
+      expect(fs.readFileSync(schema, "utf8")).toBe(schemaText);
+    },
+    TIMEOUT,
+  );
 });

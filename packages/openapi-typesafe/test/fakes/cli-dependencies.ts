@@ -1,7 +1,11 @@
 import path from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { FileReader, FileWriter } from "../../src/application/ports/file-system.js";
+import type {
+  FileIdentity,
+  FileReader,
+  FileWriter,
+} from "../../src/application/ports/file-system.js";
 import type { DebugGroup, Logger } from "../../src/application/ports/logger.js";
 import type {
   RedoclyConfig,
@@ -61,9 +65,22 @@ export class RecordingConsole implements CliConsole {
   }
 }
 
-/** Files by absolute path; a missing file fails to read as the Node adapter does. */
-export class InMemoryFiles implements FileReader, FileWriter {
+/**
+ * Files by absolute path; a missing file fails to read as the Node adapter does. `links` maps a
+ * path to the path it names, as a symbolic link or another letter case does on disk.
+ */
+export class InMemoryFiles implements FileReader, FileWriter, FileIdentity {
   readonly files = new Map<string, string>();
+  readonly links = new Map<string, string>();
+
+  isSameFile(left: URL, right: URL): boolean {
+    return this.targetOf(left) === this.targetOf(right);
+  }
+
+  private targetOf(file: URL): string {
+    const filePath = fileURLToPath(file);
+    return this.links.get(filePath) ?? filePath;
+  }
 
   readText(file: URL): string {
     const contents = this.files.get(fileURLToPath(file));

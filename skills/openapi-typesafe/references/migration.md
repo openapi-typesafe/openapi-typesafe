@@ -67,8 +67,9 @@ that runs `openapi-typescript`. Nothing else is required.
 ## Differences to know
 
 - **Node.js**: the generator needs 22.12+, the client and helpers 22+.
-- **No TypeScript dependency** for the generator. `typescript` is an optional peer, loaded only by
-  the legacy callbacks below.
+- **No TypeScript dependency** for the generator. `typescript` is an optional peer (`>=5.4.0`),
+  loaded only by the legacy callbacks below. On TypeScript 5.0 to 5.3, npm reports a peer
+  conflict (`ERESOLVE`): upgrade TypeScript to 5.4 or newer.
 - **`openapiTS()` returns IR objects**, not `ts.Node`s. `astToString(await openapiTS(...))` works
   unchanged and prints the same text. Code that walked or edited the returned TypeScript nodes
   must use the IR objects instead.
