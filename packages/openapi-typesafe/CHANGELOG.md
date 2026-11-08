@@ -2,6 +2,24 @@
 
 This package is a fork of `openapi-typescript`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-typescript` versions.
 
+## 1.0.0-rc.2
+
+### Minor Changes
+
+- [#15](https://github.com/openapi-typesafe/openapi-typesafe/pull/15) [`5837bac`](https://github.com/openapi-typesafe/openapi-typesafe/commit/5837baca3bbcd58bd132622d9a4723e97bc5a9bc) Thanks [@fedorello](https://github.com/fedorello)! - Every warning ends with a stable code (exported as `WARNING_CODES`); lint warnings name their
+  Redocly rule. New warnings, which change neither output nor exit code: a repeated `operationId`,
+  paths that differ only in parameter names, a discriminator value its member does not allow, an
+  unknown `x-openapi-ts` key, and an unknown CLI flag.
+
+### Patch Changes
+
+- [#16](https://github.com/openapi-typesafe/openapi-typesafe/pull/16) [`cd79dbd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cd79dbd39d33dc913ec101a4c46560dff801da4e) Thanks [@fedorello](https://github.com/fedorello)! - The type declarations keep their JSDoc, so editors show descriptions and mark deprecated exports.
+
+- [#15](https://github.com/openapi-typesafe/openapi-typesafe/pull/15) [`5837bac`](https://github.com/openapi-typesafe/openapi-typesafe/commit/5837baca3bbcd58bd132622d9a4723e97bc5a9bc) Thanks [@fedorello](https://github.com/fedorello)! - The declarations type-check with TypeScript 7 and `skipLibCheck: false`.
+
+- [#23](https://github.com/openapi-typesafe/openapi-typesafe/pull/23) [`54c59f2`](https://github.com/openapi-typesafe/openapi-typesafe/commit/54c59f233907bf75a61419b1ff933094e790b852) Thanks [@fedorello](https://github.com/fedorello)! - The deprecated `resolveRef` takes the document as `unknown` instead of `any`, so any value is still
+  accepted. It now returns the node when a `$ref` that is not a string is found, instead of failing.
+
 ## 1.0.0-rc.1
 
 ### Patch Changes

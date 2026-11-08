@@ -2,6 +2,21 @@
 
 This package is a fork of `openapi-typescript-helpers`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-typescript-helpers` versions.
 
+## 1.0.0-rc.2
+
+### Major Changes
+
+- [#18](https://github.com/openapi-typesafe/openapi-typesafe/pull/18) [`bfd3e60`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bfd3e605bdbe240d7a8a327a59d8924781016fbd) Thanks [@fedorello](https://github.com/fedorello)! - First stable release of openapi-typesafe-helpers, the successor of openapi-typescript-helpers
+  0.1.0. From 1.0 the package follows semver.
+
+  Changes that can need work when you move from openapi-typescript-helpers 0.1.0:
+  - `engines.node` is `>=22`.
+  - `HttpMethod` includes `"query"`: a hand-written `Record<HttpMethod, …>` needs a `query` entry.
+
+### Patch Changes
+
+- [#16](https://github.com/openapi-typesafe/openapi-typesafe/pull/16) [`cd79dbd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cd79dbd39d33dc913ec101a4c46560dff801da4e) Thanks [@fedorello](https://github.com/fedorello)! - The type declarations keep their JSDoc, so editors show descriptions and mark deprecated exports.
+
 ## 1.0.0-rc.1
 
 ### Patch Changes

@@ -1,7 +1,7 @@
 {
   "name": "openapi-typesafe-migrate",
   "description": "Move a project from openapi-typescript and openapi-fetch to openapi-typesafe",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "author": {
     "name": "Fedor Chishchin",
     "url": "https://github.com/fedorello"
