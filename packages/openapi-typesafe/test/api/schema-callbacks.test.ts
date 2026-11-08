@@ -12,6 +12,7 @@ import openapiTS, {
   type OpenAPITSIrOptions,
   tsUnion,
 } from "../../src/index.js";
+import { RecordingDeprecations } from "../fakes/recording-deprecations.js";
 
 const DOCUMENT: OpenAPI3 = {
   openapi: "3.1.0",
@@ -106,7 +107,7 @@ describe("IR callbacks (irCallbacks: true)", () => {
 /** The deprecated forms each run warned about (recorded also when `silent`). */
 async function warningsOf(options: GeneratorOptions): Promise<string[]> {
   const runOptions = { silent: true, ...options };
-  const ports = await defaultGeneratorPorts(runOptions);
+  const ports = { ...(await defaultGeneratorPorts(runOptions)), deprecations: new RecordingDeprecations() };
   const { schema, ctx } = await createDocumentRun(DOCUMENT, runOptions, ports);
   transformSchema(schema, ctx);
   return [...(ctx.legacyCallbackWarnings ?? [])];

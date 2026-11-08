@@ -7,13 +7,13 @@ import {
   addJSDocComment,
   astToString,
   BOOLEAN,
+  DEPRECATION_CODES,
   enumCache,
   NULL,
   NUMBER,
   oapiRef,
   QUESTION_TOKEN,
   STRING,
-  STRING_TO_AST_DEPRECATION_CODE,
   stringToAST,
   tsArrayLiteralExpression,
   tsDedupe,
@@ -579,6 +579,6 @@ describe("stringToAST", () => {
     const { stderr } = await execa(viteNode, [fixture]);
 
     expect(stderr.match(/DeprecationWarning/g)).toHaveLength(1);
-    expect(stderr).toContain(STRING_TO_AST_DEPRECATION_CODE);
+    expect(stderr).toContain(DEPRECATION_CODES.OPENAPI_TYPESAFE_DEP_STRING_TO_AST);
   }, 30_000);
 });

@@ -34,6 +34,7 @@ export {
   UNDEFINED,
   UNKNOWN,
 } from "./api/type-helpers.js";
+export { DEPRECATION_CODES, type DeprecationCode } from "./domain/deprecations.js";
 export {
   ERROR_CODES,
   type ErrorCode,

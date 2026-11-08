@@ -87,18 +87,31 @@ try {
 }
 ```
 
-### Deprecated exports
+### Deprecations
 
-These exports keep working in 1.x and are removed in 2.0:
+These keep working in 1.x and are removed in 2.0:
 
 - `stringToAST()`: return type text from an [IR callback](#ir-callbacks) instead. It needs a
-  TypeScript JavaScript API (`typescript` 6 or earlier, or `@typescript/typescript6`) and emits one
-  Node.js `DeprecationWarning` with the code `OPENAPI_TYPESAFE_DEP_STRING_TO_AST`, so
-  `node --no-deprecation` or `--throw-deprecation` work on it as on Node's own deprecations.
+  TypeScript JavaScript API (`typescript` 6 or earlier, or `@typescript/typescript6`).
+- The TypeScript-node form of `transform`, `postTransform` and `transformProperty`: use
+  [IR callbacks](#ir-callbacks).
 - `resolveRef`, `scanDiscriminators`, `walk`, `c`, `debug`, `warn` and `error`, and the TypeScript
   node helpers `addJSDocComment`, `tsArrayLiteralExpression`, `tsDedupe`, `tsEnum`, `tsEnumMember`,
   `tsIsPrimitive`, `tsModifiers`, `tsPropertyIndex`, `tsReadonlyArray`, `QUESTION_TOKEN` and
   `enumCache`: rarely used internals, marked `@deprecated` in the types (no runtime warning).
+
+When one of the first two is used, Node.js prints a `DeprecationWarning` with one of these codes,
+once per process for each code. `DEPRECATION_CODES` exports them. Node's own switches work on
+them: `node --no-deprecation` hides them, `--throw-deprecation` makes them errors,
+`--trace-deprecation` shows where they come from, and `process.on("warning", …)` receives them.
+The `silent` option does not hide them.
+
+| Code | Used |
+| :--- | :--- |
+| `OPENAPI_TYPESAFE_DEP_STRING_TO_AST` | `stringToAST()` is called |
+| `OPENAPI_TYPESAFE_DEP_TS_TRANSFORM` | `transform` returns a TypeScript node |
+| `OPENAPI_TYPESAFE_DEP_TS_POST_TRANSFORM` | `postTransform` runs without `irCallbacks: true` |
+| `OPENAPI_TYPESAFE_DEP_TS_TRANSFORM_PROPERTY` | `transformProperty` runs without `irCallbacks: true` |
 
 ### Redocly config
 
@@ -146,7 +159,7 @@ The Node API takes the generator flags of the [flags table](/cli#flags) in camel
 
 ### IR callbacks
 
-With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, prints a deprecation warning (`LEGACY_CALLBACK_DEPRECATED`) once per run, and is removed in 2.0. The examples below use the IR form.
+With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, emits a Node.js `DeprecationWarning` (see [Deprecations](#deprecations)), and is removed in 2.0. The examples below use the IR form.
 
 - A type result is an IR type (from the helpers, such as `tsUnion([STRING, NULL])`) or a string of TypeScript type text, printed as written.
 - `transform` may also return `{ schema, questionToken: true }` to make the property optional.

@@ -8,6 +8,7 @@ import { defaultRedoclyConfig } from "../../src/api/default-ports.js";
 import { generateDeclarations } from "../../src/api/openapi-ts.js";
 import { astToString } from "../../src/index.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
+import { RecordingDeprecations } from "../fakes/recording-deprecations.js";
 import { documentWith, generateCompiling, generationFailure, nestedObjects } from "./defensive-helpers.js";
 
 /** Deeper than any real document (the YAML parser stops files at 100 levels). */
@@ -61,6 +62,7 @@ describe("deep nesting", () => {
     const ports = {
       loader: { load: async () => deep as never },
       logger: new RecordingLogger(),
+      deprecations: new RecordingDeprecations(),
       redoc: await defaultRedoclyConfig(),
       now: () => 0,
     };

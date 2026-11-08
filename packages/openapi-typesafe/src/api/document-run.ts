@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import { sourceEmptyError } from "../adapters/redocly-loader/schema-load-errors.js";
+import type { DeprecationReporter } from "../application/ports/deprecation-reporter.js";
 import type { Logger } from "../application/ports/logger.js";
 import type { RefAccess, SchemaLoader } from "../application/ports/schema-loader.js";
 import { withStackOverflowReported } from "../application/stack-overflow.js";
@@ -25,6 +26,8 @@ import { warnUnsupportedFeatures } from "./unsupported-feature-warnings.js";
 export interface GeneratorPorts {
   readonly loader: SchemaLoader;
   readonly logger: Logger;
+  /** Where the run reports the deprecated callback forms (ADR-004). */
+  readonly deprecations: DeprecationReporter;
   /** The Redocly config the loader uses; the run's context exposes it as `ctx.redoc`. */
   readonly redoc: RedoclyConfig;
   /** A monotonic time in milliseconds, for debug durations. */
@@ -47,6 +50,7 @@ type ContextFlags = Omit<
   | "runFooter"
   | "legacyCallbackWarnings"
   | "logger"
+  | "deprecations"
   | "fix"
 >;
 
@@ -175,6 +179,7 @@ export async function createDocumentRun(
     redoc: ports.redoc,
     resolve: ($ref) => resolveDocumentRef(schema, $ref, { silent, logger }),
     logger,
+    deprecations: ports.deprecations,
   };
   return { schema, ctx };
 }

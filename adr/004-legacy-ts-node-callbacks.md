@@ -98,6 +98,37 @@ so a node can only be read with the same `typescript` module that created it.
 - The bridge gets the TypeScript module as an argument from `loadTypeScript()`, which resolves it at the
   call through Node's module cache. No module keeps a loaded compiler in its own state.
 
+## Amendment (2026-11-08): one deprecation channel
+
+The public API audit before 1.0 (finding P2-6) found two channels for the deprecations of
+decisions 5 to 7. `stringToAST` emitted a Node.js `DeprecationWarning` with the code
+`OPENAPI_TYPESAFE_DEP_STRING_TO_AST` (exported as `STRING_TO_AST_DEPRECATION_CODE`). The callback
+forms printed a warning line through the run's logger with the warning code
+`LEGACY_CALLBACK_DEPRECATED`, which `silent` hid and `node --no-deprecation` did not.
+
+1. **Every runtime deprecation of something 2.0 removes is a Node.js `DeprecationWarning`** with
+   an `OPENAPI_TYPESAFE_DEP_*` code, emitted through `util.deprecate`, so Node shows each code
+   once per process. The codes are `OPENAPI_TYPESAFE_DEP_STRING_TO_AST`,
+   `OPENAPI_TYPESAFE_DEP_TS_TRANSFORM`, `OPENAPI_TYPESAFE_DEP_TS_POST_TRANSFORM` and
+   `OPENAPI_TYPESAFE_DEP_TS_TRANSFORM_PROPERTY`, one per form, so that each one is shown. The
+   deprecation notices of `fix` in 2.x (ADR-021 decision 8) use the same channel.
+2. **`DEPRECATION_CODES`** (and the union `DeprecationCode`) is exported next to `ERROR_CODES`
+   and `WARNING_CODES`, and is covered like them (ADR-034 decisions 1 and 2: a code keeps its
+   meaning, a minor may add codes). `STRING_TO_AST_DEPRECATION_CODE` and the warning code
+   `LEGACY_CALLBACK_DEPRECATED` are removed; only rc versions had them.
+3. **`silent` does not hide deprecations.** It exists so that the types can go to stdout;
+   Node writes warnings to stderr. Node's own switches apply: `--no-deprecation`,
+   `--throw-deprecation`, `--trace-deprecation`, `process.on("warning")`.
+4. The run reports through a `DeprecationReporter` port (`application/ports/`); the Node.js
+   adapter is wired in the composition root, and tests use an in-memory fake. This also amends
+   ADR-034 decision 5: where a deprecation has a runtime warning, it is this one.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Node.js `DeprecationWarning` for all (chosen) | the standard channel; works for functions called outside a run, such as `stringToAST`; tools and CI can filter, trace or fail on it by code | `silent` no longer hides the callback notice |
+| The logger and warning codes for all | one list of codes with the other warnings; `silent` hides them | `stringToAST` has no run and no logger, so it would print to the console with no way to turn it off; Node's switches do not work |
+| Keep both | no change | two ways to find, filter and silence the same kind of notice |
+
 ## Review trigger
 
 - The Phase 8 real-project check finds a 7.x pattern that the bridge cannot convert, or

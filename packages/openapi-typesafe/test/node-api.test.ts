@@ -1,8 +1,8 @@
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import openapiTS, { astToString, COMMENT_HEADER } from "../src/index.js";
+import { astToString, COMMENT_HEADER } from "../src/index.js";
 import type { OpenAPITSOptions } from "../src/types.js";
-import type { LooseFixture, TestCase } from "./test-helpers.js";
+import { generateRecordingDeprecations, type LooseFixture, type TestCase } from "./test-helpers.js";
 
 const EXAMPLES_DIR = new URL("../examples/", import.meta.url);
 
@@ -1811,7 +1811,7 @@ export type operations = Record<string, never>;`,
     test.skipIf(ci?.skipIf)(
       testName,
       async () => {
-        const result = astToString(await openapiTS(given, options));
+        const result = astToString(await generateRecordingDeprecations(given, options));
         if (want instanceof URL) {
           await expect(`${COMMENT_HEADER}${result}`).toMatchFileSnapshot(fileURLToPath(want));
         } else {

@@ -5,11 +5,9 @@ import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/red
 import { DEFAULT_REMOTE_DOCUMENT_LIMITS } from "../../src/api/default-ports.js";
 import { resolveDocumentRef } from "../../src/api/document-refs.js";
 import { createDocumentRun } from "../../src/api/document-run.js";
-import { warnLegacyCallback } from "../../src/api/legacy-callback-warning.js";
 import { defaultGeneratorPorts } from "../../src/api/openapi-ts.js";
 import { WARNING_CODES as DOMAIN_WARNING_CODES } from "../../src/domain/warnings.js";
 import { WARNING_CODES } from "../../src/index.js";
-import type { GlobalContext } from "../../src/types.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
 
 /** Every warning ends with a stable code (docs/cli.md, "Warnings"). */
@@ -81,18 +79,6 @@ describe("warning codes", () => {
 
     expect(logger.messages("warn")).toEqual([
       'Could not resolve circular $ref "#/components/schemas/A" (REF_CIRCULAR)',
-    ]);
-  });
-
-  it("warnLegacyCallback warns once with LEGACY_CALLBACK_DEPRECATED", () => {
-    const logger = new RecordingLogger();
-    const ctx = { logger, silent: false } as unknown as GlobalContext;
-
-    warnLegacyCallback(ctx, "transform");
-    warnLegacyCallback(ctx, "transform");
-
-    expect(logger.messages("warn")).toEqual([
-      expect.stringMatching(/irCallbacks: true .* \(LEGACY_CALLBACK_DEPRECATED\)$/),
     ]);
   });
 

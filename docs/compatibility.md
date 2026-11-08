@@ -141,13 +141,14 @@ have the same version. The full rule is
   `openapi-typesafe-migrate` commands;
 - the [CLI flags](./cli.md#flags), the `x-openapi-ts` settings in `redocly.yaml`, the
   [Node API options](./node.md#options) and their defaults;
-- the [error codes and exit codes](./cli.md#exit-codes), the [warning codes](./cli.md#warnings)
-  and the [fix names](./cli.md#fix): a code keeps its meaning;
+- the [error codes and exit codes](./cli.md#exit-codes), the [warning codes](./cli.md#warnings),
+  the [deprecation codes](./node.md#deprecations) and the [fix names](./cli.md#fix): a code keeps
+  its meaning;
 - the generated types: the same document with the same options gives the same exported types.
   A change to output that compiles is an opt-in [fix](./cli.md#fix); output that does not compile
   can be fixed in any release.
 
-**What a minor release may add.** New exports, options, flags, error and warning codes, fix names
+**What a minor release may add.** New exports, options, flags, error, warning and deprecation codes, fix names
 (`fix: ["all"]` then includes the new fix), IR node kinds, members of exported unions such as
 `ErrorCode`, `WarningCode`, `OutputFix`, `IrType` and `HttpMethod`, and optional fields. So:
 
@@ -174,6 +175,8 @@ a major release.
 
 **Deprecations.** Nothing is removed before the next major version. A deprecated export is marked
 `@deprecated` in the types, so editors strike it through, and the docs say what to use instead.
+Where a deprecation also warns at run time, it is a Node.js `DeprecationWarning` with an
+`OPENAPI_TYPESAFE_DEP_*` code ([Deprecations](./node.md#deprecations)).
 
 ## Run it yourself
 
