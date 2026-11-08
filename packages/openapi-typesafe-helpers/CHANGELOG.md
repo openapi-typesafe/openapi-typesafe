@@ -2,6 +2,10 @@
 
 This package is a fork of `openapi-typescript-helpers`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-typescript-helpers` versions.
 
+## 1.0.0-rc.3
+
+No changes in this release.
+
 ## 1.0.0-rc.2
 
 ### Major Changes
