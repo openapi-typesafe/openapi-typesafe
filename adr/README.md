@@ -53,3 +53,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [037](./037-cli-output-keeps-the-upstream-symbols.md) | CLI output keeps the upstream symbols | Accepted |
 | [038](./038-sharded-full-compatibility-run.md) | The full compatibility run is split into 16 shard jobs | Accepted |
 | [039](./039-external-links-outside-pull-requests.md) | External links of the docs site are checked outside pull requests | Accepted |
+| [040](./040-the-1-0-changelog-is-written-for-upstream-users.md) | The 1.0.0 changelog is written for upstream users | Accepted |

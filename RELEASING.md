@@ -69,7 +69,9 @@ Until a stable release exists, each prerelease also takes `latest` (ADR-007): th
 `publish` job (`scripts/release/tag-latest.sh`). If it fails (for example, "Allow npm dist-tag" is
 off), the `release` job still runs. Turn the permission on and re-run the failed jobs, or run
 `npm dist-tag add <name>@<version> latest` for each package, logged in with 2FA.
-`pnpm exec changeset pre exit` before 1.0.0.
+`pnpm exec changeset pre exit` before 1.0.0. The changesets in `.changeset/pre/` become the 1.0.0
+changelog, so they describe the change from the stable upstream versions, not from the last rc
+(ADR-040).
 
 ### When a run fails
 
