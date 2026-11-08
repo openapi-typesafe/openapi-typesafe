@@ -11,6 +11,10 @@ const QUERY_OR_FRAGMENT_RE = /[?#]/;
  * parameters.
  */
 const JSON_MEDIA_TYPE_RE = /json/i;
+/** `text/*` media types: a JSON parse error of such a body points to `parseAs: "text"`. */
+const TEXT_MEDIA_TYPE_RE = /^text\//i;
+/** How much of a body that is not JSON its error shows: enough to tell an HTML page or a message. */
+const BODY_EXCERPT_LENGTH = 100;
 /** `application/x-www-form-urlencoded`, with or without parameters such as `charset`. */
 const FORM_MEDIA_TYPE_RE = /^application\/x-www-form-urlencoded(;|$)/i;
 /** `multipart/form-data`, with or without parameters. */
@@ -292,39 +296,10 @@ export default function createClient(clientOptions) {
       return response.ok ? { data: undefined, response } : { error: undefined, response };
     }
 
-    // parse response (falling back to .text() when necessary)
     if (response.ok) {
-      const getResponseData = async () => {
-        // if "stream", skip parsing entirely
-        if (parseAs === "stream") {
-          return response.body;
-        }
-
-        if (parseAs === "json" && !contentLength) {
-          // use text() when no content-length is provided to avoid errors parsing empty bodies
-          // (200 with no content)
-          const raw = await response.text();
-          return raw ? JSON.parse(raw) : undefined;
-        }
-
-        return await response[parseAs]();
-      };
-      return { data: await getResponseData(), response };
+      return { data: await readSuccessBody(response, parseAs), response };
     }
-
-    // handle errors (use text() when no content-length to safely handle empty bodies from proxies)
-    const raw = await response.text();
-    if (!raw) {
-      // empty error body - return undefined to be consistent with status 204 handling
-      return { error: undefined, response };
-    }
-    let error = raw;
-    try {
-      error = JSON.parse(raw); // attempt to parse as JSON
-    } catch {
-      // noop - keep as raw text
-    }
-    return { error, response };
+    return { error: await readErrorBody(response), response };
   }
 
   return {
@@ -496,12 +471,76 @@ function isResponse(value) {
   return typeof value?.status === "number" && isHeaders(value.headers);
 }
 
+/**
+ * Parse a JSON body. A body that is not JSON, such as the HTML page of a proxy, threw a bare
+ * `SyntaxError`; this one names the response, says which `parseAs` reads it, and keeps the first
+ * one as `cause` (ADR-041).
+ */
+function parseJSON(raw, response) {
+  try {
+    return JSON.parse(raw);
+  } catch (cause) {
+    const contentType = response.headers.get("Content-Type");
+    const hint = TEXT_MEDIA_TYPE_RE.test(contentType) ? 'set `parseAs: "text"`' : "set `parseAs`";
+    const excerpt = JSON.stringify(raw.slice(0, BODY_EXCERPT_LENGTH));
+    const subject = `Response ${response.status} (${contentType ?? "no Content-Type"})`;
+    throw new SyntaxError(`${subject} is not JSON; ${hint}: ${excerpt}`, { cause });
+  }
+}
+
+/** The data of a success response, by `parseAs` (default `"json"`, as in openapi-fetch). */
+async function readSuccessBody(response, parseAs) {
+  if (parseAs === "stream") {
+    return response.body;
+  }
+  if (parseAs !== "json") {
+    return response[parseAs]();
+  }
+  // text(), not json(): an empty body (no Content-Length) is no data, and the text names a failure.
+  const raw = await response.text();
+  return raw ? parseJSON(raw, response) : undefined;
+}
+
+/**
+ * The error of an error response: `undefined` for an empty body, else JSON. A body that is not
+ * JSON (a proxy's HTML page) stays text, as in openapi-fetch.
+ */
+async function readErrorBody(response) {
+  const raw = await response.text();
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Deliberate fallback, not a lost failure: the caller gets the body as text in `error`.
+    return raw;
+  }
+}
+
 // Parameter names and object keys can be data (an `additionalProperties` object). They are encoded
 // like values, except for characters common in names that do not split a URL (ADR-013, decision 9).
 const KEPT_NAME_ESCAPES = /%(?:5B|5D|24|3A|40|2C)/g;
 
 function encodeName(name) {
   return encodeURIComponent(name).replace(KEPT_NAME_ESCAPES, decodeURIComponent);
+}
+
+/**
+ * A `Date` value. Checked by its method, not with `instanceof`, so a Date from another realm counts
+ * too (as for the Fetch API objects above).
+ */
+function isDate(value) {
+  return typeof value?.toISOString === "function";
+}
+
+/**
+ * One parameter value, percent-encoded unless `allowReserved`. A `Date` is sent as ISO 8601:
+ * `String(date)` is a local-time text such as "Thu Jan 01 1970 ..." (ADR-041).
+ */
+function encodeValue(value, allowReserved) {
+  const text = isDate(value) ? value.toISOString() : value;
+  return allowReserved === true ? text : encodeURIComponent(text);
 }
 
 /**
@@ -512,118 +551,135 @@ export function serializePrimitiveParam(name, value, options) {
   if (value === undefined || value === null) {
     return "";
   }
-  if (typeof value === "object") {
+  if (typeof value === "object" && !isDate(value)) {
     throw new Error(
       "Deeply-nested arrays/objects aren’t supported. Provide your own `querySerializer()` to handle these.",
     );
   }
-  return `${name}=${options?.allowReserved === true ? value : encodeURIComponent(value)}`;
+  return `${name}=${encodeValue(value, options?.allowReserved)}`;
+}
+
+/** Join exploded parts: by `,`, `.` or `;` in a path style (label and matrix also first), else `&`. */
+function joinExploded(values, style) {
+  const joiner = { simple: ",", label: ".", matrix: ";" }[style] || "&";
+  const final = values.join(joiner);
+  return style === "label" || style === "matrix" ? `${joiner}${final}` : final;
+}
+
+/** A non-exploded object: names and values in one comma-separated list. */
+function serializeUnexplodedObject(name, value, options) {
+  const values = [];
+  for (const k in value) {
+    values.push(encodeName(k), encodeValue(value[k], options.allowReserved));
+  }
+  const final = values.join(",");
+  switch (options.style) {
+    case "form": {
+      return `${name}=${final}`;
+    }
+    case "label": {
+      return `.${final}`;
+    }
+    case "matrix": {
+      return `;${name}=${final}`;
+    }
+    default: {
+      return final;
+    }
+  }
 }
 
 /**
- * Serialize object param (shallow only)
+ * Serialize object param (shallow only). An object without members, or with only `null` and
+ * `undefined` ones when exploded, gives `""`: its empty parts added stray separators (ADR-041).
  * @type {import("./index.js").serializeObjectParam}
  */
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export function serializeObjectParam(name, value, options) {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== "object" || !Object.keys(value).length) {
     return "";
   }
-  const values = [];
-  const joiner =
-    {
-      simple: ",",
-      label: ".",
-      matrix: ";",
-    }[options.style] || "&";
-
-  // explode: false
   if (options.style !== "deepObject" && options.explode === false) {
-    for (const k in value) {
-      values.push(
-        encodeName(k),
-        options.allowReserved === true ? value[k] : encodeURIComponent(value[k]),
-      );
-    }
-    // note: values are always joined by comma in explode: false (but joiner can prefix)
-    const final = values.join(",");
-    switch (options.style) {
-      case "form": {
-        return `${name}=${final}`;
-      }
-      case "label": {
-        return `.${final}`;
-      }
-      case "matrix": {
-        return `;${name}=${final}`;
-      }
-      default: {
-        return final;
-      }
-    }
+    return serializeUnexplodedObject(name, value, options);
   }
-
-  // explode: true
+  const values = [];
   for (const k in value) {
     const finalName = options.style === "deepObject" ? `${name}[${encodeName(k)}]` : encodeName(k);
-    values.push(serializePrimitiveParam(finalName, value[k], options));
+    if (value[k] != null) {
+      values.push(serializePrimitiveParam(finalName, value[k], options));
+    }
   }
-  const final = values.join(joiner);
-  return options.style === "label" || options.style === "matrix" ? `${joiner}${final}` : final;
+  return values.length ? joinExploded(values, options.style) : "";
+}
+
+/** A non-exploded array; the item separator depends on the style. */
+function serializeUnexplodedArray(name, value, options) {
+  const joiner = { form: ",", spaceDelimited: "%20", pipeDelimited: "|" }[options.style] || ",";
+  const final = value.map((v) => encodeValue(v, options.allowReserved)).join(joiner);
+  switch (options.style) {
+    case "simple": {
+      return final;
+    }
+    case "label": {
+      return `.${final}`;
+    }
+    case "matrix": {
+      return `;${name}=${final}`;
+    }
+    default: {
+      // form, spaceDelimited, pipeDelimited
+      return `${name}=${final}`;
+    }
+  }
 }
 
 /**
- * Serialize array param (shallow only)
+ * Serialize array param (shallow only). An empty array gives `""`, and so does an exploded
+ * `form` array of only `null` and `undefined` items (ADR-041).
  * @type {import("./index.js").serializeArrayParam}
  */
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export function serializeArrayParam(name, value, options) {
-  if (!Array.isArray(value)) {
+  if (!Array.isArray(value) || !value.length) {
     return "";
   }
-
-  // explode: false
   if (options.explode === false) {
-    // note: for arrays, joiners vary wildly based on style + explode behavior
-    const joiner = { form: ",", spaceDelimited: "%20", pipeDelimited: "|" }[options.style] || ",";
-    const final = (
-      options.allowReserved === true ? value : value.map((v) => encodeURIComponent(v))
-    ).join(joiner);
-    switch (options.style) {
-      case "simple": {
-        return final;
-      }
-      case "label": {
-        return `.${final}`;
-      }
-      case "matrix": {
-        return `;${name}=${final}`;
-      }
-      // case "spaceDelimited":
-      // case "pipeDelimited":
-      default: {
-        return `${name}=${final}`;
-      }
-    }
+    return serializeUnexplodedArray(name, value, options);
   }
-
-  // explode: true
-  const joiner = { simple: ",", label: ".", matrix: ";" }[options.style] || "&";
   const values = [];
   for (const v of value) {
     if (options.style === "simple" || options.style === "label") {
-      values.push(options.allowReserved === true ? v : encodeURIComponent(v));
-    } else {
+      values.push(encodeValue(v, options.allowReserved));
+    } else if (v != null) {
       values.push(serializePrimitiveParam(name, v, options));
     }
   }
-  return options.style === "label" || options.style === "matrix"
-    ? `${joiner}${values.join(joiner)}`
-    : values.join(joiner);
+  return values.length ? joinExploded(values, options.style) : "";
+}
+
+/** One query parameter with the default styles: `form` arrays, `deepObject` objects. */
+function serializeQueryParam(name, value, options) {
+  const allowReserved = options?.allowReserved || false;
+  if (Array.isArray(value)) {
+    return serializeArrayParam(name, value, {
+      style: "form",
+      explode: true,
+      ...options?.array,
+      allowReserved,
+    });
+  }
+  if (value && typeof value === "object" && !isDate(value)) {
+    return serializeObjectParam(name, value, {
+      style: "deepObject",
+      explode: true,
+      ...options?.object,
+      allowReserved,
+    });
+  }
+  return serializePrimitiveParam(name, value, options);
 }
 
 /**
- * Serialize query params to string
+ * Serialize query params to string. A parameter that serializes to nothing (`null`, an empty
+ * array or object) is left out with its `&`; an empty part made `a=1&&b=2` (ADR-041).
  * @type {import("./index.js").createQuerySerializer}
  */
 export function createQuerySerializer(options) {
@@ -631,37 +687,10 @@ export function createQuerySerializer(options) {
     const search = [];
     if (queryParams && typeof queryParams === "object") {
       for (const key in queryParams) {
-        const value = queryParams[key];
-        const name = encodeName(key);
-        if (value === undefined || value === null) {
-          continue;
+        const part = serializeQueryParam(encodeName(key), queryParams[key], options);
+        if (part) {
+          search.push(part);
         }
-        if (Array.isArray(value)) {
-          if (value.length === 0) {
-            continue;
-          }
-          search.push(
-            serializeArrayParam(name, value, {
-              style: "form",
-              explode: true,
-              ...options?.array,
-              allowReserved: options?.allowReserved || false,
-            }),
-          );
-          continue;
-        }
-        if (typeof value === "object") {
-          search.push(
-            serializeObjectParam(name, value, {
-              style: "deepObject",
-              explode: true,
-              ...options?.object,
-              allowReserved: options?.allowReserved || false,
-            }),
-          );
-          continue;
-        }
-        search.push(serializePrimitiveParam(name, value, options));
       }
     }
     return search.join("&");
@@ -698,12 +727,12 @@ export function defaultPathSerializer(pathname, pathParams) {
     let serialized;
     if (Array.isArray(value)) {
       serialized = serializeArrayParam(name, value, { style, explode });
-    } else if (typeof value === "object") {
+    } else if (typeof value === "object" && !isDate(value)) {
       serialized = serializeObjectParam(name, value, { style, explode });
     } else if (style === "matrix") {
       serialized = `;${serializePrimitiveParam(name, value)}`;
     } else {
-      serialized = style === "label" ? `.${encodeURIComponent(value)}` : encodeURIComponent(value);
+      serialized = style === "label" ? `.${encodeValue(value)}` : encodeValue(value);
     }
     // A function: a string replacement reads `$'`, `$&` and the like, which object keys keep.
     nextURL = nextURL.replace(match, () => serialized);
