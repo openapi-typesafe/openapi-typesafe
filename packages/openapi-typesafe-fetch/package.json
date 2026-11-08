@@ -52,10 +52,11 @@
   "scripts": {
     "build": "unbuild",
     "format": "biome format . --write",
-    "lint": "pnpm run lint:js && pnpm run lint:ts && pnpm run lint:ts-no-strict",
+    "lint": "pnpm run lint:js && pnpm run lint:ts && pnpm run lint:ts-no-strict && pnpm run lint:sizes",
     "lint:js": "biome check .",
     "lint:ts": "tsc --noEmit",
     "lint:ts-no-strict": "tsc --noEmit -p test/no-strict-null-checks/tsconfig.json",
+    "lint:sizes": "vite-node ../openapi-typesafe/scripts/size-rules/check-sizes.ts src",
     "generate-types": "openapi-typesafe -c test/redocly.yaml",
     "prepack": "pnpm run build",
     "pretest": "pnpm run generate-types",
@@ -74,7 +75,6 @@
   },
   "devDependencies": {
     "axios": "1.21.0",
-    "execa": "catalog:",
     "express": "5.3.0",
     "feature-fetch": "0.1.2",
     "node-forge": "1.4.2",
@@ -82,7 +82,8 @@
     "openapi-typescript-fetch": "2.2.1",
     "typescript": "catalog:",
     "undici": "7.30.1",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vite-node": "6.0.0"
   },
   "engines": {
     "node": ">=22"

@@ -1,6 +1,10 @@
 import type { HttpMethod, PathsWithMethod } from "openapi-typesafe-helpers";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import createClient, { type Client, type FetchResponse, type MaybeOptionalInit } from "../../src/index.js";
+import createClient, {
+  type Client,
+  type FetchResponse,
+  type MaybeOptionalInit,
+} from "../../src/index.js";
 
 /**
  * Wrappers generic in the path, as permit-cli writes them against openapi-fetch: the wrapper
@@ -29,7 +33,10 @@ type Paths = {
 
 type ClientMedia = `${string}/${string}`;
 type JsonMedia = "application/json";
-type InitOf<Path extends keyof Paths, Method extends HttpMethod> = MaybeOptionalInit<Paths[Path], Method> & {
+type InitOf<Path extends keyof Paths, Method extends HttpMethod> = MaybeOptionalInit<
+  Paths[Path],
+  Method
+> & {
   [key: string]: unknown;
 };
 type WrappedResponse<Path extends keyof Paths, Method extends HttpMethod, Init> = Promise<
@@ -43,45 +50,82 @@ const PET_INIT = { params: { path: { id: "1" } } };
 /** One wrapper per client method, each returning the client's response as permit-cli does. */
 function createWrappers(client: Client<Paths, ClientMedia>) {
   return {
-    GET: <Path extends PathsWithMethod<Paths, "get">, Init extends MaybeOptionalInit<Paths[Path], "get">>(
+    GET: <
+      Path extends PathsWithMethod<Paths, "get">,
+      Init extends MaybeOptionalInit<Paths[Path], "get">,
+    >(
       path: Path,
       init: InitOf<Path, "get">,
-    ): WrappedResponse<Path, "get", Init> => client.GET<Path, MaybeOptionalInit<Paths[Path], "get">>(path, init),
-    PUT: <Path extends PathsWithMethod<Paths, "put">, Init extends MaybeOptionalInit<Paths[Path], "put">>(
+    ): WrappedResponse<Path, "get", Init> =>
+      client.GET<Path, MaybeOptionalInit<Paths[Path], "get">>(path, init),
+    PUT: <
+      Path extends PathsWithMethod<Paths, "put">,
+      Init extends MaybeOptionalInit<Paths[Path], "put">,
+    >(
       path: Path,
       init: InitOf<Path, "put">,
-    ): WrappedResponse<Path, "put", Init> => client.PUT<Path, MaybeOptionalInit<Paths[Path], "put">>(path, init),
-    POST: <Path extends PathsWithMethod<Paths, "post">, Init extends MaybeOptionalInit<Paths[Path], "post">>(
+    ): WrappedResponse<Path, "put", Init> =>
+      client.PUT<Path, MaybeOptionalInit<Paths[Path], "put">>(path, init),
+    POST: <
+      Path extends PathsWithMethod<Paths, "post">,
+      Init extends MaybeOptionalInit<Paths[Path], "post">,
+    >(
       path: Path,
       init: InitOf<Path, "post">,
-    ): WrappedResponse<Path, "post", Init> => client.POST<Path, MaybeOptionalInit<Paths[Path], "post">>(path, init),
-    DELETE: <Path extends PathsWithMethod<Paths, "delete">, Init extends MaybeOptionalInit<Paths[Path], "delete">>(
+    ): WrappedResponse<Path, "post", Init> =>
+      client.POST<Path, MaybeOptionalInit<Paths[Path], "post">>(path, init),
+    DELETE: <
+      Path extends PathsWithMethod<Paths, "delete">,
+      Init extends MaybeOptionalInit<Paths[Path], "delete">,
+    >(
       path: Path,
       init: InitOf<Path, "delete">,
     ): WrappedResponse<Path, "delete", Init> =>
       client.DELETE<Path, MaybeOptionalInit<Paths[Path], "delete">>(path, init),
-    OPTIONS: <Path extends PathsWithMethod<Paths, "options">, Init extends MaybeOptionalInit<Paths[Path], "options">>(
+    OPTIONS: <
+      Path extends PathsWithMethod<Paths, "options">,
+      Init extends MaybeOptionalInit<Paths[Path], "options">,
+    >(
       path: Path,
       init: InitOf<Path, "options">,
     ): WrappedResponse<Path, "options", Init> =>
       client.OPTIONS<Path, MaybeOptionalInit<Paths[Path], "options">>(path, init),
-    HEAD: <Path extends PathsWithMethod<Paths, "head">, Init extends MaybeOptionalInit<Paths[Path], "head">>(
+    HEAD: <
+      Path extends PathsWithMethod<Paths, "head">,
+      Init extends MaybeOptionalInit<Paths[Path], "head">,
+    >(
       path: Path,
       init: InitOf<Path, "head">,
-    ): WrappedResponse<Path, "head", Init> => client.HEAD<Path, MaybeOptionalInit<Paths[Path], "head">>(path, init),
-    PATCH: <Path extends PathsWithMethod<Paths, "patch">, Init extends MaybeOptionalInit<Paths[Path], "patch">>(
+    ): WrappedResponse<Path, "head", Init> =>
+      client.HEAD<Path, MaybeOptionalInit<Paths[Path], "head">>(path, init),
+    PATCH: <
+      Path extends PathsWithMethod<Paths, "patch">,
+      Init extends MaybeOptionalInit<Paths[Path], "patch">,
+    >(
       path: Path,
       init: InitOf<Path, "patch">,
-    ): WrappedResponse<Path, "patch", Init> => client.PATCH<Path, MaybeOptionalInit<Paths[Path], "patch">>(path, init),
-    TRACE: <Path extends PathsWithMethod<Paths, "trace">, Init extends MaybeOptionalInit<Paths[Path], "trace">>(
+    ): WrappedResponse<Path, "patch", Init> =>
+      client.PATCH<Path, MaybeOptionalInit<Paths[Path], "patch">>(path, init),
+    TRACE: <
+      Path extends PathsWithMethod<Paths, "trace">,
+      Init extends MaybeOptionalInit<Paths[Path], "trace">,
+    >(
       path: Path,
       init: InitOf<Path, "trace">,
-    ): WrappedResponse<Path, "trace", Init> => client.TRACE<Path, MaybeOptionalInit<Paths[Path], "trace">>(path, init),
-    QUERY: <Path extends PathsWithMethod<Paths, "query">, Init extends MaybeOptionalInit<Paths[Path], "query">>(
+    ): WrappedResponse<Path, "trace", Init> =>
+      client.TRACE<Path, MaybeOptionalInit<Paths[Path], "trace">>(path, init),
+    QUERY: <
+      Path extends PathsWithMethod<Paths, "query">,
+      Init extends MaybeOptionalInit<Paths[Path], "query">,
+    >(
       path: Path,
       init: InitOf<Path, "query">,
-    ): WrappedResponse<Path, "query", Init> => client.QUERY<Path, MaybeOptionalInit<Paths[Path], "query">>(path, init),
-    request: <Path extends PathsWithMethod<Paths, "get">, Init extends MaybeOptionalInit<Paths[Path], "get">>(
+    ): WrappedResponse<Path, "query", Init> =>
+      client.QUERY<Path, MaybeOptionalInit<Paths[Path], "query">>(path, init),
+    request: <
+      Path extends PathsWithMethod<Paths, "get">,
+      Init extends MaybeOptionalInit<Paths[Path], "get">,
+    >(
       path: Path,
       init: InitOf<Path, "get">,
     ): WrappedResponse<Path, "get", Init> =>
@@ -97,15 +141,21 @@ async function getWithMessage<
   client: Client<Paths, ClientMedia>,
   path: Path,
   init: InitOf<Path, "get">,
-): Promise<Omit<FetchResponse<Paths[Path]["get"], Init, JsonMedia>, "error"> & { error: string | null }> {
-  const { data, response, error } = await client.GET<Path, MaybeOptionalInit<Paths[Path], "get">>(path, init);
+): Promise<
+  Omit<FetchResponse<Paths[Path]["get"], Init, JsonMedia>, "error"> & { error: string | null }
+> {
+  const { data, response, error } = await client.GET<Path, MaybeOptionalInit<Paths[Path], "get">>(
+    path,
+    init,
+  );
   return { data, response, error: error ? JSON.stringify(error) : null };
 }
 
 function createPetClient() {
   return createClient<Paths, ClientMedia>({
     baseUrl: BASE_URL,
-    fetch: async (request) => (request.url.endsWith("/pets/1") ? Response.json(PET) : Response.json([])),
+    fetch: async (request) =>
+      request.url.endsWith("/pets/1") ? Response.json(PET) : Response.json([]),
   });
 }
 

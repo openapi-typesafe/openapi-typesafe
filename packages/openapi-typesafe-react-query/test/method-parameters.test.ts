@@ -47,7 +47,9 @@ function invalidate(queryClient: QueryClient, ...args: QueryArguments): Promise<
 
 describe("Parameters of the hooks", () => {
   it("PathsWithMethod of every method is every path", () => {
-    expectTypeOf<PathsWithMethod<Paths, HttpMethod>>().toEqualTypeOf<"/items" | "/feed" | "/items/{id}">();
+    expectTypeOf<PathsWithMethod<Paths, HttpMethod>>().toEqualTypeOf<
+      "/items" | "/feed" | "/items/{id}"
+    >();
     expectTypeOf<PathsWithMethod<Paths, "post">>().toEqualTypeOf<"/items" | "/feed">();
   });
 

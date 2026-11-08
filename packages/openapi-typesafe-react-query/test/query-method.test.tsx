@@ -33,9 +33,12 @@ describe("QUERY method", () => {
     const client = recordingClient(requests);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    const { result } = renderHook(() => client.useQuery("query", "/posts/search", { body: { text: "a" } }), {
-      wrapper: wrapperWith(queryClient),
-    });
+    const { result } = renderHook(
+      () => client.useQuery("query", "/posts/search", { body: { text: "a" } }),
+      {
+        wrapper: wrapperWith(queryClient),
+      },
+    );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(requests[0]?.method).toBe("QUERY");

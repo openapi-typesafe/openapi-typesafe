@@ -28,17 +28,21 @@ export interface ClientOptions extends Omit<RequestInit, "headers"> {
   /** global pathSerializer */
   pathSerializer?: PathSerializer;
   headers?: HeadersOptions;
-  /** RequestInit extension object to pass as 2nd argument to fetch when supported (defaults to undefined) */
+  /**
+   * RequestInit extension object to pass as 2nd argument to fetch when supported (defaults to
+   * undefined)
+   */
   requestInitExt?: Record<string, unknown>;
 }
 
 /**
  * `ClientOptions` for a Fetch API implementation with its own types, such as the `undici` package
- * (upstream #2562). TypeScript cannot relate its `Request` and `Response` to the DOM lib's (`duplex`,
- * `RequestDestination`, `BodyInit` differ), so only what the client needs is checked: a `fetch`
- * that returns a promise and a `Request` class that takes a URL. Pass the `fetch` and the `Request`
- * of the same implementation; middleware and results still use the DOM types. The `createClient`
- * overload with `ClientOptions` comes first, so an inline `fetch` gets a typed `Request` input.
+ * (upstream #2562). TypeScript cannot relate its `Request` and `Response` to the DOM lib's
+ * (`duplex`, `RequestDestination`, `BodyInit` differ), so only what the client needs is checked: a
+ * `fetch` that returns a promise and a `Request` class that takes a URL. Pass the `fetch` and the
+ * `Request` of the same implementation; middleware and results still use the DOM types. The
+ * `createClient` overload with `ClientOptions` comes first, so an inline `fetch` gets a typed
+ * `Request` input.
  */
 export interface CustomFetchClientOptions extends Omit<ClientOptions, "fetch" | "Request"> {
   /** `fetch` of another implementation (for example `fetch` from `undici`) */
@@ -55,19 +59,28 @@ export type HeadersOptions =
   | Record<string, string | number | boolean | (string | number | boolean)[] | null | undefined>;
 
 export type QuerySerializer<T> = (
-  query: T extends { parameters: any } ? NonNullable<T["parameters"]["query"]> : Record<string, unknown>,
+  // biome-ignore lint/suspicious/noExplicitAny: T["parameters"]["query"] needs an any constraint
+  query: T extends { parameters: any }
+    ? NonNullable<T["parameters"]["query"]>
+    : Record<string, unknown>,
 ) => string;
 
 /** @see https://swagger.io/docs/specification/serialization/#query */
 export type QuerySerializerOptions = {
-  /** Set serialization for arrays. @see https://swagger.io/docs/specification/serialization/#query */
+  /**
+   * Set serialization for arrays.
+   * @see https://swagger.io/docs/specification/serialization/#query
+   */
   array?: {
     /** default: "form" */
     style: "form" | "spaceDelimited" | "pipeDelimited";
     /** default: true */
     explode: boolean;
   };
-  /** Set serialization for objects. @see https://swagger.io/docs/specification/serialization/#query */
+  /**
+   * Set serialization for objects.
+   * @see https://swagger.io/docs/specification/serialization/#query
+   */
   object?: {
     /** default: "deepObject" */
     style: "form" | "deepObject";
@@ -84,6 +97,8 @@ export type QuerySerializerOptions = {
   allowReserved?: boolean;
 };
 
+// The result is the fetch body; openapi-fetch types it as `any` (ADR-030).
+// biome-ignore lint/suspicious/noExplicitAny: openapi-fetch's type, kept for parity
 export type BodySerializer<T> = (body: OperationRequestBodyContent<T>) => any;
 
 export type PathSerializer = (pathname: string, pathParams: Record<string, unknown>) => string;
@@ -109,7 +124,7 @@ export interface DefaultParamsOption {
 }
 
 export type ParamsOption<T> = T extends {
-  parameters: any;
+  parameters: unknown;
 }
   ? RequiredKeysOf<T["parameters"]> extends never
     ? { params?: T["parameters"] }
@@ -124,7 +139,8 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
 // gave `{ body?: never } | { body: any }` and so a required init (upstream #2526).
 export type RequestBodyOption<T> =
   IsAny<T> extends true
-    ? { body?: any }
+    ? // biome-ignore lint/suspicious/noExplicitAny: an any schema takes any body (upstream #2526)
+      { body?: any }
     : Writable<OperationRequestBodyContent<T>> extends never
       ? { body?: never }
       : IsOperationRequestBodyOptional<T> extends true
@@ -134,7 +150,12 @@ export type RequestBodyOption<T> =
 export type FetchOptions<T> = RequestOptions<T> & Omit<RequestInit, "body" | "headers">;
 
 // Readable<T> strips $Write markers (writeOnly properties excluded from response)
-export type FetchResponse<T extends Record<string | number, any>, Options, Media extends MediaType> =
+export type FetchResponse<
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
+  T extends Record<string | number, any>,
+  Options,
+  Media extends MediaType,
+> =
   | {
       data: ParseAsResponse<Readable<SuccessResponse<ResponseObjectMap<T>, Media>>, Options>;
       error?: never;
@@ -220,7 +241,9 @@ export type Middleware =
  * key of `Paths[Path]` (upstream #2267). For a union of operations, the union of their inits: one
  * deep type of every init gave TS2589 on hundreds of paths (upstream #1882).
  */
-export type MaybeOptionalInit<Params, Location extends PropertyKey> = OperationInits<FilterKeys<Params, Location>>;
+export type MaybeOptionalInit<Params, Location extends PropertyKey> = OperationInits<
+  FilterKeys<Params, Location>
+>;
 
 /**
  * The inits of the operations, and `undefined` only when none of them requires anything. One
@@ -248,14 +271,16 @@ type OperationFetchOptions<Operation> = Operation extends unknown ? FetchOptions
 // The final init param to accept.
 // - Determines if the param is optional or not.
 // - Performs arbitrary [key: string] addition.
-// Note: the addition MUST happen after all the inference happens (otherwise TS can’t infer if init is required or not).
+// Note: the addition MUST happen after all the inference happens (otherwise TS can’t infer if
+// init is required or not).
 // - The condition is openapi-fetch's. TypeScript relates two conditional types only when their
 //   `extends` types are the same and their check types relate, so a client type written against
 //   openapi-fetch's `InitParam` (a wrapper, a cast) accepted this client only with this condition.
 //   A union of inits is required through `MaybeOptionalInit`, which then leaves out `undefined`.
 // - The addition is a named alias: written out in both branches, TypeScript gave `never` for
 //   `Parameters` of the methods.
-type InitParam<Init> = RequiredKeysOf<Init> extends never ? [WithAnyKeys<Init>?] : [WithAnyKeys<Init>];
+type InitParam<Init> =
+  RequiredKeysOf<Init> extends never ? [WithAnyKeys<Init>?] : [WithAnyKeys<Init>];
 
 /** The init with any other key (`[key: string]: unknown`), added after inference. */
 type WithAnyKeys<Init> = Init & { [key: string]: unknown };
@@ -270,6 +295,7 @@ type WithAnyKeys<Init> = Init & { [key: string]: unknown };
  */
 export type PathOperation<Paths, Path, Method> = Extract<
   FilterKeys<Paths[Path & keyof Paths], Method>,
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   Record<string | number, any>
 >;
 
@@ -295,13 +321,17 @@ export type ClientRequestMethod<Paths extends {}, Media extends MediaType> = <
 // They are left out by `Pick`, which keeps the `?` of a method, not by the key remapping: that is
 // openapi-fetch's, and TypeScript relates two generic mapped types only when their key remappings
 // are the same, so a path-based client type written like openapi-fetch's failed a cast (TS2352).
-export type ClientForPath<PathInfo extends Record<string | number, any>, Media extends MediaType> = PathMethodCalls<
-  Pick<PathInfo, HttpMethod & keyof PathInfo>,
-  Media
->;
+export type ClientForPath<
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
+  PathInfo extends Record<string | number, any>,
+  Media extends MediaType,
+> = PathMethodCalls<Pick<PathInfo, HttpMethod & keyof PathInfo>, Media>;
 
+// biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 type PathMethodCalls<PathInfo extends Record<string | number, any>, Media extends MediaType> = {
-  [Method in keyof PathInfo as Uppercase<string & Method>]: <Init extends MaybeOptionalInit<PathInfo, Method>>(
+  [Method in keyof PathInfo as Uppercase<string & Method>]: <
+    Init extends MaybeOptionalInit<PathInfo, Method>,
+  >(
     ...init: InitParam<Init>
   ) => Promise<FetchResponse<PathInfo[Method], Init, Media>>;
 };
@@ -332,16 +362,25 @@ export interface Client<Paths extends {}, Media extends MediaType = MediaType> {
   eject(...middleware: Middleware[]): void;
 }
 
-export type ClientPathsWithMethod<CreatedClient extends Client<any, any>, Method extends HttpMethod> =
+export type ClientPathsWithMethod<
+  // biome-ignore lint/suspicious/noExplicitAny: matches a client of any paths, as in openapi-fetch
+  CreatedClient extends Client<any, any>,
+  Method extends HttpMethod,
+> =
   CreatedClient extends Client<infer Paths, infer _Media> ? PathsWithMethod<Paths, Method> : never;
 
 export type MethodResponse<
+  // biome-ignore lint/suspicious/noExplicitAny: matches a client of any paths, as in openapi-fetch
   CreatedClient extends Client<any, any>,
   Method extends HttpMethod,
   Path extends ClientPathsWithMethod<CreatedClient, Method>,
   Options = {},
 > =
-  CreatedClient extends Client<infer Paths extends { [key: string]: any }, infer Media extends MediaType>
+  CreatedClient extends Client<
+    // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
+    infer Paths extends { [key: string]: any },
+    infer Media extends MediaType
+  >
     ? NonNullable<FetchResponse<Paths[Path][Method], Options, Media>["data"]>
     : never;
 
@@ -352,20 +391,27 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   clientOptions?: CustomFetchClientOptions,
 ): Client<Paths, Media>;
 
-export type PathBasedClient<Paths extends Record<string | number, any>, Media extends MediaType = MediaType> = {
+export type PathBasedClient<
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
+  Paths extends Record<string | number, any>,
+  Media extends MediaType = MediaType,
+> = {
   [Path in keyof Paths]: ClientForPath<Paths[Path], Media>;
 };
 
-export declare function wrapAsPathBasedClient<Paths extends {}, Media extends MediaType = MediaType>(
-  client: Client<Paths, Media>,
-): PathBasedClient<Paths, Media>;
+export declare function wrapAsPathBasedClient<
+  Paths extends {},
+  Media extends MediaType = MediaType,
+>(client: Client<Paths, Media>): PathBasedClient<Paths, Media>;
 
-export declare function createPathBasedClient<Paths extends {}, Media extends MediaType = MediaType>(
-  clientOptions?: ClientOptions,
-): PathBasedClient<Paths, Media>;
-export declare function createPathBasedClient<Paths extends {}, Media extends MediaType = MediaType>(
-  clientOptions?: CustomFetchClientOptions,
-): PathBasedClient<Paths, Media>;
+export declare function createPathBasedClient<
+  Paths extends {},
+  Media extends MediaType = MediaType,
+>(clientOptions?: ClientOptions): PathBasedClient<Paths, Media>;
+export declare function createPathBasedClient<
+  Paths extends {},
+  Media extends MediaType = MediaType,
+>(clientOptions?: CustomFetchClientOptions): PathBasedClient<Paths, Media>;
 
 /** Serialize primitive params to string */
 export declare function serializePrimitiveParam(
@@ -406,7 +452,10 @@ export declare function createQuerySerializer<T = unknown>(
  * @type {import("./index.js").defaultPathSerializer}
  * @see https://swagger.io/docs/specification/serialization/#path
  */
-export declare function defaultPathSerializer(pathname: string, pathParams: Record<string, unknown>): string;
+export declare function defaultPathSerializer(
+  pathname: string,
+  pathParams: Record<string, unknown>,
+): string;
 
 /** Bodies that `fetch` sends as they are, so `defaultBodySerializer` returns them unchanged. */
 type RawRequestBody = FormData | Blob | URLSearchParams | ArrayBuffer | ArrayBufferView;
@@ -430,7 +479,9 @@ type SerializedBody<Body, ObjectResult> = unknown extends Body
 type MultipartMediaType = "multipart/form-data" | `multipart/form-data;${string}`;
 
 /** `Headers` drops the spaces and tabs in front of a value before the media type is read. */
-type TrimmedStart<Text extends string> = Text extends ` ${infer Rest}` | `\t${infer Rest}` ? TrimmedStart<Rest> : Text;
+type TrimmedStart<Text extends string> = Text extends ` ${infer Rest}` | `\t${infer Rest}`
+  ? TrimmedStart<Rest>
+  : Text;
 
 /**
  * The `Content-Type` of headers written as a record, in any letter case of the name: `never` when
@@ -448,7 +499,8 @@ type ContentTypeOf<GivenHeaders> = GivenHeaders extends undefined
 type ContentTypeEntries<Record> = { [Name in keyof Record]: ContentTypeEntry<Name, Record[Name]> };
 
 /** The value of a header record entry when its name is `Content-Type` in any letter case. */
-type ContentTypeEntry<Name, Value> = Lowercase<Name & string> extends "content-type" ? Value : never;
+type ContentTypeEntry<Name, Value> =
+  Lowercase<Name & string> extends "content-type" ? Value : never;
 
 /**
  * What an object becomes with a `Content-Type` of type `ContentType`: `FormData` for a multipart
@@ -475,10 +527,10 @@ type ObjectBodyResult<ContentType> = [ContentType] extends [never]
  * multipart `Content-Type`, `string` for another one or none. Other headers: `string | FormData`.
  */
 export declare function defaultBodySerializer<T>(body: T): SerializedBody<T, string>;
-export declare function defaultBodySerializer<T, const GivenHeaders extends HeadersOptions | undefined>(
-  body: T,
-  headers: GivenHeaders,
-): SerializedBody<T, ObjectBodyResult<ContentTypeOf<GivenHeaders>>>;
+export declare function defaultBodySerializer<
+  T,
+  const GivenHeaders extends HeadersOptions | undefined,
+>(body: T, headers: GivenHeaders): SerializedBody<T, ObjectBodyResult<ContentTypeOf<GivenHeaders>>>;
 
 /** Construct URL string from baseUrl and handle path and query params */
 export declare function createFinalURL<O>(

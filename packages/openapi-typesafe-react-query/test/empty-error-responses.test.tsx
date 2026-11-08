@@ -22,7 +22,10 @@ const BASE_URL = "https://api.example.com";
 const SERVER_ERROR = 500;
 
 function clientAnswering(response: () => Response) {
-  const fetchClient = createFetchClient<Paths>({ baseUrl: BASE_URL, fetch: async () => response() });
+  const fetchClient = createFetchClient<Paths>({
+    baseUrl: BASE_URL,
+    fetch: async () => response(),
+  });
   return createClient(fetchClient);
 }
 

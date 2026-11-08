@@ -17,11 +17,38 @@
   },
   "overrides": [
     {
+      "includes": ["src/**", "test/**"],
+      "formatter": {
+        "lineWidth": 100
+      }
+    },
+    {
       "includes": ["test/**"],
       "linter": {
         "rules": {
           "correctness": {
             "noComponentHookFactories": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveLinesPerFunction": {
+              "level": "error",
+              "options": {
+                "maxLines": 30
+              }
+            },
+            "useMaxParams": {
+              "level": "error",
+              "options": {
+                "max": 4
+              }
+            }
           }
         }
       }

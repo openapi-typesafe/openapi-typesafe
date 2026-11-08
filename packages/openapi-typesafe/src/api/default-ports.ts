@@ -43,6 +43,11 @@ export const DEFAULT_REMOTE_DOCUMENT_LIMITS: RemoteDocumentLimits = {
   maxParallelFetches: 16,
 };
 
+/** The working directory of the process: the default `cwd` of an inline source. */
+export function processCwd(): string {
+  return process.cwd();
+}
+
 /** A monotonic clock in milliseconds, for debug durations. */
 export function monotonicNow(): number {
   return performance.now();

@@ -2,12 +2,12 @@ import { fileURLToPath } from "node:url";
 import { astToString } from "../../src/index.js";
 import transformWebhooksObject from "../../src/transform/webhooks-object.js";
 import type { GlobalContext } from "../../src/types.js";
-import { DEFAULT_CTX, type TestCase } from "../test-helpers.js";
+import { DEFAULT_CTX, fixtureResolver, type LooseFixture, type TestCase } from "../test-helpers.js";
 
 const DEFAULT_OPTIONS = { ...DEFAULT_CTX };
 
 describe("transformWebhooksObject", () => {
-  const tests: TestCase<any, GlobalContext>[] = [
+  const tests: TestCase<LooseFixture, GlobalContext>[] = [
     [
       "basic",
       {
@@ -139,7 +139,7 @@ describe("transformWebhooksObject", () => {
 }`,
         options: {
           ...DEFAULT_OPTIONS,
-          resolve($ref) {
+          resolve: fixtureResolver(($ref) => {
             switch ($ref) {
               case "#/components/parameters/utm_source": {
                 return {
@@ -170,10 +170,10 @@ describe("transformWebhooksObject", () => {
                 };
               }
               default: {
-                return undefined as any;
+                return undefined;
               }
             }
-          },
+          }),
         },
       },
     ],

@@ -2,12 +2,12 @@ import { fileURLToPath } from "node:url";
 import { astToString } from "../../src/index.js";
 import transformPathsObject from "../../src/transform/paths-object.js";
 import type { GlobalContext } from "../../src/types.js";
-import { DEFAULT_CTX, type TestCase } from "../test-helpers.js";
+import { DEFAULT_CTX, fixtureResolver, type LooseFixture, type TestCase } from "../test-helpers.js";
 
 const DEFAULT_OPTIONS = DEFAULT_CTX;
 
 describe("transformPathsObject", () => {
-  const tests: TestCase<any, GlobalContext>[] = [
+  const tests: TestCase<LooseFixture, GlobalContext>[] = [
     [
       "basic",
       {
@@ -150,7 +150,7 @@ describe("transformPathsObject", () => {
 }`,
         options: {
           ...DEFAULT_OPTIONS,
-          resolve($ref) {
+          resolve: fixtureResolver(($ref) => {
             switch ($ref) {
               case "#/components/parameters/utm_source": {
                 return {
@@ -181,10 +181,10 @@ describe("transformPathsObject", () => {
                 };
               }
               default: {
-                return undefined as any;
+                return undefined;
               }
             }
-          },
+          }),
         },
       },
     ],
@@ -232,7 +232,7 @@ describe("transformPathsObject", () => {
         options: {
           ...DEFAULT_OPTIONS,
           alphabetize: true,
-          resolve($ref) {
+          resolve: fixtureResolver(($ref) => {
             switch ($ref) {
               case "#/components/parameters/utm_source": {
                 return {
@@ -263,10 +263,10 @@ describe("transformPathsObject", () => {
                 };
               }
               default: {
-                return undefined as any;
+                return undefined;
               }
             }
-          },
+          }),
         },
       },
     ],

@@ -20,6 +20,7 @@ type Factory = Api extends { readonly factory: infer F } ? F : undefined;
  * `@typescript/typescript6` keep compiling (ADR-032). The cost, as before: a union with a node
  * type, such as the result of `transform`, accepts any value there.
  */
+// biome-ignore lint/suspicious/noExplicitAny: unresolved compiler types were `any` (ADR-032)
 type WithoutCompilerApi = any;
 
 /** The node type that `factory[Name]` returns, or `WithoutCompilerApi`. */

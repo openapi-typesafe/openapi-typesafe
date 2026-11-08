@@ -90,7 +90,7 @@ export type { ResolveRefOptions } from "./document-refs.js";
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9).
  */
 export function resolveRef<T>(
-  schema: any,
+  schema: unknown,
   $ref: string,
   options: ResolveRefOptions,
 ): T | undefined {

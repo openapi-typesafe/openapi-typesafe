@@ -1,4 +1,10 @@
-import { dehydrate, HydrationBoundary, QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import {
+  dehydrate,
+  HydrationBoundary,
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import createFetchClient from "openapi-typesafe-fetch";
 import { renderToString } from "react-dom/server";
 import { describe, expect, expectTypeOf, it } from "vitest";
@@ -43,7 +49,9 @@ describe("query keys and cache", () => {
     const urls: string[] = [];
     const client = clientRecording(urls);
     const queryClient = createQueryClient();
-    await queryClient.fetchQuery(client.queryOptions("get", "/items", { params: { query: { page: 1, size: 2 } } }));
+    await queryClient.fetchQuery(
+      client.queryOptions("get", "/items", { params: { query: { page: 1, size: 2 } } }),
+    );
 
     const reordered = client.queryOptions("get", "/items", {
       params: { query: { size: 2, page: 1 } },
@@ -59,7 +67,9 @@ describe("query keys and cache", () => {
     const queryClient = createQueryClient();
 
     for (const page of [1, 2]) {
-      await queryClient.fetchQuery(client.queryOptions("get", "/items", { params: { query: { page } } }));
+      await queryClient.fetchQuery(
+        client.queryOptions("get", "/items", { params: { query: { page } } }),
+      );
     }
 
     expect(queryClient.getQueryCache().getAll()).toHaveLength(2);
@@ -69,7 +79,9 @@ describe("query keys and cache", () => {
   it("invalidateQueries with the method and path invalidates every params variant", async () => {
     const client = clientRecording([]);
     const queryClient = createQueryClient();
-    const pages = [1, 2].map((page) => client.queryOptions("get", "/items", { params: { query: { page } } }));
+    const pages = [1, 2].map((page) =>
+      client.queryOptions("get", "/items", { params: { query: { page } } }),
+    );
     await Promise.all(pages.map((options) => queryClient.fetchQuery(options)));
 
     await queryClient.invalidateQueries({ queryKey: ["get", "/items"], refetchType: "none" });
