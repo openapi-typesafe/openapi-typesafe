@@ -1,5 +1,6 @@
 import { parseArgs } from "node:util";
 import { z } from "zod";
+import { parseCorpusShard } from "../domain/corpus-shard.ts";
 import { HarnessError, HarnessErrorCode } from "../domain/errors.ts";
 
 /** Commands of the harness CLI, in the order a full run uses them. */
@@ -11,6 +12,10 @@ export const HarnessCommand = {
   CheckOptIn: "check-opt-in",
   Report: "report",
   Dependents: "dependents",
+  /** Combine the results of a sharded run (ADR-038). */
+  Merge: "merge",
+  /** The release gate over stored results, after `merge`. */
+  Gate: "gate",
 } as const;
 
 export type HarnessCommand = (typeof HarnessCommand)[keyof typeof HarnessCommand];
@@ -64,6 +69,15 @@ export const HARNESS_DEFAULTS = {
 
 const PositiveInteger = z.coerce.number().int().positive();
 
+const ShardSchema = z.string().transform((text, context) => {
+  const shard = parseCorpusShard(text);
+  if (shard === undefined) {
+    context.addIssue({ code: "custom", message: "expected <index>/<count>, 1 <= index <= count" });
+    return z.NEVER;
+  }
+  return shard;
+});
+
 const SettingsSchema = z.object({
   command: z.enum(Object.values(HarnessCommand)),
   cacheDir: z.string().min(1).default(HARNESS_DEFAULTS.cacheDir),
@@ -76,6 +90,10 @@ const SettingsSchema = z.object({
     .min(1)
     .default("default")
     .transform((ids) => ids.split(",").map((id) => id.trim())),
+  /** `generate` only: one shard of the selected corpus; absent: all of it. */
+  shard: ShardSchema.optional(),
+  /** `merge` only: the directory with one results directory per shard. */
+  shards: z.string().min(1).optional(),
   label: z
     .string()
     .regex(/^[a-z0-9.-]+$/)
@@ -107,6 +125,8 @@ const CLI_OPTIONS = {
   "apis-guru-list-url": { type: "string" },
   corpus: { type: "string" },
   "option-sets": { type: "string" },
+  shard: { type: "string" },
+  shards: { type: "string" },
   label: { type: "string" },
   cli: { type: "string" },
   golden: { type: "string" },
@@ -138,6 +158,8 @@ export function parseSettings(argv: readonly string[]): HarnessSettings {
     apisGuruListUrl: values["apis-guru-list-url"],
     corpus: values.corpus,
     optionSets: values["option-sets"],
+    shard: values.shard,
+    shards: values.shards,
     label: values.label,
     cli: values.cli,
     golden: values.golden,

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { decodeGenerationResults } from "../../src/application/codecs.ts";
-import { documentPath, generationResultsPath, outputPath } from "../../src/application/layout.ts";
+import { decodeGenerationResults, decodeShardDescriptor } from "../../src/application/codecs.ts";
+import {
+  documentPath,
+  generationResultsPath,
+  outputPath,
+  SHARD_DESCRIPTOR_PATH,
+} from "../../src/application/layout.ts";
 import { generateOutputs } from "../../src/application/use-cases/generate-outputs.ts";
 import { selectOptionSets } from "../../src/domain/option-matrix.ts";
 import { GenerationStatus } from "../../src/domain/run-result.ts";
@@ -101,5 +106,32 @@ describe("generateOutputs", () => {
     );
     const levels = dependencies.logger.records.map((record) => record.level);
     expect(levels.filter((level) => level === "warn")).toHaveLength(6);
+  });
+
+  it("generateOutputs with a shard runs only that shard's entries and records the shard", async () => {
+    const { cache, dependencies, options } = setUp();
+
+    const results = await generateOutputs(dependencies, {
+      ...options,
+      shard: { index: 2, count: 3 },
+    });
+
+    expect(results.map((result) => [result.optionSetId, result.entryId])).toEqual([
+      ["default", broken.id],
+      ["enum", broken.id],
+    ]);
+    expect(decodeShardDescriptor(cache.files.get(SHARD_DESCRIPTOR_PATH) ?? "")).toEqual({
+      index: 2,
+      count: 3,
+    });
+  });
+
+  it("generateOutputs without a shard removes a shard descriptor of an earlier run", async () => {
+    const { cache, dependencies, options } = setUp();
+    cache.files.set(SHARD_DESCRIPTOR_PATH, '{"index":1,"count":2}');
+
+    await generateOutputs(dependencies, options);
+
+    expect(cache.files.has(SHARD_DESCRIPTOR_PATH)).toBe(false);
   });
 });

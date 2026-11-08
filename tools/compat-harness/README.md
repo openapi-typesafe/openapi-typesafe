@@ -22,12 +22,17 @@ pnpm harness generate --label current-opt-in --cli ../../packages/openapi-typesa
 pnpm harness check-opt-in --label current-opt-in   # opt-in flags against their own baselines
 pnpm harness dependents                   # real projects (ENGINEERING_PLAN 8.4), before `report`
 pnpm harness report --golden fork-base --candidate current
+pnpm harness generate --label current --cli <cli> --corpus all --shard 3/16   # one shard (ADR-038)
+pnpm harness merge --shards <dir>         # combine the results directories of every shard
+pnpm harness gate --golden fork-base --candidate current --label current-opt-in   # stored gate
 ```
 
 | Option                                    | Meaning                                                                                                                                          |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `--corpus <n\|all>`                       | Deterministic subset of `n` entries (all curated + evenly spread APIs.guru), or the full corpus                                                  |
 | `--option-sets <ids\|all\|opt-in>`        | Comma-separated option set ids (`default`, `enum`, `root-types+root-types-keep-casing`, …); `opt-in` selects the opt-in sets and their baselines |
+| `--shard <index>/<count>`                 | `generate` only: every `count`-th entry of the selected corpus, starting at entry `index - 1`; writes `results/shard.json`                       |
+| `--shards <dir>`                          | `merge` only: a directory with one copy of a shard's `results` directory per shard                                                               |
 | `--types`                                 | Also run the strict type-identity check on outputs whose text differs                                                                            |
 | `--update-hashes`                         | Accept changed documents and record their new hashes (refreshing the corpus on purpose)                                                          |
 | `--concurrency <n>` / `--timeout-ms <n>`  | Worker count; per-run generator timeout (per step for `dependents`, default 10 minutes)                                                          |
@@ -47,8 +52,15 @@ arguments.
 - `scripts/run-compat.sh [corpus] [option-sets]` generates with both goldens and the current build,
   then compares and reports `fork-base` vs `current` (the release gate, exit code 1 on a mismatch)
   and `upstream-7.13.0` vs `fork-base` (documentation of unreleased upstream changes).
+- `scripts/run-compat.sh <corpus> <option-sets> <index>/<count>` runs one shard of the same: it
+  generates, compares and checks the opt-in flags for that shard only, without the reports.
+  `scripts/merge-compat.sh <shards-dir> [option-sets]` merges the results of every shard
+  (`merge`), checks the release gate on the whole corpus (`gate`, exit code 1 on a mismatch or an
+  opt-in regression) and renders both reports.
 - CI (`.github/workflows/compat.yml`) runs the 200-entry subset with default options on every pull
-  request and the full matrix nightly once the repository is public.
+  request. The full matrix runs on demand, and nightly once the repository is public, as 16 shard
+  jobs, a real-project job and a report job (ADR-038); the report job uploads the `compat-all`
+  artifact.
 
 ## Logs and outputs
 

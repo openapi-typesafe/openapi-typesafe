@@ -27,19 +27,34 @@ export function outputPath(label: string, optionSetId: string, entryId: CorpusEn
   return `outputs/${label}/${optionSetId}/${entryId}.ts`;
 }
 
+/** Directory of the result files; a shard job uploads it as it is (ADR-038). */
+export const RESULTS_DIRECTORY = "results";
+
+/** Which shard of the corpus the results directory holds; absent after an unsharded run. */
+export const SHARD_DESCRIPTOR_FILE = "shard.json";
+
+export const SHARD_DESCRIPTOR_PATH = `${RESULTS_DIRECTORY}/${SHARD_DESCRIPTOR_FILE}`;
+
+/** File name suffixes of the per-case result files, which `merge` combines across shards. */
+export const RESULT_FILE_SUFFIXES = {
+  generation: ".generation.json",
+  comparison: ".comparison.json",
+  optIn: ".opt-in.json",
+} as const;
+
 /** Per-run generation results of one generator label. */
 export function generationResultsPath(label: string): string {
-  return `results/${label}.generation.json`;
+  return `${RESULTS_DIRECTORY}/${label}${RESULT_FILE_SUFFIXES.generation}`;
 }
 
 /** Comparison results of a candidate label against a golden label. */
 export function comparisonResultsPath(goldenLabel: string, candidateLabel: string): string {
-  return `results/${goldenLabel}__vs__${candidateLabel}.comparison.json`;
+  return `${RESULTS_DIRECTORY}/${goldenLabel}__vs__${candidateLabel}${RESULT_FILE_SUFFIXES.comparison}`;
 }
 
 /** Opt-in check results of one generator label. */
 export function optInResultsPath(label: string): string {
-  return `results/${label}.opt-in.json`;
+  return `${RESULTS_DIRECTORY}/${label}${RESULT_FILE_SUFFIXES.optIn}`;
 }
 
 /** Rendered report files of one comparison. */
@@ -52,7 +67,7 @@ export function reportPaths(
 }
 
 /** Results of the last `dependents` run. */
-export const DEPENDENTS_RESULTS_PATH = "results/dependents.json";
+export const DEPENDENTS_RESULTS_PATH = `${RESULTS_DIRECTORY}/dependents.json`;
 
 /**
  * Layout of the dependents work directory. It lives outside this repository, because a package

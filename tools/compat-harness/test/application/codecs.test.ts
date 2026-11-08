@@ -3,6 +3,8 @@ import {
   decodeComparisonResults,
   decodeGenerationResults,
   decodeManifest,
+  decodeOptInResults,
+  decodeShardDescriptor,
   encodeJson,
 } from "../../src/application/codecs.ts";
 import { HarnessErrorCode } from "../../src/domain/errors.ts";
@@ -73,4 +75,49 @@ describe("decodeGenerationResults and decodeComparisonResults", () => {
 
     expect(() => decodeComparisonResults(encodeJson(results))).toThrow(storedFileError);
   });
+});
+
+describe("decodeOptInResults", () => {
+  it("decodeOptInResults round-trips stored checks", () => {
+    const checks = [
+      {
+        entryId: "e",
+        optionSetId: "blob",
+        baselineOptionSetId: "default",
+        status: "more-errors",
+        errorCount: 3,
+        baselineErrorCount: 1,
+      },
+    ];
+
+    expect(decodeOptInResults(encodeJson(checks))).toEqual(checks);
+  });
+
+  it("decodeOptInResults with an unknown status throws STORED_FILE_INVALID", () => {
+    const checks = [
+      {
+        entryId: "e",
+        optionSetId: "blob",
+        baselineOptionSetId: "default",
+        status: "worse",
+        errorCount: null,
+        baselineErrorCount: null,
+      },
+    ];
+
+    expect(() => decodeOptInResults(encodeJson(checks))).toThrow(storedFileError);
+  });
+});
+
+describe("decodeShardDescriptor", () => {
+  it("decodeShardDescriptor reads index and count", () => {
+    expect(decodeShardDescriptor('{"index":2,"count":16}')).toEqual({ index: 2, count: 16 });
+  });
+
+  it.each(['{"index":3,"count":2}', '{"index":0,"count":2}', '{"index":1}'])(
+    "decodeShardDescriptor with %s throws STORED_FILE_INVALID",
+    (text) => {
+      expect(() => decodeShardDescriptor(text)).toThrow(storedFileError);
+    },
+  );
 });

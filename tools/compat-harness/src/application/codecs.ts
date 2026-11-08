@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { type CorpusEntryId, CorpusSource } from "../domain/corpus-entry.ts";
+import type { CorpusShard } from "../domain/corpus-shard.ts";
 import { HarnessError, HarnessErrorCode } from "../domain/errors.ts";
 import { type CorpusManifest, MANIFEST_SCHEMA_VERSION } from "../domain/manifest.ts";
 import { SUPPORTED_OPENAPI_LINES } from "../domain/openapi-version.ts";
+import { type OptInCheckResult, OptInCheckStatus } from "../domain/opt-in-check.ts";
 import {
   type ComparisonResult,
   ComparisonStatus,
@@ -63,6 +65,21 @@ const ComparisonResultsSchema = z.array(
   }),
 );
 
+const OptInResultsSchema = z.array(
+  z.object({
+    entryId: CorpusEntryIdSchema,
+    optionSetId: z.string(),
+    baselineOptionSetId: z.string(),
+    status: z.enum(Object.values(OptInCheckStatus)),
+    errorCount: z.number().int().nonnegative().nullable(),
+    baselineErrorCount: z.number().int().nonnegative().nullable(),
+  }),
+);
+
+const ShardDescriptorSchema = z
+  .object({ index: z.number().int().positive(), count: z.number().int().positive() })
+  .refine((shard) => shard.index <= shard.count, "index must not be greater than count");
+
 /** Parse JSON text and validate it; any problem is a STORED_FILE_INVALID error. */
 export function decode<T>(schema: z.ZodType<T>, text: string, fileDescription: string): T {
   let json: unknown;
@@ -98,4 +115,12 @@ export function decodeGenerationResults(text: string): GenerationResult[] {
 
 export function decodeComparisonResults(text: string): ComparisonResult[] {
   return decode(ComparisonResultsSchema, text, "comparison results");
+}
+
+export function decodeOptInResults(text: string): OptInCheckResult[] {
+  return decode(OptInResultsSchema, text, "opt-in results");
+}
+
+export function decodeShardDescriptor(text: string): CorpusShard {
+  return decode(ShardDescriptorSchema, text, "shard descriptor");
 }

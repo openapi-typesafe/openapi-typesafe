@@ -27,6 +27,14 @@ export interface FileStore {
   resolve(path: string): string;
 }
 
+/** Lists a directory relative to one root directory, as FileStore paths. */
+export interface DirectoryLister {
+  /** Names of the subdirectories, sorted; empty when the directory is missing. */
+  listDirectories(path: string): Promise<readonly string[]>;
+  /** Names of the files, sorted; empty when the directory is missing. */
+  listFiles(path: string): Promise<readonly string[]>;
+}
+
 export interface Hasher {
   sha256(content: string): string;
 }
