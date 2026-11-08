@@ -13,6 +13,7 @@ import {
 } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { GeneratorOptions, OpenAPI3, SchemaSource } from "../types.js";
+import { processCwd } from "./default-ports.js";
 import { warnDiscriminatorValueConflicts } from "./discriminator-conflict-warnings.js";
 import { findDiscriminators } from "./discriminator-scan.js";
 import { resolveDocumentRef } from "./document-refs.js";
@@ -58,7 +59,7 @@ function sourceCwd(options: GeneratorOptions): URL {
   if (cwd instanceof URL) {
     return cwd.pathname.endsWith("/") ? cwd : new URL(`${cwd.pathname}/`, cwd);
   }
-  const directory = path.resolve(cwd === undefined ? process.cwd() : cwd.toString());
+  const directory = path.resolve(cwd === undefined ? processCwd() : cwd.toString());
   return pathToFileURL(path.join(directory, path.sep));
 }
 

@@ -2,21 +2,17 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import openapiTS, { astToString } from "../src/index.js";
 import type { OpenAPI3, OpenAPITSOptions } from "../src/types.js";
-import type { TestCase } from "./test-helpers.js";
+import type { LooseFixture, TestCase } from "./test-helpers.js";
 
 // prevent process.exit(1) from truly firing, as it will bypass Vitest’s error catching (throw new Error() will work as-expected)
 beforeAll(() => {
-  vi.spyOn(process, "exit").mockImplementation(((code: number) => {
+  vi.spyOn(process, "exit").mockImplementation((code) => {
     throw new Error(`Process exited with error code ${code}`);
-  }) as any);
+  });
 });
 
 describe("openapiTS", () => {
-  beforeAll(() => {
-    vi.spyOn(process, "exit").mockImplementation((() => {}) as any);
-  });
-
-  const tests: TestCase<any, OpenAPITSOptions>[] = [
+  const tests: TestCase<LooseFixture, OpenAPITSOptions>[] = [
     [
       "$refs > basic",
       {

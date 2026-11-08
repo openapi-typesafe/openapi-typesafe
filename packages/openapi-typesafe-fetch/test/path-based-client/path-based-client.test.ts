@@ -6,7 +6,8 @@ import type { paths } from "./schemas/path-based-client.js";
 // identical to helper, but for createObservedPathBasedClient
 function createObservedPathBasedClient<T extends {}, M extends MediaType = MediaType>(
   options?: Parameters<typeof createPathBasedClient<T>>[0],
-  onRequest: (input: Request) => Promise<Response> = async () => Response.json({ status: 200, message: "OK" }),
+  onRequest: (input: Request) => Promise<Response> = async () =>
+    Response.json({ status: 200, message: "OK" }),
 ) {
   return createPathBasedClient<T, M>({
     ...options,

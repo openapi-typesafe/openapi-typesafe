@@ -84,7 +84,10 @@ describe("GET", () => {
   });
 
   test("gracefully handles invalid JSON for errors", async () => {
-    const client = createObservedClient<paths>({}, async () => new Response("Unauthorized", { status: 401 }));
+    const client = createObservedClient<paths>(
+      {},
+      async () => new Response("Unauthorized", { status: 401 }),
+    );
 
     const { data, error } = await client.GET("/posts");
 

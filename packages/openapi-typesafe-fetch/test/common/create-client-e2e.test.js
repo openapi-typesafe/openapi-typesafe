@@ -84,7 +84,10 @@ test("requestInitExt", async () => {
       rejectUnauthorized: false,
     },
   });
-  const client = createClient({ baseUrl: `https://localhost:${API_PORT}`, requestInitExt: { dispatcher } });
+  const client = createClient({
+    baseUrl: `https://localhost:${API_PORT}`,
+    requestInitExt: { dispatcher },
+  });
   const fetchResponse = await client.GET("/v1/foo", { parseAs: "text" });
   httpsServer.closeAllConnections();
   httpsServer.close();

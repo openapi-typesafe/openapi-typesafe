@@ -25,7 +25,12 @@ import type {
   MaybeOptionalInit,
   PathOperation,
 } from "openapi-typesafe-fetch";
-import type { HttpMethod, MediaType, PathsWithMethod, RequiredKeysOf } from "openapi-typesafe-helpers";
+import type {
+  HttpMethod,
+  MediaType,
+  PathsWithMethod,
+  RequiredKeysOf,
+} from "openapi-typesafe-helpers";
 
 // Helper type to dynamically infer the type from the `select` property
 type InferSelectReturnType<TData, TSelect> = TSelect extends (data: TData) => infer R ? R : TData;
@@ -47,7 +52,9 @@ type InitWithUnknowns<Init> = Init & { [key: string]: unknown };
  * so `Parameters<typeof $api.queryOptions>` still requires it then (upstream #2178).
  */
 type InitArguments<Init, Rest extends unknown[]> =
-  RequiredKeysOf<Init> extends never ? [InitWithUnknowns<Init>?, ...Rest] : [InitWithUnknowns<Init>, ...Rest];
+  RequiredKeysOf<Init> extends never
+    ? [InitWithUnknowns<Init>?, ...Rest]
+    : [InitWithUnknowns<Init>, ...Rest];
 
 export type QueryKey<
   Paths extends {},
@@ -74,7 +81,8 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
-  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
+  // note: Required is used to avoid repeating NonNullable in UseQuery types
+  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>,
   Options extends Omit<
     UseQueryOptions<
       QueryData<Response["data"]>,
@@ -98,7 +106,11 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
     >,
     "queryFn" | "queryKey"
   > & {
-    queryKey: DataTag<QueryKey<Paths, Method, Path>, QueryData<Response["data"]>, Response["error"]>;
+    queryKey: DataTag<
+      QueryKey<Paths, Method, Path>,
+      QueryData<Response["data"]>,
+      Response["error"]
+    >;
     queryFn: Exclude<
       UseQueryOptions<
         QueryData<Response["data"]>,
@@ -115,7 +127,8 @@ export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
-  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
+  // note: Required is used to avoid repeating NonNullable in UseQuery types
+  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>,
   Options extends Omit<
     UseQueryOptions<
       QueryData<Response["data"]>,
@@ -129,7 +142,10 @@ export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
   method: Method,
   url: Path,
   ...[init, options, queryClient]: InitArguments<Init, [Options?, QueryClient?]>
-) => UseQueryResult<InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>, Response["error"]>;
+) => UseQueryResult<
+  InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
+  Response["error"]
+>;
 
 /**
  * The type of the page params: the initial one and the ones `getNextPageParam` and
@@ -197,18 +213,28 @@ export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = 
     UseInfiniteQueryOptions<
       Response["data"],
       Response["error"],
-      InferSelectReturnType<InfiniteData<Response["data"], PageParam<Initial, Next, Previous>>, Options["select"]>,
+      InferSelectReturnType<
+        InfiniteData<Response["data"], PageParam<Initial, Next, Previous>>,
+        Options["select"]
+      >,
       InfiniteQueryKey<Paths, Method, Path>,
       PageParam<Initial, Next, Previous>
     >,
     "queryKey" | "queryFn" | "placeholderData"
   > & {
-    placeholderData?: InfinitePlaceholderData<Response["data"], Response["error"], Paths, Method, Path>;
+    placeholderData?: InfinitePlaceholderData<
+      Response["data"],
+      Response["error"],
+      Paths,
+      Method,
+      Path
+    >;
     pageParamName?: string;
   },
   Initial = unknown,
   Next = never,
   Previous = NoPreviousPageParam,
+  // biome-ignore lint/complexity/useMaxParams: public signature of 1.x (ADR-036)
 >(
   method: Method,
   url: Path,
@@ -216,7 +242,10 @@ export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = 
   options: PageParamSources<Initial, Next, Previous> & Options,
   queryClient?: QueryClient,
 ) => UseInfiniteQueryResult<
-  InferSelectReturnType<InfiniteData<Response["data"], PageParam<Initial, Next, Previous>>, Options["select"]>,
+  InferSelectReturnType<
+    InfiniteData<Response["data"], PageParam<Initial, Next, Previous>>,
+    Options["select"]
+  >,
   Response["error"]
 >;
 
@@ -224,7 +253,8 @@ export type UseSuspenseQueryMethod<Paths extends {}, Media extends MediaType> = 
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
-  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
+  // note: Required is used to avoid repeating NonNullable in UseQuery types
+  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>,
   Options extends Omit<
     UseSuspenseQueryOptions<
       QueryData<Response["data"]>,
@@ -238,13 +268,17 @@ export type UseSuspenseQueryMethod<Paths extends {}, Media extends MediaType> = 
   method: Method,
   url: Path,
   ...[init, options, queryClient]: InitArguments<Init, [Options?, QueryClient?]>
-) => UseSuspenseQueryResult<InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>, Response["error"]>;
+) => UseSuspenseQueryResult<
+  InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
+  Response["error"]
+>;
 
 export type UseMutationMethod<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
   Init extends MaybeOptionalInit<Paths[Path], Method>,
-  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>, // note: Required is used to avoid repeating NonNullable in UseQuery types
+  // note: Required is used to avoid repeating NonNullable in UseQuery types
+  Response extends Required<FetchResponse<PathOperation<Paths, Path, Method>, Init, Media>>,
   TOnMutateResult = unknown,
 >(
   method: Method,
@@ -265,6 +299,7 @@ export interface OpenapiQueryClient<Paths extends {}, Media extends MediaType = 
 }
 
 export type MethodResponse<
+  // biome-ignore lint/suspicious/noExplicitAny: matches a client of any paths, as upstream's
   CreatedClient extends OpenapiQueryClient<any, any>,
   Method extends HttpMethod,
   Path extends CreatedClient extends OpenapiQueryClient<infer Paths, infer _Media>
@@ -272,13 +307,18 @@ export type MethodResponse<
     : never,
   Options = object,
 > =
-  CreatedClient extends OpenapiQueryClient<infer Paths extends { [key: string]: any }, infer Media extends MediaType>
+  CreatedClient extends OpenapiQueryClient<
+    // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
+    infer Paths extends { [key: string]: any },
+    infer Media extends MediaType
+  >
     ? NonNullable<FetchResponse<Paths[Path][Method], Options, Media>["data"]>
     : never;
 
 /**
- * Throw the error of a failed fetch result. `if (error)` missed two failures: a non-OK response with
- * an empty body (`error` is `undefined`, upstream #2070, #2829) and a falsy error body such as `0`.
+ * Throw the error of a failed fetch result. `if (error)` missed two failures: a non-OK response
+ * with an empty body (`error` is `undefined`, upstream #2070, #2829) and a falsy error body such as
+ * `0`.
  */
 function throwIfFailed(result: { error?: unknown; response: Response }): void {
   if (result.error !== undefined || !result.response.ok) {
@@ -306,7 +346,11 @@ function pageInit(init: unknown, { pageParamName, pageParam, signal }: PageReque
   return { ...rest, signal, params: { ...params, query: { ...params?.query, ...page } } };
 }
 
-// TODO: Add the ability to bring queryClient as argument
+/**
+ * Hooks and query options for a fetch client. A `QueryClient` other than the one from the React
+ * context is passed to each hook as its last argument; `createClient` does not take one.
+ */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
   client: FetchClient<Paths, Media>,
 ): OpenapiQueryClient<Paths, Media> {
@@ -319,7 +363,11 @@ export default function createClient<Paths extends {}, Media extends MediaType =
     const [method, path, init] = queryKey as readonly [Method, Path, unknown?];
     const mth = method.toUpperCase() as Uppercase<typeof method>;
     const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
-    const result = await fn(path, { signal, ...(init as any) }); // TODO: find a way to avoid as any
+    // The init is `unknown` here. An `any` init lets the call infer the generic response type
+    // that `queryOptions` declares; a typed init makes TypeScript compare two unresolved
+    // conditional types, which it cannot do.
+    // biome-ignore lint/suspicious/noExplicitAny: see the comment above
+    const result = await fn(path, { signal, ...(init as any) });
     throwIfFailed(result);
     // TanStack Query rejects `undefined` query data. The fetch client gives `undefined` for every
     // success without a body: a 204, `Content-Length: 0`, an empty chunked body, a HEAD request
@@ -328,9 +376,13 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   };
 
   const queryOptions: QueryOptionsFunction<Paths, Media> = (method, path, ...[init, options]) => ({
-    queryKey: (init === undefined ? ([method, path] as const) : ([method, path, init] as const)) as DataTag<
+    queryKey: (init === undefined
+      ? ([method, path] as const)
+      : ([method, path, init] as const)) as DataTag<
       QueryKey<Paths, typeof method, typeof path>,
+      // biome-ignore lint/suspicious/noExplicitAny: the declared return type sets the data type
       any,
+      // biome-ignore lint/suspicious/noExplicitAny: the declared return type sets the error type
       any
     >,
     queryFn,
@@ -340,9 +392,16 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   return {
     queryOptions,
     useQuery: (method, path, ...[init, options, queryClient]) =>
-      useQuery(queryOptions(method, path, init as InitWithUnknowns<typeof init>, options), queryClient),
+      useQuery(
+        queryOptions(method, path, init as InitWithUnknowns<typeof init>, options),
+        queryClient,
+      ),
     useSuspenseQuery: (method, path, ...[init, options, queryClient]) =>
-      useSuspenseQuery(queryOptions(method, path, init as InitWithUnknowns<typeof init>, options), queryClient),
+      useSuspenseQuery(
+        queryOptions(method, path, init as InitWithUnknowns<typeof init>, options),
+        queryClient,
+      ),
+    // biome-ignore lint/complexity/useMaxParams: public signature of 1.x (ADR-036)
     useInfiniteQuery: (method, path, init, options, queryClient) => {
       const { pageParamName = DEFAULT_PAGE_PARAM_NAME, placeholderData, ...restOptions } = options;
       const { queryKey } = queryOptions(method, path, init);
@@ -353,7 +412,11 @@ export default function createClient<Paths extends {}, Media extends MediaType =
           queryKey: [...queryKey, INFINITE_QUERY_KEY_MARKER] as const,
           // The request comes from the arguments; the key only identifies the cache entry.
           queryFn: async ({ pageParam, signal }) => {
-            const result = await fn(path, pageInit(init, { pageParamName, pageParam, signal }) as any);
+            const result = await fn(
+              path,
+              // biome-ignore lint/suspicious/noExplicitAny: a generic init; see queryFn
+              pageInit(init, { pageParamName, pageParam, signal }) as any,
+            );
             throwIfFailed(result);
             // An empty page stays `undefined`, as in upstream: TanStack Query rejects only
             // `undefined` query data, and the infinite query data is the `{ pages }` object.
@@ -362,6 +425,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
           ...restOptions,
           // Typed with an `unknown` page param for the caller (`InfinitePlaceholderData`). TanStack
           // passes the previous data of this query, with its own page params, and takes it back.
+          // biome-ignore lint/suspicious/noExplicitAny: TanStack's type carries its own page params
           placeholderData: placeholderData as any,
         },
         queryClient,

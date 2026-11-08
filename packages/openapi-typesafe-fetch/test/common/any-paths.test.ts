@@ -1,3 +1,4 @@
+// biome-ignore-all lint/suspicious/noExplicitAny: these tests cover the createClient<any> placeholder
 import { describe, expect, expectTypeOf, it } from "vitest";
 import createClient, { type RequestBodyOption } from "../../src/index.js";
 

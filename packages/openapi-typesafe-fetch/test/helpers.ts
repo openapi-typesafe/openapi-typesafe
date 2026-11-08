@@ -14,7 +14,8 @@ import createClient from "../src/index.js";
 // Note: this isn’t called “createMockedClient” because ✨ nothing is mocked 🌈! It’s only calling the handler you pass in.
 export function createObservedClient<T extends {}, M extends MediaType = MediaType>(
   options?: Parameters<typeof createClient<T>>[0],
-  onRequest: (input: Request) => Promise<Response> = async () => Response.json({ status: 200, message: "OK" }),
+  onRequest: (input: Request) => Promise<Response> = async () =>
+    Response.json({ status: 200, message: "OK" }),
 ) {
   return createClient<T, M>({
     ...options,

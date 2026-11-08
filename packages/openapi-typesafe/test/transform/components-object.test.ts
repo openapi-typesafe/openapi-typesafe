@@ -3,14 +3,14 @@ import ts from "typescript";
 import { astToString, NULL, tsUnion } from "../../src/index.js";
 import transformComponentsObject, { isEnumSchema } from "../../src/transform/components-object.js";
 import type { GlobalContext } from "../../src/types.js";
-import { DEFAULT_CTX, type TestCase } from "../test-helpers.js";
+import { DEFAULT_CTX, fixtureResolver, type LooseFixture, type TestCase } from "../test-helpers.js";
 
 const DEFAULT_OPTIONS = DEFAULT_CTX;
 
 const DATE = ts.factory.createTypeReferenceNode("Date");
 
 describe("transformComponentsObject", () => {
-  const tests: TestCase<any, GlobalContext>[] = [
+  const tests: TestCase<LooseFixture, GlobalContext>[] = [
     [
       "basic",
       {
@@ -160,7 +160,7 @@ describe("transformComponentsObject", () => {
 }`,
         options: {
           ...DEFAULT_OPTIONS,
-          resolve($ref) {
+          resolve: fixtureResolver(($ref) => {
             switch ($ref) {
               case "#/components/requestBodies/UploadUser": {
                 return {
@@ -176,10 +176,10 @@ describe("transformComponentsObject", () => {
                 };
               }
               default: {
-                return undefined as any;
+                return undefined;
               }
             }
-          },
+          }),
         },
       },
     ],
@@ -412,7 +412,7 @@ describe("transformComponentsObject", () => {
         options: {
           ...DEFAULT_OPTIONS,
           immutable: true,
-          resolve($ref) {
+          resolve: fixtureResolver(($ref) => {
             switch ($ref) {
               case "#/components/requestBodies/UploadUser": {
                 return {
@@ -428,10 +428,10 @@ describe("transformComponentsObject", () => {
                 };
               }
               default: {
-                return undefined as any;
+                return undefined;
               }
             }
-          },
+          }),
         },
       },
     ],

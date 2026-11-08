@@ -40,7 +40,9 @@ describe("readOnly/writeOnly", () => {
       // Should be Entry[] (array), not $Read<Entry[]>
       expectTypeOf<EntriesType>().toMatchTypeOf<{ code: string; label: string }[]>();
 
-      type LabelType = NonNullable<typeof data>["items"][number]["nested"]["entries"][number]["label"];
+      type LabelType = NonNullable<
+        typeof data
+      >["items"][number]["nested"]["entries"][number]["label"];
       // Should be string, not $Read<string>
       expectTypeOf<LabelType>().toEqualTypeOf<string>();
     });
@@ -84,7 +86,9 @@ describe("readOnly/writeOnly", () => {
 
   describe("response body (GET/POST response)", () => {
     test("CAN access readOnly properties", async () => {
-      const client = createObservedClient<paths>({}, async () => Response.json({ id: 1, name: "Alice" }));
+      const client = createObservedClient<paths>({}, async () =>
+        Response.json({ id: 1, name: "Alice" }),
+      );
 
       const { data } = await client.GET("/users");
       // No error - id (readOnly) is available in response
@@ -93,7 +97,9 @@ describe("readOnly/writeOnly", () => {
     });
 
     test("CANNOT access writeOnly properties", async () => {
-      const client = createObservedClient<paths>({}, async () => Response.json({ id: 1, name: "Alice" }));
+      const client = createObservedClient<paths>({}, async () =>
+        Response.json({ id: 1, name: "Alice" }),
+      );
 
       const { data } = await client.GET("/users");
       // @ts-expect-error - password is writeOnly, should NOT be in response
@@ -102,7 +108,9 @@ describe("readOnly/writeOnly", () => {
     });
 
     test("CAN access normal properties", async () => {
-      const client = createObservedClient<paths>({}, async () => Response.json({ id: 1, name: "Alice" }));
+      const client = createObservedClient<paths>({}, async () =>
+        Response.json({ id: 1, name: "Alice" }),
+      );
 
       const { data } = await client.GET("/users");
       // No error - name (normal) is available everywhere

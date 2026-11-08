@@ -67,6 +67,7 @@ export interface ParameterObject extends Extensable {
   /** The schema defining the type used for the parameter. */
   schema?: SchemaObject;
   /** Example of the parameter’s potential value. */
+  // biome-ignore lint/suspicious/noExplicitAny: public type under semver (ADR-034)
   example?: any;
   /** Examples of the parameter’s potential value. */
   examples?: { [name: string]: ExampleObject | ReferenceObject };
@@ -111,6 +112,7 @@ export interface MediaTypeObject extends Extensable {
    * referencing a schema which contains an example, the example value SHALL override the example
    * provided by the schema.
    */
+  // biome-ignore lint/suspicious/noExplicitAny: public type under semver (ADR-034)
   example?: any;
   /**
    * Examples of the media type. Each example object SHOULD match the media type and specified
@@ -188,6 +190,7 @@ export interface ExampleObject extends Extensable {
    * represent examples of media types that cannot naturally represented in JSON or YAML, use a
    * string value to contain the example, escaping where necessary.
    */
+  // biome-ignore lint/suspicious/noExplicitAny: public type under semver (ADR-034)
   value?: any;
   /**
    * A URI that points to the literal example. This provides the capability to reference examples

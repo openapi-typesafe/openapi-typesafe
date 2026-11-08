@@ -133,9 +133,12 @@ describe("client", () => {
       >();
       expect(data).toEqual(undefined);
 
-      const { result } = renderHook(() => useQuery({ ...options, enabled: false, select: (data) => data }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => useQuery({ ...options, enabled: false, select: (data) => data }),
+        {
+          wrapper,
+        },
+      );
 
       await waitFor(() => expect(result.current.isFetching).toBe(false));
 
@@ -210,7 +213,10 @@ describe("client", () => {
       );
 
       expectTypeOf(result.current[0].data).toEqualTypeOf<string[] | undefined>();
-      expectTypeOf(result.current[0].error).toEqualTypeOf<{ code: number; message: string } | null>();
+      expectTypeOf(result.current[0].error).toEqualTypeOf<{
+        code: number;
+        message: string;
+      } | null>();
 
       expectTypeOf(result.current[1]).toEqualTypeOf<(typeof result.current)[0]>();
 
@@ -222,7 +228,10 @@ describe("client", () => {
           }
         | undefined
       >();
-      expectTypeOf(result.current[2].error).toEqualTypeOf<{ code: number; message: string } | null>();
+      expectTypeOf(result.current[2].error).toEqualTypeOf<{
+        code: number;
+        message: string;
+      } | null>();
 
       expectTypeOf(result.current[3]).toEqualTypeOf<(typeof result.current)[2]>();
 
@@ -231,6 +240,7 @@ describe("client", () => {
     });
 
     it("returns query options that can be passed to useQuery", async () => {
+      // biome-ignore lint/suspicious/noExplicitAny: the skipped branch takes the other branch's key type
       const SKIP = { queryKey: [] as any, queryFn: skipToken } as const;
 
       const fetchClient = createFetchClient<minimalGetPaths>({ baseUrl });
@@ -378,7 +388,11 @@ describe("client", () => {
         baseUrl,
         method: "get",
         path: "/string-array",
-        handler: () => new HttpResponse(notJson, { status: 200, headers: { "Content-Length": `${notJson.length}` } }),
+        handler: () =>
+          new HttpResponse(notJson, {
+            status: 200,
+            headers: { "Content-Length": `${notJson.length}` },
+          }),
       });
 
       const { result } = renderHook(() => client.useQuery("get", "/string-array"), { wrapper });
@@ -448,7 +462,9 @@ describe("client", () => {
 
       const { data, error } = result.current;
 
-      expectTypeOf(data).toEqualTypeOf<MethodResponse<typeof client, "get", "/string-array"> | undefined>();
+      expectTypeOf(data).toEqualTypeOf<
+        MethodResponse<typeof client, "get", "/string-array"> | undefined
+      >();
       expectTypeOf(data).toEqualTypeOf<string[] | undefined>();
       expectTypeOf(error).toEqualTypeOf<{ code: number; message: string } | null>();
     });
@@ -685,7 +701,9 @@ describe("client", () => {
       const client = createClient(fetchClient);
       const queryClient = new QueryClient({});
 
-      const { unmount } = renderHook(() => client.useSuspenseQuery("get", "/string-array", {}, {}, queryClient));
+      const { unmount } = renderHook(() =>
+        client.useSuspenseQuery("get", "/string-array", {}, {}, queryClient),
+      );
 
       unmount();
 
@@ -887,7 +905,9 @@ describe("client", () => {
           wrapper,
         });
 
-        const data = await result.current.mutateAsync({ body: { message: "Hello", replied_at: 0 } });
+        const data = await result.current.mutateAsync({
+          body: { message: "Hello", replied_at: 0 },
+        });
 
         expect(data.message).toBe("Hello");
       });
@@ -908,7 +928,9 @@ describe("client", () => {
           wrapper,
         });
 
-        await expect(result.current.mutateAsync({ body: { message: "Hello", replied_at: 0 } })).rejects.toThrow();
+        await expect(
+          result.current.mutateAsync({ body: { message: "Hello", replied_at: 0 } }),
+        ).rejects.toThrow();
       });
 
       it("should use provided custom queryClient", async () => {
@@ -1241,7 +1263,8 @@ describe("client", () => {
             {
               getNextPageParam: (lastPage) => lastPage.nextPage,
               initialPageParam: 0,
-              select: (data) => data.pages.flatMap((page) => page.items).filter((item) => item !== undefined),
+              select: (data) =>
+                data.pages.flatMap((page) => page.items).filter((item) => item !== undefined),
             },
           ),
         { wrapper },

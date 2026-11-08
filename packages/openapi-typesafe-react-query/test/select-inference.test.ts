@@ -31,7 +31,10 @@ function toRoleList(response: Roles): RoleList {
 describe("select inference", () => {
   it("useQuery with a named mapper and placeholderData types data by the mapper", () => {
     const query = () =>
-      $api.useQuery("get", "/admin/roles", INIT, { placeholderData: keepPreviousData, select: toRoleList });
+      $api.useQuery("get", "/admin/roles", INIT, {
+        placeholderData: keepPreviousData,
+        select: toRoleList,
+      });
 
     expectTypeOf<ReturnType<typeof query>["data"]>().toEqualTypeOf<RoleList | undefined>();
   });
@@ -49,7 +52,8 @@ describe("select inference", () => {
   });
 
   it("useSuspenseQuery and queryOptions take a named mapper", () => {
-    const suspense = () => $api.useSuspenseQuery("get", "/admin/roles", INIT, { select: toRoleList });
+    const suspense = () =>
+      $api.useSuspenseQuery("get", "/admin/roles", INIT, { select: toRoleList });
     const options = $api.queryOptions("get", "/admin/roles", INIT, { select: toRoleList });
 
     expectTypeOf<ReturnType<typeof suspense>["data"]>().toEqualTypeOf<RoleList>();

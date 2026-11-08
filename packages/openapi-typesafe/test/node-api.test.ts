@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import openapiTS, { astToString, COMMENT_HEADER } from "../src/index.js";
 import type { OpenAPITSOptions } from "../src/types.js";
-import type { TestCase } from "./test-helpers.js";
+import type { LooseFixture, TestCase } from "./test-helpers.js";
 
 const EXAMPLES_DIR = new URL("../examples/", import.meta.url);
 
@@ -10,7 +10,7 @@ const DATE = ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Dat
 const BLOB = ts.factory.createTypeReferenceNode("Blob");
 
 describe("Node.js API", () => {
-  const tests: TestCase<any, OpenAPITSOptions>[] = [
+  const tests: TestCase<LooseFixture, OpenAPITSOptions>[] = [
     [
       "input > string > YAML",
       {
@@ -669,7 +669,8 @@ export type operations = Record<string, never>;`,
         options: {
           transformProperty(property, schemaObject, _options) {
             const validationTags: string[] = [];
-            const schema = schemaObject as any; // Cast to access validation properties
+            // The keywords differ per schema type, so they are read as plain values.
+            const schema = schemaObject as Record<string, unknown>;
 
             if (schema.minLength !== undefined) {
               validationTags.push(`@minLength ${schema.minLength}`);
@@ -752,7 +753,8 @@ export type $defs = Record<string, never>;
 export type operations = Record<string, never>;`,
         options: {
           transformProperty(property, schemaObject, _options) {
-            const schema = schemaObject as any; // Cast to access validation properties
+            // The keywords differ per schema type, so they are read as plain values.
+            const schema = schemaObject as Record<string, unknown>;
             // Only transform properties with minLength, return undefined for others
             if (schema.minLength === undefined) {
               return undefined; // Should leave property unchanged

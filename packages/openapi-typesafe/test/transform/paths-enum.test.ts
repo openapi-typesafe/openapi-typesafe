@@ -2,10 +2,10 @@ import { fileURLToPath } from "node:url";
 import { astToString } from "../../src/index.js";
 import makeApiPathsEnum from "../../src/transform/paths-enum.js";
 import type { GlobalContext } from "../../src/types.js";
-import type { TestCase } from "../test-helpers.js";
+import type { LooseFixture, TestCase } from "../test-helpers.js";
 
 describe("transformPathsObjectToEnum", () => {
-  const tests: TestCase<any, GlobalContext>[] = [
+  const tests: TestCase<LooseFixture, GlobalContext>[] = [
     [
       "basic",
       {

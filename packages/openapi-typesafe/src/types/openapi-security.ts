@@ -10,6 +10,7 @@ export type SecuritySchemeObject = {
    * A description for security scheme. CommonMark syntax MAY be used for rich text representation.
    */
   description?: string;
+  // biome-ignore lint/suspicious/noExplicitAny: public type under semver (ADR-034)
   [key: `x-${string}`]: any;
 } & (
   | {

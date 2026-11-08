@@ -49,4 +49,6 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [033](./033-remote-ref-hardening.md) | Remote `$ref` loading is hardened by default | Accepted |
 | [034](./034-what-semver-covers-in-1x.md) | What the semver contract of 1.x covers | Accepted |
 | [035](./035-dev-only-advisories-we-accept.md) | Dev-only advisories we accept | Accepted |
+| [036](./036-inherited-client-code-keeps-its-shape.md) | Inherited client code keeps its shape until 1.1 | Accepted |
+| [037](./037-cli-output-keeps-the-upstream-symbols.md) | CLI output keeps the upstream symbols | Accepted |
 | [038](./038-sharded-full-compatibility-run.md) | The full compatibility run is split into 16 shard jobs | Accepted |

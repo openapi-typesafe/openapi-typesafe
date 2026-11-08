@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { astToString } from "../../../src/index.js";
 import transformSchemaObject from "../../../src/transform/schema-object.js";
-import { DEFAULT_CTX, type TestCase } from "../../test-helpers.js";
+import { DEFAULT_CTX, fixtureResolver, type TestCase } from "../../test-helpers.js";
 
 const DEFAULT_OPTIONS = {
   path: "#/components/schemas/schema-object",
@@ -179,7 +179,7 @@ describe("composition", () => {
           ...DEFAULT_OPTIONS,
           ctx: {
             ...DEFAULT_OPTIONS.ctx,
-            resolve($ref) {
+            resolve: fixtureResolver(($ref) => {
               switch ($ref) {
                 case "#/components/schemas/simple-user":
                 case "#/components/schemas/team":
@@ -191,10 +191,10 @@ describe("composition", () => {
                   };
                 }
                 default: {
-                  return undefined as any;
+                  return undefined;
                 }
               }
-            },
+            }),
           },
         },
       },
@@ -235,7 +235,7 @@ describe("composition", () => {
               },
               refsHandled: [],
             },
-            resolve($ref) {
+            resolve: fixtureResolver(($ref) => {
               switch ($ref) {
                 case "#/components/schemas/parent": {
                   return {
@@ -246,10 +246,10 @@ describe("composition", () => {
                   };
                 }
                 default: {
-                  return undefined as any;
+                  return undefined;
                 }
               }
-            },
+            }),
           },
         },
       },
@@ -279,7 +279,7 @@ describe("composition", () => {
               },
               refsHandled: [],
             },
-            resolve($ref) {
+            resolve: fixtureResolver(($ref) => {
               switch ($ref) {
                 case "#/components/schemas/Pet": {
                   return {
@@ -288,10 +288,10 @@ describe("composition", () => {
                   };
                 }
                 default: {
-                  return undefined as any;
+                  return undefined;
                 }
               }
-            },
+            }),
           },
         },
       },
@@ -329,7 +329,7 @@ describe("composition", () => {
               },
               refsHandled: [],
             },
-            resolve($ref) {
+            resolve: fixtureResolver(($ref) => {
               switch ($ref) {
                 case "#/components/schemas/Pet": {
                   return {
@@ -338,10 +338,10 @@ describe("composition", () => {
                   };
                 }
                 default: {
-                  return undefined as any;
+                  return undefined;
                 }
               }
-            },
+            }),
           },
         },
       },
@@ -368,16 +368,16 @@ describe("composition", () => {
               },
               refsHandled: [],
             },
-            resolve($ref) {
+            resolve: fixtureResolver(($ref) => {
               switch ($ref) {
                 case "#/components/schemas/parent": {
                   return { propertyName: "operation" };
                 }
                 default: {
-                  return undefined as any;
+                  return undefined;
                 }
               }
-            },
+            }),
           },
         },
       },
@@ -418,7 +418,7 @@ describe("composition", () => {
               },
               refsHandled: [],
             },
-            resolve($ref) {
+            resolve: fixtureResolver(($ref) => {
               switch ($ref) {
                 case "#/components/schemas/parent": {
                   return {
@@ -429,10 +429,10 @@ describe("composition", () => {
                   };
                 }
                 default: {
-                  return undefined as any;
+                  return undefined;
                 }
               }
-            },
+            }),
           },
         },
       },
@@ -467,16 +467,16 @@ describe("composition", () => {
               },
               refsHandled: [],
             },
-            resolve($ref) {
+            resolve: fixtureResolver(($ref) => {
               switch ($ref) {
                 case "#/components/schemas/Pet": {
                   return { propertyName: "_petType" };
                 }
                 default: {
-                  return undefined as any;
+                  return undefined;
                 }
               }
-            },
+            }),
           },
         },
       },
@@ -549,7 +549,7 @@ describe("composition", () => {
           ...DEFAULT_OPTIONS,
           ctx: {
             ...DEFAULT_OPTIONS.ctx,
-            resolve($ref) {
+            resolve: fixtureResolver(($ref) => {
               switch ($ref) {
                 case "#/components/schemas/Price": {
                   return {
@@ -572,10 +572,10 @@ describe("composition", () => {
                   };
                 }
                 default: {
-                  return undefined as any;
+                  return undefined;
                 }
               }
-            },
+            }),
           },
         },
       },
