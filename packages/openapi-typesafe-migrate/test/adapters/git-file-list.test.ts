@@ -5,8 +5,14 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGitFileList } from "../../src/adapters/git-file-list/git-file-list.js";
 
+/**
+ * A test runs up to ten git commands one after another. On the Windows CI runner they took more
+ * than the default 5 s limit together, although nothing hung.
+ */
+const GIT_TEST_TIMEOUT_MS = 30_000;
+
 /** Runs the real git: the adapter's contract is git's own view of ignored files. */
-describe("SpawnedGitFileList", () => {
+describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
   let root: string;
 
   beforeEach(async () => {
