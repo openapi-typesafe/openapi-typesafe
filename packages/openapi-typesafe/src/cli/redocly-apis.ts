@@ -15,9 +15,10 @@ import {
   type CliRun,
   emitOutput,
   ensureOutputIsNotSchema,
+  ensureOutputIsOwn,
+  type NamedFile,
   parseLocationUrl,
   resolveLocationUrl,
-  type SchemaFile,
 } from "./cli-output.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
 import { fixNamesOf, fixOption } from "./fix-option.js";
@@ -101,15 +102,28 @@ function apiOptions(run: CliRun, redocly: RedoclyConfig, target: ApiTarget): Gen
   };
 }
 
+/** The schemas and outputs of every API of the config, keyed by API name for the outputs. */
+interface ConfigFiles {
+  readonly schemas: readonly NamedFile[];
+  readonly outputs: ReadonlyMap<string, URL>;
+}
+
+/** The outputs of the other APIs, as `ensureOutputIsOwn` names them. */
+function otherOutputs(files: ConfigFiles, apiName: string): NamedFile[] {
+  return [...files.outputs]
+    .filter(([name]) => name !== apiName)
+    .map(([name, location]) => ({ name: `API ${name}`, location }));
+}
+
 /**
- * Generate one API into its output. The output must not be the schema of any API of the config:
- * its own, or one that another API reads while this one is written.
+ * Generate one API into its output. The output must not be the schema of any API of the config
+ * (its own, or one that another API reads while this one is written) nor another API's output.
  */
 async function generateApi(
   run: CliRun,
   redocly: RedoclyConfig,
   target: ApiTarget,
-  schemas: readonly SchemaFile[],
+  files: ConfigFiles,
 ): Promise<void> {
   for (const warning of unknownSettingWarnings(target.name, target.settings)) {
     run.deps.logger.warn(warning);
@@ -117,21 +131,31 @@ async function generateApi(
   const output = String(target.settings[OUTPUT_SETTING]);
   const file = resolveLocationUrl(output, target.configRoot);
   const outputFile = { source: target.name, output, file };
-  ensureOutputIsNotSchema(run, outputFile, schemas);
+  ensureOutputIsNotSchema(run, outputFile, files.schemas);
+  ensureOutputIsOwn(run, outputFile, otherOutputs(files, target.name));
   const source = resolveLocationUrl(target.root, target.configRoot);
   const contents = await run.deps.generate(source, apiOptions(run, redocly, target));
   emitOutput(run, outputFile, contents);
 }
 
 /**
- * The schema of every API, as `ensureOutputIsNotSchema` names it. A root that is not a valid URL
- * is left out: it is no file an output could be, and its own API fails on it, not every API.
+ * The schema and the output of every API. A location that is not a valid URL is left out: it is
+ * no file that an output could be, and its own API fails on it, not every API.
  */
-function apiSchemaFiles(apis: readonly RedoclyApi[], configRoot: URL): SchemaFile[] {
-  return apis.flatMap((api) => {
+function configFilesOf(apis: readonly RedoclyApi[], configRoot: URL): ConfigFiles {
+  const schemas = apis.flatMap((api) => {
     const location = parseLocationUrl(api.root, configRoot);
     return location ? [{ name: `${api.root} of API ${api.name}`, location }] : [];
   });
+  const outputs = new Map<string, URL>();
+  for (const api of apis) {
+    const output = api.settings?.[OUTPUT_SETTING];
+    const location = output ? parseLocationUrl(String(output), configRoot) : undefined;
+    if (location) {
+      outputs.set(api.name, location);
+    }
+  }
+  return { schemas, outputs };
 }
 
 /**
@@ -142,9 +166,9 @@ function apiSchemaFiles(apis: readonly RedoclyApi[], configRoot: URL): SchemaFil
 export async function generateRedoclyApis(run: CliRun, redocly: RedoclyConfig): Promise<unknown[]> {
   const apis = redoclyApisOf(redocly);
   const configRoot = configRootOf(redocly, run.deps.cwd);
-  const schemas = apiSchemaFiles(apis, configRoot);
+  const files = configFilesOf(apis, configRoot);
   const results = await Promise.allSettled(
-    apis.map(async (api) => generateApi(run, redocly, apiTarget(api, configRoot), schemas)),
+    apis.map(async (api) => generateApi(run, redocly, apiTarget(api, configRoot), files)),
   );
   return results.flatMap((result) => (result.status === "rejected" ? [result.reason] : []));
 }

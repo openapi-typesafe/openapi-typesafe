@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { refForbiddenError } from "../../src/adapters/redocly-loader/schema-load-errors.js";
+import type { RedoclyConfig } from "../../src/application/ports/redocly-config-source.js";
 import { cliError } from "../../src/cli/cli-errors.js";
 import { HELP_TEXT } from "../../src/cli/help-text.js";
 import { runCli } from "../../src/cli/run-cli.js";
@@ -238,6 +239,35 @@ describe("runCli with the APIs of a Redocly config", () => {
       enum: true,
     });
     expect(cli.generator.calls[0]?.options.silent).toBeUndefined();
+  });
+
+  it("runCli takes an API's camelCase flag over its kebab-case spelling", async () => {
+    const cli = cliWithApis({
+      api: { root: "api.yaml", "x-openapi-ts": { output: "api.ts", exportType: false, "export-type": true } },
+    });
+
+    await runCli(["--export-type"], cli.deps);
+
+    expect(cli.generator.calls[0]?.options.exportType).toBe(false);
+  });
+
+  it("runCli ignores an API's flag that is no boolean in either spelling and keeps the CLI flag", async () => {
+    const cli = cliWithApis({
+      api: { root: "api.yaml", "x-openapi-ts": { output: "api.ts", immutable: "yes", "export-type": 1 } },
+    });
+
+    await runCli(["--immutable", "--export-type"], cli.deps);
+
+    expect(cli.generator.calls[0]?.options).toMatchObject({ immutable: true, exportType: true });
+  });
+
+  it("runCli with a Redocly config without `apis` generates the input", async () => {
+    const cli = createFakeCli();
+    cli.redoclyConfigs.configs.set(CONFIG_PATH, { configFile: CONFIG_PATH } as unknown as RedoclyConfig);
+    cli.redoclyConfigs.found = CONFIG_PATH;
+
+    expect(await runCli(["a.yaml"], cli.deps)).toBe(0);
+    expect(cli.stdout).toEqual([`types of ${fakeUrl("/work/a.yaml")}`]);
   });
 
   it("runCli warns when an input is given as well, and uses the config", async () => {

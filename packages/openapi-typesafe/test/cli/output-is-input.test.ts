@@ -131,3 +131,54 @@ describe("runCli: a Redocly API output that is a schema", () => {
     expect(cli.files.files.has(fakePath("/work/api/good.ts"))).toBe(true);
   });
 });
+
+describe("runCli: Redocly APIs with the same output", () => {
+  it("runCli with two APIs writing one file fails both with exit code 2 and writes the others", async () => {
+    const cli = cliWithApis({
+      first: { root: "first.yaml", "x-openapi-ts": { output: "types.ts" } },
+      second: { root: "second.yaml", "x-openapi-ts": { output: "./out/../types.ts" } },
+      own: { root: "own.yaml", "x-openapi-ts": { output: "own.ts" } },
+    });
+
+    const exitCode = await runCli([], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")).toEqual([
+      "The output types.ts of API first is also the output of API second: they would overwrite " +
+        "each other. Give each API its own output file. (CLI_OUTPUT_DUPLICATE)",
+      "The output ./out/../types.ts of API second is also the output of API first: they would " +
+        "overwrite each other. Give each API its own output file. (CLI_OUTPUT_DUPLICATE)",
+    ]);
+    expect(cli.files.files.has(fakePath("/work/api/types.ts"))).toBe(false);
+    expect(cli.generator.calls.map((call) => String(call.source))).toEqual([fakeUrl("/work/api/own.yaml")]);
+  });
+
+  it("runCli with outputs that link to one file names every other API", async () => {
+    const cli = cliWithApis({
+      a: { root: "a.yaml", "x-openapi-ts": { output: "types.ts" } },
+      b: { root: "b.yaml", "x-openapi-ts": { output: "TYPES.ts" } },
+      c: { root: "c.yaml", "x-openapi-ts": { output: "link.ts" } },
+    });
+    cli.files.links.set(fakePath("/work/api/TYPES.ts"), fakePath("/work/api/types.ts"));
+    cli.files.links.set(fakePath("/work/api/link.ts"), fakePath("/work/api/types.ts"));
+
+    const exitCode = await runCli([], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")[0]).toContain("is also the output of API b, API c:");
+    expect(cli.generator.calls).toEqual([]);
+  });
+
+  it("runCli with an API without an output or with a remote one compares the others only", async () => {
+    const cli = cliWithApis({
+      missing: { root: "missing.yaml" },
+      remote: { root: "remote.yaml", "x-openapi-ts": { output: "https://" } },
+      local: { root: "local.yaml", "x-openapi-ts": { output: "local.ts" } },
+    });
+
+    await runCli([], cli.deps);
+
+    expect(cli.files.files.has(fakePath("/work/api/local.ts"))).toBe(true);
+    expect(cli.logger.messages("error").join("\n")).not.toContain("CLI_OUTPUT_DUPLICATE");
+  });
+});
