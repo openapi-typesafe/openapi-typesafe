@@ -1,0 +1,38 @@
+# Checks the pull request title as the squash merge will write it: "<title> (#<number>)".
+# The squash commit on main takes this title, so it must pass commitlint with the suffix, or
+# main gets a header over 72 characters (it happened with #37). A separate workflow, because a
+# title edit must run this check again without running the whole ci.yml.
+# Every job has a time limit of about three times its slowest normal run (ADR-029).
+name: pr title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-title-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  title:
+    name: pull request title
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: check the squash commit title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: echo "${PR_TITLE} (#${PR_NUMBER})" | pnpm exec commitlint --verbose
