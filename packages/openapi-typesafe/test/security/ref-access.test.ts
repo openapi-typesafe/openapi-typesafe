@@ -50,7 +50,13 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
           .end(documentWithRef(pathToFileURL(path.join(workDir, "secrets", "person.json")).href)),
     }),
   );
-  (routes.get(request.url ?? "") ?? (() => response.writeHead(404).end("Not Found")))();
+  const route = routes.get(request.url ?? "");
+  // The explicit check is the guard CodeQL expects before calling a handler chosen by a request.
+  if (typeof route !== "function") {
+    response.writeHead(404).end("Not Found");
+    return;
+  }
+  route();
 }
 
 beforeAll(async () => {

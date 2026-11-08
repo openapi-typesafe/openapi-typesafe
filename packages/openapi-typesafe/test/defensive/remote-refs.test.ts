@@ -67,7 +67,13 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
     fan(request, response);
     return;
   }
-  (routes.get(request.url ?? "") ?? (() => response.writeHead(404).end("Not Found")))();
+  const route = routes.get(request.url ?? "");
+  // The explicit check is the guard CodeQL expects before calling a handler chosen by a request.
+  if (typeof route !== "function") {
+    response.writeHead(404).end("Not Found");
+    return;
+  }
+  route();
 }
 
 let server: Server;
