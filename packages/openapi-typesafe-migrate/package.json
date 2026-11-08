@@ -50,7 +50,7 @@
     "@typescript/typescript6": "^6.0.2"
   },
   "devDependencies": {
-    "dependency-cruiser": "18.7.0",
+    "dependency-cruiser": "18.7.2",
     "vite-node": "6.0.0"
   },
   "engines": {

@@ -104,7 +104,7 @@
     "@types/yargs-parser": "21.0.3",
     "@typescript/typescript6": "6.0.2",
     "degit": "3.10.1",
-    "dependency-cruiser": "18.7.0",
+    "dependency-cruiser": "18.7.2",
     "execa": "catalog:",
     "fast-check": "4.10.2",
     "strip-ansi": "7.2.0",
