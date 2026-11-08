@@ -8,9 +8,14 @@ name: pr title
 on:
   pull_request:
     types: [opened, edited, reopened, synchronize]
+  # release.yml starts this for the version pull request: events made with the workflow token
+  # start no workflows, and the check is required by the branch rules.
+  workflow_dispatch:
 
 permissions:
   contents: read
+  # A manual run reads the title of the pull request whose branch it runs on.
+  pull-requests: read
 
 concurrency:
   group: pr-title-${{ github.ref }}
@@ -33,6 +38,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: check the squash commit title
         env:
+          GH_TOKEN: ${{ github.token }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: echo "${PR_TITLE} (#${PR_NUMBER})" | pnpm exec commitlint --verbose
+        run: |
+          if [[ -z "${PR_NUMBER}" ]]; then
+            read -r PR_NUMBER PR_TITLE < <(gh pr view "${GITHUB_REF_NAME}" \
+              --repo "${GITHUB_REPOSITORY}" --json number,title --jq '"\(.number) \(.title)"')
+          fi
+          echo "${PR_TITLE} (#${PR_NUMBER})" | pnpm exec commitlint --verbose
