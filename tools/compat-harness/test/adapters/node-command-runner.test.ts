@@ -18,6 +18,13 @@ const OUTPUT_TAIL_LENGTH = 8_192;
  */
 const PROCESS_GONE_DEADLINE_MS = 2_000;
 const PROCESS_POLL_INTERVAL_MS = 20;
+/**
+ * The process group test starts two Node processes before the timeout may pass: the grandchild's
+ * pid is printed only after both started. A loaded CI runner took more than 1 s for that.
+ */
+const GROUP_TIMEOUT_MS = 5_000;
+/** The run's timeout, the wait for the killed grandchild, and slack for a loaded runner. */
+const GROUP_TEST_TIMEOUT_MS = GROUP_TIMEOUT_MS + PROCESS_GONE_DEADLINE_MS + 3_000;
 
 function isProcessAlive(pid: number): boolean {
   try {
@@ -95,21 +102,26 @@ describe("NodeCommandRunner", () => {
     expect(outcome.outputTail.trim()).toBe("absent,1,en_US.UTF-8,UTC");
   });
 
-  it("run kills the whole process group when the timeout passes", async () => {
-    const outcome = await runNode(
-      [
-        "const { spawn } = require('node:child_process');",
-        "const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)']);",
-        "console.log(child.pid);",
-        "setInterval(() => {}, 1000);",
-      ].join(" "),
-      { timeoutMs: SHORT_TIMEOUT_MS },
-    );
+  it(
+    "run kills the whole process group when the timeout passes",
+    async () => {
+      const outcome = await runNode(
+        [
+          "const { spawn } = require('node:child_process');",
+          "const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)']);",
+          "child.on('spawn', () => console.log(child.pid));",
+          "setInterval(() => {}, 1000);",
+        ].join(" "),
+        { timeoutMs: GROUP_TIMEOUT_MS },
+      );
 
-    expect(outcome).toMatchObject({ exitCode: null, isTimedOut: true });
-    const grandchild = Number.parseInt(outcome.outputTail, 10);
-    expect(await isProcessGone(grandchild)).toBe(true);
-  });
+      expect(outcome).toMatchObject({ exitCode: null, isTimedOut: true });
+      expect(outcome.outputTail.trim()).toMatch(/^\d+$/);
+      const grandchild = Number.parseInt(outcome.outputTail, 10);
+      expect(await isProcessGone(grandchild)).toBe(true);
+    },
+    GROUP_TEST_TIMEOUT_MS,
+  );
 
   it("run writes a failed kill to the output instead of crashing", async () => {
     const realKill: KillProcessGroup = (pid) => process.kill(-pid, "SIGKILL");
