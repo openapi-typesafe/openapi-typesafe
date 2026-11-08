@@ -76,6 +76,33 @@ the same in three places: CLI flags, the Node API, and `x-openapi-ts` in `redocl
 - Each fix step checks its name alone, with `all`, and with the flags it interacts with.
 - 2.0 planning has one list to flip.
 
+## Amendment (2026-11-08): the exported fix names before 1.0
+
+The public API audit before 1.0 (finding P2-1) found four exported names where decision 1 promised
+two: `OutputFix` was both a union and a `const` object with `SCREAMING_CASE` keys
+(`OutputFix.ALLOF_REQUIRED`), next to the `OUTPUT_FIXES` list, the `OutputFixName` union, and
+`ALL_OUTPUT_FIXES`, a string `"all"` whose name reads like a list of every fix. After 1.0 each name
+and each of the 17 object keys stays for all of 1.x.
+
+1. The entry exports what decision 1 names, plus the option's element type:
+   - `OutputFix`: the string-literal union of the fix names (a type only);
+   - `OUTPUT_FIXES`: the list of every fix of the installed version, in the order of the docs;
+   - `OutputFixName`: `OutputFix | "all"`, the element type of the `fix` option.
+2. The `OutputFix` object and `ALL_OUTPUT_FIXES` are no longer exported. The generator keeps an
+   internal object (`FIX` in `src/domain/output-fixes.ts`) for its own code. They shipped only in
+   rc versions, which are not a contract, so there is no alias; the changeset names them.
+3. The 17 names were checked once more against decision 2 (kebab-case, the schema construct, no
+   issue number). None is renamed. `ref-pointers` names the construct of ADR-026 (`$ref` pointers
+   into schema keywords) and `read-write-refs` the `readOnly` / `writeOnly` flags that a `$ref`
+   or an `allOf` member carries. Both read well next to the docs table, and a rename would break
+   the configs of rc users for no gain in meaning. From 1.0 every name is frozen (ADR-034).
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Union, list and `OutputFixName` (chosen) | what decision 1 promised; the names users write are the strings they also write in `redocly.yaml` and on the CLI | no constant to import for `"all"` |
+| Keep the object and the list | constants with autocomplete | 17 more stable key names; two ways to spell each fix; `OutputFix` is a value and a type |
+| Rename `ALL_OUTPUT_FIXES` to `OUTPUT_FIX_ALL` | a constant for `"all"` | one more export for a one-word literal that the union already checks |
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

@@ -1,6 +1,6 @@
 import type { IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import { unionOf, withRequiredKeys } from "../type-combinators.js";
 import { isKeptProperty } from "./object-type.js";
 import type { SchemaRequest } from "./schema-rule.js";
@@ -55,7 +55,7 @@ export function hasRequiredVariants(
   request: SchemaRequest,
 ): boolean {
   return (
-    request.context.options.fixes.has(OutputFix.ANYOF_ONEOF_REQUIRED) &&
+    request.context.options.fixes.has(FIX.ANYOF_ONEOF_REQUIRED) &&
     isObjectTyped(schema) &&
     requiredKeyLists(schema, variants, request) !== null
   );
@@ -73,7 +73,7 @@ export function requiredVariantsType(
   variants: readonly Schema[],
   request: SchemaRequest,
 ): IrType | null {
-  if (!request.context.options.fixes.has(OutputFix.ANYOF_ONEOF_REQUIRED) || previous === null) {
+  if (!request.context.options.fixes.has(FIX.ANYOF_ONEOF_REQUIRED) || previous === null) {
     return null;
   }
   const keyLists = isObjectTyped(schema) ? requiredKeyLists(schema, variants, request) : null;

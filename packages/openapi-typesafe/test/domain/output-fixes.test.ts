@@ -1,12 +1,37 @@
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { isOpenAPITypesafeError } from "../../src/domain/errors.js";
 import {
-  ALL_OUTPUT_FIXES,
   ineffectiveFixNotices,
   OUTPUT_FIXES,
   outputFixNamesOf,
   resolveOutputFixes,
 } from "../../src/domain/output-fixes.js";
+import type { OutputFix, OutputFixName } from "../../src/index.js";
+import * as api from "../../src/index.js";
+
+describe("the package entry", () => {
+  it("exports the fix names as one list, without an object or a constant for all", () => {
+    expect(api.OUTPUT_FIXES).toEqual(OUTPUT_FIXES);
+    expect(Object.keys(api)).not.toContain("OutputFix");
+    expect(Object.keys(api)).not.toContain("ALL_OUTPUT_FIXES");
+  });
+
+  it("types a fix name as a string literal, and the fix option also takes all", () => {
+    expectTypeOf<OutputFix>().toEqualTypeOf<(typeof OUTPUT_FIXES)[number]>();
+    expectTypeOf<OutputFixName>().toEqualTypeOf<OutputFix | "all">();
+    expectTypeOf<"allof-required">().toExtend<OutputFix>();
+    expectTypeOf<"all">().not.toExtend<OutputFix>();
+  });
+
+  it("docs/cli.md lists every fix name in its fix table", () => {
+    const docs = fs.readFileSync(new URL("../../../../docs/cli.md", import.meta.url), "utf8");
+
+    for (const name of OUTPUT_FIXES) {
+      expect(docs).toMatch(new RegExp(`^\\| \`${name}\` \\|`, "m"));
+    }
+  });
+});
 
 describe("outputFixNamesOf", () => {
   it("outputFixNamesOf with known names returns them as given", () => {
@@ -27,7 +52,7 @@ describe("outputFixNamesOf", () => {
       code: "OPTION_FIX_UNKNOWN",
       message:
         'Unknown fix "nope", 1. Known fixes: allof-discriminated-union, allof-required, anyof-oneof-descriptions, anyof-oneof-required, anyof-properties, array-length-tuples, dedupe-enum-names, discriminator-member-required, discriminator-values, exploded-query-objects, nullable-enums, path-param-type-names, prefix-items, read-write-refs, ref-pointers, root-type-numbering, unevaluated-properties, all.',
-      details: { unknown: ["nope", 1], known: [...OUTPUT_FIXES, ALL_OUTPUT_FIXES] },
+      details: { unknown: ["nope", 1], known: [...OUTPUT_FIXES, "all"] },
     });
   });
 });

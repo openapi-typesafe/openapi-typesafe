@@ -42,12 +42,7 @@ export {
   OpenAPITypesafeError,
 } from "./domain/errors.js";
 export type * from "./domain/ir/nodes.js";
-export {
-  ALL_OUTPUT_FIXES,
-  OUTPUT_FIXES,
-  OutputFix,
-  type OutputFixName,
-} from "./domain/output-fixes.js";
+export { OUTPUT_FIXES, type OutputFix, type OutputFixName } from "./domain/output-fixes.js";
 export { WARNING_CODES, type WarningCode } from "./domain/warnings.js";
 export { default as transformComponentsObject } from "./transform/components-object.js";
 export { default as transformHeaderObject } from "./transform/header-object.js";

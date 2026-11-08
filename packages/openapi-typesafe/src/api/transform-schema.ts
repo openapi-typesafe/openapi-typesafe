@@ -9,7 +9,7 @@ import {
 } from "../application/transform/footer/shared-enum-names.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
-import { OutputFix } from "../domain/output-fixes.js";
+import { FIX } from "../domain/output-fixes.js";
 import type { GlobalContext, OpenAPI3 } from "../types.js";
 import { FirstSchemaNameRecorder } from "./discriminator-enum-names.js";
 import { documentDeclarations, type TransformedDocument } from "./document-declarations.js";
@@ -65,10 +65,10 @@ function sharedEnumNamesOf(
 
 /** The recorder of the run's fixes, or null where the first schema's name needs no first pass. */
 function enumNameRecorderOf(ctx: GlobalContext): EnumNameRecorder | null {
-  if (ctx.fix?.includes(OutputFix.DEDUPE_ENUM_NAMES)) {
+  if (ctx.fix?.includes(FIX.DEDUPE_ENUM_NAMES)) {
     return new SharedEnumNameRecorder();
   }
-  return ctx.fix?.includes(OutputFix.DISCRIMINATOR_VALUES) ? new FirstSchemaNameRecorder() : null;
+  return ctx.fix?.includes(FIX.DISCRIMINATOR_VALUES) ? new FirstSchemaNameRecorder() : null;
 }
 
 /** With a naming fix, `--enum` and `--dedupe-enums`, the run's footer names shared enums. */

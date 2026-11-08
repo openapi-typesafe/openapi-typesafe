@@ -7,7 +7,7 @@ import {
 } from "../../../domain/ir/constructors.js";
 import type { IrTupleElement, IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { unionOf } from "../type-combinators.js";
 import type { SchemaRequest } from "./schema-rule.js";
@@ -79,9 +79,7 @@ function prefixItemsTupleType(
 }
 
 function isPrefixItemsFixed(schema: SchemaObject, request: SchemaRequest): boolean {
-  return (
-    schema.prefixItems !== undefined && request.context.options.fixes.has(OutputFix.PREFIX_ITEMS)
-  );
+  return schema.prefixItems !== undefined && request.context.options.fixes.has(FIX.PREFIX_ITEMS);
 }
 
 /** The type of one item; `unknown` without `items`. */
@@ -193,7 +191,7 @@ function fixedArrayType(schema: SchemaObject, request: SchemaRequest): IrType {
 
 function isArrayLengthFixed(request: SchemaRequest): boolean {
   const { arrayLength, fixes } = request.context.options;
-  return arrayLength && fixes.has(OutputFix.ARRAY_LENGTH_TUPLES);
+  return arrayLength && fixes.has(FIX.ARRAY_LENGTH_TUPLES);
 }
 
 /** `type: array`, including tuples (`prefixItems`, array `items`) and `--array-length`. */

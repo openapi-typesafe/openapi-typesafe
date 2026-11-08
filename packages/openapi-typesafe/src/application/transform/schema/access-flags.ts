@@ -1,5 +1,5 @@
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import type { SchemaContext } from "./schema-context.js";
 
 /** Whether a property is `readOnly` or `writeOnly` (JSON Schema 2020-12 Validation §9.4). */
@@ -56,7 +56,7 @@ export function propertyAccessFlags(value: Schema, context: SchemaContext): Acce
   if (typeof value !== "object") {
     return NO_FLAGS;
   }
-  if (!context.options.fixes.has(OutputFix.READ_WRITE_REFS)) {
+  if (!context.options.fixes.has(FIX.READ_WRITE_REFS)) {
     return ownFlags(value as SchemaObject);
   }
   return appliedFlags(value, context, new Set());
