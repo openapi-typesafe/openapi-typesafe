@@ -11,6 +11,10 @@ const QUERY_OR_FRAGMENT_RE = /[?#]/;
  * parameters.
  */
 const JSON_MEDIA_TYPE_RE = /json/i;
+/** `text/*` media types: a JSON parse error of such a body points to `parseAs: "text"`. */
+const TEXT_MEDIA_TYPE_RE = /^text\//i;
+/** How much of a body that is not JSON its error shows: enough to tell an HTML page or a message. */
+const BODY_EXCERPT_LENGTH = 100;
 /** `application/x-www-form-urlencoded`, with or without parameters such as `charset`. */
 const FORM_MEDIA_TYPE_RE = /^application\/x-www-form-urlencoded(;|$)/i;
 /** `multipart/form-data`, with or without parameters. */
@@ -292,39 +296,10 @@ export default function createClient(clientOptions) {
       return response.ok ? { data: undefined, response } : { error: undefined, response };
     }
 
-    // parse response (falling back to .text() when necessary)
     if (response.ok) {
-      const getResponseData = async () => {
-        // if "stream", skip parsing entirely
-        if (parseAs === "stream") {
-          return response.body;
-        }
-
-        if (parseAs === "json" && !contentLength) {
-          // use text() when no content-length is provided to avoid errors parsing empty bodies
-          // (200 with no content)
-          const raw = await response.text();
-          return raw ? JSON.parse(raw) : undefined;
-        }
-
-        return await response[parseAs]();
-      };
-      return { data: await getResponseData(), response };
+      return { data: await readSuccessBody(response, parseAs), response };
     }
-
-    // handle errors (use text() when no content-length to safely handle empty bodies from proxies)
-    const raw = await response.text();
-    if (!raw) {
-      // empty error body - return undefined to be consistent with status 204 handling
-      return { error: undefined, response };
-    }
-    let error = raw;
-    try {
-      error = JSON.parse(raw); // attempt to parse as JSON
-    } catch {
-      // noop - keep as raw text
-    }
-    return { error, response };
+    return { error: await readErrorBody(response), response };
   }
 
   return {
@@ -494,6 +469,53 @@ function isRequest(value) {
 
 function isResponse(value) {
   return typeof value?.status === "number" && isHeaders(value.headers);
+}
+
+/**
+ * Parse a JSON body. A body that is not JSON, such as the HTML page of a proxy, threw a bare
+ * `SyntaxError`; this one names the response, says which `parseAs` reads it, and keeps the first
+ * one as `cause` (ADR-041).
+ */
+function parseJSON(raw, response) {
+  try {
+    return JSON.parse(raw);
+  } catch (cause) {
+    const contentType = response.headers.get("Content-Type");
+    const hint = TEXT_MEDIA_TYPE_RE.test(contentType) ? 'set `parseAs: "text"`' : "set `parseAs`";
+    const excerpt = JSON.stringify(raw.slice(0, BODY_EXCERPT_LENGTH));
+    const subject = `Response ${response.status} (${contentType ?? "no Content-Type"})`;
+    throw new SyntaxError(`${subject} is not JSON; ${hint}: ${excerpt}`, { cause });
+  }
+}
+
+/** The data of a success response, by `parseAs` (default `"json"`, as in openapi-fetch). */
+async function readSuccessBody(response, parseAs) {
+  if (parseAs === "stream") {
+    return response.body;
+  }
+  if (parseAs !== "json") {
+    return response[parseAs]();
+  }
+  // text(), not json(): an empty body (no Content-Length) is no data, and the text names a failure.
+  const raw = await response.text();
+  return raw ? parseJSON(raw, response) : undefined;
+}
+
+/**
+ * The error of an error response: `undefined` for an empty body, else JSON. A body that is not
+ * JSON (a proxy's HTML page) stays text, as in openapi-fetch.
+ */
+async function readErrorBody(response) {
+  const raw = await response.text();
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Deliberate fallback, not a lost failure: the caller gets the body as text in `error`.
+    return raw;
+  }
 }
 
 // Parameter names and object keys can be data (an `additionalProperties` object). They are encoded
