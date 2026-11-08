@@ -40,6 +40,48 @@ export function resolveLocationUrl(location: string, base: URL): URL {
   return pathToFileURL(path.resolve(baseDirectory, location));
 }
 
+/** A schema the CLI reads: `name` is how the error names it, `location` where it is. */
+export interface SchemaFile {
+  readonly name: string;
+  readonly location: URL;
+}
+
+const FILE_PROTOCOL = "file:";
+
+/**
+ * Fail with `CLI_OUTPUT_IS_INPUT` when `output` is one of the local `schemas`, also through a
+ * link or in another letter case. Writing it would replace the schema with the types, which
+ * upstream did without a word. Checked before generating, so nothing is loaded or written.
+ */
+export function ensureOutputIsNotSchema(
+  run: CliRun,
+  output: OutputFile,
+  schemas: readonly SchemaFile[],
+): void {
+  if (output.file.protocol !== FILE_PROTOCOL) {
+    return;
+  }
+  const schema = schemas.find(
+    ({ location }) =>
+      location.protocol === FILE_PROTOCOL && run.deps.files.isSameFile(location, output.file),
+  );
+  if (schema) {
+    throw cliError(
+      "CLI_OUTPUT_IS_INPUT",
+      `The output ${output.output} is the schema ${schema.name}: writing the types would ` +
+        "overwrite it. Choose another output file.",
+    );
+  }
+}
+
+/** As `resolveLocationUrl`, but undefined for a URL that does not parse instead of a throw. */
+export function parseLocationUrl(location: string, base: URL): URL | undefined {
+  if (URL_SCHEME.test(location)) {
+    return URL.parse(location) ?? undefined;
+  }
+  return resolveLocationUrl(location, base);
+}
+
 function printDone(run: CliRun, output: OutputFile): void {
   const { style, now } = run.deps;
   const target = style.green(`${output.source} → ${style.bold(output.output)}`);

@@ -11,7 +11,14 @@ import {
 } from "./api-settings.js";
 import { GENERATOR_FLAGS, type GeneratorFlags } from "./cli-arguments.js";
 import { cliError } from "./cli-errors.js";
-import { type CliRun, emitOutput, resolveLocationUrl } from "./cli-output.js";
+import {
+  type CliRun,
+  emitOutput,
+  ensureOutputIsNotSchema,
+  parseLocationUrl,
+  resolveLocationUrl,
+  type SchemaFile,
+} from "./cli-output.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
 import { fixNamesOf, fixOption } from "./fix-option.js";
 import { refLimitOptions } from "./ref-limits.js";
@@ -60,33 +67,71 @@ function configRootOf(redocly: RedoclyConfig, cwd: URL): URL {
   return redocly.configFile ? resolveLocationUrl(redocly.configFile, cwd) : cwd;
 }
 
-async function generateApi(run: CliRun, redocly: RedoclyConfig, api: RedoclyApi): Promise<void> {
-  if (!api.settings?.[OUTPUT_SETTING]) {
+/** An API that names its output, and the directory its paths are relative to. */
+interface ApiTarget {
+  readonly name: string;
+  readonly root: string;
+  readonly settings: ApiSettings;
+  readonly configRoot: URL;
+}
+
+/** The API with its settings, or `CLI_CONFIG_OUTPUT_MISSING` when they name no output. */
+function apiTarget(api: RedoclyApi, configRoot: URL): ApiTarget {
+  const { settings } = api;
+  if (!settings?.[OUTPUT_SETTING]) {
     throw cliError(
       "CLI_CONFIG_OUTPUT_MISSING",
       `API ${api.name} is missing an \`${REDOCLY_CONFIG_KEY}.output\` key. ` +
         `See ${MULTIPLE_SCHEMAS_DOCS_URL}`,
     );
   }
-  for (const warning of unknownSettingWarnings(api.name, api.settings)) {
-    run.deps.logger.warn(warning);
-  }
-  const output = String(api.settings[OUTPUT_SETTING]);
-  const configRoot = configRootOf(redocly, run.deps.cwd);
-  const options: GeneratorOptions = {
+  return { name: api.name, root: api.root, settings, configRoot };
+}
+
+/** The generator options of one API: its own settings win over the CLI's flags. */
+function apiOptions(run: CliRun, redocly: RedoclyConfig, target: ApiTarget): GeneratorOptions {
+  const { name, settings, configRoot } = target;
+  return {
     ...run.args.generatorFlags,
-    ...apiFlags(api.settings),
+    ...apiFlags(settings),
     ...refLimitOptions(run.args, run.deps.cwd),
-    ...apiRefLimitOptions(api.name, api.settings, configRoot),
-    ...fixOption(apiFixNames(api.settings) ?? run.args.fix),
+    ...apiRefLimitOptions(name, settings, configRoot),
+    ...fixOption(apiFixNames(settings) ?? run.args.fix),
     redocly,
   };
-  const contents = await run.deps.generate(resolveLocationUrl(api.root, configRoot), options);
-  emitOutput(
-    run,
-    { source: api.name, output, file: resolveLocationUrl(output, configRoot) },
-    contents,
-  );
+}
+
+/**
+ * Generate one API into its output. The output must not be the schema of any API of the config:
+ * its own, or one that another API reads while this one is written.
+ */
+async function generateApi(
+  run: CliRun,
+  redocly: RedoclyConfig,
+  target: ApiTarget,
+  schemas: readonly SchemaFile[],
+): Promise<void> {
+  for (const warning of unknownSettingWarnings(target.name, target.settings)) {
+    run.deps.logger.warn(warning);
+  }
+  const output = String(target.settings[OUTPUT_SETTING]);
+  const file = resolveLocationUrl(output, target.configRoot);
+  const outputFile = { source: target.name, output, file };
+  ensureOutputIsNotSchema(run, outputFile, schemas);
+  const source = resolveLocationUrl(target.root, target.configRoot);
+  const contents = await run.deps.generate(source, apiOptions(run, redocly, target));
+  emitOutput(run, outputFile, contents);
+}
+
+/**
+ * The schema of every API, as `ensureOutputIsNotSchema` names it. A root that is not a valid URL
+ * is left out: it is no file an output could be, and its own API fails on it, not every API.
+ */
+function apiSchemaFiles(apis: readonly RedoclyApi[], configRoot: URL): SchemaFile[] {
+  return apis.flatMap((api) => {
+    const location = parseLocationUrl(api.root, configRoot);
+    return location ? [{ name: `${api.root} of API ${api.name}`, location }] : [];
+  });
 }
 
 /**
@@ -96,6 +141,10 @@ async function generateApi(run: CliRun, redocly: RedoclyConfig, api: RedoclyApi)
  */
 export async function generateRedoclyApis(run: CliRun, redocly: RedoclyConfig): Promise<unknown[]> {
   const apis = redoclyApisOf(redocly);
-  const results = await Promise.allSettled(apis.map((api) => generateApi(run, redocly, api)));
+  const configRoot = configRootOf(redocly, run.deps.cwd);
+  const schemas = apiSchemaFiles(apis, configRoot);
+  const results = await Promise.allSettled(
+    apis.map(async (api) => generateApi(run, redocly, apiTarget(api, configRoot), schemas)),
+  );
   return results.flatMap((result) => (result.status === "rejected" ? [result.reason] : []));
 }
