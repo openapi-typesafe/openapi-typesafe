@@ -161,7 +161,7 @@ have the same version. The full rule is
   where openapi-typescript had the same file, but are not part of the API;
 - the text of messages, warnings and notices (match on the `code`), and the CLI's decorated
   output;
-- the keys of an error's `details`, except those the docs name;
+- the keys of an error's `details`, except those [the Node API docs](./node.md#errors) list;
 - log formats (`DEBUG=openapi-ts:*` lines, the migration tool's `--log` file) and the generated
   header comment;
 - exports, fields and members marked `@internal`, and the generator's own state on

@@ -124,7 +124,10 @@ try {
 | Document | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | Output | `OUTPUT_STALE`, `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 
-`ERROR_CODES` exports them all. A lower-level error (file system, parser) is in `cause`.
+`ERROR_CODES` exports them all. `openapiTS()` never fails with the CLI-only codes (`CLI_*`,
+`OUTPUT_*`). A lower-level error (file system, parser) is in `cause`. Of `details`, only
+`problems` (`string[]`, `SCHEMA_INVALID`) and `ref` and `reason` (`SCHEMA_REF_FORBIDDEN`) are
+stable; other keys may change in any release.
 
 Warnings do not fail the run; their codes are `WARNING_CODES` (union `WarningCode`), listed in
 https://openapi-typesafe.github.io/openapi-typesafe/cli#warnings. A minor release may add error

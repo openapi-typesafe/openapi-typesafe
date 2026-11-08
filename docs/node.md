@@ -64,7 +64,15 @@ fs.writeFileSync("./my-schema.ts", contents);
 
 ### Errors
 
-When generation fails, `openapiTS()` rejects with an `OpenAPITypesafeError`. Each error has a stable `code` (for example `SCHEMA_INVALID` or `SCHEMA_LOAD_FAILED`) and structured `details`; `cause` holds the lower-level error, if any. Decide by `code`: messages are for people and may change. The codes are listed under [CLI exit codes](/cli#exit-codes). Of `details`, only `problems` (`SCHEMA_INVALID`) and `ref` and `reason` (`SCHEMA_REF_FORBIDDEN`, see [Untrusted documents](./advanced.md#untrusted-documents)) are stable; other keys may change in any release ([Versioning](./compatibility.md#versioning)).
+When generation fails, `openapiTS()` rejects with an `OpenAPITypesafeError`. Each error has a stable `code` (for example `SCHEMA_INVALID` or `SCHEMA_LOAD_FAILED`) and structured `details`; `cause` holds the lower-level error, if any. Decide by `code`: messages are for people and may change. The codes are listed under [CLI exit codes](/cli#exit-codes); `openapiTS()` never fails with the CLI's own codes (those that start with `CLI_` or `OUTPUT_`). A minor release may add codes, so keep a fallback for a code you do not know. Of `details`, only these keys are stable; other keys may change in any release ([Versioning](./compatibility.md#versioning)):
+
+| Code | Key | Type |
+| :--- | :-- | :--- |
+| `SCHEMA_INVALID` | `problems` | `string[]`: one text per problem found |
+| `SCHEMA_REF_FORBIDDEN` | `ref` | `string`: the refused `$ref` as an absolute URL; user info shows as `***` |
+| `SCHEMA_REF_FORBIDDEN` | `reason` | `string`: one of `outside-local-root`, `host-not-allowed`, `local-ref-from-remote`, `too-many-remote-documents` (see [Untrusted documents](./advanced.md#untrusted-documents)); a minor release may add reasons |
+
+`details` is typed as `Readonly<Record<string, unknown>>`, so check a value before you use it.
 
 ```ts
 import openapiTS, { isOpenAPITypesafeError } from "openapi-typesafe";

@@ -101,6 +101,29 @@ source files without `node_modules`. GitHub code search was not available.
 - The dependents search covers published code and default branches only; private code may use
   other deep paths. Decision 6 is the way out for them.
 
+## Amendment (2026-11-08): error `details` and the CLI's codes
+
+The public API audit before 1.0 (finding P2-5) asked to either type `details` per code (an
+`ErrorDetailsMap` and `OpenAPITypesafeError<C extends ErrorCode>`) or to say that only the
+documented keys are stable. Decision 3 already says the second; this amendment records why it
+stays and closes two gaps.
+
+1. **`details` stays `Readonly<Record<string, unknown>>`.** Only the keys in the table of
+   `docs/node.md` (Errors) are covered by decision 1, with the value types given there:
+   `problems` of `SCHEMA_INVALID`, and `ref` and `reason` of `SCHEMA_REF_FORBIDDEN`. A minor
+   release may add keys, codes, and values of `reason` (decision 2). A test checks that every
+   refusal reason the generator gives is in that table.
+2. **The CLI's own codes.** `ErrorCode` also holds the codes that only the CLI raises: those that
+   start with `CLI_`, and `OUTPUT_STALE`, `OUTPUT_READ_FAILED` and `OUTPUT_WRITE_FAILED`.
+   `openapiTS()` never rejects with them; `docs/node.md` says so. One union keeps the CLI's
+   exit-code table exhaustive over every code.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Documented keys only (chosen) | the contract is the three keys users need; producers can add facts in a patch | `details.problems` is `unknown` until checked |
+| A details type per code | each key is typed | freezes every key of the 26 codes for 1.x, also those only logs need; a generic error class makes `isOpenAPITypesafeError` and `catch` blocks harder to type; one code has several shapes (`SCHEMA_REF_INVALID` with `reason: "cycle"` or `"malformed"`) |
+| Types for the documented keys only | the three keys are typed | needs the same generic class or a union of error types for three keys |
+
 ## Review trigger
 
 A user reports a deep upstream path that no longer resolves, a change that this ADR classifies
