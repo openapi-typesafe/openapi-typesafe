@@ -19,7 +19,7 @@ import {
   singularizeComponentKind,
 } from "../../../domain/openapi/components-object.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import { type DeprecatedEntryFilter, documentEntries } from "../document-entries.js";
 import type { SchemaLocation } from "../schema/schema-context.js";
 import { transformSchema } from "../schema/schema-transform.js";
@@ -174,7 +174,7 @@ export function componentsType(
   // A plain object, as in the original: its key order (integer-like names first) is the
   // output order.
   const aliases: Record<string, IrTypeAliasDeclaration> = {};
-  const displaced = context.options.fixes.has(OutputFix.ROOT_TYPE_NUMBERING) ? [] : null;
+  const displaced = context.options.fixes.has(FIX.ROOT_TYPE_NUMBERING) ? [] : null;
   const isKept = (item: unknown) => kept.has(item as object);
   const request = { components, isKept, aliases, displaced };
   const declaredKinds = DECLARED_COMPONENT_KINDS.filter((kind) => components[kind] !== undefined);

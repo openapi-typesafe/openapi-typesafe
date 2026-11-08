@@ -8,7 +8,7 @@ import {
 import type { IrType } from "../../../domain/ir/nodes.js";
 import { createRef, parseRefPointer } from "../../../domain/openapi/json-pointer.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import { literalType } from "../literal-type.js";
 import { refType } from "../ref-type.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
@@ -55,7 +55,7 @@ function hasEnumMetadata(schema: SchemaObject): boolean {
  */
 function tsEnumEntries(schema: SchemaObject, options: SchemaOptions): [unknown, number][] {
   const entries = (schema.enum ?? []).map((value, index): [unknown, number] => [value, index]);
-  return options.fixes.has(OutputFix.NULLABLE_ENUMS)
+  return options.fixes.has(FIX.NULLABLE_ENUMS)
     ? entries.filter(([value]) => value !== null)
     : entries;
 }
@@ -147,9 +147,7 @@ export function ownerEnumMembersType(
   request: SchemaRequest,
 ): IrType | null {
   const { options, discriminators, footer } = request.context;
-  const parent: DiscriminatorEnumParent | undefined = options.fixes.has(
-    OutputFix.DISCRIMINATOR_VALUES,
-  )
+  const parent: DiscriminatorEnumParent | undefined = options.fixes.has(FIX.DISCRIMINATOR_VALUES)
     ? discriminators.enumParentOf(key)
     : undefined;
   if (parent === undefined || !isTsEnum(parent.schema, options)) {
@@ -175,7 +173,7 @@ function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
       irReference(footer.addEnum(enumRequest(schema, request.location.path, options))),
       schema,
     );
-  return options.fixes.has(OutputFix.NULLABLE_ENUMS) && isNullAllowed(schema)
+  return options.fixes.has(FIX.NULLABLE_ENUMS) && isNullAllowed(schema)
     ? unionOf([type, irKeyword("null")])
     : type;
 }

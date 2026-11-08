@@ -141,13 +141,14 @@ have the same version. The full rule is
   `openapi-typesafe-migrate` commands;
 - the [CLI flags](./cli.md#flags), the `x-openapi-ts` settings in `redocly.yaml`, the
   [Node API options](./node.md#options) and their defaults;
-- the [error codes and exit codes](./cli.md#exit-codes), the [warning codes](./cli.md#warnings)
-  and the [fix names](./cli.md#fix): a code keeps its meaning;
+- the [error codes and exit codes](./cli.md#exit-codes), the [warning codes](./cli.md#warnings),
+  the [deprecation codes](./node.md#deprecations) and the [fix names](./cli.md#fix): a code keeps
+  its meaning;
 - the generated types: the same document with the same options gives the same exported types.
   A change to output that compiles is an opt-in [fix](./cli.md#fix); output that does not compile
   can be fixed in any release.
 
-**What a minor release may add.** New exports, options, flags, error and warning codes, fix names
+**What a minor release may add.** New exports, options, flags, error, warning and deprecation codes, fix names
 (`fix: ["all"]` then includes the new fix), IR node kinds, members of exported unions such as
 `ErrorCode`, `WarningCode`, `OutputFix`, `IrType` and `HttpMethod`, and optional fields. So:
 
@@ -161,11 +162,14 @@ have the same version. The full rule is
   where openapi-typescript had the same file, but are not part of the API;
 - the text of messages, warnings and notices (match on the `code`), and the CLI's decorated
   output;
-- the keys of an error's `details`, except those the docs name;
+- the keys of an error's `details`, except those [the Node API docs](./node.md#errors) list;
 - log formats (`DEBUG=openapi-ts:*` lines, the migration tool's `--log` file) and the generated
   header comment;
 - exports, fields and members marked `@internal`, and the generator's own state on
-  `options.ctx`.
+  `options.ctx`;
+- the shape of the types generated for the [OpenAPI 3.2 additions](./introduction.md#openapi-3-2-support)
+  (`query` operations, `additionalOperations`, `itemSchema`, `in: querystring`,
+  `components.mediaTypes`), which is experimental in 1.x. A change is named in the changelog.
 
 **Node.js and TypeScript.** A minor release may raise the lowest supported Node.js version, only
 to drop a line that has reached its end of life (Node.js 22 on 2027-04-30), and its changelog says
@@ -174,6 +178,8 @@ a major release.
 
 **Deprecations.** Nothing is removed before the next major version. A deprecated export is marked
 `@deprecated` in the types, so editors strike it through, and the docs say what to use instead.
+Where a deprecation also warns at run time, it is a Node.js `DeprecationWarning` with an
+`OPENAPI_TYPESAFE_DEP_*` code ([Deprecations](./node.md#deprecations)).
 
 ## Run it yourself
 

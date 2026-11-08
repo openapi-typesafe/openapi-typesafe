@@ -1,5 +1,5 @@
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { createDocumentRun } from "../../src/api/document-run.js";
 import { defaultGeneratorPorts } from "../../src/api/openapi-ts.js";
 import transformSchema from "../../src/api/transform-schema.js";
@@ -10,8 +10,10 @@ import openapiTS, {
   NUMBER,
   type OpenAPI3,
   type OpenAPITSIrOptions,
+  type OpenAPITSOptions,
   tsUnion,
 } from "../../src/index.js";
+import { RecordingDeprecations } from "../fakes/recording-deprecations.js";
 
 const DOCUMENT: OpenAPI3 = {
   openapi: "3.1.0",
@@ -106,7 +108,7 @@ describe("IR callbacks (irCallbacks: true)", () => {
 /** The deprecated forms each run warned about (recorded also when `silent`). */
 async function warningsOf(options: GeneratorOptions): Promise<string[]> {
   const runOptions = { silent: true, ...options };
-  const ports = await defaultGeneratorPorts(runOptions);
+  const ports = { ...(await defaultGeneratorPorts(runOptions)), deprecations: new RecordingDeprecations() };
   const { schema, ctx } = await createDocumentRun(DOCUMENT, runOptions, ports);
   transformSchema(schema, ctx);
   return [...(ctx.legacyCallbackWarnings ?? [])];
@@ -139,5 +141,16 @@ describe("legacy callbacks", () => {
     });
 
     expect(warnings).toEqual([]);
+  });
+});
+
+describe("options types (docs/node.md, Options types)", () => {
+  it("GeneratorOptions takes either callback form, and the compatibility names are its members", () => {
+    const irForm: GeneratorOptions = { irCallbacks: true, postTransform: (type) => type };
+    const nodeForm: GeneratorOptions = { postTransform: (type) => type };
+
+    expectTypeOf(irForm).toExtend<GeneratorOptions>();
+    expectTypeOf(nodeForm).toExtend<GeneratorOptions>();
+    expectTypeOf<OpenAPITSOptions | OpenAPITSIrOptions>().toEqualTypeOf<GeneratorOptions>();
   });
 });

@@ -1,6 +1,6 @@
 import { irReference } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import { InvalidRefError, refType } from "../ref-type.js";
 import type { SchemaRequest } from "../schema/schema-rule.js";
 import { generatedLocationOf } from "./generated-location.js";
@@ -62,9 +62,7 @@ function correctedType(
 
 function isCorrected(pointer: RefPointer, request: SchemaRequest): boolean {
   const { options, refs } = request.context;
-  return (
-    options.fixes.has(OutputFix.REF_POINTERS) || originalIndexFails({ pointer, options, refs })
-  );
+  return options.fixes.has(FIX.REF_POINTERS) || originalIndexFails({ pointer, options, refs });
 }
 
 /** The type of a schema `$ref`. Throws InvalidRefError when the `$ref` has no pointer. */

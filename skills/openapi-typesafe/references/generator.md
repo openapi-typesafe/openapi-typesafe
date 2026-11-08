@@ -44,6 +44,7 @@ OpenAPI 3.2 needs no flag. A path item's `query` operation is a `query` member (
 declared); `additionalOperations` keeps exact method names; `itemSchema` adds an `itemContent` map
 next to `content` (read item types from there, not from `content`); an `in: querystring`
 parameter is `parameters.query`; `components.mediaTypes` is a `components` member when present.
+These 3.2 shapes are experimental in 1.x: a minor release may change them (the changelog says so).
 
 Exit codes: `0` ok, `1` stale with `--check`, `2` usage or configuration, `3` the document cannot
 be read or converted, `4` an output file cannot be read or written, `70` unexpected (a bug).
@@ -99,7 +100,11 @@ const ast = await openapiTS(source, {
   `tsWithRequired`, `oapiRef`, and the constants `STRING`, `NUMBER`, `BOOLEAN`, `NULL`, `UNKNOWN`,
   `NEVER`, `TRUE`, `FALSE`, `UNDEFINED`.
 - Callbacks without `irCallbacks: true` that build `ts.factory` nodes are deprecated and need the
-  TypeScript JavaScript API (see [migration.md](migration.md)).
+  TypeScript JavaScript API (see [migration.md](migration.md)). They, and `stringToAST()`, emit a
+  Node.js `DeprecationWarning` with an `OPENAPI_TYPESAFE_DEP_*` code (`DEPRECATION_CODES`), once
+  per process; `silent` does not hide it, `node --no-deprecation` does.
+- Type an options object as `GeneratorOptions` (either callback form, and the 2.0 name);
+  `OpenAPITSOptions` and `OpenAPITSIrOptions` are compatibility names.
 
 ## Errors
 
@@ -124,7 +129,10 @@ try {
 | Document | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | Output | `OUTPUT_STALE`, `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 
-`ERROR_CODES` exports them all. A lower-level error (file system, parser) is in `cause`.
+`ERROR_CODES` exports them all. `openapiTS()` never fails with the CLI-only codes (`CLI_*`,
+`OUTPUT_*`). A lower-level error (file system, parser) is in `cause`. Of `details`, only
+`problems` (`string[]`, `SCHEMA_INVALID`) and `ref` and `reason` (`SCHEMA_REF_FORBIDDEN`) are
+stable; other keys may change in any release.
 
 Warnings do not fail the run; their codes are `WARNING_CODES` (union `WarningCode`), listed in
 https://openapi-typesafe.github.io/openapi-typesafe/cli#warnings. A minor release may add error

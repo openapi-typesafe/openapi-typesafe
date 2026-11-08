@@ -48,6 +48,32 @@ measurements: [`research/roadmap/R2.md`](../research/roadmap/R2.md).
 - `ClientForPath` no longer offers `PARAMETERS`, which was typed but always failed.
 - Custom methods are typed but not callable through the clients.
 
+## Amendment (2026-11-08): the 3.2 types are experimental in 1.x
+
+The public API audit before 1.0 (finding P2-8) noted that decisions 2 to 6 are our own design
+(the `itemContent` map is invented; the upstream PRs disagree on `query`), while the review
+trigger says we may follow a different upstream shape. Under ADR-034 decision 1 such a change
+would change output that compiles, which 1.x allows only as an opt-in fix.
+
+1. **The types generated from the 3.2 keys are experimental in 1.x**: the `query` member,
+   `additionalOperations`, `itemContent`, the `querystring` mapping and `components.mediaTypes`
+   (decisions 2 to 6). A minor release may change their shape, for example to follow
+   openapi-typescript once it merges 3.2 support. The changeset of such a change says that it
+   changes 3.2 output, and the label is removed when the shape is declared final, at the latest
+   in 2.0.
+2. **Not experimental:** the output of a document that uses none of these keys (decision 1),
+   `client.QUERY()`, the `"query"` member of `HttpMethod` and the 3.2 members of the exported
+   OpenAPI document types (`PathItemObject.query`, `MediaTypeObject.itemSchema`, …), which follow
+   the specification, not a design of ours.
+3. `docs/introduction.md` (OpenAPI 3.2 features), `docs/compatibility.md` (Versioning), the
+   migration guide and the skill say so; ADR-034 lists the exception.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Experimental in 1.x (chosen) | can follow upstream's shape in a minor, keeping the drop-in goal | users of 3.2 documents may see their types change in a minor |
+| Final now, drop the review trigger | full semver promise | an upstream shape that differs could be followed only in 2.0, and openapi-typescript users migrating then get other types |
+| Opt-in until upstream decides | nothing to change later | 3.2 documents lose `query` and other operations by default (the reason for decision 1) |
+
 ## Review trigger
 
 openapi-typescript merges a 3.2 shape that differs from this one, or a user asks to call an

@@ -1,8 +1,14 @@
+import fs from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { loadFailedError, schemaInvalidError } from "../../src/adapters/redocly-loader/schema-load-errors.js";
+import {
+  loadFailedError,
+  type RefRefusalDetails,
+  refForbiddenError,
+  schemaInvalidError,
+} from "../../src/adapters/redocly-loader/schema-load-errors.js";
 import openapiTS, { type OpenAPITypesafeError } from "../../src/index.js";
 
 const INFO = { title: "Test", version: "1.0" };
@@ -140,5 +146,25 @@ describe("schema load error factories", () => {
 
   it("schemaInvalidError without problems has an empty message", () => {
     expect(schemaInvalidError([])).toMatchObject({ message: "", details: { problems: [] } });
+  });
+});
+
+/** One refusal of each reason; the `Record` fails to compile when a reason is added or removed. */
+const REFUSALS: Readonly<Record<RefRefusalDetails["reason"], RefRefusalDetails>> = {
+  "outside-local-root": { reason: "outside-local-root", localRoot: "file:///root/" },
+  "host-not-allowed": { reason: "host-not-allowed", allowedHosts: [] },
+  "local-ref-from-remote": { reason: "local-ref-from-remote", base: "https://a.test/a.yaml" },
+  "too-many-remote-documents": { reason: "too-many-remote-documents", maxDocuments: 1 },
+};
+
+describe("the documented details keys (docs/node.md, Errors)", () => {
+  const docs = fs.readFileSync(new URL("../../../../docs/node.md", import.meta.url), "utf8");
+  const reasonRow = docs.split("\n").find((line) => line.startsWith("| `SCHEMA_REF_FORBIDDEN` | `reason`"));
+
+  it.each(Object.entries(REFUSALS))("refForbiddenError with %s gives ref and reason", (reason, details) => {
+    const error = refForbiddenError("https://user:secret@a.test/b.yaml", details);
+
+    expect(error.details).toMatchObject({ ref: "https://***@a.test/b.yaml", reason });
+    expect(reasonRow).toContain(`\`${reason}\``);
   });
 });

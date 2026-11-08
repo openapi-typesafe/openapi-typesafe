@@ -1,6 +1,6 @@
 import type { Logger } from "../application/ports/logger.js";
 import { isUnionMember, unionAt } from "../domain/openapi/discriminated-union.js";
-import { OutputFix } from "../domain/output-fixes.js";
+import { FIX } from "../domain/output-fixes.js";
 import type {
   DiscriminatorObject,
   GeneratorOptions,
@@ -121,7 +121,7 @@ function valuesMappedTo(discriminator: DiscriminatorObject, ref: string): string
  * schema that the union's mapping names is a member.
  */
 function inheritsDiscriminator(state: ScanState, parentRef: string, ref: string): boolean {
-  if (!state.fixes.has(OutputFix.ALLOF_DISCRIMINATED_UNION)) {
+  if (!state.fixes.has(FIX.ALLOF_DISCRIMINATED_UNION)) {
     return true;
   }
   const resolve = (target: string) => resolveDocumentRef(state.schema, target, state);
@@ -141,7 +141,7 @@ function recordInherited(
   discriminator: DiscriminatorObject,
   ownerRef: string,
 ): void {
-  if (state.fixes.has(OutputFix.DISCRIMINATOR_VALUES) && state.owners.has(ref)) {
+  if (state.fixes.has(FIX.DISCRIMINATOR_VALUES) && state.owners.has(ref)) {
     return;
   }
   const inherited = { ...discriminator };

@@ -1,3 +1,4 @@
+import type { DeprecationReporter } from "../application/ports/deprecation-reporter.js";
 import type { Logger } from "../application/ports/logger.js";
 import type { DocumentFooter } from "../application/transform/transform-context.js";
 import type { GlobalContext, LegacyCallbackName, SchemaObject } from "../types.js";
@@ -31,4 +32,6 @@ export interface RunContext extends GlobalContext {
   legacyCallbackWarnings?: Set<LegacyCallbackName>;
   /** Where this run reports warnings and debug output; without it, the terminal. */
   logger?: Logger;
+  /** Where this run reports deprecated forms; without it, Node.js `DeprecationWarning`s. */
+  deprecations?: DeprecationReporter;
 }
