@@ -27,7 +27,7 @@ npx openapi-typesafe https://petstore3.swagger.io/api/v3/openapi.yaml -o petstor
 # 🚀 https://petstore3.swagger.io/api/v3/openapi.yaml → petstore.d.ts [250ms]
 ```
 
-Paths may contain spaces, non-ASCII characters and `#`, `?` or `%` (a path is never read as a URL; `https:` and `file:` URLs work), and missing output directories are created. Relative `$ref`s resolve from the path the document was read from: for a symlink, next to the link, not its target (as in openapi-typescript). A document read from stdin resolves them from the current directory (openapi-typescript 7.13 used its parent). In `redocly.yaml`, `root` and `output` are relative to that file.
+Paths may contain spaces, non-ASCII characters and `#`, `?` or `%` (a path is never read as a URL; `https:` and `file:` URLs work), and missing output directories are created. Relative `$ref`s resolve from the path the document was read from: for a symlink, next to the link, not its target (as in openapi-typescript). A document read from stdin resolves them from the current directory (openapi-typescript 7.13 used its parent). In `redocly.yaml`, `root` and `output` are relative to that file. An output that is the schema file itself (also through a symlink or a hard link, or in another letter case on a case-insensitive file system) fails with `CLI_OUTPUT_IS_INPUT` before anything is generated, so the schema is never replaced; with several APIs, no output may be the `root` of any API, and APIs whose outputs are the same file (by the same rules) all fail with `CLI_OUTPUT_DUPLICATE` while the other APIs are generated. openapi-typescript overwrote the schema, or one API's types with another's, without a word.
 
 ### Multiple schemas
 
@@ -184,7 +184,7 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 | :--: | :------ | :---------- |
 | `0` | Success; with `--check`, the output is up to date | |
 | `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
-| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `CLI_OUTPUT_IS_INPUT`, `CLI_OUTPUT_DUPLICATE`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
 | `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 | `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |

@@ -52,7 +52,8 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
    resource, needs no reset between tests (tests compare ids, never their values), and is the only module
    state of the client.
 5. `TRACE` stays: removing a method is a breaking change, and the rejection is the platform's, with a clear
-   message.
+   message. Bun 1.4 does not reject it: it sends the request and returns an empty body. ADR-041
+   (decision 5) lists each platform, and the API page documents it.
 6. `FormData`, `Blob` (and `File`), `URLSearchParams`, `ArrayBuffer` and typed arrays or `DataView` are sent
    as they are, without the JSON `Content-Type`; the platform sets the right one (or none).
 7. A form body with a nested object value throws and names `bodySerializer()`. Arrays and primitives keep the

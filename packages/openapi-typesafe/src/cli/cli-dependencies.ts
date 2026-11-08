@@ -1,5 +1,5 @@
 import type { Readable } from "node:stream";
-import type { FileReader, FileWriter } from "../application/ports/file-system.js";
+import type { FileIdentity, FileReader, FileWriter } from "../application/ports/file-system.js";
 import type { Logger } from "../application/ports/logger.js";
 import type { RedoclyConfigSource } from "../application/ports/redocly-config-source.js";
 import type { GeneratorOptions, SchemaSource } from "../types.js";
@@ -38,7 +38,7 @@ export interface CliDependencies {
    * input with no prompt, which looks like a hang (upstream #1905).
    */
   readonly isStdinTerminal: () => boolean;
-  readonly files: FileReader & FileWriter;
+  readonly files: FileReader & FileWriter & FileIdentity;
   readonly redoclyConfigs: RedoclyConfigSource;
   readonly generate: GenerateTypes;
   /** A monotonic time in milliseconds, for the time printed after each output. */

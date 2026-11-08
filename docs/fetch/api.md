@@ -38,6 +38,20 @@ import { fetch, Request } from "undici";
 const client = createClient<paths>({ baseUrl: "https://myapi.dev/v1/", fetch, Request });
 ```
 
+### TRACE
+
+The client has `TRACE()` because OpenAPI has `trace` operations, but the
+[Fetch standard](https://fetch.spec.whatwg.org/#forbidden-method) forbids the method, so what
+happens depends on the platform:
+
+| Platform | `client.TRACE()` |
+| :------- | :--------------- |
+| Browsers (as the standard says), Node.js, Deno | rejects with the platform's `TypeError` before anything is sent (Node.js: `'TRACE' HTTP method is unsupported.`, Deno: `Method is forbidden`) |
+| Bun (1.4) | sends the request, but the response body is always empty, so `data` is `undefined` |
+
+Node.js 24, Bun 1.4.4 and Deno 2.9.6 were checked against a server that answers `TRACE` with a body. Use another HTTP client for `TRACE` if you need
+its response body.
+
 ## Fetch options
 
 The following options apply to all request methods (`.GET()`, `.POST()`, etc.)
@@ -58,6 +72,15 @@ client.GET("/my-url", options);
 | `fetch`           | `fetch`                                                           | Fetch instance used for requests (default: fetch from `createClient`)                                                                                                                                                             |
 | `middleware`      | `Middleware[]`                                                    | [See docs](/fetch/middleware-auth)                                                                                                                                                                                        |
 | (Fetch options)   |                                                                   | Any valid fetch option (`headers`, `mode`, `cache`, `signal`, …) ([docs](https://developer.mozilla.org/en-US/docs/Web/API/fetch#options))                                                                                         |
+
+### Response body
+
+As in openapi-fetch, a success body is parsed as JSON unless `parseAs` says otherwise, whatever
+its `Content-Type`; a `text/plain` response needs `parseAs: "text"`. A success body that is not
+JSON (for example the HTML page of a proxy) throws a `SyntaxError` that names the status, the
+`Content-Type` and the first 100 characters of the body, and says which `parseAs` to set
+(`parseAs: "text"` for a `text/*` response); the parser's own error is its `cause`. An error
+response (`4xx`, `5xx`) whose body is not JSON gives the text as `error` instead of throwing.
 
 ### Headers
 
@@ -139,6 +162,12 @@ const client = createClient<paths>({
   },
 });
 ```
+
+A `Date` value is sent as ISO 8601 in UTC (`2026-11-08T12:30:00.000Z`, from `toISOString()`), on
+its own, in an array or in an object, and in path parameters too; an invalid `Date` throws a
+`RangeError`. A parameter that serializes to nothing (`null`, `undefined`, an empty array or an
+empty object) is left out together with its `&`, and so are the `null` and `undefined` items and
+members of exploded arrays and objects.
 
 Parameter names and object keys are encoded too, so a key from your data (`{ "a&b": 1 }`) cannot add a parameter or a path segment. `[`, `]`, `$`, `:`, `@` and `,` stay as written, so names such as `filter[status]` and `$filter` are sent unchanged.
 
