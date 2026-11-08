@@ -44,14 +44,12 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: check every commit and the pull request title
+      # The pull request title is checked in pr-title.yml, which also runs when the title changes.
+      - name: check every commit
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          pnpm exec commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
-          echo "$PR_TITLE" | pnpm exec commitlint --verbose
+        run: pnpm exec commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
 
   lint:
     name: lint, types, layers
