@@ -1,7 +1,7 @@
 {
   "name": "openapi-typesafe-helpers",
   "description": "TypeScript helpers for consuming openapi-typesafe types",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0-rc.3",
   "author": {
     "name": "Fedor Chishchin",
     "url": "https://github.com/fedorello"

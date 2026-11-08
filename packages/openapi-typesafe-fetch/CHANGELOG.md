@@ -2,6 +2,13 @@
 
 This package is a fork of `openapi-fetch`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-fetch` versions.
 
+## 1.0.0-rc.3
+
+### Patch Changes
+
+- Updated dependencies []:
+  - openapi-typesafe-helpers@1.0.0-rc.3
+
 ## 1.0.0-rc.2
 
 ### Major Changes

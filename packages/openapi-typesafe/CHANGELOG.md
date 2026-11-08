@@ -2,6 +2,36 @@
 
 This package is a fork of `openapi-typescript`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-typescript` versions.
 
+## 1.0.0-rc.3
+
+### Patch Changes
+
+- [#30](https://github.com/openapi-typesafe/openapi-typesafe/pull/30) [`7650cd9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7650cd982433fc2c36acc7a4092fe49456e81cdf) Thanks [@fedorello](https://github.com/fedorello)! - Every deprecation of something 2.0 removes is now a Node.js `DeprecationWarning` with an
+  `OPENAPI_TYPESAFE_DEP_*` code, shown once per process. The TypeScript-node forms of `transform`,
+  `postTransform` and `transformProperty` used to print a warning line with the code
+  `LEGACY_CALLBACK_DEPRECATED` through the generator's logger; they now emit
+  `OPENAPI_TYPESAFE_DEP_TS_TRANSFORM`, `OPENAPI_TYPESAFE_DEP_TS_POST_TRANSFORM` and
+  `OPENAPI_TYPESAFE_DEP_TS_TRANSFORM_PROPERTY`, as `stringToAST()` emits
+  `OPENAPI_TYPESAFE_DEP_STRING_TO_AST`. `node --no-deprecation` hides them, `--throw-deprecation`
+  makes them errors, and `silent` no longer hides them. The new `DEPRECATION_CODES` export lists the
+  codes; `STRING_TO_AST_DEPRECATION_CODE` and the `LEGACY_CALLBACK_DEPRECATED` warning code, which
+  only rc versions had, are removed.
+
+- [#30](https://github.com/openapi-typesafe/openapi-typesafe/pull/30) [`7650cd9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7650cd982433fc2c36acc7a4092fe49456e81cdf) Thanks [@fedorello](https://github.com/fedorello)! - The types generated for the OpenAPI 3.2 additions (`query` operations, `additionalOperations`,
+  `itemSchema`, `in: querystring`, `components.mediaTypes`) are experimental in 1.x: a minor release
+  may change their shape, for example to match openapi-typescript once it supports 3.2, and its
+  changelog says so. The output of documents without these keys, `client.QUERY()` and the `"query"`
+  member of `HttpMethod` keep the full semver promise.
+
+- [#30](https://github.com/openapi-typesafe/openapi-typesafe/pull/30) [`7650cd9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7650cd982433fc2c36acc7a4092fe49456e81cdf) Thanks [@fedorello](https://github.com/fedorello)! - The fix names are exported as the `OutputFix` union, the `OUTPUT_FIXES` list and `OutputFixName`
+  (a fix name or `"all"`), as ADR-021 describes. The `OutputFix` object (`OutputFix.ALLOF_REQUIRED`)
+  and the `ALL_OUTPUT_FIXES` constant, which only rc versions had, are removed: write the fix names
+  as strings, for example `fix: ["allof-required"]` or `fix: ["all"]`.
+
+- [#29](https://github.com/openapi-typesafe/openapi-typesafe/pull/29) [`a74808d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a74808dd891f435e860ffabb24947b75238e9d40) Thanks [@fedorello](https://github.com/fedorello)! - The `@redocly/openapi-core` range is `^1.34.22` again. In 1.0.0-rc.2 it was `^1.34.23`, which a
+  package manager with a minimum release age (for example bun's `minimum-release-age` of 7 days)
+  refused while that version was new.
+
 ## 1.0.0-rc.2
 
 ### Minor Changes
