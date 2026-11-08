@@ -72,13 +72,15 @@ jobs:
           # Publishing is the job below, so this action never publishes or tags.
           create-github-releases: false
           push-git-tags: false
-      # Changes made with the workflow token start no workflows, so CI is started by hand for the
-      # pull request branch; its checks then count for the branch rules.
+      # Changes made with the workflow token start no workflows, so CI and the title check are
+      # started by hand for the pull request branch; their checks then count for the branch rules.
       - name: run CI on the version pull request
         if: steps.changesets.outputs.pr-number != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run ci.yml --ref changeset-release/main
+        run: |
+          gh workflow run ci.yml --ref changeset-release/main
+          gh workflow run pr-title.yml --ref changeset-release/main
       # Without changesets, a push to main publishes only versions that are not on npm yet. When
       # there are none (a CI or docs change after a release), the publish job is skipped instead of
       # waiting for an approval that would publish nothing.
