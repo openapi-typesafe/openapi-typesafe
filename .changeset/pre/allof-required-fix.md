@@ -4,7 +4,8 @@
 
 New `--fix` option (`fix` in the Node API and `redocly.yaml`): opt-in fixes of the output of valid
 schemas, by name or `all`. Without it the output does not change; the fixes are planned as the
-default in 2.0.
+default in 2.0. The names are exported as the `OutputFix` type, the `OUTPUT_FIXES` list and
+`OutputFixName` (a fix name or `"all"`).
 
 - `allof-discriminated-union`: an `allOf` `$ref` to a discriminated union is that union, without
   `Omit` (upstream [#1464](https://github.com/openapi-ts/openapi-typescript/issues/1464), [#1690](https://github.com/openapi-ts/openapi-typescript/issues/1690)).
