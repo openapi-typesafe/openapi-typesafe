@@ -22,8 +22,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: compat-${{ github.ref }}
-  cancel-in-progress: true
+  # One group per event, so a push cannot cancel a scheduled or manual run (a push cancelled the
+  # full compatibility run on 2026-11-08). Only a newer commit of a pull request cancels a run.
+  group: compat-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   FORCE_COLOR: "0"

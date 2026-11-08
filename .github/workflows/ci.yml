@@ -16,8 +16,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # One group per event, so a push cannot cancel a scheduled or manual run (a push cancelled the
+  # full compatibility run on 2026-11-08). Only a newer commit of a pull request cancels a run.
+  group: ci-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Plain logs (no ANSI colors) so warning detection and artifacts are readable.
