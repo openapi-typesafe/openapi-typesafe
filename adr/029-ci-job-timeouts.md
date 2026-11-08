@@ -35,7 +35,7 @@ Every job has `timeout-minutes`: about three times its slowest normal run, round
 | 15 | test (node), coverage gate, deploy to pages |
 | 20 | client e2e, compatibility subset, release publish, publish dry run |
 | 30 | test (macos-15-intel, windows-latest) |
-| 15, 60, 210 | compatibility full: report, real projects, each of the 16 shards (ADR-038; was one job with 240) |
+| 15, 60, 270 | compatibility full: report, real projects, each of the 16 shards (ADR-038; was one job with 240) |
 
 The 54-minute e2e run is not a normal run: a job that slow is better failed and re-run than
 waited for. The publish limit does not include the wait for approval, which happens before the job

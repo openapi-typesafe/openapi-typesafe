@@ -95,3 +95,18 @@ when the step has no per-case durations:
 The first full runs on the runner of the public repository (4 CPUs instead of 2): measure the
 slowest shard and lower the limit by the rule of ADR-029. Also when a shard fails on its limit
 without a hang, or the corpus or option matrix grows by more than a quarter.
+
+## Amendment (2026-11-08): limits from the first measured run
+
+The first full run on the public repository's runner (run 42485839061) passed: 50,960 cases, 0
+mismatches, 22 of 22 projects. Its times differ from the estimate: the shards took 40 to 88 minutes
+(median about 57), not about 70 at most, and the run took 1 hour 43 minutes of wall time. The spread
+comes from the corpus, where a few very large documents land in some shards.
+
+By the rule of ADR-029, the shard limit is 270 minutes (3 x 88 = 264, rounded up to a multiple of
+30), not 210, which was only 2.4 times the slowest shard. It stays below GitHub's 360. The real
+projects job took 14 minutes, so its limit of 60 stays.
+
+Review trigger: a shard slower than 120 minutes, which would bring 3x above 360; then split into
+more shards or balance them by document size.
+
