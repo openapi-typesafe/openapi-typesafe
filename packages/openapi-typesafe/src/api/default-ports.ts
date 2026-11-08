@@ -1,8 +1,10 @@
 import { performance } from "node:perf_hooks";
 import { createConfig, type Config as RedoclyConfig } from "@redocly/openapi-core";
 import supportsColor from "supports-color";
+import { createNodeDeprecationReporter } from "../adapters/node-deprecations/node-deprecations.js";
 import type { RemoteDocumentLimits } from "../adapters/redocly-loader/remote-fetch.js";
 import { createTerminalLogger } from "../adapters/terminal-logger/terminal-logger.js";
+import type { DeprecationReporter } from "../application/ports/deprecation-reporter.js";
 import type { Logger } from "../application/ports/logger.js";
 
 /**
@@ -24,6 +26,11 @@ export function defaultLogger(silent: boolean): Logger {
     useColors: terminalSupportsColor(),
     sink: console,
   });
+}
+
+/** Deprecations as Node.js `DeprecationWarning`s, each code once per process. */
+export function defaultDeprecationReporter(): DeprecationReporter {
+  return createNodeDeprecationReporter();
 }
 
 /**

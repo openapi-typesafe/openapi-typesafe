@@ -1,10 +1,16 @@
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import openapiTS, { astToString, COMMENT_HEADER } from "../src/index.js";
+import { astToString, COMMENT_HEADER } from "../src/index.js";
 import type { OpenAPITSOptions } from "../src/types.js";
-import type { LooseFixture, TestCase } from "./test-helpers.js";
+import { generateRecordingDeprecations, type LooseFixture, type TestCase } from "./test-helpers.js";
 
 const EXAMPLES_DIR = new URL("../examples/", import.meta.url);
+/**
+ * The large example schemas (GitHub, Stripe) take 23 to 35 s on the macOS Intel runner and once
+ * 73 s on a loaded Linux runner, so 30 s failed twice although nothing hung (CODING_PRINCIPLES
+ * 8.6: about three times the slowest normal run).
+ */
+const SNAPSHOT_TIMEOUT_MS = 120_000;
 
 const DATE = ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("Date"));
 const BLOB = ts.factory.createTypeReferenceNode("Blob");
@@ -1339,7 +1345,7 @@ export type operations = Record<string, never>;`,
         given: new URL("./github-api.yaml", EXAMPLES_DIR),
         want: new URL("./github-api.ts", EXAMPLES_DIR),
         // options: DEFAULT_OPTIONS,
-        ci: { timeout: 30_000 },
+        ci: { timeout: SNAPSHOT_TIMEOUT_MS },
       },
     ],
     [
@@ -1348,7 +1354,7 @@ export type operations = Record<string, never>;`,
         given: new URL("./github-api-next.yaml", EXAMPLES_DIR),
         want: new URL("./github-api-next.ts", EXAMPLES_DIR),
         // options: DEFAULT_OPTIONS,
-        ci: { timeout: 30_000 },
+        ci: { timeout: SNAPSHOT_TIMEOUT_MS },
       },
     ],
     [
@@ -1357,7 +1363,7 @@ export type operations = Record<string, never>;`,
         given: new URL("./octokit-ghes-3.6-diff-to-api.json", EXAMPLES_DIR),
         want: new URL("./octokit-ghes-3.6-diff-to-api.ts", EXAMPLES_DIR),
         // options: DEFAULT_OPTIONS,
-        ci: { timeout: 30_000 },
+        ci: { timeout: SNAPSHOT_TIMEOUT_MS },
       },
     ],
     [
@@ -1366,7 +1372,7 @@ export type operations = Record<string, never>;`,
         given: new URL("./stripe-api.yaml", EXAMPLES_DIR),
         want: new URL("./stripe-api.ts", EXAMPLES_DIR),
         // options: DEFAULT_OPTIONS,
-        ci: { timeout: 30_000 },
+        ci: { timeout: SNAPSHOT_TIMEOUT_MS },
       },
     ],
     [
@@ -1375,7 +1381,7 @@ export type operations = Record<string, never>;`,
         given: new URL("./digital-ocean-api/DigitalOcean-public.v2.yaml", EXAMPLES_DIR),
         want: new URL("./digital-ocean-api.ts", EXAMPLES_DIR),
         // options: DEFAULT_OPTIONS,
-        ci: { timeout: 30_000 },
+        ci: { timeout: SNAPSHOT_TIMEOUT_MS },
       },
     ],
     [
@@ -1811,7 +1817,7 @@ export type operations = Record<string, never>;`,
     test.skipIf(ci?.skipIf)(
       testName,
       async () => {
-        const result = astToString(await openapiTS(given, options));
+        const result = astToString(await generateRecordingDeprecations(given, options));
         if (want instanceof URL) {
           await expect(`${COMMENT_HEADER}${result}`).toMatchFileSnapshot(fileURLToPath(want));
         } else {

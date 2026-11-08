@@ -64,7 +64,15 @@ fs.writeFileSync("./my-schema.ts", contents);
 
 ### Errors
 
-When generation fails, `openapiTS()` rejects with an `OpenAPITypesafeError`. Each error has a stable `code` (for example `SCHEMA_INVALID` or `SCHEMA_LOAD_FAILED`) and structured `details`; `cause` holds the lower-level error, if any. Decide by `code`: messages are for people and may change. The codes are listed under [CLI exit codes](/cli#exit-codes). Of `details`, only `problems` (`SCHEMA_INVALID`) and `ref` and `reason` (`SCHEMA_REF_FORBIDDEN`, see [Untrusted documents](./advanced.md#untrusted-documents)) are stable; other keys may change in any release ([Versioning](./compatibility.md#versioning)).
+When generation fails, `openapiTS()` rejects with an `OpenAPITypesafeError`. Each error has a stable `code` (for example `SCHEMA_INVALID` or `SCHEMA_LOAD_FAILED`) and structured `details`; `cause` holds the lower-level error, if any. Decide by `code`: messages are for people and may change. The codes are listed under [CLI exit codes](/cli#exit-codes); `openapiTS()` never fails with the CLI's own codes (those that start with `CLI_` or `OUTPUT_`). A minor release may add codes, so keep a fallback for a code you do not know. Of `details`, only these keys are stable; other keys may change in any release ([Versioning](./compatibility.md#versioning)):
+
+| Code | Key | Type |
+| :--- | :-- | :--- |
+| `SCHEMA_INVALID` | `problems` | `string[]`: one text per problem found |
+| `SCHEMA_REF_FORBIDDEN` | `ref` | `string`: the refused `$ref` as an absolute URL; user info shows as `***` |
+| `SCHEMA_REF_FORBIDDEN` | `reason` | `string`: one of `outside-local-root`, `host-not-allowed`, `local-ref-from-remote`, `too-many-remote-documents` (see [Untrusted documents](./advanced.md#untrusted-documents)); a minor release may add reasons |
+
+`details` is typed as `Readonly<Record<string, unknown>>`, so check a value before you use it.
 
 ```ts
 import openapiTS, { isOpenAPITypesafeError } from "openapi-typesafe";
@@ -79,22 +87,35 @@ try {
 }
 ```
 
-### Deprecated exports
+### Deprecations
 
-These exports keep working in 1.x and are removed in 2.0:
+These keep working in 1.x and are removed in 2.0:
 
 - `stringToAST()`: return type text from an [IR callback](#ir-callbacks) instead. It needs a
-  TypeScript JavaScript API (`typescript` 6 or earlier, or `@typescript/typescript6`) and emits one
-  Node.js `DeprecationWarning` with the code `OPENAPI_TYPESAFE_DEP_STRING_TO_AST`, so
-  `node --no-deprecation` or `--throw-deprecation` work on it as on Node's own deprecations.
+  TypeScript JavaScript API (`typescript` 6 or earlier, or `@typescript/typescript6`).
+- The TypeScript-node form of `transform`, `postTransform` and `transformProperty`: use
+  [IR callbacks](#ir-callbacks).
 - `resolveRef`, `scanDiscriminators`, `walk`, `c`, `debug`, `warn` and `error`, and the TypeScript
   node helpers `addJSDocComment`, `tsArrayLiteralExpression`, `tsDedupe`, `tsEnum`, `tsEnumMember`,
   `tsIsPrimitive`, `tsModifiers`, `tsPropertyIndex`, `tsReadonlyArray`, `QUESTION_TOKEN` and
   `enumCache`: rarely used internals, marked `@deprecated` in the types (no runtime warning).
 
+When one of the first two is used, Node.js prints a `DeprecationWarning` with one of these codes,
+once per process for each code. `DEPRECATION_CODES` exports them. Node's own switches work on
+them: `node --no-deprecation` hides them, `--throw-deprecation` makes them errors,
+`--trace-deprecation` shows where they come from, and `process.on("warning", …)` receives them.
+The `silent` option does not hide them.
+
+| Code | Used |
+| :--- | :--- |
+| `OPENAPI_TYPESAFE_DEP_STRING_TO_AST` | `stringToAST()` is called |
+| `OPENAPI_TYPESAFE_DEP_TS_TRANSFORM` | `transform` returns a TypeScript node |
+| `OPENAPI_TYPESAFE_DEP_TS_POST_TRANSFORM` | `postTransform` runs without `irCallbacks: true` |
+| `OPENAPI_TYPESAFE_DEP_TS_TRANSFORM_PROPERTY` | `transformProperty` runs without `irCallbacks: true` |
+
 ### Redocly config
 
-A Redocly config isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redocly config to the Node API. You can do this with the helpers in `@redocly/openapi-core` version 1, the version openapi-typesafe uses (`npm i -D @redocly/openapi-core@1`):
+A Redocly config isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redocly config to the Node API. You can do this with the helpers in `@redocly/openapi-core` version 1, the version openapi-typesafe uses (`npm i -D @redocly/openapi-core@1`). A config made with version 2 has another shape and does not work: openapi-typesafe 1.x stays on Redocly 1 ([ADR-005](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/adr/005-schema-loader.md)).
 
 ::: code-group
 
@@ -126,7 +147,7 @@ The Node API takes the generator flags of the [flags table](/cli#flags) in camel
 | `postTransform`    |   `Function`    |                 | Same as `transform` but runs _after_ the TypeScript transformation                           |
 | `transformProperty`|   `Function`    |                 | Transform individual property signatures for Schema Object properties                        |
 | `irCallbacks`      |    `boolean`    |     `false`     | Callbacks receive and return IR nodes instead of TypeScript nodes (see [IR callbacks](#ir-callbacks)) |
-| `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors will still show)                                      |
+| `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors and [deprecations](#deprecations) will still show)     |
 | `lint`             |    `boolean`    |     `true`      | Lint the document with the Redocly config first. `false` skips it; bundling errors still fail |
 | `cwd`              | `string \| URL` | `process.cwd()` | The directory that relative `$ref`s of a string, object, buffer or stream source resolve from. A file or URL source resolves from its own location |
 | `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd` |
@@ -136,9 +157,17 @@ The Node API takes the generator flags of the [flags table](/cli#flags) in camel
 | `redocly`          |     `Config`    |                 | A Redocly config object; see [Redocly config](#redocly-config). Without it, Redocly's `minimal` config with `operation-operationId-unique` as an error (the CLI makes it a warning); the Node API does not look for `redocly.yaml`
 | `version`          |     `number`    |                 | Accepted for compatibility with openapi-typescript; no code reads it
 
+### Options types
+
+To type an options object, use `GeneratorOptions`: it takes either callback form, and it stays the
+name of the options in 2.0. `OpenAPITSOptions` (openapi-typescript's name, the TypeScript-node form)
+and `OpenAPITSIrOptions` (the IR form) are compatibility names; in 2.0 both become deprecated aliases
+of `GeneratorOptions`. In 2.0 `irCallbacks: true` is still accepted and does nothing, with a
+deprecation warning, so code that set it in 1.x keeps compiling; it is removed in 3.0.
+
 ### IR callbacks
 
-With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, prints a deprecation warning (`LEGACY_CALLBACK_DEPRECATED`) once per run, and is removed in 2.0. The examples below use the IR form.
+With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, emits a Node.js `DeprecationWarning` (see [Deprecations](#deprecations)), and is removed in 2.0. The examples below use the IR form.
 
 - A type result is an IR type (from the helpers, such as `tsUnion([STRING, NULL])`) or a string of TypeScript type text, printed as written.
 - `transform` may also return `{ schema, questionToken: true }` to make the property optional.

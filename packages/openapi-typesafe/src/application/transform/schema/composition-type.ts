@@ -2,7 +2,7 @@ import { irKeyword, irRecord } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import { createRef } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import { requirableRefType } from "../ref-pointer/pointer-type.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import {
@@ -58,7 +58,7 @@ function keysToRequire(
   if (!request.context.discriminators.isHandled(ref)) {
     return defined;
   }
-  if (!request.context.options.fixes.has(OutputFix.DISCRIMINATOR_MEMBER_REQUIRED)) {
+  if (!request.context.options.fixes.has(FIX.DISCRIMINATOR_MEMBER_REQUIRED)) {
     return [];
   }
   return defined.filter((key) => !target.required?.includes(key));
@@ -131,7 +131,7 @@ function allOfItemType(
   const isUnion =
     unionItem !== undefined &&
     !unionItem.isMapped &&
-    request.context.options.fixes.has(OutputFix.ALLOF_DISCRIMINATED_UNION);
+    request.context.options.fixes.has(FIX.ALLOF_DISCRIMINATED_UNION);
   if (!propertyName || isUnion) {
     return type;
   }
@@ -173,7 +173,7 @@ function anyOfType(
   if (variants.length === 0 || previous === null) {
     return variants.length === 0 ? previous : unionOf(variants);
   }
-  if (!request.context.options.fixes.has(OutputFix.ANYOF_PROPERTIES)) {
+  if (!request.context.options.fixes.has(FIX.ANYOF_PROPERTIES)) {
     return unionOf([previous, ...variants]);
   }
   return Array.isArray(schema.type) ? previous : intersectionOf([previous, unionOf(variants)]);

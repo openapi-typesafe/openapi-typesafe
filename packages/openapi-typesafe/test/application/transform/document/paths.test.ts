@@ -8,7 +8,7 @@ import { webhooksType } from "../../../../src/application/transform/document/web
 import { irObject } from "../../../../src/domain/ir/constructors.js";
 import type { IrType } from "../../../../src/domain/ir/nodes.js";
 import type { PathsObject } from "../../../../src/domain/openapi/path-item-object.js";
-import { OutputFix } from "../../../../src/domain/output-fixes.js";
+import { FIX } from "../../../../src/domain/output-fixes.js";
 import { type FakeContextInput, fakeTransformContext } from "../../../fakes/transform-context.js";
 
 const LOCATION = { path: "#/paths/~1items/get" };
@@ -138,7 +138,7 @@ describe("pathsType", () => {
       schema: { type: "integer" },
     }));
     const paths = { "/invoices/{id}/lines/{number}": { parameters } };
-    const options = { pathParamsAsTypes: true, fixes: new Set([OutputFix.PATH_PARAM_TYPE_NAMES]) };
+    const options = { pathParamsAsTypes: true, fixes: new Set([FIX.PATH_PARAM_TYPE_NAMES]) };
 
     const { text } = transformPaths(paths, { options });
 

@@ -4,6 +4,7 @@ import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { GeneratorOptions, SchemaSource } from "../types.js";
 import {
   DEFAULT_REMOTE_DOCUMENT_LIMITS,
+  defaultDeprecationReporter,
   defaultLogger,
   defaultRedoclyConfig,
   monotonicNow,
@@ -34,7 +35,10 @@ export async function generateDeclarations(
   return result;
 }
 
-/** The default ports: the terminal logger, the given or default Redocly config, Redocly loading. */
+/**
+ * The default ports: the terminal logger, Node.js deprecation warnings, the given or default
+ * Redocly config, Redocly loading.
+ */
 export async function defaultGeneratorPorts(options: GeneratorOptions): Promise<GeneratorPorts> {
   const logger = defaultLogger(options.silent ?? false);
   const redoc = options.redocly ?? (await defaultRedoclyConfig());
@@ -45,7 +49,7 @@ export async function defaultGeneratorPorts(options: GeneratorOptions): Promise<
     remoteRefTimeoutMs: REMOTE_REF_TIMEOUT_MS,
     remoteDocumentLimits: DEFAULT_REMOTE_DOCUMENT_LIMITS,
   });
-  return { loader, logger, redoc, now: monotonicNow };
+  return { loader, logger, deprecations: defaultDeprecationReporter(), redoc, now: monotonicNow };
 }
 
 /**

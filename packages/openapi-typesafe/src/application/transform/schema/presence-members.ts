@@ -1,5 +1,5 @@
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { OutputFix } from "../../../domain/output-fixes.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
 /**
@@ -81,7 +81,7 @@ export interface AllOfMembers {
  */
 export function allOfMembers(members: readonly Schema[], request: SchemaRequest): AllOfMembers {
   const unchanged = { members, required: [] };
-  if (!request.context.options.fixes.has(OutputFix.ALLOF_REQUIRED)) {
+  if (!request.context.options.fixes.has(FIX.ALLOF_REQUIRED)) {
     return unchanged;
   }
   const schemas = members.map((member) => memberSchema(member, request));

@@ -1,5 +1,5 @@
 import type { IrComment, IrPropertySignature } from "../../domain/ir/nodes.js";
-import { OutputFix } from "../../domain/output-fixes.js";
+import { FIX, type OutputFix } from "../../domain/output-fixes.js";
 
 /** Schema fields that produce JSDoc lines (the original `AnnotatedSchemaObject`). */
 export interface AnnotatedSchema {
@@ -44,7 +44,7 @@ export const ORIGINAL_SCHEMA_COMMENT: SchemaCommentOptions = { hasMemberDescript
 
 /** How the fixes turned on write a schema's JSDoc. */
 export function schemaCommentOptionsOf(fixes: ReadonlySet<OutputFix>): SchemaCommentOptions {
-  return { hasMemberDescriptions: fixes.has(OutputFix.ANYOF_ONEOF_DESCRIPTIONS) };
+  return { hasMemberDescriptions: fixes.has(FIX.ANYOF_ONEOF_DESCRIPTIONS) };
 }
 
 function formatValue(value: unknown): string {
