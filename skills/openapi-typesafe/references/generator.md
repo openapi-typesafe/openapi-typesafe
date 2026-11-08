@@ -102,6 +102,8 @@ const ast = await openapiTS(source, {
   TypeScript JavaScript API (see [migration.md](migration.md)). They, and `stringToAST()`, emit a
   Node.js `DeprecationWarning` with an `OPENAPI_TYPESAFE_DEP_*` code (`DEPRECATION_CODES`), once
   per process; `silent` does not hide it, `node --no-deprecation` does.
+- Type an options object as `GeneratorOptions` (either callback form, and the 2.0 name);
+  `OpenAPITSOptions` and `OpenAPITSIrOptions` are compatibility names.
 
 ## Errors
 

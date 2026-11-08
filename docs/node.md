@@ -147,7 +147,7 @@ The Node API takes the generator flags of the [flags table](/cli#flags) in camel
 | `postTransform`    |   `Function`    |                 | Same as `transform` but runs _after_ the TypeScript transformation                           |
 | `transformProperty`|   `Function`    |                 | Transform individual property signatures for Schema Object properties                        |
 | `irCallbacks`      |    `boolean`    |     `false`     | Callbacks receive and return IR nodes instead of TypeScript nodes (see [IR callbacks](#ir-callbacks)) |
-| `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors will still show)                                      |
+| `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors and [deprecations](#deprecations) will still show)     |
 | `lint`             |    `boolean`    |     `true`      | Lint the document with the Redocly config first. `false` skips it; bundling errors still fail |
 | `cwd`              | `string \| URL` | `process.cwd()` | The directory that relative `$ref`s of a string, object, buffer or stream source resolve from. A file or URL source resolves from its own location |
 | `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd` |
@@ -156,6 +156,14 @@ The Node API takes the generator flags of the [flags table](/cli#flags) in camel
 | `inject`           |    `string`     |                 | Inject arbitrary TypeScript types into the start of the file                                 |
 | `redocly`          |     `Config`    |                 | A Redocly config object; see [Redocly config](#redocly-config). Without it, Redocly's `minimal` config with `operation-operationId-unique` as an error (the CLI makes it a warning); the Node API does not look for `redocly.yaml`
 | `version`          |     `number`    |                 | Accepted for compatibility with openapi-typescript; no code reads it
+
+### Options types
+
+To type an options object, use `GeneratorOptions`: it takes either callback form, and it stays the
+name of the options in 2.0. `OpenAPITSOptions` (openapi-typescript's name, the TypeScript-node form)
+and `OpenAPITSIrOptions` (the IR form) are compatibility names; in 2.0 both become deprecated aliases
+of `GeneratorOptions`. In 2.0 `irCallbacks: true` is still accepted and does nothing, with a
+deprecation warning, so code that set it in 1.x keeps compiling; it is removed in 3.0.
 
 ### IR callbacks
 

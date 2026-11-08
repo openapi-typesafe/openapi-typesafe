@@ -1,5 +1,5 @@
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { createDocumentRun } from "../../src/api/document-run.js";
 import { defaultGeneratorPorts } from "../../src/api/openapi-ts.js";
 import transformSchema from "../../src/api/transform-schema.js";
@@ -10,6 +10,7 @@ import openapiTS, {
   NUMBER,
   type OpenAPI3,
   type OpenAPITSIrOptions,
+  type OpenAPITSOptions,
   tsUnion,
 } from "../../src/index.js";
 import { RecordingDeprecations } from "../fakes/recording-deprecations.js";
@@ -140,5 +141,16 @@ describe("legacy callbacks", () => {
     });
 
     expect(warnings).toEqual([]);
+  });
+});
+
+describe("options types (docs/node.md, Options types)", () => {
+  it("GeneratorOptions takes either callback form, and the compatibility names are its members", () => {
+    const irForm: GeneratorOptions = { irCallbacks: true, postTransform: (type) => type };
+    const nodeForm: GeneratorOptions = { postTransform: (type) => type };
+
+    expectTypeOf(irForm).toExtend<GeneratorOptions>();
+    expectTypeOf(nodeForm).toExtend<GeneratorOptions>();
+    expectTypeOf<OpenAPITSOptions | OpenAPITSIrOptions>().toEqualTypeOf<GeneratorOptions>();
   });
 });

@@ -129,6 +129,40 @@ forms printed a warning line through the run's logger with the warning code
 | The logger and warning codes for all | one list of codes with the other warnings; `silent` hides them | `stringToAST` has no run and no logger, so it would print to the console with no way to turn it off; Node's switches do not work |
 | Keep both | no change | two ways to find, filter and silence the same kind of notice |
 
+## Amendment (2026-11-08): `irCallbacks` and the options type names in 2.0
+
+The public API audit before 1.0 (finding P2-7) noted that decision 6 removes the `irCallbacks`
+option in 2.0. `{ irCallbacks: true }` would then be an excess-property error for exactly the
+users who followed the 1.x advice. The options types also do not line up: `OpenAPITSOptions`, the
+upstream name, means only the TypeScript-node form, `OpenAPITSIrOptions` the IR form, and
+`GeneratorOptions` the union of both.
+
+This amends decision 6 for 2.0. Nothing changes in 1.x.
+
+1. **`irCallbacks?: true` stays accepted in 2.x** and does nothing, since IR is the only form. It
+   gets `@deprecated` in the declarations and a Node.js `DeprecationWarning` with its own
+   `OPENAPI_TYPESAFE_DEP_*` code (amendment above). It is removed in 3.0, as ADR-021 decision 8
+   does for `fix`. `irCallbacks: false` asks for a form that no longer exists; 2.0 rejects it with
+   a typed error that links the migration guide, instead of passing IR nodes to callbacks written
+   for TypeScript nodes.
+2. **`GeneratorOptions` is the canonical options type**, today and in 2.0. In 1.x it is the union
+   of both forms; in 2.0 it is the base options with the IR callbacks and the deprecated
+   `irCallbacks?: true`.
+3. **Compatibility names.** `OpenAPITSOptions` (openapi-typescript's name) and
+   `OpenAPITSIrOptions` keep their 1.x meaning in 1.x. In 2.0 both become `@deprecated` aliases of
+   `GeneratorOptions`, so imports keep compiling; they are removed in 3.0. `OpenAPITSBaseOptions`,
+   `IrCallbackOptions` and the `Ir*` callback types keep their names. `LegacyCallbackOptions`,
+   `LegacyCallbackName` and the TypeScript-node members are removed in 2.0 with the forms they
+   describe.
+4. `docs/node.md` (Options types) tells users to type options as `GeneratorOptions` and names the
+   compatibility names.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Keep `irCallbacks: true` as a deprecated no-op in 2.x (chosen) | 1.x code that followed the advice compiles on 2.0; one more major to clean up | an option that does nothing for one major |
+| Remove `irCallbacks` in 2.0 (decision 6 as written) | smaller 2.0 options | breaks exactly the users who migrated early |
+| Make `OpenAPITSOptions` the canonical 2.0 name | upstream's name | its 1.x meaning is the TypeScript-node form, so 2.0 would change what it means |
+
 ## Review trigger
 
 - The Phase 8 real-project check finds a 7.x pattern that the bridge cannot convert, or
