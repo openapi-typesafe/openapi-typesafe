@@ -51,3 +51,29 @@
 
 Node 22 end of life (2027-04-30): raise the floor to 24. A TypeScript release that breaks the consumer matrix. A
 build tool that no longer needs the JavaScript compiler API (backlog item 31): move the development compiler to 7.
+
+## Amendment (2026-11-08): the `typescript` peer range is the supported range
+
+The public API audit before 1.0 (finding P3-3) noted that the generator's optional peer said
+`typescript: ">=5.0.0"`, while decision 2 and the docs support 5.4 and newer. The pre-beta test
+plan (3.7) had kept `>=5.0.0` because the legacy callbacks (ADR-004) ran with TypeScript 5.0.4.
+
+1. **The peer range is `>=5.4.0`.** A peer range is what package managers read as support: it
+   should say what we test and document, not what happened to run once. CI installs 5.4 as the
+   lowest TypeScript (`test/declarations-typescript-versions.test.ts`, the type matrix), and
+   5.0 to 5.3 fail on the client declarations (decision 2). No upper bound: TypeScript 7 is
+   supported, and the legacy callbacks then load `@typescript/typescript6` (ADR-032).
+2. **A test keeps them together.** `test/api/dependency-ranges.test.ts` checks that the floor
+   of the peer range is the version of the `typescript-5.4` development dependency, so raising
+   one without the other fails.
+3. **Raising the floor is a major** (`docs/compatibility.md`, Versioning); 1.0 is that major
+   for users coming from openapi-typescript.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| `>=5.4.0` (chosen) | the range says what is tested and documented; one number everywhere | npm stops with `ERESOLVE` on TypeScript 5.0 to 5.3 (pnpm warns), where the generator alone still runs |
+| Keep `>=5.0.0` | no install error on 5.0 to 5.3 | the manifest promises versions that CI does not test and the docs do not support |
+| No peer entry | no conflict ever | package managers cannot warn about an unsupported TypeScript at all |
+
+Consequences: a project on TypeScript 5.0 to 5.3 must upgrade TypeScript, or install with
+`--legacy-peer-deps`, which is not supported. The migration guide says so.

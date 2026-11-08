@@ -79,7 +79,7 @@ openapi-typesafe needs Node.js **22.12** or newer (the client and helpers: Node.
 
 ### No TypeScript dependency
 
-The generator does not need the `typescript` package. It prints types itself, so it runs next to TypeScript 7 (see [TypeScript 7](/typescript-7)). `typescript` is an optional peer dependency, loaded only by the legacy callbacks below.
+The generator does not need the `typescript` package. It prints types itself, so it runs next to TypeScript 7 (see [TypeScript 7](/typescript-7)). `typescript` is an optional peer dependency, loaded only by the legacy callbacks below. Its range is `>=5.4.0`, the TypeScript versions openapi-typesafe supports; openapi-typescript said `^5.x`. On TypeScript 5.0 to 5.3, npm reports a peer conflict (`ERESOLVE`): upgrade TypeScript to 5.4 or newer.
 
 ### Node API returns IR
 
