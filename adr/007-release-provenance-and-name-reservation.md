@@ -130,7 +130,7 @@ Decision: `release.yml` has four jobs after `version`.
   tag once its release is out. Who can create such a tag at all: the maintainer, and the `version`
   and `release` jobs (the only jobs with `contents: write`).
 - **Time limits** (ADR-029, same rule): `build` 20 minutes (it runs what the old publish job ran),
-  `publish` 20 (five packages, each with a provenance wait of up to 127 s), `release` and `dry-run`
+  `publish` 20 (five packages; see the amendment of 2026-11-08 for the provenance wait), `release` and `dry-run`
   10.
 - **npm 12.2.2**, the current release, replaces 12.2.1.
 - **Scorecard "Packaging"** now finds the workflow, because `npm publish` is a step of release.yml
@@ -147,3 +147,26 @@ signature (npm already writes SLSA provenance through trusted publishing).
 npm allows a trusted publisher for a package that does not exist yet; pnpm fails on a failed OIDC
 exchange; the beta plan (11.1) changes; or a ruleset can name GitHub Actions as a bypass actor
 (then restrict tag creation).
+
+## Amendment (2026-11-08): wait up to 10 minutes for provenance, after publishing every package
+
+The rc.2 release published `openapi-typesafe@1.0.0-rc.2`, then its provenance check got 404 for the
+whole 127 s retry window, and the job stopped before the other four packages. A few minutes later
+the registry served the attestation. The check was right to fail, but the window was too short and
+the order made one slow read leave a release half published.
+
+1. The publish step publishes every package first, then checks the provenance of each. The
+   registry's delay then runs for all packages at once.
+2. `fetch-provenance.sh` retries every 30 s, 20 times: up to 10 minutes. With the publishing (about
+   a minute) that stays inside the 20-minute job limit (ADR-029).
+3. A version on npm without valid provenance still fails the job, and no tag or GitHub release is
+   made for that run.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Publish all, then check, 10-minute window (chosen) | One delay for the whole release; no half release from a slow read | A mismatch is found after the other packages are out; the release still fails and has no GitHub releases |
+| Keep the order, longer window | Stops before the next package on a mismatch | Up to 50 minutes of waiting; needs a far larger job limit |
+| Skip the check when the registry is slow | Never blocks | A release without checked provenance, against SECURITY.md |
+
+Review trigger: a provenance read that takes more than 5 minutes, or npm documenting the delay.
+

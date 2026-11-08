@@ -181,17 +181,29 @@ jobs:
       # nothing twice; its provenance is checked again.
       - id: publish
         name: publish to npm
+        # Every package is published first and checked after, so the registry's delay before it
+        # serves a new attestation runs for all packages at once, and a slow check cannot leave
+        # the rest of a release unpublished (as on 2026-11-08 for rc.2).
         run: |
+          published="$(mktemp)"
           while IFS=$'\t' read -r -u 3 name version tarball; do
             if [[ "$(scripts/release/is-on-npm.sh "${name}" "${version}")" == "true" ]]; then
               echo "${name}@${version}: already on npm, skipped"
-              scripts/release/check-provenance.sh "${name}" "${version}"
               continue
             fi
             dist_tag=latest
             [[ "${version}" == *-* ]] && dist_tag=next
             npm publish "${RELEASE_DIR}/${tarball}" --access public --tag "${dist_tag}"
-            scripts/release/check-provenance.sh "${name}" "${version}" "${RELEASE_DIR}/${tarball}"
+            echo "${name}@${version}" >> "${published}"
+          done 3< "${RELEASE_DIR}/manifest.tsv"
+          # A version published in this run must name the packed tarball; one from an earlier run
+          # needs only provenance from this workflow (a rebuild need not be the same file).
+          while IFS=$'\t' read -r -u 3 name version tarball; do
+            if grep -qxF "${name}@${version}" "${published}"; then
+              scripts/release/check-provenance.sh "${name}" "${version}" "${RELEASE_DIR}/${tarball}"
+            else
+              scripts/release/check-provenance.sh "${name}" "${version}"
+            fi
           done 3< "${RELEASE_DIR}/manifest.tsv"
           echo "is-published=true" >> "${GITHUB_OUTPUT}"
       # Last, so a failure here (for example "Allow npm dist-tag" off) still lets the release job
