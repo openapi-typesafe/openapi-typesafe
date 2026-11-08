@@ -505,6 +505,23 @@ function encodeName(name) {
 }
 
 /**
+ * A `Date` value. Checked by its method, not with `instanceof`, so a Date from another realm counts
+ * too (as for the Fetch API objects above).
+ */
+function isDate(value) {
+  return typeof value?.toISOString === "function";
+}
+
+/**
+ * One parameter value, percent-encoded unless `allowReserved`. A `Date` is sent as ISO 8601:
+ * `String(date)` is a local-time text such as "Thu Jan 01 1970 ..." (ADR-041).
+ */
+function encodeValue(value, allowReserved) {
+  const text = isDate(value) ? value.toISOString() : value;
+  return allowReserved === true ? text : encodeURIComponent(text);
+}
+
+/**
  * Serialize primitive param values
  * @type {import("./index.js").serializePrimitiveParam}
  */
@@ -512,118 +529,135 @@ export function serializePrimitiveParam(name, value, options) {
   if (value === undefined || value === null) {
     return "";
   }
-  if (typeof value === "object") {
+  if (typeof value === "object" && !isDate(value)) {
     throw new Error(
       "Deeply-nested arrays/objects aren’t supported. Provide your own `querySerializer()` to handle these.",
     );
   }
-  return `${name}=${options?.allowReserved === true ? value : encodeURIComponent(value)}`;
+  return `${name}=${encodeValue(value, options?.allowReserved)}`;
+}
+
+/** Join exploded parts: by `,`, `.` or `;` in a path style (label and matrix also first), else `&`. */
+function joinExploded(values, style) {
+  const joiner = { simple: ",", label: ".", matrix: ";" }[style] || "&";
+  const final = values.join(joiner);
+  return style === "label" || style === "matrix" ? `${joiner}${final}` : final;
+}
+
+/** A non-exploded object: names and values in one comma-separated list. */
+function serializeUnexplodedObject(name, value, options) {
+  const values = [];
+  for (const k in value) {
+    values.push(encodeName(k), encodeValue(value[k], options.allowReserved));
+  }
+  const final = values.join(",");
+  switch (options.style) {
+    case "form": {
+      return `${name}=${final}`;
+    }
+    case "label": {
+      return `.${final}`;
+    }
+    case "matrix": {
+      return `;${name}=${final}`;
+    }
+    default: {
+      return final;
+    }
+  }
 }
 
 /**
- * Serialize object param (shallow only)
+ * Serialize object param (shallow only). An object without members, or with only `null` and
+ * `undefined` ones when exploded, gives `""`: its empty parts added stray separators (ADR-041).
  * @type {import("./index.js").serializeObjectParam}
  */
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export function serializeObjectParam(name, value, options) {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== "object" || !Object.keys(value).length) {
     return "";
   }
-  const values = [];
-  const joiner =
-    {
-      simple: ",",
-      label: ".",
-      matrix: ";",
-    }[options.style] || "&";
-
-  // explode: false
   if (options.style !== "deepObject" && options.explode === false) {
-    for (const k in value) {
-      values.push(
-        encodeName(k),
-        options.allowReserved === true ? value[k] : encodeURIComponent(value[k]),
-      );
-    }
-    // note: values are always joined by comma in explode: false (but joiner can prefix)
-    const final = values.join(",");
-    switch (options.style) {
-      case "form": {
-        return `${name}=${final}`;
-      }
-      case "label": {
-        return `.${final}`;
-      }
-      case "matrix": {
-        return `;${name}=${final}`;
-      }
-      default: {
-        return final;
-      }
-    }
+    return serializeUnexplodedObject(name, value, options);
   }
-
-  // explode: true
+  const values = [];
   for (const k in value) {
     const finalName = options.style === "deepObject" ? `${name}[${encodeName(k)}]` : encodeName(k);
-    values.push(serializePrimitiveParam(finalName, value[k], options));
+    if (value[k] != null) {
+      values.push(serializePrimitiveParam(finalName, value[k], options));
+    }
   }
-  const final = values.join(joiner);
-  return options.style === "label" || options.style === "matrix" ? `${joiner}${final}` : final;
+  return values.length ? joinExploded(values, options.style) : "";
+}
+
+/** A non-exploded array; the item separator depends on the style. */
+function serializeUnexplodedArray(name, value, options) {
+  const joiner = { form: ",", spaceDelimited: "%20", pipeDelimited: "|" }[options.style] || ",";
+  const final = value.map((v) => encodeValue(v, options.allowReserved)).join(joiner);
+  switch (options.style) {
+    case "simple": {
+      return final;
+    }
+    case "label": {
+      return `.${final}`;
+    }
+    case "matrix": {
+      return `;${name}=${final}`;
+    }
+    default: {
+      // form, spaceDelimited, pipeDelimited
+      return `${name}=${final}`;
+    }
+  }
 }
 
 /**
- * Serialize array param (shallow only)
+ * Serialize array param (shallow only). An empty array gives `""`, and so does an exploded
+ * `form` array of only `null` and `undefined` items (ADR-041).
  * @type {import("./index.js").serializeArrayParam}
  */
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export function serializeArrayParam(name, value, options) {
-  if (!Array.isArray(value)) {
+  if (!Array.isArray(value) || !value.length) {
     return "";
   }
-
-  // explode: false
   if (options.explode === false) {
-    // note: for arrays, joiners vary wildly based on style + explode behavior
-    const joiner = { form: ",", spaceDelimited: "%20", pipeDelimited: "|" }[options.style] || ",";
-    const final = (
-      options.allowReserved === true ? value : value.map((v) => encodeURIComponent(v))
-    ).join(joiner);
-    switch (options.style) {
-      case "simple": {
-        return final;
-      }
-      case "label": {
-        return `.${final}`;
-      }
-      case "matrix": {
-        return `;${name}=${final}`;
-      }
-      // case "spaceDelimited":
-      // case "pipeDelimited":
-      default: {
-        return `${name}=${final}`;
-      }
-    }
+    return serializeUnexplodedArray(name, value, options);
   }
-
-  // explode: true
-  const joiner = { simple: ",", label: ".", matrix: ";" }[options.style] || "&";
   const values = [];
   for (const v of value) {
     if (options.style === "simple" || options.style === "label") {
-      values.push(options.allowReserved === true ? v : encodeURIComponent(v));
-    } else {
+      values.push(encodeValue(v, options.allowReserved));
+    } else if (v != null) {
       values.push(serializePrimitiveParam(name, v, options));
     }
   }
-  return options.style === "label" || options.style === "matrix"
-    ? `${joiner}${values.join(joiner)}`
-    : values.join(joiner);
+  return values.length ? joinExploded(values, options.style) : "";
+}
+
+/** One query parameter with the default styles: `form` arrays, `deepObject` objects. */
+function serializeQueryParam(name, value, options) {
+  const allowReserved = options?.allowReserved || false;
+  if (Array.isArray(value)) {
+    return serializeArrayParam(name, value, {
+      style: "form",
+      explode: true,
+      ...options?.array,
+      allowReserved,
+    });
+  }
+  if (value && typeof value === "object" && !isDate(value)) {
+    return serializeObjectParam(name, value, {
+      style: "deepObject",
+      explode: true,
+      ...options?.object,
+      allowReserved,
+    });
+  }
+  return serializePrimitiveParam(name, value, options);
 }
 
 /**
- * Serialize query params to string
+ * Serialize query params to string. A parameter that serializes to nothing (`null`, an empty
+ * array or object) is left out with its `&`; an empty part made `a=1&&b=2` (ADR-041).
  * @type {import("./index.js").createQuerySerializer}
  */
 export function createQuerySerializer(options) {
@@ -631,37 +665,10 @@ export function createQuerySerializer(options) {
     const search = [];
     if (queryParams && typeof queryParams === "object") {
       for (const key in queryParams) {
-        const value = queryParams[key];
-        const name = encodeName(key);
-        if (value === undefined || value === null) {
-          continue;
+        const part = serializeQueryParam(encodeName(key), queryParams[key], options);
+        if (part) {
+          search.push(part);
         }
-        if (Array.isArray(value)) {
-          if (value.length === 0) {
-            continue;
-          }
-          search.push(
-            serializeArrayParam(name, value, {
-              style: "form",
-              explode: true,
-              ...options?.array,
-              allowReserved: options?.allowReserved || false,
-            }),
-          );
-          continue;
-        }
-        if (typeof value === "object") {
-          search.push(
-            serializeObjectParam(name, value, {
-              style: "deepObject",
-              explode: true,
-              ...options?.object,
-              allowReserved: options?.allowReserved || false,
-            }),
-          );
-          continue;
-        }
-        search.push(serializePrimitiveParam(name, value, options));
       }
     }
     return search.join("&");
@@ -698,12 +705,12 @@ export function defaultPathSerializer(pathname, pathParams) {
     let serialized;
     if (Array.isArray(value)) {
       serialized = serializeArrayParam(name, value, { style, explode });
-    } else if (typeof value === "object") {
+    } else if (typeof value === "object" && !isDate(value)) {
       serialized = serializeObjectParam(name, value, { style, explode });
     } else if (style === "matrix") {
       serialized = `;${serializePrimitiveParam(name, value)}`;
     } else {
-      serialized = style === "label" ? `.${encodeURIComponent(value)}` : encodeURIComponent(value);
+      serialized = style === "label" ? `.${encodeValue(value)}` : encodeValue(value);
     }
     // A function: a string replacement reads `$'`, `$&` and the like, which object keys keep.
     nextURL = nextURL.replace(match, () => serialized);
