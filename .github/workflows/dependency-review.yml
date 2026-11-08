@@ -25,4 +25,7 @@ jobs:
           # A deny list, not an allow list: the private example apps use Next.js, whose image
           # binaries are LGPL and whose browser data is CC-BY-4.0, which is fine for examples. Copyleft
           # licenses that would bind users of the published packages are refused.
+          # node-forge (a dev dependency of the fetch tests) is "BSD-3-Clause OR GPL-2.0". The action
+          # refuses the expression because one choice is denied; we use it under BSD-3-Clause.
+          allow-dependencies-licenses: pkg:npm/node-forge
           deny-licenses: AGPL-1.0-only, AGPL-1.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later, GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, SSPL-1.0, EUPL-1.2
