@@ -166,7 +166,10 @@ have the same version. The full rule is
 - log formats (`DEBUG=openapi-ts:*` lines, the migration tool's `--log` file) and the generated
   header comment;
 - exports, fields and members marked `@internal`, and the generator's own state on
-  `options.ctx`.
+  `options.ctx`;
+- the shape of the types generated for the [OpenAPI 3.2 additions](./introduction.md#openapi-3-2-support)
+  (`query` operations, `additionalOperations`, `itemSchema`, `in: querystring`,
+  `components.mediaTypes`), which is experimental in 1.x. A change is named in the changelog.
 
 **Node.js and TypeScript.** A minor release may raise the lowest supported Node.js version, only
 to drop a line that has reached its end of life (Node.js 22 on 2027-04-30), and its changelog says

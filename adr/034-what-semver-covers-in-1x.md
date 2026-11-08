@@ -124,6 +124,15 @@ stays and closes two gaps.
 | A details type per code | each key is typed | freezes every key of the 26 codes for 1.x, also those only logs need; a generic error class makes `isOpenAPITypesafeError` and `catch` blocks harder to type; one code has several shapes (`SCHEMA_REF_INVALID` with `reason: "cycle"` or `"malformed"`) |
 | Types for the documented keys only | the three keys are typed | needs the same generic class or a union of error types for three keys |
 
+## Amendment (2026-11-08): the OpenAPI 3.2 types are experimental
+
+Decision 1 covers the generated types. ADR-020 (amendment of 2026-11-08) makes one exception:
+the shape of the types generated from the OpenAPI 3.2 keys (`query` operations,
+`additionalOperations`, `itemSchema`, `in: querystring`, `components.mediaTypes`) may change in a
+minor release, with a changeset that says so, until it is declared final (at the latest in 2.0).
+The output of documents without these keys stays covered by decision 1. This is the only
+experimental part of 1.x; a new one needs its own ADR.
+
 ## Review trigger
 
 A user reports a deep upstream path that no longer resolves, a change that this ADR classifies
