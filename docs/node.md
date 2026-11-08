@@ -94,7 +94,7 @@ These exports keep working in 1.x and are removed in 2.0:
 
 ### Redocly config
 
-A Redocly config isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redocly config to the Node API. You can do this with the helpers in `@redocly/openapi-core` version 1, the version openapi-typesafe uses (`npm i -D @redocly/openapi-core@1`):
+A Redocly config isn’t required to use openapi-typesafe. By default it extends the `"minimal"` built-in config. But if you want to modify the default settings, you’ll need to provide a fully-initialized Redocly config to the Node API. You can do this with the helpers in `@redocly/openapi-core` version 1, the version openapi-typesafe uses (`npm i -D @redocly/openapi-core@1`). A config made with version 2 has another shape and does not work: openapi-typesafe 1.x stays on Redocly 1 ([ADR-005](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/adr/005-schema-loader.md)).
 
 ::: code-group
 
