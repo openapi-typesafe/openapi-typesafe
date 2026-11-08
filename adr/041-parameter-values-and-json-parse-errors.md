@@ -1,0 +1,91 @@
+# ADR-041: Parameter values and JSON parse errors (audit finding F7)
+
+- Status: Accepted
+- Date: 2026-11-08
+
+## Context
+
+The 1.0 audit (finding F7) ran the same requests through `openapi-typesafe-fetch` 1.0.0-rc.3 and
+openapi-fetch 0.17 on Node.js 24, Bun 1.4.4 and Deno 2.9.6. Both clients behave the same here:
+
+| Case | What was sent or returned |
+| --- | --- |
+| `query: { d: new Date(0) }` | `/echo`: a `Date` is an object, a `deepObject` without members, so nothing was sent |
+| `query: { at: [new Date(0)] }`, or a `Date` in a `form` object | `String(date)`: `Thu Jan 01 1970 01:00:00 GMT+0100 (…)`, local time that servers do not parse |
+| a `Date` path parameter | an empty segment, for the same reason as the query |
+| `query: { a: "", e: {}, f: 0 }` | `?a=&&f=0`: the empty object gave an empty part, and `join("&")` kept its separator |
+| `query: { a: [null, 1] }`, `{ o: { x: null, y: 1 } }` | stray separators: `null` items gave empty parts too |
+| `200` with `Content-Type: text/plain`, no `parseAs` | `SyntaxError: Unexpected token 'h', "hello" is not valid JSON` |
+| `200` with an HTML body (a proxy page) where JSON was expected | a bare `SyntaxError` that names neither the status nor the content type |
+| `TRACE()` | Node.js: `TypeError: 'TRACE' HTTP method is unsupported.`; Deno: `TypeError: Method is forbidden`; Bun: the request is sent, the response body is empty |
+
+The generated response types follow the media types: an operation with `text/plain: string` types
+`data` as `string`, while the client parses every success body as JSON unless `parseAs` is set.
+
+Drop-in compatibility with openapi-fetch is the product's core promise. Test doubles built with
+`new Response(JSON.stringify(data))` are very common, and their `Content-Type` is
+`text/plain;charset=UTF-8`; some real servers also send JSON as `text/plain`.
+
+The client has no error classes of its own: it throws `Error` for invalid options and lets the
+platform's errors (`TypeError`, `SyntaxError`) through.
+
+The bundle was 8.66 kB against a budget of 8.75 kB.
+
+## Decision
+
+1. **Dates.** A `Date` parameter value is sent as `toISOString()` (ISO 8601, UTC): as a query
+   value, as an item of an array in every array style, as a member of an object in every object
+   style, and as a path parameter in every path style. A value counts as a `Date` when it has a
+   `toISOString` method, so a `Date` from another realm counts too (the rule of ADR-030 for Fetch
+   API objects). An invalid `Date` throws the platform's `RangeError`.
+2. **Empty values.** A query parameter that serializes to nothing (`null`, `undefined`, an empty
+   array, an empty object) is left out with its `&`. `serializeArrayParam` and
+   `serializeObjectParam` return `""` for an empty array or object in every style, and an exploded
+   array (`form`, `spaceDelimited`, `pipeDelimited`, `matrix`) or object leaves out its `null` and
+   `undefined` items and members, as the top level always did. Unexploded styles and the `simple`
+   and `label` array styles keep writing such items as text, as before.
+3. **Response bodies keep openapi-fetch's default.** Without `parseAs`, every success body is
+   parsed as JSON, whatever its `Content-Type`; a `text/*` body needs `parseAs: "text"`. Error
+   bodies are parsed as JSON and stay text when they are not JSON, as before.
+4. **Bodies that are not JSON.** When a success body must be JSON and is not, the client throws a
+   `SyntaxError` with the message
+   ``Response <status> (<Content-Type or "no Content-Type">) is not JSON; <hint>: "<first 100
+   characters>"`` and the parser's error as `cause`. The hint is ``set `parseAs: "text"` `` for a
+   `text/*` response and ``set `parseAs` `` otherwise. It stays a `SyntaxError`, so code that
+   catches one still does.
+5. **TRACE.** `TRACE()` stays (ADR-013, decision 5). The docs list what each platform does: it
+   rejects in browsers (the Fetch standard forbids the method), Node.js and Deno, and in Bun 1.4 it
+   is sent but the response body is always empty.
+6. **Size.** The bundle budget rises from 8.75 kB to 9.25 kB (8.99 kB after these changes).
+
+## Alternatives
+
+| Option | Pros | Cons |
+|---|---|---|
+| `Date` as `toISOString()` (chosen) | The OpenAPI `date-time` format is RFC 3339; servers parse it; same text in every time zone | A server that wants `format: date` (`2026-11-08`) needs a `querySerializer` or a string |
+| `Date` as `String(date)` (before) | No change | Local time, time zone name in the user's language; not a date-time any server reads |
+| `Date` as epoch milliseconds | Short | Not what `format: date-time` describes |
+| Leave out empty parts (chosen) | `a=1&b=2`; no empty parameter names on the wire | A server that read `&&` as an empty parameter (none can) sees a change |
+| Send `name=` for an empty array | Says "empty" on the wire | No OpenAPI style defines it; openapi-fetch also leaves the top-level empty array out |
+| JSON unless `parseAs`, with a hint in the error (chosen) | Same results as openapi-fetch; the error says how to read a text body | A `text/plain: string` operation still needs `parseAs: "text"`, as upstream |
+| Read `text/*` bodies as text when `parseAs` is not set | Runtime matches the generated `string` type of `text/*` media | Rejected: every `new Response(JSON.stringify(x))` double and every server that sends JSON as `text/plain` would silently get a string instead of an object, breaking the drop-in promise |
+| `SyntaxError` with status, type, hint and excerpt (chosen) | Existing `catch (e instanceof SyntaxError)` keeps working; the message says what came back and what to do | The message carries 100 characters of the body, which may reach logs |
+| A new exported error class with `response` | Typed access to the response | New public API and bytes for one case; the client has no error classes to fit into |
+| Remove `TRACE()` | No platform surprise | Breaking change; `trace` operations exist in OpenAPI |
+
+## Consequences
+
+- Each code change is a user-visible fix with its own changeset.
+- The migration guide lists the changes under client fixes, and the API page documents the rules
+  and the `TRACE` table.
+- The serializers touched here were split into helpers of at most 30 lines, so
+  `serializeObjectParam` and `serializeArrayParam` lose their ADR-036 suppressions.
+- The excerpt in the parse error is at most 100 characters of a body the server sent; it holds no
+  request data.
+- Only the bodies that threw before are affected: a body that parsed as JSON gives the same data.
+
+## Review trigger
+
+A report of a server that needs empty parameters on the wire or a `Date` in another format, a
+2.0 decision to follow the response `Content-Type`, or a Bun release that returns the body of a
+`TRACE` response.
