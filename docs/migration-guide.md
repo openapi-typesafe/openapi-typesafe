@@ -79,7 +79,7 @@ openapi-typesafe needs Node.js **22.12** or newer (the client and helpers: Node.
 
 ### No TypeScript dependency
 
-The generator does not need the `typescript` package. It prints types itself, so it runs next to TypeScript 7 (see [TypeScript 7](/typescript-7)). `typescript` is an optional peer dependency, loaded only by the legacy callbacks below.
+The generator does not need the `typescript` package. It prints types itself, so it runs next to TypeScript 7 (see [TypeScript 7](/typescript-7)). `typescript` is an optional peer dependency, loaded only by the legacy callbacks below. Its range is `>=5.4.0`, the TypeScript versions openapi-typesafe supports; openapi-typescript said `^5.x`. On TypeScript 5.0 to 5.3, npm reports a peer conflict (`ERESOLVE`): upgrade TypeScript to 5.4 or newer.
 
 ### Node API returns IR
 
@@ -99,7 +99,7 @@ As in openapi-typescript 7, the old spellings fail with an error that names the 
 
 ### CLI exit codes and errors
 
-Failures now exit with a documented code: `1` stale output with `--check` (as before), `2` usage or configuration, `3` input document, `4` output files, `70` unexpected error. Before, every failure exited with `1`. See [exit codes](/cli#exit-codes). `--check` without `--output` (and without `apis` in `redocly.yaml`) now fails with `2` and `CLI_CHECK_OUTPUT_MISSING`; before, it printed the types and passed without checking anything. Without a schema, with nothing piped into stdin (stdin is a terminal) and without `apis` in `redocly.yaml`, the CLI now fails with `2` and `CLI_INPUT_MISSING`; before, it waited for input with no prompt, which looked like a hang.
+Failures now exit with a documented code: `1` stale output with `--check` (as before), `2` usage or configuration, `3` input document, `4` output files, `70` unexpected error. Before, every failure exited with `1`. See [exit codes](/cli#exit-codes). `--check` without `--output` (and without `apis` in `redocly.yaml`) now fails with `2` and `CLI_CHECK_OUTPUT_MISSING`; before, it printed the types and passed without checking anything. Without a schema, with nothing piped into stdin (stdin is a terminal) and without `apis` in `redocly.yaml`, the CLI now fails with `2` and `CLI_INPUT_MISSING`; before, it waited for input with no prompt, which looked like a hang. An `--output` (or `x-openapi-ts.output`) that is a schema file the CLI reads now fails with `2` and `CLI_OUTPUT_IS_INPUT` and writes nothing; before, the types replaced the schema. APIs in `redocly.yaml` with the same `x-openapi-ts.output` now all fail with `2` and `CLI_OUTPUT_DUPLICATE`; before, the API that finished last silently won.
 
 OpenAPI 3.2 documents get types for `query` and `additionalOperations` operations, `itemSchema` (an `itemContent` map next to `content`), `in: querystring` parameters and `components.mediaTypes`; openapi-typescript leaves them out. `HttpMethod` from `openapi-typesafe-helpers` includes `"query"`, and the fetch client has `QUERY()`. A `Record<HttpMethod, …>` you write yourself needs a `query` entry. The path-based client no longer offers `PARAMETERS()`, which was typed but always failed. The types of these 3.2 additions are experimental in 1.x and may change in a minor release. See [OpenAPI 3.2 support](/introduction#openapi-3-2-support).
 

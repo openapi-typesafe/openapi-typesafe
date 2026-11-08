@@ -43,6 +43,10 @@
             "integration_id": 15368
           },
           {
+            "context": "pull request title",
+            "integration_id": 15368
+          },
+          {
             "context": "lint, types, layers",
             "integration_id": 15368
           },
