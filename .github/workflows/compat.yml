@@ -85,9 +85,9 @@ jobs:
       ${{ github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'schedule' && !github.event.repository.private) }}
     runs-on: ubuntu-latest
-    # About 70 minutes for the slowest shard on the runner of a private repository; ADR-038 has the
-    # estimate and the 3x rule of ADR-029.
-    timeout-minutes: 210
+    # The slowest shard took 88 minutes on 2026-11-08 (shards took 40 to 88); ADR-038 has the
+    # measurement and the 3x rule of ADR-029.
+    timeout-minutes: 270
     strategy:
       # Every shard runs to the end, so the report sees every mismatch, not only the first shard's.
       fail-fast: false
