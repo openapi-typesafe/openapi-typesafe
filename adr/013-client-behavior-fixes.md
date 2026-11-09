@@ -239,6 +239,26 @@ checked `FormData` only.
    object body without `FormData`) still fails with the platform's error, which names the class.
 2. `missing-platform-globals.test.ts` runs the client with these classes removed.
 
+### Stream-like bodies (decision 6)
+
+A Node.js `Readable` (`fs.createReadStream()`) is not a `ReadableStream`, so it was JSON-encoded to
+its internal fields (`{"_events":{},...}`), as in openapi-fetch 0.17, and the upload was lost
+without an error. `fetch` in Node.js (undici), Deno and Bun accepts any async iterable as a body,
+with `duplex: "half"`.
+
+3. A body with a `Symbol.asyncIterator` method is a stream body, like a `ReadableStream`: sent as
+   it is, without the JSON `Content-Type`, with `duplex: "half"`. The platform reads the chunks:
+   Deno rejects chunks that are not `Uint8Array` with its own error. Browsers do not take an async
+   iterable body; the docs say to wrap it in a `ReadableStream` there. The declared result of
+   `defaultBodySerializer` counts both stream kinds as raw bodies too, so it is the stream, not
+   `string`.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Send an async iterable as it is, with `duplex` (chosen) | What the three server runtimes accept; no conversion code | A browser turns it into text, as it does for any body it does not know |
+| Convert it with `ReadableStream.from()` | Works in browsers that have `ReadableStream.from` | Bytes; Chromium lacks it; changes nothing on the server runtimes |
+| Throw for an async iterable | Clear | Rejects a body that every server runtime sends |
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`

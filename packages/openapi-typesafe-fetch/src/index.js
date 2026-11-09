@@ -145,7 +145,7 @@ export default function createClient(clientOptions) {
     const requestInit = {
       redirect: "follow",
       // The Fetch standard requires `duplex: "half"` (its only value) for a stream body.
-      duplex: isPlatformInstance(serializedBody, "ReadableStream") ? "half" : undefined,
+      duplex: isStreamBody(serializedBody) ? "half" : undefined,
       ...baseOptions,
       ...init,
       body: serializedBody,
@@ -794,14 +794,26 @@ function isPlatformInstance(value, name) {
 }
 
 /**
+ * A stream body: a `ReadableStream`, or an async iterable such as a Node.js `Readable`, which
+ * `fetch` in Node.js, Deno and Bun also streams. Both need `duplex: "half"` (ADR-013, decision 6).
+ */
+function isStreamBody(body) {
+  return (
+    isPlatformInstance(body, "ReadableStream") || typeof body?.[Symbol.asyncIterator] === "function"
+  );
+}
+
+/**
  * Bodies `fetch` sends as they are, with their own `Content-Type` (FormData, Blob, URLSearchParams)
  * or none. JSON-encoding a Blob, an ArrayBuffer or a stream sent `{}` (ADR-013, decision 6).
  */
 function isRawBody(body) {
   return (
-    ["FormData", "Blob", "URLSearchParams", "ArrayBuffer", "ReadableStream"].some((name) =>
+    ["FormData", "Blob", "URLSearchParams", "ArrayBuffer"].some((name) =>
       isPlatformInstance(body, name),
-    ) || ArrayBuffer.isView(body)
+    ) ||
+    ArrayBuffer.isView(body) ||
+    isStreamBody(body)
   );
 }
 

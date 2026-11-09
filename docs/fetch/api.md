@@ -276,7 +276,7 @@ const { data, error } = await client.PUT("/submit", {
 
 For convenience, `openapi-typesafe-fetch` sets `Content-Type` to `application/json` automatically
 for any request that provides value for the `body` parameter. When the body (or the `bodySerializer` result) is a
-`FormData`, `Blob`, `File`, `URLSearchParams`, `ArrayBuffer` or typed array, `Content-Type` is omitted, allowing the
+`FormData`, `Blob`, `File`, `URLSearchParams`, `ArrayBuffer`, typed array or stream, `Content-Type` is omitted, allowing the
 platform to set it automatically (for `FormData`, with the correct message part boundary). For the
 same reason a `multipart/form-data` `Content-Type` that you set is dropped when the client builds
 the `FormData` from an object, `boundary` or not: the platform picks the boundary of the body. For a
@@ -310,6 +310,9 @@ schema) is sent as is. Set `Content-Type` yourself when the server needs one; a 
 from the platform. A `ReadableStream` is streamed: the client sets `duplex: "half"`, which the Fetch
 standard requires for a stream body. Node.js, Deno and Bun send it; browser support for stream
 request bodies varies (Chromium needs HTTP/2), so in a browser send a `Blob` unless you checked yours.
+An async iterable, such as a Node.js `Readable` (`fs.createReadStream()`), is streamed the same way:
+Node.js, Deno and Bun accept it as a body (Deno only with `Uint8Array` chunks). Browsers do not, so
+there wrap it in a `ReadableStream`.
 
 ```ts
 const { data, error } = await client.PUT("/files/{name}", {

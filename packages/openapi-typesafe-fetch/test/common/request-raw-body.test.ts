@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import createClient, { createFinalURL, defaultBodySerializer } from "../../src/index.js";
 
@@ -86,6 +87,31 @@ describe("raw request bodies", () => {
     expect(inits).toHaveLength(1);
     expect(inits[0]).toMatchObject({ duplex: "half" });
     expect(new Headers(inits[0]?.headers).get("Content-Type")).toBeNull();
+  });
+
+  it.each([
+    [
+      "an async generator",
+      () =>
+        (async function* () {
+          yield new TextEncoder().encode("gen");
+        })(),
+    ],
+    ["a Node.js Readable", () => Readable.from([Buffer.from("gen")])],
+  ])("%s body is streamed with duplex half, not JSON-encoded", async (_name, createBody) => {
+    const { client, inits } = initRecordingClient();
+    const body = createBody();
+
+    await client.POST("/upload", { body });
+
+    expect(inits[0]).toMatchObject({ duplex: "half", body });
+    expect(new Headers(inits[0]?.headers).get("Content-Type")).toBeNull();
+  });
+
+  it("a Node.js Readable body is sent as its bytes", async () => {
+    const request = await sentRequest(Readable.from([Buffer.from("node "), Buffer.from("bytes")]));
+
+    expect(await request.text()).toBe("node bytes");
   });
 
   it("a body that is not a stream gets no duplex", async () => {

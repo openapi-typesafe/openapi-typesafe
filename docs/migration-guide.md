@@ -220,7 +220,7 @@ aliased to `openapi-typesafe-fetch` with `overrides` (npm, bun, `pnpm-workspace.
 - A path that starts with `//` once the path parameters are in (an empty first parameter) is rejected before the request is sent, since a browser sends it to another host.
 - An error response with an empty body gives `error: undefined`, also without `Content-Length`; it gave `""`.
 - openapi-typesafe-react-query: `useInfiniteQuery` has its own query key, `[...queryKey, "infinite"]`, so it no longer shares a cache entry with `useQuery`. `[method, path]` still matches it as a prefix; code that reads or writes the entry with the exact key must append `"infinite"`.
-- A `Blob`, `File`, `ArrayBuffer`, typed array, `URLSearchParams` or `ReadableStream` body is sent as is (a stream with `duplex: "half"`); before, it was JSON-encoded to `{}`.
+- A `Blob`, `File`, `ArrayBuffer`, typed array, `URLSearchParams`, `ReadableStream` or async iterable (a Node.js `Readable`) body is sent as is (a stream with `duplex: "half"`); before, it was JSON-encoded (to `{}`, or to the internal fields of a `Readable`).
 - A nested object in an `application/x-www-form-urlencoded` body throws instead of being sent as `[object Object]`; write a `bodySerializer` for the format your server reads.
 - An object body with `Content-Type: multipart/form-data` is sent as `FormData` (one part per field), not as JSON, with the boundary the platform picks (a boundary set by hand in the header is dropped), and a `multipart/form-data` header without a boundary no longer breaks a `FormData` upload.
 - A path that already has a query string gets `&` before `params.query`, not a second `?`.
