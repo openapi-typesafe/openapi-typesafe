@@ -491,18 +491,18 @@ function isResponse(value) {
 
 /**
  * Parse a JSON body. A body that is not JSON, such as the HTML page of a proxy, threw a bare
- * `SyntaxError`; this one names the response, says which `parseAs` reads it, and keeps the first
- * one as `cause` (ADR-041). It holds no body text: a body such as a form-encoded OAuth token
- * answer would carry a secret into logs and error trackers.
+ * `SyntaxError`; this one names the response and says which `parseAs` reads it (ADR-041). It holds
+ * no body text, and so no `cause`: the parser's message quotes the body, and a body such as a
+ * form-encoded OAuth token answer would carry a secret into logs and error trackers.
  */
 function parseJSON(raw, response) {
   try {
     return JSON.parse(raw);
-  } catch (cause) {
+  } catch {
     const contentType = response.headers.get("Content-Type");
     const hint = TEXT_MEDIA_TYPE_RE.test(contentType) ? 'set `parseAs: "text"`' : "set `parseAs`";
     const subject = `Response ${response.status} (${contentType ?? "no Content-Type"})`;
-    throw new SyntaxError(`${subject} is not JSON (${raw.length} characters); ${hint}`, { cause });
+    throw new SyntaxError(`${subject} is not JSON (${raw.length} characters); ${hint}`);
   }
 }
 

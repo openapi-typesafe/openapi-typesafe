@@ -79,9 +79,9 @@ As in openapi-fetch, a success body is parsed as JSON unless `parseAs` says othe
 its `Content-Type`; a `text/plain` response needs `parseAs: "text"`. A success body that is not
 JSON (for example the HTML page of a proxy) throws a `SyntaxError` that names the status, the
 `Content-Type` and the length of the body, and says which `parseAs` to set (`parseAs: "text"` for
-a `text/*` response); the parser's own error is its `cause`. The message holds no body text, since
-a body can hold a secret (a form-encoded OAuth token answer) and the message reaches logs; read
-`response` with `parseAs: "text"` to see it. An error
+a `text/*` response). The error holds no body text, since a body can hold a secret (a form-encoded
+OAuth token answer) and errors reach logs, so it has no `cause` either: the parser's message quotes
+the body. Read `response` with `parseAs: "text"` to see it. An error
 response (`4xx`, `5xx`) whose body is not JSON gives the text as `error` instead of throwing.
 
 ### Headers
