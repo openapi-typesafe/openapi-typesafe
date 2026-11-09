@@ -64,6 +64,34 @@ function gzipBomb(response: ServerResponse): void {
   response.end(GZIP_BOMB);
 }
 
+/** Paths whose first request had its connection closed; the next request is answered. */
+const closedOnce = new Set<string>();
+const closedConnections = { once: 0, reset: 0 };
+
+/**
+ * Close the connection of the first request for each path before any response, as a server does
+ * that closed a kept-alive connection the client had not seen close yet; answer the next one.
+ */
+function closeOnce(request: IncomingMessage, response: ServerResponse): void {
+  const url = request.url ?? "";
+  if (!closedOnce.has(url)) {
+    closedOnce.add(url);
+    closedConnections.once += 1;
+    request.socket.destroy();
+    return;
+  }
+  const body = url.endsWith("/root.json")
+    ? JSON.stringify(documentWith({ Person: { $ref: "./person.json" } }))
+    : PERSON;
+  response.writeHead(200, { "content-type": "application/json" }).end(body);
+}
+
+/** Close the connection of every request before any response. */
+function reset(request: IncomingMessage): void {
+  closedConnections.reset += 1;
+  request.socket.destroy();
+}
+
 /** The routes of the local server: a schema, a missing file, a redirect loop, no answer and a slow body. */
 function answer(request: IncomingMessage, response: ServerResponse): void {
   // A Map, so a request path such as `/constructor` cannot reach an object prototype method.
@@ -84,6 +112,14 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
   );
   if (request.url?.startsWith("/fan/")) {
     fan(request, response);
+    return;
+  }
+  if (request.url?.startsWith("/closed-once/")) {
+    closeOnce(request, response);
+    return;
+  }
+  if (request.url === "/reset.json") {
+    reset(request);
     return;
   }
   const route = routes.get(request.url ?? "");
@@ -197,6 +233,23 @@ describe("remote $ref", () => {
 
     expect(error).toMatchObject({ code: "SCHEMA_LOAD_FAILED", message: "fetch failed" });
     expect((error.cause as Error).cause).toMatchObject({ code: "ECONNREFUSED" });
+  });
+
+  it("a document whose connection closed before any response is fetched once more", async () => {
+    const bundled = await loadDocument(new URL(`${baseURL}/closed-once/root.json`));
+
+    expect(bundled.components?.schemas).toEqual({
+      Person: { $ref: "#/components/schemas/person" },
+      person: JSON.parse(PERSON),
+    });
+    expect(closedConnections.once).toBe(2);
+  });
+
+  it("a connection that closes before every response fails after one more attempt", async () => {
+    const error = await loadFailure(new URL(`${baseURL}/reset.json`));
+
+    expect(error).toMatchObject({ code: "SCHEMA_LOAD_FAILED", message: "fetch failed" });
+    expect(closedConnections.reset).toBe(2);
   });
 
   it("an unsupported key in a remote document names that document", async () => {
