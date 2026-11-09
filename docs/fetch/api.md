@@ -250,8 +250,8 @@ const { data, error } = await client.POST("/avatars", {
 });
 ```
 
-A nested object in such a body throws, because a part with JSON needs its own content type and
-servers differ. For that, or any other format, write a `bodySerializer`:
+A nested object or array (an object item, or an array in an array) in such a body throws, because a
+part with JSON needs its own content type and servers differ. For that, or any other format, write a `bodySerializer`:
 
 ```ts
 const { data, error } = await client.PUT("/submit", {
@@ -339,7 +339,8 @@ const { data, error } = await client.POST("/tokens", {
 ```
 
 Form encoding has no standard for nested objects (servers read `a[b]`, `a.b` or JSON), so a nested
-object value throws an error instead of being sent as `[object Object]`. An array becomes one
+object value, an object in an array, or an array in an array throws an error instead of being sent
+as `[object Object]` or flattened. An array becomes one
 comma-separated value (`ids=1%2C2`), a `Date` its ISO 8601 text as in parameters, and a `null` or
 `undefined` field is left out, as in a multipart body. For nested values or repeated keys, write a `bodySerializer` in the format your server reads.
 

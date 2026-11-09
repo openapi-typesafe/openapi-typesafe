@@ -259,6 +259,16 @@ with `duplex: "half"`.
 | Convert it with `ReadableStream.from()` | Works in browsers that have `ReadableStream.from` | Bytes; Chromium lacks it; changes nothing on the server runtimes |
 | Throw for an async iterable | Clear | Rejects a body that every server runtime sends |
 
+### Nested items in form bodies (decisions 7 and 10)
+
+Decisions 7 and 10 checked the field value and skipped arrays, so an item was not checked: in an
+`application/x-www-form-urlencoded` body, `{ tags: [{ id: 1 }] }` was sent as `[object Object]`
+and `[[1, 2], [3]]` was flattened to `1,2,3`; in a multipart body (since the `Date` amendment of
+ADR-041) `[[1, 2], [3]]` became the parts `1,2` and `3`.
+
+4. A form field is a primitive, a `Date`, a `Blob` (multipart only) or an array of them. An object
+   or an array as an item throws the error of decisions 7 and 10, in both form encodings.
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`

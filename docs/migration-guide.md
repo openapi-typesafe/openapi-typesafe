@@ -221,7 +221,7 @@ aliased to `openapi-typesafe-fetch` with `overrides` (npm, bun, `pnpm-workspace.
 - An error response with an empty body gives `error: undefined`, also without `Content-Length`; it gave `""`.
 - openapi-typesafe-react-query: `useInfiniteQuery` has its own query key, `[...queryKey, "infinite"]`, so it no longer shares a cache entry with `useQuery`. `[method, path]` still matches it as a prefix; code that reads or writes the entry with the exact key must append `"infinite"`.
 - A `Blob`, `File`, `ArrayBuffer`, typed array, `URLSearchParams`, `ReadableStream` or async iterable (a Node.js `Readable`) body is sent as is (a stream with `duplex: "half"`); before, it was JSON-encoded (to `{}`, or to the internal fields of a `Readable`).
-- A nested object in an `application/x-www-form-urlencoded` body throws instead of being sent as `[object Object]`; write a `bodySerializer` for the format your server reads.
+- A nested object in an `application/x-www-form-urlencoded` body, also as an array item, throws instead of being sent as `[object Object]`; write a `bodySerializer` for the format your server reads.
 - An object body with `Content-Type: multipart/form-data` is sent as `FormData` (one part per field), not as JSON, with the boundary the platform picks (a boundary set by hand in the header is dropped), and a `multipart/form-data` header without a boundary no longer breaks a `FormData` upload.
 - A path that already has a query string gets `&` before `params.query`, not a second `?`.
 - Query parameter names and object keys are percent-encoded like values, so data in a key cannot add a parameter, a path segment or an object member. Names keep `[ ] $ : @ ,` as written (`filter[status]`, `$filter`); object keys are encoded without exceptions.

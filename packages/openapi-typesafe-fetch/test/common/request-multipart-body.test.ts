@@ -168,6 +168,15 @@ describe("multipart/form-data bodies", () => {
     expect(onlyRequest(requests).headers.get("Content-Type")).toBe(header);
   });
 
+  it.each([
+    ["a nested array", { m: [[1, 2], [3]] }],
+    ["an array of objects", { tags: [{ id: 1 }] }],
+  ])("defaultBodySerializer rejects %s in a multipart body", (_name, body) => {
+    expect(() => defaultBodySerializer(body, MULTIPART_HEADERS)).toThrow(
+      "Nested form values need your own `bodySerializer()`.",
+    );
+  });
+
   it("defaultBodySerializer with a multipart header returns FormData", () => {
     expect(defaultBodySerializer({ a: "1" }, MULTIPART_HEADERS)).toBeInstanceOf(FormData);
   });

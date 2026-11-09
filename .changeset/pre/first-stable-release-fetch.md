@@ -16,7 +16,8 @@ Changes that can need work when you move from openapi-fetch 0.17:
 - A string body is sent as is, without JSON quotes, unless its `Content-Type` is `application/json`
   or a `+json` type; line-based JSON types such as `application/x-ndjson` send it as is too
   (upstream [#2555](https://github.com/openapi-ts/openapi-typescript/issues/2555), [#2382](https://github.com/openapi-ts/openapi-typescript/issues/2382)).
-- A nested object in a form or multipart body throws; write a `bodySerializer` for it.
+- A nested object or array in a form or multipart body, also as an array item, throws; write a
+  `bodySerializer` for it.
 - A `Date` is sent as ISO 8601 (`toISOString()`) in every query and path style and form field. In
   an `application/x-www-form-urlencoded` body, and in a query array or object with
   `explode: false`, it was a local time text (`String(date)`); a `Date` on its own in the query or

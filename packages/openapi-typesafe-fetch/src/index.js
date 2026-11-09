@@ -817,16 +817,20 @@ function isRawBody(body) {
   );
 }
 
-/** Whether a form value is a nested object, which form encodings cannot hold; a `Date` is not. */
+/**
+ * Whether a form item is nested: an object or an array, which form encodings cannot hold. A `Date`
+ * is not. A field holds one level of array, so its items are checked, not the field.
+ */
 function isNestedFormValue(value) {
-  return value && typeof value === "object" && !Array.isArray(value) && !isDate(value);
+  return value && typeof value === "object" && !isDate(value);
 }
 
 /**
- * A form body. A nested object has no standard form encoding (servers read `a[b]`, `a.b` or JSON),
- * and `URLSearchParams` wrote it as `[object Object]` (ADR-013, decision 7). `null` and `undefined`
- * fields are left out, as in a multipart body; `URLSearchParams` sent them as the text "null" and
- * "undefined" (ADR-030). A string or a list of pairs is form data already.
+ * A form body. A nested object or array, also as an array item, has no standard form encoding
+ * (servers read `a[b]`, `a.b` or JSON), and `URLSearchParams` wrote it as `[object Object]` or
+ * flattened it (ADR-013, decision 7). `null` and `undefined` fields are left out, as in a multipart
+ * body; `URLSearchParams` sent them as the text "null" and "undefined" (ADR-030). A string or a
+ * list of pairs is form data already.
  */
 function formBody(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -834,12 +838,13 @@ function formBody(body) {
   }
   const form = new URLSearchParams();
   for (const [name, value] of Object.entries(body)) {
-    if (isNestedFormValue(value)) {
+    const items = [value].flat();
+    if (items.some(isNestedFormValue)) {
       throw new Error(NESTED_FORM_VALUE_MESSAGE);
     }
     if (value != null) {
       // An array is one comma-separated value, as `URLSearchParams` writes it.
-      form.append(name, Array.isArray(value) ? value.map(valueText).join(",") : valueText(value));
+      form.append(name, items.map(valueText).join(","));
     }
   }
   return form.toString();
@@ -848,7 +853,7 @@ function formBody(body) {
 /**
  * A `multipart/form-data` body: one part per field, one per item of an array. A `Blob` (or `File`)
  * is a file part, other primitives are text, `null` and `undefined` are left out. A nested object
- * would need a part content type such as JSON, which the client does not guess (ADR-013,
+ * or array would need a part content type such as JSON, which the client does not guess (ADR-013,
  * decision 10).
  */
 function multipartBody(body) {

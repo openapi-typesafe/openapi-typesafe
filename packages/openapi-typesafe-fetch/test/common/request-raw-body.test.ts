@@ -186,6 +186,15 @@ describe("form bodies", () => {
   it("defaultBodySerializer rejects a nested object instead of sending [object Object]", () => {
     expect(() => defaultBodySerializer({ a: { b: 1 } }, FORM_HEADERS)).toThrow("bodySerializer");
   });
+
+  it.each([
+    ["an array of objects", { tags: [{ id: 1 }, { id: 2 }] }],
+    ["a nested array", { m: [[1, 2], [3]] }],
+  ])("defaultBodySerializer rejects %s instead of flattening it", (_name, body) => {
+    expect(() => defaultBodySerializer(body, FORM_HEADERS)).toThrow(
+      "Nested form values need your own `bodySerializer()`.",
+    );
+  });
 });
 
 describe("createFinalURL", () => {
