@@ -183,6 +183,62 @@ missing object on stderr and lists the files it can read. A test plants such a r
 checks that no command ran, also with `GIT_NO_LAZY_FETCH=0` in the environment. The environment
 is passed to the git adapter by the composition root, not read inside it.
 
+This decision was wrong in one point, which the next amendment corrects: `protocol.allow=never`
+does not refuse every transport, because a repository's `protocol.<name>.allow` wins over it.
+
+## Amendment (2026-11-09): the second review of the migration tool
+
+A second review of the fixes above found these gaps.
+
+- **The transport guarantee did not hold on git older than 2.45.** A planted
+  `protocol.ssh.allow=always` (or `protocol.file.allow`) beats `-c protocol.allow=never`, and git
+  before 2.45 ignores `GIT_NO_LAZY_FETCH`, so on git 2.39 the lazy fetch still ran the planted
+  `core.sshCommand`. Decision: git also gets `GIT_ALLOW_PROTOCOL=""` in its environment. Since
+  git 2.12 this variable, when set, is the whole list of allowed transports and overrides every
+  `protocol.*` key, so an empty list refuses all of them on every git the tool supports (2.31 and
+  newer). The other settings stay as a second layer. Checked with the proof repositories on git
+  2.39.3 and 2.54.0, and by a test that plants `protocol.ssh.allow=always` and
+  `protocol.file.allow=always` and drops `GIT_NO_LAZY_FETCH`.
+- **Git was found by a bare name.** On Windows a bare `git` with the project as the working
+  folder can start a `git.exe` from that folder. The adapter now looks git up itself: the first
+  absolute folder of `PATH` (`Path` on Windows, by any case) that holds an executable `git`
+  (`git.exe` on Windows), and runs that path. Relative and empty entries of `PATH` are skipped.
+  The lookup takes the environment, the platform and a small file system port, so tests run it
+  with an in-memory one. Without a git found, the folder is walked as a tree.
+- **A planted `core.worktree` or an inherited `GIT_DIR` changed what git listed.** The first made
+  the listing empty, the second (set by git hooks) made every folder list one repository. The
+  folder that holds the nearest `.git` is now given as `GIT_WORK_TREE`, which wins over
+  `core.worktree`, and the variables that name a repository (`GIT_DIR`, `GIT_WORK_TREE`,
+  `GIT_COMMON_DIR`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+  `GIT_ALTERNATE_OBJECT_DIRECTORIES`) are not passed on.
+- **A link to a file outside the project was dropped without a word.** It is now listed under
+  "Skipped" like a path from a foreign index.
+- **Commands after reserved words** (`if npx openapi-typescript …; then`, `do`, `!`, `{`) were
+  read as arguments of the reserved word. The word reader now follows the shell grammar: a
+  reserved word counts only unquoted and in command position, its command starts after it, and
+  `for`, `select`, `case` and `[[` clauses hold no command; `function NAME` is a header.
+- **Large YAML files were slow** (21 s on a crafted file). Three causes: every YAML file was
+  parsed, `yaml` checks duplicate keys in quadratic time, and line numbers were counted from the
+  start of the text for every finding. Now a YAML file that names no old package is not parsed
+  (it can hold nothing to change or report), the parser runs with `uniqueKeys: false` and a
+  linear check over the keys reports the same duplicate with the same offset, and lines are found
+  by a binary search over the line starts. Tests bound the time.
+- **Commands that were neither migrated nor reported.** A Dockerfile `RUN`, `CMD` or
+  `ENTRYPOINT` in exec form (a JSON array of strings, as Docker reads it; anything else is shell
+  form) is one command, each string a word. In a Makefile the value of an assignment is read as a
+  command, `$(…)` and `${…}` are one word, and the flags after a reference to a variable that
+  holds the generator (`$(OAT) a.yaml -it`) are renamed. Template literals with substitutions in
+  sources are reported as written. The values of a workflow `env:` map are read as shell text.
+- **Catalog entries and their dependencies drifted apart.** Each file was migrated alone, so a
+  dependency kept under its old name (its new name was in the same field) pointed at a catalog
+  entry that was renamed, and a dependency on an entry the tool does not edit (an alias, a flow
+  map) was renamed: both made the install fail. Decision: before any file is migrated, the
+  manifests and catalog files that name an old package are read into a catalog plan. An entry
+  that a kept dependency still uses stays, and a dependency on an entry that stays (in a catalog
+  without the new name) stays; both are reported. Inserting a new entry for the new name was
+  rejected: it would change a file the user did not expect to grow, and it hides which of the two
+  names the project means.
+
 ## Amendment (2026-11-09): reading and writing files
 
 The rc.4 review found three ways the tool changed a project by halves or without a word:
