@@ -123,7 +123,16 @@ export type RefRefusalDetails =
   | { readonly reason: "outside-local-root"; readonly localRoot: string }
   | { readonly reason: "host-not-allowed"; readonly allowedHosts: readonly string[] }
   | { readonly reason: "local-ref-from-remote"; readonly base: string }
-  | { readonly reason: "too-many-remote-documents"; readonly maxDocuments: number };
+  | { readonly reason: "too-many-remote-documents"; readonly maxDocuments: number }
+  | { readonly reason: "remote-document-too-large"; readonly maxDocumentBytes: number }
+  | { readonly reason: "remote-documents-too-large"; readonly maxTotalBytes: number };
+
+const BYTES_PER_MEBIBYTE = 1024 * 1024;
+
+/** A byte count in MiB, as the limits are chosen: `256 MiB`; a smaller limit in bytes. */
+function sizeText(bytes: number): string {
+  return bytes % BYTES_PER_MEBIBYTE === 0 ? `${bytes / BYTES_PER_MEBIBYTE} MiB` : `${bytes} bytes`;
+}
 
 function limitText(details: RefRefusalDetails): string {
   switch (details.reason) {
@@ -137,6 +146,12 @@ function limitText(details: RefRefusalDetails): string {
       return `it is not an http(s) URL, and the $ref is in the remote document ${details.base}`;
     case "too-many-remote-documents":
       return `the document refers to more than ${details.maxDocuments} remote documents`;
+    case "remote-document-too-large":
+      return `its body is larger than ${sizeText(details.maxDocumentBytes)} once decoded`;
+    case "remote-documents-too-large": {
+      const limit = sizeText(details.maxTotalBytes);
+      return `the remote documents of this run are larger than ${limit} together once decoded`;
+    }
     default:
       return assertNever(details);
   }
@@ -144,7 +159,7 @@ function limitText(details: RefRefusalDetails): string {
 
 /**
  * A `$ref` is outside the local root, its host is not allowed (threat model R1, R2), a remote
- * document refers to a local file (T3), or there are too many remote documents (T2).
+ * document refers to a local file (T3), or there are too many or too large remote documents (T2).
  */
 export function refForbiddenError(ref: string, details: RefRefusalDetails): OpenAPITypesafeError {
   const limit = limitText(details);

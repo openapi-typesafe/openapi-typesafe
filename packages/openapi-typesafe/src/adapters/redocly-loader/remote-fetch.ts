@@ -2,11 +2,12 @@ import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import type { RefAccess } from "../../application/ports/schema-loader.js";
 import { isHostAllowed } from "./allowed-hosts.js";
 import { type ConfiguredHeader, headersFor } from "./configured-headers.js";
+import { RemoteBodyLimit, type RemoteBodyLimits } from "./remote-body-limit.js";
 import { refForbiddenError } from "./schema-load-errors.js";
 
 /**
- * How the loader fetches remote documents: a time limit, the host limit and the configured headers
- * checked on every redirect.
+ * How the loader fetches remote documents: a time limit, size limits, the host limit and the
+ * configured headers checked on every redirect.
  */
 
 type ResolveConfig = RedoclyConfig["resolve"];
@@ -25,9 +26,16 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 /** Statuses whose responses have no body; `new Response()` refuses a body for them. */
 const NULL_BODY_STATUSES = new Set([101, 103, 204, 205, 304]);
 
-/** A response whose body is already read, so that reading it again cannot wait or fail. */
-async function bufferedResponse(response: Response): Promise<Response> {
-  const body = await response.arrayBuffer();
+/**
+ * A response whose body is already read within the size limits, so that reading it again cannot
+ * wait, fail or take more memory.
+ */
+async function bufferedResponse(
+  response: Response,
+  url: string,
+  bodyLimit: RemoteBodyLimit,
+): Promise<Response> {
+  const body = await bodyLimit.read(response, url);
   const { status, statusText, headers } = response;
   return new Response(NULL_BODY_STATUSES.has(status) ? null : body, {
     status,
@@ -43,16 +51,21 @@ async function bufferedResponse(response: Response): Promise<Response> {
  * surfaced as a `DOMException` whose read-only `message` Redocly tried to change, which gave
  * "Cannot set property message of  which has only a getter" instead of the time limit.
  */
-function fetchWithTimeout(timeoutMs: number): RemoteFetch {
+function fetchWithTimeout(timeoutMs: number, bodyLimit: RemoteBodyLimit): RemoteFetch {
   return async (input, init = {}) => {
     try {
       const response = await fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
-      return await bufferedResponse(response);
+      return await bufferedResponse(response, input, bodyLimit);
     } catch (cause) {
       const isTimeout = cause instanceof Error && cause.name === "TimeoutError";
       throw isTimeout ? new Error(`Timed out after ${timeoutMs} ms loading ${input}`) : cause;
     }
   };
+}
+
+/** A configured `customFetch` with its bodies read within the size limits. */
+function fetchWithBodyLimit(fetchImpl: RemoteFetch, bodyLimit: RemoteBodyLimit): RemoteFetch {
+  return async (input, init) => bufferedResponse(await fetchImpl(input, init), input, bodyLimit);
 }
 
 /** What every hop of a remote fetch is checked against. */
@@ -97,7 +110,7 @@ export function fetchWithCheckedRedirects(
 }
 
 /** Bounds on the remote documents of one load (threat model T2, ADR-033). */
-export interface RemoteDocumentLimits {
+export interface RemoteDocumentLimits extends RemoteBodyLimits {
   /** Remote documents one load may fetch, the root included; one more is refused. */
   readonly maxDocuments: number;
   /** Remote documents fetched at the same time; the others wait for a free slot. */
@@ -135,11 +148,13 @@ export interface RemoteFetchOptions {
   readonly timeoutMs: number;
   readonly access: RefAccess;
   readonly maxParallelFetches: number;
+  readonly bodyLimits: RemoteBodyLimits;
 }
 
 /**
  * The resolve config with the fetch the loader uses. A `customFetch` of the Redocly config is
- * kept and wrapped, so that each redirect is checked and only a few documents load at once. The
+ * kept and wrapped, so that each redirect is checked, each body is read within the size limits
+ * and only a few documents load at once. The
  * configured headers move into that wrapper: Redocly would match them against the raw URL and
  * send them on through redirects.
  */
@@ -149,7 +164,12 @@ export function resolveConfigWithAccess(
 ): ResolveConfig {
   // Redocly types `customFetch` as `Function`; it is called as fetch is.
   const configured = resolve.http.customFetch as RemoteFetch | undefined;
-  const base = configured ?? fetchWithTimeout(options.timeoutMs);
+  // One limit per load, so that the total covers every document this resolver fetches.
+  const bodyLimit = new RemoteBodyLimit(options.bodyLimits);
+  const base =
+    configured === undefined
+      ? fetchWithTimeout(options.timeoutMs, bodyLimit)
+      : fetchWithBodyLimit(configured, bodyLimit);
   const checked = fetchWithCheckedRedirects(base, {
     headers: resolve.http.headers,
     hosts: options.access.remoteHosts,

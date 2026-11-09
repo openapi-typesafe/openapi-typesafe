@@ -56,14 +56,25 @@ export function defaultDeprecationReporter(): DeprecationReporter {
  */
 export const REMOTE_REF_TIMEOUT_MS = 60_000;
 
+const MEBIBYTE = 1024 * 1024;
+
 /**
  * Bounds on the remote documents of one run (ADR-033). Large split documents have a few thousand
  * files, so 10,000 leaves room and still ends an endless fan-out. 16 parallel fetches keep a
  * multi-file document fast without exhausting local ports.
+ *
+ * The size limits count decoded bytes (threat model T2). The largest document of the 1,820-entry
+ * compatibility corpus is Microsoft Graph beta, 71 MiB; 256 MiB per document is more than three
+ * times that, and half of the longest string V8 can hold (about 512 MiB), so a document that
+ * passes can still be parsed. 512 MiB for the whole run lets a split document use twice the
+ * largest single one, and bounds the memory a crafted set of documents can take to that much text
+ * and its parsed form.
  */
 export const DEFAULT_REMOTE_DOCUMENT_LIMITS: RemoteDocumentLimits = {
   maxDocuments: 10_000,
   maxParallelFetches: 16,
+  maxDocumentBytes: 256 * MEBIBYTE,
+  maxTotalBytes: 512 * MEBIBYTE,
 };
 
 /** The working directory of the process: the default `cwd` of an inline source. */

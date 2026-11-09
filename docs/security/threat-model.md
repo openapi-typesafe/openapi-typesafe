@@ -62,7 +62,12 @@ the generator.
   YAML file whose aliases expand it more than 100 times past 1,000,000 nodes fails with
   `SCHEMA_PARSE_FAILED`; at most 10,000 remote documents per run, fetched at most 16 at a time,
   so a document that keeps referring to new URLs ends with `SCHEMA_REF_FORBIDDEN` instead of
-  sending requests until the local ports run out (ADR-033); path keys are scanned in linear time.
+  sending requests until the local ports run out (ADR-033); remote bodies are read as a stream
+  and counted after `gzip`, `deflate` or `br` is decoded, so a body larger than 256 MiB, or remote
+  documents larger than 512 MiB together in one run, end with `SCHEMA_REF_FORBIDDEN` (reasons
+  `remote-document-too-large`, `remote-documents-too-large`) before a compressed "zip bomb" fills
+  the memory, also through a `customFetch` of the Redocly config; path keys are scanned in linear
+  time.
 - Tests: `test/defensive/`. Limits are listed in docs/advanced.md, "Limits".
 
 ### T3. Local file read through `$ref` — Controlled by an option (R1)
