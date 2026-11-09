@@ -124,8 +124,8 @@ interface ProjectPlan {
 }
 
 /**
- * A manifest, catalog or import map file as the plan reads it: whether it names an original package, and its
- * parsed roots; `roots` is undefined when the file cannot be read or parsed.
+ * A manifest, catalog or import map file as the plan reads it: whether it names an original
+ * package, and its parsed roots; `roots` is undefined when the file cannot be read or parsed.
  */
 interface PlanRead {
   readonly namesOriginal: boolean;

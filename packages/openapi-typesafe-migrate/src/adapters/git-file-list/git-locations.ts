@@ -107,8 +107,9 @@ async function isTrustedFolder(host: GitHost, project: string, folder: string): 
 
 /**
  * The absolute path of the first git on PATH outside the project and outside every `node_modules`,
- * or undefined when there is none. The absolute path also keeps Windows from looking in the working directory first, as it
- * does for a bare program name: a `git.exe` planted at the project root never runs.
+ * or undefined when there is none. The absolute path also keeps Windows from looking in the
+ * working directory first, as it does for a bare program name: a `git.exe` planted at the project
+ * root never runs.
  */
 export async function findGitExecutable(host: GitHost): Promise<string | undefined> {
   const paths = pathsOf(host.platform);
