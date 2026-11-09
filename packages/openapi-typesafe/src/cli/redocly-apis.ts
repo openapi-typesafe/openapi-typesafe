@@ -163,18 +163,37 @@ function configFilesOf(run: CliRun, redocly: RedoclyConfig, apis: readonly Redoc
   return { configRoot, files: { schemas, outputs } satisfies ConfigFiles };
 }
 
+/** What `task` gives for each item, run one after another: the next starts when one settles. */
+async function settledInTurn<T, R>(
+  items: readonly T[],
+  task: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = [];
+  for (const item of items) {
+    try {
+      results.push({ status: "fulfilled", value: await task(item) });
+    } catch (reason) {
+      results.push({ status: "rejected", reason });
+    }
+  }
+  return results;
+}
+
 /**
- * Generate every API of the config, concurrently, then write them. Nothing is written until
- * every API is read and every output is claimed, so no output can replace a file that another
- * API still reads; an output that is a file any API read (a `$ref`'d schema) fails with
- * `CLI_OUTPUT_IS_INPUT`. Every API is generated or checked even when another fails, so `--check`
- * reports a stale output wherever it is; the failures are returned in the order of the config.
+ * Generate every API of the config, one after another in the order of the config, then write
+ * them. One at a time, so a run takes the memory of its largest API, not the sum of all of them,
+ * and the work of one API cannot hold up the fetches of another until their timeout ends them.
+ * Nothing is written until every API is read and every output is claimed, so no output can
+ * replace a file that another API still reads; an output that is a file any API read (a `$ref`'d
+ * schema) fails with `CLI_OUTPUT_IS_INPUT`. Every API is generated or checked even when another
+ * fails, so `--check` reports a stale output wherever it is; the failures are returned in the
+ * order of the config.
  */
 export async function generateRedoclyApis(run: CliRun, redocly: RedoclyConfig): Promise<unknown[]> {
   const apis = redoclyApisOf(redocly);
   const { configRoot, files } = configFilesOf(run, redocly, apis);
-  const results = await Promise.allSettled(
-    apis.map(async (api) => generateApi(run, redocly, apiTarget(api, configRoot), files)),
+  const results = await settledInTurn(apis, (api) =>
+    generateApi(run, redocly, apiTarget(api, configRoot), files),
   );
   const generated = results.flatMap((result) =>
     result.status === "fulfilled" ? [result.value] : [],

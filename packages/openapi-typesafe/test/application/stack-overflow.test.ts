@@ -24,6 +24,11 @@ describe("stack overflow", () => {
     expect(error.cause).toBe(OVERFLOW);
   });
 
+  it("schemaTooDeepError of loading names a wide object too, which only the loader overflows on", () => {
+    expect(schemaTooDeepError("load", OVERFLOW).message).toContain("more than about 100,000 keys");
+    expect(schemaTooDeepError("transform", OVERFLOW).message).not.toContain("keys");
+  });
+
   it("withStackOverflowReported returns the result and reports an overflow", () => {
     expect(withStackOverflowReported("print", () => 1)).toBe(1);
     expect(() =>

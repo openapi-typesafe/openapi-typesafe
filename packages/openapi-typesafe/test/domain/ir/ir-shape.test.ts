@@ -28,6 +28,12 @@ describe("isPrintableIrType", () => {
     ["a generated reference name", { kind: "reference", name: "typeof Status", typeArguments: [] }],
     ["a qualified reference name", { kind: "reference", name: "Status.active", typeArguments: [] }],
     ["a qualified type query", { kind: "reference", name: "typeof A.b", typeArguments: [] }],
+    ["a reserved word after a dot", { kind: "reference", name: "A.class", typeArguments: [] }],
+    [
+      "a type operator in a type query",
+      { kind: "reference", name: "typeof keyof", typeArguments: [] },
+    ],
+    ["a predefined type name", { kind: "reference", name: "string", typeArguments: [] }],
     ["an array", { kind: "array", element: STRING }],
     [
       "a tuple",
@@ -103,6 +109,11 @@ describe("isPrintableIrType", () => {
       { kind: "reference", name: "1A", typeArguments: [] },
     ],
     ["a bare type query", { kind: "reference", name: "typeof ", typeArguments: [] }],
+    ["an import type query", { kind: "reference", name: "typeof import", typeArguments: [] }],
+    [
+      "a strict mode word in a type query",
+      { kind: "reference", name: "typeof let.a", typeArguments: [] },
+    ],
     ["a reference name that is no text", { kind: "reference", name: 1, typeArguments: [] }],
     ["an empty union", { kind: "union", types: [] }],
     ["a union with a bad member", { kind: "union", types: [STRING, {}] }],
@@ -117,6 +128,37 @@ describe("isPrintableIrType", () => {
   ])("isPrintableIrType of %s is false", (_name, value) => {
     expect(isPrintableIrType(value)).toBe(false);
   });
+
+  it.each(["keyof", "infer", "unique", "readonly", "new", "typeof", "import", "let", "yield"])(
+    "isPrintableIrType of a reference named %s, which TypeScript reads as no type name, is false",
+    (name) => {
+      expect(isPrintableIrType({ kind: "reference", name, typeArguments: [] })).toBe(false);
+    },
+  );
+
+  it.each([
+    ["an object", { kind: "object", members: [] }],
+    ["a literal", { kind: "stringLiteral", value: "a" }],
+    [
+      "a union with an array",
+      { kind: "union", types: [STRING, { kind: "array", element: STRING }] },
+    ],
+    ["the keyword null", { kind: "keyword", keyword: "null" }],
+  ])(
+    "isPrintableIrType of an index signature with %s as its parameter type is false",
+    (_name, parameterType) => {
+      const member = {
+        kind: "indexSignature",
+        parameterName: "k",
+        parameterType,
+        type: STRING,
+        isReadonly: false,
+        comments: [],
+      };
+
+      expect(isPrintableIrType({ kind: "object", members: [member] })).toBe(false);
+    },
+  );
 
   it("isPrintableIrType of a type that contains itself is false instead of recursing forever", () => {
     const types: unknown[] = [STRING];

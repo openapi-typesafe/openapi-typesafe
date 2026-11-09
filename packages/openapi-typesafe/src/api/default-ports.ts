@@ -59,7 +59,7 @@ export const REMOTE_REF_TIMEOUT_MS = 60_000;
 const MEBIBYTE = 1024 * 1024;
 
 /**
- * Bounds on the remote documents of one run (ADR-033). Large split documents have a few thousand
+ * Bounds on the remote documents of one schema (ADR-033). Large split documents have a few thousand
  * files, so 10,000 leaves room and still ends an endless fan-out. 16 parallel fetches keep a
  * multi-file document fast without exhausting local ports.
  *
@@ -67,8 +67,9 @@ const MEBIBYTE = 1024 * 1024;
  * The largest document of the 1,820-entry compatibility corpus is Microsoft Graph beta: 71 MiB,
  * 2.65 million nodes (keys and values), 1.6 GB peak memory when loaded from a URL. A remote body
  * took about 7 bytes of memory per byte of text and 110 per node in our measurements, so 128 MiB
- * per document (1.8 times Graph beta), 256 MiB per run (a split document may be twice as large)
- * and 8 million nodes per run (3 times Graph beta) keep crafted documents under about 1.7 GB.
+ * per document (1.8 times Graph beta), 256 MiB per schema (a split document may be twice as
+ * large) and 8 million nodes per schema (3 times Graph beta) let crafted documents finish within
+ * a heap of 2 GB; with the default heap of 4 GB they peak at about 1.2 to 2.3 GB.
  */
 export const DEFAULT_REMOTE_DOCUMENT_LIMITS: RemoteDocumentLimits = {
   maxDocuments: 10_000,

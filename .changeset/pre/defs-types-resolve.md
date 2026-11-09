@@ -2,5 +2,5 @@
 "openapi-typesafe": patch
 ---
 
-`$defs` types: a schema's `$defs` is optional, and the root `$defs` has one member per subschema
-(upstream [#2664](https://github.com/openapi-ts/openapi-typescript/issues/2664)).
+`$defs` types: the root `$defs` has one member per subschema, so `#/$defs/<name>` refs are no
+longer `never` (upstream [#2664](https://github.com/openapi-ts/openapi-typescript/issues/2664)). A schema's own `$defs` is optional: see Major Changes.

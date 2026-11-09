@@ -134,3 +134,30 @@ property name rules) joined by `.`, optionally after `typeof ` (the generator wr
 `typeof Status` and `Status.active`); anything else fails with `CALLBACK_RESULT_UNREADABLE`. The
 generator itself wrote one name with type arguments in it, `FlattenedDeepRequired<components>`;
 it is now a reference with a type argument, which prints the same text.
+
+## Amendment (2026-11-09): the recheck of claims and reference names
+
+The recheck of the amendments above found four gaps.
+
+- **A claim through a link to a missing directory failed.** `mkdir` with `recursive: true` fails
+  on the link itself. A trailing separator makes it follow the link on macOS only; Linux and
+  Windows still fail. Claims and writes now follow such links themselves, as the identity key
+  does, and create the real path of the target: `link/x.ts` with `link -> missing` creates
+  `missing`. The directories they created are then real paths, which a failed run removes.
+- **A failed claim kept the directories it created**, and so did a failed single-output write
+  (a file name too long for the file system). Both now remove them, deepest first, as a released
+  claim does. A directory that was removed since needs no removal, and its new parents are still
+  removed; any other failure to remove one fails the run with `OUTPUT_WRITE_FAILED`. Windows
+  reports a file put in place of the directory as missing too (ENOENT), so a path that still
+  exists is never taken as removed.
+- **Reference names that are TypeScript keywords passed.** `keyof`, `typeof`, `readonly`,
+  `unique`, `infer` and `new` start a type operator where a type is expected, and `import`,
+  `let`, `yield` and the strict-mode reserved words cannot start a type name. The first name of a
+  reference is checked against these lists, which were found by compiling `typeof <name>` and
+  `<name>` with TypeScript 5.4 and 6.0 over every reserved word and contextual keyword; a name
+  after a `.` may be any identifier.
+- **An index signature's parameter type of `{}` printed a syntax error** (TS1268). The parameter
+  type must now be `string`, `number`, a reference, raw type text, or a union of these.
+
+A rest element whose type is not an array (TS2574) still prints: it is a type error, as a
+reference to a missing name is, and decision 7 checks only what can print as TypeScript syntax.

@@ -199,8 +199,9 @@ text after the last `#/`: with `--enum` and `--enum-values` the property `a#/b` 
 Redocly 1.x bundles every discriminator `mapping` value like an external `$ref` and stores its
 target under the raw last segment of the pointer. A `mapping` to a local schema whose key needs an
 escape (`a~b` written `.../a~0b`, `c/d` written `.../c~1d`) therefore added `a~0b` and `c~1d` to
-`components.schemas` as copies, and the output declared each type twice. openapi-typescript 7.13
-does the same. Fixing it in Redocly is outside our control while ADR-005 pins Redocly 1.34, so the
+`components.schemas` as copies, and the output declared each type twice. A `$ref` from another
+file back into the root document to such a key (`./root.yaml#/components/schemas/a~0b`) is
+bundled the same way and gave the same copy. openapi-typescript 7.13 does the same. Fixing it in Redocly is outside our control while ADR-005 pins Redocly 1.34, so the
 loader repairs the bundled document, as it repairs the bundled `$ref`s (PB-14):
 
 1. It records the keys of `components.schemas` before bundling (the bundle edits the document in

@@ -13,7 +13,12 @@
       "dependsOn": ["build"]
     },
     "//#lint:changesets": {
-      "inputs": [".changeset/**/*.md", "scripts/check-changeset-texts.mjs"]
+      "inputs": [
+        ".changeset/**/*.md",
+        "scripts/check-changeset-texts.mjs",
+        "scripts/changeset-texts.mjs",
+        "scripts/changeset-texts.test.mjs"
+      ]
     },
     "size-limit": {
       "dependsOn": ["build"]

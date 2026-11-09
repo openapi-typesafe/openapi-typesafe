@@ -45,6 +45,45 @@ async function bufferedResponse(
 }
 
 /**
+ * Codes of a connection that closed before any response came. The server can close a kept-alive
+ * connection while the process is busy (parsing a large document, generating another API) and
+ * has not read the close yet; the next request on that connection then fails with one of these.
+ */
+const CLOSED_CONNECTION_CODES: ReadonlySet<string> = new Set([
+  "ECONNRESET",
+  "EPIPE",
+  "UND_ERR_SOCKET",
+]);
+
+/** Methods that may be sent again without a second effect (RFC 9110 §9.2.2). */
+const IDEMPOTENT_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD"]);
+const DEFAULT_METHOD = "GET";
+
+/** Whether fetch failed because its connection closed before any response came. */
+function isClosedConnection(error: unknown): boolean {
+  const cause = error instanceof TypeError ? error.cause : undefined;
+  const code = cause instanceof Error && "code" in cause ? cause.code : undefined;
+  return typeof code === "string" && CLOSED_CONNECTION_CODES.has(code);
+}
+
+/**
+ * Fetch, and send the request once more when its connection closed before any response came, as
+ * RFC 9112 §9.3.1 allows for an idempotent request. Fetch drops a connection that failed, so the
+ * second attempt goes out on another one; a second failure is the server's answer and is thrown.
+ */
+async function fetchOnOpenConnection(input: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    const method = (init.method ?? DEFAULT_METHOD).toUpperCase();
+    if (!(IDEMPOTENT_METHODS.has(method) && isClosedConnection(error))) {
+      throw error;
+    }
+    return fetch(input, init);
+  }
+}
+
+/**
  * Fetch with a time limit for the whole response, body included: Node's own fetch waits five
  * minutes for a server that never answers, and a server that sends its body one byte at a time
  * never finishes. The body is read here, inside the limit; when Redocly read it, the abort
@@ -54,7 +93,9 @@ async function bufferedResponse(
 function fetchWithTimeout(timeoutMs: number, bodyLimit: RemoteBodyLimit): RemoteFetch {
   return async (input, init = {}) => {
     try {
-      const response = await fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+      // One signal for both attempts, so that a request sent again stays within the same limit.
+      const signal = AbortSignal.timeout(timeoutMs);
+      const response = await fetchOnOpenConnection(input, { ...init, signal });
       return await bufferedResponse(response, input, bodyLimit);
     } catch (cause) {
       const isTimeout = cause instanceof Error && cause.name === "TimeoutError";

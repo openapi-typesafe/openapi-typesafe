@@ -22,7 +22,12 @@ export function isLineBreak(code: number): boolean {
  */
 export class TextWriter {
   readonly #options: PrintOptions;
-  #output = "";
+  /**
+   * The written parts, joined once at the end. A string built with `+=` is kept by V8 as a tree
+   * of its parts, several times the size of the text, for as long as the text is kept (until the
+   * CLI writes it); `join` gives one flat string.
+   */
+  #parts: string[] = [];
   #indent = 0;
   #isAtLineStart = true;
 
@@ -39,7 +44,9 @@ export class TextWriter {
   }
 
   get text(): string {
-    return this.#output;
+    const text = this.#parts.join("");
+    this.#parts = [text];
+    return text;
   }
 
   increaseIndent(): void {
@@ -61,7 +68,7 @@ export class TextWriter {
 
   /** Write text exactly as given. */
   rawWrite(text: string): void {
-    this.#output += text;
+    this.#parts.push(text);
     this.#updateLineStart(text);
   }
 

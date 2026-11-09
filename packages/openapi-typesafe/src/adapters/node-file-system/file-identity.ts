@@ -112,6 +112,16 @@ function nearestExisting(filePath: string, queries: PathQueries): [string, strin
   return [current, missing];
 }
 
+/**
+ * The path that a write to `filePath` creates, with links followed also where their target is
+ * missing: `link/x.ts` with `link -> missing` is the real path of `missing/x.ts`. `mkdir` does not
+ * follow a link to a missing directory on Linux and Windows, so the directories are created here.
+ */
+export function creationPath(filePath: string, queries: PathQueries): string {
+  const [existing, missing] = nearestExisting(filePath, queries);
+  return path.join(queries.realPath(existing), ...missing);
+}
+
 /** The key of a path: equal keys are one file, whether or not it exists yet. */
 export function fileIdentityKey(filePath: string, queries: PathQueries): string {
   const [existing, missing] = nearestExisting(filePath, queries);

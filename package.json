@@ -11,7 +11,7 @@
   "scripts": {
     "build": "turbo run build",
     "lint": "turbo run lint //#lint:changesets --continue",
-    "lint:changesets": "node scripts/check-changeset-texts.mjs",
+    "lint:changesets": "node --test scripts/changeset-texts.test.mjs && node scripts/check-changeset-texts.mjs",
     "dev": "pnpm run -r --parallel --filter \"{packages/*}\" --aggregate-output dev",
     "format": "turbo run format",
     "test": "turbo run test --continue",

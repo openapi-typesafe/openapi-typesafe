@@ -1,6 +1,6 @@
 # openapi-typesafe-helpers
 
-This package is a fork of `openapi-typescript-helpers`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-typescript-helpers` versions.
+This package is a fork of `openapi-typescript-helpers`. The entries above `0.1.0` are releases of openapi-typesafe-helpers; `0.1.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript-helpers` versions.
 
 ## 1.0.0-rc.3
 

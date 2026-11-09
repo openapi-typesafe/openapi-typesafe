@@ -1,0 +1,9 @@
+# Schemas whose keys need a pointer escape, used from another file that points back here.
+openapi: 3.1.0
+info: { title: back refs, version: "1" }
+paths: {}
+components:
+  schemas:
+    "a~b": { type: object, properties: { k: { type: string } } }
+    "c/d": { type: string }
+    Pair: { $ref: "./pair.yaml#/components/schemas/Pair" }

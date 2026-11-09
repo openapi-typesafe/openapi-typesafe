@@ -8,4 +8,5 @@ types such as `Blob` methods (upstream [#2615](https://github.com/openapi-ts/ope
 
 They also keep properties typed `any`, which hand-written types and transform hooks can have:
 `Writable` typed them `undefined`, so a request body with such a property failed to compile. The
-helper types that `--read-write-markers` writes into the output change the same way.
+helper types that `--read-write-markers` writes into the output change the same way: see Major
+Changes.
