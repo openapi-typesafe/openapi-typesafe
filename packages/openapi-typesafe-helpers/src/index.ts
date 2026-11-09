@@ -343,15 +343,19 @@ type ReadWriteLeaf = ReadWritePrimitive | ((...args: never) => unknown);
 
 /**
  * Keys of `T` whose value is a `Marker`. A key whose value is only `null` or `undefined` is not
- * marked: `NonNullable` of it is `never`, and `never` extends every marker (upstream #2717). The
- * checks are not distributive (`NonNullable<T[K]>` is not a type parameter), so `never` is seen.
+ * marked: `NonNullable` of it is `never`, and `never` extends every marker (upstream #2717). An
+ * `any` key is not marked either (`0 extends 1 & T[K]` is true only for `any`): a check on `any`
+ * takes both branches, so `Readable` dropped the key and `Writable` typed it `undefined`. The
+ * checks are not distributive (their check types are not type parameters), so `never` is seen.
  */
 type ReadWriteMarkedKeys<T, Marker> = {
-  [K in keyof T]-?: NonNullable<T[K]> extends never
+  [K in keyof T]-?: 0 extends 1 & T[K]
     ? never
-    : NonNullable<T[K]> extends Marker
-      ? K
-      : never;
+    : NonNullable<T[K]> extends never
+      ? never
+      : NonNullable<T[K]> extends Marker
+        ? K
+        : never;
 }[keyof T];
 
 /**
