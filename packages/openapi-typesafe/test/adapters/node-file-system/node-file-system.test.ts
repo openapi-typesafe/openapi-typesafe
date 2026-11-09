@@ -76,6 +76,30 @@ describe("createNodeFileSystem", () => {
     expect(isSame).toBe(fs.existsSync(upper));
   });
 
+  it("isSameFile of two missing files in another letter case follows the file system (G1)", () => {
+    const probe = path.join(workDir, "probe.yaml");
+    fs.writeFileSync(probe, "");
+    const ignoresCase = fs.existsSync(path.join(workDir, "PROBE.yaml"));
+    const lower = pathToFileURL(path.join(workDir, "gen", "types.ts"));
+    const upper = pathToFileURL(path.join(workDir, "gen", "Types.ts"));
+
+    expect(createNodeFileSystem().isSameFile(lower, upper)).toBe(ignoresCase);
+  });
+
+  it("isSameFile of a missing file through a linked directory and in the target is true (G2)", () => {
+    const real = path.join(workDir, "real-dir");
+    const link = path.join(workDir, "link-dir");
+    fs.mkdirSync(real);
+    fs.symlinkSync(real, link, "dir");
+
+    const isSame = createNodeFileSystem().isSameFile(
+      pathToFileURL(path.join(link, "out", "types.ts")),
+      pathToFileURL(path.join(real, "out", "types.ts")),
+    );
+
+    expect(isSame).toBe(true);
+  });
+
   it("isSameFile of two files, or of a missing or unreadable one, is false", () => {
     const first = path.join(workDir, "first.yaml");
     const second = path.join(workDir, "second.yaml");

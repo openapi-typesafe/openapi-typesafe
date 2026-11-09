@@ -13,8 +13,9 @@ export interface FileWriter {
 
 /**
  * Whether two `file:` locations name one file: also through a symbolic link, a hard link, or
- * another letter case on a case-insensitive file system. The CLI asks before it writes, so that
- * an output path never replaces the schema it reads (`CLI_OUTPUT_IS_INPUT`).
+ * another letter case on a case-insensitive file system, and also when the file does not exist
+ * yet. The CLI asks before it writes, so that an output path never replaces a file the run reads
+ * (`CLI_OUTPUT_IS_INPUT`) nor another API's output (`CLI_OUTPUT_DUPLICATE`).
  */
 export interface FileIdentity {
   isSameFile(left: URL, right: URL): boolean;
