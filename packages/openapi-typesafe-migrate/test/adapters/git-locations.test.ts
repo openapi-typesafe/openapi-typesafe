@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -15,6 +15,7 @@ function posixHost(path: string | undefined, executables: readonly string[]): Gi
     environment: path === undefined ? {} : { PATH: path },
     platform: "linux",
     fileSystem: new InMemoryGitFileSystem(executables),
+    projectRoot: "/project",
   };
 }
 
@@ -39,6 +40,16 @@ describe("findGitExecutable", () => {
     expect(await findGitExecutable(host)).toBe("/usr/bin/git");
   });
 
+  it("findGitExecutable passes over absolute PATH folders in the project", async () => {
+    const host = posixHost("/project:/project/node_modules/.bin:/usr/bin", [
+      "/project/git",
+      "/project/node_modules/.bin/git",
+      "/usr/bin/git",
+    ]);
+
+    expect(await findGitExecutable(host)).toBe("/usr/bin/git");
+  });
+
   it("findGitExecutable gives undefined without PATH or without git on it", async () => {
     expect(await findGitExecutable(posixHost(undefined, ["/usr/bin/git"]))).toBeUndefined();
     expect(await findGitExecutable(posixHost("/usr/bin", []))).toBeUndefined();
@@ -46,11 +57,13 @@ describe("findGitExecutable", () => {
 
   it("findGitExecutable on Windows reads Path in any case and finds git.exe", async () => {
     const host: GitHost = {
-      environment: { Path: ".;project;C:\\Program Files\\Git\\cmd" },
+      environment: { Path: ".;project;C:\\project\\bin;C:\\Program Files\\Git\\cmd" },
       platform: "win32",
+      projectRoot: "C:\\project",
       fileSystem: new InMemoryGitFileSystem([
         "git.exe",
         "project\\git.exe",
+        "C:\\project\\bin\\git.exe",
         "C:\\Program Files\\Git\\cmd\\git.exe",
       ]),
     };
@@ -60,15 +73,34 @@ describe("findGitExecutable", () => {
 });
 
 describe("findWorkTree", () => {
+  const everyFolder = (): Promise<boolean> => Promise.resolve(true);
+
   it("findWorkTree gives the nearest folder at or above the directory with .git", async () => {
     const host = { ...posixHost("", []), fileSystem: new InMemoryGitFileSystem([], ["/r/.git"]) };
 
-    expect(await findWorkTree("/r/apps/web", host)).toBe("/r");
-    expect(await findWorkTree("/r", host)).toBe("/r");
+    expect(await findWorkTree("/r/apps/web", host, everyFolder)).toBe("/r");
+    expect(await findWorkTree("/r", host, everyFolder)).toBe("/r");
+  });
+
+  it("findWorkTree passes over a .git that is no repository, asking with the parent", async () => {
+    const fileSystem = new InMemoryGitFileSystem([], ["/.git", "/r/.git", "/r/apps/.git"]);
+    const host = { ...posixHost("", []), fileSystem };
+    const asked: string[][] = [];
+    const isRepository = (folder: string, ceiling: string): Promise<boolean> => {
+      asked.push([folder, ceiling]);
+      return Promise.resolve(folder === "/");
+    };
+
+    expect(await findWorkTree("/r/apps/web", host, isRepository)).toBe("/");
+    expect(asked).toEqual([
+      ["/r/apps", "/r"],
+      ["/r", "/"],
+      ["/", "/"],
+    ]);
   });
 
   it("findWorkTree gives undefined when no folder above has .git", async () => {
-    expect(await findWorkTree("/r/apps", posixHost("", []))).toBeUndefined();
+    expect(await findWorkTree("/r/apps", posixHost("", []), everyFolder)).toBeUndefined();
   });
 });
 
@@ -115,4 +147,37 @@ describe("createNodeGitFileSystem", () => {
 
     await expect(fileSystem.hasEntry("bad\0path")).rejects.toThrow();
   });
+
+  it("realPath resolves links and gives undefined for a missing path", async () => {
+    await mkdir(join(root, "folder"));
+    await symlink(join(root, "folder"), join(root, "link"));
+    const fileSystem = createNodeGitFileSystem();
+
+    expect(await fileSystem.realPath(join(root, "link"))).toBe(
+      await realpath(join(root, "folder")),
+    );
+    expect(await fileSystem.realPath(join(root, "missing"))).toBeUndefined();
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "findGitExecutable passes over a PATH folder that links into the project",
+    async () => {
+      const project = join(root, "project");
+      await mkdir(join(project, "bin"), { recursive: true });
+      await writeFile(join(project, "bin", "git"), "");
+      await chmod(join(project, "bin", "git"), 0o755);
+      await symlink(join(project, "bin"), join(root, "linked-bin"));
+      const host: GitHost = {
+        environment: { PATH: join(root, "linked-bin") },
+        platform: process.platform,
+        fileSystem: createNodeGitFileSystem(),
+        projectRoot: project,
+      };
+
+      expect(await findGitExecutable(host)).toBeUndefined();
+      expect(await findGitExecutable({ ...host, projectRoot: join(root, "other") })).toBe(
+        join(root, "linked-bin", "git"),
+      );
+    },
+  );
 });

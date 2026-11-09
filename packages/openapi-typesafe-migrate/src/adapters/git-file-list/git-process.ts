@@ -102,16 +102,19 @@ const REPOSITORY_VARIABLES: readonly string[] = [
 ];
 /** Makes git use this folder as the work tree, whatever `core.worktree` says. */
 const WORK_TREE_VARIABLE = "GIT_WORK_TREE";
+/** Keeps git from looking for a repository above this folder. */
+const CEILING_VARIABLE = "GIT_CEILING_DIRECTORIES";
 
 /** The environment of a hardened git command, from the environment the process has. */
-function hardenedEnvironment(
-  environment: GitEnvironment,
-  workTree: string | undefined,
-): GitEnvironment {
-  const kept = Object.entries(environment).filter(
+function hardenedEnvironment(command: HardenedGitCommand): GitEnvironment {
+  const kept = Object.entries(command.environment).filter(
     ([name]) => !REPOSITORY_VARIABLES.includes(name.toUpperCase()),
   );
-  const forced = workTree === undefined ? {} : { [WORK_TREE_VARIABLE]: workTree };
+  const { workTree, ceiling } = command;
+  const forced = {
+    ...(workTree === undefined ? {} : { [WORK_TREE_VARIABLE]: workTree }),
+    ...(ceiling === undefined ? {} : { [CEILING_VARIABLE]: ceiling }),
+  };
   return { ...Object.fromEntries(kept), ...forced, ...HARDENED_ENVIRONMENT };
 }
 
@@ -122,6 +125,8 @@ export interface HardenedGitCommand {
   readonly environment: GitEnvironment;
   /** The folder that holds the `.git` of the repository, or undefined when there is none. */
   readonly workTree: string | undefined;
+  /** The folder above which git looks for no repository; git's own rule when undefined. */
+  readonly ceiling?: string;
 }
 
 /** The invocation of `gitArguments` with the hardening above. */
@@ -133,6 +138,6 @@ export function hardenedInvocation(
     executable: command.executable,
     directory: command.directory,
     gitArguments: [...HARDENED_CONFIG, ...gitArguments],
-    environment: hardenedEnvironment(command.environment, command.workTree),
+    environment: hardenedEnvironment(command),
   };
 }

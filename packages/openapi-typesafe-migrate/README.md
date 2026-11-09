@@ -67,18 +67,18 @@ repository around it ignores, it reads the whole tree of that folder. Either way
 `coverage` are skipped, and links are not followed. The log names the folders and how each one
 was read.
 
-The tool does not trust the folder it migrates. Git is the `git` of an absolute folder on
-`PATH`, never one in the project, and it runs with `core.fsmonitor` turned off and every
-transport refused (`GIT_ALLOW_PROTOCOL` set to an empty list, which no `protocol.*` key of a
-repository's config can undo), so a nested repository's `.git/config` cannot make it run a
-command, not even through a partial clone that fetches a missing object. It does not open a bare
-repository that is not named explicitly, and the folder that holds `.git` is the work tree, so a
+The tool does not trust the folder it migrates. Git is the `git` of an absolute folder on `PATH`
+outside the project, so neither a `git` at the project root nor one in the `node_modules/.bin` that
+`npx` puts on `PATH` runs, and it runs with `core.fsmonitor` turned off and every transport refused
+(`GIT_ALLOW_PROTOCOL` set to an empty list, which no `protocol.*` key of a repository's config can
+undo), so a nested repository's `.git/config` cannot make it run a command, not even through a
+partial clone that fetches a missing object. It does not open a bare repository that is not named
+explicitly, and the folder whose `.git` git takes as the repository is the work tree, so a
 `core.worktree` in the config cannot point the listing at another folder; `GIT_DIR` and the other
-variables that name a repository are not passed on. A path that git lists but that leads outside
-the folder (`../`, an absolute path, a linked parent folder or a link to a file elsewhere) is not
-read or written; the report lists it under "Skipped". A file is written as a new file that
-replaces the old one (same mode), so a hard link to a file elsewhere keeps its old text; the log
-notes it.
+variables that name a repository are not passed on. A path that git lists but that leads outside the
+folder (`../`, an absolute path, a linked parent folder or a link to a file elsewhere) is not read
+or written; the report lists it under "Skipped". A file is written as a new file that replaces the
+old one (same mode), so a hard link to a file elsewhere keeps its old text; the log notes it.
 A file whose bytes are not UTF-8 (a Latin-1 source, for example) is not changed, because its
 text cannot be written back without changing other characters; neither is a file that cannot be
 read. The report lists both under "Skipped". Every file is read and migrated before the first one

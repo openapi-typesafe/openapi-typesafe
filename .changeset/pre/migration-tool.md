@@ -5,9 +5,9 @@
 First release of openapi-typesafe-migrate: `npx openapi-typesafe-migrate` moves a project from
 openapi-typescript, openapi-fetch, openapi-react-query and openapi-typescript-helpers. It reads only
 the files git lists, never writes outside the project, and lists what it cannot change safely as
-manual steps. Git runs by its absolute path from `PATH` and never fetches, whatever the repository's
-config allows, so a planted repository cannot run a command. It only reports until you add
-`--write`, and logs every finding to a private JSON Lines file.
+manual steps. Git runs by its absolute path from a `PATH` folder outside the project and never
+fetches, whatever the repository's config allows, so a planted repository cannot run a command. It
+only reports until you add `--write`, and logs every finding to a private JSON Lines file.
 
 - Packages: renamed in `package.json` (also `peerDependenciesMeta`, `dependenciesMeta`,
   `bundleDependencies`, bun catalogs and `npm:` aliases), pnpm `package.yaml` and

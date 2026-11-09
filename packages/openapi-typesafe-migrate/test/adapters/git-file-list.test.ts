@@ -51,7 +51,7 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     await put("debug.log", "");
     execFileSync("git", ["add", "src/api.ts"], { cwd: root });
 
-    const listing = await createRealGitFileList().list(root);
+    const listing = await createRealGitFileList(root).list(root);
 
     expect(listing.kind === "listed" && [...listing.paths].sort()).toEqual([
       ".gitignore",
@@ -65,7 +65,7 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     await put("apps/web/src/a.ts", "");
     await put("other.ts", "");
 
-    const listing = await createRealGitFileList().list(join(root, "apps/web"));
+    const listing = await createRealGitFileList(root).list(join(root, "apps/web"));
 
     expect(listing).toEqual({ kind: "listed", paths: ["src/a.ts"] });
   });
@@ -75,7 +75,7 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     await put(".gitignore", "build/\n");
     await put("build/project/src/a.ts", "");
 
-    const listing = await createRealGitFileList().list(join(root, "build/project"));
+    const listing = await createRealGitFileList(root).list(join(root, "build/project"));
 
     expect(listing).toEqual({
       kind: "unavailable",
@@ -96,7 +96,7 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     git(".", "commit", "--quiet", "-am", "main");
     expect(() => git(".", "merge", "other")).toThrow();
 
-    const listing = await createRealGitFileList().list(root);
+    const listing = await createRealGitFileList(root).list(root);
 
     expect(listing).toEqual({ kind: "listed", paths: ["a.ts"] });
   });
@@ -111,7 +111,7 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     git("app", "init", "--quiet", "nested");
     await put("app/nested/b.ts", "");
 
-    const listing = await createRealGitFileList().list(join(root, "app"));
+    const listing = await createRealGitFileList(root).list(join(root, "app"));
 
     expect(listing.kind === "listed" && [...listing.paths].sort()).toEqual([
       ".gitmodules",
@@ -130,7 +130,7 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     git("app", "commit", "--quiet", "-m", "app");
     git(".", "clone", "--quiet", "app", "clone");
 
-    const listing = await createRealGitFileList().list(join(root, "clone/vendor/library"));
+    const listing = await createRealGitFileList(root).list(join(root, "clone/vendor/library"));
 
     expect(listing).toEqual({ kind: "listed", paths: [] });
   });
@@ -153,7 +153,7 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     await put("vendor/library/index.ts", "");
     git("vendor/library", "config", "core.fsmonitor", markerCommand());
 
-    const listing = await createRealGitFileList().list(join(root, "vendor/library"));
+    const listing = await createRealGitFileList(root).list(join(root, "vendor/library"));
 
     expect(listing).toEqual({ kind: "listed", paths: ["index.ts"] });
     expect(await exists("MARKER")).toBe(false);
@@ -166,7 +166,7 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     git("packages/api", "config", "core.worktree", ".");
     git("packages/api", "config", "core.fsmonitor", markerCommand());
 
-    const listing = await createRealGitFileList().list(join(root, "packages/api"));
+    const listing = await createRealGitFileList(root).list(join(root, "packages/api"));
 
     expect(listing.kind).toBe("unavailable");
     expect(await exists("MARKER")).toBe(false);
@@ -205,7 +205,7 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
   it("list does not fetch the missing objects of a planted partial clone", async () => {
     await plantLazyFetchRepository();
 
-    const listing = await createRealGitFileList().list(root);
+    const listing = await createRealGitFileList(root).list(root);
 
     // Git reports the missing tree on stderr and lists what it can read.
     expect(listing).toEqual({ kind: "listed", paths: ["package.json"] });
@@ -235,7 +235,9 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
       git(".", "config", `protocol.${protocol}.allow`, "always");
       git(".", "config", commandKey, markerCommand());
 
-      const listing = await createRealGitFileList(process.env, withoutLazyFetchVariable).list(root);
+      const listing = await createRealGitFileList(root, process.env, withoutLazyFetchVariable).list(
+        root,
+      );
 
       expect(listing.kind).toBe("listed");
       expect(await exists("MARKER")).toBe(false);
@@ -248,7 +250,19 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     await put("victim/v.ts", "");
     git("project", "config", "core.worktree", join(root, "victim"));
 
-    const listing = await createRealGitFileList().list(join(root, "project"));
+    const listing = await createRealGitFileList(root).list(join(root, "project"));
+
+    expect(listing).toEqual({ kind: "listed", paths: ["package.json"] });
+  });
+
+  it("list reads the repository above a .git folder that is no repository, as git does", async () => {
+    git(".", "init", "--quiet");
+    await put(".gitignore", "/sub/gen/\n");
+    await put("sub/package.json", "{}");
+    await put("sub/gen/package.json", "{}");
+    await mkdir(join(root, "sub/.git"));
+
+    const listing = await createRealGitFileList(root).list(join(root, "sub"));
 
     expect(listing).toEqual({ kind: "listed", paths: ["package.json"] });
   });
@@ -265,7 +279,7 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
       GIT_INDEX_FILE: join(root, "other/.git/index"),
     };
 
-    const listing = await createRealGitFileList(environment).list(join(root, "project"));
+    const listing = await createRealGitFileList(root, environment).list(join(root, "project"));
 
     expect(listing).toEqual({ kind: "listed", paths: ["a.ts"] });
   });
@@ -274,13 +288,13 @@ describe("SpawnedGitFileList", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     // A ceiling stops git from finding a repository above the temporary folder.
     vi.stubEnv("GIT_CEILING_DIRECTORIES", tmpdir());
 
-    const listing = await createRealGitFileList().list(root);
+    const listing = await createRealGitFileList(root).list(root);
 
     expect(listing.kind).toBe("unavailable");
   });
 
   it("list is unavailable for a folder that does not exist", async () => {
-    const listing = await createRealGitFileList().list(join(root, "missing"));
+    const listing = await createRealGitFileList(root).list(join(root, "missing"));
 
     expect(listing.kind).toBe("unavailable");
   });
