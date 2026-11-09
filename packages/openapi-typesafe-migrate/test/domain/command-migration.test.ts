@@ -15,11 +15,21 @@ describe("migrateCommand", () => {
     ]);
   });
 
-  it("migrateCommand leaves paths and the helpers package alone", () => {
+  it("migrateCommand leaves the helpers package alone and reports a file of the old package", () => {
     const text =
       "node node_modules/openapi-typescript/bin/cli.js && echo openapi-typescript-helpers";
 
-    expect(migrateCommand(text, "x")).toEqual({ text, changes: [], manualSteps: [] });
+    expect(migrateCommand(text, "x")).toEqual({
+      text,
+      changes: [],
+      manualSteps: [
+        {
+          kind: "old-package-file",
+          location: "x",
+          path: "node_modules/openapi-typescript/bin/cli.js",
+        },
+      ],
+    });
   });
 
   it("migrateCommand renames the renamed flags of the migrated command", () => {
@@ -48,7 +58,162 @@ describe("migrateCommand", () => {
   });
 });
 
+describe("migrateCommand on the words of each command", () => {
+  const text = (script: string): string => migrateCommand(script, "s").text;
+
+  it("migrateCommand renames flags of the generator, not of other commands on the line", () => {
+    expect(text("openapi-typescript a.yaml -it && docker run -it --rm alpine echo -ap")).toBe(
+      "openapi-typesafe a.yaml --immutable && docker run -it --rm alpine echo -ap",
+    );
+  });
+
+  it("migrateCommand renames a command that docker runs, and keeps the flags of docker", () => {
+    expect(text("docker run -it -v $PWD:/w -w /w node:22 npx openapi-typescript a -it")).toBe(
+      "docker run -it -v $PWD:/w -w /w node:22 npx openapi-typesafe a --immutable",
+    );
+  });
+
+  it("migrateCommand never renames a script name", () => {
+    for (const script of [
+      "npm run openapi-typescript",
+      "pnpm run openapi-typescript -- -it",
+      "yarn run openapi-typescript",
+    ]) {
+      expect(text(script)).toBe(script);
+    }
+  });
+
+  it.each([
+    ["npx -y openapi-typescript a", "npx -y openapi-typesafe a"],
+    ["pnpm exec openapi-typescript a", "pnpm exec openapi-typesafe a"],
+    ["pnpm --filter api exec openapi-typescript a", "pnpm --filter api exec openapi-typesafe a"],
+    ["pnpm dlx openapi-typescript a", "pnpm dlx openapi-typesafe a"],
+    ["yarn openapi-typescript a", "yarn openapi-typesafe a"],
+    ["bunx openapi-typescript a", "bunx openapi-typesafe a"],
+    ["npm exec -- openapi-typescript a", "npm exec -- openapi-typesafe a"],
+    ["cross-env NODE_ENV=ci openapi-typescript a", "cross-env NODE_ENV=ci openapi-typesafe a"],
+    ["dotenv -e .env -- openapi-typescript a", "dotenv -e .env -- openapi-typesafe a"],
+    ["A=1 openapi-typescript a", "A=1 openapi-typesafe a"],
+    ['"openapi-typescript" a', '"openapi-typesafe" a'],
+    ["@npx openapi-typescript a", "@npx openapi-typesafe a"],
+    ["-@openapi-typescript a -it", "-@openapi-typesafe a --immutable"],
+    ["RUN npx openapi-typescript a", "RUN npx openapi-typesafe a"],
+    [
+      "RUN --mount=type=cache,target=/c npx openapi-typescript a",
+      "RUN --mount=type=cache,target=/c npx openapi-typesafe a",
+    ],
+  ])("migrateCommand renames the generator that a launcher runs: %s", (script, migrated) => {
+    expect(text(script)).toBe(migrated);
+  });
+
+  it.each([
+    [
+      "node ./node_modules/.bin/openapi-typescript a -it",
+      "node ./node_modules/.bin/openapi-typesafe a --immutable",
+    ],
+    ["node_modules/.bin/openapi-typescript a", "node_modules/.bin/openapi-typesafe a"],
+    [
+      "deno run -A npm:openapi-typescript a --redoc=r",
+      "deno run -A npm:openapi-typesafe a --redocly=r",
+    ],
+  ])(
+    "migrateCommand renames the generator run by path or npm specifier: %s",
+    (script, migrated) => {
+      expect(text(script)).toBe(migrated);
+    },
+  );
+
+  it("migrateCommand renames every original package of an install command", () => {
+    const migrated = migrateCommand("npm i -D openapi-typescript openapi-fetch zod", "s");
+
+    expect(migrated.text).toBe("npm i -D openapi-typesafe openapi-typesafe-fetch zod");
+    expect(migrated.changes).toEqual([
+      {
+        kind: "package-name-renamed",
+        location: "s",
+        from: "openapi-typescript",
+        to: "openapi-typesafe",
+      },
+      {
+        kind: "package-name-renamed",
+        location: "s",
+        from: "openapi-fetch",
+        to: "openapi-typesafe-fetch",
+      },
+    ]);
+  });
+
+  it.each([
+    ["pnpm add openapi-react-query", "pnpm add openapi-typesafe-react-query"],
+    ["yarn remove openapi-typescript-helpers", "yarn remove openapi-typesafe-helpers"],
+    ["deno add npm:openapi-fetch", "deno add npm:openapi-typesafe-fetch"],
+    [
+      "npx -p openapi-typescript openapi-typescript a",
+      "npx -p openapi-typesafe openapi-typesafe a",
+    ],
+    ["npx --package=openapi-fetch tool", "npx --package=openapi-typesafe-fetch tool"],
+  ])("migrateCommand renames package arguments: %s", (script, migrated) => {
+    expect(text(script)).toBe(migrated);
+  });
+
+  it("migrateCommand reports a pinned package argument and keeps it", () => {
+    const migrated = migrateCommand(
+      "bun add openapi-fetch@0.13 && npx -p openapi-typescript@7 x",
+      "s",
+    );
+
+    expect(migrated.text).toBe("bun add openapi-fetch@0.13 && npx -p openapi-typescript@7 x");
+    expect(migrated.manualSteps).toEqual([
+      { kind: "pinned-package", location: "s", name: "openapi-fetch" },
+      { kind: "pinned-package", location: "s", name: "openapi-typescript" },
+    ]);
+  });
+
+  it("migrateCommand renames the generator inside a quoted command line", () => {
+    expect(
+      text(`sh -c "openapi-typescript a -it" && concurrently 'npx openapi-typescript b'`),
+    ).toBe(`sh -c "openapi-typesafe a --immutable" && concurrently 'npx openapi-typesafe b'`);
+  });
+
+  it("migrateCommand leaves words that only contain a name, and quoted flags", () => {
+    for (const script of [
+      "echo openapi-typescript",
+      "openapi-typescript'x' a",
+      "npm i 'openapi-fetch'x",
+      "tool node_modules/.bin/openapi-typescript",
+      "npx --yes",
+      "@",
+      'openapi-typescrip"t" a',
+      "npx --registry=https://r openapi-typescrip't'",
+    ]) {
+      expect(text(script)).toBe(script);
+    }
+    expect(text("openapi-typescript a '-it'")).toBe("openapi-typesafe a '-it'");
+  });
+});
+
 describe("migrateCommandLines", () => {
+  it("migrateCommandLines renames flags on lines continued with a backslash", () => {
+    const migrated = migrateCommandLines(
+      "npx openapi-typescript ./api.yaml \\\n  --immutable-types \\\n  -o schema.ts\n",
+      "ci.sh",
+    );
+
+    expect(migrated.text).toBe(
+      "npx openapi-typesafe ./api.yaml \\\n  --immutable \\\n  -o schema.ts\n",
+    );
+    expect(migrated.changes).toEqual([
+      { kind: "command-renamed", location: "ci.sh:1" },
+      { kind: "flag-renamed", location: "ci.sh:2", from: "--immutable-types", to: "--immutable" },
+    ]);
+  });
+
+  it("migrateCommandLines leaves comments", () => {
+    const text = "# openapi-typescript a -it\n";
+
+    expect(migrateCommandLines(text, "gen.sh").text).toBe(text);
+  });
+
   it("migrateCommandLines names each change by file and line", () => {
     const migrated = migrateCommandLines("set -e\nopenapi-typescript a.yaml\n", "gen.sh");
 

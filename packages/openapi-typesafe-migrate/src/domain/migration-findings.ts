@@ -16,6 +16,12 @@ export type Change =
   | { readonly kind: "catalog-entry-renamed"; readonly from: string; readonly to: string }
   | { readonly kind: "command-renamed"; readonly location: string }
   | {
+      readonly kind: "package-name-renamed";
+      readonly location: string;
+      readonly from: string;
+      readonly to: string;
+    }
+  | {
       readonly kind: "flag-renamed";
       readonly location: string;
       readonly from: string;
@@ -35,6 +41,8 @@ export type ManualStep =
   | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
   | { readonly kind: "override-names-package"; readonly field: string; readonly name: string }
   | { readonly kind: "versioned-command"; readonly location: string }
+  | { readonly kind: "pinned-package"; readonly location: string; readonly name: string }
+  | { readonly kind: "old-package-file"; readonly location: string; readonly path: string }
   | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
   | {
       readonly kind: "string-names-package";

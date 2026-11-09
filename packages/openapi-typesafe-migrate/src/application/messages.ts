@@ -21,6 +21,7 @@ export function changeMessage(change: Change): string {
     case "command-renamed":
       return `${change.location}: openapi-typescript → openapi-typesafe`;
     case "flag-renamed":
+    case "package-name-renamed":
       return `${change.location}: ${change.from} → ${change.to}`;
     case "specifier-renamed":
       return `line ${change.line}: "${change.from}" → "${change.to}"`;
@@ -41,6 +42,8 @@ const KEEP_REASONS: Readonly<Record<TransformKeepReason, string>> = {
 
 const PEER_NOTE = "users of this package must switch too (a breaking change for them)";
 const PINNED_NOTE = "change it to openapi-typesafe@<version>";
+const OLD_FILE_NOTE =
+  "is a file of openapi-typescript, which is no longer installed: run openapi-typesafe instead";
 const DEEP_IMPORT_NOTE = "imports a file inside the package; check that it exists";
 const STRING_NOTE = "is a string, not a module specifier, so it was kept";
 const STRING_FIX_NOTE = "if it names the package, change it to";
@@ -57,7 +60,45 @@ function oldPeerMessage(step: Extract<ManualStep, { kind: "old-peer-needed" }>):
   );
 }
 
+function pinnedPackageMessage(step: Extract<ManualStep, { kind: "pinned-package" }>): string {
+  const successor = PACKAGE_RENAMES.get(step.name) ?? step.name;
+  return (
+    `${step.location} names a pinned ${step.name}@<version>: ` +
+    `change it to ${successor}@<version>`
+  );
+}
+
+/** The manual steps found in commands: scripts, shell files and CI files. */
+type CommandStep = Extract<
+  ManualStep,
+  { kind: "versioned-command" | "pinned-package" | "old-package-file" }
+>;
+
+const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
+  "versioned-command",
+  "pinned-package",
+  "old-package-file",
+]);
+
+const isCommandStep = (step: ManualStep): step is CommandStep => COMMAND_STEP_KINDS.has(step.kind);
+
+function commandStepMessage(step: CommandStep): string {
+  switch (step.kind) {
+    case "versioned-command":
+      return `${step.location} runs a pinned openapi-typescript@<version>: ${PINNED_NOTE}`;
+    case "pinned-package":
+      return pinnedPackageMessage(step);
+    case "old-package-file":
+      return `${step.location}: ${step.path} ${OLD_FILE_NOTE}`;
+    default:
+      return assertNever(step);
+  }
+}
+
 export function manualStepMessage(step: ManualStep): string {
+  if (isCommandStep(step)) {
+    return commandStepMessage(step);
+  }
   switch (step.kind) {
     case "manifest-unreadable":
       return `package.json is not valid JSON (${step.reason}); migrate it by hand`;
@@ -67,8 +108,6 @@ export function manualStepMessage(step: ManualStep): string {
       return `${step.name} kept the spec "${step.spec}": point it at an openapi-typesafe version`;
     case "override-names-package":
       return `"${step.field}" names ${step.name}: update or remove that override`;
-    case "versioned-command":
-      return `${step.location} runs a pinned openapi-typescript@<version>: ${PINNED_NOTE}`;
     case "deep-import":
       return `line ${step.line}: "${step.specifier}" ${DEEP_IMPORT_NOTE}`;
     case "string-names-package":

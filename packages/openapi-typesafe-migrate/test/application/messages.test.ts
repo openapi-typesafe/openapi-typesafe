@@ -7,6 +7,7 @@ const CHANGES: readonly Change[] = [
   { kind: "catalog-entry-renamed", from: "a", to: "b" },
   { kind: "command-renamed", location: "scripts.gen" },
   { kind: "flag-renamed", location: "scripts.gen", from: "-it", to: "--immutable" },
+  { kind: "package-name-renamed", location: "ci.yml:4", from: "a", to: "b" },
   { kind: "specifier-renamed", line: 3, from: "a", to: "b" },
   { kind: "transform-rewritten", line: 7 },
 ];
@@ -17,6 +18,12 @@ const STEPS: readonly ManualStep[] = [
   { kind: "spec-kept", name: "b", spec: "latest" },
   { kind: "override-names-package", field: "overrides", name: "a" },
   { kind: "versioned-command", location: "ci.yml:3" },
+  { kind: "pinned-package", location: "scripts.setup", name: "openapi-fetch" },
+  {
+    kind: "old-package-file",
+    location: "Makefile:2",
+    path: "node_modules/openapi-typescript/x.js",
+  },
   { kind: "deep-import", line: 2, specifier: "b/x" },
   { kind: "string-names-package", line: 6, value: "openapi-fetch", to: "openapi-typesafe-fetch" },
   { kind: "old-peer-needed", dependent: "swr-openapi", peer: "openapi-fetch", range: ">=0.15" },

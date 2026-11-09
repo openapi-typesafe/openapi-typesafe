@@ -18,6 +18,8 @@ describe("fileMigrationFor", () => {
     "Makefile",
     "justfile",
     "docker/Dockerfile",
+    ".github/dependabot.yml",
+    "package.yaml",
   ])("fileMigrationFor has a migration for %s", (path) => {
     expect(fileMigrationFor(path)).toBeTypeOf("function");
   });
@@ -64,5 +66,34 @@ describe("fileMigrationFor", () => {
     );
 
     expect(migration?.text).toBe("catalog:\n  openapi-typesafe-fetch: 1.0.0\n");
+  });
+
+  it("fileMigrationFor migrates only the commands of a YAML file, not its other values", () => {
+    const text = "info:\n  description: openapi-typescript\nrun: openapi-typescript a\n";
+
+    const migration = fileMigrationFor("api.yaml")?.(text, "api.yaml", context);
+
+    expect(migration?.text).toBe(
+      "info:\n  description: openapi-typescript\nrun: openapi-typesafe a\n",
+    );
+  });
+
+  it("fileMigrationFor renames every package of a Dependabot config", () => {
+    const migration = fileMigrationFor(".github/dependabot.yml")?.(
+      "- dependency-name: openapi-fetch\n",
+      ".github/dependabot.yml",
+      context,
+    );
+
+    expect(migration?.text).toBe("- dependency-name: openapi-typesafe-fetch\n");
+  });
+
+  it("fileMigrationFor migrates the scripts of a pnpm package.yaml", () => {
+    const run = (path: string, text: string): string | undefined =>
+      fileMigrationFor(path)?.(text, path, context).text;
+
+    expect(run("package.yaml", "scripts:\n  g: openapi-typescript a\n")).toBe(
+      "scripts:\n  g: openapi-typesafe a\n",
+    );
   });
 });
