@@ -166,6 +166,23 @@ A review of rc.3 found that the tool matched text where it needed structure:
   are removed so that `noUnusedLocals` passes, and only when their initializer builds a type, so
   no side effect is lost.
 
+## Amendment (2026-11-09): git never fetches
+
+The rc.4 review (finding S1) proved the first amendment wrong: `core.fsmonitor` is not the only
+command that `ls-files` and `check-ignore` take from config. A planted partial clone with a
+sparse index holds a directory entry whose tree object is missing; reading the index fetches
+that tree from the promisor remote, and the fetch runs the repository's `core.sshCommand` (an
+`ext::` remote or a credential helper would run a command the same way). It ran in a dry run.
+
+Decision: every git command also gets `-c protocol.allow=never`, which refuses every transport
+on every git version, and the environment variable `GIT_NO_LAZY_FETCH=1`, which makes git 2.45
+and newer not try a fetch at all (`GIT_TERMINAL_PROMPT=0` too, so nothing waits on a prompt).
+Two settings, because each one alone depends on git: the variable is ignored by an older git,
+and the `-c` setting relies on every fetch going through a transport. Git then reports the
+missing object on stderr and lists the files it can read. A test plants such a repository and
+checks that no command ran, also with `GIT_NO_LAZY_FETCH=0` in the environment. The environment
+is passed to the git adapter by the composition root, not read inside it.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

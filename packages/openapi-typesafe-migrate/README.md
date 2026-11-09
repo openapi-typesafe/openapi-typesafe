@@ -48,9 +48,10 @@ repository around it ignores, it reads the whole tree of that folder. Either way
 `coverage` are skipped, and links are not followed. The log names the folders and how each one
 was read.
 
-The tool does not trust the folder it migrates. Git runs with `core.fsmonitor` turned off, so a
-nested repository's `.git/config` cannot make it run a command, and it does not open a bare
-repository that is not named explicitly. A path that git lists but that leads outside the folder
+The tool does not trust the folder it migrates. Git runs with `core.fsmonitor` turned off and
+every network transport refused (`protocol.allow=never`, `GIT_NO_LAZY_FETCH=1`), so a nested
+repository's `.git/config` cannot make it run a command, not even through a partial clone that
+fetches a missing object; and it does not open a bare repository that is not named explicitly. A path that git lists but that leads outside the folder
 (`../`, an absolute path, or a linked parent folder) is not read or written; the report lists it
 under "Skipped". A file is written as a new file that replaces the old one (same mode), so a hard
 link to a file elsewhere keeps its old text; the log notes it.

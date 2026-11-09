@@ -189,7 +189,7 @@ describe("NodeProjectFiles", () => {
 
   function filesWithGit(directory: string) {
     const logger = new RecordingLogger();
-    const git = createGitFileList();
+    const git = createGitFileList(process.env);
     return { files: createNodeProjectFiles(join(root, directory), { git, logger }), logger };
   }
 

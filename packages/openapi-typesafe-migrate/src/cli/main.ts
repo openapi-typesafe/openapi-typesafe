@@ -43,7 +43,8 @@ const dependencies: CliDependencies = {
   cwd: process.cwd(),
   writeStdout: (text) => process.stdout.write(text),
   writeStderr: (text) => process.stderr.write(text),
-  createFiles: (root, logger) => createNodeProjectFiles(root, { git: createGitFileList(), logger }),
+  createFiles: (root, logger) =>
+    createNodeProjectFiles(root, { git: createGitFileList(process.env), logger }),
   createLogger,
   rewriter: createTypescriptCallbackRewriter(),
   scanner: createTypescriptStringScanner(),
