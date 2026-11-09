@@ -64,6 +64,16 @@ class InMemoryTree implements PathQueries {
     return this.#resolve(filePath) ?? filePath;
   }
 
+  linkTarget(filePath: string): string | undefined {
+    const parent = path.dirname(filePath);
+    const base =
+      parent === filePath
+        ? filePath
+        : path.join(this.#resolve(parent) ?? parent, path.basename(filePath));
+    const stored = this.#stored(base);
+    return stored === undefined ? undefined : this.#links.get(stored);
+  }
+
   entries(directory: string): readonly string[] {
     return this.#paths
       .filter((entry) => path.dirname(entry) === directory && entry !== directory)
@@ -96,6 +106,31 @@ describe("fileIdentityKey", () => {
     );
 
     expect(fileIdentityKey(at("/work/link/types.ts"), tree)).toBe(at("/work/real/types.ts"));
+  });
+
+  it("fileIdentityKey of a missing file through a link to a missing directory is the one in its target", () => {
+    const tree = new InMemoryTree(
+      ["/work/a.yaml"],
+      false,
+      new Map([["/work/link", "/work/missing"]]),
+    );
+
+    expect(fileIdentityKey(at("/work/link/x.ts"), tree)).toBe(
+      fileIdentityKey(at("/work/missing/x.ts"), tree),
+    );
+  });
+
+  it("fileIdentityKey of a path through a link loop ends and keeps the path", () => {
+    const tree = new InMemoryTree(
+      ["/work/a.yaml"],
+      false,
+      new Map([
+        ["/work/loop-a", "/work/loop-b"],
+        ["/work/loop-b", "/work/loop-a"],
+      ]),
+    );
+
+    expect(fileIdentityKey(at("/work/loop-a/x.ts"), tree)).toMatch(/x\.ts$/);
   });
 
   it("fileIdentityKey of an existing file is its stored spelling", () => {

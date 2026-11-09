@@ -1,12 +1,15 @@
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import type {
+  ClaimedFile,
   DirectoryCheck,
+  FileClaims,
   FileIdentity,
   FileReader,
   FileWriter,
 } from "../../application/ports/file-system.js";
 import { ERROR_CODES, type ErrorCode, OpenAPITypesafeError } from "../../domain/errors.js";
+import { claimFileAt } from "./file-claims.js";
 import {
   type FileNumber,
   fileIdentityKey,
@@ -56,10 +59,23 @@ function entriesOf(directory: string): readonly string[] {
   }
 }
 
+/**
+ * The target of a symbolic link, as written in it; undefined for a path that is no link or cannot
+ * be read. The key then treats the path as missing, and the claim at write time decides.
+ */
+function linkTargetOf(filePath: string): string | undefined {
+  try {
+    return fs.readlinkSync(filePath);
+  } catch {
+    return undefined;
+  }
+}
+
 const NODE_PATH_QUERIES: PathQueries = {
   status: statusOf,
   realPath: realPathOf,
   entries: entriesOf,
+  linkTarget: linkTargetOf,
 };
 
 /** The path of a `file:` URL, or undefined for a URL that names no file on this platform. */
@@ -85,7 +101,16 @@ function fileError(code: ErrorCode, verb: string, file: URL, cause: unknown): Op
   });
 }
 
-class NodeFileSystem implements FileReader, FileWriter, FileIdentity, DirectoryCheck {
+/** Run a step that writes `file`, with its failure as `OUTPUT_WRITE_FAILED`. */
+function typedWrite<T>(file: URL, step: () => T): T {
+  try {
+    return step();
+  } catch (cause) {
+    throw fileError(ERROR_CODES.OUTPUT_WRITE_FAILED, "write", file, cause);
+  }
+}
+
+class NodeFileSystem implements FileReader, FileWriter, FileIdentity, DirectoryCheck, FileClaims {
   readText(file: URL): string {
     try {
       return fs.readFileSync(file, "utf8");
@@ -101,6 +126,14 @@ class NodeFileSystem implements FileReader, FileWriter, FileIdentity, DirectoryC
     } catch (cause) {
       throw fileError(ERROR_CODES.OUTPUT_WRITE_FAILED, "write", file, cause);
     }
+  }
+
+  claimFile(file: URL): ClaimedFile {
+    const claim = typedWrite(file, () => claimFileAt(fileURLToPath(file)));
+    return {
+      identity: claim.identity,
+      release: () => typedWrite(file, () => claim.release()),
+    };
   }
 
   isDirectory(file: URL): boolean {
@@ -130,6 +163,10 @@ class NodeFileSystem implements FileReader, FileWriter, FileIdentity, DirectoryC
 }
 
 /** File access for the CLI. */
-export function createNodeFileSystem(): FileReader & FileWriter & FileIdentity & DirectoryCheck {
+export function createNodeFileSystem(): FileReader &
+  FileWriter &
+  FileIdentity &
+  DirectoryCheck &
+  FileClaims {
   return new NodeFileSystem();
 }

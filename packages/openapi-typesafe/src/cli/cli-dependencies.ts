@@ -1,6 +1,7 @@
 import type { Readable } from "node:stream";
 import type {
   DirectoryCheck,
+  FileClaims,
   FileIdentity,
   FileReader,
   FileWriter,
@@ -54,7 +55,7 @@ export interface CliDependencies {
    * input with no prompt, which looks like a hang (upstream #1905).
    */
   readonly isStdinTerminal: () => boolean;
-  readonly files: FileReader & FileWriter & FileIdentity & DirectoryCheck;
+  readonly files: FileReader & FileWriter & FileIdentity & DirectoryCheck & FileClaims;
   readonly redoclyConfigs: RedoclyConfigSource;
   readonly generate: GenerateTypes;
   /** A monotonic time in milliseconds, for the time printed after each output. */

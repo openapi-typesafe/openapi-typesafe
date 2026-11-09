@@ -164,13 +164,20 @@ export function ensureOutputIsOwn(
 ): void {
   const clashes = filesAtOutput(run, output, otherOutputs);
   if (clashes.length > 0) {
-    const others = clashes.map(({ name }) => name).join(", ");
-    throw cliError(
-      "CLI_OUTPUT_DUPLICATE",
-      `The output ${output.output} of API ${output.source} is also the output of ${others}: they ` +
-        "would overwrite each other. Give each API its own output file.",
+    throw duplicateOutputError(
+      output,
+      clashes.map(({ name }) => name),
     );
   }
+}
+
+/** `CLI_OUTPUT_DUPLICATE` for `output`, which is also the output of the `others` (named). */
+export function duplicateOutputError(output: NamedOutput, others: readonly string[]): Error {
+  return cliError(
+    "CLI_OUTPUT_DUPLICATE",
+    `The output ${output.output} of API ${output.source} is also the output of ` +
+      `${others.join(", ")}: they would overwrite each other. Give each API its own output file.`,
+  );
 }
 
 /** As `resolveLocationUrl`, but undefined for a URL that does not parse instead of a throw. */
@@ -192,7 +199,7 @@ function printDone(run: CliRun, output: OutputFile): void {
  * With `--check`, fail with `OUTPUT_STALE` when the file differs from `contents` and leave it
  * alone otherwise. Without it, write the file and print where it went.
  */
-function emitOutput(run: CliRun, output: OutputFile, contents: string): void {
+export function emitOutput(run: CliRun, output: OutputFile, contents: string): void {
   if (run.args.isCheck) {
     if (run.deps.files.readText(output.file) !== contents) {
       // The original message, then the file: with several APIs it tells which one is stale.

@@ -2,7 +2,9 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type {
+  ClaimedFile,
   DirectoryCheck,
+  FileClaims,
   FileIdentity,
   FileReader,
   FileWriter,
@@ -72,13 +74,50 @@ export class RecordingConsole implements CliConsole {
 
 /**
  * Files by absolute path; a missing file fails to read as the Node adapter does. `links` maps a
- * path to the path it names, as a symbolic link or another letter case does on disk. A directory
- * is one in `directories` or one that holds a file.
+ * path to the path it names, as a symbolic link or another letter case does on disk. `sameOnDisk`
+ * does the same for names that only the file system can tell are one file (another Unicode
+ * normalization, `ß` and `SS`): `isSameFile` does not see it, a claim and a write do. A directory
+ * is one in `directories` or one that holds a file. `claimFailures` and
+ * `writeFailures` list the paths a claim or a write fails for.
  */
-export class InMemoryFiles implements FileReader, FileWriter, FileIdentity, DirectoryCheck {
+export class InMemoryFiles
+  implements FileReader, FileWriter, FileIdentity, DirectoryCheck, FileClaims
+{
   readonly files = new Map<string, string>();
   readonly links = new Map<string, string>();
+  readonly sameOnDisk = new Map<string, string>();
   readonly directories = new Set<string>();
+  readonly claimFailures = new Set<string>();
+  readonly writeFailures = new Set<string>();
+  readonly claimed: string[] = [];
+
+  claimFile(file: URL): ClaimedFile {
+    const stored = this.storedPathOf(file);
+    if (this.claimFailures.has(stored)) {
+      throw new OpenAPITypesafeError({
+        code: ERROR_CODES.OUTPUT_WRITE_FAILED,
+        message: `Cannot write ${stored}: claim failed`,
+      });
+    }
+    const isCreated = !this.files.has(stored);
+    if (isCreated) {
+      this.files.set(stored, "");
+    }
+    this.claimed.push(stored);
+    return {
+      identity: stored,
+      release: () => {
+        if (isCreated) {
+          this.files.delete(stored);
+        }
+      },
+    };
+  }
+
+  private storedPathOf(file: URL): string {
+    const target = this.targetOf(file);
+    return this.sameOnDisk.get(target) ?? target;
+  }
 
   isDirectory(file: URL): boolean {
     const directory = fileURLToPath(file);
@@ -110,7 +149,14 @@ export class InMemoryFiles implements FileReader, FileWriter, FileIdentity, Dire
   }
 
   writeText(file: URL, contents: string): void {
-    this.files.set(fileURLToPath(file), contents);
+    const stored = this.storedPathOf(file);
+    if (this.writeFailures.has(stored)) {
+      throw new OpenAPITypesafeError({
+        code: ERROR_CODES.OUTPUT_WRITE_FAILED,
+        message: `Cannot write ${stored}: write failed`,
+      });
+    }
+    this.files.set(stored, contents);
   }
 }
 
