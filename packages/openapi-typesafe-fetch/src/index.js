@@ -475,7 +475,12 @@ function isRequest(value) {
 }
 
 function isResponse(value) {
-  return typeof value?.status === "number" && isHeaders(value.headers);
+  return (
+    typeof value?.ok === "boolean" &&
+    typeof value.status === "number" &&
+    typeof value.text === "function" &&
+    isHeaders(value.headers)
+  );
 }
 
 /**
