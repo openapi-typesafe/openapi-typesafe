@@ -202,6 +202,15 @@ no `FetchOptions` of a generic path was assignable to it.
 | A mapped type over the paths in the method constraint | `FetchOptions` stays as in openapi-fetch | `MaybeOptionalInit` of a union of path items cannot be mapped by key; two init types to keep in step |
 | Back to openapi-fetch's one `FetchOptions` of the union | openapi-fetch's type | Brings back TS2589 on hundreds of paths (upstream #1882) |
 
+## Amendment (2026-11-09): a hole of an array field
+
+The second runtime hunt before rc.4 found that a hole of an array field was dropped in a form
+body: `{ a: [, 1] }` gave `a=1`, while `{ a: [null, 1] }` gave `a=%2C1` (`,1`). The items came
+from `[value].flat()`, which skips holes. A hole is now an `undefined` item (`Array.from`), as
+`Array.prototype.join` and `URLSearchParams` read it: an empty item in a form body, left out in a
+multipart body, which leaves out `null` and `undefined` items. Both bodies take their items from
+one function, `formItems`.
+
 ## Review trigger
 
 A TypeScript release that relates generic signatures across declarations; a library that types

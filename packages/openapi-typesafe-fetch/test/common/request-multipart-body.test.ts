@@ -177,6 +177,19 @@ describe("multipart/form-data bodies", () => {
     expect((await request.formData()).get("description")).toBe("hi");
   });
 
+  it("defaultBodySerializer leaves out a hole of an array, as a null item", () => {
+    const headers = { "Content-Type": "multipart/form-data" };
+    // biome-ignore lint/suspicious/noSparseArray: the hole is the case under test
+    const sparse = [, "1"];
+
+    const form = defaultBodySerializer({ tags: sparse, ids: [null, "2"] }, headers) as FormData;
+
+    expect([...form.entries()]).toEqual([
+      ["tags", "1"],
+      ["ids", "2"],
+    ]);
+  });
+
   it("defaultBodySerializer marks its form with a key that is not a field", () => {
     const headers = { "Content-Type": "multipart/form-data" };
 

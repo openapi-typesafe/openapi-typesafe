@@ -837,6 +837,14 @@ function isNestedFormValue(value) {
 }
 
 /**
+ * The items of a form field: the items of an array, with a hole as `undefined` (`flat()` dropped
+ * holes, while `null` and `undefined` items stayed), or the value alone.
+ */
+function formItems(value) {
+  return Array.isArray(value) ? Array.from(value) : [value];
+}
+
+/**
  * A form body. A nested object or array, also as an array item, has no standard form encoding
  * (servers read `a[b]`, `a.b` or JSON), and `URLSearchParams` wrote it as `[object Object]` or
  * flattened it (ADR-013, decision 7). `null` and `undefined` fields are left out, as in a multipart
@@ -849,7 +857,7 @@ function formBody(body) {
   }
   const form = new URLSearchParams();
   for (const [name, value] of Object.entries(body)) {
-    const items = [value].flat();
+    const items = formItems(value);
     if (items.some(isNestedFormValue)) {
       throw new Error(NESTED_FORM_VALUE_MESSAGE);
     }
@@ -872,7 +880,7 @@ function multipartBody(body) {
   const formData = new FormData();
   formData[CLIENT_BUILT_FORM] = true;
   for (const [name, value] of Object.entries(body)) {
-    for (const item of [value].flat()) {
+    for (const item of formItems(value)) {
       if (isPlatformInstance(item, "Blob")) {
         formData.append(name, item);
       } else if (isNestedFormValue(item)) {
