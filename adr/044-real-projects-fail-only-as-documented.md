@@ -49,7 +49,21 @@ migration guide. As regressions they kept the nightly run red, which hides the n
   that breaks them in another way still shows as a regression only once the expected step passes.
 - An expected failure must be removed when the change that causes it goes, or the check fails.
 
+## Amendment (2026-11-09): a third expected failure
+
+permit-cli imports `openapi-typescript-helpers` without listing it, and the client no longer
+installs the helpers (ADR-034, amendment "nothing installs the helpers for code that does not list
+them"), so its type check fails after the switch. This is the review trigger "a third project
+needs an expected failure", and a failure at its only step: the expected failure hides all of its
+check.
+
+The decision stays. Adding the dependency in the switched run would be the rejected option "apply
+the migration step": the run checks a switch by package name only, and the migration guide covers
+the step. The loss is bounded: the run passed with the dependency added by hand, and the generator
+output of permit-cli's committed schemas is not part of its check (it keeps its files). The entry
+names the step and the reason, and the compatibility page lists all three.
+
 ## Review trigger
 
-A third project needs an expected failure, an expected failure would be in a step after the
+A fourth project needs an expected failure, an expected failure would be in a step after the
 install that hides most of the project's checks, or the harness learns to apply migration steps.

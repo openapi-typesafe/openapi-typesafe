@@ -392,7 +392,11 @@
         }
       ],
       "generatedFiles": [],
-      "notes": "The schemas come from remote specs, so the committed files are kept. Only the type check runs: the Ink terminal UI tests fail at random between runs of the same code."
+      "notes": "The schemas come from remote specs, so the committed files are kept. Only the type check runs: the Ink terminal UI tests fail at random between runs of the same code.",
+      "expectedFailure": {
+        "step": "typecheck",
+        "reason": "source/hooks/useClient.ts imports openapi-typescript-helpers, which it does not list: openapi-fetch installed it. The client no longer installs openapi-typesafe-helpers, so the import fails with TS2307 and the types that depend on it fail after it; with openapi-typesafe-helpers added, the type check passes (migration guide, openapi-typesafe-helpers is not installed with the client)."
+      }
     },
     {
       "id": "miro-code",

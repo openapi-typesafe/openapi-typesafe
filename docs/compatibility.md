@@ -100,8 +100,20 @@ including the ones this corpus does not reach.
 
 22 open-source projects that use openapi-typescript or openapi-fetch were checked out at a fixed
 commit and run as they are, then again after switching to openapi-typesafe by package name only.
-All 22 pass every step they had passed before (install, build, type check, tests, whatever the
-project has), and all 18 files they generate are the same as before.
+19 pass every step they had passed before (install, build, type check, tests, whatever the
+project has), and the files they generate are the same as before. Three fail on purpose, at a
+breaking change that the [migration guide](./migration-guide.md) lists:
+
+- openapi-axios stops at the install: it pins TypeScript 5.3, and the `typescript` peer of the
+  generator needs 5.4 or newer ([No TypeScript dependency](./migration-guide.md#no-typescript-dependency)).
+- swr-openapi stops at the type check: its tests mock `client.GET` with a result that has no
+  `response`, which the call types of the client methods no longer accept ([Client fixes](./migration-guide.md#client-fixes)).
+- permit-cli stops at the type check: it imports `openapi-typescript-helpers` without listing it,
+  and the client no longer installs the helpers
+  ([openapi-typesafe-helpers is not installed with the client](./migration-guide.md#openapi-typesafe-helpers-is-not-installed-with-the-client)). With `openapi-typesafe-helpers` added, its type check passes.
+
+The check accepts a failure only at the step and for the reason that the project's entry names; a
+failure anywhere else, or a project that no longer fails, makes it fail.
 
 | Project | Commit |
 | --- | --- |
