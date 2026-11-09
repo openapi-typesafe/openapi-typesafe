@@ -176,3 +176,14 @@ reference to a missing name is, and decision 7 checks only what can print as Typ
   are valid, and a reference can fail as well. The check now refuses only what can never be a
   parameter type (an object, an array, a tuple, a literal, `readonly`, other keywords) and passes
   an indexed access and an intersection with one valid part; TypeScript checks the rest.
+
+## Amendment (2026-11-09): intersections are reduced as TypeScript reduces them
+
+The third recheck passed an intersection with one valid part. That let through intersections that
+TypeScript reduces to something else: `string & "a"` is the literal `"a"` (TS1337), and
+`string & number` is `never` (TS1268). The check now reduces the type as TypeScript does, over
+atoms: `string`, `number`, and a tag (an object type, as in `string & {}`). A union joins the
+atoms of its members; an intersection spreads over unions and keeps the atoms both sides share,
+where a tag keeps the other side. The type is a valid parameter type when it reduces to at least
+one atom and to no bare tag; a name, an indexed access or type text in it leaves the decision to
+TypeScript, as before.

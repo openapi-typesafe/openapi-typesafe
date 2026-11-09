@@ -137,32 +137,94 @@ class IrShapeCheck {
   }
 }
 
-/** The keywords an index signature takes as its parameter type. */
-const INDEX_PARAMETER_KEYWORDS: ReadonlySet<string> = new Set(["string", "number"]);
+/**
+ * What an index signature parameter type reduces to: `string`, `number`, or an object type that
+ * tags one of them (`string & {}`), each as an atom; `unresolved` for a name, an indexed access
+ * (`K["a"]`) or type text, which only TypeScript can resolve; undefined for a type that can never
+ * be one (a literal, an array, a tuple, `readonly`, another keyword).
+ */
+type IndexAtom = "string" | "number" | "tag";
+type IndexKeys = ReadonlySet<IndexAtom> | "unresolved";
+
+/** The keywords an index signature takes as its parameter type, as atoms. */
+const INDEX_KEYWORD_ATOMS: ReadonlyMap<string, IndexAtom> = new Map([
+  ["string", "string"],
+  ["number", "number"],
+]);
+
+const TAG: IndexAtom = "tag";
+const UNRESOLVED = "unresolved";
+
+/** One atom of each side together: a tag keeps the other side, two keys must be the same. */
+function intersectAtoms(left: IndexAtom, right: IndexAtom): IndexAtom | undefined {
+  if (left === right || right === TAG) {
+    return left;
+  }
+  return left === TAG ? right : undefined;
+}
+
+/** `A & B` over atoms, as TypeScript spreads an intersection over the members of a union. */
+function intersectKeys(left: IndexKeys, right: IndexKeys): IndexKeys {
+  if (left === UNRESOLVED || right === UNRESOLVED) {
+    return UNRESOLVED;
+  }
+  const atoms = [...left].flatMap((atom) => [...right].map((other) => intersectAtoms(atom, other)));
+  return new Set(atoms.filter((atom) => atom !== undefined));
+}
+
+/** `A | B` over atoms. */
+function unionKeys(left: IndexKeys, right: IndexKeys): IndexKeys {
+  return left === UNRESOLVED || right === UNRESOLVED ? UNRESOLVED : new Set([...left, ...right]);
+}
+
+/** The keys of each member combined, or undefined when one member can never be a key. */
+function combineKeys(
+  types: readonly IrType[],
+  combine: (left: IndexKeys, right: IndexKeys) => IndexKeys,
+): IndexKeys | undefined {
+  let combined: IndexKeys | undefined;
+  for (const member of types) {
+    const keys = indexKeys(member);
+    if (keys === undefined) {
+      return undefined;
+    }
+    combined = combined === undefined ? keys : combine(combined, keys);
+  }
+  return combined;
+}
+
+function indexKeys(type: IrType): IndexKeys | undefined {
+  switch (type.kind) {
+    case "keyword": {
+      const atom = INDEX_KEYWORD_ATOMS.get(type.keyword);
+      return atom === undefined ? undefined : new Set([atom]);
+    }
+    case "object":
+      return new Set([TAG]);
+    case "reference":
+    case "indexedAccess":
+    case "raw":
+      return UNRESOLVED;
+    case "union":
+      return combineKeys(type.types, unionKeys);
+    case "intersection":
+      return combineKeys(type.types, intersectKeys);
+    default:
+      return undefined;
+  }
+}
 
 /**
  * Whether a type can be the parameter type of an index signature. TypeScript takes `string`,
  * `number`, `symbol`, a template literal type, a union of these, or one of them tagged by an
  * intersection (`string & {}`); anything else fails with TS1268 or TS1337. It decides by the
- * resolved type, so a name, an indexed access (`K["a"]`) and type text pass here and TypeScript
- * checks them; an object, an array, a tuple, a literal or `readonly` can never be one, and is
- * refused.
+ * resolved type, so `string & "a"` (the literal `"a"`), `string & number` (`never`) and an
+ * object type alone are refused, and a name, an indexed access and type text pass for TypeScript
+ * to check.
  */
 function isIndexParameterType(type: IrType): boolean {
-  switch (type.kind) {
-    case "keyword":
-      return INDEX_PARAMETER_KEYWORDS.has(type.keyword);
-    case "reference":
-    case "indexedAccess":
-    case "raw":
-      return true;
-    case "union":
-      return type.types.every(isIndexParameterType);
-    case "intersection":
-      return type.types.some(isIndexParameterType);
-    default:
-      return false;
-  }
+  const keys = indexKeys(type);
+  return keys === UNRESOLVED || (keys !== undefined && keys.size > 0 && !keys.has(TAG));
 }
 
 function isPropertyName(value: unknown): boolean {
