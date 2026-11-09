@@ -12,7 +12,7 @@ import createFetchClient from "openapi-typesafe-fetch";
 import { type ReactNode, Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import createClient, { type MethodResponse } from "../src/index.js";
+import createClient, { type MethodResponse, type ResponseError } from "../src/index.js";
 import type { paths } from "./fixtures/api.js";
 import { baseUrl, server, useMockRequestHandler } from "./fixtures/mock-server.js";
 
@@ -213,10 +213,14 @@ describe("client", () => {
       );
 
       expectTypeOf(result.current[0].data).toEqualTypeOf<string[] | undefined>();
-      expectTypeOf(result.current[0].error).toEqualTypeOf<{
-        code: number;
-        message: string;
-      } | null>();
+      expectTypeOf(result.current[0].error).toEqualTypeOf<
+        | {
+            code: number;
+            message: string;
+          }
+        | ResponseError
+        | null
+      >();
 
       expectTypeOf(result.current[1]).toEqualTypeOf<(typeof result.current)[0]>();
 
@@ -228,10 +232,14 @@ describe("client", () => {
           }
         | undefined
       >();
-      expectTypeOf(result.current[2].error).toEqualTypeOf<{
-        code: number;
-        message: string;
-      } | null>();
+      expectTypeOf(result.current[2].error).toEqualTypeOf<
+        | {
+            code: number;
+            message: string;
+          }
+        | ResponseError
+        | null
+      >();
 
       expectTypeOf(result.current[3]).toEqualTypeOf<(typeof result.current)[2]>();
 
@@ -265,7 +273,7 @@ describe("client", () => {
       );
 
       expectTypeOf(result.current.data).toEqualTypeOf<"select(true)" | undefined>();
-      expectTypeOf(result.current.error).toEqualTypeOf<false | null>();
+      expectTypeOf(result.current.error).toEqualTypeOf<false | ResponseError | null>();
     });
 
     it("returns query options that can be passed to useSuspenseQuery", async () => {
@@ -291,7 +299,7 @@ describe("client", () => {
       await waitFor(() => expect(result.current).not.toBeNull());
 
       expectTypeOf(result.current.data).toEqualTypeOf<"select(true)">();
-      expectTypeOf(result.current.error).toEqualTypeOf<false | null>();
+      expectTypeOf(result.current.error).toEqualTypeOf<false | ResponseError | null>();
     });
 
     it("returns query options without an init", async () => {
@@ -466,7 +474,7 @@ describe("client", () => {
         MethodResponse<typeof client, "get", "/string-array"> | undefined
       >();
       expectTypeOf(data).toEqualTypeOf<string[] | undefined>();
-      expectTypeOf(error).toEqualTypeOf<{ code: number; message: string } | null>();
+      expectTypeOf(error).toEqualTypeOf<{ code: number; message: string } | ResponseError | null>();
     });
 
     it("should infer correct data when used with select property", async () => {

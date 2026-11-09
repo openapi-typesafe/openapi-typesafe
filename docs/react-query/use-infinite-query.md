@@ -12,7 +12,8 @@ The `useInfiniteQuery` method allows you to use the original [useInfiniteQuery](
   [`queryOptions`](./query-options) with `"infinite"` after it, so `useQuery` and
   `useInfiniteQuery` for the same request do not share a cache entry, and `[method, path]` still
   matches both in `invalidateQueries`. Its type is `InfiniteQueryKey`.
-- `data` and `error` are fully typed.
+- `data` and `error` are fully typed. `error` is the declared error body, or a
+  [`ResponseError`](./index.md#errors) when the response failed without one.
 - You can pass infinite query options as fourth parameter.
 
 ::: tip

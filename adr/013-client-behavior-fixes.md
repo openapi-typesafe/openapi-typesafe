@@ -189,6 +189,39 @@ body and the natural way to stream a `format: binary` upload, was JSON-encoded t
 | Send the stream, let the user set `duplex` | Fewer bytes | Every streamed upload fails on Node.js until the user finds the option |
 | Throw for a stream body | Clear | Rejects a body that `fetch` supports |
 
+## Amendment (2026-11-09): the hooks throw a `ResponseError` without an error body
+
+The type hunt before rc.4 (T1) found that decision 3 did not keep the types true: for a non-OK
+response with an empty body the hooks threw `undefined`, so TanStack Query held `error: undefined`
+while the hook types said an error body was there. `if (isError) error.message` compiled and failed
+with a TypeError, and `if (error)` in every example of the docs showed "Loading..." for ever.
+openapi-react-query 0.5.4 throws nothing then: a mutation succeeds with no data, and a query fails
+with TanStack's `Query data cannot be undefined`.
+
+Decision 3 now reads: `openapi-typesafe-fetch` keeps `error: undefined` for an empty error body.
+`openapi-typesafe-react-query` treats a result as failed when `error !== undefined` or
+`!response.ok`. It throws `error` when there is one (also a falsy body such as `0`), and otherwise
+a `ResponseError`:
+
+1. `ResponseError` extends `Error` with `name: "ResponseError"`, `status` and `response`. Its
+   message names the status and the status text, never the URL or the body, which can carry
+   secrets (ADR-041).
+2. The error type of every hook and of `queryOptions` is `QueryError<Response["error"]>`: the error
+   body without `undefined`, or `ResponseError`. Both types are exported.
+3. `ResponseError` is a type, not a runtime export: `require()` returns `createClient` itself
+   (ADR-022), so a named runtime export would change it. Users narrow with `error instanceof Error`
+   (an error body from JSON is never an `Error`) or by `name`.
+4. Network and middleware errors stay out of the error type until 2.0 (ADR-025, decision 11): they
+   come from the fetch client, not from these hooks. `ResponseError` is thrown by the hooks
+   themselves, so its type comes with it.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Throw a `ResponseError` and add it to the error type (chosen) | `error` is set whenever the query failed, and its type says what it can be | Code that reads a field of the error body without narrowing (`error.code`) must narrow first; `message` still compiles |
+| Keep throwing `undefined`, add `undefined` to the error type | Smallest change | `if (error)` still misses the failure; TanStack's own state says error with no error |
+| Throw a `ResponseError`, keep the old type | No type change | The type is wrong exactly when the case happens |
+| Export a `ResponseError` class at runtime | `instanceof ResponseError` | Changes what `require()` returns (ADR-022) |
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`
