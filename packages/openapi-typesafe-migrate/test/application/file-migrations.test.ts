@@ -45,6 +45,13 @@ describe("fileMigrationFor", () => {
     "tools/deno.jsonc",
     ".github/dependabot.yml",
     "package.yaml",
+    "nx.json",
+    ".lintstagedrc",
+    ".lintstagedrc.json",
+    ".lintstagedrc.yml",
+    ".simple-git-hooks.json",
+    "Taskfile.dist.yaml",
+    ".pre-commit-config.yaml",
   ])("fileMigrationFor has a migration for %s", (path) => {
     expect(fileMigrationFor(path)).toBeTypeOf("function");
   });
@@ -128,6 +135,30 @@ describe("fileMigrationFor", () => {
     );
     expect(run("package.yaml", "scripts:\n  g: openapi-typescript a\n")).toBe(
       "scripts:\n  g: openapi-typesafe a\n",
+    );
+  });
+
+  it("fileMigrationFor reads each command config by the keys of its tool", () => {
+    const run = (path: string, text: string): string | undefined =>
+      fileMigrationFor(path)?.(text, path, context).text;
+    const yamlHooks = "'*.yaml': openapi-typescript a\n";
+    const jsonHooks = '{"pre-commit":"openapi-typescript a"}';
+
+    expect(run(".lintstagedrc", yamlHooks)).toBe("'*.yaml': openapi-typesafe a\n");
+    expect(run(".lintstagedrc.yaml", yamlHooks)).toBe("'*.yaml': openapi-typesafe a\n");
+    expect(run(".lintstagedrc.json", jsonHooks)).toBe('{"pre-commit":"openapi-typesafe a"}');
+    expect(run("simple-git-hooks.json", jsonHooks)).toBe('{"pre-commit":"openapi-typesafe a"}');
+    expect(run("nx.json", '{"targetDefaults":{"g":{"command":"openapi-typescript a"}}}')).toBe(
+      '{"targetDefaults":{"g":{"command":"openapi-typesafe a"}}}',
+    );
+    expect(run("taskfile.yml", "tasks:\n  g:\n    cmd: openapi-typescript a\n")).toBe(
+      "tasks:\n  g:\n    cmd: openapi-typesafe a\n",
+    );
+    expect(run("Taskfile.dist.yml", "tasks:\n  g:\n    cmds: [openapi-typescript a]\n")).toBe(
+      "tasks:\n  g:\n    cmds: [openapi-typesafe a]\n",
+    );
+    expect(run(".pre-commit-config.yml", "- entry: openapi-typescript a\n")).toBe(
+      "- entry: openapi-typesafe a\n",
     );
   });
 

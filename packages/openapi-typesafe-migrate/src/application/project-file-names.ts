@@ -11,6 +11,29 @@ export const DOCKERFILE_NAMES: ReadonlySet<string> = new Set(["Dockerfile", "Con
 export const HUSKY_FOLDER = ".husky/";
 export const HUSKY_INTERNALS = ".husky/_/";
 export const NX_PROJECT_FILE = "project.json";
+export const NX_WORKSPACE_FILE = "nx.json";
+/** The names Task looks for, `.dist` ones included. */
+export const TASKFILE_NAMES: ReadonlySet<string> = new Set(
+  ["Taskfile", "taskfile", "Taskfile.dist", "taskfile.dist"].flatMap((name) => [
+    `${name}.yml`,
+    `${name}.yaml`,
+  ]),
+);
+export const PRE_COMMIT_FILES: ReadonlySet<string> = new Set([
+  ".pre-commit-config.yaml",
+  ".pre-commit-config.yml",
+]);
+/** lint-staged reads `.lintstagedrc` as JSON or YAML; YAML reads both. */
+export const LINT_STAGED_YAML_FILES: ReadonlySet<string> = new Set([
+  ".lintstagedrc",
+  ".lintstagedrc.yaml",
+  ".lintstagedrc.yml",
+]);
+export const LINT_STAGED_JSON_FILE = ".lintstagedrc.json";
+export const SIMPLE_GIT_HOOKS_FILES: ReadonlySet<string> = new Set([
+  ".simple-git-hooks.json",
+  "simple-git-hooks.json",
+]);
 export const DENO_CONFIG_FILES: ReadonlySet<string> = new Set(["deno.json", "deno.jsonc"]);
 /** Deno reads its import map from its config, or from a file that the config names. */
 export const IMPORT_MAP_FILE = "import_map.json";

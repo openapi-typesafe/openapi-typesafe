@@ -5,37 +5,19 @@ import {
   type Locate,
   type ShellTextFindings,
 } from "./command-migration.js";
+import { type CommandPathPattern, isCommandPath } from "./command-paths.js";
 import { type DocumentString, ownerKey } from "./config-documents.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import { shellVariables } from "./shell-variables.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
+import { YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
 
 /**
  * YAML files are migrated only where they hold commands or package names, so the text of other
  * values (an OpenAPI `description`, a label) stays as written even when it names a package.
  */
-
-/**
- * Keys whose value is a shell command or a list of them: GitHub Actions and lefthook `run`,
- * GitLab, Travis and Bitbucket `script` and its hooks, Azure Pipelines `script` / `bash` /
- * `pwsh`, CircleCI `command`, Drone `commands`, Docker Compose `command` and `entrypoint`.
- */
-export const YAML_COMMAND_KEYS: ReadonlySet<string> = new Set([
-  "run",
-  "script",
-  "before_script",
-  "after_script",
-  "before_install",
-  "install",
-  "bash",
-  "pwsh",
-  "powershell",
-  "command",
-  "commands",
-  "entrypoint",
-]);
 
 /**
  * Keys whose map holds environment variables (GitHub Actions, Drone and Woodpecker `env`). A
@@ -83,7 +65,7 @@ const ENV_EXPRESSION_RE = /\$\{\{[ \t]*env\.([A-Za-z_][A-Za-z0-9_]*)[ \t]*\}\}/g
 const asShellVariable = (expression: string, name: string): string =>
   `$${name}`.padEnd(expression.length, " ");
 
-function shellText(text: string, value: DocumentString): string {
+export function shellText(text: string, value: DocumentString): string {
   const slice = text.slice(value.content.start, value.content.end);
   const unfolded = value.isFolded ? slice.replace(FOLDED_LINE_BREAK_RE, " ") : slice;
   return unfolded.replace(ENV_EXPRESSION_RE, asShellVariable);
@@ -160,7 +142,10 @@ function valueFindings(
 const shiftedEdits = (edits: readonly TextEdit[], offset: number): TextEdit[] =>
   edits.map((edit) => ({ ...edit, start: edit.start + offset, end: edit.end + offset }));
 
-function appliedFindings(text: string, found: readonly ShellTextFindings[]): CommandMigration {
+export function appliedFindings(
+  text: string,
+  found: readonly ShellTextFindings[],
+): CommandMigration {
   return {
     text: applyTextEdits(
       text,
@@ -180,8 +165,9 @@ export function migrateYamlCommands(
   text: string,
   file: string,
   strings: readonly DocumentString[],
+  keys: ReadonlySet<string> = YAML_COMMAND_KEYS,
 ): CommandMigration {
-  const values = valuesOf(strings, YAML_COMMAND_KEYS);
+  const values = valuesOf(strings, keys);
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const commandValues = new Set(values.filter((value) => !isExecFormItem(value)));
@@ -195,21 +181,19 @@ export function migrateYamlCommands(
   ]);
 }
 
-/** The top-level key of a pnpm `package.yaml` whose values are scripts. */
-const SCRIPTS_KEY = "scripts";
-
-const isScript = (string: DocumentString): boolean =>
-  string.path.length === 2 && string.path[0] === SCRIPTS_KEY;
-
-/** Migrate the scripts of a pnpm `package.yaml` manifest; each finding names its script. */
-export function migrateYamlScripts(
+/**
+ * Migrate the commands of a YAML config at the paths of `patterns` (domain/command-paths.ts): a
+ * pnpm `package.yaml`, a lint-staged config. Each finding names its place (`scripts.gen`).
+ */
+export function migrateYamlPathCommands(
   text: string,
   strings: readonly DocumentString[],
+  patterns: readonly CommandPathPattern[],
 ): CommandMigration {
-  const scripts = strings.filter(isScript);
+  const commands = strings.filter((string) => isCommandPath(string.path, patterns));
   return appliedFindings(
     text,
-    scripts.map((script) => valueFindings(text, script, () => script.path.join("."))),
+    commands.map((command) => valueFindings(text, command, () => command.path.join("."))),
   );
 }
 

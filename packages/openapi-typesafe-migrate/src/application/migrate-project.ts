@@ -9,7 +9,8 @@ import {
 import { importMapNames } from "../domain/import-map-migration.js";
 import type { Change, ManualStep } from "../domain/migration-findings.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
-import { fileMigrationFor, type MigrationContext } from "./file-migrations.js";
+import type { MigrationContext } from "./config-steps.js";
+import { fileMigrationFor } from "./file-migrations.js";
 import { type NamedImportMaps, namedImportMaps, withNamedImportMaps } from "./named-import-maps.js";
 import { type PlanSource, planSourceOf } from "./plan-sources.js";
 import type {
