@@ -103,6 +103,63 @@ and each of the 17 object keys stays for all of 1.x.
 | Keep the object and the list | constants with autocomplete | 17 more stable key names; two ways to spell each fix; `OutputFix` is a value and a type |
 | Rename `ALL_OUTPUT_FIXES` to `OUTPUT_FIX_ALL` | a constant for `"all"` | one more export for a one-word literal that the union already checks |
 
+## Amendment (2026-11-08): which rc.4 output changes need a fix name
+
+The review before rc.4 (`RC4_BUGS.md`) found six output bugs. Decision 5 keeps output that
+compiles byte-identical without `fix`; it was written for type rules that give valid but too
+wide types (the table above). We apply it to each finding with one test: **does the change touch
+output that compiles and means what the document says?** If it does, it needs a fix name. If the
+output did not compile, or compiled only because two declarations collided so that a type means
+something the document does not say, the change is the default, as the other "Output fixes" of
+the migration guide are.
+
+| Finding | Before | Default or fix | Why |
+| --- | --- | --- | --- |
+| G9: an enum named `Record`, `Omit`, `Partial` | Did not compile (TS2315) | Default: `Record_2` | No working output changes |
+| G7: an enum named `Blob` with `--binary-as-blob` | Compiled, but every `format: binary` field had the enum's type | Default: `Blob_2` | `--binary-as-blob` is new in openapi-typesafe, so no upstream output changes; the field type contradicted the document |
+| G8: enums of two schemas with one name (`status`, `Status`) | Compiled, TypeScript merged them, each schema accepted the other's values | Default: `Status_2` | The type contradicted the document and depended on schema order; the generator never meant to merge them. Measured below |
+| G8, G10: a schema enum or a root alias named `ApiPaths` with `--make-paths-enum` | Merged into the paths enum, or did not compile (TS2567) | Default: `ApiPaths_2` | As above |
+| G15: a repeated `operationId` | Did not compile (TS2300) | Default: `dup2` | No working output changes |
+| G16: keywords next to a 3.1 `$ref`; a parameter with `content` | Compiled, types too wide (`Base`, `string`) | Fix: `ref-siblings`, `parameter-content` | Valid output that code relies on, the case decision 5 is for |
+
+How the names stay as they were where nothing collides:
+
+1. An enum keeps its name unless another enum of a different schema location asked for it first,
+   or the finished output needs it. Requests of one location (a property and an inline `allOf`
+   item) still share one enum, as before.
+2. Which global types the output refers to is known only at the end, and a reference to the
+   global `Blob` cannot be told from one to an enum `Blob`. So an enum avoids every name the
+   output may need (the globals of `global-type-references.ts`, the helper types, the
+   `--read-write-markers` types, `ApiPaths`, the root names) while the document is transformed,
+   and gets its own name back at the end where the output does not need it (`EnumNameClaims`,
+   `withEnumsRenamed`). An enum named `Blob` without `--binary-as-blob` is still `Blob`.
+3. The number is the one `--root-types` uses for its own conflicts (`Name_2`, `Name_3`, …), and
+   root aliases give way to every other declaration, so all generated declarations follow one
+   rule. A repeated `operationId` gets the number `--make-paths-enum` already gives its `ApiPaths`
+   member (`listItems2`), so the two names match.
+
+Measured on the 200-document compat corpus against the fork base, over eight option sets
+(`default`, `enum`, `dedupe-enums`, `enum+dedupe-enums`, `enum+enum-values`, `make-paths-enum`,
+`root-types`, `root-types+root-types-no-schema-prefix`): output that compiled changed in one
+document, Apple App Store Connect, under `enum` and `enum+enum-values`. Its `Certificate.type`
+(`"certificates"`) and the schema `CertificateType` (nine certificate kinds) merged into one enum
+`CertificateType`, so a certificate resource accepted any certificate kind as its `type`. Now the
+first is `CertificateType` and the second `CertificateType_2`. Every other changed case changed
+output that did not compile. The harness counts a golden file whose enums merged, where ours keeps
+them apart and compiles no worse, as a fix of invalid output (`golden-invalid`), so the release
+gate still fails on any other change of compiling output.
+
+The two new fixes follow decisions 1 to 7: `ref-siblings` needs no other option and changes only
+OpenAPI 3.1 and 3.2 documents (3.0 says that keywords next to a `$ref` are ignored);
+`parameter-content` applies to every version. The compat harness has an option set for each.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Default for collisions, fix names for type rules (chosen) | Output that did not compile, or whose types a name collision changed, is correct without a flag; valid output stays byte-identical | A schema whose enum was merged gets a new enum name |
+| A fix name for G7 and G8 too | No output that compiled changes | The default output keeps types that contradict the document; with `--binary-as-blob`, an option of ours, there is no upstream output to keep |
+| Rename every enum that has a global's name, used or not | One step, no renaming back | An enum named `Blob` without `--binary-as-blob` changes for no reason |
+| G16 as a default | 3.1 output follows JSON Schema without a flag | Changes valid output of every 3.1 document with such siblings, against decision 5 |
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow
