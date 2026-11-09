@@ -33,6 +33,9 @@ Changes that can need work when you move from openapi-fetch 0.17:
 - `FetchOptions` of a union of operations is the union of each operation's init: an init that
   mixes the parameters of one operation with the body of another no longer compiles.
 - `HttpMethod` includes `"query"`: a hand-written `Record<HttpMethod, …>` needs a `query` entry.
+- `ReturnType`, `Parameters` and `vi.spyOn` of a client method (`typeof client.GET`) give the
+  types of a call, where openapi-fetch gave `any` for the generated `interface paths`: a test
+  double's result needs a `response`, and its `error` must fit the operations' error type.
 - `Client<paths>` has a `QUERY()` method: an object written by hand with that type, such as a
   fake client in tests, needs a `QUERY` member (TS2741).
 - A custom `fetch` must return a `Response` of any realm or Fetch implementation: an object
