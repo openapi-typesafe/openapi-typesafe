@@ -26,8 +26,12 @@ function documentWithRef(ref: string): string {
   });
 }
 
-let server: Server;
-/** `127.0.0.1` and `localhost` on the same port: one server, two origins. */
+let trustedServer: Server;
+let otherServer: Server;
+/**
+ * Two servers on `127.0.0.1`: another port is another origin. `localhost` as the other origin made
+ * the test wait for an IPv6 attempt first, past its timeout on a loaded machine.
+ */
 let trustedURL: string;
 let otherURL: string;
 let received: { host: string; url: string; key: string | undefined }[] = [];
@@ -57,17 +61,26 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
   route();
 }
 
-beforeAll(async () => {
-  server = createServer(answer);
+/** A server of `answer` on a free port of `127.0.0.1`, and its URL. */
+async function startServer(): Promise<{ server: Server; url: string }> {
+  const server = createServer(answer);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address() as AddressInfo;
-  trustedURL = `http://127.0.0.1:${port}`;
-  otherURL = `http://localhost:${port}`;
+  return { server, url: `http://127.0.0.1:${port}` };
+}
+
+async function stopServer(server: Server): Promise<void> {
+  server.closeAllConnections();
+  await new Promise((resolve) => server.close(resolve));
+}
+
+beforeAll(async () => {
+  ({ server: trustedServer, url: trustedURL } = await startServer());
+  ({ server: otherServer, url: otherURL } = await startServer());
 });
 
 afterAll(async () => {
-  server.closeAllConnections();
-  await new Promise((resolve) => server.close(resolve));
+  await Promise.all([stopServer(trustedServer), stopServer(otherServer)]);
 });
 
 beforeEach(() => {
@@ -106,7 +119,7 @@ describe("configured headers", () => {
 
   it.each([
     ["without host limits", {}],
-    ["with host limits", { remoteHosts: ["127.0.0.1", "localhost"] }],
+    ["with host limits", { remoteHosts: ["127.0.0.1"] }],
   ])("a header is not sent on through a redirect to another origin, %s", async (_, access) => {
     await load(`${trustedURL}/to-other.json`, trustedPattern(), access);
 
@@ -116,11 +129,11 @@ describe("configured headers", () => {
     ]);
   });
 
-  it("a `*` in the pattern does not match across the query of another host's URL", async () => {
+  it("a `*` in the pattern does not match across the query of another origin's URL", async () => {
     const port = new URL(trustedURL).port;
     const ref = `${otherURL}?.trusted.example:${port}/person.json`;
 
-    // The URL names `/` on the other host, which does not exist; only the request matters.
+    // The URL names `/` on the other origin, which does not exist; only the request matters.
     await load(ref, `http://*.trusted.example:${port}/**`).catch(() => undefined);
 
     expect(received).toHaveLength(1);
