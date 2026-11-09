@@ -169,6 +169,26 @@ string body is their payload.
 | Keep "contains `json`" | No change | Every NDJSON or JSON Lines upload is broken |
 | A list of line-based types | Names the known cases | Misses the next format; the RFC rule already covers them |
 
+## Amendment (2026-11-08): stream bodies (decision 6)
+
+The bug hunt on rc.3 (`RC4_BUGS.md`, item F5) found that a `ReadableStream` body, a valid fetch
+body and the natural way to stream a `format: binary` upload, was JSON-encoded to `{}` with
+`Content-Type: application/json`, as in openapi-fetch 0.17. The upload was lost without an error.
+
+1. A `ReadableStream` is a raw body like the others of decision 6: sent as it is, without the
+   JSON `Content-Type`.
+2. The Fetch standard requires `duplex: "half"`, its only value, for a stream body: Node.js and
+   Chromium throw without it. The client sets it for a stream body, before the client and request
+   options, so a `duplex` the user passes still wins. Other bodies get no `duplex`.
+3. Browsers differ in their support for stream request bodies; the docs say so and point to a
+   `Blob`. The client does not detect support: the platform's error is clear.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Send the stream, set `duplex: "half"` (chosen) | Works on Node.js, Deno and Bun with no extra option; what the standard asks | Bytes for the check |
+| Send the stream, let the user set `duplex` | Fewer bytes | Every streamed upload fails on Node.js until the user finds the option |
+| Throw for a stream body | Clear | Rejects a body that `fetch` supports |
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`

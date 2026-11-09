@@ -302,8 +302,11 @@ const { data, error } = await client.POST("/notes", {
 
 ### Binary body
 
-A `Blob`, `File`, `ArrayBuffer` or typed array (the usual type for a `format: binary` schema) is sent as
-is. Set `Content-Type` yourself when the server needs one; a `Blob` with a `type` gets it from the platform.
+A `Blob`, `File`, `ArrayBuffer`, typed array or `ReadableStream` (the usual types for a `format: binary`
+schema) is sent as is. Set `Content-Type` yourself when the server needs one; a `Blob` with a `type` gets it
+from the platform. A `ReadableStream` is streamed: the client sets `duplex: "half"`, which the Fetch
+standard requires for a stream body. Node.js, Deno and Bun send it; browser support for stream
+request bodies varies (Chromium needs HTTP/2), so in a browser send a `Blob` unless you checked yours.
 
 ```ts
 const { data, error } = await client.PUT("/files/{name}", {

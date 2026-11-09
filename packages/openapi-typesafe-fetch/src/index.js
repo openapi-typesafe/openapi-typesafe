@@ -144,6 +144,8 @@ export default function createClient(clientOptions) {
 
     const requestInit = {
       redirect: "follow",
+      // The Fetch standard requires `duplex: "half"` (its only value) for a stream body.
+      duplex: serializedBody instanceof ReadableStream ? "half" : undefined,
       ...baseOptions,
       ...init,
       body: serializedBody,
@@ -779,7 +781,7 @@ function checkSerializedPath(template, url) {
 
 /**
  * Bodies `fetch` sends as they are, with their own `Content-Type` (FormData, Blob, URLSearchParams)
- * or none. JSON-encoding a Blob or an ArrayBuffer sent `{}` (ADR-013, decision 6).
+ * or none. JSON-encoding a Blob, an ArrayBuffer or a stream sent `{}` (ADR-013, decision 6).
  */
 function isRawBody(body) {
   return (
@@ -787,6 +789,7 @@ function isRawBody(body) {
     body instanceof Blob ||
     body instanceof URLSearchParams ||
     body instanceof ArrayBuffer ||
+    body instanceof ReadableStream ||
     ArrayBuffer.isView(body)
   );
 }
