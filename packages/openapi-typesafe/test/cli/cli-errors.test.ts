@@ -27,6 +27,19 @@ describe("describeCliFailure", () => {
     }
   });
 
+  it("describeCliFailure with stdin that holds only a YAML string gives CLI advice (G14)", () => {
+    const failure = failureFor("SCHEMA_SOURCE_INVALID", { reason: "path", received: "stream", text: "hello" });
+
+    expect(failure.message).toBe(
+      'stdin held only the YAML string "hello", not an OpenAPI document. To read a file, pass its path ' +
+        "or URL as the first argument: openapi-typesafe ./openapi.yaml -o ./schema.ts (SCHEMA_SOURCE_INVALID)",
+    );
+  });
+
+  it("describeCliFailure with any other SCHEMA_SOURCE_INVALID keeps its message", () => {
+    expect(failureFor("SCHEMA_SOURCE_INVALID", { received: "number" }).message).toBe("Message (SCHEMA_SOURCE_INVALID)");
+  });
+
   it("describeCliFailure with SCHEMA_INVALID counts the problems printed before", () => {
     expect(failureFor("SCHEMA_INVALID", { problems: ["a", "b"] }).message).toBe(
       "The OpenAPI document has 2 errors (see above) (SCHEMA_INVALID)",
