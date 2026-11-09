@@ -128,6 +128,32 @@ export function lineAt(text: string, offset: number): number {
   return line;
 }
 
+/**
+ * Line numbers (1-based) of character offsets in `text`, for a migration that names many places
+ * of one text. The line starts are found once and searched by halves, so naming every command of
+ * a large file stays linear in its size (`lineAt` for each one was quadratic: 57 s on 4 MB).
+ */
+export function lineLocator(text: string): (offset: number) => number {
+  const lineStarts = [0];
+  for (let index = text.indexOf("\n"); index !== -1; index = text.indexOf("\n", index + 1)) {
+    lineStarts.push(index + 1);
+  }
+  return (offset) => {
+    // The last line start at or before `offset`; a break at `offset` itself ends that line.
+    let low = 0;
+    let high = lineStarts.length - 1;
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      if ((lineStarts[middle] as number) <= offset) {
+        low = middle;
+      } else {
+        high = middle - 1;
+      }
+    }
+    return low + 1;
+  };
+}
+
 /** Column number (1-based) of a character offset. */
 export function columnAt(text: string, offset: number): number {
   return offset - text.lastIndexOf("\n", offset - 1);

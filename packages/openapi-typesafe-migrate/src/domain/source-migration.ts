@@ -1,4 +1,9 @@
-import { type Change, type FileMigration, lineAt, type ManualStep } from "./migration-findings.js";
+import {
+  type Change,
+  type FileMigration,
+  lineLocator,
+  type ManualStep,
+} from "./migration-findings.js";
 import { migrateNpmSpec } from "./npm-alias.js";
 import { type RenamedSpecifier, renamedSpecifier } from "./package-names.js";
 import { hideUrlCredentials } from "./url-credentials.js";
@@ -88,12 +93,13 @@ export function migrateModuleSpecifiers(
   const manualSteps: ManualStep[] = [];
   let migrated = "";
   let copiedUpTo = 0;
+  const lineOf = lineLocator(text);
   for (const found of distinctStrings(strings)) {
     const renamed = renamedValue(found.value, version);
     if (renamed === undefined) {
       continue;
     }
-    const line = lineAt(text, found.start);
+    const line = lineOf(found.start);
     if (!found.isModuleSpecifier) {
       manualSteps.push({ kind: "string-names-package", line, value: found.value, to: renamed.to });
       continue;

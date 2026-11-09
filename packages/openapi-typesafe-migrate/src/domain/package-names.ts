@@ -11,6 +11,16 @@ export const PACKAGE_RENAMES: ReadonlyMap<string, string> = new Map([
   ["openapi-typescript-helpers", "openapi-typesafe-helpers"],
 ]);
 
+/**
+ * Whether `text` names an original package as written. Every rename and every report starts at
+ * such a name, so a text without one has nothing to migrate. The generator command is one of the
+ * names. A name written with escapes (`"openapi\x2dfetch"` in YAML) is not found, so a file that
+ * names a package only that way is left as it is.
+ */
+export function namesOriginalPackage(text: string): boolean {
+  return [...PACKAGE_RENAMES.keys()].some((name) => text.includes(name));
+}
+
 /** The generator's command, as package.json scripts and shell lines run it. */
 export const GENERATOR_COMMAND = "openapi-typescript";
 export const MIGRATED_GENERATOR_COMMAND = "openapi-typesafe";

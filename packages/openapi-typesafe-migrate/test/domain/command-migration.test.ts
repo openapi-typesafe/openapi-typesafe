@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { migrateCommand, migrateCommandLines } from "../../src/domain/command-migration.js";
 
+const LARGE_FILE_LINES = 100_000;
+/** Generous for a slow CI runner; counting the lines again for each command takes minutes. */
+const TIME_LIMIT_MS = 2000;
+
 describe("migrateCommand", () => {
   it("migrateCommand renames the generator command after shell punctuation", () => {
     const migrated = migrateCommand(
@@ -243,14 +247,24 @@ describe("migrateCommandLines", () => {
         "",
       ].join("\n"),
     );
-    expect(migrated.changes.map((change) => change.location)).toEqual([
-      "gen.sh:2",
-      "gen.sh:2",
-      "gen.sh:4",
-      "gen.sh:4",
-      "gen.sh:5",
-      "gen.sh:5",
-    ]);
+    expect(migrated.changes.map((change) => ("location" in change ? change.location : ""))).toEqual(
+      ["gen.sh:2", "gen.sh:2", "gen.sh:4", "gen.sh:4", "gen.sh:5", "gen.sh:5"],
+    );
+  });
+
+  it("migrateCommandLines names the lines of a large file in linear time", () => {
+    // 100 000 commands took 57 s when each place counted the line breaks before it.
+    const lines = Array.from({ length: LARGE_FILE_LINES }, (_, index) => `echo ${index}`);
+    const text = `${lines.join("\n")}\nopenapi-typescript a.yaml -it\n`;
+    const started = performance.now();
+
+    const migrated = migrateCommandLines(text, "gen.sh");
+
+    expect(performance.now() - started).toBeLessThan(TIME_LIMIT_MS);
+    expect(migrated.changes[0]).toEqual({
+      kind: "command-renamed",
+      location: `gen.sh:${LARGE_FILE_LINES + 1}`,
+    });
   });
 
   it("migrateCommandLines collects manual steps of every line", () => {

@@ -21,6 +21,7 @@ import {
   type ManualStep,
   unchanged,
 } from "../domain/migration-findings.js";
+import { namesOriginalPackage } from "../domain/package-names.js";
 import { migrateModuleSpecifiers, SOURCE_EXTENSIONS } from "../domain/source-migration.js";
 import {
   migrateWorkspaceCatalogs,
@@ -168,6 +169,16 @@ const yamlConfig =
   (text, path, context) =>
     migrateConfig(text, (current) => context.readers.yaml.read(current), steps(context, path));
 
+/**
+ * A migration that leaves a text naming no original package as it is, without reading it. For
+ * the files whose findings all start at an old name: commands and Dependabot names. Any YAML file
+ * matches the command kind, and an OpenAPI document of megabytes is read in seconds, for nothing.
+ */
+const whenNamed =
+  (migrate: FileKind["migrate"]): FileKind["migrate"] =>
+  (text, path, context) =>
+    namesOriginalPackage(text) ? migrate(text, path, context) : unchanged(text);
+
 /** The kinds in order; the first that matches a path migrates it. */
 const FILE_KINDS: readonly FileKind[] = [
   {
@@ -217,22 +228,26 @@ const FILE_KINDS: readonly FileKind[] = [
   },
   {
     matches: isDependabotConfig,
-    migrate: yamlConfig((_context, path) => [
-      stringsStep((text, strings) => migrateDependabotConfig(text, path, strings)),
-    ]),
+    migrate: whenNamed(
+      yamlConfig((_context, path) => [
+        stringsStep((text, strings) => migrateDependabotConfig(text, path, strings)),
+      ]),
+    ),
   },
   {
     matches: (path) => YAML_EXTENSIONS.has(extensionOf(path)),
-    migrate: yamlConfig((_context, path) => [
-      stringsStep((text, strings) => migrateYamlCommands(text, path, strings)),
-    ]),
+    migrate: whenNamed(
+      yamlConfig((_context, path) => [
+        stringsStep((text, strings) => migrateYamlCommands(text, path, strings)),
+      ]),
+    ),
   },
   {
     matches: (path) =>
       SHELL_EXTENSIONS.has(extensionOf(path)) ||
       SHELL_FILE_NAMES.has(baseName(path)) ||
       isHuskyHook(path),
-    migrate: (text, path) => migrateCommandLines(text, path),
+    migrate: whenNamed((text, path) => migrateCommandLines(text, path)),
   },
 ];
 

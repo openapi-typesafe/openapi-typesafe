@@ -6,7 +6,7 @@ import {
   shellTextFindings,
 } from "./command-migration.js";
 import { type DocumentString, ownerKey } from "./config-documents.js";
-import { type Change, lineAt } from "./migration-findings.js";
+import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import type { ShellCommand, ShellWord } from "./shell-words.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
@@ -126,7 +126,8 @@ export function migrateYamlCommands(
   strings: readonly DocumentString[],
 ): CommandMigration {
   const values = valuesOf(strings, YAML_COMMAND_KEYS);
-  const locate = (offset: number): string => `${file}:${lineAt(text, offset)}`;
+  const lineOf = lineLocator(text);
+  const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const shellValues = values.filter((value) => !isExecFormItem(value));
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(text, value, locate)),
@@ -160,12 +161,13 @@ export function migrateDependabotConfig(
 ): CommandMigration {
   const changes: Change[] = [];
   const edits: TextEdit[] = [];
+  const lineOf = lineLocator(text);
   for (const value of valuesOf(strings, DEPENDABOT_NAME_KEYS)) {
     const from = value.value;
     const to = PACKAGE_RENAMES.get(from);
     if (to !== undefined) {
       const { start, end } = value.content;
-      const location = `${file}:${lineAt(text, start)}`;
+      const location = `${file}:${lineOf(start)}`;
       changes.push({ kind: "package-name-renamed", location, from, to });
       edits.push({ start, end, text: to });
     }

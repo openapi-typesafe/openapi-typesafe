@@ -155,6 +155,26 @@ describe("fileMigrationFor", () => {
     );
   });
 
+  it.each(["ci.yml", ".github/dependabot.yml"])(
+    "fileMigrationFor does not read %s when it names no original package",
+    (path) => {
+      const reads: string[] = [];
+      const yaml = {
+        read: (text: string) => {
+          reads.push(text);
+          return readers.yaml.read(text);
+        },
+      };
+      const counting = { ...context, readers: { ...readers, yaml } };
+      const text = "run: npx openapi-typesafe a.yaml\n";
+
+      const migrated = fileMigrationFor(path)?.(text, path, counting);
+
+      expect(migrated).toEqual({ text, changes: [], manualSteps: [] });
+      expect(reads).toEqual([]);
+    },
+  );
+
   it("fileMigrationFor reports source strings that run the generator", () => {
     const migration = fileMigrationFor("gen.ts")?.(
       'execSync("openapi-typescript a.yaml");\n',

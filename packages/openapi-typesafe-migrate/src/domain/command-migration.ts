@@ -1,6 +1,6 @@
 import { NPM_SPECIFIER_PREFIX } from "./command-launchers.js";
 import { commandRoles, type PackageWord } from "./command-roles.js";
-import { type Change, lineAt, type ManualStep } from "./migration-findings.js";
+import { type Change, lineLocator, type ManualStep } from "./migration-findings.js";
 import {
   FLAG_RENAMES,
   GENERATOR_COMMAND,
@@ -196,5 +196,6 @@ export function migrateCommand(text: string, location: string): CommandMigration
  * continued with `\` onto the next lines is one command. Each finding names its `file:line`.
  */
 export function migrateCommandLines(text: string, file: string): CommandMigration {
-  return migrateShellText(text, (offset) => `${file}:${lineAt(text, offset)}`);
+  const lineOf = lineLocator(text);
+  return migrateShellText(text, (offset) => `${file}:${lineOf(offset)}`);
 }

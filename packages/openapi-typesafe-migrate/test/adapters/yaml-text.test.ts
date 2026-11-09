@@ -9,6 +9,9 @@ import {
 } from "../../src/domain/config-documents.js";
 
 const reader = createYamlTextReader();
+const LARGE_MAP_KEYS = 40_000;
+/** Generous for a slow CI runner; the quadratic check takes several times as long. */
+const TIME_LIMIT_MS = 2000;
 
 const lines = (...parts: string[]): string => `${parts.join("\n")}\n`;
 
@@ -232,8 +235,26 @@ describe("YamlTextReader tree", () => {
   it.each([
     ["a: [\n", 5],
     ["a: 1\na: 2\n", 5],
+    ["x: {a: 1, b: 2, a: 3}\n", 16],
+    ["- k: 1\n- {k: 1, k: 2}\n", 16],
+    ["a: 1\n---\nb: {c: 1}\nb: 2\n", 19],
   ])("read refuses %j at offset %i", (text, offset) => {
     expect(reader.read(text)).toEqual({ kind: "unreadable", offset });
+  });
+
+  it("read keeps keys that only look alike: other types, and keys that are not scalars", () => {
+    expect(reader.read("1: a\n'1': b\n? [k]\n: c\n? [k]\n: d\n").kind).toBe("read");
+  });
+
+  it("read checks the keys of a large map in linear time", () => {
+    // 40 000 keys took 6 s with the quadratic check of the yaml package, and 0.2 s without it.
+    const text = Array.from({ length: LARGE_MAP_KEYS }, (_, index) => `k${index}: v`).join("\n");
+    const started = performance.now();
+
+    const read = reader.read(text);
+
+    expect(performance.now() - started).toBeLessThan(TIME_LIMIT_MS);
+    expect(read.kind).toBe("read");
   });
 
   it("read refuses nesting deeper than the stack allows, as an error", () => {
