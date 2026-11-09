@@ -33,6 +33,11 @@ export interface DocumentFooter extends FooterDeclarations {
    * it comes before any declaration the operation adds, as in the original.
    */
   addOperation(build: () => IrPropertySignature): void;
+  /**
+   * The key in `operations` of the next operation with this (normalized) `operationId`: the ID,
+   * or for a repeated ID a numbered one (`OperationKeys`).
+   */
+  operationKey(operationId: string): string;
 }
 
 /** Debug output for slow parts of a run (`DEBUG=openapi-ts:*`). */

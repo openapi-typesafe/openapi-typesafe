@@ -5,10 +5,12 @@ import {
   namesTheOutputNeeds,
   withEnumsRenamed,
 } from "../application/transform/document/enum-names-given-back.js";
+import { operationKeysWritten } from "../application/transform/document/operation-keys-written.js";
 import { renameTakenAliases } from "../application/transform/document/root-type-aliases.js";
 import { RunFooter, type RunFooterNames } from "../application/transform/footer/document-footer.js";
 import { EnumNameClaims } from "../application/transform/footer/enum-name-claims.js";
 import { checkedEnumValues } from "../application/transform/footer/enum-values-check.js";
+import { OperationKeys } from "../application/transform/footer/operation-keys.js";
 import {
   FIRST_SCHEMA_NAMES,
   SharedEnumNameRecorder,
@@ -144,7 +146,10 @@ function enumValuesChecked(
 /** @internal Root types, the footer, then the closing declarations (Phase 5, step 6). */
 export function transformDocument(schema: OpenAPI3, ctx: RunContext): TransformedDocument {
   const document = schema as DocumentObject;
-  const names: RunFooterNames = { enums: new EnumNameClaims(NAMES_THE_OUTPUT_MAY_NEED) };
+  const names: RunFooterNames = {
+    enums: new EnumNameClaims(NAMES_THE_OUTPUT_MAY_NEED),
+    operations: new OperationKeys(operationKeysWritten(document)),
+  };
   withRunFooter(document, ctx, names);
   const context = createTransformContext(ctx);
   // documentBody registers the enums in the footer, so the footer is read after it.

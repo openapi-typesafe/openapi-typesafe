@@ -19,6 +19,7 @@ import {
   enumDeclaration,
   withoutDeclaredMembers,
 } from "./enum-naming.js";
+import { OperationKeys } from "./operation-keys.js";
 import { FIRST_SCHEMA_NAMES, type SharedEnumNames } from "./shared-enum-names.js";
 
 /** Where footer declarations go, in order: the run's `ctx.injectFooter`, open to user code. */
@@ -66,6 +67,7 @@ function declarationKey(name: string, request: EnumDeclarationRequest): string {
 /** The naming state a run's footer shares with the rest of the run. */
 export interface RunFooterNames {
   readonly enums: EnumNameClaims;
+  readonly operations: OperationKeys;
 }
 
 /**
@@ -95,7 +97,7 @@ export class RunFooter implements DocumentFooter {
     sink: FooterSink,
     isDedupingEnums: boolean,
     sharedNames: SharedEnumNames = FIRST_SCHEMA_NAMES,
-    names: RunFooterNames = { enums: new EnumNameClaims() },
+    names: RunFooterNames = { enums: new EnumNameClaims(), operations: new OperationKeys() },
   ) {
     this.sink = sink;
     this.isDedupingEnums = isDedupingEnums;
@@ -209,6 +211,10 @@ export class RunFooter implements DocumentFooter {
 
   addOperation(build: () => IrPropertySignature): void {
     this.sink.addOperation(build);
+  }
+
+  operationKey(operationId: string): string {
+    return this.names.operations.keyFor(operationId);
   }
 
   private require(helper: HelperType): void {

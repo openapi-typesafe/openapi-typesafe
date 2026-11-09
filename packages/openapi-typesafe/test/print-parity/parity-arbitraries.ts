@@ -472,6 +472,19 @@ export function hasRepeatedEnumDeclarations(output: string): boolean {
   return new Set(names).size !== names.length;
 }
 
+const OPERATIONS_BLOCK_RE = /^export interface operations \{\n([\s\S]*?)^\}/m;
+const OPERATION_KEY_RE = /^ {4}(?:readonly )?("(?:[^"\\]|\\.)*"|[^\s:?]+)\??: /gm;
+
+/**
+ * Whether the original output's `operations` interface has one key twice (a repeated
+ * `operationId`), which does not compile (TS2300). The new generator numbers the later key.
+ */
+export function hasRepeatedOperationKeys(output: string): boolean {
+  const body = OPERATIONS_BLOCK_RE.exec(output)?.[1] ?? "";
+  const keys = [...body.matchAll(OPERATION_KEY_RE)].map((match) => match[1] ?? "");
+  return new Set(keys).size !== keys.length;
+}
+
 const REPEATED_PARAMETERS_RE =
   /^export const \S+: ReadonlyArray<(?:Extract<)*FlattenedDeepRequired<(?:paths>|webhooks>|components>\["pathItems"\])\["[^"]*"\]\["parameters"\]\["parameters"\]/m;
 

@@ -4,6 +4,7 @@ import {
   RunFooter,
 } from "../../../../src/application/transform/footer/document-footer.js";
 import { EnumNameClaims } from "../../../../src/application/transform/footer/enum-name-claims.js";
+import { OperationKeys } from "../../../../src/application/transform/footer/operation-keys.js";
 import { FIRST_SCHEMA_NAMES } from "../../../../src/application/transform/footer/shared-enum-names.js";
 import { irProperty, irReference } from "../../../../src/domain/ir/constructors.js";
 import type { IrDeclaration, IrPropertySignature } from "../../../../src/domain/ir/nodes.js";
@@ -114,7 +115,10 @@ describe("RunFooter", () => {
 
   it("addEnum gives way to a name the run's claims reserve", () => {
     const sink = new InMemorySink();
-    const names = { enums: new EnumNameClaims(new Set(["Record"])) };
+    const names = {
+      enums: new EnumNameClaims(new Set(["Record"])),
+      operations: new OperationKeys(),
+    };
     const footer = new RunFooter(sink, false, FIRST_SCHEMA_NAMES, names);
 
     expect(footer.addEnum({ ...STATUS, name: "/Record" })).toBe("Record_2");

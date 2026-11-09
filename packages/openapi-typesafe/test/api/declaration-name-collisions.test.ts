@@ -10,7 +10,8 @@ import {
 /**
  * Generated declarations take distinct names (RC4 G7–G10): an enum gives way to a global type the
  * output refers to (`Blob`, `Record`), to the enum of another schema with the same name, and to
- * `ApiPaths`; a root alias gives way to every other declaration.
+ * `ApiPaths`; a root alias gives way to every other declaration. Operations with a repeated
+ * `operationId` get distinct keys (G15).
  */
 
 function documentWith(schemas: Record<string, object>, paths: object = {}): OpenAPI3 {
@@ -96,6 +97,27 @@ describe("root aliases that collide with ApiPaths", () => {
 
     expect(output).toContain("export type ApiPaths_2 = components['schemas']['ApiPaths'];");
     expect(output).toContain("export enum ApiPaths {");
+  });
+});
+
+const REPEATED_OPERATION_ID_DOCUMENT = {
+  ...documentWith({}),
+  paths: {
+    "/a": { get: { operationId: "dup", responses: { 200: { description: "ok" } } } },
+    "/b": { post: { operationId: "dup", responses: { 204: { description: "ok" } } } },
+    "/c": { put: { operationId: "dup2", responses: { 201: { description: "ok" } } } },
+  },
+} as OpenAPI3;
+
+describe("operations with a repeated operationId", () => {
+  it("the later operation gets the lowest free number as its key (G15)", async () => {
+    // The Node API fails on the lint error by default; the CLI only warns (LINT_PROBLEM).
+    const output = await generate(REPEATED_OPERATION_ID_DOCUMENT, { lint: false });
+
+    expect(output).toContain('get: operations["dup"];');
+    expect(output).toContain('post: operations["dup3"];');
+    expect(output).toContain('put: operations["dup2"];');
+    expect(output.match(/^ {4}dup\d?: \{$/gm)).toEqual(["    dup: {", "    dup3: {", "    dup2: {"]);
   });
 });
 

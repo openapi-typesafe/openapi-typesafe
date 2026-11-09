@@ -26,6 +26,11 @@ import { parametersMember } from "./parameters.js";
 /** Redocly reads `#` in an operation ID as a pointer, so it is replaced (upstream issue #1542). */
 const HASH_RE = /#/g;
 
+/** The `operations` key an `operationId` asks for, before a repeated one gets a number. */
+export function operationKeyOf(operationId: string): string {
+  return operationId.replace(HASH_RE, "/");
+}
+
 /** Whether the method has an operation, not removed by `--exclude-deprecated`. */
 function isIncluded(
   operation: OperationEntry | undefined,
@@ -75,7 +80,7 @@ function operationType(
   if (!operation.operationId) {
     return irObject(operationMembers(merged, location, context));
   }
-  const operationId = operation.operationId.replace(HASH_RE, "/");
+  const operationId = context.footer.operationKey(operationKeyOf(operation.operationId));
   context.footer.addOperation(() =>
     irProperty(toPropertyName(operationId), irObject(operationMembers(merged, location, context)), {
       isReadonly: context.options.immutable,

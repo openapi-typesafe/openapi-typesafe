@@ -13,6 +13,7 @@ import {
   hasDuplicateEnumMembers,
   hasRedeclaredConstArrays,
   hasRepeatedEnumDeclarations,
+  hasRepeatedOperationKeys,
   hasRepeatedParametersIndex,
   hasUnquotedExtractProbe,
   RUNS,
@@ -51,6 +52,7 @@ describe("components transformer parity with the fork base", () => {
           const expected = run(originalTransformComponentsObject, value, input);
           fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
           fc.pre(!hasRepeatedEnumDeclarations(expected));
+          fc.pre(!hasRepeatedOperationKeys(expected));
           fc.pre(!hasRepeatedParametersIndex(expected));
           fc.pre(!hasUnquotedExtractProbe(expected));
           expect(run(transformComponentsObject, value, input)).toBe(expected);

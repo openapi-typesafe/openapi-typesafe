@@ -81,6 +81,11 @@ export class RecordingFooter implements DocumentFooter {
   addOperation(build: () => IrPropertySignature): void {
     this.operations.push(build());
   }
+
+  /** Every operation keeps its ID. */
+  operationKey(operationId: string): string {
+    return operationId;
+  }
 }
 
 /** A clock that advances 1 ms per reading, and the debug messages it was given. */

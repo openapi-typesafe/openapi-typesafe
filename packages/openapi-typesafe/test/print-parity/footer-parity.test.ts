@@ -12,6 +12,7 @@ import {
   hasDuplicateEnumMembers,
   hasRedeclaredConstArrays,
   hasRepeatedEnumDeclarations,
+  hasRepeatedOperationKeys,
   hasRepeatedParametersIndex,
   hasUnquotedExtractProbe,
   RUNS,
@@ -95,6 +96,7 @@ describe("footer parity", () => {
           const expected = run(originalFooter, value);
           fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
           fc.pre(!hasRepeatedEnumDeclarations(expected));
+          fc.pre(!hasRepeatedOperationKeys(expected));
           fc.pre(!hasRepeatedParametersIndex(expected));
           fc.pre(!hasUnquotedExtractProbe(expected));
           expect(run((ctx) => createTransformContext(ctx).footer, value)).toBe(expected);

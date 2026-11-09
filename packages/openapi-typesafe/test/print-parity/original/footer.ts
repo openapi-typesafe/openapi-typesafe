@@ -40,5 +40,9 @@ export default function footer(ctx: GlobalContext): DocumentFooter {
     addOperation(build) {
       injectOperation(ctx.injectFooter, () => toPropertySignature(ts, build()));
     },
+    // The original keys every operation by its ID, a repeated one too.
+    operationKey(operationId) {
+      return operationId;
+    },
   };
 }

@@ -82,7 +82,7 @@ To reduce errors in TypeScript generation, the following built-in rules are reco
 
 | Rule                                                                                          |    Setting     | Reason                         |
 | :-------------------------------------------------------------------------------------------- | :------------: | :----------------------------- |
-| [operation-operationId-unique](https://redocly.com/docs/cli/rules/built-in-rules/#operations) |    `error`     | Prevents invalid TS generation |
+| [operation-operationId-unique](https://redocly.com/docs/cli/rules/built-in-rules/#operations) |    `error`     | A repeated ID gets a numbered `operations` key (`listItems2`) |
 | [operation-parameters-unique](https://redocly.com/docs/cli/rules/built-in-rules/#parameters)  |    `error`     | Prevents missing params        |
 | [path-not-include-query](https://redocly.com/docs/cli/rules/built-in-rules/#parameters)       |    `error`     | Prevents missing params        |
 | [spec](https://redocly.com/docs/cli/rules/built-in-rules/#special-rules)                      | `3.0` or `3.1` | Enables better schema checks   |
