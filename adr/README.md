@@ -55,3 +55,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [039](./039-external-links-outside-pull-requests.md) | External links of the docs site are checked outside pull requests | Accepted |
 | [040](./040-the-1-0-changelog-is-written-for-upstream-users.md) | The 1.0.0 changelog is written for upstream users | Accepted |
 | [041](./041-parameter-values-and-json-parse-errors.md) | Parameter values and JSON parse errors (audit finding F7) | Accepted |
+| [042](./042-the-docs-site-follows-the-latest-release.md) | The docs site follows the latest release | Accepted |

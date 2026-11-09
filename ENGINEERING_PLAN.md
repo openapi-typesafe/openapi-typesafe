@@ -1,9 +1,10 @@
 # Engineering Plan
 
-> Status on 2026-11-07: the plan as of draft v6 (2026-11-02), kept for context. Phases 0–10 are
+> Status on 2026-11-08: the plan as of draft v6 (2026-11-02), kept for context. Phases 0–10 are
 > done. 11.1 (closed beta) was replaced by agent acceptance tests on 2026-11-06; 11.2 (public
-> repository) was done on 2026-11-04; 11.3 is done for `1.0.0-rc.0` and `1.0.0-rc.1`; 11.4 (1.0.0)
-> is open. The current state is in [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md), decisions are in
+> repository) was done on 2026-11-04; 11.3 is done for `1.0.0-rc.0` to `1.0.0-rc.3` (`latest` and
+> `next` point at `1.0.0-rc.3`); 11.4 (1.0.0) is open. CI tests Node.js 22, 24 and 26, and the
+> project has the OpenSSF Best Practices passing badge. The current state is in [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md), decisions are in
 > the [ADRs](adr/README.md), and product goals live in the README.
 > Scope: the engineering path from the inherited `openapi-typescript` codebase to `openapi-typesafe` 1.0.
 
@@ -427,4 +428,5 @@ alternatives with trade-offs → consequences → review trigger.
 
 ## 12. Next steps
 
-Release `1.0.0-rc.2` and then `1.0.0`; see [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md), sections 3 and 4.
+Fix the findings of the rc.3 review, release the next candidate, and then `1.0.0`; see
+[LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md), sections 3 and 4.

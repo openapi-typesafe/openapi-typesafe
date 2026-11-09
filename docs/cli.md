@@ -842,7 +842,7 @@ components:
 :::
 
 ```ts
-Video: Omit<components["schemas"]["Content"], "contentType"> & { contentType: "Video" }; // [!code --]
+Video: { contentType: "Video" } & Omit<components["schemas"]["Content"], "contentType">; // [!code --]
 Video: Omit<components["schemas"]["Content"], "contentType"> & { contentType: "video" }; // [!code ++]
 ```
 

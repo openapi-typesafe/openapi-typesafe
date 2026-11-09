@@ -60,9 +60,13 @@ The beta runs while the repository is private, so nothing goes to npm.
 5. The `release` job creates the tag `<name>@<version>` on the built commit and a GitHub release
    with the changelog section, the CycloneDX SBOM and the npm provenance bundle
    (`scripts/release/create-github-releases.sh`).
-6. For a release candidate or a minor or major release, refresh `docs/compatibility.md` from the
-   latest full run of the `compat` workflow (its `compat-all` artifact), and link the page from the
-   GitHub release notes.
+6. The `docs` job deploys the docs site from the tag `openapi-typesafe@<version>` when that version
+   is on the npm `latest` tag (ADR-042): it starts `.github/workflows/docs.yml` with the tag. The
+   site never shows `main`, so a docs fix goes live with the next release. To rebuild the site by
+   hand: Actions → docs → Run workflow on `main`, with a release tag or empty for the `latest`
+   version.
+7. Link `docs/compatibility.md` from the GitHub release notes of a release candidate or a minor or
+   major release. The page is refreshed before the release, as below.
 
 Prereleases (a version with `-`) go to the `next` tag and are marked as prereleases on GitHub.
 Until a stable release exists, each prerelease also takes `latest` (ADR-007): the last step of the
@@ -72,6 +76,27 @@ off), the `release` job still runs. Turn the permission on and re-run the failed
 `pnpm exec changeset pre exit` before 1.0.0. The changesets in `.changeset/pre/` become the 1.0.0
 changelog, so they describe the change from the stable upstream versions, not from the last rc
 (ADR-040).
+
+### Refresh the compatibility report
+
+For every release candidate and every minor or major release, `docs/compatibility.md` is refreshed
+**before you merge the "chore(release): version packages" pull request**. The docs site is built
+from the release tag (ADR-042), so a refresh merged after the release would wait for the next one.
+The version pull request changes only versions and changelogs, so a run on the commit before it
+measures the code that is released.
+
+1. When every change for the release is on `main`, run the full corpus on that commit: Actions →
+   compat → Run workflow on `main`. The nightly run counts too, if no commit after it changed
+   `packages/`. Its `compatibility (full, report)` job must pass the release gate.
+2. Download its `compat-all` artifact:
+   `tools/compat-harness/.cache/compat/reports/fork-base__vs__current.md` has the numbers.
+3. In `docs/compatibility.md`, update the result line, the tables of "Summary" and its
+   subsections, and "Real projects". The result line names the version about to be released (the
+   version pull request shows it), the commit that was measured and the date of the run, for
+   example `**Result (openapi-typesafe 1.0.0-rc.4, commit 0123456789ab, run of 2026-11-09):**`.
+   Update the totals in `docs/introduction.md` if they changed.
+4. Merge the refresh in its own pull request (`docs(compat): refresh the report for <version>`),
+   then merge the version pull request.
 
 ### When a run fails
 
@@ -99,5 +124,14 @@ tarball in `.release/npm/`. npm notes that you are not logged in; for a dry run 
   `<name>@<version>.provenance.sigstore.json` npm provenance bundle attached. With immutable
   releases on (`scripts/repo/apply-settings.sh`), GitHub marks the release immutable: its tag and
   files cannot change.
+
+A fresh version is not installable everywhere at once. Package managers with a minimum release age
+skip a version until it is older than that age, and resolve the previous one or fail: Yarn 4
+(`npmMinimalAgeGate`, 24 hours in the Yarn 4 releases we tested), bun (`minimumReleaseAge` in
+`bunfig.toml`, often set to 7 days), pnpm (`minimumReleaseAge`; this repository uses 24 hours) and
+npm (`min-release-age`). This is expected and needs no fix. When you ask people to try a release
+candidate right after it is published, say so: they wait, or exempt the `openapi-typesafe*`
+packages from the gate (Yarn `npmPreapprovedPackages`, bun `minimumReleaseAgeExcludes`, pnpm
+`minimumReleaseAgeExclude`).
 
 The verify logs of each run are in the `release-verify-logs` artifact (`.logs/verify/` locally).

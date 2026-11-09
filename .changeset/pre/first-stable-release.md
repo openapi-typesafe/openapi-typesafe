@@ -27,7 +27,9 @@ Changes that can need work when you move from openapi-typescript 7.13:
   transformers return IR, not TypeScript nodes. `astToString()` prints the same text as before.
 - Node API errors are `OpenAPITypesafeError`s with a `code`; a file system error is the `cause`
   (`error.cause.code === "ENOENT"`).
-- `typescript` is an optional peer. Legacy `ts.Node` callbacks need `typescript` 6 or earlier, or
+- `typescript` is an optional peer, and it needs TypeScript 5.4 or newer (`>=5.4.0`, was `^5.x`).
+  On TypeScript 5.0 to 5.3 npm stops with a peer conflict (`ERESOLVE`) and pnpm warns: upgrade
+  TypeScript to 5.4 or newer. Legacy `ts.Node` callbacks need `typescript` 6 or earlier, or
   `@typescript/typescript6` in a TypeScript 7 project.
 - Relative `$ref`s of a string, object, buffer, stream or stdin source resolve in `cwd`, not in its
   parent.

@@ -451,6 +451,7 @@ export interface components {
       /**
        * @format email
        */
+      /** Format: email */
       email: string;
       /**
        * @minimum 0
