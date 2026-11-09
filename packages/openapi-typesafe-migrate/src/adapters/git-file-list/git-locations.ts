@@ -80,23 +80,26 @@ function isAtOrUnder(paths: typeof posix, folder: string, target: string): boole
   );
 }
 
-/** Whether `path` has a `node_modules` segment; Windows compares names in any case. */
+/**
+ * Whether `path` has a `node_modules` segment, in any case. The file systems of macOS and Windows
+ * ignore case, so a `NODE_MODULES` folder is the `node_modules` that npx puts on PATH, and a real
+ * path keeps the case the folder was created with. Where case matters, this passes over more.
+ */
 function isInPackagesFolder(host: GitHost, path: string): boolean {
-  if (host.platform !== WINDOWS) {
-    return path.split(posix.sep).includes(PACKAGES_FOLDER);
-  }
-  return path.split(/[\\/]/).some((segment) => segment.toLowerCase() === PACKAGES_FOLDER);
+  const separator = host.platform === WINDOWS ? /[\\/]/ : posix.sep;
+  return path.split(separator).some((segment) => segment.toLowerCase() === PACKAGES_FOLDER);
 }
 
 /**
  * Whether a PATH entry is a folder git may run from. An empty or relative entry names a folder
  * relative to the working directory, a folder in the project is the project's, and a folder in a
  * `node_modules` holds the bins of packages, which npx puts on PATH for the project and every
- * folder above it; each can hold a planted git, so each is passed over.
+ * folder above it; each can hold a planted git, so each is passed over. The entry is checked as
+ * written and as its real path: a `node_modules` can be a link to a folder with another name.
  */
 async function isTrustedFolder(host: GitHost, project: string, folder: string): Promise<boolean> {
   const paths = pathsOf(host.platform);
-  if (!paths.isAbsolute(folder)) {
+  if (!paths.isAbsolute(folder) || isInPackagesFolder(host, folder)) {
     return false;
   }
   const real = await host.fileSystem.realPath(folder);

@@ -26,6 +26,9 @@ const OLD_FILE_NOTE =
   "is a file of openapi-typescript, which is no longer installed: run openapi-typesafe instead";
 const FLAGS_IN_VARIABLE_NOTE =
   "holds old flags of the generator and may serve other commands, so it was kept: rename";
+const NOT_ONLY_GENERATOR_NOTE =
+  "runs openapi-typescript in some of its definitions in this file and another program in " +
+  "others, so the flags after it were kept; where it runs the generator, rename";
 const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; change it to";
 const OPTIONS_NOTE =
   "the options of openapiTS() are not an object written in this file: check them for " +
@@ -71,9 +74,18 @@ function pinnedPackageMessage(step: Extract<ManualStep, { kind: "pinned-package"
   );
 }
 
+/** `-it to --immutable, …`: each old flag with its new name. */
+const flagRenames = (flags: readonly string[]): string =>
+  flags.map((flag) => `${flag} to ${FLAG_RENAMES.get(flag) ?? flag}`).join(", ");
+
 function flagsInVariableMessage(step: Extract<ManualStep, { kind: "flags-in-variable" }>) {
-  const renames = step.flags.map((flag) => `${flag} to ${FLAG_RENAMES.get(flag) ?? flag}`);
-  return `${step.location}: ${step.variable} ${FLAGS_IN_VARIABLE_NOTE} ${renames.join(", ")}`;
+  return `${step.location}: ${step.variable} ${FLAGS_IN_VARIABLE_NOTE} ${flagRenames(step.flags)}`;
+}
+
+function notOnlyGeneratorMessage(
+  step: Extract<ManualStep, { kind: "variable-not-only-generator" }>,
+): string {
+  return `${step.location}: ${step.variable} ${NOT_ONLY_GENERATOR_NOTE} ${flagRenames(step.flags)}`;
 }
 
 /** The manual steps found in commands: scripts, shell files, CI files and command strings. */
@@ -83,6 +95,7 @@ type CommandStep = Extract<
     kind:
       | "versioned-command"
       | "flags-in-variable"
+      | "variable-not-only-generator"
       | "pinned-package"
       | "old-package-file"
       | "command-string";
@@ -92,6 +105,7 @@ type CommandStep = Extract<
 const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "versioned-command",
   "flags-in-variable",
+  "variable-not-only-generator",
   "pinned-package",
   "old-package-file",
   "command-string",
@@ -105,6 +119,8 @@ function commandStepMessage(step: CommandStep): string {
       return `${step.location} runs a pinned openapi-typescript@<version>: ${PINNED_NOTE}`;
     case "flags-in-variable":
       return flagsInVariableMessage(step);
+    case "variable-not-only-generator":
+      return notOnlyGeneratorMessage(step);
     case "pinned-package":
       return pinnedPackageMessage(step);
     case "old-package-file":

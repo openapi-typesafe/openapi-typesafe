@@ -241,17 +241,25 @@ describe("the baseUrl is not checked", () => {
 describe("path check messages", () => {
   const SECRET = "token-0123456789";
 
-  it("a dot segment names the template of the parameters, not the URL", () => {
+  it("a dot segment names the template segment of the parameter, not the URL", () => {
     const template = `https://user:${SECRET}@api.example.com/v1/files/{name}/raw?key=${SECRET}`;
 
     expect(() => defaultPathSerializer(template, { name: ".." })).toThrow(
-      new Error('Dot path segment in "{name}/raw"'),
+      new Error('Dot path segment in "{name}"'),
     );
   });
 
-  it("an empty first segment names the template of the parameters, not the values", () => {
+  it("a dot segment names its own segment when the baseUrl has a parameter too", () => {
+    const template = `https://user:${SECRET}@{region}.api.example.com/v1/{a}/{.id}`;
+
+    expect(() => defaultPathSerializer(template, { a: "x", id: "." })).toThrow(
+      new Error('Dot path segment in "{.id}"'),
+    );
+  });
+
+  it("an empty first segment names the template segment, not the values", () => {
     expect(() => defaultPathSerializer("/{org}/{repo}", { org: "", repo: SECRET })).toThrow(
-      new Error('Empty first path segment in "{org}/{repo}"'),
+      new Error('Empty first path segment in "{org}"'),
     );
   });
 });

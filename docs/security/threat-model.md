@@ -124,11 +124,14 @@ A URL with user info (`https://user:token@host/spec.yaml`) as the input, in a `$
 redirect fails, because fetch refuses such URLs, and the message named the whole URL. In CI the
 token ended up in the job log.
 
-- Controls: every typed error message, the URLs in `details` and every line the terminal logger
-  writes show such a URL as `https://***@host/…`, and the query of every URL as `?***`, since it
-  often holds an API key or a signature (`?api_key=…`). Header values from `redocly.yaml` are never
-  printed.
-- Tests: `test/domain/url-secrets.test.ts`, `test/defensive/remote-refs.test.ts`,
+- Controls: every typed error message, the URLs in `details`, the `cause` chain of a typed error
+  and every line the terminal logger writes show such a URL as `https://***@host/…`, and the query
+  of every URL as `?***`, since it often holds an API key or a signature (`?api_key=…`); a
+  location that does not parse as a URL is shown with everything up to its last `@` hidden, and a
+  `$ref` with an uppercase scheme loads as a URL instead of a file path that showed it (ADR-033).
+  Header values from `redocly.yaml` are never printed.
+- Tests: `test/domain/url-secrets.test.ts`, `test/domain/cause-secrets.test.ts`,
+  `test/defensive/remote-refs.test.ts`, `test/cli/location-url.test.ts`,
   `test/adapters/terminal-logger/terminal-logger.test.ts`.
 
 ### T5. Unsafe requests from the fetch client — Controlled

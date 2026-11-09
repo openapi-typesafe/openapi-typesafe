@@ -9,6 +9,7 @@ import {
 } from "./package-names.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
+import type { VariableProgram } from "./variable-programs.js";
 
 /** One command line or script after the migration. */
 export interface CommandMigration {
@@ -131,6 +132,12 @@ function withoutRecipePrefix(words: ShellCommand): ShellCommand {
   return [{ ...first, value: first.value.replace(RECIPE_PREFIX_RE, "") }, ...rest];
 }
 
+/** A program word that expands one variable the file sets: as written, and what it runs. */
+export interface VariableProgramUse {
+  readonly written: string;
+  readonly program: VariableProgram;
+}
+
 /** A whole word that expands one variable the file sets: as written, and the value it gets. */
 export interface VariableReference {
   readonly written: string;
@@ -145,55 +152,13 @@ export interface VariableReference {
  * commands too, so its old flags are reported, not changed.
  */
 export interface FileVariables {
-  isGenerator(program: ShellWord): boolean;
+  /** What a program word runs through a variable, or undefined when it expands none. */
+  programAt(program: ShellWord): VariableProgramUse | undefined;
   referenceAt(word: ShellWord): VariableReference | undefined;
 }
 
-/** A shell variable as a file sets it: its name and its value, read as shell text. */
-export interface VariableDefinition {
-  readonly name: string;
-  readonly value: string;
-}
-
-/** A whole word that expands one shell variable: `$NAME`, `${NAME}`, also in double quotes. */
-const SHELL_VARIABLE_RE = /^"?\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})"?$/;
-
-/**
- * The variables that a file's shell commands expand: `$GEN` runs the generator when a definition
- * sets `GEN` to it. Definitions of one name are read as one (a workflow, a job and a step `env`).
- */
-export function shellVariables(definitions: readonly VariableDefinition[]): FileVariables {
-  const values = new Map<string, string>();
-  const generators = new Set<string>();
-  for (const { name, value } of definitions) {
-    values.set(name, [values.get(name), value].filter((part) => part !== undefined).join(" "));
-    if (shellCommands(value).some(runsGenerator)) {
-      generators.add(name);
-    }
-  }
-  // A word that expands no variable has no name, so no definition (not even of "") matches it.
-  const nameAt = (word: ShellWord): string | undefined => {
-    const match = SHELL_VARIABLE_RE.exec(word.raw);
-    return match === null ? undefined : (match[1] ?? match[2]);
-  };
-  const valueAt = (word: ShellWord): string | undefined => {
-    const name = nameAt(word);
-    return name === undefined ? undefined : values.get(name);
-  };
-  return {
-    isGenerator: (program) => {
-      const name = nameAt(program);
-      return name !== undefined && generators.has(name);
-    },
-    referenceAt: (word) => {
-      const value = valueAt(word);
-      return value === undefined ? undefined : { written: word.raw, value };
-    },
-  };
-}
-
 const NO_VARIABLES: FileVariables = {
-  isGenerator: () => false,
+  programAt: () => undefined,
   referenceAt: () => undefined,
 };
 
@@ -224,6 +189,38 @@ function argumentFindings(word: ShellWord, locate: Locate, variables: FileVariab
   return [{ offset: word.start, manualStep }];
 }
 
+/** The old flags that findings rename, or report in a variable's value. */
+const oldFlagsOf = (findings: readonly Finding[]): string[] =>
+  findings.flatMap(({ change, manualStep }) => {
+    if (change?.kind === "flag-renamed") {
+      return [change.from];
+    }
+    return manualStep?.kind === "flags-in-variable" ? [...manualStep.flags] : [];
+  });
+
+/**
+ * The findings after a variable that runs the generator in some of its definitions only: one step
+ * that names the old flags, since the tool cannot tell which program runs there.
+ */
+function uncertainFlagSteps(
+  program: ShellWord,
+  variable: string,
+  found: readonly Finding[],
+  locate: Locate,
+) {
+  const flags = [...new Set(oldFlagsOf(found))];
+  if (flags.length === 0) {
+    return [];
+  }
+  const manualStep: ManualStep = {
+    kind: "variable-not-only-generator",
+    location: locate(program.start),
+    variable,
+    flags,
+  };
+  return [{ offset: program.start, manualStep }];
+}
+
 function commandFindings(
   command: ShellCommand,
   locate: Locate,
@@ -240,10 +237,16 @@ function commandFindings(
   findings.push(...found);
   // Only a renamed command is ours to change; a pinned one still runs the old package.
   const isRenamed = found.some((finding) => finding.change?.kind === "command-renamed");
-  if (isRenamed || variables.isGenerator(program)) {
-    const flags = words.slice((roles.program as number) + 1);
-    findings.push(...flags.flatMap((word) => argumentFindings(word, locate, variables)));
+  const variable = variables.programAt(program);
+  if (!isRenamed && (variable === undefined || variable.program === "other")) {
+    return findings;
   }
+  const flags = words.slice((roles.program as number) + 1);
+  const flagFound = flags.flatMap((word) => argumentFindings(word, locate, variables));
+  const isUncertain = variable?.program === "generator-or-other";
+  findings.push(
+    ...(isUncertain ? uncertainFlagSteps(program, variable.written, flagFound, locate) : flagFound),
+  );
   return findings;
 }
 

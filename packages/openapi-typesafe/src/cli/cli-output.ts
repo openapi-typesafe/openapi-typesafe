@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
+import { redactUnparsedUrl } from "../domain/url-secrets.js";
 import type { CliArguments } from "./cli-arguments.js";
 import type { CliDependencies, GeneratedTypes } from "./cli-dependencies.js";
 import { cliError } from "./cli-errors.js";
@@ -36,11 +37,17 @@ const URL_SCHEME = /^[a-z][a-z\d+.-]+:/i;
  * The URL of a location the user wrote: a URL, else a file path, absolute or relative to the
  * directory of `base` (a directory or file URL). A relative `file:` URL (`file:api.yaml`) resolves
  * against `base` too, as in openapi-typescript. A path is not parsed as a URL, so `#`, `?` and `%`
- * are part of the file name.
+ * are part of the file name. A location with a scheme that does not parse as a URL
+ * (`http://[::1/x`) fails with `CLI_LOCATION_INVALID`.
  */
 export function resolveLocationUrl(location: string, base: URL): URL {
   if (URL_SCHEME.test(location)) {
-    return new URL(location, base);
+    const url = URL.parse(location, base.href);
+    if (url === null) {
+      const shown = redactUnparsedUrl(location);
+      throw cliError("CLI_LOCATION_INVALID", `The location ${shown} is not a valid URL`);
+    }
+    return url;
   }
   const baseDirectory = fileURLToPath(new URL(".", base));
   return pathToFileURL(path.resolve(baseDirectory, location));

@@ -4,11 +4,11 @@ import {
   type FileVariables,
   type Locate,
   type ShellTextFindings,
-  shellVariables,
 } from "./command-migration.js";
 import { type DocumentString, ownerKey } from "./config-documents.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
+import { shellVariables } from "./shell-variables.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 

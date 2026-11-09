@@ -3,7 +3,7 @@ const PATH_PARAM_RE = /\{[^{}]+\}/g;
 /**
  * A `.` or `..` path segment; URLs resolve it, so a parameter value could leave its path (#2483).
  */
-const DOT_SEGMENT_RE = /(^|\/)\.\.?(\/|$)/;
+const DOT_SEGMENT_RE = /^\.\.?$/;
 /** Where the path of a URL ends: its query or fragment, which have no segments. */
 const QUERY_OR_FRAGMENT_RE = /[?#]/;
 /**
@@ -779,24 +779,29 @@ export function defaultPathSerializer(pathname, pathParams) {
  * Throw when the path parameters moved the request. Only the path part (before `?` or `#`) from the
  * segment of the first parameter on is checked: the text before it is the `baseUrl` and the
  * template, which no value changes, and a protocol-relative base (`//api.example/v1`) is valid.
- * The message names that part of the template, never the URL: the `baseUrl` and the values may
- * carry secrets (a token in the path, credentials in the base), and errors reach logs (ADR-041).
+ * Values are percent-encoded, so they add no `/` and segment `i` of the URL comes from segment `i`
+ * of the template. The message names that template segment, never the URL: the `baseUrl` and the
+ * values may carry secrets (a token in the path, credentials in the base), and errors reach logs
+ * (ADR-041).
  */
 function checkSerializedPath(template, url) {
   const fixed = template.slice(0, template.search(PATH_PARAM_RE));
-  const start = fixed.lastIndexOf("/") + 1;
   const path = url.split(QUERY_OR_FRAGMENT_RE, 1)[0];
-  const parameters = template.slice(start).split(QUERY_OR_FRAGMENT_RE, 1)[0];
-  const pathError = (problem) => new Error(`${problem} path segment in "${parameters}"`);
+  const first = fixed.split("/").length - 1;
   // `encodeURIComponent` keeps dots, so a value `..` would move the request up a path level
   // (ADR-013).
-  if (DOT_SEGMENT_RE.test(path.slice(start))) {
-    throw pathError("Dot");
-  }
+  let index = path
+    .split("/")
+    .findIndex((segment, at) => at >= first && DOT_SEGMENT_RE.test(segment));
+  let problem = "Dot";
   // `//host/…` is a protocol-relative URL: with a relative baseUrl a browser sends it to that host
   // (ADR-030).
-  if (path.startsWith("//") && !fixed.startsWith("//")) {
-    throw pathError("Empty first");
+  if (index === -1 && path.startsWith("//") && !fixed.startsWith("//")) {
+    [index, problem] = [1, "Empty first"];
+  }
+  if (index !== -1) {
+    const name = template.split(QUERY_OR_FRAGMENT_RE, 1)[0].split("/")[index];
+    throw new Error(`${problem} path segment in "${name}"`);
   }
 }
 

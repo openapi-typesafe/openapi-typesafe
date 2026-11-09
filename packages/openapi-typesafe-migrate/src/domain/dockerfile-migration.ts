@@ -1,11 +1,6 @@
-import {
-  type CommandMigration,
-  commandWordFindings,
-  migrateCommand,
-  shellVariables,
-  type VariableDefinition,
-} from "./command-migration.js";
+import { type CommandMigration, commandWordFindings, migrateCommand } from "./command-migration.js";
 import { lineLocator, type ManualStep } from "./migration-findings.js";
+import { shellVariables, type VariableDefinition } from "./shell-variables.js";
 import {
   type ShellCommand,
   type ShellWord,

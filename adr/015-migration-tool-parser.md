@@ -349,6 +349,27 @@ A recheck of the fixes above found three regressions and four gaps.
   `shellVariables`, turns the definitions of each file kind into the answers, so the rule that a
   word without a variable matches no definition holds for all of them.
 
+## Amendment (2026-11-09): the recheck after the rc.4 fixes
+
+- **A planted git still ran from a `node_modules` that was spelled in another case or was a link.**
+  The real path of a `PATH` folder keeps the case the folder was created with, and macOS and
+  Windows ignore case, so `NODE_MODULES/.bin` is the folder npx put on `PATH`; and a
+  `node_modules` that links to a folder with another name has no `node_modules` in its real path.
+  The folder is now checked as written and as its real path, and `node_modules` matches in any
+  case on every platform: on a file system that keeps case apart this only passes over more
+  folders, none of which holds a system git.
+- **The flags after a variable changed for another program.** Definitions of one name were read as
+  one, and one definition that ran the generator was enough: `ENV GEN=mytool` in another stage, a
+  step `env`, or a later Makefile line (make expands a recipe after it has read the whole file)
+  still got `-it` renamed. The tool does not follow which definition reaches which command, so
+  `variablePrograms` now says `generator` only when every definition of the name runs the
+  generator, follows references (`ENV GEN=$GEN`, `GEN := $(OAT)`), counts `+=` as keeping the
+  program, and reads a reference to a variable the file never sets as another program. When the
+  definitions disagree, the flags are reported as the manual step `variable-not-only-generator`.
+  Tracking scopes per file kind (stages, jobs and steps, make's expansion order) was rejected: it
+  is three models for one question, and each misses cases (a base image's `ENV`, `override`,
+  target variables) that the conservative rule reports.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

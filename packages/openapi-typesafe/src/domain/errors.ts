@@ -1,3 +1,4 @@
+import { redactCauseSecrets } from "./cause-secrets.js";
 import { redactUrlSecrets } from "./url-secrets.js";
 
 /**
@@ -38,6 +39,7 @@ export const ERROR_CODES = {
   CLI_OUTPUT_IS_INPUT: "CLI_OUTPUT_IS_INPUT",
   CLI_OUTPUT_DUPLICATE: "CLI_OUTPUT_DUPLICATE",
   CLI_OUTPUT_INVALID: "CLI_OUTPUT_INVALID",
+  CLI_LOCATION_INVALID: "CLI_LOCATION_INVALID",
   OUTPUT_STALE: "OUTPUT_STALE",
   OUTPUT_READ_FAILED: "OUTPUT_READ_FAILED",
   OUTPUT_WRITE_FAILED: "OUTPUT_WRITE_FAILED",
@@ -55,13 +57,16 @@ export interface OpenAPITypesafeErrorInit {
   readonly code: ErrorCode;
   readonly message: string;
   readonly details?: ErrorDetails;
-  /** The lower-level error this one reports, if any (kept as the standard `cause`). */
+  /**
+   * The lower-level error this one reports, if any (kept as the standard `cause`; a copy with URL
+   * secrets hidden when its chain names one, see cause-secrets.ts).
+   */
   readonly cause?: unknown;
 }
 
 /**
  * The base of every expected failure; check `code`, not the class or the message. The message
- * never shows the user info of a URL (`url-secrets.ts`).
+ * and the `cause` chain never show the user info or the query of a URL (`url-secrets.ts`).
  */
 export class OpenAPITypesafeError extends Error {
   readonly code: ErrorCode;
@@ -69,7 +74,8 @@ export class OpenAPITypesafeError extends Error {
 
   constructor(init: OpenAPITypesafeErrorInit) {
     const message = redactUrlSecrets(init.message);
-    super(message, init.cause === undefined ? undefined : { cause: init.cause });
+    const cause = redactCauseSecrets(init.cause);
+    super(message, cause === undefined ? undefined : { cause });
     this.name = "OpenAPITypesafeError";
     this.code = init.code;
     this.details = init.details ?? {};

@@ -184,3 +184,17 @@ parameters to look at and holds no value and no part of the `baseUrl`. Masking s
 was rejected for the reason the parse error does not mask its excerpt: a guess at what a secret
 looks like misses some.
 
+## Amendment (2026-11-09): the path check names one template segment
+
+The amendment above named the template from the segment of the first `{…}` on. The client
+serializes the `baseUrl` and the path as one template, so a `{` in the `baseUrl` (a server
+variable left in it, `https://user:secret@{region}.api.example/v1`) moved that start into the
+`baseUrl`, and the message showed its credentials. The message now names only the template segment
+that made the bad segment (`Dot path segment in "{id}"`, `Empty first path segment in "{org}"`).
+Values are percent-encoded and add no `/`, so segment `i` of the URL comes from segment `i` of the
+template, and a segment that serializes to `.`, `..` or nothing holds only parameters and dots.
+
+The size budget rises from 9.6 kB to 9.7 kB: the segment check takes the minified bundle from
+9,597 to 9,640 bytes, 40 bytes over the old budget. Correctness ranks above size
+(CODING_PRINCIPLES §1), as in the amendments of ADR-013.
+

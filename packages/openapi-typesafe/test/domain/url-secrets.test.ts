@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OpenAPITypesafeError } from "../../src/domain/errors.js";
-import { redactUrlSecrets } from "../../src/domain/url-secrets.js";
+import { redactUnparsedUrl, redactUrlSecrets } from "../../src/domain/url-secrets.js";
 
 describe("redactUrlSecrets", () => {
   it.each([
@@ -22,6 +22,10 @@ describe("redactUrlSecrets", () => {
     ["https://h/x.yaml#/a?b", "https://h/x.yaml#/a?b"],
     ["see https://api.example me@example.com", "see https://api.example me@example.com"],
     ["no URL at all", "no URL at all"],
+    // Punctuation after a URL belongs to the message, also after a hidden query.
+    ["load https://h/x.yaml?key=SECRET: 404", "load https://h/x.yaml?***: 404"],
+    ["(https://h/x.yaml?key=SECRET).", "(https://h/x.yaml?***)."],
+    ["https://a:b@h, then", "https://***@h, then"],
   ])("redactUrlSecrets(%j) is %j", (text, expected) => {
     expect(redactUrlSecrets(text)).toBe(expected);
   });
@@ -30,6 +34,8 @@ describe("redactUrlSecrets", () => {
     ["`://`", "://"],
     ["`://?`", "://?"],
     ["`:// `", ":// "],
+    ["`://.`", "://."],
+    ["`://. `", "://. "],
   ])("redactUrlSecrets is linear on a long run of %s", (_name, unit) => {
     const text = unit.repeat(200_000);
     const startedAt = performance.now();
@@ -46,5 +52,17 @@ describe("redactUrlSecrets", () => {
     });
 
     expect(error.message).toBe("Failed to load http://***@host/x.yaml?***");
+  });
+});
+
+describe("redactUnparsedUrl", () => {
+  it.each([
+    ["http://user:ab/cd@127.0.0.1:1/spec.yaml", "http://***@127.0.0.1:1/spec.yaml"],
+    ["http://tok:SECRET@[::1/x.yaml?key=SECRET#/a", "http://***@[::1/x.yaml?***#/a"],
+    ["http://exa mple.com/x.yaml", "http://exa mple.com/x.yaml"],
+    ["https://h/x?mail=a@b", "https://h/x?***"],
+    ["not a URL", "not a URL"],
+  ])("redactUnparsedUrl(%j) is %j", (text, expected) => {
+    expect(redactUnparsedUrl(text)).toBe(expected);
   });
 });

@@ -10,12 +10,15 @@
 /**
  * A URL in a message, from its `://` to the first space, quote or angle bracket: a serialized URL
  * percent-encodes these, and messages put them around a URL. A match takes the rest of the URL,
- * also a later `://` in it, so the scan never starts again inside a URL; it stays linear.
+ * also a later `://` in it, so the scan never starts again inside a URL; it stays linear. It ends
+ * before punctuation that closes a sentence or a parenthesis (`… x.yaml?key=1: 404`, `(… ?key=1)`),
+ * which the message puts after the URL; a hidden query would hide it too.
  */
-const URL_AFTER_SCHEME = /:\/\/[^\s"'<>]*/g;
+const URL_AFTER_SCHEME = /:\/\/[^\s"'<>]*[^\s"'<>.,:;!?)]/g;
 
 const SCHEME_SEPARATOR = "://";
 const AUTHORITY_END = /[/?#]/;
+const QUERY_OR_FRAGMENT = /[?#]/;
 const QUERY_START = "?";
 const FRAGMENT_START = "#";
 const USER_INFO_END = "@";
@@ -47,4 +50,23 @@ export function redactUrlSecrets(text: string): string {
     const rest = url.slice(SCHEME_SEPARATOR.length);
     return `${SCHEME_SEPARATOR}${withoutQuery(withoutUserInfo(rest))}`;
   });
+}
+
+/**
+ * Text that starts like a URL but does not parse as one (`http://user:a/b@host/x`), with what may
+ * be secret hidden. Without a parse there is no telling where the authority ends, so everything
+ * from the `://` to the last `@` before the query counts as user info; the query is hidden as in
+ * `redactUrlSecrets`.
+ */
+export function redactUnparsedUrl(text: string): string {
+  const separator = text.indexOf(SCHEME_SEPARATOR);
+  if (separator === -1) {
+    return text;
+  }
+  const rest = text.slice(separator + SCHEME_SEPARATOR.length);
+  const queryOrFragment = rest.search(QUERY_OR_FRAGMENT);
+  const beforeQuery = queryOrFragment === -1 ? rest : rest.slice(0, queryOrFragment);
+  const userInfoEnd = beforeQuery.lastIndexOf(USER_INFO_END);
+  const shown = userInfoEnd === -1 ? rest : `${HIDDEN}${rest.slice(userInfoEnd)}`;
+  return `${text.slice(0, separator)}${SCHEME_SEPARATOR}${withoutQuery(shown)}`;
 }

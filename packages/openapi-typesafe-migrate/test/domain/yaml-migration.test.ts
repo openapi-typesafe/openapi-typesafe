@@ -243,6 +243,38 @@ describe("migrateDependabotConfig", () => {
 });
 
 describe("migrateYamlCommands and expressions", () => {
+  it("migrateYamlCommands reports the flags after a variable that a step sets to another tool", () => {
+    const expression = ["$", "{{ env.GEN }}"].join("");
+    const text = lines(
+      "env:",
+      "  GEN: openapi-typescript",
+      "jobs:",
+      "  a:",
+      "    steps:",
+      "      - run: $GEN a.yaml -it",
+      "      - env: { GEN: mytool }",
+      `        run: ${expression} build -it`,
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(text.replace("GEN: openapi-typescript", "GEN: openapi-typesafe"));
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "variable-not-only-generator",
+        location: "ci.yml:6",
+        variable: "$GEN",
+        flags: ["-it"],
+      },
+      {
+        kind: "variable-not-only-generator",
+        location: "ci.yml:8",
+        variable: "$GEN",
+        flags: ["-it"],
+      },
+    ]);
+  });
+
   it("migrateYamlCommands reads an env expression as the variable it expands", () => {
     const expression = (name: string): string => ["$", "{{ env.", name, " }}"].join("");
     const text = lines(

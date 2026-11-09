@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { isPrintableIrProperty, isPrintableIrType } from "../../../src/domain/ir/ir-shape.js";
 
 const STRING = { kind: "keyword", keyword: "string" } as const;
+const NUMBER = { kind: "keyword", keyword: "number" } as const;
+const LITERAL = { kind: "stringLiteral", value: "a" } as const;
+const REFERENCE = { kind: "reference", name: "K", typeArguments: [] } as const;
 
 function property(fields: Record<string, unknown> = {}) {
   return {
@@ -164,6 +167,17 @@ describe("isPrintableIrType", () => {
       "a tag before the string",
       { kind: "intersection", types: [{ kind: "object", members: [] }, STRING] },
     ],
+    [
+      "a key union narrowed by a union with a tag",
+      {
+        kind: "intersection",
+        types: [
+          { kind: "union", types: [STRING, NUMBER] },
+          { kind: "union", types: [NUMBER, { kind: "object", members: [] }] },
+        ],
+      },
+    ],
+    ["a string and a name", { kind: "intersection", types: [STRING, REFERENCE] }],
   ])(
     "isPrintableIrType of an index signature with %s as its parameter type is true",
     (_name, type) => {
@@ -183,6 +197,22 @@ describe("isPrintableIrType", () => {
       { kind: "union", types: [STRING, { kind: "array", element: STRING }] },
     ],
     ["the keyword null", { kind: "keyword", keyword: "null" }],
+    ["a string narrowed to a literal", { kind: "intersection", types: [STRING, LITERAL] }],
+    ["a string and a number, which is never", { kind: "intersection", types: [STRING, NUMBER] }],
+    [
+      "a string and a union without a string",
+      {
+        kind: "intersection",
+        types: [
+          STRING,
+          { kind: "union", types: [NUMBER, { kind: "keyword", keyword: "boolean" }] },
+        ],
+      },
+    ],
+    ["a name and a literal", { kind: "intersection", types: [REFERENCE, LITERAL] }],
+    ["a union with a tag", { kind: "union", types: [STRING, { kind: "object", members: [] }] }],
+    ["an empty union", { kind: "union", types: [] }],
+    ["an empty intersection", { kind: "intersection", types: [] }],
   ])(
     "isPrintableIrType of an index signature with %s as its parameter type is false",
     (_name, parameterType) => {

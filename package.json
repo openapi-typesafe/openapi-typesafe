@@ -44,7 +44,7 @@
   "size-limit": [
     {
       "path": "packages/openapi-typesafe-fetch/dist/index.mjs",
-      "limit": "9.6 kB",
+      "limit": "9.7 kB",
       "brotli": false
     }
   ]

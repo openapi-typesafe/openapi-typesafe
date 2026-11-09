@@ -133,4 +133,38 @@ describe("migrateDockerfile and variables", () => {
     expect(migrated.text).toBe(text);
     expect(migrated.manualSteps).toEqual([]);
   });
+
+  it("migrateDockerfile reports the flags after a variable that another stage sets to another tool", () => {
+    const text = lines(
+      "FROM node AS gen",
+      "ENV GEN=openapi-typescript",
+      "RUN $GEN a.yaml -it",
+      "FROM node",
+      "ENV GEN=mytool",
+      "RUN $GEN build -it",
+    );
+
+    const migrated = migrateDockerfile(text, "Dockerfile");
+
+    expect(migrated.text).toBe(text.replace("GEN=openapi-typescript", "GEN=openapi-typesafe"));
+    expect(migrated.manualSteps).toEqual(
+      [3, 6].map((line) => ({
+        kind: "variable-not-only-generator",
+        location: `Dockerfile:${line}`,
+        variable: "$GEN",
+        flags: ["-it"],
+      })),
+    );
+  });
+
+  it("migrateDockerfile follows an ENV set to the ARG of the same name", () => {
+    const text = lines("ARG GEN=openapi-typescript", "ENV GEN=$GEN", "RUN $GEN a.yaml -it");
+
+    const migrated = migrateDockerfile(text, "Dockerfile");
+
+    expect(migrated.text).toBe(
+      lines("ARG GEN=openapi-typesafe", "ENV GEN=$GEN", "RUN $GEN a.yaml --immutable"),
+    );
+    expect(migrated.manualSteps).toEqual([]);
+  });
 });

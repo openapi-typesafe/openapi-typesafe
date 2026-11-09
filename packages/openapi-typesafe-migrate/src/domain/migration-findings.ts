@@ -87,6 +87,13 @@ export type ManualStep =
       /** The old flags in the variable's value. */
       readonly flags: readonly string[];
     }
+  | {
+      readonly kind: "variable-not-only-generator";
+      readonly location: string;
+      readonly variable: string;
+      /** The old flags of the generator after the variable, or in a variable's value there. */
+      readonly flags: readonly string[];
+    }
   | { readonly kind: "pinned-package"; readonly location: string; readonly name: string }
   | { readonly kind: "old-package-file"; readonly location: string; readonly path: string }
   | { readonly kind: "command-string"; readonly line: number; readonly to: string }
