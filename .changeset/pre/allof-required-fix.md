@@ -27,10 +27,16 @@ default in 2.0. The names are exported as the `OutputFix` type, the `OUTPUT_FIXE
   `query` (upstream [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361)).
 - `nullable-enums`: `--enum` declares an enum that lists `null`, typed `E | null` (upstream
   [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872)).
+- `parameter-content`: a parameter with `content` instead of `schema`, such as a JSON object in a
+  query parameter, is typed by the schema of its media type instead of `string`.
 - `path-param-type-names`: a path parameter named `number`, `string` or `boolean` gets its own
   placeholder.
 - `prefix-items`: `prefixItems` tuples follow JSON Schema 2020-12 (upstream [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892)).
 - `read-write-refs`: `readOnly`/`writeOnly` of a referenced schema count (upstream [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938)).
 - `ref-pointers`: a `$ref` into another schema's keywords is typed also where it was `unknown`.
+- `ref-siblings`: in OpenAPI 3.1 and 3.2 documents, keywords next to a `$ref` (`required`,
+  `properties`, `enum`) apply, as JSON Schema 2020-12 says, so
+  `{ $ref: Base, required: [extra], properties: { extra } }` is `{ extra: string } & Base` instead
+  of `Base`. OpenAPI 3.0 documents keep ignoring them, as their spec says.
 - `root-type-numbering`: every schema of one root type name gets an alias (`PetStore_2`).
 - `unevaluated-properties`: `unevaluatedProperties` is typed (upstream [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/issues/2880)).

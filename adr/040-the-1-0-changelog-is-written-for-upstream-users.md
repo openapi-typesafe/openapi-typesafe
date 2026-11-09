@@ -52,3 +52,27 @@ entries already in each `CHANGELOG.md` stay as they were released.
 
 A release candidate after 1.0.0 (for example 1.1.0-rc.0), or a reader of the 1.0.0 entry who could
 not find a change they needed.
+
+## Amendment (2026-11-09): one entry per change, no internal references
+
+A check of the simulated 1.0.0 entries (`changeset pre exit`, then `changeset version` in a scratch
+copy) found the TypeScript 5.4 peer floor and the `ResponseError` of the hooks twice: once in the
+`major` changeset (rule 5) and once in a changeset of their own. Other changesets fixed bugs of an
+rc only (a `FetchOptions` wrapper type, the migrate tool, which has no upstream version), listed
+small fixes of one theme apart (rule 3), named audit findings and ADR numbers that readers of the
+changelog cannot look up, and said that output that compiled does not change while two enum names
+did change.
+
+6. A change that rule 5 lists in the `major` changeset gets no changeset of its own. When another
+   changeset also describes it (a fix with a wire or name change), that changeset says only what
+   the list does not and points to Major Changes.
+7. A change that fits a changeset in `.changeset/pre/` (the same feature, list or theme, rule 3)
+   is written into that changeset, not into a new one.
+8. Changeset texts name no audit finding, hunt item or ADR. The changelog is read on npm and on
+   GitHub releases, where these mean nothing; the pull request and the commit carry them.
+9. A claim that output stays the same names its exceptions. Every output change of a valid schema
+   that compiled before is in the `major` list of the generator, with the new name.
+
+Consequence: the rc entry of the next candidate does not show a change that went into a changeset
+of `.changeset/pre/` (rules 6 and 7); the 1.0.0 entry does. Users of a candidate read its pull
+requests and the migration guide, which list every change.

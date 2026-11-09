@@ -2,7 +2,7 @@
 "openapi-typesafe-fetch": patch
 ---
 
-A `Date` parameter is sent as ISO 8601 (`toISOString()`) in every query and path style, and so is
-a `Date` field of an `application/x-www-form-urlencoded` or `multipart/form-data` body. A `Date`
-on its own or in a path was left out, and one in an array, a `form` object or a form body was sent
-as `String(date)`, a local time text (audit finding F7, ADR-041).
+A `Date` in an exploded query array or object (the default styles) is sent as ISO 8601
+(`toISOString()`); openapi-fetch threw "Deeply-nested arrays/objects aren't supported". A `Date`
+field of a `multipart/form-data` body is sent as ISO 8601 too. The places where openapi-fetch left
+a `Date` out or sent it as a local time text are listed under Major Changes.
