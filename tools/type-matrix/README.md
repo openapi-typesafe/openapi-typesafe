@@ -1,13 +1,14 @@
 # Type matrix
 
 Type-checks the generated examples and the clients as a consumer does, with every supported TypeScript version
-(ENGINEERING_PLAN 8.1, ADR-006). Each compiler checks three consumer projects:
+(ENGINEERING_PLAN 8.1, ADR-006). Each compiler checks four consumer projects:
 
 | Project        | tsconfig                              | Flags                                                                                                |
 | -------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `strict`       | `consumer/tsconfig.json`              | `strict`, `skipLibCheck: false` (the published `.d.ts` files are checked too)                        |
 | `strict-flags` | `consumer/tsconfig.strict-flags.json` | also `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`                |
 | `commonjs`     | `consumer/tsconfig.commonjs.json`     | `consumer/commonjs/*.cts` with `NodeNext`: the clients' `.d.cts` declarations, `skipLibCheck: false` |
+| `older-lib`    | `consumer/tsconfig.older-lib.json`    | the fetch client and the helpers with `lib: ["ES2017", "DOM"]`                                       |
 
 The consumer project includes every `packages/openapi-typesafe/examples/*.ts` and `consumer/src/`, which calls the fetch client, the react-query
 client and the marker helpers through their built `dist`.

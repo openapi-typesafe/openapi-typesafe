@@ -371,6 +371,31 @@ the server could not split the parts.
 | Keep the `WeakSet` | No change | Fails between the CommonJS and ES module builds |
 | Compare the header boundary with the body | No mark | The platform writes the boundary only when it sends the body |
 
+## Amendment (2026-11-09): the stream body type in a project with an older `lib` (decision 6)
+
+The second type hunt before rc.4 found that the `AsyncIterable<unknown>` member of
+`RawRequestBody`, added with stream bodies, broke a project whose `lib` is older than ES2018 with
+`skipLibCheck: false` (TS2583, "Cannot find name 'AsyncIterable'"). TypeScript 5's DOM library
+does not declare async iterables; TypeScript 6 folds them into DOM. It is the only type of the
+declarations beyond ES2017.
+
+1. `src/index.d.ts` starts with `/// <reference lib="es2018.asynciterable" />`, TypeScript's way
+   for a declaration file to name the built-in library it needs. A project with an older `lib`
+   then gets the async iterable types only, the types of a runtime that every supported engine
+   has (Node.js 22, current browsers).
+2. rollup-plugin-dts 6.5.1 keeps `reference types` and `reference path` directives but drops
+   `reference lib`. A plugin of the declaration build (`build.config.ts`) reads the `reference lib`
+   directives of `src/index.d.ts` and writes them at the top of each published declaration file,
+   so the source keeps the one list.
+3. The type matrix (`tools/type-matrix`) has an `older-lib` project: the fetch client and the
+   helpers with `lib: ["ES2017", "DOM"]`, on every TypeScript version.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A `reference lib` directive, kept by the build (chosen) | Every project compiles; one list in the source | A build plugin for a gap of rollup-plugin-dts |
+| A structural async iterable type | No directive | Needs `Symbol.asyncIterator`, which is in the same library |
+| Require `lib` ES2018 or later | No change | A project that compiled with openapi-fetch breaks |
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`

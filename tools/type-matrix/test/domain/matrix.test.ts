@@ -41,9 +41,11 @@ describe("matrixCells", () => {
       "5.4/strict",
       "5.4/strict-flags",
       "5.4/commonjs",
+      "5.4/older-lib",
       "7.1-beta/strict",
       "7.1-beta/strict-flags",
       "7.1-beta/commonjs",
+      "7.1-beta/older-lib",
     ]);
   });
 });

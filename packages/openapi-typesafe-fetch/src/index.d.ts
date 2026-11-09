@@ -1,3 +1,7 @@
+// A stream body may be an async iterable (`RawRequestBody`). The reference brings that type into a
+// project whose `lib` is older than ES2018, which fails with TS2583 otherwise. The declaration
+// build copies it into the published declarations (build.config.ts).
+/// <reference lib="es2018.asynciterable" />
 import type {
   ErrorResponse,
   FilterKeys,
