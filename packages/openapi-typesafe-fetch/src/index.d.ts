@@ -147,7 +147,17 @@ export type RequestBodyOption<T> =
         ? { body?: Writable<OperationRequestBodyContent<T>> }
         : { body: Writable<OperationRequestBodyContent<T>> };
 
-export type FetchOptions<T> = RequestOptions<T> & Omit<RequestInit, "body" | "headers">;
+/**
+ * The init of a call to the operation `T`; for a union of operations, the union of their inits. It
+ * distributes so that the client's init type and a wrapper's `FetchOptions` of a generic path are
+ * the same type, which TypeScript can relate: an alias that distributed only inside the client
+ * gave a conditional type no `FetchOptions` argument was assignable to (TS2345). The operations
+ * of a union are not merged into one deep init type, which gave TS2589 on hundreds of paths
+ * (upstream #1882).
+ */
+export type FetchOptions<T> = T extends unknown
+  ? RequestOptions<T> & Omit<RequestInit, "body" | "headers">
+  : never;
 
 // Readable<T> strips $Write markers (writeOnly properties excluded from response)
 export type FetchResponse<
@@ -254,19 +264,16 @@ export type MaybeOptionalInit<Params, Location extends PropertyKey> = OperationI
  * One conditional type, as openapi-fetch's, not a union with a conditional `undefined`: while the
  * operation is generic, a union made `FetchResponse` distribute over its members, so the `data` of
  * a generic wrapper's call no longer related to `FetchResponse<Paths[Path][Method], Init, Media>`.
+ * Its check type is not a type parameter, so TypeScript takes a `FetchOptions` of a generic path
+ * for it when that type fits both branches. `FetchOptions` itself makes one init per operation:
+ * while the path is generic it stays an alias, not an `infer` type, which TypeScript reads as
+ * `unknown`, so the init stays the contextual type of an argument and a literal such as
+ * `"available"` keeps its type (swr-openapi's `Exact<Init>` checks).
  */
 type OperationInits<Operation> =
-  RequiredKeysOf<OperationFetchOptions<Operation>> extends never
-    ? OperationFetchOptions<Operation> | undefined
-    : OperationFetchOptions<Operation>;
-
-/**
- * Each operation's init. A distributive alias, not `extends infer Operation`: while the path is
- * not known, TypeScript reads an `infer` type as `unknown`, so the init lost its type as the
- * contextual type of an argument and a literal such as `"available"` widened to `string`
- * (swr-openapi's `Exact<Init>` checks).
- */
-type OperationFetchOptions<Operation> = Operation extends unknown ? FetchOptions<Operation> : never;
+  RequiredKeysOf<FetchOptions<Operation>> extends never
+    ? FetchOptions<Operation> | undefined
+    : FetchOptions<Operation>;
 
 // The final init param to accept.
 // - Determines if the param is optional or not.

@@ -176,6 +176,32 @@ types by their check types.
 | `Paths[Path][Method]` in the method result | upstream's expression | needs `Paths extends Record<…>`, which brings back TS2344 (upstream #2267); the union still distributes |
 | Keep the union | no change | code written against openapi-fetch fails to compile |
 
+## Amendment (2026-11-09): `FetchOptions` distributes over operations
+
+The type hunt before rc.4 (T2) found that wrappers generic in the path that type the init as
+`FetchOptions<FilterKeys<paths[P], "get">>` or `FetchOptions<paths[P]["get"]>` failed with TS2345
+in `client.GET` and in `useQuery`, `queryOptions` and `useSuspenseQuery`, on TypeScript 5.4 to 7.0.
+openapi-fetch 0.17 compiles them. The client's init per operation was a distributive alias of its
+own, `Operation extends unknown ? FetchOptions<Operation> : never`. TypeScript relates a type to a
+conditional type only when that conditional type does not use its check type in its branches, so
+no `FetchOptions` of a generic path was assignable to it.
+
+1. `FetchOptions<T>` itself distributes: `T extends unknown ? RequestOptions<T> & Omit<…> : never`.
+   The client's init of a generic path and the wrapper's type are then the same type, and the outer
+   `RequiredKeysOf<…> extends never` condition, which does not distribute, relates to it through
+   both of its branches.
+2. For one operation `FetchOptions` is unchanged. For a union of operations it is the union of
+   their inits, as the client's init already was (ADR-025, decision 8); `FetchOptions<never>` is
+   `never`. The init rules of decision 2 and of the amendment above stay; their tests are unchanged.
+3. `fetch-options-wrappers.test.ts` in the fetch and react-query packages and `generic-wrappers.ts`
+   in the type matrix check these wrappers.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| `FetchOptions` distributes (chosen) | Wrappers relate on every TypeScript; one init per operation stays; no change in check cost on the GitHub and Stripe schemas | `FetchOptions` of a union is a union, not one merged object type |
+| A mapped type over the paths in the method constraint | `FetchOptions` stays as in openapi-fetch | `MaybeOptionalInit` of a union of path items cannot be mapped by key; two init types to keep in step |
+| Back to openapi-fetch's one `FetchOptions` of the union | openapi-fetch's type | Brings back TS2589 on hundreds of paths (upstream #1882) |
+
 ## Review trigger
 
 A TypeScript release that relates generic signatures across declarations; a library that types
