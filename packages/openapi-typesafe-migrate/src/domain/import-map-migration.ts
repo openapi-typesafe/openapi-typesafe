@@ -42,6 +42,33 @@ function migrateImports(config: TreeMap, version: string, findings: Findings): v
   }
 }
 
+const PATH_SEPARATOR = "/";
+const SCOPE_PREFIX = "@";
+
+/** The keys of an import map, the module specifiers it maps. */
+function importMapKeys(config: TreeMap): string[] {
+  const scoped = mapsAt(config, SCOPES_FIELD)
+    .flatMap(textEntries)
+    .flatMap(({ value }) => (isMap(value) ? [value] : []));
+  return [...mapsAt(config, IMPORTS_FIELD), ...scoped]
+    .flatMap(textEntries)
+    .map(({ key }) => key.value);
+}
+
+/**
+ * The package names that an import map declares for the sources that use it: `pkg` of the keys
+ * `pkg`, `pkg/` and `pkg/subpath`, and `@scope/pkg` of scoped keys. Deno resolves a bare import
+ * through the map, so such a package needs no `package.json` entry.
+ */
+export function importMapNames(config: TreeMap): string[] {
+  return importMapKeys(config).map((key) => {
+    const parts = key.split(PATH_SEPARATOR);
+    return key.startsWith(SCOPE_PREFIX)
+      ? parts.slice(0, 2).join(PATH_SEPARATOR)
+      : (parts[0] ?? key);
+  });
+}
+
 /** Migrate the import map of a Deno config or import map file (`read` is `text` parsed). */
 export function migrateImportMap(text: string, read: DocumentRead, version: string): FileMigration {
   if (read.kind === "unreadable") {

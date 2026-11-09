@@ -3,21 +3,16 @@ import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js"
 import { isMap } from "../../src/domain/config-documents.js";
 import {
   declaredNames,
+  type ImportedSpecifier,
   type ManifestDeclarations,
   namesUninstalledPackage,
   undeclaredImportSteps,
 } from "../../src/domain/declared-packages.js";
-import type { Change } from "../../src/domain/migration-findings.js";
 
 const HELPERS = "openapi-typesafe-helpers";
 const INSTALLERS = ["openapi-fetch", "openapi-react-query"];
 
-const renamed = (to: string, line = 1): Change => ({
-  kind: "specifier-renamed",
-  line,
-  from: "openapi-typescript-helpers",
-  to,
-});
+const renamed = (specifier: string, line = 1): ImportedSpecifier => ({ specifier, line });
 
 const manifest = (path: string, names: readonly string[] = []): ManifestDeclarations => ({
   path,
@@ -91,15 +86,11 @@ describe("undeclaredImportSteps", () => {
     expect(steps).toEqual([]);
   });
 
-  it("undeclaredImportSteps leaves npm specifiers, other packages and other changes alone", () => {
+  it("undeclaredImportSteps leaves npm specifiers and other packages alone", () => {
     const manifests = [manifest("package.json")];
-    const changes: Change[] = [
-      renamed(`npm:${HELPERS}@^1.0.0`),
-      renamed("openapi-typesafe-fetch"),
-      { kind: "transform-rewritten", line: 2 },
-    ];
+    const imports = [renamed(`npm:${HELPERS}@^1.0.0`), renamed("openapi-typesafe-fetch")];
 
-    const steps = undeclaredImportSteps(changes, "src/a.ts", manifests);
+    const steps = undeclaredImportSteps(imports, "src/a.ts", manifests);
 
     expect(steps).toEqual([]);
   });

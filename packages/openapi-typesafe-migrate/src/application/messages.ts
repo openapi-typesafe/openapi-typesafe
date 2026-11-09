@@ -69,7 +69,7 @@ function packageNotDeclaredMessage(
 ): string {
   const { line, name, installers } = step;
   return (
-    `line ${line}: no package.json at or above this file lists ${name}; ` +
+    `line ${line}: no package.json or Deno import map at or above this file lists ${name}; ` +
     `${installers.join(" and ")} installed it, the openapi-typesafe packages do not: ` +
     `add it to the dependencies, or import the types from ${HELPER_TYPES_ENTRY}`
   );

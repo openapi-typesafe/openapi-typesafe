@@ -1,3 +1,4 @@
+import type { ImportedSpecifier } from "./declared-packages.js";
 import {
   type Change,
   type FileMigration,
@@ -132,4 +133,21 @@ export function migrateModuleSpecifiers(
     copiedUpTo = found.end;
   }
   return { text: migrated + text.slice(copiedUpTo), changes, manualSteps };
+}
+
+/**
+ * The module specifiers of a source file as the migration leaves them: an original package with
+ * its new name, any other specifier as written, each with its line.
+ */
+export function importedSpecifiers(
+  text: string,
+  strings: readonly SourceString[],
+): ImportedSpecifier[] {
+  const lineOf = lineLocator(text);
+  return strings
+    .filter((found) => found.isModuleSpecifier)
+    .map((found) => ({
+      specifier: renamedSpecifier(found.value)?.to ?? found.value,
+      line: lineOf(found.start),
+    }));
 }

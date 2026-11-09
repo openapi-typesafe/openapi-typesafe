@@ -287,10 +287,11 @@ that depends on it fails after it. With the package added, the type check passes
 1. This stays as it is: a breaking change for code that imports a package it does not list. The
    Major changes of the client and the migration guide name it with its fixes: a dependency on
    `openapi-typesafe-helpers`, or an import from `openapi-typesafe-fetch/helpers`.
-2. The migration tool reports each such import: a renamed import of `openapi-typesafe-helpers` in a
-   source file that no `package.json` at or above it lists, under the old or the new name. A file
-   that no manifest contains is not judged, and a manifest that cannot be read counts as listing
-   every package. It reports and does not add the dependency, as for the other dependencies the
+2. The migration tool reports each such import: an import of `openapi-typesafe-helpers` (renamed
+   now or by an earlier run) in a source file that no `package.json` and no Deno import map
+   (`deno.json`, `deno.jsonc`, `import_map.json`) at or above it lists, under the old or the new
+   name. A file that none of them contains is not judged, and one that cannot be read counts as
+   listing every package. It reports and does not add the dependency, as for the other dependencies the
    user must decide on (the version, the field, the workspace that should own it).
 3. permit-cli is an expected failure of the run at its type check (ADR-044).
 

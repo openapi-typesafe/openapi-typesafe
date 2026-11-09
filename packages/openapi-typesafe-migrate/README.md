@@ -108,8 +108,8 @@ The report lists each of these with the file and line:
   a template such as `` `npx openapi-typescript ${spec}` ``),
   with the command they should become;
 - deep imports such as `openapi-fetch/dist/...`: check that the file exists in the new package;
-- imports of `openapi-typesafe-helpers` in a package whose `package.json`, or one above it, does
-  not list it: openapi-fetch and openapi-react-query installed `openapi-typescript-helpers` with
+- imports of `openapi-typesafe-helpers` that no `package.json` or Deno import map at or above the
+  file lists, also imports that an earlier run renamed: openapi-fetch and openapi-react-query installed `openapi-typescript-helpers` with
   them, the openapi-typesafe packages do not. Add it to the dependencies, or import the types from
   `openapi-typesafe-fetch/helpers`;
 - strings that equal an old package name outside a module specifier (an object key, a label, a

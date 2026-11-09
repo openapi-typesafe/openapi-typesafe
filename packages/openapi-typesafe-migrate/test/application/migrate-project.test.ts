@@ -322,4 +322,30 @@ describe("migrateProject and undeclared imports", () => {
 
     expect(stepKinds(result.files)).toEqual(["config-unreadable"]);
   });
+
+  it("migrateProject takes the imports of a Deno import map as declared", async () => {
+    const files = {
+      "deno.json":
+        '{ "imports": { "openapi-typescript-helpers": "npm:openapi-typescript-helpers@^0.1" } }\n',
+      "package.json": '{ "scripts": { "fmt": "deno fmt" } }\n',
+      "main.ts": HELPERS_IMPORT,
+    };
+    const dependencies = setUp(files);
+
+    const result = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
+
+    expect(stepKinds(result.files)).toEqual([]);
+  });
+
+  it("migrateProject reports an import that an earlier run renamed", async () => {
+    const files = {
+      "package.json": '{ "dependencies": { "openapi-typesafe-fetch": "^1.0.0" } }\n',
+      "src/a.ts": 'import type { FilterKeys } from "openapi-typesafe-helpers";\n',
+    };
+    const dependencies = setUp(files);
+
+    const result = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
+
+    expect(stepKinds(result.files)).toEqual(["package-not-declared"]);
+  });
 });

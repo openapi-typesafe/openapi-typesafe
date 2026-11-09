@@ -6,13 +6,14 @@ import {
   type ManifestDeclarations,
   namesUninstalledPackage,
 } from "../domain/declared-packages.js";
+import { importMapNames } from "../domain/import-map-migration.js";
 import type { Change, ManualStep } from "../domain/migration-findings.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
 import {
-  type CatalogSource,
-  catalogSourceOf,
   fileMigrationFor,
   type MigrationContext,
+  type PlanSource,
+  planSourceOf,
 } from "./file-migrations.js";
 import type {
   CallbackRewriter,
@@ -123,7 +124,7 @@ interface ProjectPlan {
 }
 
 /**
- * A manifest or catalog file as the plan reads it: whether it names an original package, and its
+ * A manifest, catalog or import map file as the plan reads it: whether it names an original package, and its
  * parsed roots; `roots` is undefined when the file cannot be read or parsed.
  */
 interface PlanRead {
@@ -133,7 +134,7 @@ interface PlanRead {
 
 async function readForPlan(
   path: string,
-  source: CatalogSource,
+  source: PlanSource,
   dependencies: MigrateProjectDependencies,
 ): Promise<PlanRead> {
   const read = await dependencies.files.read(path);
@@ -151,10 +152,15 @@ async function readForPlan(
   return { namesOriginal, roots };
 }
 
+/** The names that a manifest or an import map declares, by the role of its file. */
+const DECLARED_NAMES: Readonly<
+  Record<PlanSource["role"], ((root: TreeMap) => string[]) | undefined>
+> = { manifest: declaredNames, "import-map": importMapNames, catalogs: undefined };
+
 /**
- * The catalog plan of the project and what its manifests declare, from the manifests and catalog
- * files of the listing. A file that cannot be read or parsed adds no catalogs, and is reported
- * when it is migrated; such a manifest counts as declaring every package.
+ * The catalog plan of the project and what its manifests and import maps declare, from the files
+ * of the listing. A file that cannot be read or parsed adds no catalogs, and is reported when it
+ * is migrated; such a manifest or import map counts as declaring every package.
  */
 async function planProjectTarget(
   paths: readonly string[],
@@ -164,16 +170,17 @@ async function planProjectTarget(
   const documents: Record<"manifest" | "catalogs", TreeMap[]> = { manifest: [], catalogs: [] };
   const manifests: ManifestDeclarations[] = [];
   for (const path of paths) {
-    const source = catalogSourceOf(path);
+    const source = planSourceOf(path);
     if (source === undefined) {
       continue;
     }
     const { namesOriginal, roots } = await readForPlan(path, source, dependencies);
-    if (namesOriginal) {
+    if (namesOriginal && source.role !== "import-map") {
       documents[source.role].push(...(roots ?? []));
     }
-    if (source.role === "manifest") {
-      manifests.push({ path, names: roots && new Set(roots.flatMap(declaredNames)) });
+    const names = DECLARED_NAMES[source.role];
+    if (names !== undefined) {
+      manifests.push({ path, names: roots && new Set(roots.flatMap(names)) });
     }
   }
   const catalogs = planCatalogs({

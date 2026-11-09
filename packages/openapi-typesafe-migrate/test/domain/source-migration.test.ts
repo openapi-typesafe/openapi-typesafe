@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { migrateModuleSpecifiers, type SourceString } from "../../src/domain/source-migration.js";
+import {
+  importedSpecifiers,
+  migrateModuleSpecifiers,
+  type SourceString,
+} from "../../src/domain/source-migration.js";
 
 /** The quoted string `value` where it first appears in `text`, as a scanner reports it. */
 function stringIn(text: string, value: string, isModuleSpecifier = true): SourceString {
@@ -179,6 +183,23 @@ describe("migrateModuleSpecifiers", () => {
     expect(migrated.manualSteps).toEqual([
       { kind: "deep-import", line: 1, specifier: to },
       { kind: "spec-kept", name: to, spec: "npm:openapi-fetch@next/dist/x.js" },
+    ]);
+  });
+});
+
+describe("importedSpecifiers", () => {
+  it("importedSpecifiers gives the module specifiers with new names and their lines", () => {
+    const text =
+      'import "openapi-fetch/x";\nconst label = "openapi-typesafe-helpers";\nimport "zod";\n';
+    const strings = [
+      stringIn(text, "openapi-fetch/x"),
+      stringIn(text, "openapi-typesafe-helpers", false),
+      stringIn(text, "zod"),
+    ];
+
+    expect(importedSpecifiers(text, strings)).toEqual([
+      { specifier: "openapi-typesafe-fetch/x", line: 1 },
+      { specifier: "zod", line: 3 },
     ]);
   });
 });

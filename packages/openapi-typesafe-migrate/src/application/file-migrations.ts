@@ -26,7 +26,11 @@ import {
   unchanged,
 } from "../domain/migration-findings.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
-import { migrateModuleSpecifiers, SOURCE_EXTENSIONS } from "../domain/source-migration.js";
+import {
+  importedSpecifiers,
+  migrateModuleSpecifiers,
+  SOURCE_EXTENSIONS,
+} from "../domain/source-migration.js";
 import {
   migrateWorkspaceCatalogs,
   PNPM_WORKSPACE_FILE,
@@ -112,7 +116,8 @@ function migrateSource(text: string, path: string, context: MigrationContext): F
   const migrated = chain(migrateModuleSpecifiers(text, strings, context.version), (renamed) =>
     context.rewriter.rewrite(renamed, path),
   );
-  const undeclared = undeclaredImportSteps(migrated.changes, path, context.manifests);
+  const imports = importedSpecifiers(text, strings);
+  const undeclared = undeclaredImportSteps(imports, path, context.manifests);
   return withSteps(migrated, [...commandStringSteps(text, strings), ...undeclared]);
 }
 
@@ -265,22 +270,26 @@ const FILE_KINDS: readonly FileKind[] = [
 ];
 
 /**
- * How a file takes part in the catalog plan (domain/catalogs.ts): a manifest names dependencies
- * on catalogs (and bun keeps catalogs in package.json), a workspace file holds catalogs.
+ * How a file takes part in the project plan: a manifest names dependencies on catalogs (and bun
+ * keeps catalogs in package.json) and declares packages, a workspace file holds catalogs
+ * (domain/catalogs.ts), and a Deno import map declares the packages that sources import.
  */
-export interface CatalogSource {
-  readonly role: "manifest" | "catalogs";
+export interface PlanSource {
+  readonly role: "manifest" | "catalogs" | "import-map";
   readonly read: (text: string, readers: DocumentReaders) => DocumentRead;
 }
 
 const readJson = (text: string, readers: DocumentReaders) => readers.json.read(text);
 const readYaml = (text: string, readers: DocumentReaders) => readers.yaml.read(text);
 
-/** The part a file plays in the catalog plan, or undefined for a file that has no catalogs. */
-export function catalogSourceOf(path: string): CatalogSource | undefined {
+/** The part a file plays in the project plan, or undefined for a file that plays none. */
+export function planSourceOf(path: string): PlanSource | undefined {
   const name = baseName(path);
   if (name === MANIFEST_FILE) {
     return { role: "manifest", read: readJson };
+  }
+  if (DENO_CONFIG_FILES.has(name) || name === IMPORT_MAP_FILE) {
+    return { role: "import-map", read: readJson };
   }
   if (YAML_MANIFEST_FILES.has(name)) {
     return { role: "manifest", read: readYaml };
