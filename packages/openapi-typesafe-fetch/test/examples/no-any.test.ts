@@ -1,4 +1,4 @@
-import type { HttpMethod, MediaType } from "openapi-typesafe-helpers";
+import type { HttpMethod, MediaType } from "../../src/helpers.js";
 import { expectTypeOf, test } from "vitest";
 import type { FetchResponse, MaybeOptionalInit } from "../../src/index.js";
 import type { paths as GitHub } from "./schemas/github.js";

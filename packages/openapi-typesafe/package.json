@@ -71,7 +71,7 @@
     "prepack": "pnpm run build",
     "test": "pnpm run test:js && pnpm run test:examples && pnpm run test:exports",
     "test:js": "vitest run",
-    "test:exports": "pnpm run build && ../../scripts/check-exports.sh",
+    "test:exports": "../../scripts/check-exports.sh",
     "test:examples": "tsc -p tsconfig.examples.json --noEmit",
     "update:examples": "pnpm run build && pnpm run download:schemas && vite-node ./scripts/update-examples.ts",
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs",

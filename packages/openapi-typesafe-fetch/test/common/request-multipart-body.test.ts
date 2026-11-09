@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import createClient, { defaultBodySerializer, type HeadersOptions } from "../../src/index.js";
 
 /**
@@ -150,6 +150,53 @@ describe("multipart/form-data bodies", () => {
     const request = onlyRequest(requests);
     expect(request.headers.get("Content-Type")).not.toContain("myboundary");
     expect((await request.formData()).get("description")).toBe("hi");
+  });
+
+  it("POST drops a hand-set boundary for a form that another copy of the package built", async () => {
+    vi.resetModules();
+    const otherCopy = await import("../../src/index.js");
+    const requests: Request[] = [];
+    const client = createClient<Paths>({
+      baseUrl: BASE_URL,
+      bodySerializer: (body: unknown, headers?: HeadersOptions) =>
+        otherCopy.defaultBodySerializer(body, headers),
+      fetch: async (request) => {
+        requests.push(request);
+        return Response.json({ id: 1 }, { status: 201 });
+      },
+    });
+
+    await client.POST("/avatars", {
+      headers: { "Content-Type": "multipart/form-data; boundary=myboundary" },
+      body: { file: new Blob(["x"]), description: "hi" },
+    });
+
+    const request = onlyRequest(requests);
+    expect(otherCopy.defaultBodySerializer).not.toBe(defaultBodySerializer);
+    expect(request.headers.get("Content-Type")).not.toContain("myboundary");
+    expect((await request.formData()).get("description")).toBe("hi");
+  });
+
+  it("defaultBodySerializer leaves out a hole of an array, as a null item", () => {
+    const headers = { "Content-Type": "multipart/form-data" };
+    // biome-ignore lint/suspicious/noSparseArray: the hole is the case under test
+    const sparse = [, "1"];
+
+    const form = defaultBodySerializer({ tags: sparse, ids: [null, "2"] }, headers) as FormData;
+
+    expect([...form.entries()]).toEqual([
+      ["tags", "1"],
+      ["ids", "2"],
+    ]);
+  });
+
+  it("defaultBodySerializer marks its form with a key that is not a field", () => {
+    const headers = { "Content-Type": "multipart/form-data" };
+
+    const form = defaultBodySerializer({ description: "hi" }, headers) as FormData;
+
+    expect(Object.keys(form)).toEqual([]);
+    expect([...form.keys()]).toEqual(["description"]);
   });
 
   it("POST keeps a hand-set boundary for a FormData body the caller built", async () => {

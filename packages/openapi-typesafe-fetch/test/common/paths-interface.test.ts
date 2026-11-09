@@ -1,5 +1,5 @@
-import type { MediaType } from "openapi-typesafe-helpers";
 import { describe, expectTypeOf, it } from "vitest";
+import type { MediaType } from "../../src/helpers.js";
 import createClient, { type ClientMethod, type ClientRequestMethod } from "../../src/index.js";
 
 /**

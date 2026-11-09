@@ -25,6 +25,12 @@ describe("the CommonJS module", () => {
     expect((createClient as { name: string }).name).toBe("createClient");
   });
 
+  it("require() has createClient itself as its default property", () => {
+    const createClient = loadCommonJs() as { default: unknown };
+
+    expect(createClient.default).toBe(createClient);
+  });
+
   it("require() has isResponseError as a property", () => {
     const { isResponseError } = loadCommonJs() as { isResponseError: unknown };
 

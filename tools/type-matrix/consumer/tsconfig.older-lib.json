@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["ES2017", "DOM"]
+  },
+  "include": ["src/fetch-client.ts", "src/helpers.ts", "src/generic-wrappers.ts"]
+}

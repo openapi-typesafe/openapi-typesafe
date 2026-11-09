@@ -45,7 +45,7 @@
     "test": "pnpm run test:js && pnpm run test:exports",
     "test:js": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:exports": "pnpm run build && ../../scripts/check-exports.sh --cli-only"
+    "test:exports": "../../scripts/check-exports.sh --cli-only"
   },
   "dependencies": {
     "@typescript/typescript6": "^6.0.2",

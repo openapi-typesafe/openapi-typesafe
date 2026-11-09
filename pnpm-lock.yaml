@@ -337,10 +337,6 @@ importers:
         version: 6.0.0(@types/node@22.20.5)(jiti@2.7.0)(yaml@2.9.1)
 
   packages/openapi-typesafe-fetch:
-    dependencies:
-      openapi-typesafe-helpers:
-        specifier: workspace:^
-        version: link:../openapi-typesafe-helpers
     devDependencies:
       axios:
         specifier: 1.21.0
@@ -463,6 +459,10 @@ importers:
         version: 3.3.14(typescript@6.0.3)
 
   packages/openapi-typesafe-helpers:
+    dependencies:
+      openapi-typesafe-fetch:
+        specifier: workspace:^
+        version: link:../openapi-typesafe-fetch
     devDependencies:
       typescript:
         specifier: 'catalog:'

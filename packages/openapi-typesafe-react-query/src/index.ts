@@ -18,9 +18,9 @@ import {
   useQuery,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-// The helper types come from the client, which declares copies of them in its published
-// declarations: types inferred from the hooks then print the client, a peer every user has, and
-// not `openapi-typesafe-helpers`, which Yarn PnP does not let a library reach (ADR-034).
+// The helper types come from the client, which declares them: types inferred from the hooks then
+// print the client, a peer every user has, and not `openapi-typesafe-helpers`, which Yarn PnP does
+// not let a library reach (ADR-034).
 import type {
   ClientMethod,
   DefaultParamsOption,
@@ -63,8 +63,9 @@ export interface ResponseError extends Error {
  * The error of a hook: the error body of a failed response, a `ResponseError` when it has none, or
  * what the request threw before there was a response to read: a network error (`TypeError`), an
  * abort, a body that is not JSON (`SyntaxError`) or a middleware error. TanStack Query types that
- * last part as `DefaultError` (`Error` unless `Register` says otherwise). `undefined` and `null`
- * are left out: a failed response without an error body throws a `ResponseError`.
+ * last part as `DefaultError` (`Error` unless `Register` says otherwise; a registered `unknown`
+ * makes the whole type `unknown`, as for TanStack's own hooks). `undefined` and `null` are left
+ * out: a failed response without an error body throws a `ResponseError`.
  */
 export type QueryError<ErrorBody> =
   | Exclude<ErrorBody, undefined | null>
@@ -107,8 +108,8 @@ export type QueryKey<
 /**
  * The last element of an infinite query's key. `useQuery` and `useInfiniteQuery` cache different
  * data (`TData` and `InfiniteData<TData>`), so the same request must not share one key (upstream
- * #2184, ADR-022). A prefix such as `[method, path]` still matches both. Not exported: a runtime
- * named export next to the default export would change what `require()` returns.
+ * #2184, ADR-022). A prefix such as `[method, path]` still matches both. Not exported: it is not
+ * needed outside the package, and a named export is public API; `InfiniteQueryKey` types the key.
  */
 const INFINITE_QUERY_KEY_MARKER = "infinite";
 

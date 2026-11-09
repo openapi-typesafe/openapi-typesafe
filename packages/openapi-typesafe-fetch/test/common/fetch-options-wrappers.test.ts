@@ -1,5 +1,5 @@
-import type { FilterKeys, PathsWithMethod } from "openapi-typesafe-helpers";
 import { describe, expect, expectTypeOf, it } from "vitest";
+import type { FilterKeys, PathsWithMethod } from "../../src/helpers.js";
 import createClient, { type FetchOptions } from "../../src/index.js";
 
 /**

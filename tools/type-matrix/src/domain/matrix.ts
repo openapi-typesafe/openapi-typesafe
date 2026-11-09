@@ -1,7 +1,9 @@
 /**
  * The consumer type matrix (ENGINEERING_PLAN 8.1, ADR-006): every supported TypeScript version
  * type-checks the generated examples and the clients, once with `strict`, once with the strict
- * consumer flags, and once as a CommonJS consumer of the clients. A non-blocking version (a beta) is reported but does not fail the run.
+ * consumer flags, once as a CommonJS consumer of the clients, and once with the ES2017 `lib`
+ * (TypeScript 5's DOM lib has no async iterables). A non-blocking version (a beta) is reported
+ * but does not fail the run.
  */
 
 export interface TypeScriptVersion {
@@ -34,6 +36,7 @@ export const CONSUMER_PROJECTS: readonly ConsumerProject[] = [
     tsconfig: "tsconfig.strict-flags.json",
   },
   { id: "commonjs", tsconfig: "tsconfig.commonjs.json" },
+  { id: "older-lib", tsconfig: "tsconfig.older-lib.json" },
 ];
 
 /** One compiler on one consumer project. */

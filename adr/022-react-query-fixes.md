@@ -88,6 +88,14 @@ first named runtime export, `isResponseError`.
 | Rollup's named CommonJS exports | No build change | `require()` returns `{ default, … }`: breaks `const createClient = require(…)` |
 | Only a property, no ES named export | One shape | ES module users write `createClient.isResponseError` instead of a named import |
 
+## Amendment (2026-11-09): the CommonJS declarations declare `default`
+
+The recheck of the amendment above found that `require(…).default` is `createClient` at runtime
+(decision 1) but did not compile: the namespace of decision 2 left the default export out
+(TS2339). The namespace now lists `createClient as default` with the other exports, which
+TypeScript 5.4 and later accept next to `export =`. The `commonjs` project of the type matrix
+calls `createQueryClient.default(…)`, and `test/commonjs-exports.test.ts` checks the property.
+
 ## Review trigger
 
 A reproducible `select` report; the 2.0 planning (items 32, 33); a TanStack Query major version.

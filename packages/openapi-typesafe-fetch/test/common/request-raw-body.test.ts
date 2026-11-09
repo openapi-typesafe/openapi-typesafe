@@ -149,6 +149,15 @@ describe("form bodies", () => {
     expect(defaultBodySerializer({ a: undefined, b: null, c: "1" }, FORM_HEADERS)).toBe("c=1");
   });
 
+  it("defaultBodySerializer writes a hole of an array as an empty item, as a null item", () => {
+    // biome-ignore lint/suspicious/noSparseArray: the hole is the case under test
+    const sparse = [, 1];
+
+    const form = defaultBodySerializer({ a: sparse, b: [null, 1] }, FORM_HEADERS);
+
+    expect(form).toBe("a=%2C1&b=%2C1");
+  });
+
   it.each([
     "application/x-www-form-urlencoded; charset=UTF-8",
     "Application/X-WWW-Form-Urlencoded",

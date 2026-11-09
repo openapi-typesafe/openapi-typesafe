@@ -1,5 +1,5 @@
-import type { SuccessResponse } from "openapi-typesafe-helpers";
 import { describe, expect, expectTypeOf, it } from "vitest";
+import type { SuccessResponse } from "../../src/helpers.js";
 import createClient from "../../src/index.js";
 
 /**

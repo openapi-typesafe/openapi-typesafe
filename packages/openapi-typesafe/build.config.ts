@@ -1,4 +1,8 @@
-import { defineBuildConfig } from "unbuild";
+import { resolve } from "node:path";
+import { defineBuildConfig, type RollupOptions } from "unbuild";
+
+/** The CLI module. It is not part of the public API; bin/cli.js imports dist/cli/main.mjs. */
+const CLI_ENTRY = "./src/cli/main.ts";
 
 /**
  * Rollup warns when a module has both named and default exports. Here that is required by the
@@ -16,6 +20,17 @@ const ACCEPTED_ROLLUP_WARNING_CODES = new Set(["MIXED_EXPORTS"]);
  */
 const DTS_CJS_EXPORT_REWRITE_PLUGIN = "fix-dts-default-cjs-exports-plugin";
 
+/**
+ * The declaration build without the CLI module. The CLI exports nothing, so its declarations were
+ * empty files that no import can reach, and Rollup warned about each empty chunk.
+ */
+function withoutCliEntry(input: RollupOptions["input"], cliPath: string): RollupOptions["input"] {
+  if (typeof input !== "object" || Array.isArray(input)) {
+    return input;
+  }
+  return Object.fromEntries(Object.entries(input).filter(([, path]) => path !== cliPath));
+}
+
 function isDtsCjsExportRewrite(plugin: unknown): boolean {
   return (
     typeof plugin === "object" &&
@@ -25,8 +40,7 @@ function isDtsCjsExportRewrite(plugin: unknown): boolean {
 }
 
 export default defineBuildConfig({
-  // The CLI is not part of the public API; bin/cli.js imports dist/cli/main.mjs.
-  entries: ["./src/index.ts", "./src/cli/main.ts"],
+  entries: ["./src/index.ts", CLI_ENTRY],
   declaration: "compatible",
   clean: true,
   sourcemap: true,
@@ -37,7 +51,8 @@ export default defineBuildConfig({
     output: { preserveModules: true },
   },
   hooks: {
-    "rollup:dts:options"(_context, options) {
+    "rollup:dts:options"(context, options) {
+      options.input = withoutCliEntry(options.input, resolve(context.options.rootDir, CLI_ENTRY));
       const plugins = Array.isArray(options.plugins) ? options.plugins : [];
       options.plugins = plugins.filter((plugin) => !isDtsCjsExportRewrite(plugin));
     },

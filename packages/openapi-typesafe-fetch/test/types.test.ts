@@ -1,10 +1,10 @@
+import { assertType, describe, test } from "vitest";
 import type {
   ErrorResponse,
   GetResponseContent,
   OkStatus,
   SuccessResponse,
-} from "openapi-typesafe-helpers";
-import { assertType, describe, test } from "vitest";
+} from "../src/helpers.js";
 
 describe("types", () => {
   describe("GetResponseContent", () => {

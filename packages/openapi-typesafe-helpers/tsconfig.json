@@ -1,7 +1,9 @@
 {
   "extends": "../../tsconfig.strict.json",
   "compilerOptions": {
-    "skipLibCheck": false
+    "lib": ["ESNext", "DOM"],
+    "skipLibCheck": false,
+    "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src", "test"]
 }

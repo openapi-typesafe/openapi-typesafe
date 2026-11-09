@@ -1,3 +1,7 @@
+// A stream body may be an async iterable (`RawRequestBody`). The reference brings that type into a
+// project whose `lib` is older than ES2018, which fails with TS2583 otherwise. The declaration
+// build copies it into the published declarations (build.config.ts).
+/// <reference lib="es2018.asynciterable" />
 import type {
   ErrorResponse,
   FilterKeys,
@@ -11,14 +15,13 @@ import type {
   ResponseObjectMap,
   SuccessResponse,
   Writable,
-} from "openapi-typesafe-helpers";
+} from "./helpers.js";
 
-// Types inferred from the client print helper types. A library built with `declaration: true`
-// under pnpm or Yarn PnP does not depend on the helpers package, so it must name them through this
-// one: without the re-export pnpm fails with TS2742, and the published declarations hold copies of
-// the helper types (build.config.ts), as Yarn PnP names a type by the package that declares it
-// (ADR-034).
-export type * from "openapi-typesafe-helpers";
+// The client declares the helper types, and `openapi-typesafe-helpers` re-exports them: one
+// declaration, so generic code may mix the names of both packages. Types inferred from the
+// client print them by the package that declares them, which a library that uses the client
+// depends on, also under pnpm and Yarn PnP (ADR-034).
+export type * from "./helpers.js";
 
 /** Options for each client instance */
 export interface ClientOptions extends Omit<RequestInit, "headers"> {
