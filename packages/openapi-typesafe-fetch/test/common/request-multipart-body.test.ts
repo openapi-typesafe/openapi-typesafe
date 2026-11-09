@@ -133,6 +133,15 @@ describe("multipart/form-data bodies", () => {
     expect(defaultBodySerializer({ a: "1" }, MULTIPART_HEADERS)).toBeInstanceOf(FormData);
   });
 
+  it("defaultBodySerializer sends a Date field as an ISO 8601 text part", () => {
+    const at = new Date("2026-11-08T12:30:00.000Z");
+
+    const form = defaultBodySerializer({ at, all: [at] }, MULTIPART_HEADERS) as FormData;
+
+    expect(form.get("at")).toBe("2026-11-08T12:30:00.000Z");
+    expect(form.getAll("all")).toEqual(["2026-11-08T12:30:00.000Z"]);
+  });
+
   it("defaultBodySerializer with a null body and a multipart header keeps the JSON encoding", () => {
     expect(defaultBodySerializer(null, MULTIPART_HEADERS)).toBe("null");
   });

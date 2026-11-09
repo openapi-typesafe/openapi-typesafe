@@ -239,8 +239,8 @@ When serializing yourself, the string will be kept exactly as-authored, so youâ€
 Similar to [querySerializer](#queryserializer), bodySerializer allows you to customize how the requestBody is serialized if you donâ€™t want the default [JSON.stringify()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify) behavior.
 
 A `multipart/form-data` body needs no serializer: set the header and pass the object. Each field
-becomes a part (a `Blob` or `File` a file part, an array one part per item, `null` and `undefined`
-left out), and the platform sets the boundary. Generate the types with
+becomes a part (a `Blob` or `File` a file part, a `Date` its ISO 8601 text, an array one part per
+item, `null` and `undefined` left out), and the platform sets the boundary. Generate the types with
 [`--binary-as-blob`](/cli#binaryasblob) so file fields are typed `Blob`.
 
 ```ts
@@ -325,8 +325,8 @@ const { data, error } = await client.POST("/tokens", {
 
 Form encoding has no standard for nested objects (servers read `a[b]`, `a.b` or JSON), so a nested
 object value throws an error instead of being sent as `[object Object]`. An array becomes one
-comma-separated value (`ids=1%2C2`), and a `null` or `undefined` field is left out, as in a multipart
-body. For nested values or repeated keys, write a `bodySerializer` in the format your server reads.
+comma-separated value (`ids=1%2C2`), a `Date` its ISO 8601 text as in parameters, and a `null` or
+`undefined` field is left out, as in a multipart body. For nested values or repeated keys, write a `bodySerializer` in the format your server reads.
 
 ## pathSerializer
 

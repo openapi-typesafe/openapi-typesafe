@@ -535,11 +535,16 @@ function isDate(value) {
 }
 
 /**
- * One parameter value, percent-encoded unless `allowReserved`. A `Date` is sent as ISO 8601:
- * `String(date)` is a local-time text such as "Thu Jan 01 1970 ..." (ADR-041).
+ * A parameter or form value as it is sent: a `Date` as ISO 8601, because `String(date)` is a
+ * local-time text such as "Thu Jan 01 1970 ..." (ADR-041); any other value as it is.
  */
+function valueText(value) {
+  return isDate(value) ? value.toISOString() : value;
+}
+
+/** One parameter value (or object key), percent-encoded unless `allowReserved`. */
 function encodeValue(value, allowReserved) {
-  const text = isDate(value) ? value.toISOString() : value;
+  const text = valueText(value);
   return allowReserved === true ? text : encodeURIComponent(text);
 }
 
@@ -779,6 +784,11 @@ function isRawBody(body) {
   );
 }
 
+/** Whether a form value is a nested object, which form encodings cannot hold; a `Date` is not. */
+function isNestedFormValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) && !isDate(value);
+}
+
 /**
  * A form body. A nested object has no standard form encoding (servers read `a[b]`, `a.b` or JSON),
  * and `URLSearchParams` wrote it as `[object Object]` (ADR-013, decision 7). `null` and `undefined`
@@ -791,11 +801,12 @@ function formBody(body) {
   }
   const form = new URLSearchParams();
   for (const [name, value] of Object.entries(body)) {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
+    if (isNestedFormValue(value)) {
       throw new Error(NESTED_FORM_VALUE_MESSAGE);
     }
     if (value != null) {
-      form.append(name, value);
+      // An array is one comma-separated value, as `URLSearchParams` writes it.
+      form.append(name, Array.isArray(value) ? value.map(valueText).join(",") : valueText(value));
     }
   }
   return form.toString();
@@ -813,10 +824,10 @@ function multipartBody(body) {
     for (const item of [value].flat()) {
       if (item instanceof Blob) {
         formData.append(name, item);
-      } else if (item && typeof item === "object") {
+      } else if (isNestedFormValue(item)) {
         throw new Error(NESTED_FORM_VALUE_MESSAGE);
       } else if (item != null) {
-        formData.append(name, String(item));
+        formData.append(name, String(valueText(item)));
       }
     }
   }

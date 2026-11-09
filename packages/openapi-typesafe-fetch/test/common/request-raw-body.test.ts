@@ -100,6 +100,14 @@ describe("form bodies", () => {
     expect(request.headers.get("Content-Type")).toBe(contentType);
   });
 
+  it("defaultBodySerializer sends a Date field as ISO 8601, alone or in an array", () => {
+    const at = new Date("2026-11-08T12:30:00.000Z");
+
+    expect(defaultBodySerializer({ at, all: [at, at] }, FORM_HEADERS)).toBe(
+      "at=2026-11-08T12%3A30%3A00.000Z&all=2026-11-08T12%3A30%3A00.000Z%2C2026-11-08T12%3A30%3A00.000Z",
+    );
+  });
+
   it("defaultBodySerializer rejects a nested object instead of sending [object Object]", () => {
     expect(() => defaultBodySerializer({ a: { b: 1 } }, FORM_HEADERS)).toThrow("bodySerializer");
   });

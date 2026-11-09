@@ -111,6 +111,16 @@ it holds response data, which is just as secret.
 | Keep the excerpt, mask values that look secret | Readable | Guessing what a secret looks like misses some; extra code |
 | A `body` property on the error | Text available to code | Error trackers serialize own properties too |
 
+### Dates in form bodies (F2)
+
+Decision 1 covered parameters only. In an `application/x-www-form-urlencoded` or
+`multipart/form-data` body a `Date` is an object, so it hit the nested value check of ADR-013
+(decisions 7 and 10) and threw `Nested form values need your own bodySerializer()`.
+openapi-fetch 0.17 sent `String(date)` in a form, a local-time text.
+
+4. A `Date` field, or a `Date` item of an array field, is sent as `toISOString()` in both form
+   bodies, by the same rule as parameters: a value with a `toISOString` method counts.
+
 ## Review trigger
 
 A report of a server that needs empty parameters on the wire or a `Date` in another format, a
