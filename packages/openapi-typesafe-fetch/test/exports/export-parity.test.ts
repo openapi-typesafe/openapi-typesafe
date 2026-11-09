@@ -11,10 +11,10 @@ import * as runtimeModule from "../../dist/index.mjs";
 const DECLARATIONS_PATH = new URL("../../src/index.d.ts", import.meta.url);
 
 /**
- * Runtime exports that are intentionally not declared. Kept so that existing imports keep working.
- * - `randomID`: internal helper that creates middleware request ids; exported by the upstream runtime.
+ * Runtime exports that are intentionally not declared. None since `randomID` got a declaration
+ * (ADR-008, amendment); the list stays so that such an export is a deliberate, commented choice.
  */
-const RUNTIME_ONLY_EXPORTS: readonly string[] = ["randomID"];
+const RUNTIME_ONLY_EXPORTS: readonly string[] = [];
 
 /** Return the names of value exports (functions, constants, default) declared in a `.d.ts` file. */
 function readDeclaredValueExports(declarationsPath: URL): string[] {

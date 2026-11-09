@@ -37,7 +37,27 @@ Keep JavaScript runtime code and hand-written declarations for 1.0. Control drif
 ## Consequences
 
 - A runtime change still needs a matching declaration change; the parity test enforces it.
-- `randomID` stays exported at runtime and undeclared, as before; it is documented as internal in the allow-list.
+- `randomID` stays exported at runtime and undeclared, as before; it is documented as internal in the allow-list
+  (declared since the amendment of 2026-11-08).
+
+## Amendment (2026-11-08): `randomID` is declared
+
+The bug hunt on rc.3 (`RC4_BUGS.md`, item 58) found `randomID` exported at runtime with no
+declaration and no row in the "Other exports" table of the API docs, which says those helpers
+follow semver. ADR-034 (decision 1) covers the names the `.` entry exports, so `randomID` is
+public in 1.x whether it is declared or not: removing it would break JavaScript callers of
+openapi-fetch's runtime export.
+
+1. `src/index.d.ts` declares `randomID(): string`, and the API docs list it: it returns an ID
+   unique within the process, the request `id` of middleware. Its values are not a contract.
+2. The runtime-only allow-list of the export parity test is empty; it stays for a future export
+   that has a reason to be undeclared.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Declare and document it (chosen) | Runtime, declarations and docs agree; TypeScript users can import it | One more name in the declared API |
+| Keep it undeclared and call it internal | No new declared name | Still covered by semver as a runtime export, but invisible; the drift ADR-008 accepted stays |
+| Remove the export | Smaller surface | Breaking for code that imports it from openapi-fetch's runtime |
 
 ## Review trigger
 

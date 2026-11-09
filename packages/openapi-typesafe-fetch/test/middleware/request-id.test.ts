@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
+import { randomID } from "../../src/index.js";
 import { createObservedClient } from "../helpers.js";
 import type { paths } from "./schemas/middleware.js";
 
@@ -38,5 +39,13 @@ describe("middleware request id", () => {
     await second.GET("/posts/{id}", { params: { path: { id: 1 } } });
 
     expect(new Set(ids).size).toBe(2);
+  });
+
+  it("randomID is declared and returns a new string id on each call", () => {
+    const first = randomID();
+    const second = randomID();
+
+    expectTypeOf(randomID).returns.toEqualTypeOf<string>();
+    expect(second).not.toBe(first);
   });
 });

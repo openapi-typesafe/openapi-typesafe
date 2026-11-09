@@ -500,6 +500,7 @@ like the rest of the API.
 | `createFinalURL(pathname, options)` | Builds the request URL from `baseUrl`, the path and the query parameters. |
 | `mergeHeaders(...headers)` | Merges header sets into one `Headers`; later ones win, and `null` removes a header. |
 | `removeTrailingSlash(url)` | Removes one trailing `/`. |
+| `randomID()` | Returns a new ID, unique within the process: the `id` that middleware callbacks get. The name is openapi-fetch's; the ID comes from a counter, not from `Math.random()`. |
 | `ClientPathsWithMethod<Client, Method>`, `MethodResponse<Client, Method, Path>` | Types: the paths of a client that have a method, and the `data` type of one call. |
 
 `defaultBodySerializer` returns by the body type:
