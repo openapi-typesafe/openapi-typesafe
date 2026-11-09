@@ -261,9 +261,12 @@ const { data, error } = await client.PUT("/submit", {
   },
   bodySerializer(body) {
     const fd = new FormData();
-    fd.append("name", body.name);
-    // the nested object becomes a JSON part with its own content type
-    fd.append("query", new Blob([JSON.stringify(body.query)], { type: "application/json" }));
+    // `body` can be `undefined` when the schema's request body is optional (the default)
+    if (body) {
+      fd.append("name", body.name);
+      // the nested object becomes a JSON part with its own content type
+      fd.append("query", new Blob([JSON.stringify(body.query)], { type: "application/json" }));
+    }
     return fd;
   },
 });
