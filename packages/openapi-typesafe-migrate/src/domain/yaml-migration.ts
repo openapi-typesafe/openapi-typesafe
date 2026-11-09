@@ -5,7 +5,7 @@ import {
   type ShellTextFindings,
   shellTextFindings,
 } from "./command-migration.js";
-import { ownerKey, type YamlString } from "./config-documents.js";
+import { type DocumentString, ownerKey } from "./config-documents.js";
 import { type Change, lineAt } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import type { ShellCommand, ShellWord } from "./shell-words.js";
@@ -50,14 +50,16 @@ const FOLDED_LINE_BREAK_RE = /(?<=\S[^\S\n]*)\n(?=[^\S\n]*\S)/g;
  * The shell text of a value: where YAML folds a line break to a space, so does the shell text.
  * The replacement keeps the length, so offsets into it are offsets into the value as written.
  */
-function shellText(text: string, value: YamlString): string {
-  const slice = text.slice(value.start, value.end);
+function shellText(text: string, value: DocumentString): string {
+  const slice = text.slice(value.content.start, value.content.end);
   return value.isFolded ? slice.replace(FOLDED_LINE_BREAK_RE, " ") : slice;
 }
 
 /** The values that belong to one of `keys`, also as items of a list. */
-const valuesOf = (strings: readonly YamlString[], keys: ReadonlySet<string>): YamlString[] =>
-  strings.filter((string) => keys.has(ownerKey(string.path) ?? ""));
+const valuesOf = (
+  strings: readonly DocumentString[],
+  keys: ReadonlySet<string>,
+): DocumentString[] => strings.filter((string) => keys.has(ownerKey(string.path) ?? ""));
 
 /**
  * Keys whose list value is one command in exec form, as Compose and Kubernetes read it: each item
@@ -65,36 +67,37 @@ const valuesOf = (strings: readonly YamlString[], keys: ReadonlySet<string>): Ya
  */
 const EXEC_FORM_KEYS: ReadonlySet<string> = new Set(["command", "entrypoint"]);
 
-const isExecFormItem = (value: YamlString): boolean =>
+const isExecFormItem = (value: DocumentString): boolean =>
   typeof value.path.at(-1) === "number" && EXEC_FORM_KEYS.has(String(value.path.at(-2)));
 
-const listOf = (item: YamlString): string => item.path.slice(0, -1).join(".");
+const listOf = (item: DocumentString): string => item.path.slice(0, -1).join(".");
 
 /** The next item of the same list: the documents of a stream may repeat a list's path. */
-const isNextItem = (previous: YamlString, item: YamlString): boolean =>
+const isNextItem = (previous: DocumentString, item: DocumentString): boolean =>
   listOf(previous) === listOf(item) && Number(item.path.at(-1)) > Number(previous.path.at(-1));
 
 /** The commands of exec-form lists, one per list, each item a word. */
-function execFormCommands(text: string, items: readonly YamlString[]): ShellCommand[] {
+function execFormCommands(text: string, items: readonly DocumentString[]): ShellCommand[] {
   const commands: ShellWord[][] = [];
-  let previous: YamlString | undefined;
+  let previous: DocumentString | undefined;
   let command: ShellWord[] = [];
   for (const item of items) {
     if (previous === undefined || !isNextItem(previous, item)) {
       command = [];
       commands.push(command);
     }
-    const { start, end, value } = item;
-    command.push({ start, end, value, raw: text.slice(start, end) });
+    const { start, end } = item.content;
+    command.push({ start, end, value: item.value, raw: text.slice(start, end) });
     previous = item;
   }
   return commands;
 }
 
 /** The findings of one value read as shell text, with offsets into the whole text. */
-function valueFindings(text: string, value: YamlString, locate: Locate): ShellTextFindings {
-  const found = shellTextFindings(shellText(text, value), (offset) => locate(value.start + offset));
-  return { ...found, edits: shiftedEdits(found.edits, value.start) };
+function valueFindings(text: string, value: DocumentString, locate: Locate): ShellTextFindings {
+  const { start } = value.content;
+  const found = shellTextFindings(shellText(text, value), (offset) => locate(start + offset));
+  return { ...found, edits: shiftedEdits(found.edits, start) };
 }
 
 /** The edits of shell findings in a value, as offsets into the whole text. */
@@ -120,7 +123,7 @@ function appliedFindings(text: string, found: readonly ShellTextFindings[]): Com
 export function migrateYamlCommands(
   text: string,
   file: string,
-  strings: readonly YamlString[],
+  strings: readonly DocumentString[],
 ): CommandMigration {
   const values = valuesOf(strings, YAML_COMMAND_KEYS);
   const locate = (offset: number): string => `${file}:${lineAt(text, offset)}`;
@@ -134,11 +137,14 @@ export function migrateYamlCommands(
 /** The top-level key of a pnpm `package.yaml` whose values are scripts. */
 const SCRIPTS_KEY = "scripts";
 
-const isScript = (string: YamlString): boolean =>
+const isScript = (string: DocumentString): boolean =>
   string.path.length === 2 && string.path[0] === SCRIPTS_KEY;
 
 /** Migrate the scripts of a pnpm `package.yaml` manifest; each finding names its script. */
-export function migrateYamlScripts(text: string, strings: readonly YamlString[]): CommandMigration {
+export function migrateYamlScripts(
+  text: string,
+  strings: readonly DocumentString[],
+): CommandMigration {
   const scripts = strings.filter(isScript);
   return appliedFindings(
     text,
@@ -150,7 +156,7 @@ export function migrateYamlScripts(text: string, strings: readonly YamlString[])
 export function migrateDependabotConfig(
   text: string,
   file: string,
-  strings: readonly YamlString[],
+  strings: readonly DocumentString[],
 ): CommandMigration {
   const changes: Change[] = [];
   const edits: TextEdit[] = [];
@@ -158,9 +164,10 @@ export function migrateDependabotConfig(
     const from = value.value;
     const to = PACKAGE_RENAMES.get(from);
     if (to !== undefined) {
-      const location = `${file}:${lineAt(text, value.start)}`;
+      const { start, end } = value.content;
+      const location = `${file}:${lineAt(text, start)}`;
       changes.push({ kind: "package-name-renamed", location, from, to });
-      edits.push({ start: value.start, end: value.end, text: to });
+      edits.push({ start, end, text: to });
     }
   }
   return { text: applyTextEdits(text, edits), changes, manualSteps: [] };

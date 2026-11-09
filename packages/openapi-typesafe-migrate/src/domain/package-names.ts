@@ -37,6 +37,24 @@ export const DEPENDENCY_FIELDS = [
 
 export type DependencyField = (typeof DEPENDENCY_FIELDS)[number];
 
+/**
+ * Fields keyed by the name of a dependency: `peerDependenciesMeta` (npm, its `optional` flag),
+ * `dependenciesMeta` (pnpm and Yarn). A key left with the old name loses its meaning: an optional
+ * peer becomes required (finding M3).
+ */
+export const NAME_KEYED_FIELDS = ["peerDependenciesMeta", "dependenciesMeta"] as const;
+
+/** Fields that list the names of dependencies to bundle (npm reads both spellings). */
+export const NAME_LIST_FIELDS = ["bundleDependencies", "bundledDependencies"] as const;
+
+/**
+ * Catalogs in package.json: bun reads `catalog` and `catalogs` at the top level and under
+ * `workspaces`. Their names are what `catalog:` dependencies point at.
+ */
+export const CATALOG_FIELD = "catalog";
+export const NAMED_CATALOGS_FIELD = "catalogs";
+export const WORKSPACES_FIELD = "workspaces";
+
 /** Fields that can name a package without installing it; they are reported, not rewritten. */
 export const OVERRIDE_FIELDS = ["overrides", "resolutions", "pnpm"] as const;
 
@@ -55,3 +73,26 @@ export interface OldPeer {
 export const OLD_PEER_DEPENDENTS: ReadonlyMap<string, OldPeer> = new Map([
   ["swr-openapi", { peer: "openapi-fetch", range: ">=0.15" }],
 ]);
+
+const PATH_SEPARATOR = "/";
+
+/** A module specifier with the package renamed, and whether it reaches into the package. */
+export interface RenamedSpecifier {
+  readonly to: string;
+  readonly isDeep: boolean;
+}
+
+/**
+ * The new name of a whole package name, or of a name and a subpath (`openapi-fetch/x`, and the
+ * `openapi-fetch/` prefix of an import map); undefined for other specifiers.
+ */
+export function renamedSpecifier(value: string): RenamedSpecifier | undefined {
+  const slash = value.indexOf(PATH_SEPARATOR);
+  const name = slash === -1 ? value : value.slice(0, slash);
+  const renamed = PACKAGE_RENAMES.get(name);
+  if (renamed === undefined) {
+    return undefined;
+  }
+  const subpath = value.slice(name.length);
+  return { to: `${renamed}${subpath}`, isDeep: subpath !== "" && subpath !== PATH_SEPARATOR };
+}

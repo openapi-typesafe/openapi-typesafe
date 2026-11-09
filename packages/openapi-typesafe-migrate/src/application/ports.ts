@@ -1,4 +1,4 @@
-import type { JsonString, YamlString } from "../domain/config-documents.js";
+import type { DocumentRead } from "../domain/config-documents.js";
 import type { FileMigration } from "../domain/migration-findings.js";
 import type { SourceString } from "../domain/source-migration.js";
 
@@ -63,16 +63,17 @@ export interface SourceStringScanner {
   scan(text: string, path: string): SourceString[];
 }
 
-/** Reads a JSON or JSONC document (comments, trailing commas) whose root is an object. */
+/**
+ * Reads a JSON or JSONC document (comments, trailing commas) whose root is an object, as a tree
+ * with the offsets of its nodes (domain/config-documents.ts).
+ */
 export interface JsonDocumentReader {
-  /** Every string value in document order, or undefined for text that is not such a document. */
-  strings(text: string): JsonString[] | undefined;
+  read(text: string): DocumentRead;
 }
 
-/** Reads a YAML stream: one document or several, separated by `---`. */
+/** Reads a YAML stream (one document or several, separated by `---`) as trees with offsets. */
 export interface YamlDocumentReader {
-  /** Every string scalar in document order, or undefined for text that is not valid YAML. */
-  strings(text: string): YamlString[] | undefined;
+  read(text: string): DocumentRead;
 }
 
 /** The readers of the config formats whose commands and package names the migration edits. */

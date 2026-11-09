@@ -3,10 +3,15 @@ import { migrateModuleSpecifiers, type SourceString } from "../../src/domain/sou
 
 /** The quoted string `value` where it first appears in `text`, as a scanner reports it. */
 function stringIn(text: string, value: string, isModuleSpecifier = true): SourceString {
-  const quoted = new RegExp(`["'\`]${value.replaceAll("/", "\\/")}["'\`]`).exec(text);
-  const start = (quoted?.index ?? -1) + 1;
+  const start =
+    [`"${value}"`, `'${value}'`, `\`${value}\``]
+      .map((quoted) => text.indexOf(quoted))
+      .filter((index) => index !== -1)
+      .reduce((first, index) => Math.min(first, index), text.length) + 1;
   return { start, end: start + value.length, value, isModuleSpecifier };
 }
+
+const VERSION = "1.0.0";
 
 describe("migrateModuleSpecifiers", () => {
   it("migrateModuleSpecifiers renames module specifiers that are package names", () => {
@@ -22,7 +27,7 @@ describe("migrateModuleSpecifiers", () => {
       stringIn(text, "openapi-typescript-helpers"),
     ];
 
-    const migrated = migrateModuleSpecifiers(text, strings);
+    const migrated = migrateModuleSpecifiers(text, strings, VERSION);
 
     expect(migrated.text).toBe(
       [
@@ -40,7 +45,11 @@ describe("migrateModuleSpecifiers", () => {
   it("migrateModuleSpecifiers renames a deep import and reports it", () => {
     const text = 'import x from "openapi-fetch/dist/index.js";';
 
-    const migrated = migrateModuleSpecifiers(text, [stringIn(text, "openapi-fetch/dist/index.js")]);
+    const migrated = migrateModuleSpecifiers(
+      text,
+      [stringIn(text, "openapi-fetch/dist/index.js")],
+      VERSION,
+    );
 
     expect(migrated.text).toBe('import x from "openapi-typesafe-fetch/dist/index.js";');
     expect(migrated.manualSteps).toEqual([
@@ -51,7 +60,11 @@ describe("migrateModuleSpecifiers", () => {
   it("migrateModuleSpecifiers reports a package name outside a module specifier and keeps it", () => {
     const text = 'const versions = {\n  "openapi-typescript": "7.13.0",\n};';
 
-    const migrated = migrateModuleSpecifiers(text, [stringIn(text, "openapi-typescript", false)]);
+    const migrated = migrateModuleSpecifiers(
+      text,
+      [stringIn(text, "openapi-typescript", false)],
+      VERSION,
+    );
 
     expect(migrated).toEqual({
       text,
@@ -71,14 +84,22 @@ describe("migrateModuleSpecifiers", () => {
     const text = 'import a from "openapi-fetch-gen";\nimport b from "@scope/openapi-fetch";';
     const strings = [stringIn(text, "openapi-fetch-gen"), stringIn(text, "@scope/openapi-fetch")];
 
-    expect(migrateModuleSpecifiers(text, strings)).toEqual({ text, changes: [], manualSteps: [] });
+    expect(migrateModuleSpecifiers(text, strings, VERSION)).toEqual({
+      text,
+      changes: [],
+      manualSteps: [],
+    });
   });
 
   it("migrateModuleSpecifiers renames a string found twice once", () => {
     const text = 'import x from "openapi-fetch";';
     const found = stringIn(text, "openapi-fetch");
 
-    const migrated = migrateModuleSpecifiers(text, [found, { ...found, isModuleSpecifier: false }]);
+    const migrated = migrateModuleSpecifiers(
+      text,
+      [found, { ...found, isModuleSpecifier: false }],
+      VERSION,
+    );
 
     expect(migrated).toEqual({
       text: 'import x from "openapi-typesafe-fetch";',
@@ -100,6 +121,38 @@ describe("migrateModuleSpecifiers", () => {
       isModuleSpecifier: true,
     };
 
-    expect(() => migrateModuleSpecifiers(text, [whole, part])).toThrow(/overlap/);
+    expect(() => migrateModuleSpecifiers(text, [whole, part], VERSION)).toThrow(/overlap/);
+  });
+
+  it("migrateModuleSpecifiers renames a Deno npm specifier with the new version", () => {
+    const text = 'import a from "npm:openapi-fetch@^0.13.0";\nimport b from "npm:openapi-fetch";\n';
+    const strings = [
+      stringIn(text, "npm:openapi-fetch@^0.13.0"),
+      stringIn(text, "npm:openapi-fetch"),
+    ];
+
+    const migrated = migrateModuleSpecifiers(text, strings, VERSION);
+
+    expect(migrated.text).toBe(
+      'import a from "npm:openapi-typesafe-fetch@^1.0.0";\nimport b from "npm:openapi-typesafe-fetch";\n',
+    );
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migrateModuleSpecifiers reports a Deno npm specifier that reaches in or keeps a tag", () => {
+    const text = 'import a from "npm:openapi-fetch@next/dist/x.js";\n';
+
+    const migrated = migrateModuleSpecifiers(
+      text,
+      [stringIn(text, "npm:openapi-fetch@next/dist/x.js")],
+      VERSION,
+    );
+
+    const to = "npm:openapi-typesafe-fetch@next/dist/x.js";
+    expect(migrated.text).toBe(`import a from "${to}";\n`);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "deep-import", line: 1, specifier: to },
+      { kind: "spec-kept", name: to, spec: "npm:openapi-fetch@next/dist/x.js" },
+    ]);
   });
 });

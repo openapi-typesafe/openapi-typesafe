@@ -13,6 +13,8 @@ function specifierFlags(text: string, path = "a.ts"): boolean[] {
     .map((found) => found.isModuleSpecifier);
 }
 
+const VERSION = "1.0.0";
+
 describe("TypescriptSourceStringScanner", () => {
   it.each([
     ["an import", 'import createClient from "openapi-fetch";'],
@@ -201,7 +203,7 @@ describe("TypescriptSourceStringScanner", () => {
       "---",
     ].join("\n");
 
-    const migrated = migrateModuleSpecifiers(text, scanner.scan(text, "Page.astro"));
+    const migrated = migrateModuleSpecifiers(text, scanner.scan(text, "Page.astro"), VERSION);
 
     expect(migrated.text).toBe(text.replace(PACKAGE, "openapi-typesafe-fetch"));
   });
@@ -220,7 +222,7 @@ describe("TypescriptSourceStringScanner", () => {
       'import createClient from "openapi-fetch";',
     ].join("\n");
 
-    const migrated = migrateModuleSpecifiers(text, scanner.scan(text, "scaffold.ts"));
+    const migrated = migrateModuleSpecifiers(text, scanner.scan(text, "scaffold.ts"), VERSION);
 
     expect(migrated.text).toBe(
       text.replace('from "openapi-fetch"', 'from "openapi-typesafe-fetch"'),

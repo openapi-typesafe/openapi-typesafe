@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { migratePackageManifest } from "../../src/domain/manifest-migration.js";
+import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
+import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
+import { fileMigrationFor } from "../../src/application/file-migrations.js";
+import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
+import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
+
+const readers = { json: createJsonTextReader(), yaml: createYamlTextReader() };
+const scanner = new QuotedStringScanner();
+const rewriter = new StubCallbackRewriter();
+
+/**
+ * package.json as the tool migrates it: the package names (domain/manifest-migration.ts) and the
+ * scripts (domain/json-command-migration.ts), read by the JSON adapter.
+ */
+function migratePackageManifest(text: string, version: string) {
+  const migrate = fileMigrationFor("package.json");
+  if (migrate === undefined) {
+    throw new Error("package.json has no migration");
+  }
+  return migrate(text, "package.json", { version, rewriter, scanner, readers });
+}
 
 const manifest = (value: unknown, indent: string | number = 2): string =>
   `${JSON.stringify(value, null, indent)}\n`;
@@ -122,26 +142,48 @@ describe("migratePackageManifest", () => {
     );
   });
 
-  it("migratePackageManifest keeps a dependency whose spec is not a string", () => {
+  it("migratePackageManifest keeps and reports a dependency whose spec is not a string", () => {
     const text = manifest({ dependencies: { "openapi-fetch": 1 } });
 
-    expect(migratePackageManifest(text, "1.0.0")).toEqual({ text, changes: [], manualSteps: [] });
-  });
-
-  it("migratePackageManifest leaves text that is not a JSON object", () => {
-    expect(migratePackageManifest("[1]", "1.0.0")).toEqual({
-      text: "[1]",
+    expect(migratePackageManifest(text, "1.0.0")).toEqual({
+      text,
       changes: [],
-      manualSteps: [],
+      manualSteps: [{ kind: "entry-not-edited", field: "dependencies", name: "openapi-fetch" }],
     });
   });
 
-  it("migratePackageManifest reports a manifest that does not parse", () => {
-    const migrated = migratePackageManifest("{ nope", "1.0.0");
+  it("migratePackageManifest reports a manifest that is not a JSON object and leaves it", () => {
+    expect(migratePackageManifest('["openapi-fetch"]', "1.0.0")).toEqual({
+      text: '["openapi-fetch"]',
+      changes: [],
+      manualSteps: [{ kind: "config-unreadable", position: { line: 1, column: 1 } }],
+    });
+  });
 
-    expect(migrated.text).toBe("{ nope");
+  it("migratePackageManifest leaves a broken manifest that names no original package", () => {
+    expect(migratePackageManifest("{ nope", "1.0.0").manualSteps).toEqual([]);
+  });
+
+  it("migratePackageManifest leaves an empty manifest", () => {
+    expect(migratePackageManifest("", "1.0.0")).toEqual({ text: "", changes: [], manualSteps: [] });
+  });
+
+  it("migratePackageManifest reports where a manifest does not parse", () => {
+    const text = '{\n  "openapi-fetch": nope\n}';
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(text);
     expect(migrated.manualSteps).toEqual([
-      { kind: "manifest-unreadable", reason: expect.any(String) },
+      { kind: "config-unreadable", position: { line: 2, column: 20 } },
+    ]);
+  });
+
+  it("migratePackageManifest reports a parse error by position, without the file's text", () => {
+    const migrated = migratePackageManifest('{"openapi-fetch": https://SECRET@h.io}', "1.0.0");
+
+    expect(migrated.manualSteps).toEqual([
+      { kind: "config-unreadable", position: { line: 1, column: 24 } },
     ]);
   });
 
@@ -159,15 +201,6 @@ describe("migratePackageManifest", () => {
     ]);
   });
 
-  it("migratePackageManifest hides URL credentials in the parse error", () => {
-    // V8 quotes a short text whole in the message.
-    const migrated = migratePackageManifest("https://SECRET@h.io", "1.0.0");
-
-    expect(migrated.manualSteps).toEqual([
-      { kind: "manifest-unreadable", reason: expect.stringContaining("https://***@h.io") },
-    ]);
-  });
-
   it("migratePackageManifest keeps CRLF line endings", () => {
     const text = manifest({ devDependencies: { "openapi-typescript": "^7.13.0" } }).replaceAll(
       "\n",
@@ -179,5 +212,170 @@ describe("migratePackageManifest", () => {
     expect(migrated.text).toBe(
       manifest({ devDependencies: { "openapi-typesafe": "^1.0.0" } }).replaceAll("\n", "\r\n"),
     );
+  });
+
+  it("migratePackageManifest changes only the renamed names and specs, byte for byte", () => {
+    const text = [
+      "{",
+      '  "description": "café \\/ slash",',
+      '  "config": { "big": 12345678901234567890, "f": 1.0, "2": "two", "1": "one" },',
+      '  "files": ["dist", "src"],',
+      '  "scripts": { "a": "x" },',
+      '  "scripts": { "gen": "openapi-typescript api.yaml" },',
+      '  "dependencies": {',
+      '    "openapi-fetch": "^0.13.0"',
+      "  }",
+      "}",
+      "",
+    ].join("\n");
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(
+      text
+        .replace("openapi-typescript api.yaml", "openapi-typesafe api.yaml")
+        .replace('"openapi-fetch": "^0.13.0"', '"openapi-typesafe-fetch": "^1.0.0"'),
+    );
+  });
+
+  it("migratePackageManifest renames in every copy of a duplicated field", () => {
+    const text =
+      '{"dependencies": {"openapi-fetch": "1.0.0"}, "dependencies": {"openapi-fetch": "2"}}';
+
+    expect(migratePackageManifest(text, "1.0.0").text).toBe(
+      '{"dependencies": {"openapi-typesafe-fetch": "1.0.0"}, ' +
+        '"dependencies": {"openapi-typesafe-fetch": "^1.0.0"}}',
+    );
+  });
+
+  it("migratePackageManifest migrates a manifest with a byte order mark and keeps the mark", () => {
+    const text = `﻿${manifest({ dependencies: { "openapi-fetch": "^0.13.0" } })}`;
+
+    expect(migratePackageManifest(text, "1.0.0").text).toBe(
+      `﻿${manifest({ dependencies: { "openapi-typesafe-fetch": "^1.0.0" } })}`,
+    );
+  });
+
+  it("migratePackageManifest renames the keys of the meta fields and the bundled names", () => {
+    const text = manifest({
+      peerDependencies: { "openapi-fetch": "0.x" },
+      peerDependenciesMeta: { "openapi-fetch": { optional: true } },
+      dependenciesMeta: { "openapi-typescript": { injected: true } },
+      bundleDependencies: ["openapi-fetch", 1, "other"],
+      bundledDependencies: ["openapi-react-query"],
+    });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(JSON.parse(migrated.text)).toEqual({
+      peerDependencies: { "openapi-typesafe-fetch": "^1.0.0" },
+      peerDependenciesMeta: { "openapi-typesafe-fetch": { optional: true } },
+      dependenciesMeta: { "openapi-typesafe": { injected: true } },
+      bundleDependencies: ["openapi-typesafe-fetch", 1, "other"],
+      bundledDependencies: ["openapi-typesafe-react-query"],
+    });
+    expect(migrated.changes).toContainEqual({
+      kind: "package-name-renamed",
+      location: "peerDependenciesMeta",
+      from: "openapi-fetch",
+      to: "openapi-typesafe-fetch",
+    });
+  });
+
+  it("migratePackageManifest reports a meta key with a version instead of renaming it", () => {
+    const text = manifest({ dependenciesMeta: { "openapi-fetch@0.13.0": { built: false } } });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "override-names-package", field: "dependenciesMeta", name: "openapi-fetch" },
+    ]);
+  });
+
+  it("migratePackageManifest leaves an entry whose new name is in the field already", () => {
+    const text = manifest({
+      dependencies: { "openapi-typesafe-fetch": "workspace:*", "openapi-fetch": "catalog:" },
+      bundleDependencies: ["openapi-fetch", "openapi-typesafe-fetch"],
+    });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.changes).toEqual([]);
+    const collision = {
+      kind: "name-collision",
+      from: "openapi-fetch",
+      to: "openapi-typesafe-fetch",
+    };
+    expect(migrated.manualSteps).toEqual([
+      { ...collision, field: "dependencies" },
+      { ...collision, field: "bundleDependencies" },
+    ]);
+  });
+
+  it("migratePackageManifest migrates bun catalogs at the top level and under workspaces", () => {
+    const text = manifest({
+      workspaces: {
+        packages: ["packages/*"],
+        catalog: { "openapi-fetch": "^0.13.0" },
+        catalogs: { old: { "openapi-typescript": "7.13.0" } },
+      },
+      catalog: { "openapi-react-query": "~0.5.0" },
+      catalogs: { legacy: { "openapi-typescript-helpers": "0.0.15" }, odd: "x" },
+    });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(JSON.parse(migrated.text)).toEqual({
+      workspaces: {
+        packages: ["packages/*"],
+        catalog: { "openapi-typesafe-fetch": "^1.0.0" },
+        catalogs: { old: { "openapi-typesafe": "1.0.0" } },
+      },
+      catalog: { "openapi-typesafe-react-query": "~1.0.0" },
+      catalogs: { legacy: { "openapi-typesafe-helpers": "1.0.0" }, odd: "x" },
+    });
+    expect(
+      migrated.changes.map((change) => change.kind === "catalog-entry-renamed" && change.catalog),
+    ).toEqual(["catalog", "catalogs.legacy", "workspaces.catalog", "workspaces.catalogs.old"]);
+  });
+
+  it("migratePackageManifest retargets an npm alias of an original package", () => {
+    const text = manifest({
+      dependencies: {
+        "my-fetch": "npm:openapi-fetch@^0.13.0",
+        "openapi-fetch": "npm:openapi-fetch@0.13.1",
+        other: "npm:left-pad@1",
+      },
+    });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(JSON.parse(migrated.text).dependencies).toEqual({
+      "my-fetch": "npm:openapi-typesafe-fetch@^1.0.0",
+      "openapi-typesafe-fetch": "npm:openapi-typesafe-fetch@1.0.0",
+      other: "npm:left-pad@1",
+    });
+    expect(migrated.changes[0]).toEqual({
+      kind: "alias-renamed",
+      field: "dependencies",
+      name: "my-fetch",
+      spec: "npm:openapi-typesafe-fetch@^1.0.0",
+    });
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migratePackageManifest reports an npm alias whose tag it keeps", () => {
+    const text = manifest({ dependencies: { "my-fetch": "npm:openapi-fetch@latest" } });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(JSON.parse(migrated.text).dependencies).toEqual({
+      "my-fetch": "npm:openapi-typesafe-fetch@latest",
+    });
+    expect(migrated.manualSteps).toEqual([
+      { kind: "spec-kept", name: "my-fetch", spec: "npm:openapi-typesafe-fetch@latest" },
+    ]);
   });
 });

@@ -17,7 +17,11 @@ export function changeMessage(change: Change): string {
     case "dependency-renamed":
       return `${change.field}: ${change.from} → ${change.to}@${change.spec}`;
     case "catalog-entry-renamed":
-      return `catalog: ${change.from} → ${change.to}`;
+      return `${change.catalog}: ${change.from} → ${change.to}@${change.spec}`;
+    case "import-renamed":
+      return `${change.field}: "${change.from}" → "${change.to}" (${change.target})`;
+    case "alias-renamed":
+      return `${change.field}: ${change.name} → ${change.spec}`;
     case "command-renamed":
       return `${change.location}: openapi-typescript → openapi-typesafe`;
     case "flag-renamed":
@@ -105,21 +109,46 @@ function commandStepMessage(step: CommandStep): string {
   }
 }
 
+/** Steps for places of a structured file (JSON, YAML) that the tool could not edit. */
+type UneditedStep = Extract<
+  ManualStep,
+  { kind: "config-unreadable" | "entry-not-edited" | "name-collision" }
+>;
+
+function uneditedStepMessage(step: UneditedStep): string {
+  switch (step.kind) {
+    case "config-unreadable":
+      return step.position === undefined
+        ? "nests too deep to be read; migrate it by hand"
+        : `cannot be parsed at line ${step.position.line}, column ${step.position.column}; ` +
+            "migrate it by hand";
+    case "entry-not-edited":
+      return `${step.field}: ${step.name} has a value the tool does not read; rename it by hand`;
+    case "name-collision":
+      return (
+        `${step.field} has both ${step.from} and ${step.to}, so ${step.from} was kept: ` +
+        "remove one of them"
+      );
+    default:
+      return assertNever(step);
+  }
+}
+
 export function manualStepMessage(step: ManualStep): string {
   if (isCommandStep(step)) {
     return commandStepMessage(step);
   }
   switch (step.kind) {
-    case "manifest-unreadable":
-      return `package.json is not valid JSON (${step.reason}); migrate it by hand`;
+    case "config-unreadable":
+    case "entry-not-edited":
+    case "name-collision":
+      return uneditedStepMessage(step);
     case "peer-dependency-renamed":
       return `${step.name} is a peer dependency: ${PEER_NOTE}`;
     case "spec-kept":
       return `${step.name} kept the spec "${step.spec}": point it at an openapi-typesafe version`;
     case "override-names-package":
       return `"${step.field}" names ${step.name}: update or remove that override`;
-    case "config-unreadable":
-      return "the file could not be parsed; migrate its commands by hand";
     case "options-not-inspected":
       return `line ${step.line}: ${OPTIONS_NOTE}`;
     case "deep-import":

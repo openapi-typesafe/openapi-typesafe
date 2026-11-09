@@ -1,18 +1,21 @@
 import { migrateCommand } from "./command-migration.js";
-import type { DocumentPath, JsonString } from "./config-documents.js";
+import type { DocumentPath, DocumentString } from "./config-documents.js";
 import type { Change, FileMigration, ManualStep } from "./migration-findings.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 
 /**
- * Commands in JSON configs of task runners: Nx `project.json` targets and Deno tasks. Only the
- * strings at command paths are migrated, and each is replaced in place, so the rest of the file
- * keeps its formatting.
+ * Commands in JSON configs: package.json scripts, Nx `project.json` targets and Deno tasks.
+ * Only the strings at command paths are migrated, and each is replaced in place, so the rest of
+ * the file keeps its formatting.
  */
 
 /** A key path pattern; `*` matches any key or index. */
 export type JsonPathPattern = readonly string[];
 
 const ANY = "*";
+
+/** package.json scripts; each finding names its script (`scripts.gen`). */
+export const PACKAGE_SCRIPT_PATHS: readonly JsonPathPattern[] = [["scripts", ANY]];
 
 /** `nx:run-commands` targets: `command`, `options.command` and `options.commands`. */
 export const NX_COMMAND_PATHS: readonly JsonPathPattern[] = [
@@ -35,7 +38,7 @@ const matches = (path: DocumentPath, pattern: JsonPathPattern): boolean =>
 /** Migrate the command strings of a JSON config whose key paths match one of `patterns`. */
 export function migrateJsonCommands(
   text: string,
-  strings: readonly JsonString[],
+  strings: readonly DocumentString[],
   patterns: readonly JsonPathPattern[],
 ): FileMigration {
   const changes: Change[] = [];

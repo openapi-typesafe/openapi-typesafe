@@ -1,5 +1,7 @@
 import { type Change, type FileMigration, lineAt, type ManualStep } from "./migration-findings.js";
-import { PACKAGE_RENAMES } from "./package-names.js";
+import { migrateNpmSpec } from "./npm-alias.js";
+import { type RenamedSpecifier, renamedSpecifier } from "./package-names.js";
+import { hideUrlCredentials } from "./url-credentials.js";
 
 /**
  * A string literal of a source file, as a parser finds it. `start` and `end` are the offsets of
@@ -30,20 +32,22 @@ export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
   ".astro",
 ]);
 
-interface RenamedValue {
-  readonly to: string;
-  readonly isDeep: boolean;
+/** A renamed specifier; `keptSpec` is the old spec when its range could not be replaced. */
+interface RenamedValue extends RenamedSpecifier {
+  readonly keptSpec?: string;
 }
 
-/** The new name of a whole package name, or of a name and a subpath (`openapi-fetch/x`). */
-function renamedValue(value: string): RenamedValue | undefined {
-  const slash = value.indexOf("/");
-  const name = slash === -1 ? value : value.slice(0, slash);
-  const renamed = PACKAGE_RENAMES.get(name);
-  if (renamed === undefined) {
-    return undefined;
+/**
+ * The new specifier: a package name or subpath, or a Deno `npm:` specifier
+ * (`npm:openapi-fetch@^0.13`), which gets the new package and version.
+ */
+function renamedValue(value: string, version: string): RenamedValue | undefined {
+  const npm = migrateNpmSpec(value, version);
+  if (npm === undefined) {
+    return renamedSpecifier(value);
   }
-  return { to: `${renamed}${value.slice(name.length)}`, isDeep: slash !== -1 };
+  const renamed = { to: npm.spec, isDeep: npm.isDeep };
+  return npm.isReported ? { ...renamed, keptSpec: hideUrlCredentials(value) } : renamed;
 }
 
 /**
@@ -78,13 +82,14 @@ function distinctStrings(strings: readonly SourceString[]): SourceString[] {
 export function migrateModuleSpecifiers(
   text: string,
   strings: readonly SourceString[],
+  version: string,
 ): FileMigration {
   const changes: Change[] = [];
   const manualSteps: ManualStep[] = [];
   let migrated = "";
   let copiedUpTo = 0;
   for (const found of distinctStrings(strings)) {
-    const renamed = renamedValue(found.value);
+    const renamed = renamedValue(found.value, version);
     if (renamed === undefined) {
       continue;
     }
@@ -97,6 +102,9 @@ export function migrateModuleSpecifiers(
     // A deep import reaches into the package's files, whose layout is not part of the contract.
     if (renamed.isDeep) {
       manualSteps.push({ kind: "deep-import", line, specifier: renamed.to });
+    }
+    if (renamed.keptSpec !== undefined) {
+      manualSteps.push({ kind: "spec-kept", name: renamed.to, spec: renamed.keptSpec });
     }
     migrated += `${text.slice(copiedUpTo, found.start)}${renamed.to}`;
     copiedUpTo = found.end;
