@@ -89,6 +89,21 @@ function shellText(text: string, value: DocumentString): string {
   return unfolded.replace(ENV_EXPRESSION_RE, asShellVariable);
 }
 
+const LEADING_SPACES_RE = /^ */;
+
+/**
+ * The indentation of a block scalar as written: the fewest spaces at the start of its lines after
+ * the first, which YAML removes from the value the shell runs. 0 for a value on one line.
+ */
+function blockIndent(shell: string): number {
+  const lines = shell
+    .split("\n")
+    .slice(1)
+    .filter((line) => line.trim() !== "");
+  const indents = lines.map((line) => LEADING_SPACES_RE.exec(line)?.[0].length ?? 0);
+  return indents.length === 0 ? 0 : Math.min(...indents);
+}
+
 /** The values that belong to one of `keys`, also as items of a list. */
 const valuesOf = (
   strings: readonly DocumentString[],
@@ -135,7 +150,8 @@ function valueFindings(
   variables?: FileVariables,
 ): ShellTextFindings {
   const { start } = value.content;
-  const commands = shellCommands(shellText(text, value));
+  const shell = shellText(text, value);
+  const commands = shellCommands(shell, blockIndent(shell));
   const found = commandWordFindings(commands, (offset) => locate(start + offset), variables);
   return { ...found, edits: shiftedEdits(found.edits, start) };
 }

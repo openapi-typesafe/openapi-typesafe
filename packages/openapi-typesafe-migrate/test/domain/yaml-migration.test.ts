@@ -99,6 +99,28 @@ describe("migrateYamlCommands", () => {
     );
   });
 
+  it("migrateYamlCommands skips a here-document body of a run block", () => {
+    const text = lines(
+      "jobs:",
+      "  gen:",
+      "    steps:",
+      "      - run: |",
+      "          cat > NOTES <<'NOTE'",
+      "          Don't edit: openapi-typescript -it",
+      "          NOTE",
+      "          npx openapi-typescript api.yaml -it",
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      text.replace(
+        "npx openapi-typescript api.yaml -it",
+        "npx openapi-typesafe api.yaml --immutable",
+      ),
+    );
+  });
+
   it("migrateYamlCommands reads a folded scalar as one command and keeps its line breaks", () => {
     const text = lines("script: >", "  openapi-typescript a", "  -it");
 
