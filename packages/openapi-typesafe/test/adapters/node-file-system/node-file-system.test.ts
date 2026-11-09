@@ -15,6 +15,9 @@ afterAll(() => {
   fs.rmSync(workDir, { recursive: true, force: true });
 });
 
+/** Longer than the 255 characters that every common file system allows in one name. */
+const FILE_NAME_TOO_LONG = 300;
+
 describe("createNodeFileSystem", () => {
   it("writeText creates the directory and readText reads the file back", () => {
     const files = createNodeFileSystem();
@@ -142,6 +145,26 @@ describe("createNodeFileSystem", () => {
     );
   });
 
+  it("writeText that fails after creating directories removes them", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "write-"));
+    const tooLong = `${"x".repeat(FILE_NAME_TOO_LONG)}.ts`;
+    const file = pathToFileURL(path.join(parent, "new1", "new2", tooLong));
+
+    expect(() => createNodeFileSystem().writeText(file, "types")).toThrow(
+      expect.objectContaining({ code: "OUTPUT_WRITE_FAILED" }),
+    );
+    expect(fs.readdirSync(parent)).toEqual([]);
+  });
+
+  it("writeText through a link to a missing directory writes into its target", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "write-"));
+    fs.symlinkSync(path.join(parent, "missing-dir"), path.join(parent, "link"), "dir");
+
+    createNodeFileSystem().writeText(pathToFileURL(path.join(parent, "link", "x.ts")), "types");
+
+    expect(fs.readFileSync(path.join(parent, "missing-dir", "x.ts"), "utf8")).toBe("types");
+  });
+
   it("writeText into a path under a file fails with OUTPUT_WRITE_FAILED", () => {
     const blocker = path.join(workDir, "blocker");
     fs.writeFileSync(blocker, "");
@@ -224,6 +247,30 @@ describe("createNodeFileSystem: claimFile (ADR-043, decision 1)", () => {
     expect(fs.existsSync(path.join(parent, "missing.ts"))).toBe(false);
   });
 
+  it("claimFile through a link to a missing directory creates the target, and release removes it", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    fs.symlinkSync(path.join(parent, "missing-dir"), path.join(parent, "link"), "dir");
+
+    const claim = createNodeFileSystem().claimFile(
+      pathToFileURL(path.join(parent, "link", "x.ts")),
+    );
+
+    expect(fs.existsSync(path.join(parent, "missing-dir", "x.ts"))).toBe(true);
+    claim.release();
+    expect(fs.readdirSync(parent)).toEqual(["link"]);
+  });
+
+  it("claimFile that fails after creating directories removes them", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    const tooLong = `${"x".repeat(FILE_NAME_TOO_LONG)}.ts`;
+    const file = pathToFileURL(path.join(parent, "new1", "new2", tooLong));
+
+    expect(() => createNodeFileSystem().claimFile(file)).toThrow(
+      expect.objectContaining({ code: "OUTPUT_WRITE_FAILED" }),
+    );
+    expect(fs.readdirSync(parent)).toEqual([]);
+  });
+
   it("release keeps a new directory that another file was put in since", () => {
     const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
     const claim = createNodeFileSystem().claimFile(pathToFileURL(path.join(parent, "g", "a.ts")));
@@ -233,6 +280,43 @@ describe("createNodeFileSystem: claimFile (ADR-043, decision 1)", () => {
 
     expect(fs.readdirSync(path.join(parent, "g"))).toEqual(["other.ts"]);
   });
+
+  it("release of a new directory that was removed since removes its new parents", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    const claim = createNodeFileSystem().claimFile(
+      pathToFileURL(path.join(parent, "g", "h", "a.ts")),
+    );
+    fs.rmSync(path.join(parent, "g", "h"), { recursive: true });
+
+    claim.release();
+
+    expect(fs.readdirSync(parent)).toEqual([]);
+  });
+
+  // Windows has no write bit on directories, and root may remove entries anyway.
+  const hasDirectoryPermissions = process.platform !== "win32" && process.getuid?.() !== 0;
+
+  it.runIf(hasDirectoryPermissions)(
+    "release of a new directory it may not remove fails with OUTPUT_WRITE_FAILED",
+    () => {
+      const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+      const claim = createNodeFileSystem().claimFile(
+        pathToFileURL(path.join(parent, "g", "h", "a.ts")),
+      );
+      const directory = path.join(parent, "g");
+      const { mode } = fs.statSync(directory);
+      const readAndSearchOnly = 0o555;
+      fs.chmodSync(directory, readAndSearchOnly);
+
+      try {
+        expect(() => claim.release()).toThrow(
+          expect.objectContaining({ code: "OUTPUT_WRITE_FAILED" }),
+        );
+      } finally {
+        fs.chmodSync(directory, mode);
+      }
+    },
+  );
 
   it("claimFile under a file, and release of a removed directory, fail with OUTPUT_WRITE_FAILED", () => {
     const parent = fs.mkdtempSync(path.join(workDir, "claim-"));

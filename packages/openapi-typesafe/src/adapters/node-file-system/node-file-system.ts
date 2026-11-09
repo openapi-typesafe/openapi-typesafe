@@ -9,7 +9,7 @@ import type {
   FileWriter,
 } from "../../application/ports/file-system.js";
 import { ERROR_CODES, type ErrorCode, OpenAPITypesafeError } from "../../domain/errors.js";
-import { claimFileAt } from "./file-claims.js";
+import { claimFileAt, writeFileAt } from "./file-claims.js";
 import {
   type FileNumber,
   fileIdentityKey,
@@ -121,8 +121,7 @@ class NodeFileSystem implements FileReader, FileWriter, FileIdentity, DirectoryC
 
   writeText(file: URL, contents: string): void {
     try {
-      fs.mkdirSync(new URL(".", file), { recursive: true });
-      fs.writeFileSync(file, contents, "utf8");
+      writeFileAt(fileURLToPath(file), contents);
     } catch (cause) {
       throw fileError(ERROR_CODES.OUTPUT_WRITE_FAILED, "write", file, cause);
     }

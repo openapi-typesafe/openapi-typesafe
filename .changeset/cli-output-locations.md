@@ -6,4 +6,5 @@ An `--output` or `x-openapi-ts.output` that cannot be a file fails with the new 
 `CLI_OUTPUT_INVALID` (exit code `2`) before anything is generated: a URL of another scheme
 (`-o https://…`), a path that ends with a separator (`-o gen/`) or with `.` or `..`
 (`-o gen/.`), or an existing directory. openapi-typescript failed on them with `EISDIR` or a
-stack trace, or wrote a file named like the directory.
+stack trace, or wrote a file named like the directory. An output that cannot be written (a file name too long
+for the file system) leaves no new directories behind; openapi-typescript left them.
