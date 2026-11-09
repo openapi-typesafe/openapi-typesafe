@@ -110,7 +110,7 @@ describe("bodies of another implementation", () => {
     expect(data?.body).toContain('filename="avatar.png"');
   });
 
-  it("a FormData of this realm with the undici Request is sent as a copy of undici's class", async () => {
+  it("a FormData of this realm is copied into undici's FormData class", async () => {
     const form = new FormData();
     form.append("name", "photo");
 
