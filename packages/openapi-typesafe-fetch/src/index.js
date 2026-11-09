@@ -516,8 +516,10 @@ async function readErrorBody(response) {
   }
 }
 
-// Parameter names and object keys can be data (an `additionalProperties` object). They are encoded
-// like values, except for characters common in names that do not split a URL (ADR-013, decision 9).
+// Parameter names can be data (the keys of a free-form query). They are encoded like values,
+// except for characters common in the names a schema declares (`filter[status]`, `$filter`) that
+// do not split a URL (ADR-013, decision 9). Object keys are always data, so they are encoded as
+// values are, with no exceptions: a `,` or `]` in a key added members for the server.
 const KEPT_NAME_ESCAPES = /%(?:5B|5D|24|3A|40|2C)/g;
 
 function encodeName(name) {
@@ -568,7 +570,7 @@ function joinExploded(values, style) {
 function serializeUnexplodedObject(name, value, options) {
   const values = [];
   for (const k in value) {
-    values.push(encodeName(k), encodeValue(value[k], options.allowReserved));
+    values.push(encodeValue(k), encodeValue(value[k], options.allowReserved));
   }
   const final = values.join(",");
   switch (options.style) {
@@ -601,7 +603,8 @@ export function serializeObjectParam(name, value, options) {
   }
   const values = [];
   for (const k in value) {
-    const finalName = options.style === "deepObject" ? `${name}[${encodeName(k)}]` : encodeName(k);
+    const key = encodeValue(k);
+    const finalName = options.style === "deepObject" ? `${name}[${key}]` : key;
     if (value[k] != null) {
       values.push(serializePrimitiveParam(finalName, value[k], options));
     }

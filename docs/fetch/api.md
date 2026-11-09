@@ -171,7 +171,14 @@ its own, in an array or in an object, and in path parameters too; an invalid `Da
 empty object) is left out together with its `&`, and so are the `null` and `undefined` items and
 members of exploded arrays and objects.
 
-Parameter names and object keys are encoded too, so a key from your data (`{ "a&b": 1 }`) cannot add a parameter or a path segment. `[`, `]`, `$`, `:`, `@` and `,` stay as written, so names such as `filter[status]` and `$filter` are sent unchanged.
+Parameter names and object keys are encoded too, so a key from your data (`{ "a&b": 1 }`) cannot
+add a parameter or a path segment. In parameter names, `[`, `]`, `$`, `:`, `@` and `,` stay as
+written, so names such as `filter[status]` and `$filter` are sent unchanged. Object keys are
+encoded as values are, with no exceptions: `{ "a,b": 1 }` is `a%2Cb,1` and `{ "a]": 1 }` in a
+`deepObject` is `filter[a%5D]=1`, so a key cannot add members for a server that splits the text
+first. A server that decodes the text before it splits it (for example `qs`, the default query
+parser of Express, which reads `filter[a%5D%5Bb]` as `filter[a][b]`) still cannot tell such a key
+apart: validate keys that come from end users, or use a style where they are plain values.
 
 #### Array styles
 

@@ -103,6 +103,33 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
   (one shared error message, two regular expressions instead of a media type parser); the rest is the
   behavior itself.
 
+## Amendment (2026-11-08): object keys are encoded without exceptions (decision 9)
+
+The bug hunt on rc.3 (`RC4_BUGS.md`, item S3) showed that the name exceptions of decision 9 also
+applied to object keys, which are data. With `explode: false`, a key `color,role,admin,x` and the
+value `red` were sent as `color,role,admin,x,red`, and a server that splits the list into pairs read
+`{ color: "role", admin: "x" }`. In a `deepObject`, a key `tag][role` was sent as
+`filter[tag][role]=admin`, a nested member for bracket parsers. openapi-fetch 0.17 does not encode
+keys at all.
+
+1. Object keys are encoded as values are (`encodeURIComponent`), in every query and path style,
+   with no exceptions: `,` `[` `]` `$` `:` `@` included. `allowReserved` does not apply to them.
+2. Parameter names, the names a schema declares, keep the exceptions of decision 9, so
+   `filter[status]` and `$filter` are sent unchanged.
+3. Percent-encoding is all the client can do. A server that decodes the text before it splits it
+   still reads such a key as structure: `qs`, the default query parser of Express, decodes
+   `filter[tag%5D%5Brole]` to `filter[tag][role]`. No encoding of a style survives such a parser,
+   and the client does not reject keys (see the table); the docs tell users to validate keys that
+   come from end users. Such a key stays inside its own parameter.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Encode object keys fully (chosen) | The text on the wire is the one RFC 6570 gives; a server that splits before it decodes reads the key | A key with `$`, `:` or `@` changes on the wire; decode-first parsers are still fooled |
+| Keep the name exceptions for keys | No change | Data in a key adds members to its object |
+| Throw on `[`, `]` or `,` in an object key | Fails closed for every parser | Rejects data that RFC 6570 encodes without trouble; breaks keys that servers read fine |
+
+The change adds no bytes: keys use the value encoder.
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`
