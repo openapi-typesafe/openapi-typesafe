@@ -34,6 +34,12 @@ export interface ClientOptions extends Omit<RequestInit, "headers"> {
   fetch?: (input: Request) => Promise<Response>;
   /** custom Request (defaults to globalThis.Request) */
   Request?: typeof Request;
+  /**
+   * The `FormData` class of the `Request` implementation (defaults to globalThis.FormData). A
+   * FormData body of another class, also the one the client builds for a multipart body, is sent
+   * as a copy of this class.
+   */
+  FormData?: typeof FormData;
   /** global querySerializer */
   querySerializer?: QuerySerializer<unknown> | QuerySerializerOptions;
   /** global bodySerializer */
@@ -57,7 +63,8 @@ export interface ClientOptions extends Omit<RequestInit, "headers"> {
  * `createClient` overload with `ClientOptions` comes first, so an inline `fetch` gets a typed
  * `Request` input.
  */
-export interface CustomFetchClientOptions extends Omit<ClientOptions, "fetch" | "Request"> {
+export interface CustomFetchClientOptions
+  extends Omit<ClientOptions, "fetch" | "Request" | "FormData"> {
   /** `fetch` of another implementation (for example `fetch` from `undici`) */
   fetch?: (input: never, init?: never) => PromiseLike<object>;
   /** `Request` of the same implementation (for example `Request` from `undici`) */
@@ -65,6 +72,8 @@ export interface CustomFetchClientOptions extends Omit<ClientOptions, "fetch" | 
     input: string,
     init: never,
   ) => object;
+  /** `FormData` of the same implementation (for example `FormData` from `undici`) */
+  FormData?: new () => object;
 }
 
 export type HeadersOptions =

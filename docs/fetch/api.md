@@ -18,6 +18,7 @@ createClient<paths>(options);
 | `baseUrl`         | `string`        | Prefix all fetch URLs with this option (e.g. `"https://myapi.dev/v1/"`)                                                                 |
 | `fetch`           | `fetch`         | Fetch instance used for requests (default: `globalThis.fetch`)                                                                          |
 | `Request`         | `Request`       | Request class the client builds requests with (default: `globalThis.Request`)                                                           |
+| `FormData`        | `FormData`      | FormData class of multipart bodies, of the same implementation as `Request` (default: `globalThis.FormData`)                            |
 | `querySerializer` | QuerySerializer | (optional) Provide a [querySerializer](#queryserializer)                                                                                |
 | `bodySerializer`  | BodySerializer  | (optional) Provide a [bodySerializer](#bodyserializer)                                                                                  |
 | `pathSerializer`  | PathSerializer  | (optional) Provide a [pathSerializer](#pathserializer)                                                                                  |
@@ -33,14 +34,20 @@ trailing slash, or `""` without one. `openapi-typesafe-react-query` puts it into
 `fetch` and `Request` of another Fetch API implementation, such as the `undici` package, are typed
 by that package, not by the DOM lib, so TypeScript cannot relate them to `Request` and `Response`.
 `createClient` and `createPathBasedClient` take them anyway (`CustomFetchClientOptions`) and check
-only that `fetch` returns a promise and `Request` is a class. Pass both from the same package: the
-undici `fetch` reads a request of another class as the URL `[object Request]`.
+only that `fetch` returns a promise and `Request` is a class. Pass `fetch`, `Request` and
+`FormData` from the same package: the undici `fetch` reads a request of another class as the URL
+`[object Request]`, and its `Request` reads a FormData of another class as the text
+`[object FormData]`. The client builds multipart bodies with the `FormData` option and copies a
+FormData body of another class into one of it.
 
 ```ts
-import { fetch, Request } from "undici";
+import { FormData, fetch, Request } from "undici";
 
-const client = createClient<paths>({ baseUrl: "https://myapi.dev/v1/", fetch, Request });
+const client = createClient<paths>({ baseUrl: "https://myapi.dev/v1/", fetch, Request, FormData });
 ```
+
+A body is told by its type tag (`Symbol.toStringTag`), not by `instanceof`, so a FormData, a Blob or
+a `ReadableStream` of another realm (an iframe) or implementation is sent as it is.
 
 ### TRACE
 

@@ -29,6 +29,13 @@ const BOUNDARY_PARAMETER_RE = /;\s*boundary=/i;
  */
 const CLIENT_BUILT_FORM = Symbol.for("openapi-typesafe-fetch/form");
 
+/** `[object Name]`: the type tag is between these indexes of `Object.prototype.toString`. */
+const TYPE_TAG_START = "[object ".length;
+const TYPE_TAG_END = -1;
+const BLOB_TAGS = new Set(["Blob", "File"]);
+/** Raw bodies told by their type tag alone: they have no methods the client uses. */
+const RAW_BODY_TAGS = new Set(["URLSearchParams", "ArrayBuffer"]);
+
 /**
  * Whether `fetch` is Node.js undici, which takes `requestInitExt` as a second argument. A Node.js
  * version check is not needed: every supported Node.js (`engines`) ships undici.
@@ -62,6 +69,7 @@ export default function createClient(clientOptions) {
   let {
     baseUrl = "",
     Request: CustomRequest = globalThis.Request,
+    FormData: CustomFormData = globalThis.FormData,
     fetch: baseFetch = globalThis.fetch,
     querySerializer: globalQuerySerializer,
     bodySerializer: globalBodySerializer,
@@ -129,11 +137,14 @@ export default function createClient(clientOptions) {
             // “present-or-not” check because null intentionally un-sets headers.
             mergeHeaders(baseHeaders, headers, params.header),
           );
+    const requestBody = isFormData(serializedBody)
+      ? asFormDataOf(CustomFormData, serializedBody)
+      : serializedBody;
     const finalHeaders = mergeHeaders(
       // with no body, we should not to set Content-Type
-      serializedBody === undefined ||
+      requestBody === undefined ||
         // a raw body (FormData, Blob, ...) gets its Content-Type from the platform, or none
-        isRawBody(serializedBody)
+        isRawBody(requestBody)
         ? {}
         : {
             "Content-Type": "application/json",
@@ -142,8 +153,8 @@ export default function createClient(clientOptions) {
       headers,
       params.header,
     );
-    if (isPlatformInstance(serializedBody, "FormData")) {
-      dropFormContentType(finalHeaders, serializedBody[CLIENT_BUILT_FORM] === true);
+    if (isFormData(requestBody)) {
+      dropFormContentType(finalHeaders, requestBody[CLIENT_BUILT_FORM] === true);
     }
 
     // Client level middleware take priority over request-level middleware
@@ -152,10 +163,10 @@ export default function createClient(clientOptions) {
     const requestInit = {
       redirect: "follow",
       // The Fetch standard requires `duplex: "half"` (its only value) for a stream body.
-      duplex: isStreamBody(serializedBody) ? "half" : undefined,
+      duplex: isStreamBody(requestBody) ? "half" : undefined,
       ...baseOptions,
       ...init,
-      body: serializedBody,
+      body: requestBody,
       headers: finalHeaders,
     };
 
@@ -807,12 +818,50 @@ function checkSerializedPath(template, url) {
 }
 
 /**
- * Whether a value is an instance of the platform class `name`. A runtime may lack the class (React
- * Native has no `ReadableStream`); then no value is one, and the check does not throw.
+ * The type tag of a value (`Object.prototype.toString`): the classes of the Fetch API and the
+ * built-ins name themselves with it in every realm and in other implementations such as the
+ * `undici` package. `instanceof` checked the class of this realm only, so a FormData from undici
+ * was JSON-encoded as `{}` (ADR-030). A runtime that lacks a class (React Native has no
+ * `ReadableStream`) simply has no value with its tag.
  */
-function isPlatformInstance(value, name) {
-  const type = globalThis[name];
-  return typeof type === "function" && value instanceof type;
+function typeTag(value) {
+  return Object.prototype.toString.call(value).slice(TYPE_TAG_START, TYPE_TAG_END);
+}
+
+function isFormData(value) {
+  return (
+    typeTag(value) === "FormData" &&
+    typeof value.append === "function" &&
+    typeof value.entries === "function"
+  );
+}
+
+/** A `Blob` or a `File`, of any realm. */
+function isBlob(value) {
+  return BLOB_TAGS.has(typeTag(value)) && typeof value.arrayBuffer === "function";
+}
+
+function isReadableStream(value) {
+  return typeTag(value) === "ReadableStream" && typeof value.getReader === "function";
+}
+
+/**
+ * The FormData as an instance of the client's `FormData` class. A `Request` takes only its own
+ * implementation's FormData: undici's read the platform's as the text `[object FormData]`. So a
+ * FormData of another class, such as the one the client builds for a multipart body, is copied
+ * into one of the `FormData` option, the class of the `Request` option's implementation.
+ */
+function asFormDataOf(FormDataClass, form) {
+  if (typeof FormDataClass !== "function" || form instanceof FormDataClass) {
+    return form;
+  }
+  const copy = new FormDataClass();
+  for (const [name, value] of form.entries()) {
+    copy.append(name, value);
+  }
+  // The copy has a boundary of its own, so a `Content-Type` written for the original is wrong.
+  copy[CLIENT_BUILT_FORM] = true;
+  return copy;
 }
 
 /**
@@ -820,9 +869,7 @@ function isPlatformInstance(value, name) {
  * `fetch` in Node.js, Deno and Bun also streams. Both need `duplex: "half"` (ADR-013, decision 6).
  */
 function isStreamBody(body) {
-  return (
-    isPlatformInstance(body, "ReadableStream") || typeof body?.[Symbol.asyncIterator] === "function"
-  );
+  return isReadableStream(body) || typeof body?.[Symbol.asyncIterator] === "function";
 }
 
 /**
@@ -831,9 +878,9 @@ function isStreamBody(body) {
  */
 function isRawBody(body) {
   return (
-    ["FormData", "Blob", "URLSearchParams", "ArrayBuffer"].some((name) =>
-      isPlatformInstance(body, name),
-    ) ||
+    isFormData(body) ||
+    isBlob(body) ||
+    RAW_BODY_TAGS.has(typeTag(body)) ||
     ArrayBuffer.isView(body) ||
     isStreamBody(body)
   );
@@ -892,7 +939,7 @@ function multipartBody(body) {
   formData[CLIENT_BUILT_FORM] = true;
   for (const [name, value] of Object.entries(body)) {
     for (const item of formItems(value)) {
-      if (isPlatformInstance(item, "Blob")) {
+      if (isBlob(item)) {
         formData.append(name, item);
       } else if (isNestedFormValue(item)) {
         throw new Error(NESTED_FORM_VALUE_MESSAGE);
