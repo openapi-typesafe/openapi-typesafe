@@ -41,3 +41,30 @@ export function findRefHolders(document: unknown): RefHolder[] {
   }
   return found;
 }
+
+function isMapping(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Every `discriminator.mapping` object of a parsed document; the walk has its own stack. */
+export function findMappings(document: unknown): Record<string, unknown>[] {
+  const mappings: Record<string, unknown>[] = [];
+  const visited = new WeakSet<object>();
+  const pending: unknown[] = [document];
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    if (typeof next !== "object" || next === null || visited.has(next)) {
+      continue;
+    }
+    visited.add(next);
+    const { discriminator } = next as { discriminator?: unknown };
+    const mapping = isMapping(discriminator) ? discriminator.mapping : undefined;
+    if (isMapping(mapping)) {
+      mappings.push(mapping);
+    }
+    // One push per child: spreading an array of millions of children overflows the stack.
+    for (const child of Object.values(next)) {
+      pending.push(child);
+    }
+  }
+  return mappings;
+}

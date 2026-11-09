@@ -20,6 +20,11 @@ import { removeBundledMappingCopies, schemaKeysOf } from "./bundled-mapping-copi
 import { repairBundledRefs } from "./bundled-ref-repair.js";
 import { loadedDocuments, localFilesRead } from "./loaded-documents.js";
 import { findMalformedRefs, malformedRefsError } from "./malformed-refs.js";
+import {
+  type ComponentRenaming,
+  componentKeysOf,
+  renameQueryNamedComponents,
+} from "./query-named-components.js";
 import { RefAccessResolver } from "./ref-access.js";
 import { checkRefsResolve } from "./ref-resolution-check.js";
 import { REF_CYCLE_MESSAGE } from "./ref-resolution-steps.js";
@@ -171,6 +176,7 @@ class RedoclySchemaLoader implements SchemaLoader {
     const config = resolveConfigWithAccess(redoc.resolve, {
       timeoutMs: remoteRefTimeoutMs,
       access: request.refAccess,
+      rootUrl: request.source instanceof URL ? request.source.href : undefined,
       maxParallelFetches: remoteDocumentLimits.maxParallelFetches,
       bodyLimits: remoteDocumentLimits,
     });
@@ -209,6 +215,7 @@ class RedoclySchemaLoader implements SchemaLoader {
   async #bundle(document: Document, resolver: BaseResolver): Promise<OpenAPI3> {
     const startedAt = this.#options.now();
     const schemaKeys = schemaKeysOf(document.parsed);
+    const componentKeys = componentKeysOf(document.parsed);
     // The lint resolver: documents it already loaded are not fetched again.
     const bundled = await bundle({
       config: this.#options.redoc,
@@ -216,9 +223,12 @@ class RedoclySchemaLoader implements SchemaLoader {
       doc: document,
       externalRefResolver: resolver,
     });
-    this.#report(bundled.problems);
     removeBundledMappingCopies(bundled.bundle.parsed, schemaKeys);
     repairBundledRefs(bundled.bundle.parsed);
+    const documentRefs = resolver.getFiles();
+    const renaming = renameQueryNamedComponents(bundled.bundle.parsed, componentKeys, documentRefs);
+    // The problems name the components the bundle made, so they are shown by their new names.
+    this.#report(bundled.problems, renaming);
     this.#options.logger.debug("Bundled schema", "bundle", this.#options.now() - startedAt);
     return bundled.bundle.parsed;
   }
@@ -228,22 +238,22 @@ class RedoclySchemaLoader implements SchemaLoader {
    * config's `.redocly.lint-ignore.yaml` lists is left out, as `redocly lint` leaves it out
    * (upstream #2189).
    */
-  #report(problems: readonly NormalizedProblem[]): void {
+  #report(problems: readonly NormalizedProblem[], renaming = UNRENAMED): void {
     const errorMessages: string[] = [];
     for (const problem of problems) {
       if (problem.ignored === true) {
         this.#options.logger.debug(
-          `Ignored by the lint ignore file: ${problemMessage(problem)}`,
+          `Ignored by the lint ignore file: ${problemMessage(problem, renaming)}`,
           "lint",
         );
         continue;
       }
-      const message = problemMessage(problem);
+      const message = problemMessage(problem, renaming);
       if (problem.severity === "error") {
         errorMessages.push(message);
         this.#options.logger.error(message);
       } else {
-        this.#options.logger.warn(lintWarningText(problem));
+        this.#options.logger.warn(lintWarningText(message, problem.ruleId));
       }
     }
     if (errorMessages.length > 0) {
@@ -253,16 +263,17 @@ class RedoclySchemaLoader implements SchemaLoader {
 }
 
 /** A lint warning names its rule, which `redocly.yaml` can turn off, and ends with its code. */
-function lintWarningText(problem: NormalizedProblem): string {
-  return warningText(
-    `${problemMessage(problem)}, rule ${problem.ruleId}`,
-    WARNING_CODES.LINT_PROBLEM,
-  );
+function lintWarningText(message: string, ruleId: string): string {
+  return warningText(`${message}, rule ${ruleId}`, WARNING_CODES.LINT_PROBLEM);
 }
 
-function problemMessage(problem: NormalizedProblem): string {
+/** Problems found before the bundle named any component. */
+const UNRENAMED: ComponentRenaming = { pointer: (pointer) => pointer, text: (text) => text };
+
+function problemMessage(problem: NormalizedProblem, renaming: ComponentRenaming): string {
   const location = problem.location?.[0]?.pointer;
-  return location ? `${problem.message} at ${location}` : problem.message;
+  const message = renaming.text(problem.message);
+  return location ? `${message} at ${renaming.pointer(location)}` : message;
 }
 
 /** A schema loader with one Redocly config and logger, for one or more loads. */

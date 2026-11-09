@@ -265,3 +265,35 @@ The recheck of the amendment above found three ways a URL secret still left the 
 
 A URL in a message now also ends before punctuation that the message puts after it (`…?***: 404`,
 `(…?***)`), which the hidden query took with it.
+
+## Amendment (2026-11-10): component names, nested causes, the success line and root redirects
+
+The audit of rc.4 found three more ways a URL secret left the generator, and two remote
+documents that failed to load.
+
+1. **Component names.** Redocly bundles a `$ref` to a whole remote document, or two targets with
+   the same pointer, into a component named after the last segment of the URL. The query stayed
+   in that name: `https://host/schemas/pet?token=…` became `components["schemas"]["pet?token=…"]`
+   in the generated file, and in every message that named it. The loader now renames such a
+   component after the URL without its query and fragment (`pet`, or `pet-2` when that name is
+   taken; a URL with no last segment is named after its host), and rewrites every `$ref` and
+   `mapping` value that names it. The bundle's own problems are shown by the new names. The name
+   is known only after the bundle, so the rename is a step after it, like the `$ref` repair;
+   changing the URL Redocly keeps for each document was rejected: Redocly also uses it to tell
+   documents apart, and two URLs that differ only in the query are two documents.
+2. **Nested objects of a cause.** Redocly's parse error keeps the URL in `originalError.mark.name`
+   and in `source.absoluteRef`; the redaction walked only the error properties of a chain. It now
+   walks every own property of every object and array of the cause, up to eight levels deep, and
+   drops what is deeper, so no secret is kept unread. Binary data is kept as it is.
+3. **The success line** of the CLI (`🚀 <source> → <output>`) printed the source URL as written.
+   It now hides its secrets like every other line.
+4. **The extension of a remote document** was read from the whole URL, query included, so
+   `pet.yaml?token=…` served as `text/plain` was kept as text and failed as a schema, as did a
+   document at a path with no extension (`/schemas/pet`), which APIs often use. The extension is
+   now read from the path of the URL, and a remote document whose path has no extension is
+   parsed as YAML or JSON. A local file without an extension is still kept as text, as Redocly
+   keeps it, since a Markdown `description` may be such a file.
+5. **Redirects of the root document** were checked against `--remote-ref-hosts`, although the
+   root is never limited (ADR-017, decision 2): a spec URL that redirects to a CDN failed with
+   `SCHEMA_REF_FORBIDDEN`. The fetch now knows the root's URL and checks only the redirects of the
+   other documents.

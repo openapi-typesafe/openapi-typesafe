@@ -121,6 +121,14 @@ describe("runCli: one schema", () => {
     expect(cli.console.infoLines).toEqual(["✨ *openapi-typesafe 1.2.3*", "🚀 stdin → *out/types.ts* [5ms]"]);
   });
 
+  it("runCli prints the line for a written file with the query of a source URL hidden", async () => {
+    const cli = createFakeCli();
+
+    await runCli(["https://example.com/a.yaml?token=SECRET", "-o", "a.ts"], cli.deps);
+
+    expect(cli.console.infoLines.at(-1)).toBe("🚀 https://example.com/a.yaml?*** → *a.ts* [5ms]");
+  });
+
   it("runCli without a schema and with stdin a terminal fails instead of waiting (upstream #1905)", async () => {
     const cli = createFakeCli({ isStdinTerminal: true });
 

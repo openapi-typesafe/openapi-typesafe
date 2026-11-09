@@ -28,6 +28,7 @@ const apiKey = (matches: string): ConfiguredHeader => ({ matches, name: "X-Api-K
 const POLICY: RedirectPolicy = {
   headers: [apiKey("a.example/**")],
   hosts: ["a.example", "b.example"],
+  rootUrl: undefined,
 };
 
 const redirectTo = (location: string) => () =>
@@ -136,6 +137,19 @@ describe("fetchWithCheckedRedirects", () => {
       details: { ref: "http://10.0.0.1/" },
     });
     expect(requests).toHaveLength(1);
+  });
+
+  it("fetchWithCheckedRedirects follows the root document's redirects to any host", async () => {
+    const { fetchImpl, requests } = tableFetch({
+      "https://a.example/root": redirectTo("https://cdn.example/root"),
+      "https://cdn.example/root": () => Response.json({}),
+    });
+    const policy = { ...POLICY, rootUrl: "https://a.example/root" };
+
+    const response = await fetchWithCheckedRedirects(fetchImpl, policy)("https://a.example/root");
+
+    expect(response.status).toBe(200);
+    expect(requests).toHaveLength(2);
   });
 
   it("fetchWithCheckedRedirects returns a redirect without a location as it is", async () => {

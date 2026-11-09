@@ -13,12 +13,44 @@ import { refForbiddenError } from "./schema-load-errors.js";
 /** The extensions that Redocly 1.34's `BaseResolver.parseDocument` parses as YAML or JSON. */
 const PARSED_EXTENSIONS: ReadonlySet<string> = new Set([".json", ".yml", ".yaml"]);
 const PARSED_MIME_TYPE = /(json|yaml|openapi)/;
+const REMOTE_URL_RE = /^https?:\/\//;
+const PATH_SEPARATOR_RE = /[/\\]/;
+const EXTENSION_START = ".";
 
-/** Whether Redocly parses this source, or keeps its text: the same rule as its own resolver. */
+/** The extension of the last segment of a path, with its dot; empty when it has none. */
+function extensionOf(path: string): string {
+  const name = path.split(PATH_SEPARATOR_RE).at(-1) ?? "";
+  const start = name.lastIndexOf(EXTENSION_START);
+  return start === -1 ? "" : name.slice(start);
+}
+
+/**
+ * The path of a document: the path of a URL, without its query and fragment, or the file path.
+ * Redocly took the extension of the whole URL, so `pet.yaml?token=…` had none it knew.
+ */
+function documentPath(absoluteRef: string): string {
+  return REMOTE_URL_RE.test(absoluteRef) && URL.canParse(absoluteRef)
+    ? new URL(absoluteRef).pathname
+    : absoluteRef;
+}
+
+/**
+ * Whether a source is parsed as YAML or JSON, or kept as text (a Markdown `description`, say).
+ * It is parsed when it is the root, when its type or the extension of its path says JSON or YAML,
+ * and when it is a URL whose path has no extension: an API serves its documents at paths like
+ * `/schemas/pet`, often as `text/plain`, and Redocly kept those as text, which failed as a
+ * schema. A local file without an extension is kept as text, as Redocly keeps it.
+ */
 export function isParsedSource(source: Source, isRoot: boolean): boolean {
   const { absoluteRef, mimeType } = source;
-  const extension = absoluteRef.slice(absoluteRef.lastIndexOf("."));
-  return isRoot || PARSED_EXTENSIONS.has(extension) || PARSED_MIME_TYPE.test(mimeType ?? "");
+  const extension = extensionOf(documentPath(absoluteRef));
+  const isExtensionlessUrl = REMOTE_URL_RE.test(absoluteRef) && extension === "";
+  return (
+    isRoot ||
+    PARSED_EXTENSIONS.has(extension) ||
+    PARSED_MIME_TYPE.test(mimeType ?? "") ||
+    isExtensionlessUrl
+  );
 }
 
 /** The parser's event for a node it starts to build. */

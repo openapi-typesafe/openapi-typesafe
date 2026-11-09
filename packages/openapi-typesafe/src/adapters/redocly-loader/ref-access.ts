@@ -172,10 +172,17 @@ export class RefAccessResolver extends BaseResolver {
     return document;
   }
 
-  /** A remote document is parsed within the node limit; any other one as Redocly parses it. */
+  /**
+   * A remote document is parsed within the node limit; a local one as Redocly parses it. Whether
+   * a remote one is parsed at all is decided here (`isParsedSource`), since Redocly read the
+   * extension of a URL with its query.
+   */
   #parsed(source: Source, isRoot: boolean): Document {
-    if (!isRemoteRef(source.absoluteRef) || !isParsedSource(source, isRoot)) {
+    if (!isRemoteRef(source.absoluteRef)) {
       return super.parseDocument(source, isRoot);
+    }
+    if (!isParsedSource(source, isRoot)) {
+      return { source, parsed: source.body };
     }
     try {
       return this.#nodeLimit.parse(source);
