@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { changeMessage, manualStepMessage } from "../../src/application/messages.js";
+import {
+  changeMessage,
+  manualStepMessage,
+  skippedMessage,
+  writeFailedMessage,
+} from "../../src/application/messages.js";
+import type { FileProblem } from "../../src/application/ports.js";
 import type { Change, ManualStep } from "../../src/domain/migration-findings.js";
 
 const CHANGES: readonly Change[] = [
@@ -48,5 +54,23 @@ describe("changeMessage", () => {
 describe("manualStepMessage", () => {
   it("manualStepMessage describes every kind of manual step", () => {
     expect(STEPS.map(manualStepMessage)).toMatchSnapshot();
+  });
+});
+
+const PROBLEMS: readonly FileProblem[] = [
+  { kind: "outside-root" },
+  { kind: "not-utf-8" },
+  { kind: "io-error", code: "EACCES" },
+];
+
+describe("skippedMessage", () => {
+  it("skippedMessage describes every reason a file was not read", () => {
+    expect(PROBLEMS.map(skippedMessage)).toMatchSnapshot();
+  });
+});
+
+describe("writeFailedMessage", () => {
+  it("writeFailedMessage describes every reason a file was not written", () => {
+    expect(PROBLEMS.map((problem) => writeFailedMessage("a.ts", problem))).toMatchSnapshot();
   });
 });

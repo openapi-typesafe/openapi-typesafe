@@ -85,8 +85,8 @@ async function migrateRoot(
   const { rewriter, scanner, readers } = dependencies;
   const input = { version: dependencies.version, isWrite: request.isWrite };
   const migration = await migrateProject({ files, rewriter, scanner, readers, logger }, input);
-  dependencies.writeStdout(renderReport(migration, request.isWrite));
-  return EXIT_CODES.success;
+  dependencies.writeStdout(renderReport(migration));
+  return migration.write.kind === "failed" ? EXIT_CODES.failure : EXIT_CODES.success;
 }
 
 async function runMigration(

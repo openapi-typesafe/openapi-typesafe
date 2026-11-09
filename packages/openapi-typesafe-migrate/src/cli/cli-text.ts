@@ -17,7 +17,8 @@ Options
 
 Exit codes
   0  Done
-  1  The migration failed (the message and the log say why), or the log could not be created
+  1  The migration failed (the message and the log say why), a file could not be written
+     (the report names what was written), or the log could not be created
   2  Unknown option or argument
 `;
 

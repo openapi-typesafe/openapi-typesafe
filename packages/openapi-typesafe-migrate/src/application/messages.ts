@@ -1,7 +1,7 @@
 import { assertNever } from "../domain/assert-never.js";
 import type { Change, ManualStep, TransformKeepReason } from "../domain/migration-findings.js";
 import { PACKAGE_RENAMES } from "../domain/package-names.js";
-import type { SkipReason } from "./ports.js";
+import type { FileProblem } from "./ports.js";
 
 /** The user-facing text of the report (CODING_PRINCIPLES 7.8: kept apart from the logic). */
 
@@ -139,14 +139,39 @@ export function manualStepMessage(step: ManualStep): string {
 
 export const SKIPPED_HEADING = "Skipped (not read, not written):";
 
-const SKIP_REASONS: Readonly<Record<SkipReason, string>> = {
-  "outside-root":
-    "git listed it, but it is outside the project folder; check where this git index came from",
-};
-
-export function skipReasonMessage(reason: SkipReason): string {
-  return SKIP_REASONS[reason];
+/** Why a file was not read, after its path in the "Skipped" section. */
+export function skippedMessage(reason: FileProblem): string {
+  switch (reason.kind) {
+    case "outside-root":
+      return "it leads outside the project folder; check where this git index came from";
+    case "not-utf-8":
+      return "it is not UTF-8 text, so it was not changed; check it by hand";
+    case "io-error":
+      return `it could not be read (${reason.code})`;
+    default:
+      return assertNever(reason);
+  }
 }
+
+function writeProblemMessage(reason: FileProblem): string {
+  switch (reason.kind) {
+    case "outside-root":
+      return "it leads outside the project folder";
+    case "not-utf-8":
+      return "its text is not UTF-8";
+    case "io-error":
+      return reason.code;
+    default:
+      return assertNever(reason);
+  }
+}
+
+/** The first line of the report's end when a write failed and the writing stopped. */
+export const writeFailedMessage = (path: string, reason: FileProblem): string =>
+  `Writing stopped: ${path} could not be written (${writeProblemMessage(reason)}).`;
+export const WRITTEN_HEADING = "Written before it:";
+export const NOT_WRITTEN_HEADING = "Not written (still as they were):";
+export const NONE_WRITTEN = "Nothing was written before it.";
 
 export const NEXT_STEPS: readonly string[] = [
   "Install: run your package manager's install, so the lockfile has the new packages.",

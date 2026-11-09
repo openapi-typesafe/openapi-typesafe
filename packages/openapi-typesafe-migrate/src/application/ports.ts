@@ -2,13 +2,20 @@ import type { JsonString, YamlString } from "../domain/config-documents.js";
 import type { FileMigration } from "../domain/migration-findings.js";
 import type { SourceString } from "../domain/source-migration.js";
 
-/** Why a listed file is not read: it resolves to a place outside the project folder. */
-export type SkipReason = "outside-root";
+/**
+ * Why a file is not read or not written. "outside-root": it resolves to a place outside the
+ * project folder. "not-utf-8": its bytes are not UTF-8, so its text cannot be changed without
+ * changing other characters. "io-error": the file system refused, with the error code it gave.
+ */
+export type FileProblem =
+  | { readonly kind: "outside-root" }
+  | { readonly kind: "not-utf-8" }
+  | { readonly kind: "io-error"; readonly code: string };
 
 /** A path that a listing named but the migration does not read or write. */
 export interface SkippedFile {
   readonly path: string;
-  readonly reason: SkipReason;
+  readonly reason: FileProblem;
 }
 
 /** The files of a project, and the listed paths that were left out. */
@@ -17,6 +24,16 @@ export interface ProjectFileList {
   readonly skipped: readonly SkippedFile[];
 }
 
+/** The text of a file, or why it was not read. */
+export type FileRead =
+  | { readonly kind: "read"; readonly text: string }
+  | { readonly kind: "skipped"; readonly reason: FileProblem };
+
+/** Whether a file was written, or why not. */
+export type FileWrite =
+  | { readonly kind: "written" }
+  | { readonly kind: "failed"; readonly reason: FileProblem };
+
 /** What the path given as the project folder is. */
 export type ProjectRootState = "directory" | "missing" | "not-a-directory";
 
@@ -24,10 +41,10 @@ export type ProjectRootState = "directory" | "missing" | "not-a-directory";
 export interface ProjectFiles {
   /** Every file of the project, without installed packages, git metadata and build output. */
   listFiles(): Promise<ProjectFileList>;
+  /** Skips a path that resolves outside the project folder, and text that is not UTF-8. */
+  read(path: string): Promise<FileRead>;
   /** Fails for a path that resolves outside the project folder. */
-  read(path: string): Promise<string>;
-  /** Fails for a path that resolves outside the project folder. */
-  write(path: string, text: string): Promise<void>;
+  write(path: string, text: string): Promise<FileWrite>;
 }
 
 /**

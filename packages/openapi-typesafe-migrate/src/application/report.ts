@@ -1,14 +1,19 @@
+import { assertNever } from "../domain/assert-never.js";
 import {
   changeMessage,
   DRY_RUN_NOTE,
   manualStepMessage,
   NEXT_STEPS,
+  NONE_WRITTEN,
+  NOT_WRITTEN_HEADING,
   NOTHING_FOUND,
   SKIPPED_HEADING,
-  skipReasonMessage,
+  skippedMessage,
+  WRITTEN_HEADING,
   WRITTEN_NOTE,
+  writeFailedMessage,
 } from "./messages.js";
-import type { FileReport, ProjectMigration } from "./migrate-project.js";
+import type { FileReport, ProjectMigration, WriteOutcome } from "./migrate-project.js";
 import type { SkippedFile } from "./ports.js";
 
 function changesSection(reports: readonly FileReport[]): string[] {
@@ -37,15 +42,37 @@ function skippedSection(skipped: readonly SkippedFile[]): string[] {
   if (skipped.length === 0) {
     return [];
   }
-  const lines = skipped.map((file) => `  ${file.path}: ${skipReasonMessage(file.reason)}`);
+  const lines = skipped.map((file) => `  ${file.path}: ${skippedMessage(file.reason)}`);
   return [SKIPPED_HEADING, ...lines, ""];
 }
 
+const listed = (paths: readonly string[]): string[] => paths.map((path) => `  ${path}`);
+
+/** The end of the report: what was written, or where the writing stopped. */
+function writeSection(write: WriteOutcome): string[] {
+  switch (write.kind) {
+    case "dry-run":
+      return [DRY_RUN_NOTE];
+    case "written":
+      return [WRITTEN_NOTE];
+    case "failed":
+      return [
+        writeFailedMessage(write.failed.path, write.failed.reason),
+        ...(write.written.length === 0 ? [NONE_WRITTEN] : [WRITTEN_HEADING]),
+        ...listed(write.written),
+        ...(write.notWritten.length === 0 ? [] : [NOT_WRITTEN_HEADING]),
+        ...listed(write.notWritten),
+      ];
+    default:
+      return assertNever(write);
+  }
+}
+
 /**
- * The summary the command prints: changes per file, manual steps, skipped paths, and what to do
- * next.
+ * The summary the command prints: changes per file, manual steps, skipped paths, what to do
+ * next, and what was written.
  */
-export function renderReport(migration: ProjectMigration, isWrite: boolean): string {
+export function renderReport(migration: ProjectMigration): string {
   const reports = migration.files;
   const skipped = skippedSection(migration.skipped);
   if (reports.length === 0) {
@@ -58,7 +85,7 @@ export function renderReport(migration: ProjectMigration, isWrite: boolean): str
     "Next steps:",
     ...NEXT_STEPS.map((step, index) => `  ${index + 1}. ${step}`),
     "",
-    isWrite ? WRITTEN_NOTE : DRY_RUN_NOTE,
+    ...writeSection(migration.write),
   ];
   return `${lines.join("\n")}\n`;
 }

@@ -183,6 +183,27 @@ missing object on stderr and lists the files it can read. A test plants such a r
 checks that no command ran, also with `GIT_NO_LAZY_FETCH=0` in the environment. The environment
 is passed to the git adapter by the composition root, not read inside it.
 
+## Amendment (2026-11-09): reading and writing files
+
+The rc.4 review found three ways the tool changed a project by halves or without a word:
+
+- A file was read as UTF-8 with replacement: in a Latin-1 file `é` became `�` when the file was
+  written for another change. Files are now decoded with a fatal decoder. A file that is not
+  UTF-8 is not migrated, and the report lists it under "Skipped" with the reason. Guessing the
+  encoding was rejected: a wrong guess changes bytes the same way, and the tool has no way to
+  check it.
+- A file that could not be read (`EACCES`) stopped the run in the middle of the writes, and the
+  files already written were not named. The tool now reads and migrates every file first; a file
+  that cannot be read is skipped and reported, with its error code. Then it writes. A failed
+  write stops the writing (a full disk or a read-only folder fails the next write too); the
+  report names the file, the files written before it and the ones that were not, and the command
+  exits with `1`. A rollback was rejected: undoing a rename can fail for the same reason, and the
+  user has git for that. The `ProjectFiles` port gives these outcomes as values (`FileRead`,
+  `FileWrite`), so the application layer never sees a file system error.
+- `--log` naming a folder failed with a stack trace, and `--root` naming a file with `spawn
+  ENOTDIR`. The log file is now opened when the logger is created, and the root is checked
+  before the listing, each with a message that names the path.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

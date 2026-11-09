@@ -101,6 +101,17 @@ describe("runCli", () => {
     expect(files.written).toEqual(["src/a.ts"]);
   });
 
+  it("runCli fails when a write fails and still prints the report", async () => {
+    const unwritable = { "src/a.ts": { kind: "io-error", code: "EROFS" } } as const;
+    const files = new InMemoryProjectFiles({ "src/a.ts": 'import "openapi-fetch";\n' }, [], {
+      unwritable,
+    });
+    const { dependencies, output } = setUp(() => files);
+
+    expect(await runCli(["--write"], dependencies)).toBe(EXIT_CODES.failure);
+    expect(output.stdout).toContain("Writing stopped: src/a.ts could not be written (EROFS).");
+  });
+
   it("runCli reports a failure, logs it and still names the log", async () => {
     const { dependencies, output, logger } = setUp(() => ({
       listFiles: () => Promise.reject(new Error("ENOENT: no such directory")),

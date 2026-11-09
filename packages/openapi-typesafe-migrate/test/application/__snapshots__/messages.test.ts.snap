@@ -36,3 +36,19 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "line 5: postTransform receives TypeScript nodes (deprecated). See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
 ]
 `;
+
+exports[`skippedMessage > skippedMessage describes every reason a file was not read 1`] = `
+[
+  "it leads outside the project folder; check where this git index came from",
+  "it is not UTF-8 text, so it was not changed; check it by hand",
+  "it could not be read (EACCES)",
+]
+`;
+
+exports[`writeFailedMessage > writeFailedMessage describes every reason a file was not written 1`] = `
+[
+  "Writing stopped: a.ts could not be written (it leads outside the project folder).",
+  "Writing stopped: a.ts could not be written (its text is not UTF-8).",
+  "Writing stopped: a.ts could not be written (EACCES).",
+]
+`;
