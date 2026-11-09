@@ -39,6 +39,13 @@ Changes that can need work when you move from openapi-typescript 7.13:
 - Relative `$ref`s of a string, object, buffer, stream or stdin source resolve in `cwd`, not in its
   parent.
 - `inject` is printed as written, comments included.
+- A schema's `$defs` member is optional (`$defs?: { … }`), as JSON Schema keywords are: a type
+  that indexes it reads `NonNullable<components["schemas"]["A"]["$defs"]>["D"]`, was
+  `components["schemas"]["A"]["$defs"]["D"]`.
+- `--read-write-markers`: the `Readable` and `Writable` types written into the output keep
+  arrays, tuples, brands, `allOf` members, optional `null`, function types and properties typed
+  `any`, as those of openapi-typesafe-helpers do, with non-exported `ReadWrite…` helper types next
+  to them. A type read through them can be narrower than before (a tuple stays a tuple).
 - In `redocly.yaml`, an `x-openapi-ts` setting of the wrong type (`root-types: "true"`) fails that
   API with `CLI_CONFIG_INVALID`; openapi-typescript ignored it.
 - Headers from `resolve.http.headers` go over plain HTTP only to `localhost`, `127.0.0.1` and
