@@ -7,10 +7,10 @@ const DOT_SEGMENT_RE = /(^|\/)\.\.?(\/|$)/;
 /** Where the path of a URL ends: its query or fragment, which have no segments. */
 const QUERY_OR_FRAGMENT_RE = /[?#]/;
 /**
- * Any JSON media type: `application/json`, `application/problem+json`, with or without
- * parameters.
+ * A JSON media type: `json` or a `+json` suffix (RFC 6838), as in `application/problem+json`, with
+ * or without parameters. Not `x-ndjson`, `jsonl` or `json-seq`: their bodies are lines of JSON.
  */
-const JSON_MEDIA_TYPE_RE = /json/i;
+const JSON_MEDIA_TYPE_RE = /^[^/]+\/([^;]*\+)?json\s*(;|$)/i;
 /** `text/*` media types: a JSON parse error of such a body points to `parseAs: "text"`. */
 const TEXT_MEDIA_TYPE_RE = /^text\//i;
 /** `application/x-www-form-urlencoded`, with or without parameters such as `charset`. */

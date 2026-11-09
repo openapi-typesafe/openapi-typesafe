@@ -202,7 +202,7 @@ aliased to `openapi-typesafe-fetch` with `overrides` (npm, bun, `pnpm-workspace.
 
 ### Client fixes
 
-- A string body with a non-JSON `Content-Type` such as `text/plain` is sent as is, not JSON-encoded.
+- A string body with a non-JSON `Content-Type` such as `text/plain` is sent as is, not JSON-encoded. A JSON `Content-Type` is `application/json` or a `+json` type; line-based JSON formats such as `application/x-ndjson`, `application/jsonl` and `application/json-seq` send a string body as is too.
 - A path parameter that makes a `.` or `..` segment is rejected before the request is sent.
 - openapi-typesafe-react-query fails on every non-OK response, also one without a body.
 - Middleware request ids come from a counter instead of `Math.random()`.

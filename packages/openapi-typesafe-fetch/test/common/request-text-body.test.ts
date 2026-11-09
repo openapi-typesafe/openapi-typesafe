@@ -44,6 +44,28 @@ describe("string request bodies (upstream #2555, #2382)", () => {
     expect(defaultBodySerializer("abc", headers)).toBe('"abc"');
   });
 
+  it.each([
+    "application/json",
+    "application/json; charset=utf-8",
+    "Application/JSON ; charset=utf-8",
+    "application/vnd.api+json",
+    "application/merge-patch+json;profile=x",
+  ])("defaultBodySerializer JSON-encodes a string for the JSON media type %j", (contentType) => {
+    expect(defaultBodySerializer("abc", { "Content-Type": contentType })).toBe('"abc"');
+  });
+
+  /** Line-based JSON formats carry their records as text; quoting the body broke every line. */
+  it.each([
+    "application/x-ndjson",
+    "application/jsonl",
+    "application/json-seq",
+    "application/jsonlines; charset=utf-8",
+  ])("defaultBodySerializer sends a string as is for %j (RFC 6838)", (contentType) => {
+    const lines = '{"a":1}\n{"a":2}\n';
+
+    expect(defaultBodySerializer(lines, { "Content-Type": contentType })).toBe(lines);
+  });
+
   it("defaultBodySerializer keeps JSON encoding for a string without a content type", () => {
     expect(defaultBodySerializer("abc", {})).toBe('"abc"');
   });

@@ -289,6 +289,9 @@ or when instantiating the client.
 
 A string body is sent as is when you set a non-JSON `Content-Type`, such as `text/plain`. Without a
 `Content-Type`, or with a JSON one, a string is sent as a JSON string value (`"abc"` becomes `"\"abc\""`).
+A JSON media type is `application/json` or one with a `+json` suffix (`application/problem+json`),
+with or without parameters (RFC 6838). Line-based formats such as `application/x-ndjson`,
+`application/jsonl` and `application/json-seq` are not: a string body is their text, sent as is.
 
 ```ts
 const { data, error } = await client.POST("/notes", {

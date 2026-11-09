@@ -150,6 +150,25 @@ named a boundary. The server read `myboundary` and could not split the parts.
 | Remove a multipart header for every FormData | Simplest | A custom `fetch` that writes parts with a given boundary loses it |
 | Build the parts with the user's boundary | Keeps the header | Needs a multipart writer in the client; the platform already has one |
 
+## Amendment (2026-11-08): what a JSON media type is (decision 1)
+
+Decision 1 called every `Content-Type` with `json` in it a JSON media type. The bug hunt on rc.3
+(`RC4_BUGS.md`, item F4) found that a string body for `application/x-ndjson`, `application/jsonl`
+or `application/json-seq` was JSON-encoded into one quoted string, so the server got no records.
+openapi-fetch 0.17 does the same. These formats are lines of JSON texts, not one JSON text: a
+string body is their payload.
+
+1. A JSON media type is `application/json` or a media type with the `+json` structured syntax
+   suffix (RFC 6838, section 4.2.8), such as `application/problem+json`, in any letter case, with
+   or without parameters. Any other `Content-Type` sends a string body as is.
+2. Without a `Content-Type`, a string is a JSON string value, as before.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| The `json` subtype or a `+json` suffix (chosen) | The registered rule; line-based formats work | A made-up type such as `application/x-json` sends a string as is |
+| Keep "contains `json`" | No change | Every NDJSON or JSON Lines upload is broken |
+| A list of line-based types | Names the known cases | Misses the next format; the RFC rule already covers them |
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`
