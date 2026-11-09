@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
+import {
+  createYamlTextReader,
+  YAML_PARSE_OPTIONS,
+} from "../../src/adapters/yaml-text/yaml-text.js";
 import {
   type DocumentString,
   documentStrings,
@@ -9,9 +12,6 @@ import {
 } from "../../src/domain/config-documents.js";
 
 const reader = createYamlTextReader();
-const LARGE_MAP_KEYS = 40_000;
-/** Generous for a slow CI runner; the quadratic check takes several times as long. */
-const TIME_LIMIT_MS = 2000;
 
 const lines = (...parts: string[]): string => `${parts.join("\n")}\n`;
 
@@ -246,15 +246,12 @@ describe("YamlTextReader tree", () => {
     expect(reader.read("1: a\n'1': b\n? [k]\n: c\n? [k]\n: d\n").kind).toBe("read");
   });
 
-  it("read checks the keys of a large map in linear time", () => {
-    // 40 000 keys took 6 s with the quadratic check of the yaml package, and 0.2 s without it.
-    const text = Array.from({ length: LARGE_MAP_KEYS }, (_, index) => `k${index}: v`).join("\n");
-    const started = performance.now();
-
-    const read = reader.read(text);
-
-    expect(performance.now() - started).toBeLessThan(TIME_LIMIT_MS);
-    expect(read.kind).toBe("read");
+  it("read leaves duplicate keys to its own linear check, not to the quadratic one of yaml", () => {
+    // The yaml check compares each key with every key before it: 80 000 keys took 24 s on a
+    // laptop. A timed test cannot tell that from a slow runner (the linear read of the same map
+    // took 0.4 s on the laptop and 16 s on CI), so the option itself is checked; the tests above
+    // show that duplicates are still refused.
+    expect(YAML_PARSE_OPTIONS.uniqueKeys).toBe(false);
   });
 
   it("read refuses nesting deeper than the stack allows, as an error", () => {

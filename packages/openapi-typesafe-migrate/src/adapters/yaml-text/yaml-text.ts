@@ -163,12 +163,18 @@ function firstOffset(nodes: readonly unknown[]): number | undefined {
 }
 
 /**
+ * How the `yaml` package parses a config. Its own duplicate key check compares each key with every
+ * key before it, so it is turned off (`uniqueKeys: false`) for the linear one above; the source
+ * tokens give the offsets of the strings the migrations edit.
+ */
+export const YAML_PARSE_OPTIONS = { keepSourceTokens: true, uniqueKeys: false } as const;
+
+/**
  * The `yaml` package stops at nesting deeper than the stack allows and reports it as an error, so
- * a tree it gives is shallow enough for the migrations to walk. Its own duplicate key check is
- * turned off (`uniqueKeys: false`) for the linear one above.
+ * a tree it gives is shallow enough for the migrations to walk.
  */
 function read(text: string): DocumentRead {
-  const documents = parseAllDocuments(text, { keepSourceTokens: true, uniqueKeys: false });
+  const documents = parseAllDocuments(text, YAML_PARSE_OPTIONS);
   const error = documents.flatMap((document) => document.errors)[0];
   if (error !== undefined) {
     return { kind: "unreadable", offset: error.pos[0] };
