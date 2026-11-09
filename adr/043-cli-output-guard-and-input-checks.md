@@ -168,3 +168,6 @@ reference to a missing name is, and decision 7 checks only what can print as Typ
   and `real/sub/link -> ../missing`, the identity key and the creation path read `a/link` as
   `missing`, while the system reads `real/missing`, so the write failed with ENOENT. A relative link
   target is now read from the real directory of the link.
+- **A recursive `mkdir` that failed part of the way kept the directories above the failing one**
+  (`new1/<a name too long>/types.ts` kept `new1`). The directories that exist after the failure
+  are removed again, as after a failed write.

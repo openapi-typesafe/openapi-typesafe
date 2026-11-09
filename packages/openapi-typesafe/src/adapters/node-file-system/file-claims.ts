@@ -72,12 +72,19 @@ function removeDirectories(directories: readonly string[]): void {
 /**
  * Create `directory` and give the directories that this created. Through a link to a missing
  * directory it creates the link's target, as a write through the link would, so the path to
- * create and the new directories are real paths, where links are already followed.
+ * create and the new directories are real paths, where links are already followed. A recursive
+ * `mkdir` that fails part of the way (a directory name too long for the file system) keeps the
+ * directories above the failing one, so the ones that exist now are removed here.
  */
 function createDirectory(directory: string, queries: PathQueries): string[] {
   const target = creationPath(directory, queries);
   const missing = missingDirectories(target, fs.existsSync);
-  fs.mkdirSync(target, { recursive: true });
+  try {
+    fs.mkdirSync(target, { recursive: true });
+  } catch (error) {
+    removeDirectories(missing.filter((created) => fs.existsSync(created)));
+    throw error;
+  }
   return missing;
 }
 

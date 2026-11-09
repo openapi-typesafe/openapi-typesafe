@@ -156,6 +156,28 @@ describe("createNodeFileSystem", () => {
     expect(fs.readdirSync(parent)).toEqual([]);
   });
 
+  it("writeText into a directory name too long for the file system removes the new parents", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "write-"));
+    const tooLong = "x".repeat(FILE_NAME_TOO_LONG);
+    const file = pathToFileURL(path.join(parent, "new1", tooLong, "types.ts"));
+
+    expect(() => createNodeFileSystem().writeText(file, "types")).toThrow(
+      expect.objectContaining({ code: "OUTPUT_WRITE_FAILED" }),
+    );
+    expect(fs.readdirSync(parent)).toEqual([]);
+  });
+
+  it("claimFile in a directory name too long for the file system removes the new parents", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    const tooLong = "x".repeat(FILE_NAME_TOO_LONG);
+    const file = pathToFileURL(path.join(parent, "new1", tooLong, "types.ts"));
+
+    expect(() => createNodeFileSystem().claimFile(file)).toThrow(
+      expect.objectContaining({ code: "OUTPUT_WRITE_FAILED" }),
+    );
+    expect(fs.readdirSync(parent)).toEqual([]);
+  });
+
   it("writeText through a link to a missing directory writes into its target", () => {
     const parent = fs.mkdtempSync(path.join(workDir, "write-"));
     fs.symlinkSync(path.join(parent, "missing-dir"), path.join(parent, "link"), "dir");
