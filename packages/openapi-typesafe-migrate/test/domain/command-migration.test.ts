@@ -221,6 +221,38 @@ describe("migrateCommandLines", () => {
     expect(migrated.changes).toEqual([{ kind: "command-renamed", location: "gen.sh:2" }]);
   });
 
+  it("migrateCommandLines renames commands inside compound commands", () => {
+    const text = [
+      "if [ -f api.yaml ]; then",
+      "  npx openapi-typescript api.yaml -it",
+      "fi",
+      'for f in specs/*.yaml; do npx openapi-typescript "$f" -it; done',
+      "! openapi-typescript a.yaml --redoc r.yaml",
+      "",
+    ].join("\n");
+
+    const migrated = migrateCommandLines(text, "gen.sh");
+
+    expect(migrated.text).toBe(
+      [
+        "if [ -f api.yaml ]; then",
+        "  npx openapi-typesafe api.yaml --immutable",
+        "fi",
+        'for f in specs/*.yaml; do npx openapi-typesafe "$f" --immutable; done',
+        "! openapi-typesafe a.yaml --redocly r.yaml",
+        "",
+      ].join("\n"),
+    );
+    expect(migrated.changes.map((change) => change.location)).toEqual([
+      "gen.sh:2",
+      "gen.sh:2",
+      "gen.sh:4",
+      "gen.sh:4",
+      "gen.sh:5",
+      "gen.sh:5",
+    ]);
+  });
+
   it("migrateCommandLines collects manual steps of every line", () => {
     const migrated = migrateCommandLines("npx openapi-typescript@6 a\n", "Makefile");
 
