@@ -703,10 +703,13 @@ export function createQuerySerializer(options) {
  * @type {import("./index.js").defaultPathSerializer}
  * @see https://swagger.io/docs/specification/serialization/#path
  */
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export function defaultPathSerializer(pathname, pathParams) {
+  const matches = pathname.match(PATH_PARAM_RE);
+  if (!matches) {
+    return pathname;
+  }
   let nextURL = pathname;
-  for (const match of pathname.match(PATH_PARAM_RE) ?? []) {
+  for (const match of matches) {
     let name = match.substring(1, match.length - 1);
     let explode = false;
     let style = "simple";
@@ -738,19 +741,28 @@ export function defaultPathSerializer(pathname, pathParams) {
     // A function: a string replacement reads `$'`, `$&` and the like, which object keys keep.
     nextURL = nextURL.replace(match, () => serialized);
   }
-  const path = nextURL.split(QUERY_OR_FRAGMENT_RE, 1)[0];
+  checkSerializedPath(pathname, nextURL);
+  return nextURL;
+}
+
+/**
+ * Throw when the path parameters moved the request. Only the path part (before `?` or `#`) from the
+ * segment of the first parameter on is checked: the text before it is the `baseUrl` and the
+ * template, which no value changes, and a protocol-relative base (`//api.example/v1`) is valid.
+ */
+function checkSerializedPath(template, url) {
+  const fixed = template.slice(0, template.search(PATH_PARAM_RE));
+  const path = url.split(QUERY_OR_FRAGMENT_RE, 1)[0];
   // `encodeURIComponent` keeps dots, so a value `..` would move the request up a path level
   // (ADR-013).
-  // Only the path is checked: before a query (`/a/{id}?v=2`), `$` did not match after `..`.
-  if (DOT_SEGMENT_RE.test(path)) {
-    throw new Error(`Dot path segment in ${nextURL}`);
+  if (DOT_SEGMENT_RE.test(path.slice(fixed.lastIndexOf("/") + 1))) {
+    throw new Error(`Dot path segment in ${url}`);
   }
-  // `//host/…` is a protocol-relative URL: with a relative baseUrl a browser sends it to that
-  // host.
-  if (path.startsWith("//")) {
-    throw new Error(`Empty first path segment in ${nextURL}`);
+  // `//host/…` is a protocol-relative URL: with a relative baseUrl a browser sends it to that host
+  // (ADR-030).
+  if (path.startsWith("//") && !fixed.startsWith("//")) {
+    throw new Error(`Empty first path segment in ${url}`);
   }
-  return nextURL;
 }
 
 /**

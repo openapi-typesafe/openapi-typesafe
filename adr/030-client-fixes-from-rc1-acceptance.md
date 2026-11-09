@@ -109,7 +109,8 @@ dot. openapi-fetch 0.17 builds the same URL.
    path on the same host.
 3. The check does not depend on `baseUrl`. With an absolute one the result is a path
    (`https://api.example//evil.example`), but an empty first segment is a bug in the caller there
-   too, and the serializer does not know the base.
+   too, and the serializer does not know the base. (Corrected on 2026-11-08, see below: the
+   serializer gets the base in front of the template, so the check did depend on it.)
 
 | Option | Pros | Cons |
 | --- | --- | --- |
@@ -117,6 +118,33 @@ dot. openapi-fetch 0.17 builds the same URL.
 | Reject every empty path value | Simple to state | RFC 6570 allows empty values; `/files/{dir}/` style calls that work today would reject |
 | Reject only when `baseUrl` is relative | No change with an absolute base | The serializer does not see the base; `createFinalURL` would need a second check |
 | Encode an empty first value as `%2F` or similar | No error | Sends a request to a path no server expects; hides the caller's bug |
+
+## Amendment (2026-11-08): the checks look only at what the parameters write
+
+Decision 3 of the amendment above was false. `createFinalURL` passes `baseUrl` and the template
+joined (`//api.example.com/v1/users/{id}`) to the path serializer, as openapi-fetch 0.17 does, so
+the checks saw the base. The bug hunt on rc.3 (`RC4_BUGS.md`, item F1) found that a
+protocol-relative `baseUrl` (`//api.example.com/v1`, common in pages served over HTTP and HTTPS)
+made every call with `params.path`, even an empty one, throw `Empty first path segment`, and a
+base with a `.` or `..` segment threw `Dot path segment`. openapi-fetch sends these requests.
+
+1. `defaultPathSerializer` checks only the path part (before `?` or `#`) from the segment of the
+   first parameter on. The text before the first parameter is the `baseUrl` and the template; no
+   value changes it, so it is not checked. A dot segment that a value completes in that segment
+   (`/books/.{id}` with `id: ""`) is still found.
+2. The empty first segment check throws only when the result starts with `//` and the fixed text
+   before the first parameter does not: then a value made the `//`.
+3. A template without parameters is returned as it is: no value can move it.
+4. The serializer keeps its input, the base and the template joined. Passing only the template
+   would change what a custom `pathSerializer` gets from openapi-fetch's contract, and a base
+   with a `{name}` placeholder would no longer be filled.
+5. The checks moved to a helper, so `defaultPathSerializer` loses its ADR-036 suppression.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Check from the segment of the first parameter on (chosen) | Exactly the text values can change; same input as openapi-fetch | A literal dot segment in the template after the first parameter still throws, as before |
+| Serialize only the template, then add `baseUrl` | The serializer never sees the base | A custom `pathSerializer` gets other input than in openapi-fetch; a templated base breaks |
+| A third argument with the base length | Exact | Changes the public `PathSerializer` signature |
 
 ## Amendment (2026-11-07): one conditional type for `MaybeOptionalInit`
 

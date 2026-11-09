@@ -362,7 +362,9 @@ query string or fragment in its template too (`/echo/{id}?v=2`); the query and f
 checked. It also rejects a path that starts with `//` once the parameters are in (an empty first
 parameter, as in `/{org}/{repo}` with `org: ""`): with a relative `baseUrl` (the default `""`) a browser
 reads `//evil.example` as another host and sends the request, headers included, there. An empty value in a
-later segment (`/acme/`) is sent as before. A custom `pathSerializer` is not checked.
+later segment (`/acme/`) is sent as before. Only what the parameters write is checked: the `baseUrl` and the
+template text before the first parameter are not, so a protocol-relative `baseUrl` such as
+`//api.example.com/v1` works. A custom `pathSerializer` is not checked.
 
 :::
 
