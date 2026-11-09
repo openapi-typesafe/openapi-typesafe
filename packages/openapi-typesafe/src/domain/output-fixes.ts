@@ -67,8 +67,20 @@ function isOutputFixName(value: unknown): value is OutputFixName {
   return typeof value === "string" && KNOWN_NAMES.has(value);
 }
 
-/** The fix names as given; fails with `OPTION_FIX_UNKNOWN` for any other value. */
-export function outputFixNamesOf(values: readonly unknown[]): readonly OutputFixName[] {
+/**
+ * The fix names as given; fails with `OPTION_FIX_UNKNOWN` for any other value, and for a `fix`
+ * option that is no list (`fix: "all"` from JavaScript), which must not be read letter by letter.
+ */
+export function outputFixNamesOf(values: unknown): readonly OutputFixName[] {
+  if (!Array.isArray(values)) {
+    throw new OpenAPITypesafeError({
+      code: ERROR_CODES.OPTION_FIX_UNKNOWN,
+      message:
+        'The fix option must be a list of fix names, such as ["all"]. ' +
+        `Got ${JSON.stringify(values)}.`,
+      details: { unknown: [values], known: [...KNOWN_NAMES] },
+    });
+  }
   const unknown = values.filter((value) => !isOutputFixName(value));
   if (unknown.length > 0) {
     const names = unknown.map((value) => JSON.stringify(value)).join(", ");
