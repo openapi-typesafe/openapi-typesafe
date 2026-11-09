@@ -18,6 +18,9 @@ const KEEP_REASONS: Readonly<Record<TransformKeepReason, string>> = {
   "shared-function": "the function it names is used elsewhere too",
   "shared-options": "its options object is used elsewhere too",
   "unknown-return": "a return value is not a plain ts.factory type",
+  "typed-options":
+    "its options are declared with a type built from OpenAPITSOptions, which the tool cannot " +
+    "change to OpenAPITSIrOptions",
 };
 
 const PEER_NOTE = "users of this package must switch too (a breaking change for them)";

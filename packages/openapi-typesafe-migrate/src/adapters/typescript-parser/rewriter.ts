@@ -11,8 +11,10 @@ import {
 import { applyTextEdits, type TextEdit } from "../../domain/text-edits.js";
 import type { FactoryNames } from "./factory-type-text.js";
 import { createFileBindings } from "./file-bindings.js";
-import { type GeneratorCall, generatorCalls } from "./generator-calls.js";
+import { type GeneratorCall, type GeneratorOptions, generatorCalls } from "./generator-calls.js";
+import { optionsTypeEdits, optionsTypeReferences } from "./options-type.js";
 import { plainScriptKind } from "./script-regions.js";
+import { callbackAnnotations, callbackFunction, isSharedFunction } from "./transform-callback.js";
 import { returnEdits, returnedExpressions } from "./transform-returns.js";
 import { removalEdits, unusedDeclarations } from "./unused-declarations.js";
 
@@ -32,7 +34,18 @@ interface CallFindings {
   readonly edits: TextEdit[];
   readonly changes: Change[];
   readonly manualSteps: ManualStep[];
+  /** The `OpenAPITSOptions` names of rewritten options, retargeted once per file. */
+  readonly typeReferences: ts.Identifier[];
 }
+
+type OwnOptions = Extract<GeneratorOptions, { kind: "own" }>;
+
+const noFindings = (): CallFindings => ({
+  edits: [],
+  changes: [],
+  manualSteps: [],
+  typeReferences: [],
+});
 
 function propertyNamed(
   options: ts.ObjectLiteralExpression,
@@ -44,54 +57,6 @@ function propertyNamed(
       key !== undefined && (ts.isIdentifier(key) || ts.isStringLiteral(key)) && key.text === name
     );
   });
-}
-
-/** The function a `const` or a function declaration of this file holds. */
-function namedFunction(
-  name: ts.Identifier,
-  names: FactoryNames,
-): ts.FunctionLikeDeclaration | undefined {
-  const binding = names.bindings.bindingOf(name);
-  if (binding?.kind === "function") {
-    return binding.declaration;
-  }
-  const value = binding?.kind === "constant" ? binding.initializer : undefined;
-  return value !== undefined && (ts.isArrowFunction(value) || ts.isFunctionExpression(value))
-    ? value
-    : undefined;
-}
-
-/**
- * The function a `transform` property holds: a method, an arrow function or a function, inline or
- * by the name of a module-level function.
- */
-function callbackFunction(
-  property: ts.ObjectLiteralElementLike,
-  names: FactoryNames,
-): ts.FunctionLikeDeclaration | undefined {
-  if (ts.isMethodDeclaration(property)) {
-    return property;
-  }
-  if (!ts.isPropertyAssignment(property)) {
-    return undefined;
-  }
-  const value = property.initializer;
-  if (ts.isIdentifier(value)) {
-    return namedFunction(value, names);
-  }
-  return ts.isArrowFunction(value) || ts.isFunctionExpression(value) ? value : undefined;
-}
-
-/**
- * A function named by `transform` is rewritten only when this is its only use: other callers
- * would get type text where they expect nodes.
- */
-function isSharedFunction(property: ts.ObjectLiteralElementLike, names: FactoryNames): boolean {
-  if (!ts.isPropertyAssignment(property) || !ts.isIdentifier(property.initializer)) {
-    return false;
-  }
-  const declaration = names.bindings.declarationOf(property.initializer);
-  return declaration !== undefined && names.bindings.usesOf(declaration).length > 1;
 }
 
 /**
@@ -156,40 +121,50 @@ function legacyCallbackSteps(options: ts.ObjectLiteralExpression, text: string):
   });
 }
 
-/** The findings of one `openapiTS(source, options)` call with an options object literal. */
-function migrateOptions(
-  options: ts.ObjectLiteralExpression,
-  text: string,
+/** The rewrite of `transform` with the options types to retarget, or the reason to keep it. */
+function transformRewrite(
+  transform: ts.ObjectLiteralElementLike,
+  options: OwnOptions,
   names: FactoryNames,
-): CallFindings {
-  // With irCallbacks set, the callbacks already use the IR form: nothing to migrate.
-  if (propertyNamed(options, IR_CALLBACKS_OPTION) !== undefined) {
-    return { edits: [], changes: [], manualSteps: [] };
+  text: string,
+) {
+  const edits = keepReason(options.options) ?? transformEdits(transform, names, text);
+  if (typeof edits === "string") {
+    return edits;
   }
-  const findings: CallFindings = {
-    edits: [],
-    changes: [],
-    manualSteps: legacyCallbackSteps(options, text),
-  };
-  const transform = propertyNamed(options, TRANSFORM);
+  const annotations = [...options.annotations, ...callbackAnnotations(transform, names)];
+  const typeReferences = optionsTypeReferences(annotations, names.bindings);
+  return typeReferences === undefined ? "typed-options" : { edits, typeReferences };
+}
+
+/** The findings of one `openapiTS(source, options)` call with an options object literal. */
+function migrateOptions(options: OwnOptions, text: string, names: FactoryNames): CallFindings {
+  // With irCallbacks set, the callbacks already use the IR form: nothing to migrate.
+  if (propertyNamed(options.options, IR_CALLBACKS_OPTION) !== undefined) {
+    return noFindings();
+  }
+  const findings = noFindings();
+  findings.manualSteps.push(...legacyCallbackSteps(options.options, text));
+  const transform = propertyNamed(options.options, TRANSFORM);
   if (transform === undefined) {
     return findings;
   }
   const start = transform.getStart();
   const line = lineAt(text, start);
-  const result = keepReason(options) ?? transformEdits(transform, names, text);
+  const result = transformRewrite(transform, options, names, text);
   if (typeof result === "string") {
     findings.manualSteps.push({ kind: "transform-not-rewritten", line, reason: result });
     return findings;
   }
-  findings.edits.push({ start, end: start, text: irCallbacksOption(text, start) }, ...result);
+  findings.edits.push({ start, end: start, text: irCallbacksOption(text, start) }, ...result.edits);
+  findings.typeReferences.push(...result.typeReferences);
   findings.changes.push({ kind: "transform-rewritten", line });
   return findings;
 }
 
 /** Options that other code uses too: the callbacks are reported, never changed. */
 function sharedOptionsFindings(options: ts.ObjectLiteralExpression, text: string): CallFindings {
-  const findings: CallFindings = { edits: [], changes: [], manualSteps: [] };
+  const findings = noFindings();
   if (propertyNamed(options, IR_CALLBACKS_OPTION) !== undefined) {
     return findings;
   }
@@ -206,21 +181,21 @@ function callFindings(found: GeneratorCall, text: string, names: FactoryNames): 
   const options = found.options;
   switch (options?.kind) {
     case undefined:
-      return { edits: [], changes: [], manualSteps: [] };
+      return noFindings();
     case "own":
-      return migrateOptions(options.options, text, names);
+      return migrateOptions(options, text, names);
     case "shared":
       return sharedOptionsFindings(options.options, text);
     case "unknown": {
       const line = lineAt(text, options.expression.getStart());
-      return { edits: [], changes: [], manualSteps: [{ kind: "options-not-inspected", line }] };
+      return { ...noFindings(), manualSteps: [{ kind: "options-not-inspected", line }] };
     }
   }
 }
 
 /** The findings of every generator call; options that several calls share are read once. */
 function findCallFindings(file: ts.SourceFile, text: string, names: FactoryNames): CallFindings {
-  const all: CallFindings = { edits: [], changes: [], manualSteps: [] };
+  const all = noFindings();
   const seen = new Set<ts.Node>();
   for (const found of generatorCalls(file, names.bindings)) {
     const options = found.options?.kind === "unknown" ? undefined : found.options?.options;
@@ -234,6 +209,7 @@ function findCallFindings(file: ts.SourceFile, text: string, names: FactoryNames
     all.edits.push(...findings.edits);
     all.changes.push(...findings.changes);
     all.manualSteps.push(...findings.manualSteps);
+    all.typeReferences.push(...findings.typeReferences);
   }
   return all;
 }
@@ -241,7 +217,8 @@ function findCallFindings(file: ts.SourceFile, text: string, names: FactoryNames
 /** The rewrite of a file that calls the generator, with the declarations it leaves unused. */
 function rewriteFile(file: ts.SourceFile, names: FactoryNames): FileMigration {
   const text = file.text;
-  const { edits, changes, manualSteps } = findCallFindings(file, text, names);
+  const { edits, changes, manualSteps, typeReferences } = findCallFindings(file, text, names);
+  // The options type edits rename uses of an import, which leaves it in use, not unused.
   const removed = unusedDeclarations(names, edits);
   for (const found of removed) {
     changes.push({
@@ -250,7 +227,8 @@ function rewriteFile(file: ts.SourceFile, names: FactoryNames): FileMigration {
       name: found.name,
     });
   }
-  const allEdits = [...edits, ...removalEdits(removed, text)];
+  const typeEdits = optionsTypeEdits(typeReferences, names.bindings);
+  const allEdits = [...edits, ...typeEdits, ...removalEdits(removed, text)];
   return { text: applyTextEdits(text, allEdits), changes, manualSteps };
 }
 
