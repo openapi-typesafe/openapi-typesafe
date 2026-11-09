@@ -14,7 +14,7 @@ on:
 
 permissions:
   contents: read
-  # A manual run reads the title of the pull request whose branch it runs on.
+  # A manual run reads the title of the open pull request whose head is the branch it runs on.
   pull-requests: read
 
 concurrency:
@@ -41,9 +41,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+        # A manual run takes the open pull request whose head is this branch of this repository.
+        # A fork can have a branch with the same name, and the `head` filter only names the owner,
+        # so the head repository is compared in full as well.
         run: |
           if [[ -z "${PR_NUMBER}" ]]; then
-            read -r PR_NUMBER PR_TITLE < <(gh pr view "${GITHUB_REF_NAME}" \
-              --repo "${GITHUB_REPOSITORY}" --json number,title --jq '"\(.number) \(.title)"')
+            if [[ "${GITHUB_REF_TYPE}" != "branch" ]]; then
+              echo "pr title: a manual run needs a branch, not ${GITHUB_REF}" >&2
+              exit 1
+            fi
+            pulls="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/pulls" -f state=open \
+              -f head="${GITHUB_REPOSITORY_OWNER}:${GITHUB_REF_NAME}" \
+              | jq --arg repository "${GITHUB_REPOSITORY}" --arg branch "${GITHUB_REF_NAME}" \
+                '[.[] | select(.head.repo.full_name == $repository and .head.ref == $branch)]')"
+            count="$(jq length <<< "${pulls}")"
+            if [[ "${count}" != "1" ]]; then
+              head="${GITHUB_REPOSITORY}:${GITHUB_REF_NAME}"
+              echo "pr title: ${count} open pull requests from ${head}, expected 1" >&2
+              exit 1
+            fi
+            PR_NUMBER="$(jq --raw-output '.[0].number' <<< "${pulls}")"
+            PR_TITLE="$(jq --raw-output '.[0].title' <<< "${pulls}")"
           fi
           echo "${PR_TITLE} (#${PR_NUMBER})" | pnpm exec commitlint --verbose
