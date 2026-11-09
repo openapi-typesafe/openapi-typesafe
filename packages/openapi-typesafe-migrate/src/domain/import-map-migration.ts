@@ -1,3 +1,5 @@
+// Import maps point at no catalog, so no catalog plan applies to them.
+import { NO_CATALOG_PLAN } from "./catalog-plan.js";
 import {
   type DocumentRead,
   isMap,
@@ -27,13 +29,14 @@ const FIELD_SEPARATOR = ".";
 function migrateImports(config: TreeMap, version: string, findings: Findings): void {
   for (const imports of mapsAt(config, IMPORTS_FIELD)) {
     const map = { kind: "imports", field: IMPORTS_FIELD } as const;
-    migrateSpecMap(specEntries(imports), { map, version, findings });
+    migrateSpecMap(specEntries(imports), { map, version, findings, catalogs: NO_CATALOG_PLAN });
   }
   for (const scopes of mapsAt(config, SCOPES_FIELD)) {
     for (const { key, value } of textEntries(scopes)) {
       if (isMap(value)) {
         const field = [SCOPES_FIELD, key.value].join(FIELD_SEPARATOR);
-        migrateSpecMap(specEntries(value), { map: { kind: "imports", field }, version, findings });
+        const map = { kind: "imports", field } as const;
+        migrateSpecMap(specEntries(value), { map, version, findings, catalogs: NO_CATALOG_PLAN });
       }
     }
   }

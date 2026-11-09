@@ -53,8 +53,10 @@ kept and reported.
 Manifests, catalogs and import maps are edited in place: only the renamed keys and the new values
 change, and comments, formatting, key order and line endings stay. A byte order mark is kept. An
 entry whose new name is already in the same map is left and reported, and so is an entry the tool
-does not edit (a YAML alias, anchor or block value). Sources also get `npm:` specifiers renamed
-(`import x from "npm:openapi-fetch@^0.13"`).
+does not edit (a YAML alias, anchor or block value). A catalog entry and the `catalog:`
+dependencies on it keep one name: an entry stays while a dependency that was left still uses it,
+and a dependency stays while its entry does, so the install never misses a catalog entry; both are
+reported. Sources also get `npm:` specifiers renamed (`import x from "npm:openapi-fetch@^0.13"`).
 
 In a git repository the tool reads the files git lists: tracked files, and untracked files that
 `.gitignore` does not ignore, so ignored build output (`cjs/`, `esm/`, `types/`, …) stays out. A

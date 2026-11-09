@@ -22,6 +22,8 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "nests too deep to be read; migrate it by hand",
   "catalog: a has a value the tool does not read; rename it by hand",
   "dependencies has both a and b, so a was kept: remove one of them",
+  "dependencies: a was kept, because catalog "default" keeps a: rename the entry and the dependency together",
+  "catalogs.legacy: a was kept, because a dependency still names it: rename the entry and the dependency together",
   "b is a peer dependency: users of this package must switch too (a breaking change for them)",
   "b kept the spec "latest": point it at an openapi-typesafe version",
   ""overrides" names a: update or remove that override",

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { fileMigrationFor } from "../../src/application/file-migrations.js";
+import { NO_CATALOG_PLAN } from "../../src/domain/catalog-plan.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
 
@@ -9,7 +10,13 @@ const scanner = new QuotedStringScanner();
 // The document readers are pure parsers, so the tests read configs with the real ones.
 
 const readers = { json: createJsonTextReader(), yaml: createYamlTextReader() };
-const context = { version: "1.0.0", rewriter: new StubCallbackRewriter(), scanner, readers };
+const context = {
+  version: "1.0.0",
+  catalogs: NO_CATALOG_PLAN,
+  rewriter: new StubCallbackRewriter(),
+  scanner,
+  readers,
+};
 
 describe("fileMigrationFor", () => {
   it.each([
@@ -64,12 +71,7 @@ describe("fileMigrationFor", () => {
     });
     const migrate = fileMigrationFor("a.ts");
 
-    const migration = migrate?.('import "openapi-fetch/x";', "a.ts", {
-      version: "1.0.0",
-      rewriter,
-      scanner,
-      readers,
-    });
+    const migration = migrate?.('import "openapi-fetch/x";', "a.ts", { ...context, rewriter });
 
     expect(migration?.text).toBe("rewritten");
     expect(migration?.changes.map((change) => change.kind)).toEqual([

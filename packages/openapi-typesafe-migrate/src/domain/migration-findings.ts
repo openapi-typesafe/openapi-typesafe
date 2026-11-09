@@ -69,6 +69,13 @@ export type ManualStep =
       readonly from: string;
       readonly to: string;
     }
+  | {
+      readonly kind: "catalog-reference-kept";
+      readonly field: string;
+      readonly name: string;
+      readonly catalog: string;
+    }
+  | { readonly kind: "catalog-entry-in-use"; readonly catalog: string; readonly name: string }
   | { readonly kind: "peer-dependency-renamed"; readonly name: string }
   | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
   | { readonly kind: "override-names-package"; readonly field: string; readonly name: string }

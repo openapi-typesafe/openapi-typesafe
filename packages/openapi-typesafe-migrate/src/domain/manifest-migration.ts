@@ -1,3 +1,4 @@
+import { manifestCatalogMaps } from "./catalogs.js";
 import {
   type DocumentRead,
   isMap,
@@ -7,19 +8,22 @@ import {
   unreadableConfig,
   valuesAt,
 } from "./config-documents.js";
-import { type Findings, migrateSpecMap, newFindings, renameNames } from "./dependency-map.js";
+import {
+  type Findings,
+  migrateSpecMap,
+  newFindings,
+  type RenameTarget,
+  renameNames,
+} from "./dependency-map.js";
 import type { FileMigration } from "./migration-findings.js";
 import { overriddenPackages } from "./override-targets.js";
 import {
-  CATALOG_FIELD,
   DEPENDENCY_FIELDS,
   NAME_KEYED_FIELDS,
   NAME_LIST_FIELDS,
-  NAMED_CATALOGS_FIELD,
   OLD_PEER_DEPENDENTS,
   OVERRIDE_FIELDS,
   PACKAGE_RENAMES,
-  WORKSPACES_FIELD,
 } from "./package-names.js";
 import { applyTextEdits } from "./text-edits.js";
 import { itemEntries, keyEntries, nestedKeys, specEntries } from "./tree-entries.js";
@@ -31,13 +35,11 @@ import { itemEntries, keyEntries, nestedKeys, specEntries } from "./tree-entries
  * them with the other command files.
  */
 
-const CATALOG_PATH_SEPARATOR = ".";
-
-function migrateDependencyFields(manifest: TreeMap, version: string, findings: Findings) {
+function migrateDependencyFields(manifest: TreeMap, target: RenameTarget, findings: Findings) {
   for (const field of DEPENDENCY_FIELDS) {
     for (const dependencies of mapsAt(manifest, field)) {
       const map = { kind: "dependencies", field } as const;
-      migrateSpecMap(specEntries(dependencies), { map, version, findings });
+      migrateSpecMap(specEntries(dependencies), { ...target, map, findings });
     }
   }
 }
@@ -70,20 +72,15 @@ function migrateNameLists(manifest: TreeMap, findings: Findings): void {
   }
 }
 
-/** bun's `catalog` and `catalogs.<name>` in `map`; `prefix` names where `map` is. */
-function migrateCatalogs(map: TreeMap, prefix: string, version: string, findings: Findings) {
-  for (const catalog of mapsAt(map, CATALOG_FIELD)) {
-    const catalogMap = { kind: "catalog", catalog: `${prefix}${CATALOG_FIELD}` } as const;
-    migrateSpecMap(specEntries(catalog), { map: catalogMap, version, findings });
-  }
-  for (const catalogs of mapsAt(map, NAMED_CATALOGS_FIELD)) {
-    for (const { key, value } of textEntries(catalogs)) {
-      if (isMap(value)) {
-        const name = [prefix + NAMED_CATALOGS_FIELD, key.value].join(CATALOG_PATH_SEPARATOR);
-        const catalogMap = { kind: "catalog", catalog: name } as const;
-        migrateSpecMap(specEntries(value), { map: catalogMap, version, findings });
-      }
-    }
+/** bun's `catalog` and `catalogs.<name>`, at the top level and under `workspaces`. */
+function migrateCatalogs(manifest: TreeMap, target: RenameTarget, findings: Findings): void {
+  for (const { name, label, map } of manifestCatalogMaps(manifest)) {
+    const context = {
+      ...target,
+      map: { kind: "catalog", catalog: label, name } as const,
+      findings,
+    };
+    migrateSpecMap(specEntries(map), context);
   }
 }
 
@@ -111,14 +108,11 @@ function reportOldPeers(manifest: TreeMap, findings: Findings): void {
   }
 }
 
-function migrateManifestMap(manifest: TreeMap, version: string, findings: Findings): void {
-  migrateDependencyFields(manifest, version, findings);
+function migrateManifestMap(manifest: TreeMap, target: RenameTarget, findings: Findings): void {
+  migrateDependencyFields(manifest, target, findings);
   migrateNameKeys(manifest, findings);
   migrateNameLists(manifest, findings);
-  migrateCatalogs(manifest, "", version, findings);
-  for (const workspaces of mapsAt(manifest, WORKSPACES_FIELD)) {
-    migrateCatalogs(workspaces, `${WORKSPACES_FIELD}${CATALOG_PATH_SEPARATOR}`, version, findings);
-  }
+  migrateCatalogs(manifest, target, findings);
   reportOverrides(manifest, findings);
   reportOldPeers(manifest, findings);
 }
@@ -131,14 +125,14 @@ function migrateManifestMap(manifest: TreeMap, version: string, findings: Findin
 export function migratePackageManifest(
   text: string,
   read: DocumentRead,
-  version: string,
+  target: RenameTarget,
 ): FileMigration {
   if (read.kind === "unreadable") {
     return unreadableConfig(text, read.offset);
   }
   const findings = newFindings();
   for (const manifest of read.documents.filter(isMap)) {
-    migrateManifestMap(manifest, version, findings);
+    migrateManifestMap(manifest, target, findings);
   }
   const { edits, changes, manualSteps } = findings;
   return { text: applyTextEdits(text, edits), changes, manualSteps };

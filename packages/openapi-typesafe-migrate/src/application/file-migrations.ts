@@ -1,3 +1,4 @@
+import type { CatalogPlan } from "../domain/catalog-plan.js";
 import { migrateCommandLines } from "../domain/command-migration.js";
 import { commandStringSteps } from "../domain/command-strings.js";
 import {
@@ -40,6 +41,8 @@ import type { CallbackRewriter, DocumentReaders, SourceStringScanner } from "./p
 /** What a migration of one kind of file needs besides the text. */
 export interface MigrationContext {
   readonly version: string;
+  /** What the catalogs keep under the old names, from every manifest and catalog file. */
+  readonly catalogs: CatalogPlan;
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
   readonly readers: DocumentReaders;
@@ -179,28 +182,29 @@ const whenNamed =
 const FILE_KINDS: readonly FileKind[] = [
   {
     matches: (path) => baseName(path) === MANIFEST_FILE,
-    migrate: jsonConfig(({ version }) => [
-      (text, read) => migratePackageManifest(text, read, version),
+    migrate: jsonConfig(({ version, catalogs }) => [
+      (text, read) => migratePackageManifest(text, read, { version, catalogs }),
       jsonCommandsStep(PACKAGE_SCRIPT_PATHS),
     ]),
   },
   {
     matches: (path) => YAML_MANIFEST_FILES.has(baseName(path)),
-    migrate: yamlConfig(({ version }) => [
-      (text, read) => migratePackageManifest(text, read, version),
+    migrate: yamlConfig(({ version, catalogs }) => [
+      (text, read) => migratePackageManifest(text, read, { version, catalogs }),
       stringsStep(migrateYamlScripts),
     ]),
   },
   {
     matches: (path) => baseName(path) === WORKSPACE_FILE,
-    migrate: yamlConfig(({ version }) => [
-      (text, read) => migrateWorkspaceCatalogs(text, read, version, PNPM_WORKSPACE_FILE),
+    migrate: yamlConfig(({ version, catalogs }) => [
+      (text, read) =>
+        migrateWorkspaceCatalogs(text, read, { version, catalogs }, PNPM_WORKSPACE_FILE),
     ]),
   },
   {
     matches: (path) => baseName(path) === YARNRC_FILE_NAME,
-    migrate: yamlConfig(({ version }) => [
-      (text, read) => migrateWorkspaceCatalogs(text, read, version, YARNRC_FILE),
+    migrate: yamlConfig(({ version, catalogs }) => [
+      (text, read) => migrateWorkspaceCatalogs(text, read, { version, catalogs }, YARNRC_FILE),
     ]),
   },
   {
@@ -255,6 +259,31 @@ const FILE_KINDS: readonly FileKind[] = [
     migrate: whenNamed((text, path) => migrateCommandLines(text, path)),
   },
 ];
+
+/**
+ * How a file takes part in the catalog plan (domain/catalogs.ts): a manifest names dependencies
+ * on catalogs (and bun keeps catalogs in package.json), a workspace file holds catalogs.
+ */
+export interface CatalogSource {
+  readonly role: "manifest" | "catalogs";
+  readonly read: (text: string, readers: DocumentReaders) => DocumentRead;
+}
+
+const readJson = (text: string, readers: DocumentReaders) => readers.json.read(text);
+const readYaml = (text: string, readers: DocumentReaders) => readers.yaml.read(text);
+
+/** The part a file plays in the catalog plan, or undefined for a file that has no catalogs. */
+export function catalogSourceOf(path: string): CatalogSource | undefined {
+  const name = baseName(path);
+  if (name === MANIFEST_FILE) {
+    return { role: "manifest", read: readJson };
+  }
+  if (YAML_MANIFEST_FILES.has(name)) {
+    return { role: "manifest", read: readYaml };
+  }
+  const isCatalogFile = name === WORKSPACE_FILE || name === YARNRC_FILE_NAME;
+  return isCatalogFile ? { role: "catalogs", read: readYaml } : undefined;
+}
 
 /** The migration for a file, or undefined when the migration does not read that kind of file. */
 export function fileMigrationFor(path: string): FileKind["migrate"] | undefined {

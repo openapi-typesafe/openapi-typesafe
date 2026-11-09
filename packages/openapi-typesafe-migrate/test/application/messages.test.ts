@@ -27,6 +27,8 @@ const STEPS: readonly ManualStep[] = [
   { kind: "config-unreadable", position: undefined },
   { kind: "entry-not-edited", field: "catalog", name: "a" },
   { kind: "name-collision", field: "dependencies", from: "a", to: "b" },
+  { kind: "catalog-reference-kept", field: "dependencies", name: "a", catalog: "default" },
+  { kind: "catalog-entry-in-use", catalog: "catalogs.legacy", name: "a" },
   { kind: "peer-dependency-renamed", name: "b" },
   { kind: "spec-kept", name: "b", spec: "latest" },
   { kind: "override-names-package", field: "overrides", name: "a" },
