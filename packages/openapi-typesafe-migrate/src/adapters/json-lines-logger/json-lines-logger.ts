@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, fstatSync, mkdirSync, mkdtempSync, openSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Logger } from "../../application/ports.js";
 
@@ -10,6 +10,8 @@ export interface JsonLinesLoggerOptions {
    * The file must not exist yet: it is created with `O_CREAT | O_EXCL`, which also refuses a
    * link at the path instead of following it. Used for the default log in the temporary folder.
    * Without it, an existing file (the user's `--log`) gets the new lines appended.
+   * Either way the file is opened when the logger is created, so a path that cannot be a log
+   * file (a folder, a read-only place) fails before the migration starts.
    */
   readonly isExclusive: boolean;
 }
@@ -24,6 +26,42 @@ const TIME_SEPARATOR = ":";
 /** `:` is not allowed in Windows file names. */
 const FILE_NAME_TIME_SEPARATOR = "-";
 
+/** The path names a folder, so lines cannot be appended to it. */
+export class LogPathIsFolderError extends Error {
+  override readonly name = "LogPathIsFolderError";
+
+  constructor(path: string) {
+    super(`${path} is a folder; --log takes a file path`);
+  }
+}
+
+const EXCLUSIVE_CREATE_FLAG = "wx";
+const APPEND_FLAG = "a";
+const IS_A_DIRECTORY_CODE = "EISDIR";
+
+/**
+ * Create or open the log file once, to fail early. POSIX refuses to open a folder for writing
+ * (EISDIR), but Windows opens it and accepts empty writes, so the opened file is also checked.
+ */
+function openLogFile(path: string, isExclusive: boolean): void {
+  let descriptor: number;
+  try {
+    descriptor = openSync(path, isExclusive ? EXCLUSIVE_CREATE_FLAG : APPEND_FLAG, LOG_FILE_MODE);
+  } catch (error) {
+    throw isDirectoryError(error) ? new LogPathIsFolderError(path) : error;
+  }
+  try {
+    if (fstatSync(descriptor).isDirectory()) {
+      throw new LogPathIsFolderError(path);
+    }
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+const isDirectoryError = (error: unknown): boolean =>
+  error instanceof Error && "code" in error && error.code === IS_A_DIRECTORY_CODE;
+
 /**
  * The Logger port as a JSON Lines file: one object per event with a UTC timestamp, the level and
  * the event's fields. Lines are appended synchronously, so the log is complete when the command
@@ -34,11 +72,10 @@ class JsonLinesLogger implements Logger {
 
   constructor(options: JsonLinesLoggerOptions) {
     this.#options = options;
-    if (options.isExclusive) {
-      writeFileSync(options.path, "", { flag: "wx", mode: LOG_FILE_MODE });
-    } else {
+    if (!options.isExclusive) {
       mkdirSync(dirname(options.path), { recursive: true });
     }
+    openLogFile(options.path, options.isExclusive);
   }
 
   info(event: string, fields: Readonly<Record<string, unknown>> = {}): void {

@@ -1,10 +1,21 @@
 import type { Dirent } from "node:fs";
-import { chmod, lstat, readdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  lstat,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import type {
   Logger,
   ProjectFileList,
   ProjectFiles,
+  ProjectRootState,
   SkippedFile,
 } from "../../application/ports.js";
 import type { GitFileList } from "../git-file-list/git-file-list.js";
@@ -246,4 +257,22 @@ export function createNodeProjectFiles(
   options: NodeProjectFilesOptions,
 ): ProjectFiles {
   return new NodeProjectFiles(root, options);
+}
+
+const MISSING_PATH_CODES: ReadonlySet<string> = new Set(["ENOENT", "ENOTDIR"]);
+
+/**
+ * Whether `root` is a folder the migration can list, by its real path (a link to a folder is
+ * one). Asked before anything is listed, so `--root` naming a file or nothing fails with a clear
+ * message instead of git's or the file system's.
+ */
+export async function inspectProjectRoot(root: string): Promise<ProjectRootState> {
+  try {
+    return (await stat(root)).isDirectory() ? "directory" : "not-a-directory";
+  } catch (error) {
+    if (MISSING_PATH_CODES.has((error as NodeJS.ErrnoException).code ?? "")) {
+      return "missing";
+    }
+    throw error;
+  }
 }

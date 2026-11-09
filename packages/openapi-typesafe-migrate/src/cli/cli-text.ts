@@ -1,3 +1,5 @@
+import type { ProjectRootState } from "../application/ports.js";
+
 /** The command's own text: help, usage errors and the closing notes. */
 
 export const HELP_TEXT = `Usage
@@ -23,6 +25,15 @@ export const usageError = (message: string): string =>
   `${message}\nRun openapi-typesafe-migrate --help for the options.\n`;
 
 export const logNote = (path: string): string => `Log: ${path}\n`;
+
+const ROOT_PROBLEMS: Readonly<Record<Exclude<ProjectRootState, "directory">, string>> = {
+  missing: "does not exist",
+  "not-a-directory": "is not a folder; --root takes the project folder",
+};
+
+/** The project folder, as resolved from `--root` or the current directory, cannot be listed. */
+export const rootError = (root: string, state: Exclude<ProjectRootState, "directory">): string =>
+  `The project folder ${root} ${ROOT_PROBLEMS[state]}\n`;
 
 /** `path` is the `--log` value as given; without one the log goes to the temporary directory. */
 export const logError = (path: string | undefined, message: string): string =>

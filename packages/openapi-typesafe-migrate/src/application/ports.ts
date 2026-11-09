@@ -17,6 +17,9 @@ export interface ProjectFileList {
   readonly skipped: readonly SkippedFile[];
 }
 
+/** What the path given as the project folder is. */
+export type ProjectRootState = "directory" | "missing" | "not-a-directory";
+
 /** The project's files, by paths relative to the project root, with `/` separators. */
 export interface ProjectFiles {
   /** Every file of the project, without installed packages, git metadata and build output. */

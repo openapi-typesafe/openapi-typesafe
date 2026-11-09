@@ -19,7 +19,10 @@ import {
   createGitFileList,
   type GitListing,
 } from "../../src/adapters/git-file-list/git-file-list.js";
-import { createNodeProjectFiles } from "../../src/adapters/node-project-files/node-project-files.js";
+import {
+  createNodeProjectFiles,
+  inspectProjectRoot,
+} from "../../src/adapters/node-project-files/node-project-files.js";
 import { FixedGitFileList } from "../fakes/fixed-git-file-list.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
 
@@ -322,5 +325,16 @@ describe("NodeProjectFiles", () => {
     await files.write("src/a.ts", `${await files.read("src/a.ts")} new`);
 
     expect(await readFile(join(root, "src/a.ts"), "utf8")).toBe("old new");
+  });
+
+  it("inspectProjectRoot tells a folder, a file and a missing path apart", async () => {
+    await put("package.json", "{}");
+    await symlink(root, join(root, "link"));
+
+    expect(await inspectProjectRoot(root)).toBe("directory");
+    expect(await inspectProjectRoot(join(root, "link"))).toBe("directory");
+    expect(await inspectProjectRoot(join(root, "package.json"))).toBe("not-a-directory");
+    expect(await inspectProjectRoot(join(root, "missing"))).toBe("missing");
+    expect(await inspectProjectRoot(join(root, "package.json", "x"))).toBe("missing");
   });
 });

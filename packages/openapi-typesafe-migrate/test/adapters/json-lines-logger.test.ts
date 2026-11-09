@@ -1,10 +1,11 @@
-import { lstat, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createJsonLinesLogger,
   createTemporaryLogPath,
+  LogPathIsFolderError,
 } from "../../src/adapters/json-lines-logger/json-lines-logger.js";
 
 const TIME = new Date("2026-11-02T10:00:00.000Z");
@@ -55,6 +56,15 @@ describe("JsonLinesLogger", () => {
       expect((await stat(path)).mode & PERMISSION_BITS).toBe(OWNER_ONLY_FILE);
     },
   );
+
+  it("a logger that is not exclusive fails on creation when its path is a folder", async () => {
+    const path = join(directory, "logs");
+    await mkdir(path);
+
+    expect(() => createJsonLinesLogger({ path, now: () => TIME, isExclusive: false })).toThrow(
+      LogPathIsFolderError,
+    );
+  });
 
   it("a logger that is not exclusive appends to an existing file", async () => {
     const path = join(directory, "run.jsonl");

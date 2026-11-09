@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
-import type { Logger, ProjectFiles } from "../../src/application/ports.js";
+import type { Logger, ProjectFiles, ProjectRootState } from "../../src/application/ports.js";
 import { HELP_TEXT } from "../../src/cli/cli-text.js";
 import { type CliDependencies, EXIT_CODES, runCli } from "../../src/cli/run-cli.js";
 import { InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
@@ -11,7 +11,10 @@ import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
 
 const LOG_PATH = "/tmp/run.jsonl";
 
-function setUp(createFiles: (root: string) => ProjectFiles) {
+function setUp(
+  createFiles: (root: string) => ProjectFiles,
+  rootState: ProjectRootState = "directory",
+) {
   const output = {
     stdout: "",
     stderr: "",
@@ -29,6 +32,7 @@ function setUp(createFiles: (root: string) => ProjectFiles) {
     writeStderr: (text) => {
       output.stderr += text;
     },
+    inspectRoot: () => Promise.resolve(rootState),
     createFiles: (root, filesLogger) => {
       output.roots.push(root);
       output.fileLoggers.push(filesLogger);
@@ -147,6 +151,27 @@ describe("runCli", () => {
       "Cannot create the log in the temporary directory: ENOSPC: no space left on device\n",
     );
   });
+
+  it.each([
+    ["missing", "The project folder /work/app does not exist\n"],
+    [
+      "not-a-directory",
+      "The project folder /work/app is not a folder; --root takes the project folder\n",
+    ],
+  ] as const)(
+    "runCli with a root that is %s fails before listing files",
+    async (state, message) => {
+      const { dependencies, output, logger } = setUp(project, state);
+
+      expect(await runCli(["--root", "app"], dependencies)).toBe(EXIT_CODES.failure);
+      expect(output.stderr).toBe(message);
+      expect(output.stdout).toBe(`Log: ${LOG_PATH}\n`);
+      expect(output.roots).toEqual([]);
+      expect(logger.events).toEqual([
+        { level: "warn", event: "root_unusable", fields: { root: "/work/app", rootState: state } },
+      ]);
+    },
+  );
 
   it("runCli passes on errors that are not usage errors", async () => {
     const { dependencies } = setUp(project);
