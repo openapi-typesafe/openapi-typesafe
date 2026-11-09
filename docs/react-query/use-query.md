@@ -10,8 +10,10 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
 - The query key is `[method, path, options]`, or `[method, path]` without options, so
   `[method, path]` matches every variant in `invalidateQueries`. `options` is the whole `init`
   object, such as `{ params: { path: { id: 1 } } }`: pass that to `setQueryData`, not `params`.
-- `data` and `error` are fully typed. `error` is the declared error body, or a
-  [`ResponseError`](./index.md#errors) when the response failed without one.
+- `data` and `error` are fully typed. `error` is the declared error body, a
+  [`ResponseError`](./index.md#errors) when the response failed without one, or the `Error` of
+  a request that got no response to read (a network or parse error). Tell them apart with
+  `isResponseError(error)`.
 - A successful response without a body (a 204, an empty body, any HEAD response) gives
   `data: null`: TanStack Query does not accept `undefined` query data. `useSuspenseQuery` and
   `queryOptions` do the same, and the types say so: the data of an operation with a 204 is

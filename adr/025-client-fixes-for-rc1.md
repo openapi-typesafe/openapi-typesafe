@@ -161,6 +161,16 @@ openapi-fetch 0.17.
 | Leave `fetch` unchecked | No change from openapi-fetch | `data` and `error` swap without any error |
 | Pass the error to `onError` | Middleware can recover | Hides a bug in the options as a network error |
 
+## Amendment (2026-11-09): the hook error type has the other errors in 1.0
+
+Decision 11 kept network and middleware errors out of the hook error type until 2.0 (backlog item
+35), since code that reads the error body without narrowing would stop compiling. ADR-013
+(amendments of 2026-11-09) added `ResponseError` to that type for 1.0, which already makes such
+code narrow, and the type hunt found that the documented narrowing `error instanceof Error` then
+claimed `status` for a network error. So item 35 is done in 1.0: the error type also has TanStack
+Query's `DefaultError` (ADR-013, last amendment, decision 3). Item 34 (excess keys in `params` and
+`body`) stays for 2.0.
+
 ## Review trigger
 
 The 2.0 planning (items 32 to 35); a TypeScript release that infers return types through a dependent

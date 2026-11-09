@@ -2,29 +2,44 @@ import { defineBuildConfig } from "unbuild";
 
 /** unbuild's plugin that rewrites the CommonJS declarations to `export = <default export>`. */
 const CJS_DEFAULT_EXPORT_PLUGIN = "fix-dts-default-cjs-exports-plugin";
-const DEFAULT_EXPORT = /^export \{ (\w+) as default \};$/m;
+const VALUE_EXPORTS = /^export \{ ([^}]+) \};$/m;
 const TYPE_EXPORTS = /^export type \{ ([^}]+) \};$/m;
+const DEFAULT_SPECIFIER = /^(\w+) as default$/;
 
 /**
- * `require()` returns `createClient` itself (`module.exports = createClient`, ADR-022), so the
- * CommonJS declarations say `export = createClient`. Such a module may not export anything else
- * (TS2309, reported with `skipLibCheck: false`), so the exported types go into a namespace merged
- * with the function, where `import type { QueryKey } from` still finds them. unbuild's own rewrite
- * kept `export type { … }` next to `export =`, and also rewrote `index.d.ts`, which describes the
- * ES module of `main`.
+ * `require()` returns `createClient` itself (ADR-022), with the named exports, such as
+ * `isResponseError`, as its properties: `require(…).isResponseError` and
+ * `const { isResponseError } = require(…)` work, as in the ES module. Rollup's named CommonJS
+ * exports would return `{ default, isResponseError }` instead.
+ */
+const CJS_EXPORTS_FOOTER = "module.exports = Object.assign(exports.default, exports);";
+
+/**
+ * The CommonJS declarations say what `require()` returns: `export = createClient`. Such a module
+ * may not export anything else (TS2309, reported with `skipLibCheck: false`), so the other exports
+ * go into a namespace merged with the function, where `import type { QueryKey } from` and
+ * `createClient.isResponseError` still find them. unbuild's own rewrite kept `export type { … }`
+ * next to `export =`, and also rewrote `index.d.ts`, which describes the ES module of `main`.
  */
 function cjsDeclarations() {
   return {
     name: "cjs-declarations",
     renderChunk(code: string, chunk: { fileName: string }) {
-      const defaultExport = DEFAULT_EXPORT.exec(code);
+      const valueExports = VALUE_EXPORTS.exec(code);
       const typeExports = TYPE_EXPORTS.exec(code);
-      if (!chunk.fileName.endsWith(".d.cts") || !defaultExport || !typeExports) {
+      if (!chunk.fileName.endsWith(".d.cts") || !valueExports || !typeExports) {
         return null;
       }
-      const name = defaultExport[1];
-      const namespace = `declare namespace ${name} {\n  export { ${typeExports[1]} };\n}\nexport = ${name};`;
-      const declarations = code.replace(TYPE_EXPORTS, "").replace(DEFAULT_EXPORT, namespace);
+      const specifiers = valueExports[1]?.split(", ") ?? [];
+      const name = specifiers
+        .map((specifier) => DEFAULT_SPECIFIER.exec(specifier)?.[1])
+        .find((match) => match !== undefined);
+      if (!name) {
+        throw new Error(`cjs-declarations: no default export in ${chunk.fileName}`);
+      }
+      const named = [...specifiers.filter((specifier) => !DEFAULT_SPECIFIER.test(specifier)), typeExports[1]];
+      const namespace = `declare namespace ${name} {\n  export { ${named.join(", ")} };\n}\nexport = ${name};`;
+      const declarations = code.replace(TYPE_EXPORTS, "").replace(VALUE_EXPORTS, namespace);
       return `${declarations.trimEnd()}\n`;
     },
   };
@@ -38,8 +53,17 @@ export default defineBuildConfig({
   rollup: {
     // Ship CommonJS-compatible bundle
     emitCJS: true,
+    // `exports: "named"` is what Rollup picks for a default and named exports; the CommonJS footer
+    // turns it into `createClient` with properties.
+    output: { exports: "named" },
   },
   hooks: {
+    "rollup:options"(_ctx, options) {
+      const outputs = Array.isArray(options.output) ? options.output : [options.output ?? {}];
+      options.output = outputs.map((output) =>
+        output.format === "cjs" ? { ...output, footer: CJS_EXPORTS_FOOTER } : output,
+      );
+    },
     "rollup:dts:options"(_ctx, options) {
       const plugins = Array.isArray(options.plugins) ? options.plugins : [options.plugins];
       const kept = plugins.filter(

@@ -140,27 +140,42 @@ You can find more information about `createFetchClient` on the [openapi-typesafe
 
 When a request fails, the hooks throw the error body that the schema declares for the status, and
 TanStack Query puts it in `error`. A response can also fail without an error body: a `503` with an
-empty body from a proxy, or a status whose operation declares no content. The fetch client gives
-`error: undefined` then, and the hooks throw a `ResponseError` instead, so `error` is never
-`undefined` once the query failed. Its type is the error body or `ResponseError`:
+empty body from a proxy, a JSON `null` body, or a status whose operation declares no content. The
+fetch client gives `error: undefined` (or `null`) then, and the hooks throw a `ResponseError`
+instead, so `error` is set once the query failed. A request can also fail before there is a
+response to read: a network error (`TypeError`), an abort, a success body that is not JSON
+(`SyntaxError`), or an error that a middleware throws. TanStack Query puts that error in `error`
+too. So the type of `error` is the error body, `ResponseError`, or TanStack Query's
+`DefaultError` (`Error`, unless you
+[register another type](https://tanstack.com/query/latest/docs/framework/react/typescript#registering-a-global-error)).
+Tell them apart with `isResponseError`:
 
 ```tsx
+import createClient, { isResponseError } from "openapi-typesafe-react-query";
+
 const { error } = $api.useQuery("get", "/blogposts/{post_id}", {
   params: { path: { post_id: "5" } },
 });
 
-if (error instanceof Error) {
-  // A ResponseError: `error.status`, `error.response`, and a message such as
+if (isResponseError(error)) {
+  // `error.status`, `error.response`, and a message such as
   // "Request failed with status 503 Service Unavailable and no error body".
   return `The server answered ${error.status}`;
 }
+if (error instanceof Error) return `The request failed: ${error.message}`; // no response to read
 if (error) return `An error occurred: ${error.message}`; // the declared error body
 ```
 
-`ResponseError` is a type (`import type { ResponseError } from "openapi-typesafe-react-query"`),
-not a class you can import: narrow with `error instanceof Error` or
-`error.name === "ResponseError"`. Its message names the status, never the URL, which can carry
-tokens. A falsy error body such as `0` is thrown as it is.
+`error instanceof Error` alone does not find a `ResponseError`: it is also true for a network or
+parse error, which has no `status`. An error body from JSON is never an `Error`.
+`isResponseError` checks the `name` (`"ResponseError"`), so it also knows a `ResponseError` of
+another copy of the package, such as its CommonJS build next to its ES module build. With
+CommonJS, `require("openapi-typesafe-react-query")` returns `createClient`, and `isResponseError`
+is one of its properties: `const { isResponseError } = require("openapi-typesafe-react-query")`.
+`ResponseError` itself is a type (`import type { ResponseError }`). Its message names the status,
+never the URL, which can carry tokens. A falsy error body such as `0` or `false` is thrown as it
+is.
+
 
 ## Libraries that export hooks
 

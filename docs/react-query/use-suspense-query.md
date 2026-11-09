@@ -9,8 +9,10 @@ The `useSuspenseQuery` method allows you to use the original [useSuspenseQuery](
 - The result is the same as the original function.
 - The query key is the one of [`useQuery`](./use-query): `[method, path, options]`, or
   `[method, path]` without options.
-- `data` and `error` are fully typed. `error` is the declared error body, or a
-  [`ResponseError`](./index.md#errors) when the response failed without one.
+- `data` and `error` are fully typed. `error` is the declared error body, a
+  [`ResponseError`](./index.md#errors) when the response failed without one, or the `Error` of
+  a request that got no response to read (a network or parse error). Tell them apart with
+  `isResponseError(error)`.
 - You can pass query options as fourth parameter.
 
 ::: tip

@@ -91,13 +91,17 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
 
 A query or mutation fails on every non-OK response, also one without a body. The thrown value
 is the typed error body of the operation, or a `ResponseError` (`name: "ResponseError"`,
-`status`, `response`) when the response had no error body. So in the hook result:
+`status`, `response`) when the response had no error body (none, or JSON `null`). So in the hook
+result:
 
 - `error` is set whenever the query failed; `if (error)` and `isError` agree;
-- its type is the error body type (for example `{ code: string; message: string }`) or
-  `ResponseError`; narrow with `error instanceof Error` before you read a field of the body;
-- `ResponseError` is a type only (`import type`), not a class to import;
-- network errors and aborts reject as usual.
+- its type is the error body type (for example `{ code: string; message: string }`), or
+  `ResponseError`, or TanStack Query's `DefaultError` (`Error`): network errors, aborts, a body
+  that is not JSON and middleware errors reach `error` too;
+- `isResponseError(error)` (a named export; with CommonJS a property of what `require()`
+  returns) narrows to `ResponseError`; `error instanceof Error` is also true for a network error,
+  so it does not prove there is a `status`;
+- `ResponseError` itself is a type only (`import type`).
 
 A `204` success gives `data: null` in queries.
 
@@ -108,7 +112,9 @@ A `204` success gives `data: null` in queries.
 | `$api.useQuery("GET", ...)` | Lower-case method: `"get"` |
 | `$api.useQuery("get", "/pets/{petId}", { petId })` | `{ params: { path: { petId } } }` |
 | `useMutation(...).mutate(pet)` | `mutate({ body: pet })` |
-| `error.code` without narrowing | `if (error instanceof Error)` first: a failure without an error body is a `ResponseError` |
-| `error.message` on a typed error body | Use the fields the document defines; `message` is the `ResponseError`'s only when `error instanceof Error` |
+| `error.code` without narrowing | `if (isResponseError(error))` and `if (error instanceof Error)` first: a failure without an error body is a `ResponseError`, one without a response an `Error` |
+| `error.status` after `error instanceof Error` | `isResponseError(error)`: a network or parse error is an `Error` without `status` |
+| `error.name === "ResponseError"` | `isResponseError(error)`: an error body may have no `name`, and then this does not compile |
+| `error.message` on a typed error body | Use the fields the document defines; `message` is the `Error`'s only when `error instanceof Error` |
 | Wrapping `fetchClient.GET` in `useQuery` by hand | Use `$api.useQuery` or `$api.queryOptions`; they set the key, the signal and the error handling |
 | Middleware registered on `$api` | Register it on the fetch client: `fetchClient.use(...)` |
