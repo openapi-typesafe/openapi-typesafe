@@ -25,7 +25,7 @@ describe("migrateCommand", () => {
     ]);
   });
 
-  it("migrateCommand leaves the helpers package alone and reports a file of the old package", () => {
+  it("migrateCommand reports a file of the old package and an argument it cannot tell", () => {
     const text =
       "node node_modules/openapi-typescript/bin/cli.js && echo openapi-typescript-helpers";
 
@@ -38,6 +38,7 @@ describe("migrateCommand", () => {
           location: "x",
           path: "node_modules/openapi-typescript/bin/cli.js",
         },
+        { kind: "old-name-in-command", location: "x", word: "openapi-typescript-helpers" },
       ],
     });
   });
@@ -83,14 +84,69 @@ describe("migrateCommand on the words of each command", () => {
     );
   });
 
-  it("migrateCommand never renames a script name", () => {
+  it("migrateCommand never renames a script name, and reports it", () => {
     for (const script of [
       "npm run openapi-typescript",
       "pnpm run openapi-typescript -- -it",
       "yarn run openapi-typescript",
+      "bun run openapi-typescript",
     ]) {
-      expect(text(script)).toBe(script);
+      const migrated = migrateCommand(script, "s");
+
+      expect(migrated.text).toBe(script);
+      expect(migrated.manualSteps).toEqual([
+        { kind: "old-name-in-command", location: "s", word: "openapi-typescript" },
+      ]);
     }
+  });
+
+  it.each([
+    ["nice -n 10 openapi-typescript a", "nice -n 10 openapi-typesafe a"],
+    ["timeout -s KILL 60 openapi-typescript a", "timeout -s KILL 60 openapi-typesafe a"],
+    ["xargs -n 1 openapi-typescript -it", "xargs -n 1 openapi-typesafe --immutable"],
+    ["command openapi-typescript a", "command openapi-typesafe a"],
+    ["exec -a gen openapi-typescript a", "exec -a gen openapi-typesafe a"],
+    [
+      "dotenvx run -f .env -- npx openapi-typescript a",
+      "dotenvx run -f .env -- npx openapi-typesafe a",
+    ],
+    ["doppler run -p api -- openapi-typescript a", "doppler run -p api -- openapi-typesafe a"],
+    ["nx exec -- openapi-typescript a", "nx exec -- openapi-typesafe a"],
+    ["yarn workspace api openapi-typescript a", "yarn workspace api openapi-typesafe a"],
+    ["bun openapi-typescript a", "bun openapi-typesafe a"],
+    ["bun x openapi-typescript a", "bun x openapi-typesafe a"],
+    ["corepack pnpm dlx openapi-typescript a", "corepack pnpm dlx openapi-typesafe a"],
+    [
+      "tsx --import ./env.ts node_modules/.bin/openapi-typescript a",
+      "tsx --import ./env.ts node_modules/.bin/openapi-typesafe a",
+    ],
+    [
+      "ts-node -P tsconfig.json node_modules/.bin/openapi-typescript a",
+      "ts-node -P tsconfig.json node_modules/.bin/openapi-typesafe a",
+    ],
+  ])("migrateCommand renames the generator after a wrapper: %s", (script, migrated) => {
+    expect(text(script)).toBe(migrated);
+  });
+
+  it("migrateCommand reports the generator after a program it does not know", () => {
+    const migrated = migrateCommand("chronic openapi-typescript a -it && echo done", "s");
+
+    expect(migrated.text).toBe("chronic openapi-typescript a -it && echo done");
+    expect(migrated.manualSteps).toEqual([
+      { kind: "old-name-in-command", location: "s", word: "openapi-typescript" },
+    ]);
+  });
+
+  it("migrateCommand reports a path to the old binary or a file of an old package", () => {
+    const migrated = migrateCommand(
+      "chronic ./node_modules/.bin/openapi-typescript && cat node_modules/openapi-fetch/README.md",
+      "s",
+    );
+
+    expect(migrated.manualSteps.map((step) => step.kind)).toEqual([
+      "old-name-in-command",
+      "old-name-in-command",
+    ]);
   });
 
   it.each([
@@ -132,6 +188,10 @@ describe("migrateCommand on the words of each command", () => {
       expect(text(script)).toBe(migrated);
     },
   );
+
+  it("migrateCommand renames the package of a Yarn 1 global install", () => {
+    expect(text("yarn global add openapi-typescript")).toBe("yarn global add openapi-typesafe");
+  });
 
   it("migrateCommand renames every original package of an install command", () => {
     const migrated = migrateCommand("npm i -D openapi-typescript openapi-fetch zod", "s");

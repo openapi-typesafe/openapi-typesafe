@@ -15,6 +15,7 @@ const STEPS: readonly ManualStep[] = [
   { kind: "spec-kept", name: "b", spec: "latest" },
   { kind: "override-names-package", field: "overrides", name: "a" },
   { kind: "versioned-command", location: "ci.yml:3" },
+  { kind: "old-name-in-command", location: "ci.yml:4", word: "openapi-typescript" },
   { kind: "flags-in-variable", location: "Makefile:4", variable: "$(FLAGS)", flags: ["-it"] },
   {
     kind: "variable-not-only-generator",

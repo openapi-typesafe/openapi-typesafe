@@ -70,9 +70,47 @@ const container = (words: readonly string[]): Launcher => ({
   operands: 1,
 });
 
+/** A launcher with arguments before the program: the duration of `timeout 60 <command>`. */
+const withOperands = (
+  words: readonly string[],
+  operands: number,
+  valueOptions: ReadonlySet<string> = NONE,
+): Launcher => ({ ...launcher(words, NONE, valueOptions), operands });
+
+/** Options of `xargs` that take a value (GNU and BSD). */
+const XARGS_OPTIONS: ReadonlySet<string> = new Set([
+  "-I",
+  "-J",
+  "-L",
+  "-n",
+  "-P",
+  "-R",
+  "-S",
+  "-s",
+  "-d",
+  "-E",
+  "-a",
+  "--max-args",
+  "--max-procs",
+  "--max-lines",
+  "--delimiter",
+  "--arg-file",
+]);
+
+/** Options of `node`, which `tsx` and `ts-node` take too, that are followed by a value. */
+const NODE_OPTIONS: ReadonlySet<string> = new Set([
+  "-r",
+  "--require",
+  "--import",
+  "--loader",
+  "--env-file",
+]);
+
 /**
- * The launchers, longest first, so `pnpm dlx` wins over `pnpm`. A bare `pnpm <name>` or
- * `yarn <name>` runs the binary `<name>` when no script has that name; `run` names a script.
+ * The launchers, longest first, so `pnpm dlx` wins over `pnpm`. A bare `pnpm <name>`, `yarn
+ * <name>` or `bun <name>` runs the binary `<name>` when no script has that name; `run` names a
+ * script first, so `npm run`, `yarn run` and `bun run` are no launchers: a word after them that
+ * names an old package is reported (command-migration.ts).
  */
 export const LAUNCHERS: readonly Launcher[] = [
   launcher(["npm", "exec"], PACKAGE_OPTIONS),
@@ -82,19 +120,36 @@ export const LAUNCHERS: readonly Launcher[] = [
   launcher(["yarn", "dlx"], PACKAGE_OPTIONS),
   launcher(["yarn", "exec"]),
   launcher(["bun", "x"], PACKAGE_OPTIONS),
+  withOperands(["yarn", "workspace"], 1),
+  launcher(["dotenvx", "run"], NONE, new Set(["-f", "--env-file", "-e", "--env", "--convention"])),
+  launcher(
+    ["doppler", "run"],
+    NONE,
+    new Set(["-p", "--project", "-c", "--config", "--token", "--mount", "--scope"]),
+  ),
+  launcher(["nx", "exec"], NONE, new Set(["--projects", "-p", "--exclude"])),
   launcher(["deno", "run"], NONE, new Set(["--config", "-c", "--import-map", "--location"])),
   launcher(["deno", "x"]),
   launcher(["npx"], PACKAGE_OPTIONS, new Set(["-c", "--call"])),
   launcher(["pnpx"], PACKAGE_OPTIONS),
   launcher(["bunx"], PACKAGE_OPTIONS),
+  // Like a bare `pnpm <name>`, a bare `bun <name>` runs the binary when no script has the name.
+  launcher(["bun"], NONE, new Set(["--cwd", "--filter", "-F"])),
+  launcher(["corepack"]),
   launcher(["pnpm"], NONE, PACKAGE_MANAGER_OPTIONS),
   launcher(["yarn"], NONE, PACKAGE_MANAGER_OPTIONS),
-  launcher(["node"], NONE, new Set(["-r", "--require", "--import", "--loader", "--env-file"])),
+  launcher(["node"], NONE, NODE_OPTIONS),
+  launcher(["tsx"], NONE, NODE_OPTIONS),
+  launcher(["ts-node"], NONE, new Set([...NODE_OPTIONS, "-P", "--project", "-O", "--compiler"])),
   launcher(["cross-env"]),
   launcher(["dotenv"], NONE, new Set(["-e", "-c", "-v"])),
   launcher(["env"], NONE, new Set(["-u", "--unset", "-C", "--chdir"])),
-  launcher(["exec"]),
+  launcher(["exec"], NONE, new Set(["-a"])),
+  launcher(["command"]),
   launcher(["time"]),
+  launcher(["nice"], NONE, new Set(["-n", "--adjustment"])),
+  withOperands(["timeout"], 1, new Set(["-s", "--signal", "-k", "--kill-after"])),
+  launcher(["xargs"], NONE, XARGS_OPTIONS),
   launcher(["nohup"]),
   launcher(["sudo"], NONE, new Set(["-u", "-g"])),
   // The shell form of Dockerfile instructions runs the rest of the line in a shell.
@@ -123,6 +178,9 @@ export const INSTALLERS: readonly Installer[] = [
   ...installers("npm", NPM_INSTALL),
   ...installers("pnpm", ["add", "update", "up", "remove", "rm", "uninstall", "un"]),
   ...installers("yarn", ["add", "upgrade", "up", "remove"]),
+  // Yarn 1 installs global packages with `yarn global add`.
+  { words: ["yarn", "global", "add"] },
+  { words: ["yarn", "global", "remove"] },
   ...installers("bun", ["add", "a", "update", "remove", "rm", "install", "i"]),
   ...installers("deno", ["add", "install", "i", "remove", "uninstall"]),
 ];
