@@ -15,16 +15,14 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  createGitFileList,
-  type GitListing,
-} from "../../src/adapters/git-file-list/git-file-list.js";
+import type { GitListing } from "../../src/adapters/git-file-list/git-file-list.js";
 import {
   createNodeProjectFiles,
   inspectProjectRoot,
 } from "../../src/adapters/node-project-files/node-project-files.js";
 import { FixedGitFileList } from "../fakes/fixed-git-file-list.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
+import { createRealGitFileList } from "./real-git.js";
 
 const NOT_A_REPOSITORY: GitListing = { kind: "unavailable", reason: "not a git repository" };
 
@@ -192,7 +190,7 @@ describe("NodeProjectFiles", () => {
 
   function filesWithGit(directory: string) {
     const logger = new RecordingLogger();
-    const git = createGitFileList(process.env);
+    const git = createRealGitFileList();
     return { files: createNodeProjectFiles(join(root, directory), { git, logger }), logger };
   }
 
