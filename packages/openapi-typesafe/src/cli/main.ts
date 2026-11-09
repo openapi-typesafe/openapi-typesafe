@@ -3,6 +3,7 @@ import { isatty } from "node:tty";
 import { pathToFileURL } from "node:url";
 import colors from "ansi-colors";
 import { createNodeFileSystem } from "../adapters/node-file-system/node-file-system.js";
+import { createPipeSafeWriter } from "../adapters/pipe-safe-writer/pipe-safe-writer.js";
 import { createRedoclyConfigSource } from "../adapters/redocly-loader/redocly-config-source.js";
 import { astToString } from "../api/ast-to-string.js";
 import { COMMENT_HEADER } from "../api/comment-header.js";
@@ -58,7 +59,7 @@ function processDependencies(): CliDependencies {
     version: readVersion(),
     logger: defaultLogger(false),
     console: terminalConsole(),
-    writeStdout: (text) => process.stdout.write(text),
+    writeStdout: createPipeSafeWriter(process.stdout),
     stdin: () => process.stdin,
     // `isatty` reads the descriptor without opening `process.stdin`, which would keep the
     // process alive.
