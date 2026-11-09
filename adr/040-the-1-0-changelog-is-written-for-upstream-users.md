@@ -77,3 +77,21 @@ did change.
 Consequence: the rc entry of the next candidate does not show a change that went into a changeset
 of `.changeset/pre/` (rules 6 and 7); the 1.0.0 entry does. Users of a candidate read its pull
 requests and the migration guide, which list every change.
+
+## Amendment (2026-11-09): what rule 8 looks for
+
+The recheck found that the rule 8 check knew only `ADR-<number>`, "audit finding" and "hunt item",
+so `ADR 043`, `adr-043`, a link to `adr/…`, "security audit (B2)", "round-2 hunt (S4)" and
+"Fixes PB-14" passed. The check now finds an ADR in any of these spellings, a link or path into
+`adr/`, the words "audit" (not `npm audit`) and "hunt", and the items of the audit and hunt
+reports: `(B2)`, `(S4)`, `(G13)`, `(RC4 S4)` in parentheses and `PB-<number>`. Item names stay
+apart from public ones: `TS2589`, `ISO 8601`, `UTF-8`, threat model items such as `T2` and
+`R1`, and `S3` outside parentheses pass. The patterns live in `scripts/changeset-texts.mjs`, with
+tests that `pnpm lint` runs on Node's own test runner, so the check needs no test framework at
+the root.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Patterns for each form, with tests (chosen) | Finds the forms that were missed; tested false positives | A new kind of report item needs a new pattern |
+| Any `[A-Z]+-?\d+` token | Finds every item name | Flags `UTF-8`, `TS2589`, `ISO-8601` and threat model items |
+| Review by hand | No code | Missed six forms in one round |
