@@ -13,6 +13,11 @@ import type {
   Writable,
 } from "openapi-typesafe-helpers";
 
+// Types inferred from the client print helper types. A library built with `declaration: true`
+// under pnpm or Yarn PnP does not depend on the helpers package, so TypeScript names them through
+// this one; without the re-export it fails with TS2742 (ADR-034).
+export type * from "openapi-typesafe-helpers";
+
 /** Options for each client instance */
 export interface ClientOptions extends Omit<RequestInit, "headers"> {
   /** set the common root URL for all API requests */
