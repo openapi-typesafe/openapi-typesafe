@@ -14,8 +14,10 @@ import type {
 } from "openapi-typesafe-helpers";
 
 // Types inferred from the client print helper types. A library built with `declaration: true`
-// under pnpm or Yarn PnP does not depend on the helpers package, so TypeScript names them through
-// this one; without the re-export it fails with TS2742 (ADR-034).
+// under pnpm or Yarn PnP does not depend on the helpers package, so it must name them through this
+// one: without the re-export pnpm fails with TS2742, and the published declarations hold copies of
+// the helper types (build.config.ts), as Yarn PnP names a type by the package that declares it
+// (ADR-034).
 export type * from "openapi-typesafe-helpers";
 
 /** Options for each client instance */

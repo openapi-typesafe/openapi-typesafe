@@ -162,3 +162,26 @@ not a class you can import: narrow with `error instanceof Error` or
 `error.name === "ResponseError"`. Its message names the status, never the URL, which can carry
 tokens. A falsy error body such as `0` is thrown as it is.
 
+## Libraries that export hooks
+
+A library built with `declaration: true` that exports hooks or `queryOptions` results without
+type annotations gets declarations that name `openapi-typesafe-react-query`,
+`openapi-typesafe-fetch` and `@tanstack/react-query`, the packages it depends on. Helper types
+such as `PathsWithMethod` print through `openapi-typesafe-fetch`, also under pnpm and Yarn PnP,
+where the library cannot reach `openapi-typesafe-helpers`.
+
+TanStack Query's own types have two limits, both in a file of the library that uses the hooks
+but does not import `@tanstack/react-query` itself:
+
+- **pnpm with TypeScript 5.4:** TypeScript 5.4 does not find the link of `@tanstack/react-query`
+  in the library's `node_modules`, only the one inside pnpm's store, and fails with TS2742
+  ("cannot be named without a reference to .pnpm/@tanstack+react-query…"). TypeScript 5.5 and
+  later find it.
+- **Yarn PnP:** TypeScript names `InfiniteData` or `QueryFunction` by the package that declares
+  them, `import("@tanstack/query-core")`, a dependency of `@tanstack/react-query` that the
+  library's users cannot resolve (TS2307). TanStack's own hooks print the same import.
+
+In both cases, import from `@tanstack/react-query` in that file (`import type {} from
+"@tanstack/react-query"` is enough), or annotate the exported types. Under Yarn PnP, adding
+`@tanstack/query-core` to the library's dependencies, at the version `@tanstack/react-query`
+uses, works too.

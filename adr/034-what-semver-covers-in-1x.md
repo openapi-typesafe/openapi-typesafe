@@ -159,7 +159,55 @@ openapi-react-query 0.5.4 fail the same way for the hooks.
 | Write the types so that they print only the client's names | No new exports | Every helper type would need a copy in the client; a type the compiler expands still prints helpers |
 | Tell users to add `openapi-typesafe-helpers` to their dependencies | No change | A dependency only to name types; the error does not say so |
 
+## Amendment (2026-11-09): the client declares the helper types, and the hooks name them through it
+
+The second type hunt before rc.4 built the libraries of the amendment above under Yarn PnP. Their
+declarations still had about 140 `import("openapi-typesafe-helpers")` references, and their users
+failed with TS2307: Yarn PnP gives TypeScript a bare specifier for the package that declares a
+type, without asking whether the importing package depends on it, so the re-export of decision 1
+there was never used. Under pnpm the path of the declaring package goes through the store, so
+TypeScript looked for another module and found the re-export. The same hunt found that an
+exported `queryOptions` result printed TanStack's `[dataTagSymbol]` keys without an import
+(TS2304 for its users, or `any` cached data with `skipLibCheck`), because TanStack's `DataTag` is
+a conditional type that TypeScript expands.
+
+1. The published declarations of `openapi-typesafe-fetch` declare the helper types themselves:
+   the declaration build inlines the declarations of `openapi-typesafe-helpers`
+   (`build.config.ts`), and exports them under the same names. They are the same types: all of
+   them are structural (no classes, no unique symbols), so values typed with either package's
+   names mix. The client keeps its dependency on the helpers package, because the `src` it ships
+   imports it.
+2. The hooks import the helper types from `openapi-typesafe-fetch`, so their declarations name only
+   the client, and `openapi-typesafe-helpers` is no longer a dependency of the hooks (a dev
+   dependency for tests that mix both). This replaces decision 2 of the amendment above where it
+   assumed TypeScript would find the client's re-export.
+3. The `queryKey` of `queryOptions` is typed with the exported object type
+   `QueryKeyWithDataTag<Key, Data, Error>` (`{ queryKey: DataTag<Key, Data, Error> }`), the type
+   that TanStack Query exports under that name from 5.102. The peer range starts at 5.80, so the
+   hooks declare their own. A named object type prints by name, and the tag keys are never
+   spelled out. Decision 1 covers the name.
+4. TanStack's own types keep two limits, which the hooks cannot remove: in a library file that
+   does not import `@tanstack/react-query`, TypeScript 5.4 under pnpm fails with TS2742 for
+   `@tanstack/react-query` and `@tanstack/query-core` (5.5 and later do not), and Yarn PnP prints
+   `import("@tanstack/query-core")` for `InfiniteData` and `QueryFunction`, as it does for
+   TanStack's own hooks. The react-query docs ("Libraries that export hooks") give the fixes: an
+   import from `@tanstack/react-query` in that file, or an annotation; under PnP also a dependency
+   on `@tanstack/query-core`.
+5. `test/exports/portable-declarations.test.ts` (fetch) checks that the published declarations
+   hold no `openapi-typesafe-helpers` import. `test/portable-declarations.test.ts` (react-query)
+   checks the same for the hooks, emits a library that exports a `queryOptions` result, and
+   type-checks a user of its declarations with `skipLibCheck: false`.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Inline the helper declarations into the client's (chosen) | Every inferred type names the client, under npm, pnpm and Yarn PnP; no copy to keep by hand | The client's declarations are about 300 lines longer |
+| Keep the re-export only | No build change | Yarn PnP libraries keep failing for their users |
+| Make the helpers a peer of the client | TypeScript could name it | Every user installs a third package only to name types |
+| Use TanStack's `QueryKeyWithDataTag` | One name | Needs `@tanstack/react-query` 5.102; the peer range starts at 5.80 |
+
 ## Review trigger
 
 A user reports a deep upstream path that no longer resolves, a change that this ADR classifies
-as non-breaking breaks a real project, or the 2.0 planning starts.
+as non-breaking breaks a real project, or the 2.0 planning starts. For the declarations: the peer
+range of `@tanstack/react-query` starts at 5.102 (then `QueryKeyWithDataTag` can alias
+TanStack's), or TypeScript names re-exported types under Yarn PnP.

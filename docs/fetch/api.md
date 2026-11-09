@@ -510,7 +510,7 @@ like the rest of the API.
 | `removeTrailingSlash(url)` | Removes one trailing `/`. |
 | `randomID()` | Returns a new ID, unique within the process: the `id` that middleware callbacks get. The name is openapi-fetch's; the ID comes from a counter, not from `Math.random()`. |
 | `ClientPathsWithMethod<Client, Method>`, `MethodResponse<Client, Method, Path>` | Types: the paths of a client that have a method, and the `data` type of one call. |
-| Every type of `openapi-typesafe-helpers` (`PathsWithMethod`, `FilterKeys`, `SuccessResponse`, …) | Re-exported, so types inferred from the client name them through `openapi-typesafe-fetch`. A library built with `declaration: true` under pnpm or Yarn PnP, which does not depend on the helpers package, no longer fails with TS2742. |
+| Every type of `openapi-typesafe-helpers` (`PathsWithMethod`, `FilterKeys`, `SuccessResponse`, …) | Exported, and declared in the client's own declarations, so types inferred from the client name them through `openapi-typesafe-fetch`. A library built with `declaration: true` under pnpm or Yarn PnP, which does not depend on the helpers package, no longer fails with TS2742 (pnpm) or prints `import("openapi-typesafe-helpers")`, which its users cannot resolve (Yarn PnP). They are the same types as in `openapi-typesafe-helpers`, so the two mix. |
 
 `defaultBodySerializer` returns by the body type:
 

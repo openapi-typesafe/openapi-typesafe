@@ -65,9 +65,6 @@
     "test:exports": "pnpm run build && ../../scripts/check-exports.sh",
     "test:coverage": "vitest run --coverage"
   },
-  "dependencies": {
-    "openapi-typesafe-helpers": "workspace:^"
-  },
   "devDependencies": {
     "@tanstack/react-query": "5.106.1",
     "@testing-library/react": "16.3.3",
@@ -78,6 +75,7 @@
     "msw": "3.0.3",
     "openapi-typesafe": "workspace:^",
     "openapi-typesafe-fetch": "workspace:^",
+    "openapi-typesafe-helpers": "workspace:^",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-error-boundary": "6.1.6",

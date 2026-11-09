@@ -17,20 +17,21 @@ import {
   useQuery,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+// The helper types come from the client, which declares copies of them in its published
+// declarations: types inferred from the hooks then print the client, a peer every user has, and
+// not `openapi-typesafe-helpers`, which Yarn PnP does not let a library reach (ADR-034).
 import type {
   ClientMethod,
   DefaultParamsOption,
   Client as FetchClient,
   FetchResponse,
-  MaybeOptionalInit,
-  PathOperation,
-} from "openapi-typesafe-fetch";
-import type {
   HttpMethod,
+  MaybeOptionalInit,
   MediaType,
+  PathOperation,
   PathsWithMethod,
   RequiredKeysOf,
-} from "openapi-typesafe-helpers";
+} from "openapi-typesafe-fetch";
 
 // Helper type to dynamically infer the type from the `select` property
 type InferSelectReturnType<TData, TSelect> = TSelect extends (data: TData) => infer R ? R : TData;
@@ -62,6 +63,17 @@ export interface ResponseError extends Error {
  * none. `undefined` is left out: a failed request always throws a value.
  */
 export type QueryError<ErrorBody> = Exclude<ErrorBody, undefined> | ResponseError;
+
+/**
+ * An object whose `queryKey` is tagged with the query's data and error types: the type that
+ * TanStack Query 5.102 exports as `QueryKeyWithDataTag`, for the whole peer range. A named object
+ * type, so the declarations of an exported `queryOptions` result print it by name. Spelled out,
+ * the tag prints TanStack's `dataTagSymbol` keys, which a declaration file cannot import, and
+ * the library's users get TS2304, or `any` cached data with `skipLibCheck`.
+ */
+export type QueryKeyWithDataTag<Key, Data, Error> = {
+  queryKey: DataTag<Key, Data, Error>;
+};
 
 type InitWithUnknowns<Init> = Init & { [key: string]: unknown };
 
@@ -127,22 +139,22 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
       QueryKey<Paths, Method, Path>
     >,
     "queryFn" | "queryKey"
-  > & {
-    queryKey: DataTag<
+  > &
+    QueryKeyWithDataTag<
       QueryKey<Paths, Method, Path>,
       QueryData<Response["data"]>,
       QueryError<Response["error"]>
-    >;
-    queryFn: Exclude<
-      UseQueryOptions<
-        QueryData<Response["data"]>,
-        QueryError<Response["error"]>,
-        InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
-        QueryKey<Paths, Method, Path>
-      >["queryFn"],
-      SkipToken | undefined
-    >;
-  }
+    > & {
+      queryFn: Exclude<
+        UseQueryOptions<
+          QueryData<Response["data"]>,
+          QueryError<Response["error"]>,
+          InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
+          QueryKey<Paths, Method, Path>
+        >["queryFn"],
+        SkipToken | undefined
+      >;
+    }
 >;
 
 export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
