@@ -10,8 +10,18 @@ Thank you for helping. This guide covers setup, the rules every change must foll
 
 ## Setup
 
-Requirements: Node.js 22 or newer and [pnpm](https://pnpm.io/) (the version is pinned in `package.json`,
-so `corepack enable` picks it up).
+Requirements: Node.js 22.12 or newer (the generator's `engines.node`; CI tests 22, 24 and 26) and
+[pnpm](https://pnpm.io/) 10 or newer. The `packageManager` field of the root `package.json` pins
+the pnpm version of the repository. Any pnpm from 10 on downloads and runs that version when it
+differs from the installed one (the default `pmOnFail: download`, `managePackageManagerVersions`
+in pnpm 10), so one global install is enough:
+
+```sh
+npm install --global pnpm
+```
+
+Node.js 25 and newer no longer ship Corepack, so `corepack enable` works only after
+`npm install --global corepack`.
 
 ```sh
 pnpm install
