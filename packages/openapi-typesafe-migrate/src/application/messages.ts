@@ -143,8 +143,8 @@ function uneditedStepMessage(step: UneditedStep): string {
       );
     case "catalog-entry-in-use":
       return (
-        `${step.catalog}: ${step.name} was kept, because a dependency still names it: ` +
-        "rename the entry and the dependency together"
+        `${step.catalog}: ${step.name} was kept, because a dependency or an override still ` +
+        "names it: rename the entry and what names it together"
       );
     default:
       return assertNever(step);

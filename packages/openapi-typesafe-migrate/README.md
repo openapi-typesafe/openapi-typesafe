@@ -53,8 +53,9 @@ kept and reported.
 Manifests, catalogs and import maps are edited in place: only the renamed keys and the new values
 change, and comments, formatting, key order and line endings stay. A byte order mark is kept. An
 entry whose new name is already in the same map is left and reported, and so is an entry the tool
-does not edit (a YAML alias, anchor or block value). A catalog entry and the `catalog:`
-dependencies on it keep one name: an entry stays while a dependency that was left still uses it,
+does not edit (a YAML alias, anchor or block value). A catalog entry and the `catalog:` dependencies
+on it keep one name: an entry stays while a dependency that was left or an override
+(`"openapi-fetch": "catalog:"` under `overrides`, which are reported, not changed) still uses it,
 and a dependency stays while its entry does, so the install never misses a catalog entry; both are
 reported. Sources also get `npm:` specifiers renamed (`import x from "npm:openapi-fetch@^0.13"`).
 

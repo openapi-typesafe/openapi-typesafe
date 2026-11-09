@@ -4,11 +4,20 @@ import {
   catalogOfSpec,
   DEFAULT_CATALOG,
 } from "./catalog-plan.js";
-import { isMap, mapsAt, type TreeMap, textEntries } from "./config-documents.js";
+import {
+  isMap,
+  mapsAt,
+  type TreeMap,
+  type TreeNode,
+  textEntries,
+  valuesAt,
+} from "./config-documents.js";
+import { overrideTarget } from "./override-targets.js";
 import {
   CATALOG_FIELD,
   DEPENDENCY_FIELDS,
   NAMED_CATALOGS_FIELD,
+  OVERRIDE_FIELDS,
   PACKAGE_RENAMES,
   WORKSPACES_FIELD,
 } from "./package-names.js";
@@ -89,14 +98,45 @@ function entriesInUse(manifests: readonly TreeMap[]): CatalogEntries {
   return inUse;
 }
 
+/** The `key: value` texts below `node` at every depth: npm nests overrides by parent package. */
+function nestedTexts(node: TreeNode): { key: string; value: string }[] {
+  if (node.kind !== "map") {
+    return [];
+  }
+  return textEntries(node).flatMap(({ key, value }) =>
+    value.kind === "scalar" ? [{ key: key.value, value: value.value }] : nestedTexts(value),
+  );
+}
+
+/**
+ * Adds the entries that overrides point at (`"openapi-fetch": "catalog:"` in `overrides`,
+ * `resolutions` or `pnpm.overrides`). The tool reports overrides and leaves them as they are, so
+ * the entry they use must keep its old name, or the install fails
+ * (`ERR_PNPM_CATALOG_IN_OVERRIDES`).
+ */
+function addOverrideUses(documents: readonly TreeMap[], inUse: CatalogEntries): void {
+  const sections = documents.flatMap((document) =>
+    OVERRIDE_FIELDS.flatMap((field) => valuesAt(document, field)),
+  );
+  for (const { key, value } of sections.flatMap(nestedTexts)) {
+    const catalog = catalogOfSpec(value);
+    const name = overrideTarget(key);
+    if (catalog !== undefined && PACKAGE_RENAMES.has(name)) {
+      inUse.add(catalog, name);
+    }
+  }
+}
+
 /**
  * The plan for the catalogs of a project, from all its manifests and catalog files. An entry with
  * an old name stays when its value is not one the tool edits (an alias, a flow map), or when a
- * dependency keeps using it; then, unless the catalog has the new name too, the dependencies on
- * it keep the old name as well (dependency-map.ts makes both decisions by this plan).
+ * dependency or an override keeps using it; then, unless the catalog has the new name too, the
+ * dependencies on it keep the old name as well (dependency-map.ts makes both decisions by this
+ * plan).
  */
 export function planCatalogs({ manifests, catalogFiles }: CatalogDocuments): CatalogPlan {
   const inUse = entriesInUse(manifests);
+  addOverrideUses([...manifests, ...catalogFiles], inUse);
   const kept = new CatalogEntries();
   const catalogs = [
     ...catalogFiles.flatMap((file) => catalogMaps(file)),
