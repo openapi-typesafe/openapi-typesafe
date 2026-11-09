@@ -1034,11 +1034,16 @@ export function createFinalURL(pathname, options) {
   if (search.startsWith("?")) {
     search = search.substring(1);
   }
-  if (search) {
-    // A path may already have a query string.
-    finalURL += `${finalURL.includes("?") ? "&" : "?"}${search}`;
+  if (!search) {
+    return finalURL;
   }
-  return finalURL;
+  // The query goes before a fragment of the template (`/docs#intro`), which ends the URL, and
+  // joins a query the template already has.
+  const hashIndex = finalURL.indexOf("#");
+  const fragmentStart = hashIndex === -1 ? finalURL.length : hashIndex;
+  const beforeFragment = finalURL.slice(0, fragmentStart);
+  const joiner = beforeFragment.includes("?") ? "&" : "?";
+  return `${beforeFragment}${joiner}${search}${finalURL.slice(fragmentStart)}`;
 }
 
 /**
