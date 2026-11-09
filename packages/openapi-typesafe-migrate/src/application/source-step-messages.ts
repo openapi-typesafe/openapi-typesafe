@@ -22,6 +22,8 @@ const OPTIONS_NOTE =
   "the options of openapiTS() are not an object written in this file: check them for " +
   `transform, postTransform and transformProperty. See ${IR_CALLBACKS_GUIDE}`;
 const DEEP_IMPORT_NOTE = "imports a file inside the package; check that it exists";
+const OLD_FILE_NOTE = "imports a file from node_modules of";
+const OLD_FILE_FIX_NOTE = "which is no longer installed: import from";
 const DYNAMIC_NOTE =
   "builds its module name at run time from an old package name, so it was kept; rename it to";
 const STRING_NOTE = "is a string, not a module specifier, so it was kept";
@@ -48,6 +50,7 @@ export type SourceStep = Extract<
     kind:
       | "options-not-inspected"
       | "deep-import"
+      | "old-package-import"
       | "dynamic-specifier"
       | "string-names-package"
       | "transform-not-rewritten"
@@ -59,6 +62,7 @@ export type SourceStep = Extract<
 const SOURCE_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "options-not-inspected",
   "deep-import",
+  "old-package-import",
   "dynamic-specifier",
   "string-names-package",
   "transform-not-rewritten",
@@ -75,6 +79,8 @@ export function sourceStepMessage(step: SourceStep): string {
       return `line ${step.line}: ${OPTIONS_NOTE}`;
     case "deep-import":
       return `line ${step.line}: "${step.specifier}" ${DEEP_IMPORT_NOTE}`;
+    case "old-package-import":
+      return `line ${step.line}: "${step.specifier}" ${OLD_FILE_NOTE} ${step.name}, ${OLD_FILE_FIX_NOTE} ${step.to}`;
     case "dynamic-specifier":
       return `line ${step.line}: \`${step.value}\` ${DYNAMIC_NOTE} ${step.to}`;
     case "string-names-package":

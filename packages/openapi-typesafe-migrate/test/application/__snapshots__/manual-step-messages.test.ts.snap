@@ -25,6 +25,7 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "line 8: a string runs openapi-typescript, so it was kept; change it to "npx openapi-typesafe a.yaml"",
   "line 9: the options of openapiTS() are not an object written in this file: check them for transform, postTransform and transformProperty. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 2: "b/x" imports a file inside the package; check that it exists",
+  "line 3: "../node_modules/openapi-fetch/x.js" imports a file from node_modules of openapi-fetch, which is no longer installed: import from openapi-typesafe-fetch",
   "imports.#b: "b/x" points at a file inside the package; check that it exists",
   "line 2: \`openapi-fetch\${x}\` builds its module name at run time from an old package name, so it was kept; rename it to openapi-typesafe-fetch",
   "line 6: "openapi-fetch" is a string, not a module specifier, so it was kept; if it names the package, change it to "openapi-typesafe-fetch"",

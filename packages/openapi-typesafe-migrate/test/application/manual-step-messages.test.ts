@@ -35,6 +35,13 @@ const STEPS: readonly ManualStep[] = [
   { kind: "command-string", line: 8, to: "npx openapi-typesafe a.yaml" },
   { kind: "options-not-inspected", line: 9 },
   { kind: "deep-import", line: 2, specifier: "b/x" },
+  {
+    kind: "old-package-import",
+    line: 3,
+    specifier: "../node_modules/openapi-fetch/x.js",
+    name: "openapi-fetch",
+    to: "openapi-typesafe-fetch",
+  },
   { kind: "deep-target", location: "imports.#b", specifier: "b/x" },
   { kind: "dynamic-specifier", line: 2, value: `openapi-fetch\${x}`, to: "openapi-typesafe-fetch" },
   { kind: "string-names-package", line: 6, value: "openapi-fetch", to: "openapi-typesafe-fetch" },

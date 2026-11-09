@@ -114,6 +114,14 @@ export type ManualStep =
   | { readonly kind: "import-map-not-editable"; readonly reference: string }
   | { readonly kind: "options-not-inspected"; readonly line: number }
   | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
+  /** A module specifier that is a path into the installed files of an old package. */
+  | {
+      readonly kind: "old-package-import";
+      readonly line: number;
+      readonly specifier: string;
+      readonly name: string;
+      readonly to: string;
+    }
   /** A target of package.json `imports` that reaches into a renamed package. */
   | { readonly kind: "deep-target"; readonly location: string; readonly specifier: string }
   | {

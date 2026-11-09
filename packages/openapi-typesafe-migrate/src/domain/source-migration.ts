@@ -6,7 +6,12 @@ import {
   type ManualStep,
 } from "./migration-findings.js";
 import { migrateNpmSpec } from "./npm-alias.js";
-import { PACKAGE_RENAMES, type RenamedSpecifier, renamedSpecifier } from "./package-names.js";
+import {
+  oldPackageInNodeModules,
+  PACKAGE_RENAMES,
+  type RenamedSpecifier,
+  renamedSpecifier,
+} from "./package-names.js";
 import { hideUrlCredentials } from "./url-credentials.js";
 
 /**
@@ -114,6 +119,22 @@ const dynamicStep = (line: number, value: string, to: string): ManualStep => ({
 });
 
 /**
+ * The steps for a string that is not renamed: a module name built at run time from an old
+ * package name, or a path into the installed files of an old package, which the new package
+ * does not have there.
+ */
+function unrenamedSteps(found: SourceString, line: number, dynamic: string | undefined) {
+  if (dynamic !== undefined) {
+    return [dynamicStep(line, found.value, dynamic)];
+  }
+  const name = found.isModuleSpecifier ? oldPackageInNodeModules(found.value) : undefined;
+  const to = name === undefined ? undefined : PACKAGE_RENAMES.get(name);
+  return name === undefined || to === undefined
+    ? []
+    : [{ kind: "old-package-import" as const, line, specifier: found.value, name, to }];
+}
+
+/**
  * Rename the original packages where a source file names them as modules. A string that equals a
  * package name anywhere else (an object key, a label, a config value) may mean the package or
  * may not, so it is reported, not changed. Comments are not strings and stay as written.
@@ -133,7 +154,7 @@ export function migrateModuleSpecifiers(
     const line = lineOf(found.start);
     const dynamic = found.isModuleSpecifier ? dynamicPackage(found.value) : undefined;
     if (renamed === undefined) {
-      manualSteps.push(...(dynamic === undefined ? [] : [dynamicStep(line, found.value, dynamic)]));
+      manualSteps.push(...unrenamedSteps(found, line, dynamic));
       continue;
     }
     // A string inside a template that was replaced is part of the replacement, which keeps it as

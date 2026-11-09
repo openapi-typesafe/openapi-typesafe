@@ -1,6 +1,6 @@
 import { NPM_SPECIFIER_PREFIX } from "./command-launchers.js";
 import type { ManualStep } from "./migration-findings.js";
-import { GENERATOR_COMMAND, PACKAGE_RENAMES } from "./package-names.js";
+import { GENERATOR_COMMAND, oldPackageInNodeModules, PACKAGE_RENAMES } from "./package-names.js";
 import type { ShellCommand } from "./shell-words.js";
 
 /** The words of a command that name the original packages, apart from the roles they have. */
@@ -19,10 +19,9 @@ export function packageReference(value: string): { name: string; isPinned: boole
  * in `node_modules`, or a path to the generator's binary (`$(npm bin)/openapi-typescript`).
  */
 function namesOldPackage(value: string): boolean {
-  const oldNames = [...PACKAGE_RENAMES.keys()];
   return (
     PACKAGE_RENAMES.has(packageReference(value).name) ||
-    oldNames.some((name) => value.includes(`node_modules/${name}/`)) ||
+    oldPackageInNodeModules(value) !== undefined ||
     value.endsWith(`/${GENERATOR_COMMAND}`)
   );
 }
