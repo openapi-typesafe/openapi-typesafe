@@ -48,3 +48,18 @@ fails the test until the table is regenerated.
 
 The identifier-text test fails after a Node.js or TypeScript update, or TypeScript 7's scanner
 accepts a different set.
+
+## Amendment (2026-11-09): the tables of the lowest supported TypeScript
+
+The table was made with TypeScript 5.9, and the test compared with the TypeScript that the repo
+builds with (6.0). The lowest TypeScript that must parse the output is 5.4 (ADR-006), and its
+tables are older: it rejects 11,319 identifier characters that 6.0 accepts, ZWJ and ZWNJ among them.
+A reference name with a ZWJ from a callback (`A\u200DB`) passed the IR check and printed a type
+that TypeScript 5.4 fails with TS1127, and a `--root-types` name with such a letter did the same.
+
+Decision: the table lists what the runtime accepts and TypeScript 5.4 does not, ZWNJ and ZWJ
+included. The script and the test read the `typescript-5.4` package, and a second test checks that
+every kept character is also an identifier character for the newest TypeScript of the repo. Such
+characters become `_` in names built from document text, and an IR name that contains one is
+refused. TypeScript 7 has no scanner API; the type-check of the output with it (ADR-006) shows
+whether it accepts a different set.

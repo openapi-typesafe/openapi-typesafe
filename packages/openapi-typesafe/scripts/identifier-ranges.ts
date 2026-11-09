@@ -1,10 +1,13 @@
 import { writeFile } from "node:fs/promises";
-import ts from "typescript";
+import ts from "typescript-5.4";
 
 /**
  * Write src/domain/ir/newer-identifier-ranges.ts: the code points that the running Node.js counts
- * as `ID_Start` / `ID_Continue` and TypeScript's scanner does not (Unicode newer than its tables).
- * Run it after a Node.js or TypeScript update when test/domain/ir/identifier-text.test.ts fails.
+ * as identifier characters (`ID_Start`, `ID_Continue`, and ZWNJ and ZWJ inside a name) and the
+ * scanner of the lowest supported TypeScript (5.4, ADR-006) does not: its tables follow an older
+ * Unicode version, and the output must parse with it. Newer TypeScript versions accept more.
+ * Run it after a Node.js update, or when the lowest supported TypeScript changes, when
+ * test/domain/ir/identifier-text.test.ts fails.
  */
 
 const OUTPUT = new URL("../src/domain/ir/newer-identifier-ranges.ts", import.meta.url);
@@ -46,7 +49,7 @@ const start = newerRanges(
   (point) => ts.isIdentifierStart(point, ts.ScriptTarget.ESNext),
 );
 const part = newerRanges(
-  (text) => /^\p{ID_Continue}$/u.test(text),
+  (text) => /^[\p{ID_Continue}\u{200C}\u{200D}]$/u.test(text),
   (point) => ts.isIdentifierPart(point, ts.ScriptTarget.ESNext),
 );
 

@@ -2,11 +2,12 @@ import { NEWER_IDENTIFIER_PART, NEWER_IDENTIFIER_START } from "./newer-identifie
 
 /**
  * Identifier rules of ECMAScript (Unicode `ID_Start` / `ID_Continue`, plus `$`, `_`, ZWNJ and
- * ZWJ), for names built from document text, without the characters that TypeScript's scanner
- * does not know yet. Node.js follows a newer Unicode version than TypeScript's identifier tables,
- * so a name such as `꟒Name` (Unicode 17) passed here and failed to parse with "Invalid
- * character" (ADR-019). Removing the newer characters also gives the same names on every
- * supported Node.js version.
+ * ZWJ), for names built from document text, without the characters that the scanner of the lowest
+ * supported TypeScript (5.4) does not know. Node.js follows a newer Unicode version than
+ * TypeScript's identifier tables, so a name such as `꟒Name` (Unicode 17) passed here and failed to
+ * parse with "Invalid character" (ADR-019); TypeScript 5.4 also rejects ZWJ and characters that
+ * TypeScript 6 accepts. Removing these also gives the same names on every supported Node.js
+ * version.
  */
 
 const IDENTIFIER_START_RE = new RegExp(
