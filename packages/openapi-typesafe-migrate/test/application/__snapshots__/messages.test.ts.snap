@@ -42,6 +42,7 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "line 4: transform kept (its options object is used elsewhere too); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 4: transform kept (a return value is not a plain ts.factory type); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 5: postTransform receives TypeScript nodes (deprecated). See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
+  "line 1: no package.json at or above this file lists openapi-typesafe-helpers; openapi-fetch and openapi-react-query installed it, the openapi-typesafe packages do not: add it to the dependencies, or import the types from openapi-typesafe-fetch/helpers",
 ]
 `;
 

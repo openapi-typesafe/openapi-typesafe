@@ -51,6 +51,12 @@ const STEPS: readonly ManualStep[] = [
   { kind: "transform-not-rewritten", line: 4, reason: "shared-options" },
   { kind: "transform-not-rewritten", line: 4, reason: "unknown-return" },
   { kind: "legacy-callback", line: 5, callback: "postTransform" },
+  {
+    kind: "package-not-declared",
+    line: 1,
+    name: "openapi-typesafe-helpers",
+    installers: ["openapi-fetch", "openapi-react-query"],
+  },
 ];
 
 describe("changeMessage", () => {

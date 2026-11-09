@@ -1,9 +1,19 @@
 import type { CatalogPlan } from "../domain/catalog-plan.js";
 import { planCatalogs } from "../domain/catalogs.js";
 import { isMap, type TreeMap } from "../domain/config-documents.js";
+import {
+  declaredNames,
+  type ManifestDeclarations,
+  namesUninstalledPackage,
+} from "../domain/declared-packages.js";
 import type { Change, ManualStep } from "../domain/migration-findings.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
-import { catalogSourceOf, fileMigrationFor, type MigrationContext } from "./file-migrations.js";
+import {
+  type CatalogSource,
+  catalogSourceOf,
+  fileMigrationFor,
+  type MigrationContext,
+} from "./file-migrations.js";
 import type {
   CallbackRewriter,
   DocumentReaders,
@@ -72,16 +82,20 @@ type FilePlan =
   | { readonly kind: "skipped"; readonly reason: FileProblem }
   | { readonly kind: "not-migrated" };
 
-/** What every file of a project is migrated with: the tool's version and the catalog plan. */
+/**
+ * What every file of a project is migrated with: the tool's version, the catalog plan and what the
+ * manifests declare.
+ */
 interface ProjectTarget {
   readonly version: string;
   readonly catalogs: CatalogPlan;
+  readonly manifests: readonly ManifestDeclarations[];
 }
 
 async function planFile(
   path: string,
   dependencies: MigrateProjectDependencies,
-  { version, catalogs }: ProjectTarget,
+  target: ProjectTarget,
 ): Promise<FilePlan> {
   const migrate = fileMigrationFor(path);
   if (migrate === undefined) {
@@ -92,7 +106,7 @@ async function planFile(
     return read;
   }
   const { rewriter, scanner, readers } = dependencies;
-  const context: MigrationContext = { version, catalogs, rewriter, scanner, readers };
+  const context: MigrationContext = { ...target, rewriter, scanner, readers };
   const migration = migrate(read.text, path, context);
   const isChanged = migration.text !== read.text;
   const { changes, manualSteps } = migration;
@@ -109,26 +123,64 @@ interface ProjectPlan {
 }
 
 /**
- * The catalog plan of the project, from the manifests and catalog files of the listing. A file
- * that cannot be read or parsed adds nothing here; it is reported when it is migrated.
+ * A manifest or catalog file as the plan reads it: whether it names an original package, and its
+ * parsed roots; `roots` is undefined when the file cannot be read or parsed.
  */
-async function planProjectCatalogs(
+interface PlanRead {
+  readonly namesOriginal: boolean;
+  readonly roots: readonly TreeMap[] | undefined;
+}
+
+async function readForPlan(
+  path: string,
+  source: CatalogSource,
+  dependencies: MigrateProjectDependencies,
+): Promise<PlanRead> {
+  const read = await dependencies.files.read(path);
+  if (read.kind !== "read") {
+    return { namesOriginal: false, roots: undefined };
+  }
+  const namesOriginal = namesOriginalPackage(read.text);
+  // A file that names none of the packages adds nothing, so it is not parsed (the same gate as
+  // the migration's own, which keeps large YAML files fast).
+  if (!namesOriginal && !namesUninstalledPackage(read.text)) {
+    return { namesOriginal, roots: [] };
+  }
+  const parsed = source.read(read.text, dependencies.readers);
+  const roots = parsed.kind === "read" ? parsed.documents.filter(isMap) : undefined;
+  return { namesOriginal, roots };
+}
+
+/**
+ * The catalog plan of the project and what its manifests declare, from the manifests and catalog
+ * files of the listing. A file that cannot be read or parsed adds no catalogs, and is reported
+ * when it is migrated; such a manifest counts as declaring every package.
+ */
+async function planProjectTarget(
   paths: readonly string[],
   dependencies: MigrateProjectDependencies,
-): Promise<CatalogPlan> {
+  version: string,
+): Promise<ProjectTarget> {
   const documents: Record<"manifest" | "catalogs", TreeMap[]> = { manifest: [], catalogs: [] };
+  const manifests: ManifestDeclarations[] = [];
   for (const path of paths) {
     const source = catalogSourceOf(path);
-    const read = source === undefined ? undefined : await dependencies.files.read(path);
-    // A file that names no old package adds nothing to the plan, so it is not parsed (the
-    // same gate as the migration's own, which keeps large YAML files fast).
-    if (source !== undefined && read?.kind === "read" && namesOriginalPackage(read.text)) {
-      const parsed = source.read(read.text, dependencies.readers);
-      const roots = parsed.kind === "read" ? parsed.documents.filter(isMap) : [];
-      documents[source.role].push(...roots);
+    if (source === undefined) {
+      continue;
+    }
+    const { namesOriginal, roots } = await readForPlan(path, source, dependencies);
+    if (namesOriginal) {
+      documents[source.role].push(...(roots ?? []));
+    }
+    if (source.role === "manifest") {
+      manifests.push({ path, names: roots && new Set(roots.flatMap(declaredNames)) });
     }
   }
-  return planCatalogs({ manifests: documents.manifest, catalogFiles: documents.catalogs });
+  const catalogs = planCatalogs({
+    manifests: documents.manifest,
+    catalogFiles: documents.catalogs,
+  });
+  return { version, catalogs, manifests };
 }
 
 /**
@@ -142,7 +194,7 @@ async function planProject(
 ): Promise<ProjectPlan> {
   const files: PlannedFile[] = [];
   const skipped: SkippedFile[] = [];
-  const target = { version, catalogs: await planProjectCatalogs(paths, dependencies) };
+  const target = await planProjectTarget(paths, dependencies, version);
   for (const path of paths) {
     const plan = await planFile(path, dependencies, target);
     if (plan.kind === "skipped") {

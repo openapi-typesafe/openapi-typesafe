@@ -62,6 +62,18 @@ const STRING_NOTE = "is a string, not a module specifier, so it was kept";
 const STRING_FIX_NOTE = "if it names the package, change it to";
 const KEPT_NOTE = `it works, with a deprecation warning. See ${IR_CALLBACKS_GUIDE}`;
 const LEGACY_CALLBACK_NOTE = `receives TypeScript nodes (deprecated). See ${IR_CALLBACKS_GUIDE}`;
+const HELPER_TYPES_ENTRY = "openapi-typesafe-fetch/helpers";
+
+function packageNotDeclaredMessage(
+  step: Extract<ManualStep, { kind: "package-not-declared" }>,
+): string {
+  const { line, name, installers } = step;
+  return (
+    `line ${line}: no package.json at or above this file lists ${name}; ` +
+    `${installers.join(" and ")} installed it, the openapi-typesafe packages do not: ` +
+    `add it to the dependencies, or import the types from ${HELPER_TYPES_ENTRY}`
+  );
+}
 
 function oldPeerMessage(step: Extract<ManualStep, { kind: "old-peer-needed" }>): string {
   const { dependent, peer, range } = step;
@@ -168,6 +180,39 @@ function uneditedStepMessage(step: UneditedStep): string {
   }
 }
 
+/** Steps for a line of a source file. */
+type SourceStep = Extract<
+  ManualStep,
+  {
+    kind:
+      | "options-not-inspected"
+      | "deep-import"
+      | "string-names-package"
+      | "transform-not-rewritten"
+      | "legacy-callback"
+      | "package-not-declared";
+  }
+>;
+
+function sourceStepMessage(step: SourceStep): string {
+  switch (step.kind) {
+    case "options-not-inspected":
+      return `line ${step.line}: ${OPTIONS_NOTE}`;
+    case "deep-import":
+      return `line ${step.line}: "${step.specifier}" ${DEEP_IMPORT_NOTE}`;
+    case "string-names-package":
+      return `line ${step.line}: "${step.value}" ${STRING_NOTE}; ${STRING_FIX_NOTE} "${step.to}"`;
+    case "transform-not-rewritten":
+      return `line ${step.line}: transform kept (${KEEP_REASONS[step.reason]}); ${KEPT_NOTE}`;
+    case "legacy-callback":
+      return `line ${step.line}: ${step.callback} ${LEGACY_CALLBACK_NOTE}`;
+    case "package-not-declared":
+      return packageNotDeclaredMessage(step);
+    default:
+      return assertNever(step);
+  }
+}
+
 export function manualStepMessage(step: ManualStep): string {
   if (isCommandStep(step)) {
     return commandStepMessage(step);
@@ -186,17 +231,14 @@ export function manualStepMessage(step: ManualStep): string {
     case "override-names-package":
       return `"${step.field}" names ${step.name}: update or remove that override`;
     case "options-not-inspected":
-      return `line ${step.line}: ${OPTIONS_NOTE}`;
     case "deep-import":
-      return `line ${step.line}: "${step.specifier}" ${DEEP_IMPORT_NOTE}`;
     case "string-names-package":
-      return `line ${step.line}: "${step.value}" ${STRING_NOTE}; ${STRING_FIX_NOTE} "${step.to}"`;
+    case "transform-not-rewritten":
+    case "legacy-callback":
+    case "package-not-declared":
+      return sourceStepMessage(step);
     case "old-peer-needed":
       return oldPeerMessage(step);
-    case "transform-not-rewritten":
-      return `line ${step.line}: transform kept (${KEEP_REASONS[step.reason]}); ${KEPT_NOTE}`;
-    case "legacy-callback":
-      return `line ${step.line}: ${step.callback} ${LEGACY_CALLBACK_NOTE}`;
     default:
       return assertNever(step);
   }

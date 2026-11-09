@@ -7,6 +7,7 @@ import {
   documentStrings,
   unreadableConfig,
 } from "../domain/config-documents.js";
+import { type ManifestDeclarations, undeclaredImportSteps } from "../domain/declared-packages.js";
 import { migrateDockerfile } from "../domain/dockerfile-migration.js";
 import { migrateImportMap } from "../domain/import-map-migration.js";
 import {
@@ -43,6 +44,8 @@ export interface MigrationContext {
   readonly version: string;
   /** What the catalogs keep under the old names, from every manifest and catalog file. */
   readonly catalogs: CatalogPlan;
+  /** What every manifest of the project declares, for the imports of a source file. */
+  readonly manifests: readonly ManifestDeclarations[];
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
   readonly readers: DocumentReaders;
@@ -109,7 +112,8 @@ function migrateSource(text: string, path: string, context: MigrationContext): F
   const migrated = chain(migrateModuleSpecifiers(text, strings, context.version), (renamed) =>
     context.rewriter.rewrite(renamed, path),
   );
-  return withSteps(migrated, commandStringSteps(text, strings));
+  const undeclared = undeclaredImportSteps(migrated.changes, path, context.manifests);
+  return withSteps(migrated, [...commandStringSteps(text, strings), ...undeclared]);
 }
 
 /** Two migrations of the same text, one after the other, with their findings joined. */

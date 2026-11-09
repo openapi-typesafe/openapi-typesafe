@@ -8,6 +8,7 @@ import {
   unreadableConfig,
   valuesAt,
 } from "./config-documents.js";
+import { declaredNames } from "./declared-packages.js";
 import {
   type Findings,
   migrateSpecMap,
@@ -96,11 +97,7 @@ function reportOverrides(manifest: TreeMap, findings: Findings): void {
 
 /** A dependency that needs an original package as its peer keeps needing it after the rename. */
 function reportOldPeers(manifest: TreeMap, findings: Findings): void {
-  const dependencies = new Set(
-    DEPENDENCY_FIELDS.flatMap((field) => mapsAt(manifest, field))
-      .flatMap(textEntries)
-      .map(({ key }) => key.value),
-  );
+  const dependencies = new Set(declaredNames(manifest));
   for (const [dependent, { peer, range }] of OLD_PEER_DEPENDENTS) {
     if (dependencies.has(dependent)) {
       findings.manualSteps.push({ kind: "old-peer-needed", dependent, peer, range });

@@ -263,3 +263,63 @@ describe("migrateProject and catalogs", () => {
     expect(dependencies.files.files.get("pnpm-workspace.yaml")).toBe(files["pnpm-workspace.yaml"]);
   });
 });
+
+describe("migrateProject and undeclared imports", () => {
+  const HELPERS_IMPORT = 'import type { FilterKeys } from "openapi-typescript-helpers";\n';
+  const stepKinds = (reports: readonly { manualSteps: readonly { kind: string }[] }[]) =>
+    reports.flatMap((report) => report.manualSteps.map((step) => step.kind));
+
+  it("migrateProject reports a helpers import that the package only got through openapi-fetch", async () => {
+    const files = {
+      "package.json": '{ "dependencies": { "openapi-fetch": "^0.13.0" } }\n',
+      "src/a.ts": HELPERS_IMPORT,
+    };
+    const dependencies = setUp(files);
+
+    const result = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
+
+    const source = result.files.find((report) => report.path === "src/a.ts");
+    expect(source?.manualSteps).toEqual([
+      {
+        kind: "package-not-declared",
+        line: 1,
+        name: "openapi-typesafe-helpers",
+        installers: ["openapi-fetch", "openapi-react-query"],
+      },
+    ]);
+  });
+
+  it("migrateProject reads a manifest that names only the new helpers package", async () => {
+    const files = {
+      "package.json": '{ "dependencies": { "openapi-typesafe-helpers": "^1.0.0" } }\n',
+      "src/a.ts": HELPERS_IMPORT,
+    };
+    const dependencies = setUp(files);
+
+    const result = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
+
+    expect(stepKinds(result.files)).toEqual([]);
+  });
+
+  it("migrateProject does not report an import in a package whose manifest it cannot read", async () => {
+    const files = { "package.json": '{ "dependencies": {} }\n', "src/a.ts": HELPERS_IMPORT };
+    const unreadable = { "package.json": { kind: "io-error", code: "EACCES" } } as const;
+    const dependencies = setUp(files, [], { unreadable });
+
+    const result = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
+
+    expect(stepKinds(result.files)).toEqual([]);
+  });
+
+  it("migrateProject does not report an import in a package whose manifest it cannot parse", async () => {
+    const files = {
+      "package.json": '{ "dependencies": { "openapi-typescript-helpers": \n',
+      "src/a.ts": HELPERS_IMPORT,
+    };
+    const dependencies = setUp(files);
+
+    const result = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
+
+    expect(stepKinds(result.files)).toEqual(["config-unreadable"]);
+  });
+});
