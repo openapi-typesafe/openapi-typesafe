@@ -430,6 +430,30 @@ describe("runCli: $ref limits", () => {
     });
   });
 
+  it("runCli with --local-ref-root as a URL of another protocol exits with 2 before generating", async () => {
+    const cli = createFakeCli();
+
+    const exitCode = await runCli(
+      ["a.yaml", "--local-ref-root", "https://user:secret@example.com/specs/?key=k"],
+      cli.deps,
+    );
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")).toEqual([
+      "--local-ref-root https://***@example.com/specs/?***: a directory path or a file: URL. (CLI_FLAG_INVALID)",
+    ]);
+    expect(cli.generator.calls).toEqual([]);
+  });
+
+  it("runCli passes a file: URL --local-ref-root as it is", async () => {
+    const cli = createFakeCli();
+    const root = fakeUrl("/specs/");
+
+    expect(await runCli(["a.yaml", "--local-ref-root", root], cli.deps)).toBe(0);
+
+    expect(cli.generator.calls[0]?.options).toMatchObject({ localRefRoot: new URL(root) });
+  });
+
   it("runCli passes the $ref limits to every API of the Redocly config", async () => {
     const cli = cliWithApis({ first: { root: "first.yaml", "x-openapi-ts": { output: "first.ts" } } });
 

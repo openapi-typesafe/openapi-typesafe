@@ -93,6 +93,17 @@ describe("x-openapi-ts settings", () => {
     expect(cli.generator.calls[0]?.options).not.toHaveProperty("localRefRoot");
   });
 
+  it("runCli with a local-ref-root URL of another protocol exits with 2 before generating", async () => {
+    const cli = cliWithApi({ "local-ref-root": "https://example.com/specs/" });
+
+    expect(await runCli([], cli.deps)).toBe(2);
+
+    expect(cli.logger.messages("error")).toEqual([
+      "API api: `local-ref-root` in x-openapi-ts must be a directory path or a file: URL (CLI_CONFIG_INVALID)",
+    ]);
+    expect(cli.generator.calls).toEqual([]);
+  });
+
   it("runCli with a $ref limit of the wrong type exits with 2 before generating", async () => {
     const root = cliWithApi({ "local-ref-root": true });
     const hosts = cliWithApi({ "remote-ref-hosts": [1] });
@@ -101,7 +112,7 @@ describe("x-openapi-ts settings", () => {
     expect(await runCli([], hosts.deps)).toBe(2);
 
     expect(root.logger.messages("error")).toEqual([
-      "API api: `local-ref-root` in x-openapi-ts must be a directory path (CLI_CONFIG_INVALID)",
+      "API api: `local-ref-root` in x-openapi-ts must be a directory path or a file: URL (CLI_CONFIG_INVALID)",
     ]);
     expect(hosts.logger.messages("error")).toEqual([
       "API api: `remote-ref-hosts` in x-openapi-ts must be a host list (CLI_CONFIG_INVALID)",

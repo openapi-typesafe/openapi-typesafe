@@ -69,6 +69,7 @@ When generation fails, `openapiTS()` rejects with an `OpenAPITypesafeError`. Eac
 | Code | Key | Type |
 | :--- | :-- | :--- |
 | `SCHEMA_INVALID` | `problems` | `string[]`: one text per problem found |
+| `OPTION_INVALID` | `option` | `string`: the option with a value of the wrong type, such as `remoteRefHosts` |
 | `SCHEMA_REF_FORBIDDEN` | `ref` | `string`: the refused `$ref` as an absolute URL; user info and the query show as `***` |
 | `SCHEMA_REF_FORBIDDEN` | `reason` | `string`: one of `outside-local-root`, `host-not-allowed`, `local-ref-from-remote`, `too-many-remote-documents`, `remote-document-too-large`, `remote-documents-too-large`, `remote-documents-too-many-nodes` (see [Untrusted documents](./advanced.md#untrusted-documents)); a minor release may add reasons |
 
@@ -150,8 +151,8 @@ The Node API takes the generator flags of the [flags table](/cli#flags) in camel
 | `silent`           |    `boolean`    |     `false`     | Print nothing on stderr: no warnings, and no problem lines of a document that fails (the error lists them in `details.problems`). [Deprecations](#deprecations) and `DEBUG` lines still show |
 | `lint`             |    `boolean`    |     `true`      | Lint the document with the Redocly config first. `false` skips it; bundling errors still fail |
 | `cwd`              | `string \| URL` | `process.cwd()` | The directory that relative `$ref`s of a string, object, buffer or stream source resolve from. A file or URL source resolves from its own location |
-| `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd` |
-| `remoteRefHosts`   |   `string[]`    |                 | Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` allows none |
+| `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd`. A URL other than `file:` or another type fails with `OPTION_INVALID` |
+| `remoteRefHosts`   |   `string[]`    |                 | Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` allows none. A value that is no list of strings fails with `OPTION_INVALID` |
 | `fix`              | `OutputFixName[]` |               | Opt-in fixes of the output, by name, or `["all"]`; see [fix](/cli#fix). `OUTPUT_FIXES` lists them. A value that is no list, such as `"all"`, or an unknown name fails with `OPTION_FIX_UNKNOWN` |
 | `inject`           |    `string`     |                 | Inject arbitrary TypeScript types into the start of the file                                 |
 | `redocly`          |     `Config`    |                 | A Redocly config object; see [Redocly config](#redocly-config). Without it, Redocly's `minimal` config with `operation-operationId-unique` as an error (the CLI makes it a warning); the Node API does not look for `redocly.yaml`

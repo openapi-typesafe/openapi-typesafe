@@ -4,9 +4,8 @@ import type { OutputFixName } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import { GENERATOR_FLAGS, type GeneratorFlags, hostList } from "./cli-arguments.js";
 import { cliError } from "./cli-errors.js";
-import { resolveLocationUrl } from "./cli-output.js";
 import { fixNamesOf } from "./fix-option.js";
-import type { RefLimitOptions } from "./ref-limits.js";
+import { localRootUrl, type RefLimitOptions } from "./ref-limits.js";
 
 /**
  * The settings of one API in `redocly.yaml` (`apis.<name>.x-openapi-ts`). A setting has the name
@@ -23,6 +22,7 @@ export const OUTPUT_SETTING = "output";
 export const FIX_SETTING = "fix";
 
 const LOCAL_REF_ROOT_SETTING = "localRefRoot";
+const LOCAL_ROOT_EXPECTED = "a directory path or a file: URL";
 const REMOTE_REF_HOSTS_SETTING = "remoteRefHosts";
 
 /** `--content-never` is accepted and has no effect, as on the command line. */
@@ -142,16 +142,20 @@ function withApiName(apiName: string, error: OpenAPITypesafeError): OpenAPITypes
   });
 }
 
-/** `local-ref-root: dir`, relative to the config file; empty means the config file's directory. */
+/**
+ * `local-ref-root: dir`, relative to the config file; empty means the config file's directory. A
+ * value that is no text or a URL of another protocol fails with `CLI_CONFIG_INVALID`.
+ */
 function localRefRootOf(apiName: string, settings: ApiSettings, configRoot: URL): RefLimitOptions {
   if (!hasSetting(settings, LOCAL_REF_ROOT_SETTING)) {
     return {};
   }
   const value = settingValue(settings, LOCAL_REF_ROOT_SETTING) ?? "";
-  if (typeof value !== "string") {
-    throw invalidSetting(apiName, settings, LOCAL_REF_ROOT_SETTING, "a directory path");
+  const localRoot = typeof value === "string" ? localRootUrl(value, configRoot) : undefined;
+  if (localRoot === undefined) {
+    throw invalidSetting(apiName, settings, LOCAL_REF_ROOT_SETTING, LOCAL_ROOT_EXPECTED);
   }
-  return { localRefRoot: resolveLocationUrl(value === "" ? "." : value, configRoot) };
+  return { localRefRoot: localRoot };
 }
 
 /** `remote-ref-hosts: [a, b]` or `a,b`; an empty list or value allows no host. */
