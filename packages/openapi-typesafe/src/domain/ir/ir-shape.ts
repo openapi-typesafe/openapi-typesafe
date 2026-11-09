@@ -40,18 +40,34 @@ function isIdentifier(text: unknown): boolean {
 const TYPE_QUERY_PREFIX = "typeof ";
 
 /**
+ * Words that cannot start the name of a type query (`typeof <name>`): `import` starts an import
+ * type, and strict mode reserves the others. Found with the TypeScript 5.4 and 6.0 compilers
+ * (syntax and grammar errors) on `type A = { a?: typeof <name> }`, over every reserved word and
+ * contextual keyword. A name after a `.` may be any identifier, reserved words included.
+ */
+const NOT_TYPE_QUERY_START: ReadonlySet<string> = new Set(
+  "import implements interface let package private protected public static yield".split(" "),
+);
+/** Words that cannot start a type reference either: they are operators of a type there. */
+const NOT_TYPE_REFERENCE_START: ReadonlySet<string> = new Set([
+  ...NOT_TYPE_QUERY_START,
+  ..."new typeof infer keyof readonly unique".split(" "),
+]);
+
+/**
  * A name TypeScript reads as the name of a type: identifiers joined by `.` (`Status`,
  * `Status.active`), optionally as a type query (`typeof Status`). Text such as `a b` or `A<B>`
- * would print as other or invalid TypeScript; type arguments go in `typeArguments`.
+ * would print as other or invalid TypeScript, and so would `keyof` or `let` as the first name;
+ * type arguments go in `typeArguments`.
  */
 function isTypeName(text: unknown): boolean {
   if (typeof text !== "string") {
     return false;
   }
-  const entityName = text.startsWith(TYPE_QUERY_PREFIX)
-    ? text.slice(TYPE_QUERY_PREFIX.length)
-    : text;
-  return entityName.split(".").every(isIdentifier);
+  const isQuery = text.startsWith(TYPE_QUERY_PREFIX);
+  const names = (isQuery ? text.slice(TYPE_QUERY_PREFIX.length) : text).split(".");
+  const reserved = isQuery ? NOT_TYPE_QUERY_START : NOT_TYPE_REFERENCE_START;
+  return names.every(isIdentifier) && !reserved.has(names[0] as string);
 }
 
 /** A non-negative number written as JavaScript writes it, as `toPropertyName` makes them. */
@@ -101,6 +117,7 @@ class IrShapeCheck {
     return (
       isIdentifier(node.parameterName) &&
       this.isType(node.parameterType) &&
+      isIndexParameterType(node.parameterType as IrType) &&
       this.isType(node.type) &&
       typeof node.isReadonly === "boolean" &&
       areComments(node.comments)
@@ -117,6 +134,28 @@ class IrShapeCheck {
     } finally {
       this.#ancestors.delete(value);
     }
+  }
+}
+
+/** The keywords an index signature takes as its parameter type. */
+const INDEX_PARAMETER_KEYWORDS: ReadonlySet<string> = new Set(["string", "number"]);
+
+/**
+ * Whether TypeScript takes a type as the parameter type of an index signature: `string`,
+ * `number`, a name or type text it resolves itself, or a union of these. An object, an array or a
+ * literal there is a syntax error (TS1268), not a type error.
+ */
+function isIndexParameterType(type: IrType): boolean {
+  switch (type.kind) {
+    case "keyword":
+      return INDEX_PARAMETER_KEYWORDS.has(type.keyword);
+    case "reference":
+    case "raw":
+      return true;
+    case "union":
+      return type.types.every(isIndexParameterType);
+    default:
+      return false;
   }
 }
 
