@@ -227,7 +227,7 @@ describe("TypescriptCallbackRewriter", () => {
     expect(rewriter.rewrite(text, "gen.ts")).toEqual({ text, changes: [], manualSteps: [] });
   });
 
-  it("rewrite leaves calls without callbacks, other calls and options that are not literals", () => {
+  it("rewrite leaves calls without callbacks and other calls, and reports unseen options", () => {
     const text = lines(
       ...HEADER,
       "openapiTS(schema, { alphabetize: true });",
@@ -237,7 +237,11 @@ describe("TypescriptCallbackRewriter", () => {
       "api.openapiTS(schema, { transform: () => ts.factory.createTypeReferenceNode('A') });",
     );
 
-    expect(rewriter.rewrite(text, "gen.tsx")).toEqual({ text, changes: [], manualSteps: [] });
+    expect(rewriter.rewrite(text, "gen.tsx")).toEqual({
+      text,
+      changes: [],
+      manualSteps: [{ kind: "options-not-inspected", line: 4 }],
+    });
   });
 
   it("rewrite leaves files that do not import the generator", () => {
@@ -327,5 +331,154 @@ describe("TypescriptCallbackRewriter", () => {
       line: 4,
       reason: "shared-function",
     });
+  });
+
+  it("rewrite resolves names by scope: a local constant is not the module constant", () => {
+    const text = lines(
+      ...HEADER,
+      "const DATE = ts.factory.createTypeReferenceNode('Date');",
+      "openapiTS(schema, {",
+      "  transform(s) {",
+      "    const DATE = ts.factory.createTypeReferenceNode('Temporal.Instant');",
+      "    return DATE;",
+      "  },",
+      "});",
+    );
+
+    const migration = rewriter.rewrite(text, "gen.ts");
+
+    expect(migration.text).toBe(text);
+    expect(migration.manualSteps).toEqual([
+      { kind: "transform-not-rewritten", line: 5, reason: "unknown-return" },
+    ]);
+  });
+
+  it("rewrite resolves the TypeScript module by scope, not by its name", () => {
+    const text = lines(
+      ...HEADER,
+      "openapiTS(schema, {",
+      "  transform(s, ts) {",
+      "    return ts.factory.createTypeReferenceNode('A');",
+      "  },",
+      "});",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").manualSteps).toEqual([
+      { kind: "transform-not-rewritten", line: 4, reason: "unknown-return" },
+    ]);
+  });
+
+  it("rewrite stops at constants that refer to each other", () => {
+    const header = [...HEADER, "const A = B;", "const B = A;"];
+
+    expect(rewrittenReturn("A", header)).toBeUndefined();
+  });
+
+  it("rewrite reads options from a module constant that only the call uses", () => {
+    const text = lines(
+      ...HEADER,
+      "const options = {",
+      "  transform: () => ts.factory.createTypeReferenceNode('A'),",
+      "} satisfies object;",
+      "await openapiTS(schema, options);",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").text).toBe(
+      lines(
+        ...HEADER,
+        "const options = {",
+        "  irCallbacks: true,",
+        '  transform: () => "A",',
+        "} satisfies object;",
+        "await openapiTS(schema, options);",
+      ),
+    );
+  });
+
+  it("rewrite reports the callbacks of options that other code uses too, once", () => {
+    const text = lines(
+      ...HEADER,
+      "const options = {",
+      "  transform: () => ts.factory.createTypeReferenceNode('A'),",
+      "  postTransform: (type) => type,",
+      "};",
+      "await openapiTS(a, options);",
+      "await openapiTS(b, options);",
+      "export const exported = { transform: () => ts.factory.createTypeReferenceNode('B') };",
+      "await openapiTS(c, exported);",
+      "const ir = { irCallbacks: true, postTransform: (type) => type };",
+      "await openapiTS(d, ir);",
+      "await openapiTS(d, ir);",
+    );
+
+    const migration = rewriter.rewrite(text, "gen.ts");
+
+    expect(migration.text).toBe(text);
+    expect(migration.manualSteps).toEqual([
+      { kind: "legacy-callback", line: 5, callback: "postTransform" },
+      { kind: "transform-not-rewritten", line: 4, reason: "shared-options" },
+      { kind: "transform-not-rewritten", line: 9, reason: "shared-options" },
+    ]);
+  });
+
+  it("rewrite reports options it cannot see: a parameter, a call, a non-object constant", () => {
+    const text = lines(
+      ...HEADER,
+      "const named = 1;",
+      "export const run = (options) => openapiTS(a, options);",
+      "await openapiTS(b, makeOptions());",
+      "await openapiTS(c, named);",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").manualSteps).toEqual([
+      { kind: "options-not-inspected", line: 4 },
+      { kind: "options-not-inspected", line: 5 },
+      { kind: "options-not-inspected", line: 6 },
+    ]);
+  });
+
+  it("rewrite finds the generator through a namespace import and a named default import", () => {
+    const text = lines(
+      'import ts from "typescript";',
+      'import * as oats from "openapi-typescript";',
+      'import { default as generate } from "openapi-typesafe";',
+      "await oats.default(a, { postTransform: (type) => type });",
+      "await generate(b, { transform: () => ts.factory.createTypeReferenceNode('B') });",
+      "await oats.other(c, { postTransform: (type) => type });",
+    );
+
+    const migration = rewriter.rewrite(text, "gen.ts");
+
+    expect(migration.manualSteps).toEqual([
+      { kind: "legacy-callback", line: 4, callback: "postTransform" },
+    ]);
+    expect(migration.changes).toContainEqual({ kind: "transform-rewritten", line: 5 });
+  });
+
+  it("rewrite reports a shorthand transform as not a function", () => {
+    const text = lines(
+      ...HEADER,
+      "const transform = () => undefined;",
+      "openapiTS(a, { transform });",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").manualSteps).toEqual([
+      { kind: "transform-not-rewritten", line: 4, reason: "not-a-function" },
+    ]);
+  });
+
+  it.each([
+    "ts.factory.createTypeReferenceNode()",
+    "ts.factory.createUnionTypeNode([(ts.factory.createTypeReferenceNode('A')), 'B'])",
+  ])("rewrite leaves a transform with arguments it cannot read: %s", (returned) => {
+    expect(rewrittenReturn(returned)).toBeUndefined();
+  });
+
+  it("rewrite reads parenthesized elements of a union", () => {
+    expect(
+      rewrittenReturn(
+        "ts.factory.createUnionTypeNode([(ts.factory.createTypeReferenceNode('A'))])",
+      ),
+    ).toBe('"A"');
   });
 });

@@ -1,23 +1,19 @@
 import ts from "@typescript/typescript6";
 
+import type { FileBindings } from "./file-bindings.js";
+
 /**
  * TypeScript type text for the `ts.factory` expressions of the classic `transform` recipe
  * (`createTypeReferenceNode`, keywords, `null` and literal types, unions, intersections, arrays),
  * and for the openapi-typesafe helper constants and `tsUnion` / `tsIntersection`. Anything else
- * returns undefined, so the callback is left as it is. Module-level constants such as
- * `const DATE = ts.factory.createTypeReferenceNode("Date")` are followed by name.
+ * returns undefined, so the callback is left as it is. A name such as `DATE` is followed to the
+ * module-level `const` it refers to by scope, never by spelling.
  */
 
-/** How the file refers to the TypeScript module and to the openapi-typesafe helpers. */
+/** How to read names: the file's bindings, and the constants being followed (to stop cycles). */
 export interface FactoryNames {
-  /** Local names of the `typescript` module (`ts` in `import ts from "typescript"`). */
-  readonly typescriptModules: ReadonlySet<string>;
-  /** Local name → imported name, for named imports from `typescript` (`factory`, `SyntaxKind`). */
-  readonly typescriptImports: ReadonlyMap<string, string>;
-  /** Local name → imported name, for named imports from `openapi-typesafe`. */
-  readonly helperImports: ReadonlyMap<string, string>;
-  /** Initializers of module-level `const` declarations, by name. */
-  readonly constants: ReadonlyMap<string, ts.Expression>;
+  readonly bindings: FileBindings;
+  readonly following: ReadonlySet<ts.Node>;
 }
 
 const KEYWORDS: ReadonlyMap<string, string> = new Map([
@@ -57,34 +53,37 @@ interface TypeText {
 
 const plain = (text: string): TypeText => ({ text, operator: null });
 
+/**
+ * True when `target` is the TypeScript export `member`: `factory` imported by name, or
+ * `ts.factory` on the TypeScript module.
+ */
+function isTypescriptMember(target: ts.Expression, member: string, names: FactoryNames): boolean {
+  if (ts.isIdentifier(target)) {
+    const binding = names.bindings.bindingOf(target);
+    return binding?.kind === "typescript-import" && binding.name === member;
+  }
+  return (
+    ts.isPropertyAccessExpression(target) &&
+    target.name.text === member &&
+    ts.isIdentifier(target.expression) &&
+    names.bindings.bindingOf(target.expression)?.kind === "typescript-module"
+  );
+}
+
 /** `ts.factory.createX` or `factory.createX`: the factory method name, if that is the callee. */
 function factoryMethod(callee: ts.Expression, names: FactoryNames): string | undefined {
-  if (!ts.isPropertyAccessExpression(callee)) {
-    return undefined;
-  }
-  const target = callee.expression;
-  const isFactory = ts.isIdentifier(target)
-    ? names.typescriptImports.get(target.text) === "factory"
-    : ts.isPropertyAccessExpression(target) &&
-      target.name.text === "factory" &&
-      ts.isIdentifier(target.expression) &&
-      names.typescriptModules.has(target.expression.text);
-  return isFactory ? callee.name.text : undefined;
+  return ts.isPropertyAccessExpression(callee) &&
+    isTypescriptMember(callee.expression, "factory", names)
+    ? callee.name.text
+    : undefined;
 }
 
 /** `ts.SyntaxKind.StringKeyword` or `SyntaxKind.StringKeyword`: the member name. */
 function syntaxKindMember(expression: ts.Expression, names: FactoryNames): string | undefined {
-  if (!ts.isPropertyAccessExpression(expression)) {
-    return undefined;
-  }
-  const target = expression.expression;
-  const isSyntaxKind = ts.isIdentifier(target)
-    ? names.typescriptImports.get(target.text) === "SyntaxKind"
-    : ts.isPropertyAccessExpression(target) &&
-      target.name.text === "SyntaxKind" &&
-      ts.isIdentifier(target.expression) &&
-      names.typescriptModules.has(target.expression.text);
-  return isSyntaxKind ? expression.name.text : undefined;
+  return ts.isPropertyAccessExpression(expression) &&
+    isTypescriptMember(expression.expression, "SyntaxKind", names)
+    ? expression.name.text
+    : undefined;
 }
 
 function typeName(argument: ts.Expression | undefined, names: FactoryNames): string | undefined {
@@ -190,7 +189,8 @@ function helperCallText(call: ts.CallExpression, names: FactoryNames): TypeText 
   if (!ts.isIdentifier(call.expression)) {
     return undefined;
   }
-  const helper = names.helperImports.get(call.expression.text);
+  const binding = names.bindings.bindingOf(call.expression);
+  const helper = binding?.kind === "helper-import" ? binding.name : undefined;
   if (helper === "tsUnion") {
     return joined(call.arguments[0], "|", names);
   }
@@ -198,13 +198,17 @@ function helperCallText(call: ts.CallExpression, names: FactoryNames): TypeText 
 }
 
 function identifierText(identifier: ts.Identifier, names: FactoryNames): TypeText | undefined {
-  const helper = names.helperImports.get(identifier.text);
-  const constant = helper === undefined ? undefined : HELPER_CONSTANTS.get(helper);
-  if (constant !== undefined) {
-    return plain(constant);
+  const declaration = names.bindings.declarationOf(identifier);
+  const binding = names.bindings.bindingOf(identifier);
+  if (binding?.kind === "helper-import") {
+    const constant = HELPER_CONSTANTS.get(binding.name);
+    return constant === undefined ? undefined : plain(constant);
   }
-  const initializer = names.constants.get(identifier.text);
-  return initializer === undefined ? undefined : typeTextOf(initializer, names);
+  if (binding?.kind !== "constant" || names.following.has(declaration as ts.Node)) {
+    return undefined;
+  }
+  const following = new Set([...names.following, declaration as ts.Node]);
+  return typeTextOf(binding.initializer, { ...names, following });
 }
 
 /** The type text of an expression that builds a type, or undefined. */

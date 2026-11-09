@@ -37,6 +37,7 @@ const KEEP_REASONS: Readonly<Record<TransformKeepReason, string>> = {
     "postTransform or transformProperty are set too, and they need TypeScript nodes",
   "not-a-function": "it is not an inline function or a function of this file",
   "shared-function": "the function it names is used elsewhere too",
+  "shared-options": "its options object is used elsewhere too",
   "unknown-return": "a return value is not a plain ts.factory type",
 };
 
@@ -45,6 +46,9 @@ const PINNED_NOTE = "change it to openapi-typesafe@<version>";
 const OLD_FILE_NOTE =
   "is a file of openapi-typescript, which is no longer installed: run openapi-typesafe instead";
 const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; change it to";
+const OPTIONS_NOTE =
+  "the options of openapiTS() are not an object written in this file: check them for " +
+  `transform, postTransform and transformProperty. See ${IR_CALLBACKS_GUIDE}`;
 const DEEP_IMPORT_NOTE = "imports a file inside the package; check that it exists";
 const STRING_NOTE = "is a string, not a module specifier, so it was kept";
 const STRING_FIX_NOTE = "if it names the package, change it to";
@@ -114,6 +118,8 @@ export function manualStepMessage(step: ManualStep): string {
       return `"${step.field}" names ${step.name}: update or remove that override`;
     case "config-unreadable":
       return "the file is not valid JSON; migrate its commands by hand";
+    case "options-not-inspected":
+      return `line ${step.line}: ${OPTIONS_NOTE}`;
     case "deep-import":
       return `line ${step.line}: "${step.specifier}" ${DEEP_IMPORT_NOTE}`;
     case "string-names-package":

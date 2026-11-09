@@ -8,9 +8,12 @@ import {
   type TransformKeepReason,
   unchanged,
 } from "../../domain/migration-findings.js";
-import { collectFileNames, type FileNames } from "./file-names.js";
+import { applyTextEdits, type TextEdit } from "../../domain/text-edits.js";
+import type { FactoryNames } from "./factory-type-text.js";
+import { createFileBindings } from "./file-bindings.js";
+import { type GeneratorCall, generatorCalls } from "./generator-calls.js";
 import { plainScriptKind } from "./script-regions.js";
-import { returnEdits, returnedExpressions, type TextEdit } from "./transform-returns.js";
+import { returnEdits, returnedExpressions } from "./transform-returns.js";
 
 /**
  * The CallbackRewriter port on the TypeScript 6 parser (ADR-015). In each `openapiTS(source, {…})`
@@ -41,13 +44,28 @@ function propertyNamed(
   });
 }
 
+/** The function a `const` or a function declaration of this file holds. */
+function namedFunction(
+  name: ts.Identifier,
+  names: FactoryNames,
+): ts.FunctionLikeDeclaration | undefined {
+  const binding = names.bindings.bindingOf(name);
+  if (binding?.kind === "function") {
+    return binding.declaration;
+  }
+  const value = binding?.kind === "constant" ? binding.initializer : undefined;
+  return value !== undefined && (ts.isArrowFunction(value) || ts.isFunctionExpression(value))
+    ? value
+    : undefined;
+}
+
 /**
  * The function a `transform` property holds: a method, an arrow function or a function, inline or
  * by the name of a module-level function.
  */
 function callbackFunction(
   property: ts.ObjectLiteralElementLike,
-  names: FileNames,
+  names: FactoryNames,
 ): ts.FunctionLikeDeclaration | undefined {
   if (ts.isMethodDeclaration(property)) {
     return property;
@@ -57,22 +75,21 @@ function callbackFunction(
   }
   const value = property.initializer;
   if (ts.isIdentifier(value)) {
-    return names.functions.get(value.text);
+    return namedFunction(value, names);
   }
   return ts.isArrowFunction(value) || ts.isFunctionExpression(value) ? value : undefined;
 }
 
 /**
- * A function named by `transform` is rewritten only when its name appears just twice in the file
- * (where it is defined, and here): other callers would get type text where they expect nodes.
+ * A function named by `transform` is rewritten only when this is its only use: other callers
+ * would get type text where they expect nodes.
  */
-function isSharedFunction(property: ts.ObjectLiteralElementLike, text: string): boolean {
+function isSharedFunction(property: ts.ObjectLiteralElementLike, names: FactoryNames): boolean {
   if (!ts.isPropertyAssignment(property) || !ts.isIdentifier(property.initializer)) {
     return false;
   }
-  const name = property.initializer.text.replaceAll("$", "\\$");
-  const uses = text.match(new RegExp(`(?<![\\w$])${name}(?![\\w$])`, "g")) ?? [];
-  return uses.length > 2;
+  const declaration = names.bindings.declarationOf(property.initializer);
+  return declaration !== undefined && names.bindings.usesOf(declaration).length > 1;
 }
 
 /**
@@ -91,14 +108,14 @@ function returnTypeEdits(callback: ts.FunctionLikeDeclaration, text: string): Te
 /** The edits for the returns of `transform`, or the reason to keep it. */
 function transformEdits(
   property: ts.ObjectLiteralElementLike,
-  names: FileNames,
+  names: FactoryNames,
   text: string,
 ): TextEdit[] | TransformKeepReason {
   const callback = callbackFunction(property, names);
   if (callback?.body === undefined) {
     return "not-a-function";
   }
-  if (isSharedFunction(property, text)) {
+  if (isSharedFunction(property, names)) {
     return "shared-function";
   }
   const edits = returnTypeEdits(callback, text);
@@ -141,7 +158,7 @@ function legacyCallbackSteps(options: ts.ObjectLiteralExpression, text: string):
 function migrateOptions(
   options: ts.ObjectLiteralExpression,
   text: string,
-  names: FileNames,
+  names: FactoryNames,
 ): CallFindings {
   // With irCallbacks set, the callbacks already use the IR form: nothing to migrate.
   if (propertyNamed(options, IR_CALLBACKS_OPTION) !== undefined) {
@@ -168,42 +185,62 @@ function migrateOptions(
   return findings;
 }
 
-/** The options object of a generator call, if it is written in place. */
-function generatorOptions(node: ts.Node, names: FileNames): ts.ObjectLiteralExpression | undefined {
-  if (!ts.isCallExpression(node) || !ts.isIdentifier(node.expression)) {
-    return undefined;
+/** Options that other code uses too: the callbacks are reported, never changed. */
+function sharedOptionsFindings(options: ts.ObjectLiteralExpression, text: string): CallFindings {
+  const findings: CallFindings = { edits: [], changes: [], manualSteps: [] };
+  if (propertyNamed(options, IR_CALLBACKS_OPTION) !== undefined) {
+    return findings;
   }
-  const options = node.arguments[1];
-  const isGenerator = names.generatorFunctions.has(node.expression.text);
-  return isGenerator && options !== undefined && ts.isObjectLiteralExpression(options)
-    ? options
-    : undefined;
+  findings.manualSteps.push(...legacyCallbackSteps(options, text));
+  const transform = propertyNamed(options, TRANSFORM);
+  if (transform !== undefined) {
+    const line = lineAt(text, transform.getStart());
+    findings.manualSteps.push({ kind: "transform-not-rewritten", line, reason: "shared-options" });
+  }
+  return findings;
 }
 
-/** Apply edits from the end of the text, so earlier offsets stay valid. */
-function applyEdits(text: string, edits: readonly TextEdit[]): string {
-  return [...edits]
-    .sort((left, right) => right.start - left.start)
-    .reduce(
-      (result, edit) => result.slice(0, edit.start) + edit.text + result.slice(edit.end),
-      text,
-    );
-}
-
-function findCallFindings(file: ts.SourceFile, text: string, names: FileNames): CallFindings {
-  const all: CallFindings = { edits: [], changes: [], manualSteps: [] };
-  const visit = (node: ts.Node): void => {
-    const options = generatorOptions(node, names);
-    if (options !== undefined) {
-      const found = migrateOptions(options, text, names);
-      all.edits.push(...found.edits);
-      all.changes.push(...found.changes);
-      all.manualSteps.push(...found.manualSteps);
+function callFindings(found: GeneratorCall, text: string, names: FactoryNames): CallFindings {
+  const options = found.options;
+  switch (options?.kind) {
+    case undefined:
+      return { edits: [], changes: [], manualSteps: [] };
+    case "own":
+      return migrateOptions(options.options, text, names);
+    case "shared":
+      return sharedOptionsFindings(options.options, text);
+    case "unknown": {
+      const line = lineAt(text, options.expression.getStart());
+      return { edits: [], changes: [], manualSteps: [{ kind: "options-not-inspected", line }] };
     }
-    ts.forEachChild(node, visit);
-  };
-  visit(file);
+  }
+}
+
+/** The findings of every generator call; options that several calls share are read once. */
+function findCallFindings(file: ts.SourceFile, text: string, names: FactoryNames): CallFindings {
+  const all: CallFindings = { edits: [], changes: [], manualSteps: [] };
+  const seen = new Set<ts.Node>();
+  for (const found of generatorCalls(file, names.bindings)) {
+    const options = found.options?.kind === "unknown" ? undefined : found.options?.options;
+    if (options !== undefined && seen.has(options)) {
+      continue;
+    }
+    if (options !== undefined) {
+      seen.add(options);
+    }
+    const findings = callFindings(found, text, names);
+    all.edits.push(...findings.edits);
+    all.changes.push(...findings.changes);
+    all.manualSteps.push(...findings.manualSteps);
+  }
   return all;
+}
+
+/** The rewrite of a file that calls the generator. */
+function rewriteFile(file: ts.SourceFile, names: FactoryNames): FileMigration {
+  const text = file.text;
+  const { edits, changes, manualSteps } = findCallFindings(file, text, names);
+  return { text: applyTextEdits(text, edits), changes, manualSteps };
 }
 
 class TypescriptCallbackRewriter implements CallbackRewriter {
@@ -214,12 +251,11 @@ class TypescriptCallbackRewriter implements CallbackRewriter {
       return unchanged(text);
     }
     const file = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind);
-    const names = collectFileNames(file);
-    if (names.generatorFunctions.size === 0) {
+    const bindings = createFileBindings(file);
+    if (!bindings.hasGenerator) {
       return unchanged(text);
     }
-    const { edits, changes, manualSteps } = findCallFindings(file, text, names);
-    return { text: applyEdits(text, edits), changes, manualSteps };
+    return rewriteFile(file, { bindings, following: new Set() });
   }
 }
 
