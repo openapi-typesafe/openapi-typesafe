@@ -43,3 +43,6 @@ Changes that can need work when you move from openapi-typescript 7.13:
   API with `CLI_CONFIG_INVALID`; openapi-typescript ignored it.
 - Headers from `resolve.http.headers` go over plain HTTP only to `localhost`, `127.0.0.1` and
   `::1`, or to a pattern that starts with `http://`.
+- A discriminator `mapping` to a schema whose key needs a pointer escape (`a~b`, `c/d`) no longer
+  adds a copy under the escaped name (`a~0b`, `c~1d`): use the schema's own key,
+  `components["schemas"]["a~b"]`.

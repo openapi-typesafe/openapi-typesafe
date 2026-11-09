@@ -49,3 +49,33 @@ describe("bundled refs with escaped pointer segments", () => {
     expect((error as Error).message).toContain('"#/components/schemas/50%"');
   });
 });
+
+describe("discriminator mappings to local schemas with escaped keys", () => {
+  const document = {
+    openapi: "3.1.0",
+    info: { title: "t", version: "1" },
+    paths: {},
+    components: {
+      schemas: {
+        "a~b": { type: "object", required: ["kind"], properties: { kind: { type: "string" } } },
+        "c/d": { type: "object", required: ["kind"], properties: { kind: { type: "string" } } },
+        Pet: {
+          oneOf: [{ $ref: "#/components/schemas/a~0b" }, { $ref: "#/components/schemas/c~1d" }],
+          discriminator: {
+            propertyName: "kind",
+            mapping: { tilde: "#/components/schemas/a~0b", slash: "#/components/schemas/c~1d" },
+          },
+        },
+      },
+    },
+  };
+
+  it("openapiTS writes each mapped schema once, under its own key", async () => {
+    const output = astToString(await openapiTS(structuredClone(document) as never, { silent: true }));
+
+    expect(output).not.toContain('"a~0b": {');
+    expect(output).not.toContain('"c~1d": {');
+    expect(output).toContain('kind: "tilde";');
+    expect(output).toContain('Pet: components["schemas"]["a~b"] | components["schemas"]["c/d"];');
+  });
+});

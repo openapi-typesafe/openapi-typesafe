@@ -16,6 +16,7 @@ import type {
 import { withStackOverflowReportedAsync } from "../../application/stack-overflow.js";
 import { WARNING_CODES, warningText } from "../../domain/warnings.js";
 import type { OpenAPI3 } from "../../types.js";
+import { removeBundledMappingCopies, schemaKeysOf } from "./bundled-mapping-copies.js";
 import { repairBundledRefs } from "./bundled-ref-repair.js";
 import { loadedDocuments, localFilesRead } from "./loaded-documents.js";
 import { findMalformedRefs, malformedRefsError } from "./malformed-refs.js";
@@ -207,6 +208,7 @@ class RedoclySchemaLoader implements SchemaLoader {
 
   async #bundle(document: Document, resolver: BaseResolver): Promise<OpenAPI3> {
     const startedAt = this.#options.now();
+    const schemaKeys = schemaKeysOf(document.parsed);
     // The lint resolver: documents it already loaded are not fetched again.
     const bundled = await bundle({
       config: this.#options.redoc,
@@ -215,6 +217,7 @@ class RedoclySchemaLoader implements SchemaLoader {
       externalRefResolver: resolver,
     });
     this.#report(bundled.problems);
+    removeBundledMappingCopies(bundled.bundle.parsed, schemaKeys);
     repairBundledRefs(bundled.bundle.parsed);
     this.#options.logger.debug("Bundled schema", "bundle", this.#options.now() - startedAt);
     return bundled.bundle.parsed;
