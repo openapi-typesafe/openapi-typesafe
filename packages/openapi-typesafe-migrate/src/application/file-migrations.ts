@@ -1,4 +1,5 @@
 import { migrateCommandLines } from "../domain/command-migration.js";
+import { commandStringSteps } from "../domain/command-strings.js";
 import {
   DENO_TASK_PATHS,
   migrateJsonCommands,
@@ -74,6 +75,21 @@ const isHuskyHook = (path: string): boolean =>
 const isDependabotConfig = (path: string): boolean =>
   [...DEPENDABOT_FILES].some((file) => path === file || path.endsWith(`/${file}`));
 
+/** A migration with more manual steps appended. */
+const withSteps = (migration: FileMigration, steps: readonly ManualStep[]): FileMigration => ({
+  ...migration,
+  manualSteps: [...migration.manualSteps, ...steps],
+});
+
+/** Module specifiers and `transform` callbacks are migrated; command strings are reported. */
+function migrateSource(text: string, path: string, context: MigrationContext): FileMigration {
+  const strings = context.scanner.scan(text, path);
+  const migrated = chain(migrateModuleSpecifiers(text, strings), (renamed) =>
+    context.rewriter.rewrite(renamed, path),
+  );
+  return withSteps(migrated, commandStringSteps(text, strings));
+}
+
 /** Two migrations of the same text, one after the other, with their findings joined. */
 function chain(first: FileMigration, next: (text: string) => FileMigration): FileMigration {
   const second = next(first.text);
@@ -94,10 +110,7 @@ const FILE_KINDS: readonly FileKind[] = [
   },
   {
     matches: (path) => SOURCE_EXTENSIONS.has(extensionOf(path)),
-    migrate: (text, path, context) =>
-      chain(migrateModuleSpecifiers(text, context.scanner.scan(text, path)), (renamed) =>
-        context.rewriter.rewrite(renamed, path),
-      ),
+    migrate: migrateSource,
   },
   {
     matches: (path) => baseName(path) === NX_PROJECT_FILE,

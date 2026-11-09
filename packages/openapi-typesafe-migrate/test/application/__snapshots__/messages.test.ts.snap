@@ -21,6 +21,7 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "ci.yml:3 runs a pinned openapi-typescript@<version>: change it to openapi-typesafe@<version>",
   "scripts.setup names a pinned openapi-fetch@<version>: change it to openapi-typesafe-fetch@<version>",
   "Makefile:2: node_modules/openapi-typescript/x.js is a file of openapi-typescript, which is no longer installed: run openapi-typesafe instead",
+  "line 8: a string runs openapi-typescript, so it was kept; change it to "npx openapi-typesafe a.yaml"",
   "the file is not valid JSON; migrate its commands by hand",
   "line 2: "b/x" imports a file inside the package; check that it exists",
   "line 6: "openapi-fetch" is a string, not a module specifier, so it was kept; if it names the package, change it to "openapi-typesafe-fetch"",

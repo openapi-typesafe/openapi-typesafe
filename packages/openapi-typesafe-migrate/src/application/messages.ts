@@ -44,6 +44,7 @@ const PEER_NOTE = "users of this package must switch too (a breaking change for 
 const PINNED_NOTE = "change it to openapi-typesafe@<version>";
 const OLD_FILE_NOTE =
   "is a file of openapi-typescript, which is no longer installed: run openapi-typesafe instead";
+const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; change it to";
 const DEEP_IMPORT_NOTE = "imports a file inside the package; check that it exists";
 const STRING_NOTE = "is a string, not a module specifier, so it was kept";
 const STRING_FIX_NOTE = "if it names the package, change it to";
@@ -68,16 +69,17 @@ function pinnedPackageMessage(step: Extract<ManualStep, { kind: "pinned-package"
   );
 }
 
-/** The manual steps found in commands: scripts, shell files and CI files. */
+/** The manual steps found in commands: scripts, shell files, CI files and command strings. */
 type CommandStep = Extract<
   ManualStep,
-  { kind: "versioned-command" | "pinned-package" | "old-package-file" }
+  { kind: "versioned-command" | "pinned-package" | "old-package-file" | "command-string" }
 >;
 
 const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "versioned-command",
   "pinned-package",
   "old-package-file",
+  "command-string",
 ]);
 
 const isCommandStep = (step: ManualStep): step is CommandStep => COMMAND_STEP_KINDS.has(step.kind);
@@ -90,6 +92,8 @@ function commandStepMessage(step: CommandStep): string {
       return pinnedPackageMessage(step);
     case "old-package-file":
       return `${step.location}: ${step.path} ${OLD_FILE_NOTE}`;
+    case "command-string":
+      return `line ${step.line}: ${COMMAND_STRING_NOTE} "${step.to}"`;
     default:
       return assertNever(step);
   }

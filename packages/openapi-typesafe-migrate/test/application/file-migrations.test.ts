@@ -116,4 +116,16 @@ describe("fileMigrationFor", () => {
       "scripts:\n  g: openapi-typesafe a\n",
     );
   });
+
+  it("fileMigrationFor reports source strings that run the generator", () => {
+    const migration = fileMigrationFor("gen.ts")?.(
+      'execSync("openapi-typescript a.yaml");\n',
+      "gen.ts",
+      { ...context, scanner: new QuotedStringScanner({ isModuleSpecifier: false }) },
+    );
+
+    expect(migration?.manualSteps).toEqual([
+      { kind: "command-string", line: 1, to: "openapi-typesafe a.yaml" },
+    ]);
+  });
 });
