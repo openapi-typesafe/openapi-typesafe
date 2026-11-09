@@ -1,4 +1,5 @@
 import type { IntentionalDifference } from "../../domain/intentional-differences.ts";
+import { isEnumMergeFixed } from "../../domain/merged-enums.ts";
 import {
   type ComparisonResult,
   ComparisonStatus,
@@ -44,21 +45,28 @@ export interface CompareOutputsOptions {
 
 type TypeVerdict = Pick<ComparisonResult, "status" | "differentTypeNames">;
 
+/** The output files of one case, and whether the candidate keeps apart enums the golden merged. */
+interface CasePaths {
+  readonly goldenPath: string;
+  readonly candidatePath: string;
+  readonly isEnumMergeFixed: boolean;
+}
+
 /**
- * A changed golden type is a fix when the golden file does not compile and ours is no worse. A file
- * TypeScript stops on counts as worse than any error count, so ours may stop only where it does.
+ * A changed golden type is a fix when the golden file does not compile, or merges two enums of one
+ * name that ours keeps apart (RC4 G8), and ours is no worse. A file TypeScript stops on counts as
+ * worse than any error count, so ours may stop only where it does.
  */
 async function changedTypesStatus(
   dependencies: CompareOutputsDependencies,
-  goldenPath: string,
-  candidatePath: string,
+  { goldenPath, candidatePath, isEnumMergeFixed }: CasePaths,
 ): Promise<ComparisonResult["status"]> {
   const { outputCompiler: compiler, logger } = dependencies;
   if (compiler === undefined) {
     return ComparisonStatus.Different;
   }
   const goldenErrors = await countErrorsOrStop(compiler, logger, goldenPath);
-  if (goldenErrors === 0) {
+  if (goldenErrors === 0 && !isEnumMergeFixed) {
     return ComparisonStatus.Different;
   }
   const candidateErrors = await countErrorsOrStop(compiler, logger, candidatePath);
@@ -86,13 +94,12 @@ async function differentTypes(
 
 async function compareTypes(
   dependencies: CompareOutputsDependencies & { readonly typeChecker: TypeIdentityChecker },
-  goldenPath: string,
-  candidatePath: string,
+  paths: CasePaths,
 ): Promise<TypeVerdict> {
-  const differences = await differentTypes(dependencies, goldenPath, candidatePath);
+  const differences = await differentTypes(dependencies, paths.goldenPath, paths.candidatePath);
   // Without the identity check every type may have changed; only the compile check can clear it.
   if (differences === null || differences.changed.length > 0) {
-    const status = await changedTypesStatus(dependencies, goldenPath, candidatePath);
+    const status = await changedTypesStatus(dependencies, paths);
     return { status, differentTypeNames: differences?.changed ?? [] };
   }
   const { added } = differences;
@@ -140,10 +147,15 @@ async function compareCase(
   }
   const verdict = await compareTypes(
     { ...dependencies, typeChecker },
-    dependencies.cache.resolve(outputPath(options.goldenLabel, golden.optionSetId, golden.entryId)),
-    dependencies.cache.resolve(
-      outputPath(options.candidateLabel, candidate.optionSetId, candidate.entryId),
-    ),
+    {
+      goldenPath: dependencies.cache.resolve(
+        outputPath(options.goldenLabel, golden.optionSetId, golden.entryId),
+      ),
+      candidatePath: dependencies.cache.resolve(
+        outputPath(options.candidateLabel, candidate.optionSetId, candidate.entryId),
+      ),
+      isEnumMergeFixed: isEnumMergeFixed(goldenText, candidateText),
+    },
   );
   return { ...base, ...lines, ...verdict };
 }

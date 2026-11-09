@@ -89,7 +89,9 @@ arguments.
 - **Golden output that does not compile:** with `--types`, a case whose golden types differ is
   `golden-invalid` when the golden file does not compile on its own (strict, no ambient types) and
   the candidate has no more errors: a fix of invalid output, which the backlog policy ships by
-  default. With more errors it stays `different`.
+  default. With more errors it stays `different`. A golden file that declares two enums of one name
+  counts as invalid too when the candidate declares none twice: TypeScript merges them without an
+  error, so each schema accepts the other's values (RC4 G8, ADR-021).
 - Cases where the golden generator fails or its output does not compile are excluded from the
   identity rates.
 - **Opt-in flags** (`--binary-as-blob`, ...): flags the golden generators do not have, off by
