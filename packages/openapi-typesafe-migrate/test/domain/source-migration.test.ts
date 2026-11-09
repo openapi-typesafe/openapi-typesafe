@@ -13,6 +13,9 @@ function stringIn(text: string, value: string, isModuleSpecifier = true): Source
 
 const VERSION = "1.0.0";
 
+/** The text `${name}` of a template substitution, as a source file holds it. */
+const substitution = (name: string): string => ["$", "{", name, "}"].join("");
+
 describe("migrateModuleSpecifiers", () => {
   it("migrateModuleSpecifiers renames module specifiers that are package names", () => {
     const text = [
@@ -110,18 +113,41 @@ describe("migrateModuleSpecifiers", () => {
     });
   });
 
-  it("migrateModuleSpecifiers rejects strings that overlap", () => {
+  it("migrateModuleSpecifiers rejects strings that cross", () => {
     const text = 'import x from "openapi-fetch/client";';
     const whole = stringIn(text, "openapi-fetch/client");
-    const value = "openapi-fetch";
-    const part = {
-      start: whole.start,
-      end: whole.start + value.length,
-      value,
-      isModuleSpecifier: true,
-    };
+    const crossing = { ...whole, start: whole.start + 1, end: whole.end + 1 };
 
-    expect(() => migrateModuleSpecifiers(text, [whole, part], VERSION)).toThrow(/overlap/);
+    expect(() => migrateModuleSpecifiers(text, [whole, crossing], VERSION)).toThrow(/overlap/);
+  });
+
+  it("migrateModuleSpecifiers renames a string inside a template that is not renamed", () => {
+    const value = substitution('await import("openapi-fetch")');
+    const text = `const a = \`${value}\`;`;
+    const template = stringIn(text, value, false);
+    const inner = stringIn(text, "openapi-fetch");
+
+    const migrated = migrateModuleSpecifiers(text, [inner, template], VERSION);
+
+    const renamed = substitution('await import("openapi-typesafe-fetch")');
+    expect(migrated.text).toBe(`const a = \`${renamed}\`;`);
+  });
+
+  it("migrateModuleSpecifiers reports a specifier inside a template it renames", () => {
+    const name = substitution('"openapi-fetch"');
+    const text = `import(\`openapi-fetch/${name}\`);`;
+    const template = stringIn(text, `openapi-fetch/${name}`);
+    const inner = stringIn(text, "openapi-fetch");
+
+    const migrated = migrateModuleSpecifiers(text, [template, inner], VERSION);
+
+    expect(migrated.text).toBe(`import(\`openapi-typesafe-fetch/${name}\`);`);
+    expect(migrated.manualSteps).toContainEqual({
+      kind: "string-names-package",
+      line: 1,
+      value: "openapi-fetch",
+      to: "openapi-typesafe-fetch",
+    });
   });
 
   it("migrateModuleSpecifiers renames a Deno npm specifier with the new version", () => {
