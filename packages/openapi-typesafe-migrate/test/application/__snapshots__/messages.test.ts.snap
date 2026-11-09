@@ -16,37 +16,6 @@ exports[`changeMessage > changeMessage describes every kind of change 1`] = `
 ]
 `;
 
-exports[`manualStepMessage > manualStepMessage describes every kind of manual step 1`] = `
-[
-  "cannot be parsed at line 3, column 7; migrate it by hand",
-  "nests too deep to be read; migrate it by hand",
-  "catalog: a has a value the tool does not read; rename it by hand",
-  "dependencies has both a and b, so a was kept: remove one of them",
-  "dependencies: a was kept, because catalog "default" keeps a: rename the entry and the dependency together",
-  "catalogs.legacy: a was kept, because a dependency or an override still names it: rename the entry and what names it together",
-  "b is a peer dependency: users of this package must switch too (a breaking change for them)",
-  "b kept the spec "latest": point it at an openapi-typesafe version",
-  ""overrides" names a: update or remove that override",
-  "ci.yml:3 runs a pinned openapi-typescript@<version>: change it to openapi-typesafe@<version>",
-  "Makefile:4: $(FLAGS) holds old flags of the generator and may serve other commands, so it was kept: rename -it to --immutable",
-  "scripts.setup names a pinned openapi-fetch@<version>: change it to openapi-typesafe-fetch@<version>",
-  "Makefile:2: node_modules/openapi-typescript/x.js is a file of openapi-typescript, which is no longer installed: run openapi-typesafe instead",
-  "line 8: a string runs openapi-typescript, so it was kept; change it to "npx openapi-typesafe a.yaml"",
-  "line 9: the options of openapiTS() are not an object written in this file: check them for transform, postTransform and transformProperty. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
-  "line 2: "b/x" imports a file inside the package; check that it exists",
-  "line 2: \`openapi-fetch\${x}\` builds its module name at run time from an old package name, so it was kept; rename it to openapi-typesafe-fetch",
-  "line 6: "openapi-fetch" is a string, not a module specifier, so it was kept; if it names the package, change it to "openapi-typesafe-fetch"",
-  "swr-openapi takes its client type from openapi-fetch@>=0.15, its peer dependency: alias openapi-fetch to openapi-typesafe-fetch with overrides or resolutions, or passing it the openapi-typesafe-fetch client fails to type-check. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/fetch/index.md#libraries-built-on-openapi-fetch",
-  "line 4: transform kept (postTransform or transformProperty are set too, and they need TypeScript nodes); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
-  "line 4: transform kept (it is not an inline function or a function of this file); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
-  "line 4: transform kept (the function it names is used elsewhere too); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
-  "line 4: transform kept (its options object is used elsewhere too); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
-  "line 4: transform kept (a return value is not a plain ts.factory type); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
-  "line 5: postTransform receives TypeScript nodes (deprecated). See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
-  "line 1: no package.json or Deno import map at or above this file lists openapi-typesafe-helpers; openapi-fetch and openapi-react-query installed it, the openapi-typesafe packages do not: add it to the dependencies, or import the types from openapi-typesafe-fetch/helpers",
-]
-`;
-
 exports[`skippedMessage > skippedMessage describes every reason a file was not read 1`] = `
 [
   "it leads outside the project folder (a link, or a path in the git index)",

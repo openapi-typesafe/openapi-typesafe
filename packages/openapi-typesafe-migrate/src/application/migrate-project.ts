@@ -9,12 +9,8 @@ import {
 import { importMapNames } from "../domain/import-map-migration.js";
 import type { Change, ManualStep } from "../domain/migration-findings.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
-import {
-  fileMigrationFor,
-  type MigrationContext,
-  type PlanSource,
-  planSourceOf,
-} from "./file-migrations.js";
+import { fileMigrationFor, type MigrationContext } from "./file-migrations.js";
+import { type PlanSource, planSourceOf } from "./plan-sources.js";
 import type {
   CallbackRewriter,
   DocumentReaders,
@@ -147,8 +143,8 @@ async function readForPlan(
   if (!namesOriginal && !namesUninstalledPackage(read.text)) {
     return { namesOriginal, roots: [] };
   }
-  const parsed = source.read(read.text, dependencies.readers);
-  const roots = parsed.kind === "read" ? parsed.documents.filter(isMap) : undefined;
+  const parsed = source.read?.(read.text, dependencies.readers);
+  const roots = parsed?.kind === "read" ? parsed.documents.filter(isMap) : undefined;
   return { namesOriginal, roots };
 }
 

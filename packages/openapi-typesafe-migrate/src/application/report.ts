@@ -1,8 +1,8 @@
 import { assertNever } from "../domain/assert-never.js";
+import { manualStepMessage } from "./manual-step-messages.js";
 import {
   changeMessage,
   DRY_RUN_NOTE,
-  manualStepMessage,
   NEXT_STEPS,
   NONE_WRITTEN,
   NOT_WRITTEN_HEADING,

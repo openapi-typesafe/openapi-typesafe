@@ -91,6 +91,7 @@ export type ManualStep =
   | { readonly kind: "old-package-file"; readonly location: string; readonly path: string }
   | { readonly kind: "command-string"; readonly line: number; readonly to: string }
   | { readonly kind: "config-unreadable"; readonly position: TextPosition | undefined }
+  | { readonly kind: "manifest-not-read" }
   | { readonly kind: "options-not-inspected"; readonly line: number }
   | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
   | {

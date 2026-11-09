@@ -101,6 +101,8 @@ The report lists each of these with the file and line:
   `resolutions` / `pnpm` settings (in `package.json` or `pnpm-workspace.yaml`, patches included)
   that name an old package;
 - a renamed peer dependency: users of your package must switch too;
+- a pnpm `package.json5` that names an old package: the tool does not read JSON5, so rename the
+  packages and the command there by hand, or write it as `package.json` and run the tool again;
 - `npx openapi-typescript@<version>`, and pinned old packages in install commands
   (`npm i openapi-fetch@0.13`): change them by hand;
 - a command that runs a file inside the old package

@@ -294,6 +294,10 @@ package.json and `package.yaml` stay with the command migrations. A hand-written
 scanner was rejected: it drifted from the grammar at its edges (flow collections, escapes,
 ranges with spaces), which is where these findings came from. A config that does not parse and
 names an original package is reported with the line and column where it stops being valid.
+pnpm's `package.json5` is not read: JSON5 strings (single quotes, line continuations) need a
+third reader that would serve one rare file. Such a manifest that names an original package is
+reported, and the declared-package rule counts it as declaring every package, like a manifest
+that cannot be parsed.
 
 ## Amendment (2026-11-09): the recheck of the second review
 

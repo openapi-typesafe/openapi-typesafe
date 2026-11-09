@@ -18,7 +18,7 @@ import {
   PACKAGE_SCRIPT_PATHS,
 } from "../domain/json-command-migration.js";
 import { migrateMakefile } from "../domain/makefile-migration.js";
-import { migratePackageManifest } from "../domain/manifest-migration.js";
+import { migratePackageManifest, unreadManifest } from "../domain/manifest-migration.js";
 import {
   type Change,
   type FileMigration,
@@ -42,6 +42,28 @@ import {
   migrateYamlScripts,
 } from "../domain/yaml-migration.js";
 import type { CallbackRewriter, DocumentReaders, SourceStringScanner } from "./ports.js";
+import {
+  baseName,
+  DENO_CONFIG_FILES,
+  DEPENDABOT_FILES,
+  DOCKERFILE_NAMES,
+  extensionOf,
+  HUSKY_FOLDER,
+  HUSKY_INTERNALS,
+  IMPORT_MAP_FILE,
+  JSON5_MANIFEST_FILE,
+  LOCK_FILES,
+  MAKEFILE_EXTENSION,
+  MAKEFILE_NAMES,
+  MANIFEST_FILE,
+  NX_PROJECT_FILE,
+  SHELL_EXTENSIONS,
+  SHELL_FILE_NAMES,
+  WORKSPACE_FILE,
+  YAML_EXTENSIONS,
+  YAML_MANIFEST_FILES,
+  YARNRC_FILE_NAME,
+} from "./project-file-names.js";
 
 /** What a migration of one kind of file needs besides the text. */
 export interface MigrationContext {
@@ -59,42 +81,6 @@ export interface MigrationContext {
 interface FileKind {
   readonly matches: (path: string) => boolean;
   readonly migrate: (text: string, path: string, context: MigrationContext) => FileMigration;
-}
-
-const SHELL_EXTENSIONS: ReadonlySet<string> = new Set([".sh", ".bash", ".zsh"]);
-const MAKEFILE_EXTENSION = ".mk";
-const YAML_EXTENSIONS: ReadonlySet<string> = new Set([".yml", ".yaml"]);
-/** Makefiles, justfiles and Dockerfiles, by the names make, just and docker look for. */
-const MAKEFILE_NAMES: ReadonlySet<string> = new Set(["Makefile", "makefile", "GNUmakefile"]);
-const SHELL_FILE_NAMES: ReadonlySet<string> = new Set(["justfile", "Justfile", ".justfile"]);
-const DOCKERFILE_NAMES: ReadonlySet<string> = new Set(["Dockerfile", "Containerfile"]);
-/** Git hooks that husky runs; `.husky/_/` holds husky's own generated scripts. */
-const HUSKY_FOLDER = ".husky/";
-const HUSKY_INTERNALS = ".husky/_/";
-const NX_PROJECT_FILE = "project.json";
-const DENO_CONFIG_FILES: ReadonlySet<string> = new Set(["deno.json", "deno.jsonc"]);
-/** Deno reads its import map from its config, or from a file that the config names. */
-const IMPORT_MAP_FILE = "import_map.json";
-const DEPENDABOT_FILES: ReadonlySet<string> = new Set([
-  ".github/dependabot.yml",
-  ".github/dependabot.yaml",
-]);
-const WORKSPACE_FILE = "pnpm-workspace.yaml";
-const YARNRC_FILE_NAME = ".yarnrc.yml";
-/** pnpm reads a manifest from `package.yaml` too. */
-const YAML_MANIFEST_FILES: ReadonlySet<string> = new Set(["package.yaml", "package.yml"]);
-const MANIFEST_FILE = "package.json";
-/** The package manager writes these again on install; their entries are not commands. */
-const LOCK_FILES: ReadonlySet<string> = new Set(["pnpm-lock.yaml", "yarn.lock", "bun.lock"]);
-
-function baseName(path: string): string {
-  return path.slice(path.lastIndexOf("/") + 1);
-}
-
-function extensionOf(path: string): string {
-  const name = baseName(path);
-  const dot = name.lastIndexOf(".");
-  return dot <= 0 ? "" : name.slice(dot);
 }
 
 const isHuskyHook = (path: string): boolean =>
@@ -204,6 +190,10 @@ const FILE_KINDS: readonly FileKind[] = [
     ]),
   },
   {
+    matches: (path) => baseName(path) === JSON5_MANIFEST_FILE,
+    migrate: unreadManifest,
+  },
+  {
     matches: (path) => baseName(path) === WORKSPACE_FILE,
     migrate: yamlConfig(({ version, catalogs }) => [
       (text, read) =>
@@ -268,35 +258,6 @@ const FILE_KINDS: readonly FileKind[] = [
     migrate: whenNamed((text, path) => migrateCommandLines(text, path)),
   },
 ];
-
-/**
- * How a file takes part in the project plan: a manifest names dependencies on catalogs (and bun
- * keeps catalogs in package.json) and declares packages, a workspace file holds catalogs
- * (domain/catalogs.ts), and a Deno import map declares the packages that sources import.
- */
-export interface PlanSource {
-  readonly role: "manifest" | "catalogs" | "import-map";
-  readonly read: (text: string, readers: DocumentReaders) => DocumentRead;
-}
-
-const readJson = (text: string, readers: DocumentReaders) => readers.json.read(text);
-const readYaml = (text: string, readers: DocumentReaders) => readers.yaml.read(text);
-
-/** The part a file plays in the project plan, or undefined for a file that plays none. */
-export function planSourceOf(path: string): PlanSource | undefined {
-  const name = baseName(path);
-  if (name === MANIFEST_FILE) {
-    return { role: "manifest", read: readJson };
-  }
-  if (DENO_CONFIG_FILES.has(name) || name === IMPORT_MAP_FILE) {
-    return { role: "import-map", read: readJson };
-  }
-  if (YAML_MANIFEST_FILES.has(name)) {
-    return { role: "manifest", read: readYaml };
-  }
-  const isCatalogFile = name === WORKSPACE_FILE || name === YARNRC_FILE_NAME;
-  return isCatalogFile ? { role: "catalogs", read: readYaml } : undefined;
-}
 
 /** The migration for a file, or undefined when the migration does not read that kind of file. */
 export function fileMigrationFor(path: string): FileKind["migrate"] | undefined {
