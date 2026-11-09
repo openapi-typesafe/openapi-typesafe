@@ -12,6 +12,9 @@
       "inputs": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.css", "**/biome.json"],
       "dependsOn": ["build"]
     },
+    "//#lint:changesets": {
+      "inputs": [".changeset/**/*.md", "scripts/check-changeset-texts.mjs"]
+    },
     "size-limit": {
       "dependsOn": ["build"]
     },

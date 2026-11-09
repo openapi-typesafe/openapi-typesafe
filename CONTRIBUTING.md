@@ -58,7 +58,8 @@ Every pull request must meet the Definition of Done in [ENGINEERING_PLAN.md](./E
 5. **No new runtime dependency** without an Architecture Decision Record in `adr/`.
 6. **English only** in code, comments, docs and commit messages. Comments explain *why*, not *what*.
 7. **Changesets.** A change that affects a published package needs a changeset: run `npx changeset` and describe
-   the change from the user's point of view.
+   the change from the user's point of view. Name no ADR, audit finding or hunt item in it; the pull
+   request and the commit carry those (ADR-040 rule 8, checked by `pnpm lint`).
 
 ## Package notes
 

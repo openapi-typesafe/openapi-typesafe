@@ -70,6 +70,7 @@ did change.
    is written into that changeset, not into a new one.
 8. Changeset texts name no audit finding, hunt item or ADR. The changelog is read on npm and on
    GitHub releases, where these mean nothing; the pull request and the commit carry them.
+   `pnpm lint` checks it (`scripts/check-changeset-texts.mjs`).
 9. A claim that output stays the same names its exceptions. Every output change of a valid schema
    that compiled before is in the `major` list of the generator, with the new name.
 
