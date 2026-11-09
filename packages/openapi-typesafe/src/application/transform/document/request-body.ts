@@ -1,7 +1,7 @@
 import { irKeyword, irObject, irProperty } from "../../../domain/ir/constructors.js";
 import type { IrMember, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import type { RequestBodyObject } from "../../../domain/openapi/request-body-object.js";
 import { documentEntries } from "../document-entries.js";
 import type { SchemaContext, SchemaLocation } from "../schema/schema-context.js";
@@ -18,7 +18,7 @@ function contentMembers(
 ): IrMember[] {
   const entries = documentEntries(requestBody.content ?? {}, context.options);
   return entries.map(([contentType, entry]) => {
-    const path = createRef([location.path, "content", contentType]);
+    const path = appendPointer(location.path, ["content", contentType]);
     const type = contentEntryType(entry, { ...location, path }, context);
     return documentMember(contentType, type, entry, { isReadonly: context.options.immutable });
   });

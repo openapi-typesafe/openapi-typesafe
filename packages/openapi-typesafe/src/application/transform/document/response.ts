@@ -6,7 +6,7 @@ import {
 } from "../../../domain/ir/constructors.js";
 import type { IrMember, IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import {
   isMediaTypeComponentRef,
   type MediaTypeObject,
@@ -34,7 +34,7 @@ function headerMember(
     ? refType(header.$ref)
     : headerType(
         header,
-        { ...location, path: createRef([location.path, "headers", name]) },
+        { ...location, path: appendPointer(location.path, ["headers", name]) },
         context,
       );
   return documentMember(name, type, header, {
@@ -79,7 +79,7 @@ function contentMember(
 ): IrPropertySignature {
   const entries = documentEntries(response.content ?? {}, context.options);
   const members = entries.map(([contentType, entry]) => {
-    const path = createRef([location.path, "content", contentType]);
+    const path = appendPointer(location.path, ["content", contentType]);
     const type = mediaTypeEntryType(entry, { ...location, path }, context);
     return documentMember(contentType, type, entry, { isReadonly: context.options.immutable });
   });

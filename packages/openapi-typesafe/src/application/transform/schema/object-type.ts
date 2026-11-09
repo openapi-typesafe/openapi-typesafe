@@ -7,7 +7,7 @@ import {
 } from "../../../domain/ir/constructors.js";
 import type { IrMember, IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { documentEntries } from "../document-entries.js";
 import { schemaRefType } from "../ref-pointer/pointer-type.js";
@@ -117,7 +117,7 @@ function propertyType(
   facts: PropertyFacts,
   request: SchemaRequest,
 ): CustomResult {
-  const path = createRef([request.location.path, key]);
+  const path = appendPointer(request.location.path, [key]);
   const type = facts.ref
     ? schemaRefType(facts.ref, request)
     : request.transformNested(value, { ...request.location, path });
@@ -151,7 +151,7 @@ function propertyMember(
       isReadonly: options.immutable || (!options.readWriteMarkers && facts.flags.isReadOnly),
     },
   );
-  return finishProperty(property, value, createRef([request.location.path, key]), request);
+  return finishProperty(property, value, appendPointer(request.location.path, [key]), request);
 }
 
 function propertyMembers(schema: SchemaObject, request: SchemaRequest): IrMember[] {
@@ -176,7 +176,7 @@ function defsMember(
 ): IrMember {
   const { options } = request.context;
   const members = Object.entries(defs).map(([key, value]) => {
-    const path = createRef([request.location.path, "$defs", key]);
+    const path = appendPointer(request.location.path, ["$defs", key]);
     const flags = propertyAccessFlags(value, request.context);
     const type = withReadWriteMarker(
       request.transformNested(value, { ...request.location, path }),

@@ -2,7 +2,7 @@ import { irIntersection, irObject, irProperty, irRaw } from "../../../domain/ir/
 import type { IrMember, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { escapeTemplateText } from "../../../domain/ir/raw-text-escapes.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer, ROOT_POINTER } from "../../../domain/openapi/json-pointer.js";
 import type { OperationObject } from "../../../domain/openapi/operation-object.js";
 import type {
   ParameterObject,
@@ -145,7 +145,11 @@ function pathItemMember(
   context: TransformContext,
 ): PathMember {
   const isReadonly = context.options.immutable;
-  const type = pathItemType(pathItem, { path: createRef(["paths", url]) }, context);
+  const type = pathItemType(
+    pathItem,
+    { path: appendPointer(ROOT_POINTER, ["paths", url]) },
+    context,
+  );
   const parts =
     context.options.pathParamsAsTypes && url.includes("{")
       ? pathTemplateParts(url, pathItem, context)

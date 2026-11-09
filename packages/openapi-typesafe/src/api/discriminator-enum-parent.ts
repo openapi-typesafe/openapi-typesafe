@@ -1,4 +1,4 @@
-import { createRef, parseRefPointer } from "../domain/openapi/json-pointer.js";
+import { appendPointer, parseRefPointer, ROOT_POINTER } from "../domain/openapi/json-pointer.js";
 import type { SchemaObject } from "../types.js";
 import type { EnumPatch } from "./discriminator-enum.js";
 
@@ -31,7 +31,7 @@ const ROOT_SEGMENTS = 3;
 function typedAt(ref: string): string {
   const segments = parseRefPointer(ref);
   const nested = segments.slice(ROOT_SEGMENTS).filter((segment) => segment !== PROPERTIES_KEYWORD);
-  return createRef([...segments.slice(0, ROOT_SEGMENTS), ...nested]);
+  return appendPointer(ROOT_POINTER, [...segments.slice(0, ROOT_SEGMENTS), ...nested]);
 }
 
 function isSchemaObject(value: unknown): value is SchemaObject {
@@ -41,7 +41,7 @@ function isSchemaObject(value: unknown): value is SchemaObject {
 /** The property `name` of a schema object typed at `ref`. */
 function ownProperty(item: SchemaObject, ref: string, name: string): DeclaredProperty | undefined {
   const property = ("properties" in item ? item.properties : undefined)?.[name];
-  return property === undefined ? undefined : { property, path: createRef([ref, name]) };
+  return property === undefined ? undefined : { property, path: appendPointer(ref, [name]) };
 }
 
 /** The property `name` of the schema at `ref`, its own or from an `allOf` item, depth first. */

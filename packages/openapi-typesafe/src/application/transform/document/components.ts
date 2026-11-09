@@ -18,7 +18,7 @@ import {
   isEnumSchema,
   singularizeComponentKind,
 } from "../../../domain/openapi/components-object.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer, ROOT_POINTER } from "../../../domain/openapi/json-pointer.js";
 import { FIX } from "../../../domain/output-fixes.js";
 import { type DeprecatedEntryFilter, documentEntries } from "../document-entries.js";
 import type { SchemaLocation } from "../schema/schema-context.js";
@@ -62,7 +62,7 @@ function componentMember(
   item: unknown,
   context: TransformContext,
 ): IrPropertySignature {
-  const location = { path: createRef(["components", kind, name]), schema: item };
+  const location = { path: appendPointer(ROOT_POINTER, ["components", kind, name]), schema: item };
   const type = COMPONENT_TRANSFORMS[kind](item as never, location, context);
   const custom = context.callbacks.transform(item, location);
   const property = irProperty(toPropertyName(name), custom?.type ?? type, {

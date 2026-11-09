@@ -7,7 +7,7 @@ import {
 } from "../../../domain/ir/constructors.js";
 import type { IrPropertyName, IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import {
   PARAMETER_LOCATIONS,
   type ParameterLocation,
@@ -121,7 +121,7 @@ function entryType(
   location: SchemaLocation,
   context: TransformContext,
 ): IrType {
-  const path = createRef([location.path, "parameters", resolved.in, resolved.name]);
+  const path = appendPointer(location.path, ["parameters", resolved.in, resolved.name]);
   return "$ref" in original
     ? referencedParameterType(original.$ref, resolved)
     : parameterType(resolved, { ...location, path }, context);

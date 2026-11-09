@@ -1,4 +1,5 @@
 import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
+import { childPointer, ROOT_POINTER } from "../../domain/openapi/json-pointer.js";
 
 /**
  * Keys Redocly 1.34 cannot walk. It looks up the type of every key with `type.properties[key]`,
@@ -57,11 +58,6 @@ interface PendingNode {
   readonly pointer: string;
 }
 
-/** RFC 6901: `~` becomes `~0` and `/` becomes `~1`. */
-function escapePointerSegment(segment: string): string {
-  return segment.replaceAll("~", "~0").replaceAll("/", "~1");
-}
-
 /**
  * The unsupported keys of one parsed document. The walk uses its own stack, so a deeply nested
  * document is checked without running out of call stack; nodes shared by YAML aliases are checked
@@ -77,10 +73,10 @@ function unsupportedKeysOf(document: LoadedDocument): UnsupportedKey[] {
       pending.push({ value, pointer });
     }
   };
-  enqueue(document.parsed, "#");
+  enqueue(document.parsed, ROOT_POINTER);
   for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
     for (const [key, child] of Object.entries(node.value)) {
-      const pointer = `${node.pointer}/${escapePointerSegment(key)}`;
+      const pointer = childPointer(node.pointer, key);
       if (isUnsupportedEntry(key, child)) {
         found.push({ key, pointer, source: document.source });
       }

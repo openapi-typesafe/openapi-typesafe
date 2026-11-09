@@ -1,6 +1,6 @@
 import { irKeyword, irRecord } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { FIX } from "../../../domain/output-fixes.js";
 import { requirableRefType } from "../ref-pointer/pointer-type.js";
@@ -29,7 +29,7 @@ function variantTypes(
   return variants.map((variant, index) =>
     request.transformNested(variant, {
       ...request.location,
-      path: createRef([request.location.path, keyword, String(index)]),
+      path: appendPointer(request.location.path, [keyword, index]),
     }),
   );
 }

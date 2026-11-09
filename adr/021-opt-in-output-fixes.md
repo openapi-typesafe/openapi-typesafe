@@ -160,6 +160,40 @@ OpenAPI 3.1 and 3.2 documents (3.0 says that keywords next to a `$ref` are ignor
 | Rename every enum that has a global's name, used or not | One step, no renaming back | An enum named `Blob` without `--binary-as-blob` changes for no reason |
 | G16 as a default | 3.1 output follows JSON Schema without a flag | Changes valid output of every 3.1 document with such siblings, against decision 5 |
 
+## Amendment (2026-11-09): a document key is one pointer segment
+
+The generator built its location pointers with the original `createRef`, which reads any part that
+contains `#/` as a `$ref`. Document keys (paths, property names, media types, parameter names) went
+in as parts, so a key like `#/%zz` threw `URIError`, and a key like `a#/b` named its node by the
+text after the last `#/`: with `--enum` and `--enum-values` the property `a#/b` of `Rate` gave
+`RateB`, two such keys could give the same name, and the values array lost its type lookup.
+
+1. One rule builds every pointer, in the generator and in the loader: `appendPointer` and
+   `childPointer` (`src/domain/openapi/json-pointer.ts`) escape each raw key with
+   `escapePointerSegment` and never parse it. That escapes `~` and `/` (RFC 6901) and `%` and `#`
+   (`%25`, `%23`): a URI fragment cannot hold either as written (RFC 6901 §6, RFC 3986), and
+   reading a pointer back percent-decodes it and starts at the first `#/`. The exported
+   `createRef` keeps the original parsing of its parts (ADR-034).
+2. This is a bug fix, not an output fix under this ADR, as the `%` escape before it (upstream
+   #2251): the old names came from a pointer that does not name the node. Without `--enum` or
+   `--enum-values` the output does not change; with them it changes only for keys that contain
+   `#/` or end in `#`, which upstream also misnamed. No flag keeps the old names.
+3. The discriminator code, a port of the original `scanDiscriminators`, matched the pointers it
+   builds with `$ref` and `mapping` texts as the document writes them. That held only while both
+   sides escaped alike: Redocly writes a bundled `mapping` value percent-decoded (`.../a#b`,
+   `.../50%`) and keeps the escapes of a `$ref` (`.../a%23b`), so with `#` escaped a schema named
+   `a#b` lost its mapped value, and a `mapping` to `50%` threw URIError. These comparisons now use
+   `canonicalRef`, which writes a local `$ref` or `mapping` text in the form `appendPointer`
+   builds; a text that is no pointer (`.../50%`) is read as written. A value inferred from a `$ref`
+   is still the name as the `$ref` writes it, as in the original. We checked names `a#b`, `#x`,
+   `a b`, `a%41`, `50%` and `a#`, with `$ref`s written as is and percent-encoded, with no options,
+   `--enum`, `--enum-values`, `--root-types` and `--fix all`: the output is the same as before
+   except for `a#` (decision 2) and the `mapping` to `50%`, which threw before. Escaping `#` only
+   before a separator, our first take, kept the text equal but was a second rule next to
+   RFC 6901, and the check made a deep document walk quadratic.
+4. The loader's messages (unsupported keys, malformed `$ref`s) name a key with `%` or `#` in the
+   same escaped form, so each pointer they print reads back to its key.
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

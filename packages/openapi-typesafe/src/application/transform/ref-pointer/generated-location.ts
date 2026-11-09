@@ -1,4 +1,4 @@
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer, ROOT_POINTER } from "../../../domain/openapi/json-pointer.js";
 import type { RefResolver } from "../schema/schema-context.js";
 import { isJsonObject } from "./generated-shape.js";
 import {
@@ -205,7 +205,7 @@ function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): Locati
 export function generatedLocationOf(ref: string, refs: RefResolver): GeneratedLocation {
   const walk = walkTo(ref, refs, []);
   return {
-    path: walk === null ? ref : createRef(walk.path),
+    path: walk === null ? ref : appendPointer(ROOT_POINTER, walk.path),
     isFromAdditionalProperties: walk?.isFromAdditionalProperties ?? false,
   };
 }
