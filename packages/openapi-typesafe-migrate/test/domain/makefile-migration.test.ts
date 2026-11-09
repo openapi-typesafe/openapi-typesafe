@@ -8,6 +8,34 @@ const reference = (open: string, name: string, close: string): string =>
   ["$", open, name, close].join("");
 
 describe("migrateMakefile", () => {
+  it("migrateMakefile reports the flags after a variable that a later line sets to another tool", () => {
+    const g = reference("(", "G", ")");
+    const text = lines("G := openapi-typescript", "gen:", `\t${g} build -it`, "G := mytool");
+
+    const migrated = migrateMakefile(text, "Makefile");
+
+    expect(migrated.text).toBe(text.replace("G := openapi-typescript", "G := openapi-typesafe"));
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "variable-not-only-generator",
+        location: "Makefile:3",
+        variable: g,
+        flags: ["-it"],
+      },
+    ]);
+  });
+
+  it("migrateMakefile keeps the program of a variable that += adds flags to", () => {
+    const g = reference("(", "G", ")");
+    const text = lines("G := openapi-typescript", "G += --redoc r.yaml", "gen:", `\t${g} -it`);
+
+    const migrated = migrateMakefile(text, "Makefile");
+
+    expect(migrated.text).toBe(
+      lines("G := openapi-typesafe", "G += --redoc r.yaml", "gen:", `\t${g} --immutable`),
+    );
+  });
+
   it("migrateMakefile migrates a variable that holds the generator, and its uses", () => {
     const oat = reference("(", "OAT", ")");
     const gen = reference("{", "GEN", "}");

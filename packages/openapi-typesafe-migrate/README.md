@@ -39,8 +39,11 @@ script name (`npm run openapi-typescript`) is never changed. A Dockerfile's exec
 openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed where it is set,
 and the flags after `$(OAT)` (or `$G` for a one-letter name) where it runs; so is an `env` variable
 of a workflow and the flags after `$GEN` or `${{ env.GEN }}`, and a Dockerfile `ARG` or `ENV`
-variable and the flags after `$GEN`. A variable of old flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may
-serve other commands too, so it is reported, not changed. YAML files are changed only in command
+variable and the flags after `$GEN`. The flags change only when every definition of the variable
+in the file sets it to the generator: a variable that another Dockerfile stage, a step `env` or a
+later Makefile line sets to another program is reported with its old flags. A variable of old
+flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may serve other commands too, so it
+is reported, not changed. YAML files are changed only in command
 keys (`run`, `script`, `command`, `entrypoint`, …) and in the values of `env`, in block and flow
 style, never in other values such as an OpenAPI `description`; a YAML file that names no old package
 is not even parsed. A config that cannot be parsed and names an old package is reported with the
@@ -73,7 +76,8 @@ repository around it ignores, it reads the whole tree of that folder. Either way
 was read.
 
 The tool does not trust the folder it migrates. Git is the `git` of an absolute folder on `PATH`
-outside the project and outside every `node_modules`, so neither a `git` at the project root nor
+outside the project and outside every `node_modules` (as written and after links, in any case,
+since macOS and Windows ignore case in folder names), so neither a `git` at the project root nor
 one in a `node_modules/.bin` that `npx` puts on `PATH` runs (npx adds those of the project and of
 every folder above it, such as a workspace root), and it runs with `core.fsmonitor` turned off and every transport refused
 (`GIT_ALLOW_PROTOCOL` set to an empty list, which no `protocol.*` key of a repository's config can

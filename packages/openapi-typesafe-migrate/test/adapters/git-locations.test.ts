@@ -69,6 +69,37 @@ describe("findGitExecutable", () => {
     expect(await findGitExecutable(host)).toBe("/usr/bin/git");
   });
 
+  it("findGitExecutable passes over a node_modules folder spelled in another case", async () => {
+    const host = posixHost("/repo/NODE_MODULES/.bin:/usr/bin", [
+      "/repo/NODE_MODULES/.bin/git",
+      "/usr/bin/git",
+    ]);
+
+    expect(await findGitExecutable(host)).toBe("/usr/bin/git");
+  });
+
+  it("findGitExecutable passes over a real path in a node_modules spelled in another case", async () => {
+    const fileSystem = new InMemoryGitFileSystem(["/tools/git", "/usr/bin/git"], [], {
+      "/tools": "/repo/Node_Modules/.bin",
+    });
+    const host = { ...posixHost("/tools:/usr/bin", []), fileSystem };
+
+    expect(await findGitExecutable(host)).toBe("/usr/bin/git");
+  });
+
+  it("findGitExecutable passes over a PATH entry through a node_modules link", async () => {
+    const fileSystem = new InMemoryGitFileSystem(
+      ["/repo/node_modules/.bin/git", "/usr/bin/git"],
+      [],
+      {
+        "/repo/node_modules/.bin": "/repo/tools/.bin",
+      },
+    );
+    const host = { ...posixHost("/repo/node_modules/.bin:/usr/bin", []), fileSystem };
+
+    expect(await findGitExecutable(host)).toBe("/usr/bin/git");
+  });
+
   it("findGitExecutable keeps folders whose names only contain node_modules", async () => {
     const host = posixHost("/opt/node_modules_tools/bin:/usr/bin", [
       "/opt/node_modules_tools/bin/git",

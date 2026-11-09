@@ -15,6 +15,12 @@ const STEPS: readonly ManualStep[] = [
   { kind: "override-names-package", field: "overrides", name: "a" },
   { kind: "versioned-command", location: "ci.yml:3" },
   { kind: "flags-in-variable", location: "Makefile:4", variable: "$(FLAGS)", flags: ["-it"] },
+  {
+    kind: "variable-not-only-generator",
+    location: "Dockerfile:6",
+    variable: "$GEN",
+    flags: ["-it", "--redoc"],
+  },
   { kind: "pinned-package", location: "scripts.setup", name: "openapi-fetch" },
   {
     kind: "old-package-file",

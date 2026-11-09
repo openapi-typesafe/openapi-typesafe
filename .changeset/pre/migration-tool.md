@@ -6,7 +6,9 @@ First release of openapi-typesafe-migrate: `npx openapi-typesafe-migrate` moves 
 openapi-typescript, openapi-fetch, openapi-react-query and openapi-typescript-helpers. It reads only
 the files git lists, never writes outside the project, and lists what it cannot change safely as
 manual steps. Git runs by its absolute path from a `PATH` folder outside the project and outside
-every `node_modules` (npx puts those of the folders above it on `PATH` too) and never fetches, whatever the repository's config allows, so a planted repository cannot run a command. It
+every `node_modules` (npx puts those of the folders above it on `PATH` too), as written and after
+links, in any case, and never fetches, whatever the repository's config allows, so a planted
+repository cannot run a command. It
 only reports until you add `--write`, and logs every finding to a private JSON Lines file.
 
 - Packages: renamed in `package.json` (also `peerDependenciesMeta`, `dependenciesMeta`,
@@ -26,7 +28,8 @@ only reports until you add `--write`, and logs every finding to a private JSON L
 - Commands: the generator command and its renamed flags in package scripts, CI files (also `env`
   variables that hold the generator, also used as `${{ env.NAME }}`), Makefiles (also variables
   that hold the generator, `$(NAME)` or `$N`), Dockerfiles (also the exec form, its `sh -c` command
-  line, and `ARG` and `ENV` variables that hold the generator), `Justfile`, Husky hooks, Nx
+  line, and `ARG` and `ENV` variables that hold the generator; a variable that some definitions
+  in the file set to another program is reported, not changed), `Justfile`, Husky hooks, Nx
   `project.json` targets and `deno.json` tasks, read word by word as the shell splits them, also
   inside `if`, `while` and `{ … }` blocks. In YAML files only command keys (`run`, `script`,
   `command`, …) and `env` values change. Install commands and `.github/dependabot.yml` get the new
