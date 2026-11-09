@@ -55,6 +55,10 @@ function fan(request: IncomingMessage, response: ServerResponse): void {
 const PADDED_BYTES = 4 * 1024 * 1024;
 const GZIP_BOMB = gzipSync(`${PERSON}${" ".repeat(PADDED_BYTES)}`);
 
+/** A JSON schema with an array of DENSE_NODES empty objects: few bytes, many parsed nodes. */
+const DENSE_NODES = 2000;
+const DENSE = JSON.stringify({ type: "object", "x-pad": Array.from({ length: DENSE_NODES }, () => ({})) });
+
 function gzipBomb(response: ServerResponse): void {
   response.writeHead(200, { "content-type": "application/json", "content-encoding": "gzip" });
   response.end(GZIP_BOMB);
@@ -73,6 +77,9 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
       "/drip.json": () => drip(response),
       "/bomb.json": () => gzipBomb(response),
       "/bomb-2.json": () => gzipBomb(response),
+      "/dense.json": () => response.writeHead(200, { "content-type": "application/json" }).end(DENSE),
+      "/dense.yaml": () => response.writeHead(200, { "content-type": "text/plain" }).end(DENSE),
+      "/dense.txt": () => response.writeHead(200, { "content-type": "text/plain" }).end(DENSE),
     }),
   );
   if (request.url?.startsWith("/fan/")) {
@@ -280,6 +287,40 @@ describe("remote documents that are too large once decoded (RC4 S4)", () => {
     const bundled = await loadDocument(withRemoteRef("/bomb.json"));
 
     expect(bundled.components?.schemas?.bomb).toMatchObject({ type: "object" });
+  });
+});
+
+describe("remote documents that parse into too many nodes", () => {
+  const limits: RemoteDocumentLimits = { ...DEFAULT_REMOTE_DOCUMENT_LIMITS, maxNodes: DENSE_NODES };
+
+  it("a dense remote document stops at the node limit while it is parsed", async () => {
+    const error = await loadFailure(withRemoteRef("/dense.json"), limits);
+
+    expect(error).toMatchObject({
+      code: "SCHEMA_REF_FORBIDDEN",
+      details: { ref: `${baseURL}/dense.json`, reason: "remote-documents-too-many-nodes", maxNodes: DENSE_NODES },
+    });
+    expect(error.message).toContain(`parse into more than ${DENSE_NODES} nodes together`);
+  });
+
+  it("a dense remote root document stops at the node limit", async () => {
+    const error = await loadFailure(new URL(`${baseURL}/dense.yaml`), limits);
+
+    expect(error).toMatchObject({
+      code: "SCHEMA_REF_FORBIDDEN",
+      details: { reason: "remote-documents-too-many-nodes" },
+    });
+  });
+
+  it("remote documents within the node limit load, and one that is kept as text is not counted", async () => {
+    const bundled = await loadDocument(withRemoteRef("/dense.json"), {
+      ...limits,
+      maxNodes: DENSE_NODES * 2,
+    });
+    const asText = await loadDocument(withRemoteRef("/dense.txt"), limits);
+
+    expect(bundled.components?.schemas?.Person).toBeDefined();
+    expect(asText.components?.schemas?.Person).toBeDefined();
   });
 });
 

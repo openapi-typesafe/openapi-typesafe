@@ -36,6 +36,24 @@ function isIdentifier(text: unknown): boolean {
   return typeof text === "string" && hasIdentifierStart(text) && withIdentifierParts(text) === text;
 }
 
+/** The prefix of a type query: the generator writes `typeof Status` as a reference name. */
+const TYPE_QUERY_PREFIX = "typeof ";
+
+/**
+ * A name TypeScript reads as the name of a type: identifiers joined by `.` (`Status`,
+ * `Status.active`), optionally as a type query (`typeof Status`). Text such as `a b` or `A<B>`
+ * would print as other or invalid TypeScript; type arguments go in `typeArguments`.
+ */
+function isTypeName(text: unknown): boolean {
+  if (typeof text !== "string") {
+    return false;
+  }
+  const entityName = text.startsWith(TYPE_QUERY_PREFIX)
+    ? text.slice(TYPE_QUERY_PREFIX.length)
+    : text;
+  return entityName.split(".").every(isIdentifier);
+}
+
 /** A non-negative number written as JavaScript writes it, as `toPropertyName` makes them. */
 function isNumberName(text: unknown): boolean {
   return typeof text === "string" && String(Number(text)) === text && !text.startsWith("-");
@@ -150,8 +168,7 @@ const TYPE_CHECKS: Readonly<
   stringLiteral: (node) => typeof node.value === "string" && STRING_ENCODINGS.has(node.encoding),
   numberLiteral: (node) => Number.isFinite(node.value),
   booleanLiteral: (node) => typeof node.value === "boolean",
-  // The generator writes names such as `typeof Status` and `Status.active` as references too.
-  reference: (node, check) => isText(node.name) && check.isTypeList(node.typeArguments, true),
+  reference: (node, check) => isTypeName(node.name) && check.isTypeList(node.typeArguments, true),
   array: (node, check) => check.isType(node.element),
   tuple: (node, check) =>
     Array.isArray(node.elements) && node.elements.every((entry) => isTupleElement(entry, check)),

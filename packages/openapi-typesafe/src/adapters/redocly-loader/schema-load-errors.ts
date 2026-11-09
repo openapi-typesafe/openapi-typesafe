@@ -125,7 +125,8 @@ export type RefRefusalDetails =
   | { readonly reason: "local-ref-from-remote"; readonly base: string }
   | { readonly reason: "too-many-remote-documents"; readonly maxDocuments: number }
   | { readonly reason: "remote-document-too-large"; readonly maxDocumentBytes: number }
-  | { readonly reason: "remote-documents-too-large"; readonly maxTotalBytes: number };
+  | { readonly reason: "remote-documents-too-large"; readonly maxTotalBytes: number }
+  | { readonly reason: "remote-documents-too-many-nodes"; readonly maxNodes: number };
 
 const BYTES_PER_MEBIBYTE = 1024 * 1024;
 
@@ -151,6 +152,10 @@ function limitText(details: RefRefusalDetails): string {
     case "remote-documents-too-large": {
       const limit = sizeText(details.maxTotalBytes);
       return `the remote documents of this run are larger than ${limit} together once decoded`;
+    }
+    case "remote-documents-too-many-nodes": {
+      const limit = details.maxNodes;
+      return `the remote documents of this run parse into more than ${limit} nodes together`;
     }
     default:
       return assertNever(details);

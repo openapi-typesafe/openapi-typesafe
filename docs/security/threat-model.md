@@ -63,11 +63,17 @@ the generator.
   `SCHEMA_PARSE_FAILED`; at most 10,000 remote documents per run, fetched at most 16 at a time,
   so a document that keeps referring to new URLs ends with `SCHEMA_REF_FORBIDDEN` instead of
   sending requests until the local ports run out (ADR-033); remote bodies are read as a stream
-  and counted after `gzip`, `deflate` or `br` is decoded, so a body larger than 256 MiB, or remote
-  documents larger than 512 MiB together in one run, end with `SCHEMA_REF_FORBIDDEN` (reasons
+  and counted after `gzip`, `deflate` or `br` is decoded, so a body larger than 128 MiB, or remote
+  documents larger than 256 MiB together in one run, end with `SCHEMA_REF_FORBIDDEN` (reasons
   `remote-document-too-large`, `remote-documents-too-large`) before a compressed "zip bomb" fills
-  the memory, also through a `customFetch` of the Redocly config; path keys are scanned in linear
-  time.
+  the memory, also through a `customFetch` of the Redocly config; the parser counts the nodes it
+  builds, and remote documents of one run that parse into more than 8,000,000 nodes together stop
+  with `SCHEMA_REF_FORBIDDEN` (reason `remote-documents-too-many-nodes`), since a dense body takes
+  far more memory than its bytes; path keys are scanned in linear time.
+- Residual risk: the limits bound the memory of remote documents, they do not make it small.
+  Documents just under them peak at about 1.7 GB of resident memory (measured; the largest real
+  document, Microsoft Graph beta, takes about 1.6 GB). Run untrusted documents in a process
+  whose memory limit you choose. Local files have no size limit.
 - Tests: `test/defensive/`. Limits are listed in docs/advanced.md, "Limits".
 
 ### T3. Local file read through `$ref` — Controlled by an option (R1)

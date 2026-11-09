@@ -4,7 +4,9 @@ import path from "node:path";
  * The identity of a file path, also of one that does not exist yet (an output before the first
  * run). Two paths are one file when their keys are equal: the real path of the nearest existing
  * ancestor (links resolved, letter case as stored on disk) followed by the segments that do not
- * exist yet, compared in the letter case rules of the file system that will hold them.
+ * exist yet, compared in the letter case rules of the file system that will hold them. Equal keys
+ * prove one file; different keys do not prove two (Unicode normalization, full case folding):
+ * the CLI claims every output before writing to decide those (ADR-043, decision 1).
  */
 
 /** A device and a file number: one file, also through a hard link. */
@@ -21,7 +23,15 @@ export interface PathQueries {
   realPath(filePath: string): string;
   /** The names in a directory; empty when it cannot be listed. */
   entries(directory: string): readonly string[];
+  /** The target of a symbolic link as written in it; undefined for a path that is no link. */
+  linkTarget(filePath: string): string | undefined;
 }
+
+/**
+ * The most links followed for one path. Linux follows at most 40 (MAXSYMLINKS) and macOS 32
+ * before it fails with ELOOP; a longer chain is a loop, and the path is taken as missing.
+ */
+const MAX_LINK_HOPS = 40;
 
 /** Whether two file numbers name one file. */
 export function isSameFileNumber(left: FileNumber, right: FileNumber): boolean {
@@ -76,11 +86,22 @@ function ignoresCase(directory: string, queries: PathQueries): boolean {
   return false;
 }
 
-/** The nearest ancestor of `filePath` that exists (or the path itself), and the rest below it. */
+/**
+ * The nearest ancestor of `filePath` that exists (or the path itself), and the rest below it. A
+ * link to a missing file or directory is followed to its target, which a write would create: so
+ * `link/x.ts` with `link -> missing` is `missing/x.ts`.
+ */
 function nearestExisting(filePath: string, queries: PathQueries): [string, string[]] {
   const missing: string[] = [];
   let current = path.resolve(filePath);
+  let hops = 0;
   while (queries.status(current) === undefined) {
+    const target = hops < MAX_LINK_HOPS ? queries.linkTarget(current) : undefined;
+    if (target !== undefined) {
+      current = path.resolve(path.dirname(current), target);
+      hops += 1;
+      continue;
+    }
     const parent = path.dirname(current);
     if (parent === current) {
       break;

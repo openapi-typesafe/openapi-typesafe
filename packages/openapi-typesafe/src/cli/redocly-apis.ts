@@ -9,7 +9,7 @@ import {
   OUTPUT_SETTING,
   unknownSettingWarnings,
 } from "./api-settings.js";
-import type { GeneratedTypes } from "./cli-dependencies.js";
+import { type GeneratedApi, writeGeneratedApis } from "./api-writes.js";
 import { cliError } from "./cli-errors.js";
 import {
   type CliRun,
@@ -17,12 +17,10 @@ import {
   ensureOutputIsOwn,
   filesReadBy,
   type NamedFile,
-  type OutputFile,
   outputFileOf,
   parseLocationUrl,
   redoclyConfigFiles,
   resolveLocationUrl,
-  writeOutput,
 } from "./cli-output.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
 import { fixOption } from "./fix-option.js";
@@ -120,13 +118,6 @@ function otherOutputs(files: ConfigFiles, apiName: string): NamedFile[] {
     .map(([name, location]) => ({ name: `API ${name}`, location }));
 }
 
-/** An API whose types are generated and not written yet. */
-interface GeneratedApi {
-  readonly name: string;
-  readonly outputFile: OutputFile;
-  readonly types: GeneratedTypes;
-}
-
 /**
  * Generate the types of one API. Its output must not be a file the run reads before any API is
  * loaded (the root of any API, the Redocly config) nor another API's output.
@@ -172,22 +163,12 @@ function configFilesOf(run: CliRun, redocly: RedoclyConfig, apis: readonly Redoc
   return { configRoot, files: { schemas, outputs } satisfies ConfigFiles };
 }
 
-/** The failure of a step that ran without waiting, as `Promise.allSettled` gives them. */
-function failuresOf(step: () => void): unknown[] {
-  try {
-    step();
-    return [];
-  } catch (failure) {
-    return [failure];
-  }
-}
-
 /**
  * Generate every API of the config, concurrently, then write them. Nothing is written until
- * every API is read, so no output can replace a file that another API still reads; an output
- * that is a file any API read (a `$ref`'d schema) fails with `CLI_OUTPUT_IS_INPUT`. Every API is
- * generated or checked even when another fails, so `--check` reports a stale output wherever it
- * is; the failures are returned in the order of the config.
+ * every API is read and every output is claimed, so no output can replace a file that another
+ * API still reads; an output that is a file any API read (a `$ref`'d schema) fails with
+ * `CLI_OUTPUT_IS_INPUT`. Every API is generated or checked even when another fails, so `--check`
+ * reports a stale output wherever it is; the failures are returned in the order of the config.
  */
 export async function generateRedoclyApis(run: CliRun, redocly: RedoclyConfig): Promise<unknown[]> {
   const apis = redoclyApisOf(redocly);
@@ -199,9 +180,8 @@ export async function generateRedoclyApis(run: CliRun, redocly: RedoclyConfig): 
     result.status === "fulfilled" ? [result.value] : [],
   );
   const readFiles = generated.flatMap(({ name, types }) => filesReadBy(run, types, `API ${name}`));
+  const writeFailures = writeGeneratedApis(run, generated, readFiles);
   return results.flatMap((result) =>
-    result.status === "rejected"
-      ? [result.reason]
-      : failuresOf(() => writeOutput(run, result.value.outputFile, result.value.types, readFiles)),
+    result.status === "rejected" ? [result.reason] : (writeFailures.get(result.value.name) ?? []),
   );
 }

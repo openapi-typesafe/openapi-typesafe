@@ -28,3 +28,24 @@ export interface FileIdentity {
 export interface DirectoryCheck {
   isDirectory(file: URL): boolean;
 }
+
+/**
+ * An output file that exists before its content is written: the claim created it, empty, when it
+ * was missing, so the file system has given it its own identity.
+ */
+export interface ClaimedFile {
+  /** The file system's identity of the file: equal for two paths that name one file. */
+  readonly identity: string;
+  /** Remove what the claim created (the file and its new directories); existing ones stay. */
+  release(): void;
+}
+
+/**
+ * Claim output files before writing to them. Names cannot prove that two missing files are two:
+ * the file system may ignore Unicode normalization, fold `ß` to `SS`, ignore letter case where
+ * nothing can be probed, or follow a link to a directory that does not exist yet. Once each file
+ * exists, its identity is the file system's own. Fails with `OUTPUT_WRITE_FAILED`.
+ */
+export interface FileClaims {
+  claimFile(file: URL): ClaimedFile;
+}

@@ -194,6 +194,28 @@ text after the last `#/`: with `--enum` and `--enum-values` the property `a#/b` 
 4. The loader's messages (unsupported keys, malformed `$ref`s) name a key with `%` or `#` in the
    same escaped form, so each pointer they print reads back to its key.
 
+## Amendment (2026-11-09): bundler copies of mapped schemas are removed
+
+Redocly 1.x bundles every discriminator `mapping` value like an external `$ref` and stores its
+target under the raw last segment of the pointer. A `mapping` to a local schema whose key needs an
+escape (`a~b` written `.../a~0b`, `c/d` written `.../c~1d`) therefore added `a~0b` and `c~1d` to
+`components.schemas` as copies, and the output declared each type twice. openapi-typescript 7.13
+does the same. Fixing it in Redocly is outside our control while ADR-005 pins Redocly 1.34, so the
+loader repairs the bundled document, as it repairs the bundled `$ref`s (PB-14):
+
+1. It records the keys of `components.schemas` before bundling (the bundle edits the document in
+   place). A key the bundle added whose value is the very object of a key the document had is a
+   copy: it is removed, and the `mapping` values and `$ref`s that name it point at the original.
+   Object identity is exact: a schema loaded from another document, or two keys of the document
+   that share one object through a YAML alias, stay.
+2. By the test of the rc.4 amendment this is the default, not a fix name: the copies are keys the
+   document does not have, and the types of the document's own schemas do not change. Code that
+   used a copy (`components["schemas"]["a~0b"]`) uses the schema's own key instead; the major
+   changeset and the migration guide list it.
+
+Normalizing the `mapping` values before bundling does not help: any pointer to such a key has an
+escape, and the bundler names the copy by the escaped segment.
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

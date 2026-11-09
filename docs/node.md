@@ -70,7 +70,7 @@ When generation fails, `openapiTS()` rejects with an `OpenAPITypesafeError`. Eac
 | :--- | :-- | :--- |
 | `SCHEMA_INVALID` | `problems` | `string[]`: one text per problem found |
 | `SCHEMA_REF_FORBIDDEN` | `ref` | `string`: the refused `$ref` as an absolute URL; user info shows as `***` |
-| `SCHEMA_REF_FORBIDDEN` | `reason` | `string`: one of `outside-local-root`, `host-not-allowed`, `local-ref-from-remote`, `too-many-remote-documents`, `remote-document-too-large`, `remote-documents-too-large` (see [Untrusted documents](./advanced.md#untrusted-documents)); a minor release may add reasons |
+| `SCHEMA_REF_FORBIDDEN` | `reason` | `string`: one of `outside-local-root`, `host-not-allowed`, `local-ref-from-remote`, `too-many-remote-documents`, `remote-document-too-large`, `remote-documents-too-large`, `remote-documents-too-many-nodes` (see [Untrusted documents](./advanced.md#untrusted-documents)); a minor release may add reasons |
 
 `details` is typed as `Readonly<Record<string, unknown>>`, so check a value before you use it.
 
@@ -174,7 +174,7 @@ With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` w
 - `postTransform(type, options)` receives the generated IR type.
 - `transformProperty(property, schemaObject, options)` receives the generated IR property (`name`, `type`, `isOptional`, `isReadonly`, `comments`) and returns a new one.
 - Returning `undefined` keeps the generated type or property.
-- A result the generator cannot print fails with `CALLBACK_RESULT_UNREADABLE`, which names the callback and the schema path: a value that is no IR node (`{}`, `42`), IR that would not print as TypeScript (an empty union, a property without `name`, `type` or `comments`, a block comment that contains `*/`), and empty type text. Type text is printed as written and not parsed (that would need the `typescript` package), so a syntax error in it, such as `"string |"`, shows when your project type-checks the output.
+- A result the generator cannot print fails with `CALLBACK_RESULT_UNREADABLE`, which names the callback and the schema path: a value that is no IR node (`{}`, `42`), IR that would not print as TypeScript (an empty union, a property without `name`, `type` or `comments`, a reference whose `name` is not identifiers joined by `.`, optionally after `typeof ` (`a b`, `A<B>`: type arguments go in `typeArguments`), a block comment that contains `*/`), and empty type text. Type text is printed as written and not parsed (that would need the `typescript` package), so a syntax error in it, such as `"string |"`, shows when your project type-checks the output.
 
 ::: code-group
 

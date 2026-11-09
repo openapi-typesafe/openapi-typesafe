@@ -74,7 +74,7 @@ const DECLARATIONS: IrDeclaration[] = [
 function deep(...keys: IrType[]): IrType {
   return keys.reduce<IrType>(
     (type, index) => irIndexedAccess(type, index),
-    irReference("FlattenedDeepRequired<components>"),
+    irReference("FlattenedDeepRequired", [irReference("components")]),
   );
 }
 
@@ -111,7 +111,10 @@ describe("TypeEvaluator", () => {
     expect(evaluated(irReference("WithRequired", [irReference("Alias"), text("k")]))).toBe('"r"');
     expect(evaluated(irReference("Extract", [status, irKeyword("string")]))).toBe("opaque");
     expect(evaluated(irReference("Record", [irKeyword("string"), status]))).toBe("opaque");
-    expect(evaluated(irReference("FlattenedDeepRequired<nothing>"))).toBe("opaque");
+    expect(evaluated(irReference("FlattenedDeepRequired", [irReference("nothing")]))).toBe(
+      "opaque",
+    );
+    expect(evaluated(irReference("FlattenedDeepRequired", [irKeyword("string")]))).toBe("opaque");
     expect(evaluated(irReference("Unknown"))).toBe("opaque");
     expect(evaluated(irRaw("string"))).toBe("opaque");
     expect(evaluated(irTuple([irTupleElement(text("t"))]))).toBe("opaque");

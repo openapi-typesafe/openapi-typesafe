@@ -83,3 +83,54 @@ The hunt on `main` after 1.0.0-rc.3 found these problems in the CLI and the Node
 - `silent: true` users no longer see the problem lines on stderr; they read
   `error.details.problems` as before.
 - The deprecated `debug()` export writes to stderr, as the docs already said.
+
+## Amendment (2026-11-09): the file system decides output identity; `.` and `..` name directories
+
+The round-2 hunt found two APIs that still overwrote each other on the first run, although their
+outputs were one file on disk: `café.ts` written in NFC and in NFD on APFS, `straße.ts` and
+`STRASSE.ts` (full case folding), `_/Types.ts` and `_/types.ts` in an empty directory whose name
+has no letters (nothing to probe the letter case rules with), and `link/x.ts` next to
+`missingdir/x.ts` with `link -> missingdir`. And `-o newdir/.`, `-o a/b/..` and
+`output: ./gen/.` wrote a file named like the directory, with exit code `0`.
+
+Decision 1 now reads:
+
+1. **File identity is the file system's own.** Names can prove that two paths are one file, never
+   that they are two: no rule on names can follow every file system's normalization and case
+   folding. So the name key above stays as an early check, before anything is generated, and
+   resolves a link to a missing file or directory by its target (`readlink`, at most 40 hops,
+   the Linux limit), and the decision is made at write time: with several APIs, every output is
+   claimed before the first byte is written. A claim opens the file for appending, which creates
+   it empty when it is missing (through a link too) and never truncates it; the device and file
+   number of the open file are its identity, or its real path on a file system without file
+   numbers. APIs whose claimed files have one identity all fail with `CLI_OUTPUT_DUPLICATE`, and
+   their claims are released: a file and directories a claim created are removed, a directory
+   that holds another file since stays, an existing file keeps its content. A failed write
+   releases its claim too. `--check` claims nothing: it writes nothing, and every output it
+   compares must exist, so its file number already decides. The claim is the `FileClaims` port,
+   with an in-memory fake in tests.
+
+Decision 2 adds: a path whose last segment is `.` or `..`, checked as written before resolving
+drops it, and a `file:` URL whose parsed path ends with `/` (the URL parser drops `.`, `..` and
+`%2E`) name a directory and fail with `CLI_OUTPUT_INVALID`, as a trailing separator does.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Normalize names (NFC, Unicode case folding) in the key | no file is created early | still a guess: each file system folds and normalizes in its own way, and HFS+ uses NFD |
+| Create each output exclusively (`wx`) | a collision is an `EEXIST` | fails for an existing output and for a link to a missing file, which the CLI must write through |
+| Claim, then compare file numbers (chosen) | the file system decides; exact for links, case and normalization | outputs exist, empty, for a moment before the types are written |
+
+Consequences: with several APIs, missing outputs exist as empty files between the claim and the
+write, which is the same run; a run that fails on a duplicate leaves no new file or directory.
+Review trigger: a file system on which two open files of different paths share a device and file
+number (then the claim would see a duplicate that is none).
+
+## Amendment (2026-11-09): reference names are checked
+
+Decision 7 checked every IR field except the `name` of a `reference`, which only had to be
+non-blank, so `{ kind: "reference", name: "a b" }` from an IR callback printed invalid
+TypeScript. A reference name must now be a type name as TypeScript reads one: identifiers (the
+property name rules) joined by `.`, optionally after `typeof ` (the generator writes
+`typeof Status` and `Status.active`); anything else fails with `CALLBACK_RESULT_UNREADABLE`. The
+generator itself wrote one name with type arguments in it, `FlattenedDeepRequired<components>`;
+it is now a reference with a type argument, which prints the same text.

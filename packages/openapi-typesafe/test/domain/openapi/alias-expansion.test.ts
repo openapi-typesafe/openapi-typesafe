@@ -48,6 +48,14 @@ describe("countNodes", () => {
   });
 });
 
+describe("countNodes of a large array", () => {
+  it("countNodes of an array of a million objects counts them without overflowing the stack", () => {
+    const objects = Array.from({ length: 1_000_000 }, () => ({}));
+
+    expect(countNodes(objects)).toEqual({ stored: 1_000_001, expanded: 1_000_001 });
+  });
+});
+
 describe("isAliasExpansionExcessive", () => {
   it("isAliasExpansionExcessive refuses a billion laughs document", () => {
     expect(isAliasExpansionExcessive(countNodes(laughs(9, 10)))).toBe(true);

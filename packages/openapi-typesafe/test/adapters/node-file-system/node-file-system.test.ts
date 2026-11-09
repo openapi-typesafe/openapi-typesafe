@@ -3,6 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
+import {
+  claimIdentity,
+  missingDirectories,
+} from "../../../src/adapters/node-file-system/file-claims.js";
 import { createNodeFileSystem } from "../../../src/adapters/node-file-system/node-file-system.js";
 
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "openapi-typesafe-fs-"));
@@ -146,5 +150,137 @@ describe("createNodeFileSystem", () => {
     expect(() => createNodeFileSystem().writeText(file, "")).toThrow(
       expect.objectContaining({ code: "OUTPUT_WRITE_FAILED" }),
     );
+  });
+});
+
+/** Whether the file system of `workDir` stores `second` as the file it stores `first` as. */
+function isOneFileOnDisk(first: string, second: string): boolean {
+  const probeDir = fs.mkdtempSync(path.join(workDir, "probe-"));
+  fs.mkdirSync(path.dirname(path.join(probeDir, first)), { recursive: true });
+  fs.writeFileSync(path.join(probeDir, first), "");
+  return fs.existsSync(path.join(probeDir, second));
+}
+
+describe("createNodeFileSystem: claimFile (ADR-043, decision 1)", () => {
+  it("claimFile of a missing file creates it empty and release removes it and its new directories", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    const file = path.join(parent, "new", "dir", "types.ts");
+
+    const claim = createNodeFileSystem().claimFile(pathToFileURL(file));
+
+    expect(fs.readFileSync(file, "utf8")).toBe("");
+    claim.release();
+    expect(fs.readdirSync(parent)).toEqual([]);
+  });
+
+  it("claimFile of an existing file keeps its content, also after release", () => {
+    const file = path.join(fs.mkdtempSync(path.join(workDir, "claim-")), "types.ts");
+    fs.writeFileSync(file, "old types");
+
+    createNodeFileSystem().claimFile(pathToFileURL(file)).release();
+
+    expect(fs.readFileSync(file, "utf8")).toBe("old types");
+  });
+
+  it("claimFile of two paths gives one identity exactly when they are one file", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    const files = createNodeFileSystem();
+    const claim = (name: string) => files.claimFile(pathToFileURL(path.join(parent, name)));
+
+    expect(claim("a.ts").identity).toBe(claim("a.ts").identity);
+    expect(claim("a.ts").identity).not.toBe(claim("b.ts").identity);
+  });
+
+  it.each([
+    ["NFC and NFD names", "caf\u00e9.ts", "cafe\u0301.ts"],
+    ["ß and SS", "straße.ts", "STRASSE.ts"],
+    ["names without letters to probe", "_/Types.ts", "_/types.ts"],
+  ])(
+    "claimFile of %s gives one identity exactly when the file system stores one file",
+    (_case, first, second) => {
+      const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+      fs.mkdirSync(path.join(parent, "_"));
+      const isOneFile = isOneFileOnDisk(first, second);
+      const files = createNodeFileSystem();
+
+      const firstClaim = files.claimFile(pathToFileURL(path.join(parent, first)));
+      const secondClaim = files.claimFile(pathToFileURL(path.join(parent, second)));
+
+      expect(firstClaim.identity === secondClaim.identity).toBe(isOneFile);
+    },
+  );
+
+  it("claimFile through a link to a missing file creates the target, and release removes it", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    fs.symlinkSync(path.join(parent, "missing.ts"), path.join(parent, "out.ts"));
+    const files = createNodeFileSystem();
+
+    const claim = files.claimFile(pathToFileURL(path.join(parent, "out.ts")));
+
+    expect(claim.identity).toBe(
+      files.claimFile(pathToFileURL(path.join(parent, "missing.ts"))).identity,
+    );
+    claim.release();
+    expect(fs.existsSync(path.join(parent, "missing.ts"))).toBe(false);
+  });
+
+  it("release keeps a new directory that another file was put in since", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    const claim = createNodeFileSystem().claimFile(pathToFileURL(path.join(parent, "g", "a.ts")));
+    fs.writeFileSync(path.join(parent, "g", "other.ts"), "");
+
+    claim.release();
+
+    expect(fs.readdirSync(path.join(parent, "g"))).toEqual(["other.ts"]);
+  });
+
+  it("claimFile under a file, and release of a removed directory, fail with OUTPUT_WRITE_FAILED", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    fs.writeFileSync(path.join(parent, "blocker"), "");
+    const files = createNodeFileSystem();
+    const claim = files.claimFile(pathToFileURL(path.join(parent, "g", "a.ts")));
+    fs.rmSync(path.join(parent, "g"), { recursive: true });
+    fs.writeFileSync(path.join(parent, "g"), "");
+
+    expect(() => files.claimFile(pathToFileURL(path.join(parent, "blocker", "a.ts")))).toThrow(
+      expect.objectContaining({ code: "OUTPUT_WRITE_FAILED" }),
+    );
+    expect(() => claim.release()).toThrow(expect.objectContaining({ code: "OUTPUT_WRITE_FAILED" }));
+  });
+
+  it("isSameFile of a file through a link to a missing directory and in that directory is true", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    fs.symlinkSync(path.join(parent, "missing-dir"), path.join(parent, "link"), "dir");
+
+    const isSame = createNodeFileSystem().isSameFile(
+      pathToFileURL(path.join(parent, "link", "x.ts")),
+      pathToFileURL(path.join(parent, "missing-dir", "x.ts")),
+    );
+
+    expect(isSame).toBe(true);
+  });
+});
+
+describe("claimIdentity and missingDirectories", () => {
+  it("claimIdentity is the file number, or the stored path when the file number is 0", () => {
+    expect(claimIdentity({ device: 1n, file: 7n }, () => "/x")).toBe("1:7");
+    expect(claimIdentity({ device: 1n, file: 0n }, () => "/x")).toBe("path:/x");
+  });
+
+  it("missingDirectories lists the directories up to the first that exists, deepest first", () => {
+    const top = path.join(workDir, "a");
+    const isWorkDir = (directory: string) => directory === workDir;
+
+    expect(missingDirectories(path.join(top, "b"), isWorkDir)).toEqual([path.join(top, "b"), top]);
+    expect(missingDirectories(workDir, isWorkDir)).toEqual([]);
+  });
+
+  it("missingDirectories stops at the root when nothing exists", () => {
+    const root = path.parse(workDir).root;
+
+    expect(missingDirectories(path.join(root, "a"), () => false)).toEqual([
+      path.join(root, "a"),
+      root,
+    ]);
   });
 });

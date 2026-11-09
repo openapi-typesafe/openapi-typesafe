@@ -53,7 +53,10 @@ export function countNodes(root: unknown): NodeCounts {
       ? childrenOf(node).filter((child) => isContainer(child) && !entered.has(child))
       : [];
     if (pending.length > 0) {
-      stack.push(...(pending as object[]));
+      // One push per child: spreading an array of millions of children overflows the stack.
+      for (const child of pending as object[]) {
+        stack.push(child);
+      }
       continue;
     }
     stack.pop();

@@ -167,6 +167,7 @@ const REFUSALS: Readonly<Record<RefRefusalDetails["reason"], RefRefusalDetails>>
   "too-many-remote-documents": { reason: "too-many-remote-documents", maxDocuments: 1 },
   "remote-document-too-large": { reason: "remote-document-too-large", maxDocumentBytes: 1 },
   "remote-documents-too-large": { reason: "remote-documents-too-large", maxTotalBytes: 1 },
+  "remote-documents-too-many-nodes": { reason: "remote-documents-too-many-nodes", maxNodes: 1 },
 };
 
 describe("the documented details keys (docs/node.md, Errors)", () => {

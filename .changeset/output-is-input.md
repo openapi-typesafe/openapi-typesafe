@@ -14,4 +14,8 @@ exit code `2`. openapi-typescript checked neither:
   file with the types.
 - APIs in `redocly.yaml` whose outputs are the same file all fail with the new error code
   `CLI_OUTPUT_DUPLICATE`; the other APIs are still generated. openapi-typescript let the API
-  that finished last win.
+  that finished last win. Before writing, the CLI creates every missing output, empty, and asks
+  the file system whether two of them are one file, so names that differ only in Unicode
+  normalization or case folding (`café.ts` in NFC and NFD, `straße.ts` and `STRASSE.ts`) or a
+  path through a link to a missing directory are caught too. A run that fails this way leaves no
+  new file or directory.
