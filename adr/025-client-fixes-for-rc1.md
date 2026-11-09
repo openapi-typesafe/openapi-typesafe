@@ -142,6 +142,25 @@ only a `default` response typed it `undefined`.
    and with distributed responses a call got their response bodies too.
 5. `union-path-responses.test.ts` checks these calls.
 
+## Amendment (2026-11-09): the `fetch` result is checked too
+
+The response amendment checked the results of `onRequest`, `onResponse` and `onError`, but not the
+value a custom `fetch` option returns. A test double `{ status: 200, headers, text }` passed as
+`fetch` was taken, `response.ok` was `undefined`, and the body of a 200 went into `error`, as in
+openapi-fetch 0.17.
+
+1. The response the client reads after `fetch` and `onError` goes through `isResponse`. A
+   lookalike from `fetch` throws `fetch: must return new Response()`, before `onResponse`. A
+   Response of any realm or Fetch implementation passes, as in point 1 above.
+2. The error is thrown outside `onError`: a wrong `fetch` result is a bug in the client options,
+   not a network failure that middleware recovers.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Check the `fetch` result like middleware results (chosen) | One rule for every door a response comes in through | A few bytes; a hand-written double must be a real `Response` |
+| Leave `fetch` unchecked | No change from openapi-fetch | `data` and `error` swap without any error |
+| Pass the error to `onError` | Middleware can recover | Hides a bug in the options as a network error |
+
 ## Review trigger
 
 The 2.0 planning (items 32 to 35); a TypeScript release that infers return types through a dependent

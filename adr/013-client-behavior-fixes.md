@@ -289,6 +289,10 @@ and the server could not split the parts.
 | A symbol property on the `FormData` | No module state | Adds a property to an object the user may get back and inspect |
 | Compare the header boundary with the body | No marking | The platform writes the boundary only when it sends the body |
 
+The four fixes and the response check of the ADR-025 amendment of the same date fit in the
+9.5 kB budget (9,499 bytes): the urlencoded array now uses the item list it already builds, and
+dropping the `cause` of the parse error (ADR-041) frees a few bytes.
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`

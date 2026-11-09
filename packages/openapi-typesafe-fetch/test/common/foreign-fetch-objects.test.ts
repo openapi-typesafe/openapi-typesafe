@@ -127,6 +127,27 @@ describe("middleware results from another fetch implementation", () => {
     await expect(client.GET("/items")).rejects.toThrow(/onRequest: must return/);
   });
 
+  it("a fetch option returning an object without ok throws instead of reading an error", async () => {
+    const lookalike = { status: 200, headers: new Headers(), text: async () => '{"id":1}' };
+    const client = createClient<Paths>({
+      baseUrl: BASE_URL,
+      fetch: async () => lookalike as unknown as Response,
+    });
+
+    await expect(client.GET("/items")).rejects.toThrow("fetch: must return new Response()");
+  });
+
+  it("a fetch option returning an undici package Response returns its data", async () => {
+    const client = createClient<Paths>({
+      baseUrl: BASE_URL,
+      fetch: async () => asDom<Response>(UndiciResponse.json({ source: "undici" })),
+    });
+
+    const { data } = await client.GET("/items");
+
+    expect(data).toEqual({ source: "undici" });
+  });
+
   it("onRequest returning a method and a url without headers still throws", async () => {
     const { client } = createRecordingClient();
     client.use({ onRequest: ({ request }) => ({ method: "GET", url: request.url }) as Request });

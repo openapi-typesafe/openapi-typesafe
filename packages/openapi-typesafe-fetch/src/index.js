@@ -259,6 +259,10 @@ export default function createClient(clientOptions) {
           throw errorAfterMiddleware;
         }
       }
+      // A lookalike from the `fetch` option is rejected as one from middleware is (ADR-025).
+      if (!isResponse(response)) {
+        throw new Error("fetch: must return new Response()");
+      }
 
       // middleware (response)
       // execute in reverse-array order (first priority gets last transform)
