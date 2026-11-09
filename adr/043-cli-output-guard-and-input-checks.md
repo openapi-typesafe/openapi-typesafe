@@ -171,3 +171,8 @@ reference to a missing name is, and decision 7 checks only what can print as Typ
 - **A recursive `mkdir` that failed part of the way kept the directories above the failing one**
   (`new1/<a name too long>/types.ts` kept `new1`). The directories that exist after the failure
   are removed again, as after a failed write.
+- **The index signature check refused types that TypeScript takes.** TS1268 and TS1337 are
+  decided by the resolved type, not by syntax: `K["a"]` and a tagged primitive (`string & {}`)
+  are valid, and a reference can fail as well. The check now refuses only what can never be a
+  parameter type (an object, an array, a tuple, a literal, `readonly`, other keywords) and passes
+  an indexed access and an intersection with one valid part; TypeScript checks the rest.

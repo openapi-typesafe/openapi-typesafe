@@ -136,8 +136,47 @@ describe("isPrintableIrType", () => {
     },
   );
 
+  const indexSignatureOf = (parameterType: unknown) => ({
+    kind: "object",
+    members: [
+      {
+        kind: "indexSignature",
+        parameterName: "k",
+        parameterType,
+        type: STRING,
+        isReadonly: false,
+        comments: [],
+      },
+    ],
+  });
+
+  it.each([
+    [
+      "an indexed access",
+      {
+        kind: "indexedAccess",
+        object: { kind: "reference", name: "K", typeArguments: [] },
+        index: { kind: "stringLiteral", value: "a" },
+      },
+    ],
+    ["a tagged string", { kind: "intersection", types: [STRING, { kind: "object", members: [] }] }],
+    [
+      "a tag before the string",
+      { kind: "intersection", types: [{ kind: "object", members: [] }, STRING] },
+    ],
+  ])(
+    "isPrintableIrType of an index signature with %s as its parameter type is true",
+    (_name, type) => {
+      expect(isPrintableIrType(indexSignatureOf(type))).toBe(true);
+    },
+  );
+
   it.each([
     ["an object", { kind: "object", members: [] }],
+    [
+      "an intersection of objects",
+      { kind: "intersection", types: [{ kind: "object", members: [] }] },
+    ],
     ["a literal", { kind: "stringLiteral", value: "a" }],
     [
       "a union with an array",

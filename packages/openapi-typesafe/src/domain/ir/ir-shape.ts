@@ -141,19 +141,25 @@ class IrShapeCheck {
 const INDEX_PARAMETER_KEYWORDS: ReadonlySet<string> = new Set(["string", "number"]);
 
 /**
- * Whether TypeScript takes a type as the parameter type of an index signature: `string`,
- * `number`, a name or type text it resolves itself, or a union of these. An object, an array or a
- * literal there is a syntax error (TS1268), not a type error.
+ * Whether a type can be the parameter type of an index signature. TypeScript takes `string`,
+ * `number`, `symbol`, a template literal type, a union of these, or one of them tagged by an
+ * intersection (`string & {}`); anything else fails with TS1268 or TS1337. It decides by the
+ * resolved type, so a name, an indexed access (`K["a"]`) and type text pass here and TypeScript
+ * checks them; an object, an array, a tuple, a literal or `readonly` can never be one, and is
+ * refused.
  */
 function isIndexParameterType(type: IrType): boolean {
   switch (type.kind) {
     case "keyword":
       return INDEX_PARAMETER_KEYWORDS.has(type.keyword);
     case "reference":
+    case "indexedAccess":
     case "raw":
       return true;
     case "union":
       return type.types.every(isIndexParameterType);
+    case "intersection":
+      return type.types.some(isIndexParameterType);
     default:
       return false;
   }
