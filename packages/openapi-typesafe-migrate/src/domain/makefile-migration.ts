@@ -29,9 +29,12 @@ const ASSIGNMENT_RE = new RegExp(
   ].join(""),
   "gm",
 );
-/** A reference to one variable, as a whole word: `$(NAME)` or `${NAME}`. */
+/**
+ * A reference to one variable, as a whole word: `$(NAME)`, `${NAME}`, or `$N` for a variable whose
+ * name is one letter, as make reads a `$` before any other character.
+ */
 const VARIABLE_REFERENCE_RE =
-  /^\$(?:\(([A-Za-z_][A-Za-z0-9_.-]*)\)|\{([A-Za-z_][A-Za-z0-9_.-]*)\})$/;
+  /^\$(?:\(([A-Za-z_][A-Za-z0-9_.-]*)\)|\{([A-Za-z_][A-Za-z0-9_.-]*)\}|([A-Za-z_]))$/;
 /** `@`, `-` and `+` before a recipe line: silent, ignore errors, always run. */
 const RECIPE_PREFIX_RE = /^[@+-]+/;
 const DOLLAR = "$";
@@ -124,7 +127,7 @@ function withoutAssignmentHeads(text: string, assignments: readonly Assignment[]
 /** The variable that `written` references as a whole, after the recipe prefix, or undefined. */
 function referencedName(written: string): string | undefined {
   const match = VARIABLE_REFERENCE_RE.exec(written.trim().replace(RECIPE_PREFIX_RE, ""));
-  return match === null ? undefined : (match[1] ?? match[2]);
+  return match === null ? undefined : (match[1] ?? match[2] ?? match[3]);
 }
 
 /**

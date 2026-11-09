@@ -23,8 +23,9 @@ only reports until you add `--write`, and logs every finding to a private JSON L
   file lists is reported, also on a later run: openapi-fetch installed the old package, the client
   does not.
 - Commands: the generator command and its renamed flags in package scripts, CI files (also `env`
-  variables that hold the generator), Makefiles (also variables that hold the generator),
-  Dockerfiles (also the exec form and its `sh -c` command line), `Justfile`, Husky hooks, Nx
+  variables that hold the generator, also used as `${{ env.NAME }}`), Makefiles (also variables
+  that hold the generator, `$(NAME)` or `$N`), Dockerfiles (also the exec form, its `sh -c` command
+  line, and `ARG` and `ENV` variables that hold the generator), `Justfile`, Husky hooks, Nx
   `project.json` targets and `deno.json` tasks, read word by word as the shell splits them, also
   inside `if`, `while` and `{ … }` blocks. In YAML files only command keys (`run`, `script`,
   `command`, …) and `env` values change. Install commands and `.github/dependabot.yml` get the new

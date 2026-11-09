@@ -37,8 +37,9 @@ script name (`npm run openapi-typescript`) is never changed. A Dockerfile's exec
 "openapi-typescript", …]`, also after `RUN --mount=…`) is read word by word, and the command line of
 `["sh", "-c", "…"]` as shell text. A Makefile variable that holds the generator (`OAT :=
 openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed where it is set,
-and the flags after `$(OAT)` where it runs; so is an `env` variable of a workflow and the flags
-after `$GEN`. A variable of old flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may
+and the flags after `$(OAT)` (or `$G` for a one-letter name) where it runs; so is an `env` variable
+of a workflow and the flags after `$GEN` or `${{ env.GEN }}`, and a Dockerfile `ARG` or `ENV`
+variable and the flags after `$GEN`. A variable of old flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may
 serve other commands too, so it is reported, not changed. YAML files are changed only in command
 keys (`run`, `script`, `command`, `entrypoint`, …) and in the values of `env`, in block and flow
 style, never in other values such as an OpenAPI `description`; a YAML file that names no old package
@@ -109,11 +110,11 @@ The report lists each of these with the file and line:
   with the command they should become;
 - deep imports such as `openapi-fetch/dist/...`: check that the file exists in the new package;
 - a module name built at run time right after an old package name
-  (`` import(`openapi-fetch${suffix}`) ``): the rest may go on with the name, so only you know what
+  (``import(`openapi-fetch${suffix}`)``): the rest may go on with the name, so only you know what
   to write;
 - imports of `openapi-typesafe-helpers` that no `package.json` or Deno import map at or above the
-  file lists, also imports that an earlier run renamed: openapi-fetch and openapi-react-query installed `openapi-typescript-helpers` with
-  them, the openapi-typesafe packages do not. Add it to the dependencies, or import the types from
+  file lists, also imports that an earlier run renamed: openapi-fetch and openapi-react-query
+  installed `openapi-typescript-helpers` with them, the openapi-typesafe packages do not. Add it to the dependencies, or import the types from
   `openapi-typesafe-fetch/helpers`;
 - strings that equal an old package name outside a module specifier (an object key, a label, a
   bundler option such as `external: ["openapi-fetch"]`): they are kept, because only you know

@@ -337,6 +337,13 @@ A recheck of the fixes above found three regressions and four gaps.
   changed, because the same variable may serve other commands. The `FileVariables` interface of
   the command migration carries both questions, so Makefiles and YAML files answer them the same
   way.
+- **The generator behind `ARG` and `ENV` of a Dockerfile, a one-letter Makefile `$G` and a
+  workflow `${{ env.GEN }}`** was neither migrated nor reported (the third recheck). Dockerfiles
+  now answer `FileVariables` too, from their `ARG` and `ENV` values (also of the legacy form
+  `ENV NAME value`); a Makefile reads `$G` as the variable `G`, as make does; a workflow reads
+  `${{ env.GEN }}` as `$GEN`, because the runner puts the same value there. One builder,
+  `shellVariables`, turns the definitions of each file kind into the answers, so the rule that a
+  word without a variable matches no definition holds for all of them.
 
 ## Review trigger
 

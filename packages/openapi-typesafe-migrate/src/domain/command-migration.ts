@@ -149,6 +149,49 @@ export interface FileVariables {
   referenceAt(word: ShellWord): VariableReference | undefined;
 }
 
+/** A shell variable as a file sets it: its name and its value, read as shell text. */
+export interface VariableDefinition {
+  readonly name: string;
+  readonly value: string;
+}
+
+/** A whole word that expands one shell variable: `$NAME`, `${NAME}`, also in double quotes. */
+const SHELL_VARIABLE_RE = /^"?\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})"?$/;
+
+/**
+ * The variables that a file's shell commands expand: `$GEN` runs the generator when a definition
+ * sets `GEN` to it. Definitions of one name are read as one (a workflow, a job and a step `env`).
+ */
+export function shellVariables(definitions: readonly VariableDefinition[]): FileVariables {
+  const values = new Map<string, string>();
+  const generators = new Set<string>();
+  for (const { name, value } of definitions) {
+    values.set(name, [values.get(name), value].filter((part) => part !== undefined).join(" "));
+    if (shellCommands(value).some(runsGenerator)) {
+      generators.add(name);
+    }
+  }
+  // A word that expands no variable has no name, so no definition (not even of "") matches it.
+  const nameAt = (word: ShellWord): string | undefined => {
+    const match = SHELL_VARIABLE_RE.exec(word.raw);
+    return match === null ? undefined : (match[1] ?? match[2]);
+  };
+  const valueAt = (word: ShellWord): string | undefined => {
+    const name = nameAt(word);
+    return name === undefined ? undefined : values.get(name);
+  };
+  return {
+    isGenerator: (program) => {
+      const name = nameAt(program);
+      return name !== undefined && generators.has(name);
+    },
+    referenceAt: (word) => {
+      const value = valueAt(word);
+      return value === undefined ? undefined : { written: word.raw, value };
+    },
+  };
+}
+
 const NO_VARIABLES: FileVariables = {
   isGenerator: () => false,
   referenceAt: () => undefined,
