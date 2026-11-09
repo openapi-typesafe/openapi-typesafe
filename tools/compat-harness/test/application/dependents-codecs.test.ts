@@ -14,6 +14,7 @@ const PROJECT = {
   steps: [{ name: "typecheck", command: ["npm", "run", "check"] }],
   generatedFiles: ["src/schema.ts"],
   notes: "",
+  expectedFailure: null,
 };
 
 const manifestText = (projects: readonly unknown[]): string =>
@@ -27,7 +28,30 @@ describe("decodeDependentsManifest", () => {
     expect(decodeDependentsManifest(manifestText([PROJECT])).projects).toEqual([PROJECT]);
   });
 
+  it("decodeDependentsManifest reads a left-out expected failure as none", () => {
+    const { expectedFailure: _left, ...withoutExpectedFailure } = PROJECT;
+
+    const [project] = decodeDependentsManifest(manifestText([withoutExpectedFailure])).projects;
+
+    expect(project?.expectedFailure).toBeNull();
+  });
+
+  it("decodeDependentsManifest accepts an expected failure of a project or harness step", () => {
+    const expectedFailures = ["typecheck", "install"].map((step) => ({ step, reason: "why" }));
+
+    const decoded = expectedFailures.map(
+      (expectedFailure) => decodeProject({ expectedFailure }).projects[0]?.expectedFailure,
+    );
+
+    expect(decoded).toEqual(expectedFailures);
+  });
+
   it.each([
+    ["an expected failure of an unknown step", { expectedFailure: { step: "lint", reason: "x" } }],
+    [
+      "an expected failure without a reason",
+      { expectedFailure: { step: "typecheck", reason: "" } },
+    ],
     ["a non-GitHub repository", { repository: "https://gitlab.com/o/r" }],
     ["a branch instead of a commit", { commit: "main" }],
     ["an unknown package manager", { packageManager: "yarn" }],
@@ -65,8 +89,9 @@ describe("decodeDependentResults", () => {
         projectId: "demo",
         repository: PROJECT.repository,
         commit: PROJECT.commit,
-        status: "regressed",
+        status: "expected-failure",
         failedStep: "test",
+        expectedFailure: { step: "test", reason: "a documented breaking change" },
         baseline: [{ name: "test", status: "passed", durationMs: 1, outputExcerpt: "" }],
         candidate: [{ name: "test", status: "failed", durationMs: 2, outputExcerpt: "x" }],
         generatedFiles: [

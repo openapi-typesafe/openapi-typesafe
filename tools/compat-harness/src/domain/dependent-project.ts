@@ -19,6 +19,19 @@ export interface ProjectStep {
   readonly command: readonly string[];
 }
 
+/**
+ * A failure of the switched project that a documented breaking change causes: the project relies
+ * on what openapi-typesafe changed on purpose, and the migration guide says what to do. The check
+ * accepts it only at this step, so any other failure, or a run that no longer fails, is reported
+ * (ADR-044).
+ */
+export interface ExpectedFailure {
+  /** The step that fails after the switch: a project step or a harness step (`install`). */
+  readonly step: string;
+  /** The breaking change, in the words of the migration guide. */
+  readonly reason: string;
+}
+
 export interface DependentProject {
   /** Stable id: lowercase letters, digits and dashes; used in cache paths and reports. */
   readonly id: string;
@@ -38,6 +51,8 @@ export interface DependentProject {
   readonly generatedFiles: readonly string[];
   /** Why the steps are what they are (scripts left out, extra setup); shown in the report. */
   readonly notes: string;
+  /** The failure that a documented breaking change causes after the switch; null for none. */
+  readonly expectedFailure: ExpectedFailure | null;
 }
 
 export const DEPENDENTS_SCHEMA_VERSION = 1;

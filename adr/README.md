@@ -57,3 +57,4 @@ breaking change. Day-to-day choices belong in pull requests, not here.
 | [041](./041-parameter-values-and-json-parse-errors.md) | Parameter values and JSON parse errors (audit finding F7) | Accepted |
 | [042](./042-the-docs-site-follows-the-latest-release.md) | The docs site follows the latest release | Accepted |
 | [043](./043-cli-output-guard-and-input-checks.md) | The CLI output guard and input checks of the rc.3 hunt | Accepted |
+| [044](./044-real-projects-fail-only-as-documented.md) | Real projects fail only as documented | Accepted |

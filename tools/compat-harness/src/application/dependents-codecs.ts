@@ -34,21 +34,35 @@ const StepSchema = z.object({
 const hasUniqueValues = (values: readonly string[]): boolean =>
   new Set(values).size === values.length;
 
-const ProjectSchema = z.object({
-  id: z.string().regex(/^[a-z0-9-]+$/),
-  repository: z.string().regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/),
-  commit: z.string().regex(/^[0-9a-f]{40}$/),
-  packageManager: z.enum(Object.values(PackageManager)),
-  directory: RelativePathSchema,
-  steps: z
-    .array(StepSchema)
-    .min(1)
-    .refine((steps) => hasUniqueValues(steps.map((step) => step.name)), {
-      message: "step names must be unique",
-    }),
-  generatedFiles: z.array(RelativePathSchema),
-  notes: z.string(),
+const ExpectedFailureSchema = z.object({
+  step: z.string().min(1),
+  reason: z.string().min(1),
 });
+
+const ProjectSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9-]+$/),
+    repository: z.string().regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/),
+    commit: z.string().regex(/^[0-9a-f]{40}$/),
+    packageManager: z.enum(Object.values(PackageManager)),
+    directory: RelativePathSchema,
+    steps: z
+      .array(StepSchema)
+      .min(1)
+      .refine((steps) => hasUniqueValues(steps.map((step) => step.name)), {
+        message: "step names must be unique",
+      }),
+    generatedFiles: z.array(RelativePathSchema),
+    notes: z.string(),
+    // Most projects expect none, so the manifest leaves it out.
+    expectedFailure: ExpectedFailureSchema.nullable().default(null),
+  })
+  .refine(
+    ({ steps, expectedFailure }) =>
+      expectedFailure === null ||
+      [...RESERVED_STEP_NAMES, ...steps.map((step) => step.name)].includes(expectedFailure.step),
+    { message: "expectedFailure.step must name a step of the project or of the harness" },
+  );
 
 const DependentsManifestSchema = z.object({
   schemaVersion: z.literal(DEPENDENTS_SCHEMA_VERSION),
@@ -73,6 +87,7 @@ const DependentResultsSchema = z.array(
     commit: z.string(),
     status: z.enum(Object.values(DependentStatus)),
     failedStep: z.string().nullable(),
+    expectedFailure: ExpectedFailureSchema.nullable(),
     baseline: z.array(StepResultSchema),
     candidate: z.array(StepResultSchema),
     generatedFiles: z.array(
