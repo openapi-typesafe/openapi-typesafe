@@ -20,3 +20,11 @@ export interface FileWriter {
 export interface FileIdentity {
   isSameFile(left: URL, right: URL): boolean;
 }
+
+/**
+ * Whether a `file:` location is an existing directory. An output there is no file the CLI can
+ * write, so it fails with `CLI_OUTPUT_INVALID` before anything is generated.
+ */
+export interface DirectoryCheck {
+  isDirectory(file: URL): boolean;
+}

@@ -17,6 +17,7 @@ import {
   ensureOutputIsNotSchema,
   ensureOutputIsOwn,
   type NamedFile,
+  outputFileOf,
   parseLocationUrl,
   resolveLocationUrl,
 } from "./cli-output.js";
@@ -129,8 +130,7 @@ async function generateApi(
     run.deps.logger.warn(warning);
   }
   const output = String(target.settings[OUTPUT_SETTING]);
-  const file = resolveLocationUrl(output, target.configRoot);
-  const outputFile = { source: target.name, output, file };
+  const outputFile = outputFileOf(run, { source: target.name, output }, target.configRoot);
   ensureOutputIsNotSchema(run, outputFile, files.schemas);
   ensureOutputIsOwn(run, outputFile, otherOutputs(files, target.name));
   const source = resolveLocationUrl(target.root, target.configRoot);

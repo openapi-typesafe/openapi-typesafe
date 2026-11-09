@@ -116,6 +116,28 @@ describe("createNodeFileSystem", () => {
     ).toBe(false);
   });
 
+  it("isDirectory is true for a directory only", () => {
+    const files = createNodeFileSystem();
+    const file = path.join(workDir, "plain.ts");
+    fs.writeFileSync(file, "");
+
+    expect(files.isDirectory(pathToFileURL(workDir))).toBe(true);
+    expect(files.isDirectory(pathToFileURL(file))).toBe(false);
+    expect(files.isDirectory(pathToFileURL(path.join(workDir, "absent")))).toBe(false);
+  });
+
+  it("readText and writeText of a URL that is no local file fail with a typed error (G4)", () => {
+    const files = createNodeFileSystem();
+    const remote = new URL("https://example.invalid/out.ts");
+
+    expect(() => files.readText(remote)).toThrow(
+      expect.objectContaining({ code: "OUTPUT_READ_FAILED", details: { file: remote.href } }),
+    );
+    expect(() => files.writeText(remote, "")).toThrow(
+      expect.objectContaining({ code: "OUTPUT_WRITE_FAILED", details: { file: remote.href } }),
+    );
+  });
+
   it("writeText into a path under a file fails with OUTPUT_WRITE_FAILED", () => {
     const blocker = path.join(workDir, "blocker");
     fs.writeFileSync(blocker, "");

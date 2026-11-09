@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { FileIdentity, FileReader, FileWriter } from "../../application/ports/file-system.js";
-import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
+import type {
+  DirectoryCheck,
+  FileIdentity,
+  FileReader,
+  FileWriter,
+} from "../../application/ports/file-system.js";
+import { ERROR_CODES, type ErrorCode, OpenAPITypesafeError } from "../../domain/errors.js";
 import {
   type FileNumber,
   fileIdentityKey,
@@ -57,17 +62,35 @@ const NODE_PATH_QUERIES: PathQueries = {
   entries: entriesOf,
 };
 
-class NodeFileSystem implements FileReader, FileWriter, FileIdentity {
+/** The path of a `file:` URL, or undefined for a URL that names no file on this platform. */
+function localPathOf(file: URL): string | undefined {
+  try {
+    return fileURLToPath(file);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * A failed read or write as a typed error. The location is named by its path, or by the URL when
+ * it names no local file: computing the path must not throw a second, untyped error here.
+ */
+function fileError(code: ErrorCode, verb: string, file: URL, cause: unknown): OpenAPITypesafeError {
+  const name = localPathOf(file) ?? file.href;
+  return new OpenAPITypesafeError({
+    code,
+    message: `Cannot ${verb} ${name}: ${causeMessage(cause)}`,
+    details: { file: name },
+    cause,
+  });
+}
+
+class NodeFileSystem implements FileReader, FileWriter, FileIdentity, DirectoryCheck {
   readText(file: URL): string {
     try {
       return fs.readFileSync(file, "utf8");
     } catch (cause) {
-      throw new OpenAPITypesafeError({
-        code: ERROR_CODES.OUTPUT_READ_FAILED,
-        message: `Cannot read ${fileURLToPath(file)}: ${causeMessage(cause)}`,
-        details: { file: fileURLToPath(file) },
-        cause,
-      });
+      throw fileError(ERROR_CODES.OUTPUT_READ_FAILED, "read", file, cause);
     }
   }
 
@@ -76,12 +99,16 @@ class NodeFileSystem implements FileReader, FileWriter, FileIdentity {
       fs.mkdirSync(new URL(".", file), { recursive: true });
       fs.writeFileSync(file, contents, "utf8");
     } catch (cause) {
-      throw new OpenAPITypesafeError({
-        code: ERROR_CODES.OUTPUT_WRITE_FAILED,
-        message: `Cannot write ${fileURLToPath(file)}: ${causeMessage(cause)}`,
-        details: { file: fileURLToPath(file) },
-        cause,
-      });
+      throw fileError(ERROR_CODES.OUTPUT_WRITE_FAILED, "write", file, cause);
+    }
+  }
+
+  isDirectory(file: URL): boolean {
+    try {
+      return fs.statSync(file).isDirectory();
+    } catch {
+      // Missing or unreadable: not a directory; the write that follows reports a failure.
+      return false;
     }
   }
 
@@ -103,6 +130,6 @@ class NodeFileSystem implements FileReader, FileWriter, FileIdentity {
 }
 
 /** File access for the CLI. */
-export function createNodeFileSystem(): FileReader & FileWriter & FileIdentity {
+export function createNodeFileSystem(): FileReader & FileWriter & FileIdentity & DirectoryCheck {
   return new NodeFileSystem();
 }

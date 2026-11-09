@@ -2,6 +2,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type {
+  DirectoryCheck,
   FileIdentity,
   FileReader,
   FileWriter,
@@ -67,11 +68,22 @@ export class RecordingConsole implements CliConsole {
 
 /**
  * Files by absolute path; a missing file fails to read as the Node adapter does. `links` maps a
- * path to the path it names, as a symbolic link or another letter case does on disk.
+ * path to the path it names, as a symbolic link or another letter case does on disk. A directory
+ * is one in `directories` or one that holds a file.
  */
-export class InMemoryFiles implements FileReader, FileWriter, FileIdentity {
+export class InMemoryFiles implements FileReader, FileWriter, FileIdentity, DirectoryCheck {
   readonly files = new Map<string, string>();
   readonly links = new Map<string, string>();
+  readonly directories = new Set<string>();
+
+  isDirectory(file: URL): boolean {
+    const directory = fileURLToPath(file);
+    const inside = `${directory}${path.sep}`;
+    return (
+      this.directories.has(directory) ||
+      [...this.files.keys()].some((name) => name.startsWith(inside))
+    );
+  }
 
   isSameFile(left: URL, right: URL): boolean {
     return this.targetOf(left) === this.targetOf(right);

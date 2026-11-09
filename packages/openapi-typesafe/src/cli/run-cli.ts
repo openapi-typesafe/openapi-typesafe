@@ -10,6 +10,7 @@ import {
   emitOutput,
   ensureOutputIsNotSchema,
   type OutputFile,
+  outputFileOf,
   resolveLocationUrl,
 } from "./cli-output.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
@@ -86,11 +87,7 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
 /** The `--output` file; it must not be the schema file, which writing it would replace. */
 function singleOutputFile(run: CliRun, output: string, source: SchemaSource): OutputFile {
   const { input } = run.args;
-  const outputFile = {
-    source: input ?? "stdin",
-    output,
-    file: resolveLocationUrl(output, run.deps.cwd),
-  };
+  const outputFile = outputFileOf(run, { source: input ?? "stdin", output }, run.deps.cwd);
   if (input && source instanceof URL) {
     ensureOutputIsNotSchema(run, outputFile, [{ name: input, location: source }]);
   }

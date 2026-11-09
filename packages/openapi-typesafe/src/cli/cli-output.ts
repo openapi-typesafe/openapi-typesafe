@@ -14,10 +14,14 @@ export interface CliRun {
   readonly startedAt: number;
 }
 
-/** A generated file: `source` names the schema and `output` is the path as the user wrote it. */
-export interface OutputFile {
+/** An output as the user wrote it: `source` names the schema, `output` is the path or URL. */
+export interface NamedOutput {
   readonly source: string;
   readonly output: string;
+}
+
+/** A generated file: an output with the location of its local file. */
+export interface OutputFile extends NamedOutput {
   readonly file: URL;
 }
 
@@ -41,22 +45,63 @@ export function resolveLocationUrl(location: string, base: URL): URL {
   return pathToFileURL(path.resolve(baseDirectory, location));
 }
 
+const FILE_PROTOCOL = "file:";
+
+/** A trailing `/`, or `\\` on Windows: the user named a directory, not a file. */
+function endsWithSeparator(location: string): boolean {
+  return location.endsWith("/") || location.endsWith(path.sep);
+}
+
+function invalidOutput(output: string, reason: string): Error {
+  return cliError("CLI_OUTPUT_INVALID", `The output ${output} ${reason}`);
+}
+
+/** The URL of the output, if it is a local file that can be written; it may not exist yet. */
+function outputUrlOf(run: CliRun, output: string, base: URL): URL {
+  const file = parseLocationUrl(output, base);
+  if (file?.protocol !== FILE_PROTOCOL) {
+    throw invalidOutput(
+      output,
+      "is not a local file. Write the types to a file path or a file: URL.",
+    );
+  }
+  if (!isLocalFile(file)) {
+    throw invalidOutput(output, "names no file on this computer. Use a file path instead.");
+  }
+  if (endsWithSeparator(output) || run.deps.files.isDirectory(file)) {
+    throw invalidOutput(output, "is a directory. Name the file to write the types to in it.");
+  }
+  return file;
+}
+
+/** A `file:` URL with a host, or with an encoded slash, names no path on this platform. */
+function isLocalFile(file: URL): boolean {
+  try {
+    fileURLToPath(file);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The output file of `source`, as the user wrote it in `output`, relative to `base`. Fails with
+ * `CLI_OUTPUT_INVALID` before anything is generated when it is not a local file (a URL of
+ * another scheme) or is a directory (a trailing separator, or a directory on disk). Without this
+ * check, `-o dir/` wrote a file named `dir`.
+ */
+export function outputFileOf(run: CliRun, named: NamedOutput, base: URL): OutputFile {
+  return { ...named, file: outputUrlOf(run, named.output, base) };
+}
+
 /** A file the CLI reads or writes: `name` is how an error names it, `location` where it is. */
 export interface NamedFile {
   readonly name: string;
   readonly location: URL;
 }
 
-const FILE_PROTOCOL = "file:";
-
-/**
- * The `files` that are the local file `output`, also through a link or in another letter case.
- * An output that is no local file is left to the writer, which fails on it.
- */
+/** The `files` that are the local file `output`, also through a link or in another letter case. */
 function filesAtOutput(run: CliRun, output: OutputFile, files: readonly NamedFile[]): NamedFile[] {
-  if (output.file.protocol !== FILE_PROTOCOL) {
-    return [];
-  }
   return files.filter(
     ({ location }) =>
       location.protocol === FILE_PROTOCOL && run.deps.files.isSameFile(location, output.file),

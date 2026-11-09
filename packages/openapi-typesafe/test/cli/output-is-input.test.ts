@@ -71,14 +71,6 @@ describe("runCli: an output that is the input schema", () => {
     expect(exitCode).toBe(0);
     expect(cli.files.files.get(fakePath("/work/api.yaml"))).toBe("types of https://example.com/api.yaml");
   });
-
-  it("runCli with an output URL that is no file leaves it to the writer", async () => {
-    const cli = createFakeCli();
-
-    await runCli(["api.yaml", "-o", "https://example.com/api.yaml"], cli.deps);
-
-    expect(cli.generator.calls).toHaveLength(1);
-  });
 });
 
 describe("runCli: a Redocly API output that is a schema", () => {
