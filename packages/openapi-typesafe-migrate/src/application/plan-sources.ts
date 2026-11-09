@@ -1,4 +1,5 @@
 import type { DocumentRead } from "../domain/config-documents.js";
+import type { NamedImportMaps } from "./named-import-maps.js";
 import type { DocumentReaders } from "./ports.js";
 import {
   baseName,
@@ -25,14 +26,20 @@ export interface PlanSource {
 const readJson = (text: string, readers: DocumentReaders) => readers.json.read(text);
 const readYaml = (text: string, readers: DocumentReaders) => readers.yaml.read(text);
 
-/** The part a file plays in the project plan, or undefined for a file that plays none. */
-export function planSourceOf(path: string): PlanSource | undefined {
+/**
+ * The part a file plays in the project plan, or undefined for a file that plays none.
+ * `namedImportMaps` are the files that Deno configs name as their import maps.
+ */
+export function planSourceOf(
+  path: string,
+  namedImportMaps: NamedImportMaps,
+): PlanSource | undefined {
   const name = baseName(path);
+  if (namedImportMaps.has(path) || DENO_CONFIG_FILES.has(name) || name === IMPORT_MAP_FILE) {
+    return { role: "import-map", read: readJson };
+  }
   if (name === MANIFEST_FILE) {
     return { role: "manifest", read: readJson };
-  }
-  if (DENO_CONFIG_FILES.has(name) || name === IMPORT_MAP_FILE) {
-    return { role: "import-map", read: readJson };
   }
   if (YAML_MANIFEST_FILES.has(name)) {
     return { role: "manifest", read: readYaml };

@@ -31,6 +31,9 @@ const OPTIONS_NOTE =
 const MANIFEST_NOT_READ_NOTE =
   "is a JSON5 manifest, which the tool does not read: rename the packages and the generator " +
   "command by hand, or write it as package.json and run the tool again";
+const IMPORT_MAP_NOTE =
+  "is a URL or a file outside the project folder, so it was not migrated: rename the old " +
+  "packages in it by hand";
 const DEEP_IMPORT_NOTE = "imports a file inside the package; check that it exists";
 const DEEP_TARGET_NOTE = "points at a file inside the package; check that it exists";
 const DYNAMIC_NOTE =
@@ -66,7 +69,12 @@ function oldPeerMessage(step: Extract<ManualStep, { kind: "old-peer-needed" }>):
 type UneditedStep = Extract<
   ManualStep,
   {
-    kind: "config-unreadable" | "manifest-not-read" | "entry-not-edited" | "name-collision";
+    kind:
+      | "config-unreadable"
+      | "manifest-not-read"
+      | "import-map-not-editable"
+      | "entry-not-edited"
+      | "name-collision";
   }
 >;
 
@@ -85,6 +93,8 @@ function uneditedStepMessage(step: UneditedStep): string {
             "migrate it by hand";
     case "manifest-not-read":
       return MANIFEST_NOT_READ_NOTE;
+    case "import-map-not-editable":
+      return `importMap "${step.reference}" ${IMPORT_MAP_NOTE}`;
     case "entry-not-edited":
       return `${step.field}: ${step.name} has a value the tool does not read; rename it by hand`;
     case "name-collision":
@@ -193,6 +203,7 @@ export function manualStepMessage(step: ManualStep): string {
   switch (step.kind) {
     case "config-unreadable":
     case "manifest-not-read":
+    case "import-map-not-editable":
     case "entry-not-edited":
     case "name-collision":
       return uneditedStepMessage(step);

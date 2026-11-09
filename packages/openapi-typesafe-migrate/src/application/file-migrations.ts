@@ -10,6 +10,7 @@ import {
 import { type ManifestDeclarations, undeclaredImportSteps } from "../domain/declared-packages.js";
 import { migrateDockerfile } from "../domain/dockerfile-migration.js";
 import { migrateImportMap } from "../domain/import-map-migration.js";
+import { importMapSteps } from "../domain/import-map-reference.js";
 import {
   DENO_TASK_PATHS,
   type JsonPathPattern,
@@ -41,6 +42,7 @@ import {
   migrateYamlCommands,
   migrateYamlScripts,
 } from "../domain/yaml-migration.js";
+import { type NamedImportMaps, NO_NAMED_IMPORT_MAPS } from "./named-import-maps.js";
 import type { CallbackRewriter, DocumentReaders, SourceStringScanner } from "./ports.js";
 import {
   baseName,
@@ -149,11 +151,21 @@ const stringsStep =
 const jsonCommandsStep = (patterns: readonly JsonPathPattern[]): ConfigStep =>
   stringsStep((text, strings) => migrateJsonCommands(text, strings, patterns));
 
-/** A JSON config migrated by `steps`. */
+/** A JSON config migrated by `steps`, which also get its path. */
 const jsonConfig =
-  (steps: (context: MigrationContext) => readonly ConfigStep[]): FileKind["migrate"] =>
-  (text, _path, context) =>
-    migrateConfig(text, (current) => context.readers.json.read(current), steps(context));
+  (
+    steps: (context: MigrationContext, path: string) => readonly ConfigStep[],
+  ): FileKind["migrate"] =>
+  (text, path, context) =>
+    migrateConfig(text, (current) => context.readers.json.read(current), steps(context, path));
+
+/** A Deno import map, in its own file or in a config. */
+const importMapStep =
+  (version: string): ConfigStep =>
+  (text, read) =>
+    migrateImportMap(text, read, version);
+
+const importMapFile = jsonConfig(({ version }) => [importMapStep(version)]);
 
 /** A YAML config migrated by `steps`, which also get its path. */
 const yamlConfig =
@@ -216,14 +228,15 @@ const FILE_KINDS: readonly FileKind[] = [
   },
   {
     matches: (path) => DENO_CONFIG_FILES.has(baseName(path)),
-    migrate: jsonConfig(({ version }) => [
-      (text, read) => migrateImportMap(text, read, version),
+    migrate: jsonConfig(({ version }, path) => [
+      importMapStep(version),
+      (text, read) => withSteps(unchanged(text), importMapSteps(path, read)),
       jsonCommandsStep(DENO_TASK_PATHS),
     ]),
   },
   {
     matches: (path) => baseName(path) === IMPORT_MAP_FILE,
-    migrate: jsonConfig(({ version }) => [(text, read) => migrateImportMap(text, read, version)]),
+    migrate: importMapFile,
   },
   {
     matches: isDependabotConfig,
@@ -259,10 +272,20 @@ const FILE_KINDS: readonly FileKind[] = [
   },
 ];
 
-/** The migration for a file, or undefined when the migration does not read that kind of file. */
-export function fileMigrationFor(path: string): FileKind["migrate"] | undefined {
+/**
+ * The migration for a file, or undefined when the migration does not read that kind of file.
+ * `namedImportMaps` are the files that a Deno config names as its import map (`"importMap":
+ * "./deps.json"`): they are import maps whatever their name.
+ */
+export function fileMigrationFor(
+  path: string,
+  namedImportMaps: NamedImportMaps = NO_NAMED_IMPORT_MAPS,
+): FileKind["migrate"] | undefined {
   if (LOCK_FILES.has(baseName(path))) {
     return undefined;
+  }
+  if (namedImportMaps.has(path)) {
+    return importMapFile;
   }
   return FILE_KINDS.find((kind) => kind.matches(path))?.migrate;
 }

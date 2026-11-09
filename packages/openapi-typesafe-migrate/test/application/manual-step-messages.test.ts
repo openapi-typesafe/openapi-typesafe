@@ -6,6 +6,7 @@ const STEPS: readonly ManualStep[] = [
   { kind: "config-unreadable", position: { line: 3, column: 7 } },
   { kind: "config-unreadable", position: undefined },
   { kind: "manifest-not-read" },
+  { kind: "import-map-not-editable", reference: "https://example.com/deps.json" },
   { kind: "entry-not-edited", field: "catalog", name: "a" },
   { kind: "name-collision", field: "dependencies", from: "a", to: "b" },
   { kind: "catalog-reference-kept", field: "dependencies", name: "a", catalog: "default" },

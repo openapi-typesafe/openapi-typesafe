@@ -106,6 +106,8 @@ export type ManualStep =
   | { readonly kind: "command-string"; readonly line: number; readonly to: string }
   | { readonly kind: "config-unreadable"; readonly position: TextPosition | undefined }
   | { readonly kind: "manifest-not-read" }
+  /** A Deno config names an import map by a URL or a path outside the project. */
+  | { readonly kind: "import-map-not-editable"; readonly reference: string }
   | { readonly kind: "options-not-inspected"; readonly line: number }
   | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
   /** A target of package.json `imports` that reaches into a renamed package. */

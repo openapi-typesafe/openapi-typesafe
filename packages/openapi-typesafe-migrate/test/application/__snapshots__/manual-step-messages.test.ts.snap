@@ -5,6 +5,7 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "cannot be parsed at line 3, column 7; migrate it by hand",
   "nests too deep to be read; migrate it by hand",
   "is a JSON5 manifest, which the tool does not read: rename the packages and the generator command by hand, or write it as package.json and run the tool again",
+  "importMap "https://example.com/deps.json" is a URL or a file outside the project folder, so it was not migrated: rename the old packages in it by hand",
   "catalog: a has a value the tool does not read; rename it by hand",
   "dependencies has both a and b, so a was kept: remove one of them",
   "dependencies: a was kept, because catalog "default" keeps a: rename the entry and the dependency together",
