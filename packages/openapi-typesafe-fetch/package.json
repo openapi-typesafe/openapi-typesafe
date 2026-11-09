@@ -31,7 +31,7 @@
   "typesVersions": {
     "*": {
       "helpers": [
-        "./dist/helpers.d.ts"
+        "./dist/helpers.d.mts"
       ]
     }
   },

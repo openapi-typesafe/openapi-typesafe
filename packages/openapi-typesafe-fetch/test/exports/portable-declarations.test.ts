@@ -54,6 +54,46 @@ export function getGeneric<P extends "/items">(path: P, init?: MaybeOptionalInit
 }
 `;
 
+/**
+ * A generic wrapper that types the client's result with names of the `helpers` entry. Both entries
+ * must load one declaration of the helper types; with two, the same names are unrelated types and
+ * the return fails with TS2322.
+ */
+const HELPERS_CONSUMER_SOURCE = `
+import type { FetchResponse } from "openapi-typesafe-fetch";
+import type { ErrorResponse, MediaType, Readable, ResponseObjectMap } from "openapi-typesafe-fetch/helpers";
+
+export function failure<T extends Record<string | number, unknown>, M extends MediaType>(
+  error: Readable<ErrorResponse<ResponseObjectMap<T>, M>>,
+): FetchResponse<T, {}, M> {
+  return { error, response: new Response() };
+}
+`;
+
+/**
+ * The resolutions a consumer may use. `node10` reads `main` and `typesVersions`, not `exports`; it
+ * is the default of `module: commonjs` in TypeScript 5, so projects still use it. TypeScript 6
+ * deprecates it (TS5107), and `ignoreDeprecations` lets this compiler check such a consumer.
+ */
+const RESOLUTIONS: readonly { name: string; options: ts.CompilerOptions }[] = [
+  {
+    name: "node10",
+    options: {
+      module: ts.ModuleKind.CommonJS,
+      moduleResolution: ts.ModuleResolutionKind.Node10,
+      ignoreDeprecations: "6.0",
+    },
+  },
+  {
+    name: "node16",
+    options: { module: ts.ModuleKind.Node16, moduleResolution: ts.ModuleResolutionKind.Node16 },
+  },
+  {
+    name: "bundler",
+    options: { module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler },
+  },
+];
+
 const temporaryDirectories: string[] = [];
 
 /** Copy what a package publishes into `directory`, as a package manager installs it. */
@@ -63,8 +103,8 @@ function install(packageDir: string, directory: string): void {
   }
 }
 
-/** A consumer project with the client installed as pnpm installs it. */
-function createConsumer(): string {
+/** A consumer project of `source` with the client installed as pnpm installs it. */
+function createConsumer(source: string): string {
   const directory = mkdtempSync(join(tmpdir(), "fetch-portable-declarations-"));
   temporaryDirectories.push(directory);
   const store = join(directory, "node_modules", ".pnpm", "openapi-typesafe-fetch", "node_modules");
@@ -75,8 +115,31 @@ function createConsumer(): string {
     "dir",
   );
   writeFileSync(join(directory, "package.json"), JSON.stringify({ type: "module" }));
-  writeFileSync(join(directory, "index.ts"), CONSUMER_SOURCE);
+  writeFileSync(join(directory, "index.ts"), source);
   return directory;
+}
+
+/** Type-check the consumer; return the diagnostic codes and the client's declaration files. */
+function checkConsumer(
+  directory: string,
+  resolution: ts.CompilerOptions,
+): { codes: number[]; clientFiles: string[] } {
+  const program = ts.createProgram([join(directory, "index.ts")], {
+    ...resolution,
+    lib: ["lib.es2022.d.ts", "lib.dom.d.ts"],
+    noEmit: true,
+    strict: true,
+    target: ts.ScriptTarget.ES2022,
+    types: [],
+  });
+  const clientFiles = program
+    .getSourceFiles()
+    .map((file) => file.fileName)
+    .filter((fileName) => fileName.includes("/openapi-typesafe-fetch/dist/"))
+    .map((fileName) => fileName.slice(fileName.lastIndexOf("/") + 1))
+    .sort();
+  const codes = ts.getPreEmitDiagnostics(program).map((diagnostic) => diagnostic.code);
+  return { codes, clientFiles };
 }
 
 /** Emit the consumer's declarations in memory; return the diagnostics and the declaration text. */
@@ -111,7 +174,7 @@ describe("declarations of a library that uses the client", () => {
   it("name helper types through openapi-typesafe-fetch/helpers (no TS2742)", {
     timeout: TYPE_PROGRAM_TIMEOUT_MS,
   }, () => {
-    const { codes, declarations } = emitDeclarations(createConsumer());
+    const { codes, declarations } = emitDeclarations(createConsumer(CONSUMER_SOURCE));
 
     expect(codes).toEqual([]);
     expect(declarations).toContain('import("openapi-typesafe-fetch")');
@@ -146,6 +209,24 @@ describe("declarations of a library that uses the client", () => {
       expect(declarations).toMatch(helpersImport);
       expect(declarations).not.toMatch(/^type FilterKeys</m);
       expect(declarations).not.toMatch(/^export (type )?\{[^}]*\bFilterKeys\b/m);
+    },
+  );
+});
+
+describe("a consumer that imports both entries of the client", () => {
+  it.each(RESOLUTIONS)(
+    "loads one declaration of the helper types under $name",
+    {
+      timeout: TYPE_PROGRAM_TIMEOUT_MS,
+    },
+    ({ options }) => {
+      const { codes, clientFiles } = checkConsumer(
+        createConsumer(HELPERS_CONSUMER_SOURCE),
+        options,
+      );
+
+      expect(codes).toEqual([]);
+      expect(clientFiles.filter((file) => file.startsWith("helpers."))).toHaveLength(1);
     },
   );
 });
