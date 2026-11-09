@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { inspect } from "node:util";
 import { gzipSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/redocly-schema-loader.js";
@@ -192,6 +193,14 @@ describe("remote $ref", () => {
       Person: { $ref: "#/components/schemas/person" },
       person: JSON.parse(PERSON),
     });
+  });
+
+  it("a remote $ref whose scheme is written in uppercase is bundled as a URL", async () => {
+    const document = documentWith({ Person: { $ref: `${baseURL.replace("http:", "HTTP:")}/person.json` } });
+
+    const bundled = await loadDocument(document);
+
+    expect(bundled.components?.schemas?.person).toEqual(JSON.parse(PERSON));
   });
 
   it.each([
@@ -394,5 +403,23 @@ describe("credentials in remote URLs", () => {
 
     expect(error.code).toBe("SCHEMA_LOAD_FAILED");
     expect(JSON.stringify({ message: error.message, details: error.details })).not.toContain("URL-SECRET");
+    expect(inspect(error)).not.toContain("URL-SECRET");
+  });
+
+  it("a source string that starts like a URL but does not parse fails with SCHEMA_SOURCE_INVALID", async () => {
+    // A `/` in the password ends the authority for a URL parser, so only the last `@` tells.
+    const error = await loadFailure("http://tok:URL/SECRET@[::1/x.yaml");
+
+    expect(error.code).toBe("SCHEMA_SOURCE_INVALID");
+    expect(error.details).toEqual({ reason: "url", received: "string" });
+    expect(inspect(error)).not.toContain("SECRET");
+  });
+
+  it("a source string with an uppercase scheme loads as a URL", async () => {
+    const error = await loadFailure(`${baseURL.replace("http:", "HTTP:")}/person.json`);
+
+    // The fetched schema is no OpenAPI document; read as YAML text, the string would fail with
+    // SCHEMA_SOURCE_INVALID instead.
+    expect(error.code).toBe("SCHEMA_VERSION_UNSUPPORTED");
   });
 });

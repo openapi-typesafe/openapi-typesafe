@@ -241,3 +241,27 @@ URL as `?***`; the path and the fragment stay, so a message still names the docu
 place in it. `src/domain/url-secrets.ts` finds a URL by its `://` and takes it whole, up to a space,
 quote or angle bracket, which a serialized URL percent-encodes; the scan stays linear. Hiding only
 parameters with secret-looking names was rejected: no list of names covers every API.
+
+## Amendment (2026-11-09): the cause chain, unparsable URLs and the case of a scheme
+
+The recheck of the amendment above found three ways a URL secret still left the generator.
+
+1. **The `cause` of a typed error kept the original error.** `console.error(error)`,
+   `util.inspect` and error trackers print the whole chain, and a lower-level error quotes the URL
+   (fetch refuses `https://user:token@host/…` and names it). `OpenAPITypesafeError` now keeps a
+   copy of its cause, of the same class and with the same fields, whose text has the secrets
+   hidden; an error with nothing to hide stays the same object, so `error.cause.code` works as
+   before. Dropping the cause was rejected: the CLI and users read the network reason from it.
+2. **A location that does not parse as a URL crashed the CLI** (`Unexpected error: TypeError:
+   Invalid URL`, exit code 70), and the Node API threw the parser's `TypeError`. The CLI now fails
+   with `CLI_LOCATION_INVALID` (exit code 2) and the Node API with `SCHEMA_SOURCE_INVALID` (reason
+   `url`). Their messages hide everything from the `://` to the last `@` before the query: without
+   a parse there is no telling where the authority ends (`http://user:a/b@host/x`).
+3. **A `$ref` with an uppercase scheme** (`HTTP://host/x.yaml`) was read as a file path, because
+   Redocly takes only `http://` and `https://` as URLs; the path no longer looked like a URL, so its
+   "not found" message showed the user info and the query. A scheme is the same in any case (RFC
+   3986, section 3.1), so the resolver writes it in lowercase and the `$ref` loads as the URL it
+   is, within the same limits. The Node API reads a source string with such a scheme as a URL too.
+
+A URL in a message now also ends before punctuation that the message puts after it (`…?***: 404`,
+`(…?***)`), which the hidden query took with it.

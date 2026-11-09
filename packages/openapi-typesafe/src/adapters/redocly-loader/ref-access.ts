@@ -97,6 +97,9 @@ function localFromRemoteRefusal(
   return refForbiddenError(absoluteRef, { reason: "local-ref-from-remote", base: shownBase });
 }
 
+/** The scheme of an `http(s)` URL, in any case. */
+const REMOTE_SCHEME_RE = /^https?:(?=\/\/)/i;
+
 /** The limits one resolver checks; each load gets its own resolver. */
 export interface RefAccessLimits {
   readonly access: RefAccess;
@@ -129,6 +132,17 @@ export class RefAccessResolver extends BaseResolver {
   /** The first document that was refused, if any. */
   get firstRefusal(): OpenAPITypesafeError | undefined {
     return this.#refusals[0];
+  }
+
+  /**
+   * A scheme is the same in any case (RFC 3986, section 3.1), but Redocly takes only `http://` and
+   * `https://` as URLs: it read `HTTP://host/x.yaml` as a file path, and its "not found" message
+   * showed the user info and the query of the URL, which no longer looked like one. The scheme
+   * is written in lowercase first, so the `$ref` loads as the URL it is, within the same limits.
+   */
+  override resolveExternalRef(base: string | null, ref: string): string {
+    const normalized = ref.replace(REMOTE_SCHEME_RE, (scheme) => scheme.toLowerCase());
+    return super.resolveExternalRef(base, normalized);
   }
 
   override resolveDocument(

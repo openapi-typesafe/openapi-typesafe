@@ -1,6 +1,6 @@
 import { assertNever } from "../../domain/assert-never.js";
 import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
-import { redactUrlSecrets } from "../../domain/url-secrets.js";
+import { redactUnparsedUrl, redactUrlSecrets } from "../../domain/url-secrets.js";
 
 /**
  * The typed errors of loading, validating and bundling a document (ADR-011). Messages are the
@@ -20,6 +20,15 @@ export function sourceInvalidError(source: unknown): OpenAPITypesafeError {
     code: ERROR_CODES.SCHEMA_SOURCE_INVALID,
     message: `Expected string, object, or Buffer. Got ${received}`,
     details: { received },
+  });
+}
+
+/** A source string starts with a URL scheme but does not parse as a URL. */
+export function urlInvalidError(text: string): OpenAPITypesafeError {
+  return new OpenAPITypesafeError({
+    code: ERROR_CODES.SCHEMA_SOURCE_INVALID,
+    message: `The string ${redactUnparsedUrl(text)} starts like a URL but is not a valid URL`,
+    details: { reason: "url", received: "string" },
   });
 }
 

@@ -18,6 +18,7 @@ import {
   sourceEmptyError,
   sourceInvalidError,
   type TextOrigin,
+  urlInvalidError,
 } from "./schema-load-errors.js";
 
 /** Parse a schema source of any supported type into a Redocly document (ENGINEERING_PLAN 4.5). */
@@ -41,15 +42,22 @@ async function readStream(stream: Readable, absoluteRef: string): Promise<string
   }
 }
 
-const URL_PREFIXES = ["http://", "https://", "file://"] as const;
+/** A URL source string; a scheme is the same in any case (RFC 3986, section 3.1). */
+const URL_PREFIX_RE = /^(?:https?|file):\/\//i;
 
-/** A string is a URL, JSON (starts with `{`) or YAML. */
+/**
+ * A string is a URL, JSON (starts with `{`) or YAML. A string that starts like a URL but does not
+ * parse as one fails with `SCHEMA_SOURCE_INVALID`, not the parser's `TypeError`.
+ */
 function parseSchemaText(
   schema: string,
   options: ParseSchemaOptions,
 ): Promise<Document> | Document {
-  if (URL_PREFIXES.some((prefix) => schema.startsWith(prefix))) {
-    const url = new URL(schema);
+  if (URL_PREFIX_RE.test(schema)) {
+    const url = URL.parse(schema);
+    if (url === null) {
+      throw urlInvalidError(schema);
+    }
     const absoluteRef = url.protocol === "file:" ? fileURLToPath(url) : url.href;
     return parseSchema(url, { absoluteRef, resolver: options.resolver });
   }
