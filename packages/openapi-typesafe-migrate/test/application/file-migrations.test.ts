@@ -138,6 +138,22 @@ describe("fileMigrationFor", () => {
     );
   });
 
+  it("fileMigrationFor reports a patch file of an old package and keeps it", () => {
+    const text = "diff --git a/node_modules/openapi-fetch/dist/index.js\n";
+    const path = "patches/openapi-fetch+0.13.0.patch";
+
+    const migration = fileMigrationFor(path)?.(text, path, context);
+
+    expect(migration).toEqual({
+      text,
+      changes: [],
+      manualSteps: [
+        { kind: "old-package-patch", name: "openapi-fetch", to: "openapi-typesafe-fetch" },
+      ],
+    });
+    expect(fileMigrationFor("patches/left-pad+1.0.0.patch")).toBeUndefined();
+  });
+
   it("fileMigrationFor reads each command config by the keys of its tool", () => {
     const run = (path: string, text: string): string | undefined =>
       fileMigrationFor(path)?.(text, path, context).text;

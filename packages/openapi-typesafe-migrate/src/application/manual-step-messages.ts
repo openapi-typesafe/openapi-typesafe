@@ -34,6 +34,7 @@ const MANIFEST_NOT_READ_NOTE =
 const IMPORT_MAP_NOTE =
   "is a URL or a file outside the project folder, so it was not migrated: rename the old " +
   "packages in it by hand";
+const PATCH_NOTE = "check whether the fix is still needed, then make the patch again or delete it";
 const DEEP_IMPORT_NOTE = "imports a file inside the package; check that it exists";
 const DEEP_TARGET_NOTE = "points at a file inside the package; check that it exists";
 const DYNAMIC_NOTE =
@@ -73,6 +74,7 @@ type UneditedStep = Extract<
       | "config-unreadable"
       | "manifest-not-read"
       | "import-map-not-editable"
+      | "old-package-patch"
       | "entry-not-edited"
       | "name-collision";
   }
@@ -95,6 +97,8 @@ function uneditedStepMessage(step: UneditedStep): string {
       return MANIFEST_NOT_READ_NOTE;
     case "import-map-not-editable":
       return `importMap "${step.reference}" ${IMPORT_MAP_NOTE}`;
+    case "old-package-patch":
+      return `patches the code of ${step.name}, which ${step.to} does not share: ${PATCH_NOTE}`;
     case "entry-not-edited":
       return `${step.field}: ${step.name} has a value the tool does not read; rename it by hand`;
     case "name-collision":
@@ -204,6 +208,7 @@ export function manualStepMessage(step: ManualStep): string {
     case "config-unreadable":
     case "manifest-not-read":
     case "import-map-not-editable":
+    case "old-package-patch":
     case "entry-not-edited":
     case "name-collision":
       return uneditedStepMessage(step);

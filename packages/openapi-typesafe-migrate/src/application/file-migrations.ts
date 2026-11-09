@@ -17,6 +17,7 @@ import { migrateJsonCommands } from "../domain/json-command-migration.js";
 import { migrateMakefile } from "../domain/makefile-migration.js";
 import { migratePackageManifest, unreadManifest } from "../domain/manifest-migration.js";
 import { type FileMigration, unchanged } from "../domain/migration-findings.js";
+import { oldPackagePatchSteps, patchedOldPackage } from "../domain/patch-files.js";
 import { migratePreCommitHooks } from "../domain/pre-commit-migration.js";
 import {
   importedSpecifiers,
@@ -185,6 +186,10 @@ const FILE_KINDS: readonly FileKind[] = [
     migrate: yamlConfig(({ version, catalogs }) => [
       (text, read) => migrateWorkspaceCatalogs(text, read, { version, catalogs }, YARNRC_FILE),
     ]),
+  },
+  {
+    matches: (path) => patchedOldPackage(baseName(path)) !== undefined,
+    migrate: (text, path) => withSteps(unchanged(text), oldPackagePatchSteps(baseName(path))),
   },
   {
     matches: (path) => SOURCE_EXTENSIONS.has(extensionOf(path)),
