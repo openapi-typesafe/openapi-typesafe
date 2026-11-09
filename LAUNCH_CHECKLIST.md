@@ -71,8 +71,9 @@ Done on 2026-11-04.
 - [ ] Before its version pull request is merged, refresh `docs/compatibility.md` from a full run
       on the release commit (RELEASING.md, "Refresh the compatibility report"), and link it from
       the GitHub release notes.
-- [ ] Once ADR-042 is on `main`, run the `docs` workflow by hand once, so the site shows the
-      `latest` release instead of `main`.
+- [x] Once ADR-042 is on `main`, run the `docs` workflow by hand once, so the site shows the
+      `latest` release instead of `main`: run 42560815618 (2026-11-09) built
+      `openapi-typesafe@1.0.0-rc.3` and deployed it.
 
 ## 4. Stable release
 
