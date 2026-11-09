@@ -18,6 +18,7 @@ import {
 } from "../application/transform/footer/shared-enum-names.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
+import { schemaDialectOf } from "../domain/openapi/schema-dialect.js";
 import { FIX } from "../domain/output-fixes.js";
 import type { GlobalContext, OpenAPI3 } from "../types.js";
 import { FirstSchemaNameRecorder } from "./discriminator-enum-names.js";
@@ -146,6 +147,7 @@ function enumValuesChecked(
 /** @internal Root types, the footer, then the closing declarations (Phase 5, step 6). */
 export function transformDocument(schema: OpenAPI3, ctx: RunContext): TransformedDocument {
   const document = schema as DocumentObject;
+  ctx.schemaDialect = schemaDialectOf(document.openapi);
   const names: RunFooterNames = {
     enums: new EnumNameClaims(NAMES_THE_OUTPUT_MAY_NEED),
     operations: new OperationKeys(operationKeysWritten(document)),

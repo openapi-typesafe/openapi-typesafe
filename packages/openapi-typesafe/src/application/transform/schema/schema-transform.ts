@@ -7,6 +7,7 @@ import { schemaRefType } from "../ref-pointer/pointer-type.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { compositionType } from "./composition-type.js";
 import { enumRule } from "./enum-rule.js";
+import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
 import type { SchemaContext, SchemaLocation } from "./schema-context.js";
 import type { SchemaRequest, SchemaRule } from "./schema-rule.js";
 
@@ -83,8 +84,9 @@ export function transformSchemaShape(
     return checked.type;
   }
   const current = request(location, context, isFromAdditionalProperties);
-  const rule = SHAPE_RULES.find((candidate) => candidate.matches(checked.schema));
-  return rule ? rule.transform(checked.schema, current) : compositionType(checked.schema, current);
+  const shaped = refWithSiblingsAsAllOf(checked.schema, context.options) ?? checked.schema;
+  const rule = SHAPE_RULES.find((candidate) => candidate.matches(shaped));
+  return rule ? rule.transform(shaped, current) : compositionType(shaped, current);
 }
 
 /** Transform a schema to IR, then apply `postTransform` (the original `transformSchemaObject`). */

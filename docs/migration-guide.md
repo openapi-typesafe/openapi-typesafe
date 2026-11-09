@@ -199,6 +199,10 @@ These are off by default, so the output does not change until you turn one on.
   `read-write-refs` makes a property `readonly` when the schema it references is `readOnly`.
   `ref-pointers` gives a `$ref` into another schema's keywords the type it points at also where
   an index signature made the original compile as `unknown`.
+  `parameter-content` types a parameter with `content` (a JSON query parameter) by the schema of
+  its media type, instead of `string`.
+  `ref-siblings` applies the keywords next to a `$ref` in OpenAPI 3.1 and 3.2 documents
+  (`required`, `properties`), instead of dropping them; OpenAPI 3.0 keeps ignoring them.
 
 ### Libraries built on openapi-fetch
 

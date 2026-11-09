@@ -1,4 +1,5 @@
 import type { IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
+import type { SchemaDialect } from "../../../domain/openapi/schema-dialect.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import type { OutputFix } from "../../../domain/output-fixes.js";
 
@@ -27,6 +28,8 @@ export interface SchemaOptions {
   readonly immutable: boolean;
   readonly propertiesRequiredByDefault: boolean;
   readonly readWriteMarkers: boolean;
+  /** Whether keywords next to a `$ref` apply (OpenAPI 3.1 and 3.2) or not (3.0). */
+  readonly schemaDialect: SchemaDialect;
 }
 
 /**
