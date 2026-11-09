@@ -10,7 +10,7 @@ and the opt-in `--fix` list. From 1.0 these contracts follow semver
 ([versioning](https://openapi-typesafe.github.io/openapi-typesafe/compatibility#versioning)).
 
 Highlights: no TypeScript dependency (the generator runs next to TypeScript 7), OpenAPI 3.2
-support, typed errors and exit codes, a code on every warning, 17 opt-in output fixes, and limits
+support, typed errors and exit codes, a code on every warning, 19 opt-in output fixes, and limits
 for documents you did not write.
 
 Changes that can need work when you move from openapi-typescript 7.13:
@@ -19,6 +19,11 @@ Changes that can need work when you move from openapi-typescript 7.13:
 - The header of generated files and the comment of added discriminator properties name
   `openapi-typesafe`: regenerate once, or `--check` fails on the old files.
 - A string enum with `additionalProperties: true` gets `| (string & {})` (see Minor Changes).
+- `--enum`: two schemas whose enum names come out the same, such as `Status` and `status`, get
+  two enums, `Status` and `Status_2`. openapi-typescript merged them into one enum, so each schema
+  accepted the values of the other. Import the later schema's enum by its new name.
+- `--enum` and `--enum-values`: the enum of a property whose key contains `#/` is named by the
+  whole key: `RateAB` for the property `a#/b` of `Rate`, was `RateB`. Update the imports.
 - Exit codes: `1` stale `--check` output (as before), `2` usage or configuration, `3` input
   document, `4` output files, `70` unexpected error. Every failure used to exit with `1`.
 - `--check` without an output file fails with `CLI_CHECK_OUTPUT_MISSING`; it passed unchecked.

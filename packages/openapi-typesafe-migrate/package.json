@@ -12,6 +12,7 @@
     "openapi-typesafe-migrate": "bin/migrate.js"
   },
   "files": [
+    "CHANGELOG.md",
     "bin",
     "dist"
   ],

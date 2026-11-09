@@ -7,4 +7,4 @@ The client re-exports every type of `openapi-typesafe-helpers` (`PathsWithMethod
 the client or the react-query hooks no longer fails with TS2742 ("cannot be named without a
 reference to …/openapi-typesafe-helpers"): TypeScript names the helper types through
 `openapi-typesafe-fetch`, which such a library has. openapi-fetch and openapi-react-query fail
-the same way (ADR-034).
+the same way.

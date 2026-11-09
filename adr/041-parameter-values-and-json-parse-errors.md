@@ -137,3 +137,14 @@ openapi-fetch 0.17 sent `String(date)` in a form, a local-time text.
 A report of a server that needs empty parameters on the wire or a `Date` in another format, a
 2.0 decision to follow the response `Content-Type`, or a Bun release that returns the body of a
 `TRACE` response.
+
+## Amendment (2026-11-09): what openapi-fetch 0.17 sent for a `Date`
+
+A recheck with openapi-fetch 0.17.0 and the default query serializer corrected the Context table:
+`query: { list: [date] }` and `query: { o: { at: date } }` throw "Deeply-nested arrays/objects
+aren't supported", because the default styles explode arrays and objects. `String(date)` was sent
+only with `explode: false` (`form`, `spaceDelimited`, `pipeDelimited`) and in an
+`application/x-www-form-urlencoded` body. A `Date` on its own in the query or the path was left
+out, as the table says. The decisions do not change; the changelog lists the wire changes
+(urlencoded and `explode: false` values, and values that were left out) as changes that can need
+work.

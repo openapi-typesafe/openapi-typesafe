@@ -53,10 +53,13 @@ The beta runs while the repository is private, so nothing goes to npm.
 4. The `publish` job waits for approval in the `npm-publish` environment. Approve it. It installs
    only npm, checks every file against the hash that `build` wrote in its outputs
    (`scripts/release/verify-tarballs.sh`), and publishes each tarball that is not on npm yet, in
-   dependency order. After each one it checks the provenance
-   (`scripts/release/check-provenance.sh`): it must name this repository, `release.yml` and the
-   SHA-512 of the tarball that `build` packed. The registry can lag behind a publish, so the check
-   retries for up to about two minutes.
+   dependency order. Only when all of them are published does it check the provenance of each
+   version (`scripts/release/check-provenance.sh`): it must name this repository, `release.yml`
+   and, for a version published in this run, the SHA-512 of the tarball that `build` packed. The
+   registry serves a new attestation only after a delay, so `scripts/release/fetch-provenance.sh`
+   retries every 30 seconds for up to 10 minutes per package. Because the checks come after all
+   publishes, that delay runs for all packages at once, and a slow check never leaves the rest of
+   a release unpublished.
 5. The `release` job creates the tag `<name>@<version>` on the built commit and a GitHub release
    with the changelog section, the CycloneDX SBOM and the npm provenance bundle
    (`scripts/release/create-github-releases.sh`).

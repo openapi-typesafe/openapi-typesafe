@@ -24,6 +24,7 @@
     "./*": "./*"
   },
   "files": [
+    "CHANGELOG.md",
     "dist"
   ],
   "homepage": "https://github.com/openapi-typesafe/openapi-typesafe#readme",
@@ -42,6 +43,7 @@
     "lint:js": "biome check src",
     "lint:ts": "tsc --noEmit",
     "lint:sizes": "vite-node ../openapi-typesafe/scripts/size-rules/check-sizes.ts src",
+    "prepack": "pnpm run build",
     "test": "pnpm run test:exports",
     "test:exports": "pnpm run build && ../../scripts/check-exports.sh"
   },
