@@ -370,6 +370,55 @@ A recheck of the fixes above found three regressions and four gaps.
   is three models for one question, and each misses cases (a base image's `ENV`, `override`,
   target variables) that the conservative rule reports.
 
+## Amendment (2026-11-09): the third review of the migration tool
+
+The rc.5 review found places that named the old packages and were neither migrated nor reported.
+
+- **A `catalog:` dependency whose entry is outside the project** (`--root packages/api` of a pnpm
+  workspace) was renamed, and the install failed: the entry above the root is not edited. The
+  catalog plan now knows which entries the project defines; a dependency on any other keeps its
+  name and is reported as `catalog-entry-outside`.
+- **Command wrappers** the tool did not know (`yarn workspace <name>`, `dotenvx run`, `doppler run`,
+  `nx exec`, bare `bun`, `corepack`, `tsx`, `ts-node`, `exec -a`, `command`, `nice`, `timeout`,
+  `xargs`, `yarn global add`) hid the generator. They are launchers now, each with the operands
+  it takes. `yarn run` and `bun run` are not: like `npm run` they name scripts, and a script name
+  that happens to be an old package name is not the package. Every word of a command that names
+  an old package and that no rule renamed or reported is now reported as `old-name-in-command`,
+  so a wrapper the tool does not know is never silence.
+- **Here-documents** were read as commands. Their bodies are data now, except the body of a shell
+  (`sh`, `bash`, `RUN <<EOF`), which is read as commands. `<<-` strips tabs, a YAML block keeps
+  its indentation, and `<<<` is a here-string, not a here-document.
+- **A rewritten `transform` broke its options type**: options declared as `OpenAPITSOptions` do not
+  take type text. The annotations of rewritten options are retargeted to `OpenAPITSIrOptions`,
+  through any import of the name; a type that only builds on `OpenAPITSOptions`
+  (`Partial<OpenAPITSOptions>`) keeps the `transform` and reports `typed-options`.
+- **Node subpath imports** (`"imports": { "#client": "openapi-fetch" }`) kept the old targets. A
+  target that names an old package, under any nesting of conditions and fallbacks, is renamed;
+  a deep target is reported. The `#` keys are the project's own and stay.
+- **A Deno import map named by its config** (`"importMap": "./deps.json"`) was not read. The
+  configs are read before the plan, and the files they name in the project are import maps
+  whatever their name; their imports declare packages for the files of the config, not of the
+  map's folder. A map named by a URL or a path outside the project is reported.
+- **More files run the generator**: Task's `Taskfile.yml` (`cmds`, `cmd`, `sh`, `status`),
+  pre-commit's `entry` with its `args` read as one command (pre-commit runs no shell) and its
+  `additional_dependencies`, `simple-git-hooks`, `lint-staged` and `nx.targets` in the manifest,
+  `.lintstagedrc*`, `.simple-git-hooks.json` and the `targetDefaults` of `nx.json`. Each file kind
+  names its own command keys or key paths (`domain/command-paths.ts`,
+  `domain/yaml-command-keys.ts`); adding the keys to every YAML file was rejected, since `cmd` and
+  `entry` mean other things elsewhere.
+- **Patch files of an old package** (patch-package, pnpm, Yarn) stopped applying. They are found by
+  the file names their tools give them and reported: the new package has other code.
+- **Package manager settings** other than overrides (`packageExtensions`,
+  `allowedDeprecatedVersions`, `onlyBuiltDependencies`, …, in `pnpm-workspace.yaml`, the `pnpm`
+  field and `.yarnrc.yml`) were not read. Every section is read by its keys and its values, and
+  one that names an old package is reported as `setting-names-package`; overrides keep their own
+  step, and a section of the `pnpm` field is named by its own key (`pnpm.overrides`).
+- **Smaller gaps**: the ESM blocks of `.mdx` pages are read as scripts; a bundler query
+  (`openapi-fetch?url`) ends the package name and is kept; an import from the `node_modules`
+  folder of an old package is reported; and the Jest patterns that name an old package
+  (`moduleNameMapper`, `transformIgnorePatterns`, in `jest.config.*` and the `jest` field) are
+  reported, not changed, because a pattern is not a module specifier.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.
