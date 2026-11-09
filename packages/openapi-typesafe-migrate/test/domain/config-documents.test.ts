@@ -16,15 +16,21 @@ describe("ownerKey", () => {
 
 describe("unreadableConfig", () => {
   it("unreadableConfig reports a config that names an original package", () => {
-    expect(unreadableConfig("{ openapi-typescript")).toEqual({
-      text: "{ openapi-typescript",
+    expect(unreadableConfig("{\n openapi-typescript", 3)).toEqual({
+      text: "{\n openapi-typescript",
       changes: [],
-      manualSteps: [{ kind: "config-unreadable" }],
+      manualSteps: [{ kind: "config-unreadable", position: { line: 2, column: 2 } }],
     });
   });
 
+  it("unreadableConfig reports a config without a place when the parser gives none", () => {
+    expect(unreadableConfig("openapi-fetch", undefined).manualSteps).toEqual([
+      { kind: "config-unreadable", position: undefined },
+    ]);
+  });
+
   it("unreadableConfig leaves a config that names no original package", () => {
-    expect(unreadableConfig("{ broken")).toEqual({
+    expect(unreadableConfig("{ broken", 2)).toEqual({
       text: "{ broken",
       changes: [],
       manualSteps: [],

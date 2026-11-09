@@ -124,8 +124,8 @@ safe.bareRepository=explicit`; command-line settings win over every config file.
   pattern no longer ends in `(.*)$` (the rest of the line is what follows the match), and an
   override key must start after the indent (`\S`), so the indent and the key cannot split the
   same spaces. recheck reports the new patterns as safe; tests bound the time on large input.
-  A YAML parser was not added: the file is edited line by line so that comments and formatting
-  stay, and the tool has no YAML dependency.
+  A YAML parser was not added then: the file was edited line by line so that comments and
+  formatting stayed. The amendment "package names in structured files" below replaces that.
 
 ## Amendment (2026-11-08): commands are parsed, names are resolved by scope
 
@@ -155,8 +155,8 @@ A review of rc.3 found that the tool matched text where it needed structure:
   read only the block style and drifted from the grammar at its edges. A config that does not
   parse and names an old package is reported. A list value of `command` or `entrypoint` is one
   command in exec form (Compose, Kubernetes): each item is one word. The catalogs of
-  `pnpm-workspace.yaml` are still edited line by line as the amendment above says; with `yaml`
-  now a dependency, that reason no longer holds, and moving them onto the reader is open.
+  `pnpm-workspace.yaml` move onto the same readers in the amendment "package names in structured
+  files" below.
 - **Names in `transform` callbacks.** A returned `DATE` was looked up by its spelling among the
   module constants, so a local `const DATE` in the callback was rewritten with the module's type.
   Names are now resolved with the checker of a one-file program (no default library, no module
@@ -165,6 +165,79 @@ A review of rc.3 found that the tool matched text where it needed structure:
   namespace import, and the module constants and imports that the rewrite leaves unused; those
   are removed so that `noUnusedLocals` passes, and only when their initializer builds a type, so
   no side effect is lost.
+
+## Amendment (2026-11-09): git never fetches
+
+The rc.4 review (finding S1) proved the first amendment wrong: `core.fsmonitor` is not the only
+command that `ls-files` and `check-ignore` take from config. A planted partial clone with a
+sparse index holds a directory entry whose tree object is missing; reading the index fetches
+that tree from the promisor remote, and the fetch runs the repository's `core.sshCommand` (an
+`ext::` remote or a credential helper would run a command the same way). It ran in a dry run.
+
+Decision: every git command also gets `-c protocol.allow=never`, which refuses every transport
+on every git version, and the environment variable `GIT_NO_LAZY_FETCH=1`, which makes git 2.45
+and newer not try a fetch at all (`GIT_TERMINAL_PROMPT=0` too, so nothing waits on a prompt).
+Two settings, because each one alone depends on git: the variable is ignored by an older git,
+and the `-c` setting relies on every fetch going through a transport. Git then reports the
+missing object on stderr and lists the files it can read. A test plants such a repository and
+checks that no command ran, also with `GIT_NO_LAZY_FETCH=0` in the environment. The environment
+is passed to the git adapter by the composition root, not read inside it.
+
+## Amendment (2026-11-09): reading and writing files
+
+The rc.4 review found three ways the tool changed a project by halves or without a word:
+
+- A file was read as UTF-8 with replacement: in a Latin-1 file `é` became `�` when the file was
+  written for another change. Files are now decoded with a fatal decoder. A file that is not
+  UTF-8 is not migrated, and the report lists it under "Skipped" with the reason. Guessing the
+  encoding was rejected: a wrong guess changes bytes the same way, and the tool has no way to
+  check it.
+- A file that could not be read (`EACCES`) stopped the run in the middle of the writes, and the
+  files already written were not named. The tool now reads and migrates every file first; a file
+  that cannot be read is skipped and reported, with its error code. Then it writes. A failed
+  write stops the writing (a full disk or a read-only folder fails the next write too); the
+  report names the file, the files written before it and the ones that were not, and the command
+  exits with `1`. A rollback was rejected: undoing a rename can fail for the same reason, and the
+  user has git for that. The `ProjectFiles` port gives these outcomes as values (`FileRead`,
+  `FileWrite`), so the application layer never sees a file system error.
+- `--log` naming a folder failed with a stack trace, and `--root` naming a file with `spawn
+ENOTDIR`. The log file is now opened when the logger is created, and the root is checked
+  before the listing, each with a message that names the path.
+
+## Amendment (2026-11-09): package names in structured files
+
+The rc.4 review found the package renames of package.json and the catalogs incomplete or lossy:
+
+- **package.json was printed again** with `JSON.stringify`: inline arrays were spread over lines,
+  `1.0` became `1`, large numbers lost digits, integer keys moved to the front, `\/` lost its
+  backslash, the first of two duplicate keys was dropped (M9), and a byte order mark made the file
+  unreadable (M19).
+- **Catalog ranges with spaces** (`>=0.13 <0.18`, `^0.13 || ^0.17`, quoted or not) were cut at
+  the first space, so the entry kept its old name or got half a range (M1, M18).
+- **Fields that name a package** were left: `peerDependenciesMeta` (an optional peer became
+  required), `dependenciesMeta`, `bundleDependencies` (M3); so were bun's catalogs in package.json
+  and Yarn's in `.yarnrc.yml` (M7), `package.yaml`, the import maps of `deno.json`, and `npm:`
+  aliases and specifiers (M13). Renaming a key that sat next to its new name gave the map the
+  same key twice (M10).
+
+Decision: package.json, `package.yaml`, `pnpm-workspace.yaml`, `.yarnrc.yml`, `deno.json`,
+`deno.jsonc` and `import_map.json` are read by the same two readers as the command files
+(amendment of 2026-11-08), which now give one canonical shape: a tree per document with the
+offsets of every node (`domain/config-documents.ts`). A scalar carries its whole span (quotes
+included), the span of its text as written, and how to write a new value there; the string
+values with their key paths, which the command migrations read, are derived from the tree, so
+there is one reader per format and no second API. The package-name migrations decide what to
+rename and replace only those keys and values, so everything else stays byte for byte. A new
+YAML value keeps the quoting of the old one when it reads back as the same string, and is quoted
+otherwise. A block scalar, an alias, and an anchored or tagged value are not replaced: a new
+value there could change other places or the type; an entry with such a value that names an
+original package is reported. The same rules cover every format: a renamed entry gets the
+version of the tool in the style of its old range; a key whose new name is already in the same
+map is left and reported; an `npm:` alias of an original package is retargeted. Scripts of
+package.json and `package.yaml` stay with the command migrations. A hand-written JSON or YAML
+scanner was rejected: it drifted from the grammar at its edges (flow collections, escapes,
+ranges with spaces), which is where these findings came from. A config that does not parse and
+names an original package is reported with the line and column where it stops being valid.
 
 ## Review trigger
 

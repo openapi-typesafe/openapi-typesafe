@@ -5,6 +5,12 @@
  * (domain/url-credentials.ts).
  */
 
+/** A place in a text, 1-based. */
+export interface TextPosition {
+  readonly line: number;
+  readonly column: number;
+}
+
 export type Change =
   | {
       readonly kind: "dependency-renamed";
@@ -13,7 +19,26 @@ export type Change =
       readonly to: string;
       readonly spec: string;
     }
-  | { readonly kind: "catalog-entry-renamed"; readonly from: string; readonly to: string }
+  | {
+      readonly kind: "catalog-entry-renamed";
+      readonly catalog: string;
+      readonly from: string;
+      readonly to: string;
+      readonly spec: string;
+    }
+  | {
+      readonly kind: "import-renamed";
+      readonly field: string;
+      readonly from: string;
+      readonly to: string;
+      readonly target: string;
+    }
+  | {
+      readonly kind: "alias-renamed";
+      readonly field: string;
+      readonly name: string;
+      readonly spec: string;
+    }
   | { readonly kind: "command-renamed"; readonly location: string }
   | {
       readonly kind: "package-name-renamed";
@@ -37,7 +62,13 @@ export type Change =
   | { readonly kind: "declaration-removed"; readonly line: number; readonly name: string };
 
 export type ManualStep =
-  | { readonly kind: "manifest-unreadable"; readonly reason: string }
+  | { readonly kind: "entry-not-edited"; readonly field: string; readonly name: string }
+  | {
+      readonly kind: "name-collision";
+      readonly field: string;
+      readonly from: string;
+      readonly to: string;
+    }
   | { readonly kind: "peer-dependency-renamed"; readonly name: string }
   | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
   | { readonly kind: "override-names-package"; readonly field: string; readonly name: string }
@@ -45,7 +76,7 @@ export type ManualStep =
   | { readonly kind: "pinned-package"; readonly location: string; readonly name: string }
   | { readonly kind: "old-package-file"; readonly location: string; readonly path: string }
   | { readonly kind: "command-string"; readonly line: number; readonly to: string }
-  | { readonly kind: "config-unreadable" }
+  | { readonly kind: "config-unreadable"; readonly position: TextPosition | undefined }
   | { readonly kind: "options-not-inspected"; readonly line: number }
   | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
   | {
@@ -95,4 +126,9 @@ export function lineAt(text: string, offset: number): number {
     index = text.indexOf("\n", index + 1);
   }
   return line;
+}
+
+/** Column number (1-based) of a character offset. */
+export function columnAt(text: string, offset: number): number {
+  return offset - text.lastIndexOf("\n", offset - 1);
 }

@@ -18,14 +18,15 @@ Run it with `npx` (or `pnpm dlx`, `yarn dlx`, `bunx`), not as a dependency: it u
 
 ## What it changes
 
-| Where                                                                          | Change                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Every `package.json`                                                           | `dependencies`, `devDependencies`, `peerDependencies` and `optionalDependencies` get the new names, with the version of this tool; `^`, `~` and exact ranges keep their style. `catalog:` and `workspace:` stay.                                                                                                                                                                                                        |
-| `pnpm-workspace.yaml`                                                          | Entries of `catalog:` and `catalogs:`. Comments, formatting and line endings stay.                                                                                                                                                                                                                                                                                                                                      |
-| Commands (the files are listed below the table)                                | The `openapi-typescript` command (also as `npx`, `pnpm exec`, `node_modules/.bin/…` or `npm:openapi-typescript`), and the flags it renamed, in that command only: `--immutable-types` / `-it` → `--immutable`, `--support-array-length` → `--array-length`, `--redoc` → `--redocly`, `-ap` → `--additional-properties`. The old package names in install commands (`npm i`, `pnpm add`, `npx -p`, …).                   |
-| `.github/dependabot.yml`                                                       | Every old package name in `dependency-name` and `patterns`.                                                                                                                                                                                                                                                                                                                                                             |
-| Sources (`.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, `.vue`, `.svelte`, `.astro`, …) | Module specifiers only: `import` / `export … from`, `import()`, `require()`, `require.resolve()`, `import("…")` types and `@import` tags in JSDoc (every block), `declare module`, `/// <reference types>`, and module mocks: `vi.mock()` and the other `vi` / `jest` module methods (`jest.setMock()`, `jest.requireActual()`, …), bun's `mock.module()`. Components: their `<script>` blocks and Astro's frontmatter. |
-| `openapiTS(source, { transform })` calls                                       | When `transform` is the only callback and returns plain `ts.factory` types (or the helper constants), the returns become type text and `irCallbacks: true` is added. The options may also be a `const` of the same file that only this call uses. Module constants and imports that only the old returns used are removed. Names are resolved by scope, so a local constant is never taken for a module one.            |
+| Where                                                                          | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every `package.json` and pnpm's `package.yaml`                                 | `dependencies`, `devDependencies`, `peerDependencies` and `optionalDependencies` get the new names, with the version of this tool, in the style of the old range (see below). `catalog:` and `workspace:` stay. An `npm:` alias of an original package (`"my-fetch": "npm:openapi-fetch@^0.13"`) points at the new package. The keys of `peerDependenciesMeta` and `dependenciesMeta` and the names in `bundleDependencies` get the new names too, and so do bun's `catalog` and `catalogs`. |
+| `pnpm-workspace.yaml`, `.yarnrc.yml`                                           | Entries of `catalog:` and `catalogs:` (pnpm, Yarn 4.10 and newer), ranges with spaces included.                                                                                                                                                                                                                                                                                                                                                                                              |
+| `deno.json`, `deno.jsonc`, `import_map.json`                                   | Keys of `imports` and `scopes` that name an original package (`openapi-fetch`, `openapi-fetch/`), and their `npm:` values.                                                                                                                                                                                                                                                                                                                                                                   |
+| Commands (the files are listed below the table)                                | The `openapi-typescript` command (also as `npx`, `pnpm exec`, `node_modules/.bin/…` or `npm:openapi-typescript`), and the flags it renamed, in that command only: `--immutable-types` / `-it` → `--immutable`, `--support-array-length` → `--array-length`, `--redoc` → `--redocly`, `-ap` → `--additional-properties`. The old package names in install commands (`npm i`, `pnpm add`, `npx -p`, …).                                                                                        |
+| `.github/dependabot.yml`                                                       | Every old package name in `dependency-name` and `patterns`.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Sources (`.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, `.vue`, `.svelte`, `.astro`, …) | Module specifiers only: `import` / `export … from`, `import()`, `require()`, `require.resolve()`, `import("…")` types and `@import` tags in JSDoc (every block), `declare module`, `/// <reference types>`, and module mocks: `vi.mock()` and the other `vi` / `jest` module methods (`jest.setMock()`, `jest.requireActual()`, …), bun's `mock.module()`. Components: their `<script>` blocks and Astro's frontmatter.                                                                      |
+| `openapiTS(source, { transform })` calls                                       | When `transform` is the only callback and returns plain `ts.factory` types (or the helper constants), the returns become type text and `irCallbacks: true` is added. The options may also be a `const` of the same file that only this call uses. Module constants and imports that only the old returns used are removed. Names are resolved by scope, so a local constant is never taken for a module one.                                                                                 |
 
 Commands are read in `package.json` scripts, shell scripts (`.sh`, `.bash`, `.zsh`), husky hooks,
 `Makefile`, `justfile`, `Dockerfile`, CI and other YAML files, Nx `project.json` targets,
@@ -34,10 +35,22 @@ splits them (quotes, `\` line continuations, comments, `&&`, `|`, `sh -c "…"`)
 generator's own flags are renamed, and a script name (`npm run openapi-typescript`) is never
 changed. YAML files are changed only in command keys (`run`, `script`, `command`, `entrypoint`,
 …), in block and flow style, never in other values such as an OpenAPI `description`. A config
-that cannot be parsed and names an old package is reported, not changed. `Makefile`, `justfile` and
+that cannot be parsed and names an old package is reported with the line and column, not changed. `Makefile`, `justfile` and
 `Dockerfile` are read only under the names make, just and docker look for (also `makefile`,
 `GNUmakefile`, `Justfile`, `.justfile`, `Containerfile` and `*.mk`), so `Dockerfile.dev` is not
 changed.
+
+A range keeps its style: `^` and `>=` give `^1.0.0`, `~` gives `~1.0.0`, an exact version stays
+exact, and a partial version keeps what it fixes (`7`, `7.x` and `0.x` give `^1.0.0`; `0.13` and
+`0.13.x` give `~1.0.0`). A range of several comparators (`>=0.13 <0.18`, `^0.13 || ^0.17`) takes
+the style of its first one. Anything else (`*`, `latest`, an upper bound only, a URL or a file) is
+kept and reported.
+
+Manifests, catalogs and import maps are edited in place: only the renamed keys and the new values
+change, and comments, formatting, key order and line endings stay. A byte order mark is kept. An
+entry whose new name is already in the same map is left and reported, and so is an entry the tool
+does not edit (a YAML alias, anchor or block value). Sources also get `npm:` specifiers renamed
+(`import x from "npm:openapi-fetch@^0.13"`).
 
 In a git repository the tool reads the files git lists: tracked files, and untracked files that
 `.gitignore` does not ignore, so ignored build output (`cjs/`, `esm/`, `types/`, …) stays out. A
@@ -48,12 +61,18 @@ repository around it ignores, it reads the whole tree of that folder. Either way
 `coverage` are skipped, and links are not followed. The log names the folders and how each one
 was read.
 
-The tool does not trust the folder it migrates. Git runs with `core.fsmonitor` turned off, so a
-nested repository's `.git/config` cannot make it run a command, and it does not open a bare
-repository that is not named explicitly. A path that git lists but that leads outside the folder
+The tool does not trust the folder it migrates. Git runs with `core.fsmonitor` turned off and
+every network transport refused (`protocol.allow=never`, `GIT_NO_LAZY_FETCH=1`), so a nested
+repository's `.git/config` cannot make it run a command, not even through a partial clone that
+fetches a missing object; and it does not open a bare repository that is not named explicitly. A path that git lists but that leads outside the folder
 (`../`, an absolute path, or a linked parent folder) is not read or written; the report lists it
 under "Skipped". A file is written as a new file that replaces the old one (same mode), so a hard
 link to a file elsewhere keeps its old text; the log notes it.
+A file whose bytes are not UTF-8 (a Latin-1 source, for example) is not changed, because its
+text cannot be written back without changing other characters; neither is a file that cannot be
+read. The report lists both under "Skipped". Every file is read and migrated before the first one
+is written. If a write fails, the writing stops, the command exits with `1`, and the report names
+the files written before it and the ones that were not.
 The report and the log show a spec with credentials (`git+https://<token>@…`) as
 `git+https://***@…`; the file keeps it as written.
 
@@ -100,8 +119,9 @@ now, so `--check` fails until you do), and run your type check and tests.
 The default log folder is new for each run and only you can open it (mode 0700). A `--log` file
 that exists gets the new lines appended, and missing parent folders are created.
 
-Exit codes: `0` done, `1` the migration failed (the message and the log say why) or the log could
-not be created (nothing is changed then), `2` unknown option or argument.
+Exit codes: `0` done, `1` the migration failed (the message and the log say why), a file could not
+be written (the report names what was written), the project folder does not exist or is a file,
+or the log could not be created (nothing is changed then), `2` unknown option or argument.
 
 ## Versioning
 

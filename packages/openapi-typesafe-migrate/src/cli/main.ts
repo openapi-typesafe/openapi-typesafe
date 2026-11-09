@@ -7,7 +7,10 @@ import {
   createTemporaryLogPath,
 } from "../adapters/json-lines-logger/json-lines-logger.js";
 import { createJsonTextReader } from "../adapters/json-text/json-text.js";
-import { createNodeProjectFiles } from "../adapters/node-project-files/node-project-files.js";
+import {
+  createNodeProjectFiles,
+  inspectProjectRoot,
+} from "../adapters/node-project-files/node-project-files.js";
 import { createTypescriptCallbackRewriter } from "../adapters/typescript-parser/rewriter.js";
 import { createTypescriptStringScanner } from "../adapters/typescript-parser/source-strings.js";
 import { createYamlTextReader } from "../adapters/yaml-text/yaml-text.js";
@@ -43,7 +46,9 @@ const dependencies: CliDependencies = {
   cwd: process.cwd(),
   writeStdout: (text) => process.stdout.write(text),
   writeStderr: (text) => process.stderr.write(text),
-  createFiles: (root, logger) => createNodeProjectFiles(root, { git: createGitFileList(), logger }),
+  inspectRoot: inspectProjectRoot,
+  createFiles: (root, logger) =>
+    createNodeProjectFiles(root, { git: createGitFileList(process.env), logger }),
   createLogger,
   rewriter: createTypescriptCallbackRewriter(),
   scanner: createTypescriptStringScanner(),

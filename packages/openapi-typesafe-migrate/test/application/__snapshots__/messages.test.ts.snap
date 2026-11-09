@@ -3,7 +3,10 @@
 exports[`changeMessage > changeMessage describes every kind of change 1`] = `
 [
   "dependencies: a → b@^1.0.0",
-  "catalog: a → b",
+  "catalogs.legacy: a → b@1.0.0",
+  "peerDependenciesMeta: a → b",
+  "imports: "a/" → "b/" (npm:/b@^1.0.0/)",
+  "dependencies: my-fetch → npm:b@^1.0.0",
   "scripts.gen: openapi-typescript → openapi-typesafe",
   "scripts.gen: -it → --immutable",
   "ci.yml:4: a → b",
@@ -15,7 +18,10 @@ exports[`changeMessage > changeMessage describes every kind of change 1`] = `
 
 exports[`manualStepMessage > manualStepMessage describes every kind of manual step 1`] = `
 [
-  "package.json is not valid JSON (Unexpected token); migrate it by hand",
+  "cannot be parsed at line 3, column 7; migrate it by hand",
+  "nests too deep to be read; migrate it by hand",
+  "catalog: a has a value the tool does not read; rename it by hand",
+  "dependencies has both a and b, so a was kept: remove one of them",
   "b is a peer dependency: users of this package must switch too (a breaking change for them)",
   "b kept the spec "latest": point it at an openapi-typesafe version",
   ""overrides" names a: update or remove that override",
@@ -23,7 +29,6 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "scripts.setup names a pinned openapi-fetch@<version>: change it to openapi-typesafe-fetch@<version>",
   "Makefile:2: node_modules/openapi-typescript/x.js is a file of openapi-typescript, which is no longer installed: run openapi-typesafe instead",
   "line 8: a string runs openapi-typescript, so it was kept; change it to "npx openapi-typesafe a.yaml"",
-  "the file could not be parsed; migrate its commands by hand",
   "line 9: the options of openapiTS() are not an object written in this file: check them for transform, postTransform and transformProperty. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 2: "b/x" imports a file inside the package; check that it exists",
   "line 6: "openapi-fetch" is a string, not a module specifier, so it was kept; if it names the package, change it to "openapi-typesafe-fetch"",
@@ -34,5 +39,21 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "line 4: transform kept (its options object is used elsewhere too); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 4: transform kept (a return value is not a plain ts.factory type); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 5: postTransform receives TypeScript nodes (deprecated). See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
+]
+`;
+
+exports[`skippedMessage > skippedMessage describes every reason a file was not read 1`] = `
+[
+  "it leads outside the project folder; check where this git index came from",
+  "it is not UTF-8 text, so it was not changed; check it by hand",
+  "it could not be read (EACCES)",
+]
+`;
+
+exports[`writeFailedMessage > writeFailedMessage describes every reason a file was not written 1`] = `
+[
+  "Writing stopped: a.ts could not be written (it leads outside the project folder).",
+  "Writing stopped: a.ts could not be written (its text is not UTF-8).",
+  "Writing stopped: a.ts could not be written (EACCES).",
 ]
 `;

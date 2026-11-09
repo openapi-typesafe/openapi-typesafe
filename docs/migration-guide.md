@@ -7,12 +7,12 @@ description: Move a project from openapi-typescript, openapi-fetch and openapi-r
 
 openapi-typesafe is a drop-in successor. A project on these packages moves by changing names:
 
-| Before | After |
-| :-- | :-- |
-| `openapi-typescript` 7.x (package and command) | `openapi-typesafe` |
-| `openapi-fetch` 0.x | `openapi-typesafe-fetch` |
-| `openapi-react-query` | `openapi-typesafe-react-query` |
-| `openapi-typescript-helpers` | `openapi-typesafe-helpers` |
+| Before                                         | After                          |
+| :--------------------------------------------- | :----------------------------- |
+| `openapi-typescript` 7.x (package and command) | `openapi-typesafe`             |
+| `openapi-fetch` 0.x                            | `openapi-typesafe-fetch`       |
+| `openapi-react-query`                          | `openapi-typesafe-react-query` |
+| `openapi-typescript-helpers`                   | `openapi-typesafe-helpers`     |
 
 All openapi-typesafe packages have one version number. The generated types are the same (except for the [changes below](#what-is-different)), the CLI flags are the same, and `redocly.yaml` keeps its `x-openapi-ts` settings.
 
@@ -29,11 +29,11 @@ npx openapi-typesafe-migrate          # report what would change
 npx openapi-typesafe-migrate --write  # change the files
 ```
 
-It renames the packages in every `package.json` and in pnpm catalogs, the module specifiers in your sources, and the `openapi-typescript` command in `package.json` scripts, shell scripts, CI files, Makefiles, justfiles, Dockerfiles, husky hooks, Nx targets and Deno tasks. It reads each command word by word, so it also writes the new spelling of [CLI flags that openapi-typescript renamed](#renamed-cli-flags) in that command only (`docker run -it` keeps its flag), and the new package names in install commands such as `npm i openapi-fetch`. A legacy [`transform` callback](#legacy-callbacks) that only returns `ts.factory` types becomes type text with `irCallbacks: true`, and the constants and imports that only built the old types are removed.
+It renames the packages in every `package.json` and `package.yaml` (`npm:` aliases and `peerDependenciesMeta` too), in pnpm, Yarn and bun catalogs and in Deno import maps, editing only those names and versions, the module specifiers in your sources, and the `openapi-typescript` command in `package.json` scripts, shell scripts, CI files, Makefiles, justfiles, Dockerfiles, husky hooks, Nx targets and Deno tasks. It reads each command word by word, so it also writes the new spelling of [CLI flags that openapi-typescript renamed](#renamed-cli-flags) in that command only (`docker run -it` keeps its flag), and the new package names in install commands such as `npm i openapi-fetch`. A legacy [`transform` callback](#legacy-callbacks) that only returns `ts.factory` types becomes type text with `irCallbacks: true`, and the constants and imports that only built the old types are removed.
 
 It reads the files git lists, so files that `.gitignore` ignores (build output, for example) stay as they are. Submodules and nested repositories are read with their own `.gitignore`.
 
-Whatever it cannot change safely, it lists with the file and line: version specs such as `latest`, `overrides`, renamed peer dependencies, `npx openapi-typescript@<version>` and other pinned versions in commands, deep imports, strings that equal a package name outside an import (an object key or a bundler option, for example), strings that run `openapi-typescript` (`execSync("…")`), [swr-openapi](#swr-openapi), and callbacks it cannot rewrite. Every finding also goes to a log file whose path it prints. See the [tool’s README](https://github.com/openapi-typesafe/openapi-typesafe/tree/main/packages/openapi-typesafe-migrate) for details.
+Whatever it cannot change safely, it lists with the file and line: version specs such as `latest`, `overrides`, a package listed under both its old and new name, renamed peer dependencies, `npx openapi-typescript@<version>` and other pinned versions in commands, deep imports, strings that equal a package name outside an import (an object key or a bundler option, for example), strings that run `openapi-typescript` (`execSync("…")`), [swr-openapi](#swr-openapi), and callbacks it cannot rewrite. Every finding also goes to a log file whose path it prints. See the [tool’s README](https://github.com/openapi-typesafe/openapi-typesafe/tree/main/packages/openapi-typesafe-migrate) for details.
 
 Prefer to do it by hand? Rename the packages in the table above in `package.json`, imports and scripts; nothing else is required.
 
@@ -113,7 +113,7 @@ A `type: string` enum with `additionalProperties: true` is typed with any other 
 editors still suggest the values while other strings are accepted:
 
 ```ts
-status: ("active" | "inactive") | (string & {}); // openapi-typescript 7.13.0: "active" | "inactive"
+status: "active" | "inactive" | (string & {}); // openapi-typescript 7.13.0: "active" | "inactive"
 ```
 
 This change was merged upstream after 7.13.0 was published
@@ -144,7 +144,7 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
 - A repeated `operationId` gave the `operations` interface two members of one name, which did not compile (TS2300). The first operation keeps the ID and each later one gets the lowest free number (`listItems2`, as in `ApiPaths`); the path items refer to it. The `LINT_PROBLEM` warning stays.
 - `--enum` and `--make-paths-enum`: values whose member names come out the same after invalid characters are replaced (`reactions-+1` and `reactions--1` are both `reactions_1`) did not compile. A repeated name gets a number: `reactions_1_2` (a quoted name gets it inside the quotes). Names that did not collide stay the same.
 - `--exclude-deprecated`: a deprecated schema that kept output still references (an array's `items`, a kept operation's response) was left out, so the output named a missing `components["schemas"]` key. It is kept now; a deprecated schema that only dropped parts reference is still left out.
-- `--path-params-as-types`: a template key such as `` `/apps/${string}` `` also matches `/apps/regions` and `` `/apps/${string}/restart` ``, and that output did not compile (TS2411, TS2413) when their types do not fit the template's. When a path surely does not fit (a method or a parameter location one has and the other has not, or an operation or response schema that lacks a required property of the template's), `paths` is now an intersection type alias, `` { … } & { [path: `/apps/${string}`]: … } ``, and every path keeps its type. Output that compiled stays the same, `export interface paths` included.
+- `--path-params-as-types`: a template key such as `` `/apps/${string}` `` also matches `/apps/regions` and `` `/apps/${string}/restart` ``, and that output did not compile (TS2411, TS2413) when their types do not fit the template's. When a path surely does not fit (a method or a parameter location one has and the other has not, or an operation or response schema that lacks a required property of the template's), `paths` is now an intersection type alias, ``{ … } & { [path: `/apps/${string}`]: … }``, and every path keeps its type. Output that compiled stays the same, `export interface paths` included.
 - JSON Schema `$defs` (OpenAPI 3.1): a schema's `$defs` member is optional (`$defs?: { … }`), and a `$ref` into it reads `NonNullable<components["schemas"]["Foo"]["$defs"]>["bar"]`. The root `export type $defs` has one member per subschema; before, it was `Record<string, never>` and `#/$defs/<name>` refs were `never`.
 - A schema that `allOf`s a discriminated union which lists that schema (`Cat: { allOf: [Pet] }`,
   `Pet: { oneOf: [Cat, Dog] }`) referred to itself through `Omit<Pet>` and did not compile

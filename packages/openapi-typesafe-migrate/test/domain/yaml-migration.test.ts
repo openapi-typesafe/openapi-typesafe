@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
-import type { YamlString } from "../../src/domain/config-documents.js";
+import { type DocumentString, documentStrings } from "../../src/domain/config-documents.js";
 import {
   migrateDependabotConfig,
   migrateYamlCommands,
@@ -9,7 +9,10 @@ import {
 
 // The migrations take the strings that the YAML adapter reads; the tests read them with it.
 const yaml = createYamlTextReader();
-const stringsOf = (text: string): YamlString[] => yaml.strings(text) ?? [];
+function stringsOf(text: string): DocumentString[] {
+  const read = yaml.read(text);
+  return read.kind === "read" ? documentStrings(read.documents) : [];
+}
 
 const lines = (...parts: string[]): string => `${parts.join("\n")}\n`;
 

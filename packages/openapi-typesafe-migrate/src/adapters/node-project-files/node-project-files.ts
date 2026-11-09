@@ -1,10 +1,24 @@
 import type { Dirent } from "node:fs";
-import { chmod, lstat, readdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  lstat,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import type {
+  FileProblem,
+  FileRead,
+  FileWrite,
   Logger,
   ProjectFileList,
   ProjectFiles,
+  ProjectRootState,
   SkippedFile,
 } from "../../application/ports.js";
 import type { GitFileList } from "../git-file-list/git-file-list.js";
@@ -35,6 +49,36 @@ const PERMISSION_BITS = 0o7777;
 /** Only the owner can read the new text until it has the mode of the file it replaces. */
 const TEMPORARY_MODE = 0o600;
 const PARENT_DIRECTORY = "..";
+const OUTSIDE_ROOT: FileProblem = { kind: "outside-root" };
+const NOT_UTF_8: FileProblem = { kind: "not-utf-8" };
+const UTF_8 = "utf-8";
+
+/**
+ * The text of a file's bytes, or "not-utf-8". Decoding replaces invalid bytes with U+FFFD by
+ * default, and writing that text back would destroy them (a Latin-1 `é` became `�`). A fatal
+ * decoder refuses them instead. The byte order mark stays in the text, so it is written back.
+ */
+function decodeUtf8(bytes: Uint8Array): FileRead {
+  try {
+    const text = new TextDecoder(UTF_8, { fatal: true, ignoreBOM: true }).decode(bytes);
+    return { kind: "read", text };
+  } catch (error) {
+    // The fatal decoder reports invalid bytes as a TypeError; anything else is a bug.
+    if (error instanceof TypeError) {
+      return { kind: "skipped", reason: NOT_UTF_8 };
+    }
+    throw error;
+  }
+}
+
+/** The problem of a failed file system call; an error without an error code is passed on. */
+function ioProblem(error: unknown): FileProblem {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  if (typeof code !== "string") {
+    throw error;
+  }
+  return { kind: "io-error", code };
+}
 
 /** What the project files read besides the file system. */
 export interface NodeProjectFilesOptions {
@@ -132,7 +176,7 @@ async function listedPaths(
   return {
     files: withEntry("file"),
     directories: withEntry("directory").filter((path) => !SKIPPED_DIRECTORIES.has(baseName(path))),
-    skipped: withEntry("outside").map((path): SkippedFile => ({ path, reason: "outside-root" })),
+    skipped: withEntry("outside").map((path): SkippedFile => ({ path, reason: OUTSIDE_ROOT })),
   };
 }
 
@@ -202,8 +246,28 @@ class NodeProjectFiles implements ProjectFiles {
     return joinLists([{ files, skipped }, ...nested]);
   }
 
-  async read(path: string): Promise<string> {
-    return readFile(await this.#pathInRoot(path), "utf8");
+  async read(path: string): Promise<FileRead> {
+    try {
+      const target = await this.#pathInRoot(path);
+      return target === undefined
+        ? { kind: "skipped", reason: OUTSIDE_ROOT }
+        : decodeUtf8(await readFile(target));
+    } catch (error) {
+      return { kind: "skipped", reason: ioProblem(error) };
+    }
+  }
+
+  async write(path: string, text: string): Promise<FileWrite> {
+    try {
+      const target = await this.#pathInRoot(path);
+      if (target === undefined) {
+        return { kind: "failed", reason: OUTSIDE_ROOT };
+      }
+      await this.#replace(target, text, path);
+      return { kind: "written" };
+    } catch (error) {
+      return { kind: "failed", reason: ioProblem(error) };
+    }
   }
 
   /**
@@ -211,8 +275,7 @@ class NodeProjectFiles implements ProjectFiles {
    * hard link to a file outside the root keeps its old text, and is reported in the log. The new
    * file keeps the mode of the old one.
    */
-  async write(path: string, text: string): Promise<void> {
-    const target = await this.#pathInRoot(path);
+  async #replace(target: string, text: string, path: string): Promise<void> {
     const { mode, nlink } = await lstat(target);
     // `wx`: a leftover of a failed run is not overwritten; the error names it.
     const temporary = join(dirname(target), `.${basename(target)}${TEMPORARY_SUFFIX}`);
@@ -230,11 +293,11 @@ class NodeProjectFiles implements ProjectFiles {
     }
   }
 
-  /** The real path of a project file; refuses one that resolves outside the root. */
-  async #pathInRoot(path: string): Promise<string> {
+  /** The real path of a project file, or undefined for one that resolves outside the root. */
+  async #pathInRoot(path: string): Promise<string | undefined> {
     const realPath = isRelativeDownward(path) ? await realpath(join(this.#root, path)) : undefined;
     if (realPath === undefined || !isInFolder(await realpath(this.#root), realPath)) {
-      throw new Error(`${path} is outside the project folder ${this.#root}`);
+      return undefined;
     }
     return realPath;
   }
@@ -246,4 +309,22 @@ export function createNodeProjectFiles(
   options: NodeProjectFilesOptions,
 ): ProjectFiles {
   return new NodeProjectFiles(root, options);
+}
+
+const MISSING_PATH_CODES: ReadonlySet<string> = new Set(["ENOENT", "ENOTDIR"]);
+
+/**
+ * Whether `root` is a folder the migration can list, by its real path (a link to a folder is
+ * one). Asked before anything is listed, so `--root` naming a file or nothing fails with a clear
+ * message instead of git's or the file system's.
+ */
+export async function inspectProjectRoot(root: string): Promise<ProjectRootState> {
+  try {
+    return (await stat(root)).isDirectory() ? "directory" : "not-a-directory";
+  } catch (error) {
+    if (MISSING_PATH_CODES.has((error as NodeJS.ErrnoException).code ?? "")) {
+      return "missing";
+    }
+    throw error;
+  }
 }

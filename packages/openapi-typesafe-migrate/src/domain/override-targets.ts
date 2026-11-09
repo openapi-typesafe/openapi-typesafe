@@ -20,15 +20,8 @@ export function overrideTarget(key: string): string {
   return versionAt === -1 ? name : name.slice(0, versionAt);
 }
 
-function keysOf(value: unknown): string[] {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return [];
-  }
-  return Object.entries(value).flatMap(([key, nested]) => [key, ...keysOf(nested)]);
-}
-
-/** The original packages that keys of `value`, at any depth, target; each once, in key order. */
-export function overriddenPackages(value: unknown): string[] {
-  const targets = keysOf(value).map(overrideTarget);
+/** The original packages that `keys` target; each once, in key order. */
+export function overriddenPackages(keys: readonly string[]): string[] {
+  const targets = keys.map(overrideTarget);
   return [...new Set(targets.filter((target) => PACKAGE_RENAMES.has(target)))];
 }

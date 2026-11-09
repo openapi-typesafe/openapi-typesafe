@@ -1,4 +1,8 @@
-/** A replacement of the text between two offsets by new text. */
+/**
+ * Edits by offset into the original text. A migration changes only the names, specs and command
+ * words it renames, so everything else stays byte for byte: formatting, comments, key order,
+ * number spellings, escapes and duplicate keys.
+ */
 export interface TextEdit {
   readonly start: number;
   readonly end: number;
@@ -6,19 +10,21 @@ export interface TextEdit {
 }
 
 /**
- * Apply edits that do not overlap, from the end of the text, so earlier offsets stay valid. Edits
- * that overlap would corrupt the text: that is a bug of the caller, so it throws.
+ * The text with the edits applied. Edits that overlap cannot both apply: that is a bug of the
+ * migration that made them, and applying them would corrupt the file.
  */
 export function applyTextEdits(text: string, edits: readonly TextEdit[]): string {
-  const sorted = [...edits].sort((left, right) => right.start - left.start);
-  let result = text;
-  let limit = text.length;
+  const sorted = [...edits].sort((left, right) => left.start - right.start);
+  let edited = "";
+  let copiedUpTo = 0;
   for (const edit of sorted) {
-    if (edit.end > limit) {
-      throw new Error(`Text edits overlap at offset ${edit.start}; the text was not changed.`);
+    if (edit.start < copiedUpTo) {
+      throw new Error(
+        `Edits overlap at offset ${edit.start}; the file was not changed (a migration bug).`,
+      );
     }
-    result = result.slice(0, edit.start) + edit.text + result.slice(edit.end);
-    limit = edit.start;
+    edited += `${text.slice(copiedUpTo, edit.start)}${edit.text}`;
+    copiedUpTo = edit.end;
   }
-  return result;
+  return edited + text.slice(copiedUpTo);
 }

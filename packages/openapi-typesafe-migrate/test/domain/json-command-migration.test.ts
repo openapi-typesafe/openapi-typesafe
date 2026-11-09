@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
-import type { JsonString } from "../../src/domain/config-documents.js";
+import { type DocumentString, documentStrings } from "../../src/domain/config-documents.js";
 import {
   DENO_TASK_PATHS,
   migrateJsonCommands,
@@ -9,7 +9,10 @@ import {
 
 // The migration takes the strings that the JSON adapter reads; the tests read them with it.
 const json = createJsonTextReader();
-const stringsOf = (text: string): JsonString[] => json.strings(text) ?? [];
+function stringsOf(text: string): DocumentString[] {
+  const read = json.read(text);
+  return read.kind === "read" ? documentStrings(read.documents) : [];
+}
 
 describe("migrateJsonCommands", () => {
   it("migrateJsonCommands migrates Nx target commands in place", () => {

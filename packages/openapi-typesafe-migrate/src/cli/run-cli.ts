@@ -4,11 +4,12 @@ import type {
   DocumentReaders,
   Logger,
   ProjectFiles,
+  ProjectRootState,
   SourceStringScanner,
 } from "../application/ports.js";
 import { renderReport } from "../application/report.js";
 import { type CliRequest, parseCliArguments } from "./cli-arguments.js";
-import { HELP_TEXT, logError, logNote, usageError } from "./cli-text.js";
+import { HELP_TEXT, logError, logNote, rootError, usageError } from "./cli-text.js";
 
 /** Everything the command takes from the process, so tests run it with fakes. */
 export interface CliDependencies {
@@ -16,6 +17,7 @@ export interface CliDependencies {
   readonly cwd: string;
   readonly writeStdout: (text: string) => void;
   readonly writeStderr: (text: string) => void;
+  readonly inspectRoot: (root: string) => Promise<ProjectRootState>;
   readonly createFiles: (root: string, logger: Logger) => ProjectFiles;
   readonly createLogger: (path: string | undefined) => {
     readonly logger: Logger;
@@ -66,6 +68,27 @@ function openLog(
   }
 }
 
+/** Migrate the project in `root`; resolves to the exit code. */
+async function migrateRoot(
+  request: MigrateRequest,
+  root: string,
+  logger: Logger,
+  dependencies: CliDependencies,
+): Promise<number> {
+  const rootState = await dependencies.inspectRoot(root);
+  if (rootState !== "directory") {
+    logger.warn("root_unusable", { root, rootState });
+    dependencies.writeStderr(rootError(root, rootState));
+    return EXIT_CODES.failure;
+  }
+  const files = dependencies.createFiles(root, logger);
+  const { rewriter, scanner, readers } = dependencies;
+  const input = { version: dependencies.version, isWrite: request.isWrite };
+  const migration = await migrateProject({ files, rewriter, scanner, readers, logger }, input);
+  dependencies.writeStdout(renderReport(migration));
+  return migration.write.kind === "failed" ? EXIT_CODES.failure : EXIT_CODES.success;
+}
+
 async function runMigration(
   request: MigrateRequest,
   dependencies: CliDependencies,
@@ -77,12 +100,7 @@ async function runMigration(
   const { logger, path } = log;
   const root = dependencies.resolvePath(dependencies.cwd, request.root ?? ".");
   try {
-    const files = dependencies.createFiles(root, logger);
-    const { rewriter, scanner, readers } = dependencies;
-    const input = { version: dependencies.version, isWrite: request.isWrite };
-    const migration = await migrateProject({ files, rewriter, scanner, readers, logger }, input);
-    dependencies.writeStdout(renderReport(migration, request.isWrite));
-    return EXIT_CODES.success;
+    return await migrateRoot(request, root, logger, dependencies);
   } catch (error) {
     const message = errorMessage(error);
     logger.warn("migration_failed", { root, message });

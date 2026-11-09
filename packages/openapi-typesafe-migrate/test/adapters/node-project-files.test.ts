@@ -19,7 +19,10 @@ import {
   createGitFileList,
   type GitListing,
 } from "../../src/adapters/git-file-list/git-file-list.js";
-import { createNodeProjectFiles } from "../../src/adapters/node-project-files/node-project-files.js";
+import {
+  createNodeProjectFiles,
+  inspectProjectRoot,
+} from "../../src/adapters/node-project-files/node-project-files.js";
 import { FixedGitFileList } from "../fakes/fixed-git-file-list.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
 
@@ -84,7 +87,7 @@ describe("NodeProjectFiles", () => {
     expect(listed.files).toEqual(["vendor/lib/a.ts"]);
     const skipped = [escaping, "/etc/hosts", "linked/package.json"].map((path) => ({
       path,
-      reason: "outside-root",
+      reason: { kind: "outside-root" },
     }));
     expect(listed.skipped).toEqual(skipped);
     expect(logger.events.filter((event) => event.level === "warn")).toEqual(
@@ -104,7 +107,7 @@ describe("NodeProjectFiles", () => {
 
     expect(listed).toEqual({
       files: ["vendor/lib/a.ts"],
-      skipped: [{ path: "vendor/lib/../../outside.ts", reason: "outside-root" }],
+      skipped: [{ path: "vendor/lib/../../outside.ts", reason: { kind: "outside-root" } }],
     });
   });
 
@@ -189,7 +192,7 @@ describe("NodeProjectFiles", () => {
 
   function filesWithGit(directory: string) {
     const logger = new RecordingLogger();
-    const git = createGitFileList();
+    const git = createGitFileList(process.env);
     return { files: createNodeProjectFiles(join(root, directory), { git, logger }), logger };
   }
 
@@ -253,9 +256,13 @@ describe("NodeProjectFiles", () => {
     await symlink(outside, join(root, "linked"));
     const { files } = filesWith(NOT_A_REPOSITORY);
 
-    await expect(files.read("linked/a.ts")).rejects.toThrow("outside the project folder");
-    await expect(files.write("linked/a.ts", "new")).rejects.toThrow("outside the project folder");
-    await expect(files.write("../a.ts", "new")).rejects.toThrow("outside the project folder");
+    const outsideRoot = { kind: "outside-root" };
+    expect(await files.read("linked/a.ts")).toEqual({ kind: "skipped", reason: outsideRoot });
+    expect(await files.write("linked/a.ts", "new")).toEqual({
+      kind: "failed",
+      reason: outsideRoot,
+    });
+    expect(await files.write("../a.ts", "new")).toEqual({ kind: "failed", reason: outsideRoot });
     expect(await readFile(join(outside, "a.ts"), "utf8")).toBe("outside");
     await rm(outside, { recursive: true, force: true });
   });
@@ -303,7 +310,10 @@ describe("NodeProjectFiles", () => {
     await put("src/.a.ts.openapi-typesafe-migrate.tmp", "leftover");
     const { files } = filesWith(NOT_A_REPOSITORY);
 
-    await expect(files.write("src/a.ts", "new")).rejects.toThrow("EEXIST");
+    expect(await files.write("src/a.ts", "new")).toEqual({
+      kind: "failed",
+      reason: { kind: "io-error", code: "EEXIST" },
+    });
     expect(await readFile(join(root, "src/a.ts"), "utf8")).toBe("old");
   });
 
@@ -311,7 +321,7 @@ describe("NodeProjectFiles", () => {
     await put("src/a/b.ts", "");
     const { files } = filesWith(NOT_A_REPOSITORY);
 
-    await expect(files.write("src/a", "new")).rejects.toThrow();
+    expect(await files.write("src/a", "new")).toMatchObject({ kind: "failed" });
     expect(await readdir(join(root, "src"))).toEqual(["a"]);
   });
 
@@ -319,8 +329,49 @@ describe("NodeProjectFiles", () => {
     await put("src/a.ts", "old");
     const { files } = filesWith(NOT_A_REPOSITORY);
 
-    await files.write("src/a.ts", `${await files.read("src/a.ts")} new`);
+    const read = await files.read("src/a.ts");
+    const text = read.kind === "read" ? read.text : "";
 
+    expect(await files.write("src/a.ts", `${text} new`)).toEqual({ kind: "written" });
     expect(await readFile(join(root, "src/a.ts"), "utf8")).toBe("old new");
+  });
+
+  it("read skips a file that is not UTF-8 and keeps a byte order mark", async () => {
+    await mkdir(join(root, "src"));
+    // "// café" in Latin-1: 0xE9 alone is not UTF-8.
+    await writeFile(join(root, "src/latin1.ts"), Buffer.from("2f2f20636166e9", "hex"));
+    await writeFile(join(root, "src/bom.ts"), "\uFEFFexport {};");
+    const { files } = filesWith(NOT_A_REPOSITORY);
+
+    expect(await files.read("src/latin1.ts")).toEqual({
+      kind: "skipped",
+      reason: { kind: "not-utf-8" },
+    });
+    expect(await files.read("src/bom.ts")).toEqual({ kind: "read", text: "\uFEFFexport {};" });
+  });
+
+  it("read gives the error code of a file that cannot be read", async () => {
+    await put("src/a/b.ts", "");
+    const { files } = filesWith(NOT_A_REPOSITORY);
+
+    expect(await files.read("src/a")).toEqual({
+      kind: "skipped",
+      reason: { kind: "io-error", code: "EISDIR" },
+    });
+    expect(await files.read("src/missing.ts")).toEqual({
+      kind: "skipped",
+      reason: { kind: "io-error", code: "ENOENT" },
+    });
+  });
+
+  it("inspectProjectRoot tells a folder, a file and a missing path apart", async () => {
+    await put("package.json", "{}");
+    await symlink(root, join(root, "link"));
+
+    expect(await inspectProjectRoot(root)).toBe("directory");
+    expect(await inspectProjectRoot(join(root, "link"))).toBe("directory");
+    expect(await inspectProjectRoot(join(root, "package.json"))).toBe("not-a-directory");
+    expect(await inspectProjectRoot(join(root, "missing"))).toBe("missing");
+    expect(await inspectProjectRoot(join(root, "package.json", "x"))).toBe("missing");
   });
 });

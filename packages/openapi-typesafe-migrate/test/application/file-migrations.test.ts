@@ -7,6 +7,7 @@ import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
 
 const scanner = new QuotedStringScanner();
 // The document readers are pure parsers, so the tests read configs with the real ones.
+
 const readers = { json: createJsonTextReader(), yaml: createYamlTextReader() };
 const context = { version: "1.0.0", rewriter: new StubCallbackRewriter(), scanner, readers };
 
@@ -15,6 +16,11 @@ describe("fileMigrationFor", () => {
     "package.json",
     "apps/web/package.json",
     "pnpm-workspace.yaml",
+    ".yarnrc.yml",
+    "packages/a/package.yaml",
+    "deno.json",
+    "apps/api/deno.jsonc",
+    "import_map.json",
     "src/a.ts",
     "src/a.vue",
     "scripts/gen.sh",
@@ -136,10 +142,10 @@ describe("fileMigrationFor", () => {
     ["package.yaml", "scripts: [openapi-typescript\n"],
     [".github/dependabot.yml", "- dependency-name: 'openapi-fetch\n"],
   ])("fileMigrationFor reports a broken %s that names an original package", (path, text) => {
-    expect(fileMigrationFor(path)?.(text, path, context)).toEqual({
+    expect(fileMigrationFor(path)?.(text, path, context)).toMatchObject({
       text,
       changes: [],
-      manualSteps: [{ kind: "config-unreadable" }],
+      manualSteps: [{ kind: "config-unreadable", position: { line: expect.any(Number) } }],
     });
   });
 
@@ -160,4 +166,17 @@ describe("fileMigrationFor", () => {
       { kind: "command-string", line: 1, to: "openapi-typesafe a.yaml" },
     ]);
   });
+
+  it.each([
+    [".yarnrc.yml", "catalog:\n  openapi-fetch: ^0.13.0\n", "openapi-typesafe-fetch: ^1.0.0"],
+    ["package.yaml", "dependencies:\n  openapi-fetch: ^0.13.0\n", "openapi-typesafe-fetch: ^1.0.0"],
+    ["deno.json", '{ "imports": { "openapi-fetch": "npm:openapi-fetch@0.13" } }', "typesafe"],
+  ])(
+    "fileMigrationFor migrates %s as a structured file, not as commands",
+    (path, text, renamed) => {
+      const migrate = fileMigrationFor(path);
+
+      expect(migrate?.(text, path, context).text).toContain(renamed);
+    },
+  );
 });

@@ -1,16 +1,32 @@
 import { migrateCommandLines } from "../domain/command-migration.js";
 import { commandStringSteps } from "../domain/command-strings.js";
-import { unreadableConfig, type YamlString } from "../domain/config-documents.js";
+import {
+  type DocumentRead,
+  type DocumentString,
+  documentStrings,
+  unreadableConfig,
+} from "../domain/config-documents.js";
+import { migrateImportMap } from "../domain/import-map-migration.js";
 import {
   DENO_TASK_PATHS,
   type JsonPathPattern,
   migrateJsonCommands,
   NX_COMMAND_PATHS,
+  PACKAGE_SCRIPT_PATHS,
 } from "../domain/json-command-migration.js";
 import { migratePackageManifest } from "../domain/manifest-migration.js";
-import type { Change, FileMigration, ManualStep } from "../domain/migration-findings.js";
+import {
+  type Change,
+  type FileMigration,
+  type ManualStep,
+  unchanged,
+} from "../domain/migration-findings.js";
 import { migrateModuleSpecifiers, SOURCE_EXTENSIONS } from "../domain/source-migration.js";
-import { migrateWorkspaceCatalogs } from "../domain/workspace-catalog-migration.js";
+import {
+  migrateWorkspaceCatalogs,
+  PNPM_WORKSPACE_FILE,
+  YARNRC_FILE,
+} from "../domain/workspace-catalog-migration.js";
 import {
   migrateDependabotConfig,
   migrateYamlCommands,
@@ -50,12 +66,15 @@ const HUSKY_FOLDER = ".husky/";
 const HUSKY_INTERNALS = ".husky/_/";
 const NX_PROJECT_FILE = "project.json";
 const DENO_CONFIG_FILES: ReadonlySet<string> = new Set(["deno.json", "deno.jsonc"]);
+/** Deno reads its import map from its config, or from a file that the config names. */
+const IMPORT_MAP_FILE = "import_map.json";
 const DEPENDABOT_FILES: ReadonlySet<string> = new Set([
   ".github/dependabot.yml",
   ".github/dependabot.yaml",
 ]);
 const WORKSPACE_FILE = "pnpm-workspace.yaml";
-/** pnpm reads a manifest from `package.yaml` too; its scripts are commands. */
+const YARNRC_FILE_NAME = ".yarnrc.yml";
+/** pnpm reads a manifest from `package.yaml` too. */
 const YAML_MANIFEST_FILES: ReadonlySet<string> = new Set(["package.yaml", "package.yml"]);
 const MANIFEST_FILE = "package.json";
 /** The package manager writes these again on install; their entries are not commands. */
@@ -87,7 +106,7 @@ const withSteps = (migration: FileMigration, steps: readonly ManualStep[]): File
 /** Module specifiers and `transform` callbacks are migrated; command strings are reported. */
 function migrateSource(text: string, path: string, context: MigrationContext): FileMigration {
   const strings = context.scanner.scan(text, path);
-  const migrated = chain(migrateModuleSpecifiers(text, strings), (renamed) =>
+  const migrated = chain(migrateModuleSpecifiers(text, strings, context.version), (renamed) =>
     context.rewriter.rewrite(renamed, path),
   );
   return withSteps(migrated, commandStringSteps(text, strings));
@@ -101,35 +120,81 @@ function chain(first: FileMigration, next: (text: string) => FileMigration): Fil
   return { text: second.text, changes, manualSteps };
 }
 
-/** The commands of a JSON config at the key paths of `patterns`. */
-const jsonCommands =
-  (patterns: readonly JsonPathPattern[]): FileKind["migrate"] =>
-  (text, _path, context) => {
-    const strings = context.readers.json.strings(text);
-    return strings === undefined
-      ? unreadableConfig(text)
-      : migrateJsonCommands(text, strings, patterns);
-  };
+/** One migration of a config, given its text and that text read. */
+type ConfigStep = (text: string, read: DocumentRead) => FileMigration;
 
-type YamlMigration = (text: string, path: string, strings: readonly YamlString[]) => FileMigration;
+/**
+ * The steps one after the other, each on the text the step before it left. A config that cannot
+ * be read is reported once, and no step runs.
+ */
+function migrateConfig(
+  text: string,
+  read: (text: string) => DocumentRead,
+  steps: readonly ConfigStep[],
+): FileMigration {
+  const first = read(text);
+  if (first.kind === "unreadable") {
+    return unreadableConfig(text, first.offset);
+  }
+  return steps.reduce(
+    (done, step) =>
+      chain(done, (current) => step(current, current === text ? first : read(current))),
+    unchanged(text),
+  );
+}
 
-/** A migration of the string scalars of a YAML file. */
-const yamlStrings =
-  (migrate: YamlMigration): FileKind["migrate"] =>
-  (text, path, context) => {
-    const strings = context.readers.yaml.strings(text);
-    return strings === undefined ? unreadableConfig(text) : migrate(text, path, strings);
-  };
+/** A step that reads the string values of the config, with their key paths. */
+const stringsStep =
+  (migrate: (text: string, strings: readonly DocumentString[]) => FileMigration): ConfigStep =>
+  (text, read) =>
+    read.kind === "unreadable"
+      ? unreadableConfig(text, read.offset)
+      : migrate(text, documentStrings(read.documents));
+
+const jsonCommandsStep = (patterns: readonly JsonPathPattern[]): ConfigStep =>
+  stringsStep((text, strings) => migrateJsonCommands(text, strings, patterns));
+
+/** A JSON config migrated by `steps`. */
+const jsonConfig =
+  (steps: (context: MigrationContext) => readonly ConfigStep[]): FileKind["migrate"] =>
+  (text, _path, context) =>
+    migrateConfig(text, (current) => context.readers.json.read(current), steps(context));
+
+/** A YAML config migrated by `steps`, which also get its path. */
+const yamlConfig =
+  (
+    steps: (context: MigrationContext, path: string) => readonly ConfigStep[],
+  ): FileKind["migrate"] =>
+  (text, path, context) =>
+    migrateConfig(text, (current) => context.readers.yaml.read(current), steps(context, path));
 
 /** The kinds in order; the first that matches a path migrates it. */
 const FILE_KINDS: readonly FileKind[] = [
   {
     matches: (path) => baseName(path) === MANIFEST_FILE,
-    migrate: (text, _path, context) => migratePackageManifest(text, context.version),
+    migrate: jsonConfig(({ version }) => [
+      (text, read) => migratePackageManifest(text, read, version),
+      jsonCommandsStep(PACKAGE_SCRIPT_PATHS),
+    ]),
+  },
+  {
+    matches: (path) => YAML_MANIFEST_FILES.has(baseName(path)),
+    migrate: yamlConfig(({ version }) => [
+      (text, read) => migratePackageManifest(text, read, version),
+      stringsStep(migrateYamlScripts),
+    ]),
   },
   {
     matches: (path) => baseName(path) === WORKSPACE_FILE,
-    migrate: (text, _path, context) => migrateWorkspaceCatalogs(text, context.version),
+    migrate: yamlConfig(({ version }) => [
+      (text, read) => migrateWorkspaceCatalogs(text, read, version, PNPM_WORKSPACE_FILE),
+    ]),
+  },
+  {
+    matches: (path) => baseName(path) === YARNRC_FILE_NAME,
+    migrate: yamlConfig(({ version }) => [
+      (text, read) => migrateWorkspaceCatalogs(text, read, version, YARNRC_FILE),
+    ]),
   },
   {
     matches: (path) => SOURCE_EXTENSIONS.has(extensionOf(path)),
@@ -137,23 +202,30 @@ const FILE_KINDS: readonly FileKind[] = [
   },
   {
     matches: (path) => baseName(path) === NX_PROJECT_FILE,
-    migrate: jsonCommands(NX_COMMAND_PATHS),
+    migrate: jsonConfig(() => [jsonCommandsStep(NX_COMMAND_PATHS)]),
   },
   {
     matches: (path) => DENO_CONFIG_FILES.has(baseName(path)),
-    migrate: jsonCommands(DENO_TASK_PATHS),
+    migrate: jsonConfig(({ version }) => [
+      (text, read) => migrateImportMap(text, read, version),
+      jsonCommandsStep(DENO_TASK_PATHS),
+    ]),
   },
   {
-    matches: (path) => YAML_MANIFEST_FILES.has(baseName(path)),
-    migrate: yamlStrings((text, _path, strings) => migrateYamlScripts(text, strings)),
+    matches: (path) => baseName(path) === IMPORT_MAP_FILE,
+    migrate: jsonConfig(({ version }) => [(text, read) => migrateImportMap(text, read, version)]),
   },
   {
     matches: isDependabotConfig,
-    migrate: yamlStrings(migrateDependabotConfig),
+    migrate: yamlConfig((_context, path) => [
+      stringsStep((text, strings) => migrateDependabotConfig(text, path, strings)),
+    ]),
   },
   {
     matches: (path) => YAML_EXTENSIONS.has(extensionOf(path)),
-    migrate: yamlStrings(migrateYamlCommands),
+    migrate: yamlConfig((_context, path) => [
+      stringsStep((text, strings) => migrateYamlCommands(text, path, strings)),
+    ]),
   },
   {
     matches: (path) =>
