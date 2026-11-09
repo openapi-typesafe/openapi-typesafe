@@ -13,9 +13,13 @@ const HYPHEN = "-";
 const WHITE_SPACE_RE = /\s+/;
 /** node-semver allows white space between an operator and its version: `>= 1.2.3`. */
 const SPACED_OPERATOR_RE = /(<=|>=|<|>|=|~>|~|\^)\s+/g;
+const OPERATOR = String.raw`(<=|>=|<|>|=|~>|~|\^)?`;
+const VERSION_PART = String.raw`(\d+|[xX*])`;
+const LABELS = String.raw`(?:-[\w.-]+)?(?:\+[\w.-]+)?`;
 /** A comparator: an operator, then a version whose parts can be `x` or `*` or left out. */
-const COMPARATOR_RE =
-  /^(<=|>=|<|>|=|~>|~|\^)?v?(\d+|[xX*])(?:\.(\d+|[xX*]))?(?:\.(\d+|[xX*]))?(?:-[\w.-]+)?(?:\+[\w.-]+)?$/;
+const COMPARATOR_RE = new RegExp(
+  String.raw`^${OPERATOR}v?${VERSION_PART}(?:\.${VERSION_PART})?(?:\.${VERSION_PART})?${LABELS}$`,
+);
 const NUMBER_RE = /^\d+$/;
 
 /** The style a replaced spec keeps: `^`, `~` or exact (no operator). */
