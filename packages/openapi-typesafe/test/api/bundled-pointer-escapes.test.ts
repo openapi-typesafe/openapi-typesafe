@@ -79,3 +79,16 @@ describe("discriminator mappings to local schemas with escaped keys", () => {
     expect(output).toContain('Pet: components["schemas"]["a~b"] | components["schemas"]["c/d"];');
   });
 });
+
+describe("refs from another file back to schemas with escaped keys", () => {
+  const ROOT = new URL("../fixtures/pointer-escapes/back-refs/root.yaml", import.meta.url);
+
+  it("openapiTS writes each schema once, under its own key", async () => {
+    const output = astToString(await openapiTS(ROOT, { silent: true }));
+
+    expect(output).not.toContain('"a~0b":');
+    expect(output).not.toContain('"c~1d":');
+    expect(output).toContain('tilde?: components["schemas"]["a~b"];');
+    expect(output).toContain('slash?: components["schemas"]["c/d"];');
+  });
+});

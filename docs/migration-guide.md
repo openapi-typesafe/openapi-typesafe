@@ -123,7 +123,8 @@ by default. It changes valid output, so check the types of such schemas after yo
 ### Discriminator mappings to escaped keys
 
 A discriminator `mapping` to a schema whose key needs a JSON Pointer escape (`a~b` written
-`#/components/schemas/a~0b`, `c/d` written `c~1d`) no longer adds a copy of that schema under the
+`#/components/schemas/a~0b`, `c/d` written `c~1d`), or a `$ref` from another file back to such a
+schema (`./openapi.yaml#/components/schemas/a~0b`), no longer adds a copy of that schema under the
 escaped name. openapi-typescript 7.13 wrote both `"a~b"` and `"a~0b"`; only `"a~b"` is left, so
 write `components["schemas"]["a~b"]` where you used `components["schemas"]["a~0b"]`.
 

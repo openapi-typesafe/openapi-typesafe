@@ -1,0 +1,7 @@
+components:
+  schemas:
+    Pair:
+      type: object
+      properties:
+        tilde: { $ref: "./root.yaml#/components/schemas/a~0b" }
+        slash: { $ref: "./root.yaml#/components/schemas/c~1d" }
