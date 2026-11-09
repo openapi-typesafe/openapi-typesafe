@@ -5,7 +5,6 @@ import createClient from "../../src/index.js";
 
 const BASE_URL = "https://api.example.com";
 const PROXY_PAGE = `<html><body><h1>502 Bad Gateway</h1>${"<p>nginx</p>".repeat(20)}</body></html>`;
-const EXCERPT_LENGTH = 100;
 
 type Paths = {
   "/greeting": {
@@ -65,18 +64,31 @@ describe("a success body that is not JSON", () => {
     const failure = await client.GET("/greeting").catch((error: unknown) => error);
 
     expect(failure).toBeInstanceOf(SyntaxError);
-    const message = (failure as SyntaxError).message;
-    expect(message).toContain("Response 200 (application/json) is not JSON; set `parseAs`:");
-    expect(message).toContain(JSON.stringify(PROXY_PAGE.slice(0, EXCERPT_LENGTH)));
-    expect(message).not.toContain(PROXY_PAGE.slice(0, EXCERPT_LENGTH + 1));
+    expect((failure as SyntaxError).message).toBe(
+      `Response 200 (application/json) is not JSON (${PROXY_PAGE.length} characters); set \`parseAs\``,
+    );
     expect((failure as SyntaxError).cause).toBeInstanceOf(SyntaxError);
+  });
+
+  it("the message holds no body text, such as a token of a form-encoded OAuth answer", async () => {
+    const token = "gho_16C7e42F292c6912E7710c838347Ae178B4a";
+    const body = `access_token=${token}&scope=repo&token_type=bearer`;
+    const client = clientAnswering(() =>
+      typedResponse(body, "application/x-www-form-urlencoded; charset=utf-8"),
+    );
+
+    const failure = await client.GET("/greeting").catch((error: unknown) => error);
+
+    expect(String(failure)).not.toContain(token);
+    expect(String(failure)).not.toContain("access_token");
+    expect((failure as SyntaxError).message).toContain(`(${body.length} characters)`);
   });
 
   it('a text/* body points to parseAs "text"', async () => {
     const client = clientAnswering(() => typedResponse("hello", "text/plain; charset=utf-8"));
 
     await expect(client.GET("/greeting")).rejects.toThrow(
-      'Response 200 (text/plain; charset=utf-8) is not JSON; set `parseAs: "text"`: "hello"',
+      'Response 200 (text/plain; charset=utf-8) is not JSON (5 characters); set `parseAs: "text"`',
     );
   });
 
@@ -84,7 +96,7 @@ describe("a success body that is not JSON", () => {
     const client = clientAnswering(() => untypedResponse("oops", 201));
 
     await expect(client.GET("/greeting")).rejects.toThrow(
-      'Response 201 (no Content-Type) is not JSON; set `parseAs`: "oops"',
+      "Response 201 (no Content-Type) is not JSON (4 characters); set `parseAs`",
     );
   });
 });

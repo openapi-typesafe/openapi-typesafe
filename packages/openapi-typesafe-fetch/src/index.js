@@ -13,8 +13,6 @@ const QUERY_OR_FRAGMENT_RE = /[?#]/;
 const JSON_MEDIA_TYPE_RE = /json/i;
 /** `text/*` media types: a JSON parse error of such a body points to `parseAs: "text"`. */
 const TEXT_MEDIA_TYPE_RE = /^text\//i;
-/** How much of a body that is not JSON its error shows: enough to tell an HTML page or a message. */
-const BODY_EXCERPT_LENGTH = 100;
 /** `application/x-www-form-urlencoded`, with or without parameters such as `charset`. */
 const FORM_MEDIA_TYPE_RE = /^application\/x-www-form-urlencoded(;|$)/i;
 /** `multipart/form-data`, with or without parameters. */
@@ -474,7 +472,8 @@ function isResponse(value) {
 /**
  * Parse a JSON body. A body that is not JSON, such as the HTML page of a proxy, threw a bare
  * `SyntaxError`; this one names the response, says which `parseAs` reads it, and keeps the first
- * one as `cause` (ADR-041).
+ * one as `cause` (ADR-041). It holds no body text: a body such as a form-encoded OAuth token
+ * answer would carry a secret into logs and error trackers.
  */
 function parseJSON(raw, response) {
   try {
@@ -482,9 +481,8 @@ function parseJSON(raw, response) {
   } catch (cause) {
     const contentType = response.headers.get("Content-Type");
     const hint = TEXT_MEDIA_TYPE_RE.test(contentType) ? 'set `parseAs: "text"`' : "set `parseAs`";
-    const excerpt = JSON.stringify(raw.slice(0, BODY_EXCERPT_LENGTH));
     const subject = `Response ${response.status} (${contentType ?? "no Content-Type"})`;
-    throw new SyntaxError(`${subject} is not JSON; ${hint}: ${excerpt}`, { cause });
+    throw new SyntaxError(`${subject} is not JSON (${raw.length} characters); ${hint}`, { cause });
   }
 }
 
