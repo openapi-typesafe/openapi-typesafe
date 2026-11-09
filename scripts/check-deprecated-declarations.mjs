@@ -8,35 +8,42 @@ import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 
-/** The exports that must carry `@deprecated` in the declarations, by package name. */
+/** The exports that must carry `@deprecated` in the declarations, by package and entry. */
 const DEPRECATED_EXPORTS = {
-  "openapi-typesafe": [
-    "stringToAST",
-    "resolveRef",
-    "scanDiscriminators",
-    "walk",
-    "c",
-    "debug",
-    "warn",
-    "error",
-    "addJSDocComment",
-    "tsArrayLiteralExpression",
-    "tsDedupe",
-    "tsEnum",
-    "tsEnumMember",
-    "tsIsPrimitive",
-    "tsModifiers",
-    "tsPropertyIndex",
-    "tsReadonlyArray",
-    "QUESTION_TOKEN",
-    "enumCache",
-  ],
-  // The client declares the helper types; the helpers package names them.
-  "openapi-typesafe-fetch": ["GetValueWithDefault", "FindRequiredKeys", "HasRequiredKeys"],
-  "openapi-typesafe-helpers": ["GetValueWithDefault", "FindRequiredKeys", "HasRequiredKeys"],
+  "openapi-typesafe": {
+    index: [
+      "stringToAST",
+      "resolveRef",
+      "scanDiscriminators",
+      "walk",
+      "c",
+      "debug",
+      "warn",
+      "error",
+      "addJSDocComment",
+      "tsArrayLiteralExpression",
+      "tsDedupe",
+      "tsEnum",
+      "tsEnumMember",
+      "tsIsPrimitive",
+      "tsModifiers",
+      "tsPropertyIndex",
+      "tsReadonlyArray",
+      "QUESTION_TOKEN",
+      "enumCache",
+    ],
+  },
+  // The client declares the helper types in its `helpers` entry; the helpers package names them.
+  "openapi-typesafe-fetch": {
+    helpers: ["GetValueWithDefault", "FindRequiredKeys", "HasRequiredKeys"],
+  },
+  "openapi-typesafe-helpers": {
+    index: ["GetValueWithDefault", "FindRequiredKeys", "HasRequiredKeys"],
+  },
 };
 
-const DECLARATION_FILES = ["dist/index.d.mts", "dist/index.d.cts"];
+/** The declaration files of an entry: of the ES module and of the CommonJS module. */
+const declarationFiles = (entry) => [`dist/${entry}.d.mts`, `dist/${entry}.d.cts`];
 
 /** The exported names of `file` whose declaration has no `@deprecated` tag. */
 function namesWithoutTag(file, names) {
@@ -61,23 +68,26 @@ function namesWithoutTag(file, names) {
 
 function main() {
   const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
-  const names = DEPRECATED_EXPORTS[manifest.name];
-  if (!names) {
+  const entries = DEPRECATED_EXPORTS[manifest.name];
+  if (!entries) {
     return;
   }
   let failed = false;
-  for (const relative of DECLARATION_FILES) {
-    const missing = namesWithoutTag(path.resolve(relative), names);
-    if (missing.length > 0) {
-      failed = true;
-      const list = missing.join(", ");
-      process.stderr.write(`check-deprecated: ${relative} has no @deprecated tag on ${list}\n`);
+  for (const [entry, names] of Object.entries(entries)) {
+    for (const relative of declarationFiles(entry)) {
+      const missing = namesWithoutTag(path.resolve(relative), names);
+      if (missing.length > 0) {
+        failed = true;
+        const list = missing.join(", ");
+        process.stderr.write(`check-deprecated: ${relative} has no @deprecated tag on ${list}\n`);
+      }
     }
   }
   if (failed) {
     process.exit(1);
   }
-  const summary = `${names.length} deprecated exports tagged in ${manifest.name}`;
+  const count = Object.values(entries).flat().length;
+  const summary = `${count} deprecated exports tagged in ${manifest.name}`;
   process.stdout.write(`check-deprecated: ${summary}\n`);
 }
 

@@ -17,11 +17,14 @@ import type {
   Writable,
 } from "./helpers.js";
 
-// The client declares the helper types, and `openapi-typesafe-helpers` re-exports them: one
+// The client declares the helper types in `./helpers.js`, published as
+// `openapi-typesafe-fetch/helpers`, and `openapi-typesafe-helpers` re-exports them: one
 // declaration, so generic code may mix the names of both packages. Types inferred from the
-// client print them by the package that declares them, which a library that uses the client
-// depends on, also under pnpm and Yarn PnP (ADR-034).
-export type * from "./helpers.js";
+// client print them by that path, which a library that uses the client can import, also under
+// pnpm and Yarn PnP (ADR-034). They are not exported here, as in openapi-fetch: a project that
+// writes `export type * from` the client next to its own `ErrorResponse` fails with TS2308. This
+// file has no `export { … }` either, so its other top-level types stay importable from
+// `openapi-typesafe-fetch/src/index.js`, as openapi-fetch's are (`InitParam`).
 
 /** Options for each client instance */
 export interface ClientOptions extends Omit<RequestInit, "headers"> {

@@ -3,12 +3,12 @@
 Type helpers for the types that openapi-typesafe generates (for example `PathsWithMethod`,
 `SuccessResponse`, `ErrorResponse`, `MediaType`). Types only; no runtime code.
 
-`openapi-typesafe-fetch` declares the helper types, and this package re-exports them, so it
-depends on the client. The names of both packages are one declaration: a value typed with one fits
-the other, also in generic code. A library built with `declaration: true` under Yarn PnP that
-depends only on this package and exports an inferred type that prints a helper type gets
-`import("openapi-typesafe-fetch")` in its declarations: add `openapi-typesafe-fetch` to its
-dependencies, or annotate the type.
+`openapi-typesafe-fetch` declares the helper types in its `helpers` entry, and this package
+re-exports them, so it depends on the client. The names of both packages are one declaration: a
+value typed with one fits the other, also in generic code. A library built with
+`declaration: true` under Yarn PnP that depends only on this package and exports an inferred type
+that prints a helper type gets `import("openapi-typesafe-fetch/helpers")` in its declarations: add
+`openapi-typesafe-fetch` to its dependencies, or annotate the type.
 
 A maintained successor to `openapi-typescript-helpers` (see the [repository README](../../README.md)).
 Most projects do not need to install it directly.

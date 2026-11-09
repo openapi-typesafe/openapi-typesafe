@@ -21,7 +21,19 @@
       "require": "./dist/index.cjs",
       "default": "./dist/index.mjs"
     },
+    "./helpers": {
+      "import": "./dist/helpers.mjs",
+      "require": "./dist/helpers.cjs",
+      "default": "./dist/helpers.mjs"
+    },
     "./*": "./*"
+  },
+  "typesVersions": {
+    "*": {
+      "helpers": [
+        "./dist/helpers.d.ts"
+      ]
+    }
   },
   "files": [
     "CHANGELOG.md",

@@ -1,4 +1,4 @@
-import type * as Fetch from "openapi-typesafe-fetch";
+import type * as Fetch from "openapi-typesafe-fetch/helpers";
 import { describe, expect, it } from "vitest";
 import type * as Helpers from "../src/index.js";
 

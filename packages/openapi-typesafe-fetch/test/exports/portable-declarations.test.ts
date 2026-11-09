@@ -10,7 +10,8 @@ import { afterAll, describe, expect, it } from "vitest";
  * Inferred types that print a helper type must name a package the library depends on, or
  * TypeScript fails with TS2742 under pnpm ("cannot be named without a reference to …") and Yarn
  * PnP prints an import that the library's users cannot resolve. The client declares the helper
- * types itself, so they print as `import("openapi-typesafe-fetch")` (ADR-034). The consumer here
+ * types in its `helpers` entry, so they print as `import("openapi-typesafe-fetch/helpers")`, and
+ * its main entry does not export them, as openapi-fetch's does not (ADR-034). The consumer here
  * has the client in pnpm's layout: in `node_modules/.pnpm/<id>/node_modules/`, linked into the
  * consumer's `node_modules`. Needs `dist` of this package (`pnpm build`).
  */
@@ -18,8 +19,15 @@ import { afterAll, describe, expect, it } from "vitest";
 const PACKAGE_DIR = fileURLToPath(new URL("../..", import.meta.url));
 /** What a package publishes that the compiler reads. */
 const PUBLISHED_PATHS = ["package.json", "dist"];
-/** The published declarations: of the ES module, of the CommonJS module, and of `main`. */
-const DECLARATION_FILES = ["index.d.mts", "index.d.cts", "index.d.ts"];
+/**
+ * The published declarations of each entry, with the runtime file that their imports name: of the
+ * ES module, of the CommonJS module, and of `main`.
+ */
+const DECLARATION_FORMATS = [
+  { extension: "d.mts", runtime: "mjs" },
+  { extension: "d.cts", runtime: "cjs" },
+  { extension: "d.ts", runtime: "js" },
+];
 /**
  * The test builds and emits a whole TypeScript program. Its twin in the hooks package took 5.1 s on
  * a GitHub runner, past the default 5 s limit; 60 s leaves room for a loaded runner and still
@@ -100,21 +108,44 @@ afterAll(() => {
 });
 
 describe("declarations of a library that uses the client", () => {
-  it("name helper types through openapi-typesafe-fetch (no TS2742)", {
+  it("name helper types through openapi-typesafe-fetch/helpers (no TS2742)", {
     timeout: TYPE_PROGRAM_TIMEOUT_MS,
   }, () => {
     const { codes, declarations } = emitDeclarations(createConsumer());
 
     expect(codes).toEqual([]);
     expect(declarations).toContain('import("openapi-typesafe-fetch")');
+    expect(declarations).toContain('import("openapi-typesafe-fetch/helpers").FilterKeys');
     expect(declarations).not.toContain("openapi-typesafe-helpers");
+    expect(declarations).not.toContain("/dist/");
   });
 
-  it.each(DECLARATION_FILES)("%s declares the helper types instead of importing them", (file) => {
-    const declarations = readFileSync(join(PACKAGE_DIR, "dist", file), "utf8");
+  it.each(DECLARATION_FORMATS)("helpers.$extension declares the helper types", (format) => {
+    const declarations = readFileSync(
+      join(PACKAGE_DIR, "dist", `helpers.${format.extension}`),
+      "utf8",
+    );
 
     expect(declarations).not.toContain("openapi-typesafe-helpers");
     expect(declarations).toMatch(/^type FilterKeys<Obj, Matchers> =/m);
     expect(declarations).toMatch(/^export type \{[^}]*\bFilterKeys\b/m);
   });
+
+  it.each(DECLARATION_FORMATS)(
+    "index.$extension imports the helper types and does not export them",
+    (format) => {
+      const declarations = readFileSync(
+        join(PACKAGE_DIR, "dist", `index.${format.extension}`),
+        "utf8",
+      );
+      const helpersImport = new RegExp(
+        `^import \\{[^}]*\\bFilterKeys\\b[^}]*\\} from './helpers\\.${format.runtime}';$`,
+        "m",
+      );
+
+      expect(declarations).toMatch(helpersImport);
+      expect(declarations).not.toMatch(/^type FilterKeys</m);
+      expect(declarations).not.toMatch(/^export (type )?\{[^}]*\bFilterKeys\b/m);
+    },
+  );
 });
