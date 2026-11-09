@@ -386,4 +386,43 @@ describe("migratePackageManifest", () => {
       { kind: "spec-kept", name: "my-fetch", spec: "npm:openapi-typesafe-fetch@latest" },
     ]);
   });
+
+  it("migratePackageManifest renames the subpath import targets of an original package", () => {
+    const text = manifest({
+      imports: {
+        "#client": "openapi-fetch",
+        "#schema": { node: ["openapi-typescript-helpers/sub", "./local.js"], default: null },
+        "#other": "left-pad",
+      },
+    });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(JSON.parse(migrated.text).imports).toEqual({
+      "#client": "openapi-typesafe-fetch",
+      "#schema": { node: ["openapi-typesafe-helpers/sub", "./local.js"], default: null },
+      "#other": "left-pad",
+    });
+    expect(migrated.changes).toEqual([
+      {
+        kind: "package-name-renamed",
+        location: "imports.#client",
+        from: "openapi-fetch",
+        to: "openapi-typesafe-fetch",
+      },
+      {
+        kind: "package-name-renamed",
+        location: "imports.#schema.node.0",
+        from: "openapi-typescript-helpers/sub",
+        to: "openapi-typesafe-helpers/sub",
+      },
+    ]);
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "deep-target",
+        location: "imports.#schema.node.0",
+        specifier: "openapi-typesafe-helpers/sub",
+      },
+    ]);
+  });
 });

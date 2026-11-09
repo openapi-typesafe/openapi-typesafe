@@ -93,4 +93,17 @@ describe("migratePackageManifest on package.yaml", () => {
       "dependencies:\n  'openapi-typesafe-fetch': \"^1.0.0\"\n  openapi-typesafe: '^1.0.0'\n",
     );
   });
+
+  it("migratePackageManifest reports a subpath import target it cannot write", () => {
+    const text = "imports:\n  '#client': !!str openapi-fetch\n  '#react': openapi-react-query\n";
+
+    const migrated = migratePackageYaml(text, "1.0.0");
+
+    expect(migrated.text).toBe(
+      text.replace(" openapi-react-query", " openapi-typesafe-react-query"),
+    );
+    expect(migrated.manualSteps).toEqual([
+      { kind: "entry-not-edited", field: "imports.#client", name: "openapi-fetch" },
+    ]);
+  });
 });

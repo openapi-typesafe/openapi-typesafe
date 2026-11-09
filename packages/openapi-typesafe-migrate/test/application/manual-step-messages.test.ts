@@ -32,6 +32,7 @@ const STEPS: readonly ManualStep[] = [
   { kind: "command-string", line: 8, to: "npx openapi-typesafe a.yaml" },
   { kind: "options-not-inspected", line: 9 },
   { kind: "deep-import", line: 2, specifier: "b/x" },
+  { kind: "deep-target", location: "imports.#b", specifier: "b/x" },
   { kind: "dynamic-specifier", line: 2, value: `openapi-fetch\${x}`, to: "openapi-typesafe-fetch" },
   { kind: "string-names-package", line: 6, value: "openapi-fetch", to: "openapi-typesafe-fetch" },
   { kind: "old-peer-needed", dependent: "swr-openapi", peer: "openapi-fetch", range: ">=0.15" },
@@ -40,6 +41,7 @@ const STEPS: readonly ManualStep[] = [
   { kind: "transform-not-rewritten", line: 4, reason: "shared-function" },
   { kind: "transform-not-rewritten", line: 4, reason: "shared-options" },
   { kind: "transform-not-rewritten", line: 4, reason: "unknown-return" },
+  { kind: "transform-not-rewritten", line: 4, reason: "typed-options" },
   { kind: "legacy-callback", line: 5, callback: "postTransform" },
   {
     kind: "package-not-declared",

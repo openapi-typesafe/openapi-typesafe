@@ -1,6 +1,7 @@
 import { assertNever } from "../domain/assert-never.js";
 import type { ManualStep, TransformKeepReason } from "../domain/migration-findings.js";
-import { FLAG_RENAMES, PACKAGE_RENAMES } from "../domain/package-names.js";
+import { PACKAGE_RENAMES } from "../domain/package-names.js";
+import { commandStepMessage, isCommandStep } from "./command-step-messages.js";
 
 /** The user-facing text of the manual steps in the report (CODING_PRINCIPLES 7.8). */
 
@@ -24,18 +25,6 @@ const KEEP_REASONS: Readonly<Record<TransformKeepReason, string>> = {
 };
 
 const PEER_NOTE = "users of this package must switch too (a breaking change for them)";
-const PINNED_NOTE = "change it to openapi-typesafe@<version>";
-const OLD_FILE_NOTE =
-  "is a file of openapi-typescript, which is no longer installed: run openapi-typesafe instead";
-const FLAGS_IN_VARIABLE_NOTE =
-  "holds old flags of the generator and may serve other commands, so it was kept: rename";
-const NOT_ONLY_GENERATOR_NOTE =
-  "runs openapi-typescript in some of its definitions in this file and another program in " +
-  "others, so the flags after it were kept; where it runs the generator, rename";
-const OLD_NAME_IN_COMMAND_NOTE =
-  "names an old package where the tool cannot tell what runs it (a script name, an argument of " +
-  "a program it does not know), so it was kept: migrate it by hand";
-const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; change it to";
 const OPTIONS_NOTE =
   "the options of openapiTS() are not an object written in this file: check them for " +
   `transform, postTransform and transformProperty. See ${IR_CALLBACKS_GUIDE}`;
@@ -43,6 +32,7 @@ const MANIFEST_NOT_READ_NOTE =
   "is a JSON5 manifest, which the tool does not read: rename the packages and the generator " +
   "command by hand, or write it as package.json and run the tool again";
 const DEEP_IMPORT_NOTE = "imports a file inside the package; check that it exists";
+const DEEP_TARGET_NOTE = "points at a file inside the package; check that it exists";
 const DYNAMIC_NOTE =
   "builds its module name at run time from an old package name, so it was kept; rename it to";
 const STRING_NOTE = "is a string, not a module specifier, so it was kept";
@@ -70,76 +60,6 @@ function oldPeerMessage(step: Extract<ManualStep, { kind: "old-peer-needed" }>):
     `${peer} to ${successor} with overrides or resolutions, or passing it the ${successor} ` +
     `client fails to type-check. See ${OPENAPI_FETCH_ALIAS_GUIDE}`
   );
-}
-
-function pinnedPackageMessage(step: Extract<ManualStep, { kind: "pinned-package" }>): string {
-  const successor = PACKAGE_RENAMES.get(step.name) ?? step.name;
-  return (
-    `${step.location} names a pinned ${step.name}@<version>: ` +
-    `change it to ${successor}@<version>`
-  );
-}
-
-/** `-it to --immutable, …`: each old flag with its new name. */
-const flagRenames = (flags: readonly string[]): string =>
-  flags.map((flag) => `${flag} to ${FLAG_RENAMES.get(flag) ?? flag}`).join(", ");
-
-function flagsInVariableMessage(step: Extract<ManualStep, { kind: "flags-in-variable" }>) {
-  return `${step.location}: ${step.variable} ${FLAGS_IN_VARIABLE_NOTE} ${flagRenames(step.flags)}`;
-}
-
-function notOnlyGeneratorMessage(
-  step: Extract<ManualStep, { kind: "variable-not-only-generator" }>,
-): string {
-  return `${step.location}: ${step.variable} ${NOT_ONLY_GENERATOR_NOTE} ${flagRenames(step.flags)}`;
-}
-
-/** The manual steps found in commands: scripts, shell files, CI files and command strings. */
-type CommandStep = Extract<
-  ManualStep,
-  {
-    kind:
-      | "versioned-command"
-      | "flags-in-variable"
-      | "variable-not-only-generator"
-      | "pinned-package"
-      | "old-package-file"
-      | "old-name-in-command"
-      | "command-string";
-  }
->;
-
-const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
-  "versioned-command",
-  "flags-in-variable",
-  "variable-not-only-generator",
-  "pinned-package",
-  "old-package-file",
-  "old-name-in-command",
-  "command-string",
-]);
-
-const isCommandStep = (step: ManualStep): step is CommandStep => COMMAND_STEP_KINDS.has(step.kind);
-
-function commandStepMessage(step: CommandStep): string {
-  switch (step.kind) {
-    case "versioned-command":
-      return `${step.location} runs a pinned openapi-typescript@<version>: ${PINNED_NOTE}`;
-    case "flags-in-variable":
-      return flagsInVariableMessage(step);
-    case "variable-not-only-generator":
-      return notOnlyGeneratorMessage(step);
-    case "pinned-package":
-      return pinnedPackageMessage(step);
-    case "old-package-file":
-      return `${step.location}: ${step.path} ${OLD_FILE_NOTE}`;
-    case "old-name-in-command":
-      return `${step.location}: "${step.word}" ${OLD_NAME_IN_COMMAND_NOTE}`;
-    case "command-string":
-      return `line ${step.line}: ${COMMAND_STRING_NOTE} "${step.to}"`;
-    default:
-      return assertNever(step);
-  }
 }
 
 /** Steps for places of a structured file (JSON, YAML) that the tool could not edit. */
@@ -236,6 +156,36 @@ function sourceStepMessage(step: SourceStep): string {
   }
 }
 
+/** Steps for the packages a manifest names. */
+type PackageStep = Extract<
+  ManualStep,
+  {
+    kind:
+      | "peer-dependency-renamed"
+      | "spec-kept"
+      | "override-names-package"
+      | "deep-target"
+      | "old-peer-needed";
+  }
+>;
+
+function packageStepMessage(step: PackageStep): string {
+  switch (step.kind) {
+    case "peer-dependency-renamed":
+      return `${step.name} is a peer dependency: ${PEER_NOTE}`;
+    case "spec-kept":
+      return `${step.name} kept the spec "${step.spec}": point it at an openapi-typesafe version`;
+    case "override-names-package":
+      return `"${step.field}" names ${step.name}: update or remove that override`;
+    case "deep-target":
+      return `${step.location}: "${step.specifier}" ${DEEP_TARGET_NOTE}`;
+    case "old-peer-needed":
+      return oldPeerMessage(step);
+    default:
+      return assertNever(step);
+  }
+}
+
 export function manualStepMessage(step: ManualStep): string {
   if (isCommandStep(step)) {
     return commandStepMessage(step);
@@ -251,11 +201,11 @@ export function manualStepMessage(step: ManualStep): string {
     case "catalog-entry-in-use":
       return catalogStepMessage(step);
     case "peer-dependency-renamed":
-      return `${step.name} is a peer dependency: ${PEER_NOTE}`;
     case "spec-kept":
-      return `${step.name} kept the spec "${step.spec}": point it at an openapi-typesafe version`;
     case "override-names-package":
-      return `"${step.field}" names ${step.name}: update or remove that override`;
+    case "deep-target":
+    case "old-peer-needed":
+      return packageStepMessage(step);
     case "options-not-inspected":
     case "deep-import":
     case "dynamic-specifier":
@@ -264,8 +214,6 @@ export function manualStepMessage(step: ManualStep): string {
     case "legacy-callback":
     case "package-not-declared":
       return sourceStepMessage(step);
-    case "old-peer-needed":
-      return oldPeerMessage(step);
     default:
       return assertNever(step);
   }
