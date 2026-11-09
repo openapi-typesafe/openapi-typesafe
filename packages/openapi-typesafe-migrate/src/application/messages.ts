@@ -1,6 +1,6 @@
 import { assertNever } from "../domain/assert-never.js";
 import type { Change, ManualStep, TransformKeepReason } from "../domain/migration-findings.js";
-import { PACKAGE_RENAMES } from "../domain/package-names.js";
+import { FLAG_RENAMES, PACKAGE_RENAMES } from "../domain/package-names.js";
 import type { FileProblem } from "./ports.js";
 
 /** The user-facing text of the report (CODING_PRINCIPLES 7.8: kept apart from the logic). */
@@ -51,6 +51,8 @@ const PEER_NOTE = "users of this package must switch too (a breaking change for 
 const PINNED_NOTE = "change it to openapi-typesafe@<version>";
 const OLD_FILE_NOTE =
   "is a file of openapi-typescript, which is no longer installed: run openapi-typesafe instead";
+const FLAGS_IN_VARIABLE_NOTE =
+  "holds old flags of the generator and may serve other commands, so it was kept: rename";
 const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; change it to";
 const OPTIONS_NOTE =
   "the options of openapiTS() are not an object written in this file: check them for " +
@@ -79,14 +81,27 @@ function pinnedPackageMessage(step: Extract<ManualStep, { kind: "pinned-package"
   );
 }
 
+function flagsInVariableMessage(step: Extract<ManualStep, { kind: "flags-in-variable" }>) {
+  const renames = step.flags.map((flag) => `${flag} to ${FLAG_RENAMES.get(flag) ?? flag}`);
+  return `${step.location}: ${step.variable} ${FLAGS_IN_VARIABLE_NOTE} ${renames.join(", ")}`;
+}
+
 /** The manual steps found in commands: scripts, shell files, CI files and command strings. */
 type CommandStep = Extract<
   ManualStep,
-  { kind: "versioned-command" | "pinned-package" | "old-package-file" | "command-string" }
+  {
+    kind:
+      | "versioned-command"
+      | "flags-in-variable"
+      | "pinned-package"
+      | "old-package-file"
+      | "command-string";
+  }
 >;
 
 const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "versioned-command",
+  "flags-in-variable",
   "pinned-package",
   "old-package-file",
   "command-string",
@@ -98,6 +113,8 @@ function commandStepMessage(step: CommandStep): string {
   switch (step.kind) {
     case "versioned-command":
       return `${step.location} runs a pinned openapi-typescript@<version>: ${PINNED_NOTE}`;
+    case "flags-in-variable":
+      return flagsInVariableMessage(step);
     case "pinned-package":
       return pinnedPackageMessage(step);
     case "old-package-file":
@@ -143,8 +160,8 @@ function uneditedStepMessage(step: UneditedStep): string {
       );
     case "catalog-entry-in-use":
       return (
-        `${step.catalog}: ${step.name} was kept, because a dependency still names it: ` +
-        "rename the entry and the dependency together"
+        `${step.catalog}: ${step.name} was kept, because a dependency or an override still ` +
+        "names it: rename the entry and what names it together"
       );
     default:
       return assertNever(step);

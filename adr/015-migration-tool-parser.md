@@ -295,6 +295,43 @@ scanner was rejected: it drifted from the grammar at its edges (flow collections
 ranges with spaces), which is where these findings came from. A config that does not parse and
 names an original package is reported with the line and column where it stops being valid.
 
+## Amendment (2026-11-09): the recheck of the second review
+
+A recheck of the fixes above found three regressions and four gaps.
+
+- **A template with a string in its substitution stopped the run.** Templates with substitutions
+  are found as written, so `` `${on ? "on" : "off"}` `` gave a string that held two others, and
+  the specifier migration took that for a scanner bug: six of seven real projects exited with
+  "Source strings overlap". Strings now nest: the migration walks them outer before inner and
+  fails only on spans that cross. A string inside a template that was replaced is part of the
+  replacement, so it is reported, not edited a second time.
+- **A link that loops or goes through a file stopped the run.** The listing resolves links since
+  the second review and handled only `ENOENT`; `ELOOP` and `ENOTDIR` now mean "leads to no file"
+  too, and such a path is left out like a dangling link. A link to the project folder itself is
+  in the project, not outside it.
+- **An empty `.git` folder made the forced work tree wrong.** Git passes over a `.git` that is no
+  repository and finds the one above; the tool took the nearest `.git` entry, so the listing and
+  the ignore rules belonged to different folders. Each folder with a `.git` entry is now checked
+  with `git rev-parse --git-dir` under `GIT_CEILING_DIRECTORIES` set to its parent, so git itself
+  decides, and the first one git accepts is the work tree. Reading git's repository format in the
+  tool was rejected: it would drift from git's own rules.
+- **npx put a planted git on PATH.** npx adds the project's `node_modules/.bin` to `PATH` as an
+  absolute folder, so the lookup of the first review still ran a `git` from the project. A `PATH`
+  folder is now skipped when its real path is the project folder or lies under it; the project
+  root is given to the git adapter by the composition root, one listing per run.
+- **Overrides that point at a catalog entry** (`overrides: { openapi-fetch: "catalog:" }`) are
+  reported and left as they are, so the entry was renamed under them and the install failed. The
+  catalog plan now counts them as users of the entry, like a kept dependency.
+- **Commands in exec form after `RUN` flags, in `["sh", "-c", "…"]`, behind a chain of Makefile
+  variables, in target variables and behind `$GEN` from a workflow `env`** were neither migrated
+  nor reported. The exec form is found after `RUN --mount=…`; the command line of a shell's `-c`
+  is read as shell text (with JSON escapes, whose offsets do not map onto the file, it is
+  reported); a variable set to a generator variable holds the generator; `env` values are read as
+  the variables of the file. A variable of old flags that the generator gets is reported, not
+  changed, because the same variable may serve other commands. The `FileVariables` interface of
+  the command migration carries both questions, so Makefiles and YAML files answer them the same
+  way.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

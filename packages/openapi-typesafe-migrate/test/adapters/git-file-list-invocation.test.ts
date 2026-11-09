@@ -18,6 +18,7 @@ describe("HardenedGitFileList invocations", () => {
     const list = createGitFileList({
       environment,
       platform: "linux",
+      projectRoot: "/r",
       fileSystem,
       process: git.run,
     });
@@ -26,17 +27,46 @@ describe("HardenedGitFileList invocations", () => {
 
     expect(listing).toEqual({ kind: "listed", paths: ["a.ts"] });
     expect(git.invocations.map(({ executable, directory }) => [executable, directory])).toEqual([
+      ["/usr/bin/git", "/r"],
       ["/usr/bin/git", "/r/apps/web"],
       ["/usr/bin/git", "/r/apps/web"],
     ]);
+    const hardened = { GIT_ALLOW_PROTOCOL: "", GIT_NO_LAZY_FETCH: "1", GIT_TERMINAL_PROMPT: "0" };
     expect(git.invocations[0]?.environment).toEqual({
       PATH: ".:/usr/bin",
       HOME: "/home/user",
-      GIT_WORK_TREE: "/r",
-      GIT_ALLOW_PROTOCOL: "",
-      GIT_NO_LAZY_FETCH: "1",
-      GIT_TERMINAL_PROMPT: "0",
+      GIT_CEILING_DIRECTORIES: "/",
+      ...hardened,
     });
+    expect(git.invocations[1]?.environment).toEqual({
+      PATH: ".:/usr/bin",
+      HOME: "/home/user",
+      GIT_WORK_TREE: "/r",
+      ...hardened,
+    });
+  });
+
+  it("list passes over a .git that git takes as no repository", async () => {
+    const git = new RecordingGitProcess("", new Set(["/r"]));
+    const withEmptyGit = new InMemoryGitFileSystem(["/usr/bin/git"], ["/r/.git", "/r/apps/.git"]);
+    const list = createGitFileList({
+      environment,
+      platform: "linux",
+      projectRoot: "/r",
+      fileSystem: withEmptyGit,
+      process: git.run,
+    });
+
+    await list.list("/r/apps");
+
+    expect(git.invocations.map(({ directory }) => directory)).toEqual([
+      "/r/apps",
+      "/r",
+      "/r/apps",
+      "/r/apps",
+    ]);
+    expect(git.invocations[1]?.environment).toHaveProperty("GIT_CEILING_DIRECTORIES", "/");
+    expect(git.invocations[2]?.environment).toHaveProperty("GIT_WORK_TREE", "/r");
   });
 
   it("list sets no work tree for a directory that no .git is above", async () => {
@@ -44,6 +74,7 @@ describe("HardenedGitFileList invocations", () => {
     const list = createGitFileList({
       environment,
       platform: "linux",
+      projectRoot: "/r",
       fileSystem,
       process: git.run,
     });
@@ -55,7 +86,12 @@ describe("HardenedGitFileList invocations", () => {
 
   it("list is unavailable without running anything when PATH has no git", async () => {
     const git = new RecordingGitProcess("");
-    const options = { environment: { PATH: "." }, platform: "linux" as const, fileSystem };
+    const options = {
+      environment: { PATH: "." },
+      platform: "linux" as const,
+      fileSystem,
+      projectRoot: "/r",
+    };
     const list = createGitFileList({ ...options, process: git.run });
 
     const listing = await list.list("/r");

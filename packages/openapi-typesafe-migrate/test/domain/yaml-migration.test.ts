@@ -41,6 +41,38 @@ describe("migrateYamlCommands", () => {
     );
   });
 
+  it("migrateYamlCommands migrates the flags after an env variable set to the generator", () => {
+    const [gen, flags] = ["$GEN", `"${["$", "{FLAGS}"].join("")}"`];
+    const text = lines(
+      "env:",
+      "  GEN: openapi-typescript",
+      "  FLAGS: -it",
+      "jobs:",
+      "  a:",
+      "    steps:",
+      `      - run: npx ${gen} a.yaml -it`,
+      `      - run: openapi-typescript b.yaml ${flags}`,
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      lines(
+        "env:",
+        "  GEN: openapi-typesafe",
+        "  FLAGS: -it",
+        "jobs:",
+        "  a:",
+        "    steps:",
+        `      - run: npx ${gen} a.yaml --immutable`,
+        `      - run: openapi-typesafe b.yaml ${flags}`,
+      ),
+    );
+    expect(migrated.manualSteps).toEqual([
+      { kind: "flags-in-variable", location: "ci.yml:8", variable: flags, flags: ["-it"] },
+    ]);
+  });
+
   it("migrateYamlCommands migrates commands and leaves other values", () => {
     const text = lines(
       "info:",

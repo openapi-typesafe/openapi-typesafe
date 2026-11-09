@@ -33,16 +33,19 @@ Commands are read in `package.json` scripts, shell scripts (`.sh`, `.bash`, `.zs
 `deno.json` tasks and pnpm `package.yaml` scripts. They are read word by word, the way the shell
 splits them (quotes, `\` line continuations, comments, `&&`, `|`, `sh -c "…"`, and the commands
 inside `if`, `while`, `for` and `{ … }`), so only the generator's own flags are renamed, and a
-script name (`npm run openapi-typescript`) is never changed. A Dockerfile's exec form
-(`RUN ["npx", "openapi-typescript", …]`) is read word by word. A Makefile variable that holds the
-generator (`OAT := openapi-typescript`) is renamed where it is set, and the flags after `$(OAT)`
-where it runs. YAML files are changed only in command keys (`run`, `script`, `command`,
-`entrypoint`, …) and in the values of `env`, in block and flow style, never in other values such
-as an OpenAPI `description`; a YAML file that names no old package is not even parsed. A config
-that cannot be parsed and names an old package is reported with the line and column, not changed. `Makefile`, `justfile` and
-`Dockerfile` are read only under the names make, just and docker look for (also `makefile`,
-`GNUmakefile`, `Justfile`, `.justfile`, `Containerfile` and `*.mk`), so `Dockerfile.dev` is not
-changed.
+script name (`npm run openapi-typescript`) is never changed. A Dockerfile's exec form (`RUN ["npx",
+"openapi-typescript", …]`, also after `RUN --mount=…`) is read word by word, and the command line of
+`["sh", "-c", "…"]` as shell text. A Makefile variable that holds the generator (`OAT :=
+openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed where it is set,
+and the flags after `$(OAT)` where it runs; so is an `env` variable of a workflow and the flags
+after `$GEN`. A variable of old flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may
+serve other commands too, so it is reported, not changed. YAML files are changed only in command
+keys (`run`, `script`, `command`, `entrypoint`, …) and in the values of `env`, in block and flow
+style, never in other values such as an OpenAPI `description`; a YAML file that names no old package
+is not even parsed. A config that cannot be parsed and names an old package is reported with the
+line and column, not changed. `Makefile`, `justfile` and `Dockerfile` are read only under the names
+make, just and docker look for (also `makefile`, `GNUmakefile`, `Justfile`, `.justfile`,
+`Containerfile` and `*.mk`), so `Dockerfile.dev` is not changed.
 
 A range keeps its style: `^` and `>=` give `^1.0.0`, `~` gives `~1.0.0`, an exact version stays
 exact, and a partial version keeps what it fixes (`7`, `7.x` and `0.x` give `^1.0.0`; `0.13` and
@@ -53,8 +56,9 @@ kept and reported.
 Manifests, catalogs and import maps are edited in place: only the renamed keys and the new values
 change, and comments, formatting, key order and line endings stay. A byte order mark is kept. An
 entry whose new name is already in the same map is left and reported, and so is an entry the tool
-does not edit (a YAML alias, anchor or block value). A catalog entry and the `catalog:`
-dependencies on it keep one name: an entry stays while a dependency that was left still uses it,
+does not edit (a YAML alias, anchor or block value). A catalog entry and the `catalog:` dependencies
+on it keep one name: an entry stays while a dependency that was left or an override
+(`"openapi-fetch": "catalog:"` under `overrides`, which are reported, not changed) still uses it,
 and a dependency stays while its entry does, so the install never misses a catalog entry; both are
 reported. Sources also get `npm:` specifiers renamed (`import x from "npm:openapi-fetch@^0.13"`).
 
@@ -67,18 +71,18 @@ repository around it ignores, it reads the whole tree of that folder. Either way
 `coverage` are skipped, and links are not followed. The log names the folders and how each one
 was read.
 
-The tool does not trust the folder it migrates. Git is the `git` of an absolute folder on
-`PATH`, never one in the project, and it runs with `core.fsmonitor` turned off and every
-transport refused (`GIT_ALLOW_PROTOCOL` set to an empty list, which no `protocol.*` key of a
-repository's config can undo), so a nested repository's `.git/config` cannot make it run a
-command, not even through a partial clone that fetches a missing object. It does not open a bare
-repository that is not named explicitly, and the folder that holds `.git` is the work tree, so a
+The tool does not trust the folder it migrates. Git is the `git` of an absolute folder on `PATH`
+outside the project, so neither a `git` at the project root nor one in the `node_modules/.bin` that
+`npx` puts on `PATH` runs, and it runs with `core.fsmonitor` turned off and every transport refused
+(`GIT_ALLOW_PROTOCOL` set to an empty list, which no `protocol.*` key of a repository's config can
+undo), so a nested repository's `.git/config` cannot make it run a command, not even through a
+partial clone that fetches a missing object. It does not open a bare repository that is not named
+explicitly, and the folder whose `.git` git takes as the repository is the work tree, so a
 `core.worktree` in the config cannot point the listing at another folder; `GIT_DIR` and the other
-variables that name a repository are not passed on. A path that git lists but that leads outside
-the folder (`../`, an absolute path, a linked parent folder or a link to a file elsewhere) is not
-read or written; the report lists it under "Skipped". A file is written as a new file that
-replaces the old one (same mode), so a hard link to a file elsewhere keeps its old text; the log
-notes it.
+variables that name a repository are not passed on. A path that git lists but that leads outside the
+folder (`../`, an absolute path, a linked parent folder or a link to a file elsewhere) is not read
+or written; the report lists it under "Skipped". A file is written as a new file that replaces the
+old one (same mode), so a hard link to a file elsewhere keeps its old text; the log notes it.
 A file whose bytes are not UTF-8 (a Latin-1 source, for example) is not changed, because its
 text cannot be written back without changing other characters; neither is a file that cannot be
 read. The report lists both under "Skipped". Every file is read and migrated before the first one

@@ -202,6 +202,11 @@ function nestedCommandText(word: ShellWord): string | undefined {
 const shifted = (words: readonly ShellWord[], offset: number): ShellWord[] =>
   words.map((word) => ({ ...word, start: word.start + offset, end: word.end + offset }));
 
+/** The commands of `text`, which starts at `offset` of a larger text, by offsets in that one. */
+export function shellCommandsAt(text: string, offset: number): ShellCommand[] {
+  return shellCommands(text).map((words) => shifted(words, offset));
+}
+
 /**
  * The commands of `text`, in order of their first word. A quoted word that holds a command line
  * is read as commands too, so `sh -c "openapi-typescript a.yaml"` and `concurrently "…"` count.

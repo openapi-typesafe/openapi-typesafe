@@ -43,6 +43,37 @@ describe("planCatalogs", () => {
     expect(plan.kept.has("default", "openapi-fetch")).toBe(true);
   });
 
+  it("planCatalogs keeps the entries that overrides point at", () => {
+    const manifests = [
+      manifest({ resolutions: { "**/openapi-typescript": "catalog:legacy" } }),
+      manifest({ overrides: { app: { "openapi-react-query": "catalog:" } } }),
+      manifest({ pnpm: { overrides: { "a>openapi-typescript-helpers": "catalog:" } } }),
+    ];
+    const catalogFiles = [
+      workspace([
+        "catalog:",
+        "  openapi-fetch: ^0.13.0",
+        "  openapi-react-query: ^0.5.0",
+        "  openapi-typescript-helpers: ^0.0.15",
+        "catalogs:",
+        "  legacy: { openapi-typescript: ^7.0.0 }",
+        "overrides:",
+        '  openapi-fetch: "catalog:"',
+      ]),
+    ];
+
+    const plan = planCatalogs({ manifests, catalogFiles });
+
+    for (const [catalog, name] of [
+      ["default", "openapi-fetch"],
+      ["default", "openapi-react-query"],
+      ["default", "openapi-typescript-helpers"],
+      ["legacy", "openapi-typescript"],
+    ] as const) {
+      expect(plan.kept.has(catalog, name)).toBe(true);
+    }
+  });
+
   it("planCatalogs keeps entries whose value the tool does not edit", () => {
     const catalogFiles = [
       workspace([

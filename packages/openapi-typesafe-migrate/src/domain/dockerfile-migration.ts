@@ -1,6 +1,11 @@
-import { type CommandMigration, commandWordFindings } from "./command-migration.js";
-import { lineLocator } from "./migration-findings.js";
-import { type ShellWord, shellCommands } from "./shell-words.js";
+import { type CommandMigration, commandWordFindings, migrateCommand } from "./command-migration.js";
+import { lineLocator, type ManualStep } from "./migration-findings.js";
+import {
+  type ShellCommand,
+  type ShellWord,
+  shellCommands,
+  shellCommandsAt,
+} from "./shell-words.js";
 import { applyTextEdits } from "./text-edits.js";
 
 /**
@@ -11,10 +16,18 @@ import { applyTextEdits } from "./text-edits.js";
  */
 
 /**
- * An instruction that takes a command, at the start of a line, before its `[`. In capitals, as
- * Dockerfiles write them and as the launcher table reads the shell form (command-launchers.ts).
+ * An instruction that takes a command, at the start of a line, before its `[`, after the flags of
+ * `RUN` (`--mount=type=cache,target=/root/.npm`, `--network=none`). In capitals, as Dockerfiles
+ * write them and as the launcher table reads the shell form (command-launchers.ts).
  */
-const EXEC_FORM_START_RE = /^[ \t]*(?:RUN|CMD|ENTRYPOINT)[ \t]+\[/gm;
+const EXEC_FORM_START_RE = /^[ \t]*(?:RUN|CMD|ENTRYPOINT)(?:[ \t]+--\S+)*[ \t]+\[/gm;
+/** Shells whose `-c` option takes a command line, as `SHELL` and the shell form use them. */
+const SHELLS: ReadonlySet<string> = new Set(["sh", "bash", "dash", "ash", "zsh"]);
+const OPTION_PREFIX = "-";
+const LONG_OPTION_PREFIX = "--";
+const COMMAND_OPTION = "c";
+const SET_OPTION = "-o";
+const PATH_SEPARATOR = "/";
 /** Blanks between the items of the array; a `\` at the end of a line continues the instruction. */
 const ARRAY_BLANK_RE = /(?:[ \t\r\n]|\\\r?\n)*/y;
 /** A double-quoted string on one line; `JSON.parse` decides whether it is a JSON string. */
@@ -86,6 +99,51 @@ function execForms(text: string): ExecForm[] {
   });
 }
 
+/**
+ * The command line of `["sh", "-c", "…"]` (also `/bin/bash -o pipefail -ec`): the word after the
+ * first short option that holds `c`, before any word that is not an option.
+ */
+function shellScript(words: readonly ShellWord[]): ShellWord | undefined {
+  const program = words[0]?.value.split(PATH_SEPARATOR).at(-1) ?? "";
+  if (!SHELLS.has(program)) {
+    return undefined;
+  }
+  let index = 1;
+  for (let option = words[index]?.value; option !== undefined; option = words[index]?.value) {
+    if (!option.startsWith(OPTION_PREFIX)) {
+      return undefined;
+    }
+    if (!option.startsWith(LONG_OPTION_PREFIX) && option.includes(COMMAND_OPTION)) {
+      return words[index + 1];
+    }
+    // `-o pipefail` names a shell option in the next word.
+    index += option === SET_OPTION ? 2 : 1;
+  }
+  return undefined;
+}
+
+/** What the exec-form arrays run: the arrays, and the command lines of the shells they start. */
+interface ExecCommands {
+  readonly commands: readonly ShellCommand[];
+  /** Command lines with JSON escapes, whose offsets do not map onto the file: reported only. */
+  readonly escaped: readonly ShellWord[];
+}
+
+function execCommands(forms: readonly ExecForm[]): ExecCommands {
+  const commands: ShellCommand[] = [];
+  const escaped: ShellWord[] = [];
+  for (const { words } of forms) {
+    commands.push(words);
+    const script = shellScript(words);
+    if (script !== undefined && script.raw === script.value) {
+      commands.push(...shellCommandsAt(script.value, script.start));
+    } else if (script !== undefined) {
+      escaped.push(script);
+    }
+  }
+  return { commands, escaped };
+}
+
 /** The text with the arrays blanked out, line breaks kept, so the shell reads the rest. */
 function withoutExecForms(text: string, forms: readonly ExecForm[]): string {
   const parts: string[] = [];
@@ -101,6 +159,16 @@ function withoutExecForms(text: string, forms: readonly ExecForm[]): string {
   return parts.join("");
 }
 
+/** A command line that the migration would change but cannot edit in place, as a manual step. */
+function escapedScriptSteps(scripts: readonly ShellWord[], lineOf: (offset: number) => number) {
+  return scripts.flatMap((script): ManualStep[] => {
+    const migrated = migrateCommand(script.value, "").text;
+    return migrated === script.value
+      ? []
+      : [{ kind: "command-string", line: lineOf(script.start), to: migrated }];
+  });
+}
+
 /**
  * Migrate the commands of a Dockerfile: exec-form arrays word by word, everything else as shell
  * text. Each finding names its `file:line`.
@@ -109,10 +177,9 @@ export function migrateDockerfile(text: string, file: string): CommandMigration 
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const forms = execForms(text);
-  const commands = [
-    ...shellCommands(withoutExecForms(text, forms)),
-    ...forms.map((form) => form.words),
-  ];
+  const exec = execCommands(forms);
+  const commands = [...shellCommands(withoutExecForms(text, forms)), ...exec.commands];
   const { edits, changes, manualSteps } = commandWordFindings(commands, locate);
-  return { text: applyTextEdits(text, edits), changes, manualSteps };
+  const steps = [...manualSteps, ...escapedScriptSteps(exec.escaped, lineOf)];
+  return { text: applyTextEdits(text, edits), changes, manualSteps: steps };
 }

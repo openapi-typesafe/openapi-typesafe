@@ -80,6 +80,13 @@ export type ManualStep =
   | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
   | { readonly kind: "override-names-package"; readonly field: string; readonly name: string }
   | { readonly kind: "versioned-command"; readonly location: string }
+  | {
+      readonly kind: "flags-in-variable";
+      readonly location: string;
+      readonly variable: string;
+      /** The old flags in the variable's value. */
+      readonly flags: readonly string[];
+    }
   | { readonly kind: "pinned-package"; readonly location: string; readonly name: string }
   | { readonly kind: "old-package-file"; readonly location: string; readonly path: string }
   | { readonly kind: "command-string"; readonly line: number; readonly to: string }

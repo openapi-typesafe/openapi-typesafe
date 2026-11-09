@@ -131,19 +131,60 @@ function withoutRecipePrefix(words: ShellCommand): ShellCommand {
   return [{ ...first, value: first.value.replace(RECIPE_PREFIX_RE, "") }, ...rest];
 }
 
-/**
- * Tells whether a program word runs the generator through a variable that the same file sets
- * (`$(OAT)` in a Makefile with `OAT := openapi-typescript`). The variable's value is migrated where
- * it is set; the flags after it are migrated where it is used.
- */
-export type GeneratorReference = (program: ShellWord) => boolean;
+/** A whole word that expands one variable the file sets: as written, and the value it gets. */
+export interface VariableReference {
+  readonly written: string;
+  readonly value: string;
+}
 
-const NO_GENERATOR_REFERENCES: GeneratorReference = () => false;
+/**
+ * The variables of a file as its commands use them. A program word can run the generator through
+ * a variable (`$(OAT)` in a Makefile with `OAT := openapi-typescript`): the variable's value is
+ * migrated where it is set, the flags after it where it is used. An argument can expand a
+ * variable that holds flags (`$(FLAGS)` with `FLAGS := -it`); the variable may serve other
+ * commands too, so its old flags are reported, not changed.
+ */
+export interface FileVariables {
+  isGenerator(program: ShellWord): boolean;
+  referenceAt(word: ShellWord): VariableReference | undefined;
+}
+
+const NO_VARIABLES: FileVariables = {
+  isGenerator: () => false,
+  referenceAt: () => undefined,
+};
+
+/** The flags of a variable's value that the generator renamed, each once. */
+function renamedFlags(value: string): string[] {
+  const flags = shellCommands(value)
+    .flat()
+    .map((word) => word.raw.split("=", 1)[0] as string);
+  return [...new Set(flags.filter((flag) => FLAG_RENAMES.has(flag)))];
+}
+
+/** The findings of one argument of the generator: a renamed flag, or a variable that holds one. */
+function argumentFindings(word: ShellWord, locate: Locate, variables: FileVariables): Finding[] {
+  const reference = variables.referenceAt(word);
+  if (reference === undefined) {
+    return flagFindings(word, locate);
+  }
+  const flags = renamedFlags(reference.value);
+  if (flags.length === 0) {
+    return [];
+  }
+  const manualStep: ManualStep = {
+    kind: "flags-in-variable",
+    location: locate(word.start),
+    variable: reference.written,
+    flags,
+  };
+  return [{ offset: word.start, manualStep }];
+}
 
 function commandFindings(
   command: ShellCommand,
   locate: Locate,
-  isGeneratorReference: GeneratorReference,
+  variables: FileVariables,
 ): Finding[] {
   const words = withoutRecipePrefix(command);
   const roles = commandRoles(words);
@@ -156,9 +197,9 @@ function commandFindings(
   findings.push(...found);
   // Only a renamed command is ours to change; a pinned one still runs the old package.
   const isRenamed = found.some((finding) => finding.change?.kind === "command-renamed");
-  if (isRenamed || isGeneratorReference(program)) {
+  if (isRenamed || variables.isGenerator(program)) {
     const flags = words.slice((roles.program as number) + 1);
-    findings.push(...flags.flatMap((word) => flagFindings(word, locate)));
+    findings.push(...flags.flatMap((word) => argumentFindings(word, locate, variables)));
   }
   return findings;
 }
@@ -190,10 +231,10 @@ export function shellTextFindings(text: string, locate: Locate): ShellTextFindin
 export function commandWordFindings(
   commands: readonly ShellCommand[],
   locate: Locate,
-  isGeneratorReference: GeneratorReference = NO_GENERATOR_REFERENCES,
+  variables: FileVariables = NO_VARIABLES,
 ): ShellTextFindings {
   const findings = commands
-    .flatMap((words) => commandFindings(words, locate, isGeneratorReference))
+    .flatMap((words) => commandFindings(words, locate, variables))
     .sort((left, right) => left.offset - right.offset);
   return {
     edits: findings.flatMap((finding) => (finding.edit === undefined ? [] : [finding.edit])),

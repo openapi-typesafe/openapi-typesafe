@@ -42,11 +42,14 @@ function createLogger(path: string | undefined): ReturnType<CliDependencies["cre
   return { logger: createJsonLinesLogger({ path: logPath, now, isExclusive }), path: logPath };
 }
 
-const git = createGitFileList({
-  environment: process.env,
-  platform: process.platform,
-  fileSystem: createNodeGitFileSystem(),
-});
+/** Git for the project at `root`: git is looked up on PATH outside that folder. */
+const createGit = (root: string) =>
+  createGitFileList({
+    environment: process.env,
+    platform: process.platform,
+    fileSystem: createNodeGitFileSystem(),
+    projectRoot: root,
+  });
 
 const dependencies: CliDependencies = {
   version: readVersion(),
@@ -54,7 +57,7 @@ const dependencies: CliDependencies = {
   writeStdout: (text) => process.stdout.write(text),
   writeStderr: (text) => process.stderr.write(text),
   inspectRoot: inspectProjectRoot,
-  createFiles: (root, logger) => createNodeProjectFiles(root, { git, logger }),
+  createFiles: (root, logger) => createNodeProjectFiles(root, { git: createGit(root), logger }),
   createLogger,
   rewriter: createTypescriptCallbackRewriter(),
   scanner: createTypescriptStringScanner(),
