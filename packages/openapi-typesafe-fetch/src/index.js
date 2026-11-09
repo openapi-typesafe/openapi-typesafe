@@ -22,11 +22,12 @@ const NESTED_FORM_VALUE_MESSAGE = "Nested form values need your own `bodySeriali
 const BOUNDARY_PARAMETER_RE = /;\s*boundary=/i;
 
 /**
- * The FormData objects the default `bodySerializer` built. Only for them is the boundary the
- * platform's alone, whoever returns them (a `bodySerializer` may wrap the default one). A WeakSet
- * holds no object alive and needs no reset (ADR-013, decision 10).
+ * Marks the FormData objects the default `bodySerializer` built. Only for them is the boundary the
+ * platform's alone, whoever returns them (a `bodySerializer` may wrap the default one). A
+ * registered symbol is the same in the CommonJS and ES module builds and in every copy of the
+ * package, so a form one of them built is known to the others (ADR-013, decision 10).
  */
-const clientBuiltForms = new WeakSet();
+const CLIENT_BUILT_FORM = Symbol.for("openapi-typesafe-fetch/form");
 
 /**
  * Whether `fetch` is Node.js undici, which takes `requestInitExt` as a second argument. A Node.js
@@ -142,7 +143,7 @@ export default function createClient(clientOptions) {
       params.header,
     );
     if (isPlatformInstance(serializedBody, "FormData")) {
-      dropFormContentType(finalHeaders, clientBuiltForms.has(serializedBody));
+      dropFormContentType(finalHeaders, serializedBody[CLIENT_BUILT_FORM] === true);
     }
 
     // Client level middleware take priority over request-level middleware
@@ -865,10 +866,11 @@ function formBody(body) {
  * is a file part, other primitives are text, `null` and `undefined` are left out. A nested object
  * or array would need a part content type such as JSON, which the client does not guess (ADR-013,
  * decision 10). The FormData is marked as the client's, so its `Content-Type` is the platform's.
+ * A symbol key is not a form field, and `Object.keys` and JSON leave it out.
  */
 function multipartBody(body) {
   const formData = new FormData();
-  clientBuiltForms.add(formData);
+  formData[CLIENT_BUILT_FORM] = true;
   for (const [name, value] of Object.entries(body)) {
     for (const item of [value].flat()) {
       if (isPlatformInstance(item, "Blob")) {

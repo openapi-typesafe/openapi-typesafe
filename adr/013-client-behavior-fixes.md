@@ -341,6 +341,36 @@ Decisions 3 and 4 of that amendment now read:
 | Treat JSON `null` as no error body (chosen) | `error` is set whenever the query failed | A `null` that the schema declares becomes a `ResponseError` |
 | Throw `null` as the error body | Mirrors the fetch client | TanStack's status says error while `error` is `null` |
 
+## Amendment (2026-11-09): the mark of a client-built form works across copies (decision 10)
+
+The recheck of the amendment "the recheck of the rc.3 fixes" found that its `WeakSet` is one per
+copy of the module. The package ships a CommonJS and an ES module build, and an application can
+load both (a dependency `require()`s the client while the application imports it), or two
+versions. A `bodySerializer` that wraps the `defaultBodySerializer` of one copy, used with the
+client of another, returned a form the client did not know: the hand-set boundary stayed, and
+the server could not split the parts.
+
+1. The client marks the forms it builds with a property keyed by a registered symbol,
+   `Symbol.for("openapi-typesafe-fetch/form")`. `Symbol.for` gives the same symbol in every copy
+   and every realm, so each copy knows the forms of the others. The `WeakSet` and its module
+   state go.
+2. A symbol key is not a form field, and `Object.keys`, `for…in` and JSON leave it out; only
+   `Object.getOwnPropertySymbols` shows it. The objection of the options table above ("adds a
+   property to an object the user may get back") weighs less than a mark that fails between the
+   two builds of one package.
+3. The size budget rises from 9.5 kB to 9.6 kB: the mark takes the minified bundle from 9,747 to
+   9,777 bytes (esbuild), 30 bytes over the old budget, which had 1 byte left. The gzipped size
+   grows by 14 bytes. Correctness ranks above size (CODING_PRINCIPLES §1), as in ADR-041.
+4. `test/common/request-multipart-body.test.ts` loads a second copy of the module and checks that
+   a form it built gets the platform's boundary from the first.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A property keyed by a registered symbol (chosen) | One mark for every copy and realm; no module state | A symbol property on the form; 30 bytes |
+| A `WeakSet` on `globalThis` under a registered symbol | No property on the form | Writes a global that every copy shares and any code can change |
+| Keep the `WeakSet` | No change | Fails between the CommonJS and ES module builds |
+| Compare the header boundary with the body | No mark | The platform writes the boundary only when it sends the body |
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`
