@@ -1,4 +1,9 @@
 import { migrateCommandLines } from "../domain/command-migration.js";
+import {
+  DENO_TASK_PATHS,
+  migrateJsonCommands,
+  NX_COMMAND_PATHS,
+} from "../domain/json-command-migration.js";
 import { migratePackageManifest } from "../domain/manifest-migration.js";
 import type { Change, FileMigration, ManualStep } from "../domain/migration-findings.js";
 import { migrateModuleSpecifiers, SOURCE_EXTENSIONS } from "../domain/source-migration.js";
@@ -23,9 +28,24 @@ interface FileKind {
   readonly migrate: (text: string, path: string, context: MigrationContext) => FileMigration;
 }
 
-const SHELL_EXTENSIONS: ReadonlySet<string> = new Set([".sh", ".bash", ".zsh"]);
+const SHELL_EXTENSIONS: ReadonlySet<string> = new Set([".sh", ".bash", ".zsh", ".mk"]);
 const YAML_EXTENSIONS: ReadonlySet<string> = new Set([".yml", ".yaml"]);
-const SHELL_FILE_NAMES: ReadonlySet<string> = new Set(["Makefile", "justfile", "Dockerfile"]);
+/** Makefiles, justfiles and Dockerfiles, by the names make, just and docker look for. */
+const SHELL_FILE_NAMES: ReadonlySet<string> = new Set([
+  "Makefile",
+  "makefile",
+  "GNUmakefile",
+  "justfile",
+  "Justfile",
+  ".justfile",
+  "Dockerfile",
+  "Containerfile",
+]);
+/** Git hooks that husky runs; `.husky/_/` holds husky's own generated scripts. */
+const HUSKY_FOLDER = ".husky/";
+const HUSKY_INTERNALS = ".husky/_/";
+const NX_PROJECT_FILE = "project.json";
+const DENO_CONFIG_FILES: ReadonlySet<string> = new Set(["deno.json", "deno.jsonc"]);
 const DEPENDABOT_FILES: ReadonlySet<string> = new Set([
   ".github/dependabot.yml",
   ".github/dependabot.yaml",
@@ -46,6 +66,10 @@ function extensionOf(path: string): string {
   const dot = name.lastIndexOf(".");
   return dot <= 0 ? "" : name.slice(dot);
 }
+
+const isHuskyHook = (path: string): boolean =>
+  (path.startsWith(HUSKY_FOLDER) || path.includes(`/${HUSKY_FOLDER}`)) &&
+  !path.includes(HUSKY_INTERNALS);
 
 const isDependabotConfig = (path: string): boolean =>
   [...DEPENDABOT_FILES].some((file) => path === file || path.endsWith(`/${file}`));
@@ -76,6 +100,14 @@ const FILE_KINDS: readonly FileKind[] = [
       ),
   },
   {
+    matches: (path) => baseName(path) === NX_PROJECT_FILE,
+    migrate: (text) => migrateJsonCommands(text, NX_COMMAND_PATHS),
+  },
+  {
+    matches: (path) => DENO_CONFIG_FILES.has(baseName(path)),
+    migrate: (text) => migrateJsonCommands(text, DENO_TASK_PATHS),
+  },
+  {
     matches: (path) => YAML_MANIFEST_FILES.has(baseName(path)),
     migrate: (text) => migrateYamlScripts(text),
   },
@@ -89,7 +121,9 @@ const FILE_KINDS: readonly FileKind[] = [
   },
   {
     matches: (path) =>
-      SHELL_EXTENSIONS.has(extensionOf(path)) || SHELL_FILE_NAMES.has(baseName(path)),
+      SHELL_EXTENSIONS.has(extensionOf(path)) ||
+      SHELL_FILE_NAMES.has(baseName(path)) ||
+      isHuskyHook(path),
     migrate: (text, path) => migrateCommandLines(text, path),
   },
 ];

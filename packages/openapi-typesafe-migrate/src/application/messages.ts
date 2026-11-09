@@ -108,6 +108,8 @@ export function manualStepMessage(step: ManualStep): string {
       return `${step.name} kept the spec "${step.spec}": point it at an openapi-typesafe version`;
     case "override-names-package":
       return `"${step.field}" names ${step.name}: update or remove that override`;
+    case "config-unreadable":
+      return "the file is not valid JSON; migrate its commands by hand";
     case "deep-import":
       return `line ${step.line}: "${step.specifier}" ${DEEP_IMPORT_NOTE}`;
     case "string-names-package":

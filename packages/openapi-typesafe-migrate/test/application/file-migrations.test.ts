@@ -17,19 +17,32 @@ describe("fileMigrationFor", () => {
     ".github/workflows/ci.yml",
     "Makefile",
     "justfile",
+    "Justfile",
     "docker/Dockerfile",
+    "build/rules.mk",
+    ".husky/pre-commit",
+    "apps/web/.husky/pre-push",
+    "apps/api/project.json",
+    "deno.json",
+    "tools/deno.jsonc",
     ".github/dependabot.yml",
     "package.yaml",
   ])("fileMigrationFor has a migration for %s", (path) => {
     expect(fileMigrationFor(path)).toBeTypeOf("function");
   });
 
-  it.each(["README.md", "src/a.json", ".env", "LICENSE", "a.d", "pnpm-lock.yaml", "app/yarn.lock"])(
-    "fileMigrationFor has no migration for %s",
-    (path) => {
-      expect(fileMigrationFor(path)).toBeUndefined();
-    },
-  );
+  it.each([
+    "README.md",
+    "src/a.json",
+    ".env",
+    "LICENSE",
+    "a.d",
+    "pnpm-lock.yaml",
+    "app/yarn.lock",
+    ".husky/_/pre-commit",
+  ])("fileMigrationFor has no migration for %s", (path) => {
+    expect(fileMigrationFor(path)).toBeUndefined();
+  });
 
   it("fileMigrationFor joins the findings of the specifier rename and the rewriter", () => {
     const rewriter = new StubCallbackRewriter({
@@ -88,10 +101,17 @@ describe("fileMigrationFor", () => {
     expect(migration?.text).toBe("- dependency-name: openapi-typesafe-fetch\n");
   });
 
-  it("fileMigrationFor migrates the scripts of a pnpm package.yaml", () => {
+  it("fileMigrationFor migrates the commands of husky hooks, Nx projects and Deno tasks", () => {
     const run = (path: string, text: string): string | undefined =>
       fileMigrationFor(path)?.(text, path, context).text;
 
+    expect(run(".husky/pre-commit", "npx openapi-typescript a\n")).toBe("npx openapi-typesafe a\n");
+    expect(run("project.json", '{"targets":{"g":{"command":"openapi-typescript a"}}}')).toBe(
+      '{"targets":{"g":{"command":"openapi-typesafe a"}}}',
+    );
+    expect(run("deno.json", '{"tasks":{"g":"deno run npm:openapi-typescript a"}}')).toBe(
+      '{"tasks":{"g":"deno run npm:openapi-typesafe a"}}',
+    );
     expect(run("package.yaml", "scripts:\n  g: openapi-typescript a\n")).toBe(
       "scripts:\n  g: openapi-typesafe a\n",
     );

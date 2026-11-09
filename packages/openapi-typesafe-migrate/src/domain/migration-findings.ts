@@ -43,6 +43,7 @@ export type ManualStep =
   | { readonly kind: "versioned-command"; readonly location: string }
   | { readonly kind: "pinned-package"; readonly location: string; readonly name: string }
   | { readonly kind: "old-package-file"; readonly location: string; readonly path: string }
+  | { readonly kind: "config-unreadable" }
   | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
   | {
       readonly kind: "string-names-package";

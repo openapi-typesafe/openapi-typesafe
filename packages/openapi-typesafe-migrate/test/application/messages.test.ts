@@ -24,6 +24,7 @@ const STEPS: readonly ManualStep[] = [
     location: "Makefile:2",
     path: "node_modules/openapi-typescript/x.js",
   },
+  { kind: "config-unreadable" },
   { kind: "deep-import", line: 2, specifier: "b/x" },
   { kind: "string-names-package", line: 6, value: "openapi-fetch", to: "openapi-typesafe-fetch" },
   { kind: "old-peer-needed", dependent: "swr-openapi", peer: "openapi-fetch", range: ">=0.15" },
