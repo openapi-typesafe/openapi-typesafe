@@ -59,10 +59,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      # No pnpm cache: this job can push and open pull requests, so the code it installs comes
+      # from a clean install checked against the lockfile, not from a store that another workflow
+      # run may have saved (cache poisoning).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - id: changesets
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
