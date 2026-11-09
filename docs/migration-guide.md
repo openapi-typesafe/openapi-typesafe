@@ -105,7 +105,7 @@ Without `--output`, the types still go to stdout, and warnings now go to stderr;
 
 OpenAPI 3.2 documents get types for `query` and `additionalOperations` operations, `itemSchema` (an `itemContent` map next to `content`), `in: querystring` parameters and `components.mediaTypes`; openapi-typescript leaves them out. `HttpMethod` from `openapi-typesafe-helpers` includes `"query"`, and the fetch client has `QUERY()`. A `Record<HttpMethod, …>` you write yourself needs a `query` entry. The path-based client no longer offers `PARAMETERS()`, which was typed but always failed. The types of these 3.2 additions are experimental in 1.x and may change in a minor release. See [OpenAPI 3.2 support](/introduction#openapi-3-2-support).
 
-Errors thrown by the Node API are `OpenAPITypesafeError`s with a stable `code` (see [errors](/node#errors)). The messages are unchanged. A file system error is kept as `cause`: check `error.cause.code` instead of `error.code === "ENOENT"`.
+Errors thrown by the Node API are `OpenAPITypesafeError`s with a stable `code` (see [errors](/node#errors)). The messages are unchanged. A file system error is kept as `cause`: check `error.cause.code` instead of `error.code === "ENOENT"`. With `silent: true`, the Node API no longer prints the problem lines of a document that fails (such as `Can't resolve $ref`); the error lists them in `details.problems`.
 
 ### Open string enums
 

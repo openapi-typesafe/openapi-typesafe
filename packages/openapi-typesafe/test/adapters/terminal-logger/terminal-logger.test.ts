@@ -69,12 +69,23 @@ describe("createTerminalLogger", () => {
     expect(quiet.sink.lines).toEqual([]);
   });
 
-  it("error writes the error line even when silent", () => {
-    const { logger, sink } = loggerWith({ silent: true });
+  it("error writes the error line unless silent (#43)", () => {
+    const loud = loggerWith({});
+    const quiet = loggerWith({ silent: true });
 
-    logger.error("broken");
+    loud.logger.error("broken");
+    quiet.logger.error("broken");
 
-    expect(sink.lines).toEqual(["error: ✘  broken"]);
+    expect(loud.sink.lines).toEqual(["error: ✘  broken"]);
+    expect(quiet.sink.lines).toEqual([]);
+  });
+
+  it("debug writes its line also when silent, since DEBUG asked for it", () => {
+    const { logger, sink } = loggerWith({ silent: true, debugFilter: "*" });
+
+    logger.debug("Parsed schema");
+
+    expect(sink.lines).toHaveLength(1);
   });
 
   it("debug writes the group and the duration when DEBUG asks for it", () => {

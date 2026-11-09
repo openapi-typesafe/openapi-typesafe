@@ -147,7 +147,7 @@ The Node API takes the generator flags of the [flags table](/cli#flags) in camel
 | `postTransform`    |   `Function`    |                 | Same as `transform` but runs _after_ the TypeScript transformation                           |
 | `transformProperty`|   `Function`    |                 | Transform individual property signatures for Schema Object properties                        |
 | `irCallbacks`      |    `boolean`    |     `false`     | Callbacks receive and return IR nodes instead of TypeScript nodes (see [IR callbacks](#ir-callbacks)) |
-| `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors and [deprecations](#deprecations) will still show)     |
+| `silent`           |    `boolean`    |     `false`     | Print nothing on stderr: no warnings, and no problem lines of a document that fails (the error lists them in `details.problems`). [Deprecations](#deprecations) and `DEBUG` lines still show |
 | `lint`             |    `boolean`    |     `true`      | Lint the document with the Redocly config first. `false` skips it; bundling errors still fail |
 | `cwd`              | `string \| URL` | `process.cwd()` | The directory that relative `$ref`s of a string, object, buffer or stream source resolve from. A file or URL source resolves from its own location |
 | `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd` |
