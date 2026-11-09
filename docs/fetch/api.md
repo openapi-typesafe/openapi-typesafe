@@ -274,8 +274,11 @@ const { data, error } = await client.PUT("/submit", {
 For convenience, `openapi-typesafe-fetch` sets `Content-Type` to `application/json` automatically
 for any request that provides value for the `body` parameter. When the body (or the `bodySerializer` result) is a
 `FormData`, `Blob`, `File`, `URLSearchParams`, `ArrayBuffer` or typed array, `Content-Type` is omitted, allowing the
-platform to set it automatically (for `FormData`, with the correct message part boundary). A
-`Content-Type` without a `boundary` that you set for a `FormData` body is dropped for the same reason.
+platform to set it automatically (for `FormData`, with the correct message part boundary). For the
+same reason a `multipart/form-data` `Content-Type` that you set is dropped when the client builds
+the `FormData` from an object, `boundary` or not: the platform picks the boundary of the body. For a
+`FormData` that you build yourself, a `Content-Type` without a `boundary` is dropped, and one with a
+`boundary` is kept for a `fetch` of your own that writes the parts with it.
 
 You can also set `Content-Type` manually through `headers` object either in the fetch options,
 or when instantiating the client.

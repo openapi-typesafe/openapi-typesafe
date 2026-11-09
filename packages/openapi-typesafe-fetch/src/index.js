@@ -134,14 +134,9 @@ export default function createClient(clientOptions) {
       headers,
       params.header,
     );
-    // `fetch` sends a FormData as multipart with a boundary only it knows. A `Content-Type` without
-    // that boundary, set by hand, replaced the platform's, and the server could not split the parts
-    // (upstream #1214), so it goes and the platform sets its own (ADR-013, decision 10).
-    if (
-      serializedBody instanceof FormData &&
-      !BOUNDARY_PARAMETER_RE.test(finalHeaders.get("Content-Type"))
-    ) {
-      finalHeaders.delete("Content-Type");
+    if (serializedBody instanceof FormData) {
+      const isClientBuilt = serializedBody !== body && bodySerializer === defaultBodySerializer;
+      dropFormContentType(finalHeaders, isClientBuilt);
     }
 
     // Client level middleware take priority over request-level middleware
@@ -449,6 +444,18 @@ export function createPathBasedClient(clientOptions) {
 }
 
 // utils
+
+/**
+ * `fetch` sends a FormData as multipart with a boundary only it knows, so a `Content-Type` set by
+ * hand replaced the platform's and the server could not split the parts (upstream #1214). It goes,
+ * and the platform sets its own, unless the user built the FormData and named a boundary for a
+ * `fetch` of their own (ADR-013, decision 10).
+ */
+function dropFormContentType(headers, isClientBuilt) {
+  if (isClientBuilt || !BOUNDARY_PARAMETER_RE.test(headers.get("Content-Type"))) {
+    headers.delete("Content-Type");
+  }
+}
 
 // Fetch API objects are recognized by the members the client uses, not by `instanceof`: that is
 // bound to one realm's class, and a Request from the `undici` package, another realm (an iframe,

@@ -130,6 +130,26 @@ keys at all.
 
 The change adds no bytes: keys use the value encoder.
 
+## Amendment (2026-11-08): a FormData the client builds gets the platform's boundary (decision 10)
+
+The bug hunt on rc.3 (`RC4_BUGS.md`, item F3) sent an object body with
+`Content-Type: multipart/form-data; boundary=myboundary`. The client built the `FormData`, so the
+platform wrote the parts with its own boundary, but decision 10 kept the user's header because it
+named a boundary. The server read `myboundary` and could not split the parts.
+
+1. When the client builds the `FormData` from an object (the default `bodySerializer` returned a
+   new `FormData`), a `Content-Type` set by hand is removed, with or without a `boundary`, and the
+   platform sets its own. No one but the platform knows that boundary.
+2. For a `FormData` the user built (the body itself, or the result of their own
+   `bodySerializer`), decision 10 stays: a `Content-Type` without a `boundary` is removed, one with
+   a `boundary` is kept for a `fetch` of their own that writes the parts with it.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Remove the header for a FormData the client built (chosen) | The header always matches the body the platform writes | none found: a hand-set boundary could never match that body |
+| Remove a multipart header for every FormData | Simplest | A custom `fetch` that writes parts with a given boundary loses it |
+| Build the parts with the user's boundary | Keeps the header | Needs a multipart writer in the client; the platform already has one |
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`
