@@ -10,7 +10,7 @@ bug. This page shows how that is checked and what the last run found. CI runs th
 every night; this page is refreshed from that run for every release candidate and every major or
 minor release, and the GitHub release notes link it.
 
-**Result (2026-11-04):** 50,960 cases, 0 unexpected differences. 99.99% of the outputs are the
+**Result (2026-11-09):** 50,960 cases, 0 unexpected differences. 99.87% of the outputs are the
 same byte for byte, and 100% have the same types.
 
 ## What is compared
@@ -40,15 +40,15 @@ For every case the tool generates the types with both generators and compares th
 
 | Result | Cases | What it means |
 | --- | ---: | --- |
-| Same bytes | 49,794 | The output is the same file. |
-| Same types | 4 | `--enum-values` constants whose golden names start with a digit (not valid JavaScript) get a `value` prefix; every exported type is equal. |
+| Same bytes | 49,108 | The output is the same file. |
+| Same types | 62 | `--enum-values` constants: the array of a path item parameter indexes the member that holds it, and names that start with a digit (not valid JavaScript) get a `value` prefix (61); an inherited discriminator property declared twice is written once (1). Every exported type is equal. |
 | Different | 0 | — |
-| Golden output does not compile | 994 | openapi-typescript 7.13 writes TypeScript with errors; ours has no more errors, and 766 of these compile without any ([see below](#golden-output-that-does-not-compile)). |
+| Golden output does not compile | 1,622 | openapi-typescript 7.13 writes TypeScript with errors; ours has no more errors, and 1,515 of these compile without any ([see below](#golden-output-that-does-not-compile)). |
 | Golden generator fails | 168 | openapi-typescript 7.13 stops with an error on 6 documents (see below). |
 | Candidate fails | 0 | — |
 
-The rates count only cases where the golden output exists and compiles (49,798 cases): byte
-identity **99.99%**, type identity **100%**, and **100%** of the golden types are kept.
+The rates count only cases where the golden output exists and compiles (49,170 cases): byte
+identity **99.87%**, type identity **100%**, and **100%** of the golden types are kept.
 
 ### Documents the golden generator cannot load
 
@@ -62,20 +62,26 @@ These 6 documents fail in every option set (6 × 28 = 168 cases):
 ### Golden output that does not compile
 
 These cases are not compared type by type: the golden file has TypeScript errors, so the check is
-that ours has no more. They come from option combinations whose original output does not compile:
+that ours has no more. The golden output of 22 documents does not compile with the default options
+and with most other option sets; the other cases come from option combinations whose original
+output does not compile. The run itself counts only whether
+ours has more errors; the "Ours compiles" column comes from type-checking the same cases again with
+the same strict settings.
 
-| Option set | Cases | Ours compiles | Cause |
+| Cause | Cases | Ours compiles | What ours does |
 | --- | ---: | ---: | --- |
-| `--path-params-as-types` | 791 | 600 | A path template such as `` `/apps/${string}` `` also matches another path whose type does not fit; ours writes such templates in an intersection where the error is sure (see the [CLI docs](./cli.md#pathparamsastypes)). |
-| `--make-paths-enum` | 81 | 78 | Paths that map to the same member name. |
-| `--enum` (with `--enum-values`, `--dedupe-enums`, `--conditional-enums`) | 108 | 77 | Enum members whose names collide, which ours numbers, and names that start with a digit. |
-| `--exclude-deprecated` | 13 | 11 | A kept schema points to a deprecated one, which ours keeps. |
+| A `$ref` into another schema's keywords (22 documents) | 581 | 491 | Writes the type the pointer means ([ref pointers](./cli.md#ref-pointers)). Three Codat documents point into a schema's own `definitions` from inside it, where ours keeps the original type; with `--read-write-markers` the pointers keep it too. |
+| `--path-params-as-types` | 827 | 817 | A path template such as `` `/apps/${string}` `` also matches another path whose type does not fit; ours writes such templates in an intersection where the error is sure (see the [CLI docs](./cli.md#pathparamsastypes)). |
+| `--make-paths-enum` | 78 | 78 | Paths that map to the same member name get distinct names. |
+| `--enum` (with `--enum-values`, `--dedupe-enums`, `--conditional-enums`) | 109 | 104 | Enum members whose names collide are numbered, and names that start with a digit get a prefix. |
+| `--root-types-no-schema-prefix` | 14 | 14 | A schema named like a global type the output uses (`Record`) gets a number. |
+| `--exclude-deprecated` | 12 | 11 | A kept schema points to a deprecated one, which ours keeps. |
 | `--root-types-keep-casing` | 1 | 0 | A schema name that is not a valid identifier. |
 
-Where ours still has errors, it has no more than the golden output. In 2 of the 791 cases
-(Microsoft Graph and Graph beta with `--path-params-as-types`, 24 MB each) TypeScript cannot finish
-the check of either file: it stops with `RangeError: Map maximum size exceeded`, as a user's `tsc`
-does; the default output of the same documents compiles.
+Where ours still has errors, it has no more than the golden output. In 2 of the 827
+`--path-params-as-types` cases (Microsoft Graph and Graph beta, 24 MB each) TypeScript cannot
+finish the check of either file: it stops with `RangeError: Map maximum size exceeded`, as a user's
+`tsc` does; the default output of the same documents compiles.
 
 ## Intentional differences
 
