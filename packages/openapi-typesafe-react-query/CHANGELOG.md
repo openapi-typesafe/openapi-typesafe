@@ -1,6 +1,6 @@
 # openapi-typesafe-react-query
 
-This package is a fork of `openapi-react-query`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-react-query` versions.
+This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
 ## 1.0.0-rc.3
 

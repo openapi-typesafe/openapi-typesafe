@@ -1,6 +1,6 @@
 # openapi-typesafe
 
-This package is a fork of `openapi-typescript`. Entries below are the upstream history up to the fork point (upstream commit `d46a319a`); versions in them are `openapi-typescript` versions.
+This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
 ## 1.0.0-rc.3
 
