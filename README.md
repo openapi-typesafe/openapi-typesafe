@@ -1,6 +1,7 @@
 # openapi-typesafe
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/openapi-typesafe/openapi-typesafe/badge)](https://scorecard.dev/viewer/?uri=github.com/openapi-typesafe/openapi-typesafe)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16469/badge)](https://www.bestpractices.dev/projects/16469)
 
 Type-safe TypeScript for OpenAPI: generate types from an OpenAPI 3.x schema and call your API with a
 fully typed `fetch` client.
