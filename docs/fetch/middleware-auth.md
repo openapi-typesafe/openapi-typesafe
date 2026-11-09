@@ -105,6 +105,11 @@ const cacheMiddleware: Middleware = {
 };
 ```
 
+A middleware result or a custom `fetch` result is a `Response` when it has `ok`, `status`,
+`headers` and `text()`, as a `Response` of any realm or Fetch implementation has. A lookalike
+without them throws (`onResponse: must return new Response() …`, `fetch: must return new
+Response()`), so a test double must be a real `Response`, such as `Response.json(data)`.
+
 When a middleware returns a `Response`:
 
 * The request is not sent to the server

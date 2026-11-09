@@ -132,6 +132,29 @@ openapi-fetch 0.17 sent `String(date)` in a form, a local-time text.
    the behavior, so the budget rises to 9.5 kB. Correctness ranks above size (CODING_PRINCIPLES
    §1), and the descriptions state the new gzipped size.
 
+## Amendment (2026-11-09): the parse error has no `cause`
+
+Point 2 of the amendment above is wrong. It said the parser's error quotes "up to 10 characters"
+and that nothing new reaches a log through it. A recheck found that V8 quotes a short input whole
+(`Unexpected token 's', "sk_live_abc123" is not valid JSON`) and the first 10 characters of a
+longer one, and JavaScriptCore (Bun, Safari) quotes the first token it fails on
+(`Unexpected identifier "gho_16C7e4..."`), which for a bare token body is the token itself. Error
+trackers and `console.error` print the `cause` chain, so the secret reached a log through it. That
+openapi-fetch 0.17 threw the same error does not make it safe: the point of the message rule is
+that the client's error holds no body text.
+
+Point 2 now reads:
+
+2. The client's `SyntaxError` has no `cause`. The parser's error adds only body text and a position
+   that differs by engine; the status, the `Content-Type`, the length and the hint say what came
+   back, and `parseAs: "text"` shows the body when the caller chooses to read it.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| No `cause` (chosen) | No body text anywhere in the error; fewer bytes | The engine's position is gone; the body takes a `parseAs: "text"` request |
+| A sanitized cause (name and position only) | Keeps a position | The position must be parsed out of engine-specific messages; a made-up error is no better than none |
+| Keep the parser's error | Platform detail kept | Leaks short secrets whole on V8 and the first token on JavaScriptCore |
+
 ## Review trigger
 
 A report of a server that needs empty parameters on the wire or a `Date` in another format, a

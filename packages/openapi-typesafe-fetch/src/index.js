@@ -22,6 +22,13 @@ const NESTED_FORM_VALUE_MESSAGE = "Nested form values need your own `bodySeriali
 const BOUNDARY_PARAMETER_RE = /;\s*boundary=/i;
 
 /**
+ * The FormData objects the default `bodySerializer` built. Only for them is the boundary the
+ * platform's alone, whoever returns them (a `bodySerializer` may wrap the default one). A WeakSet
+ * holds no object alive and needs no reset (ADR-013, decision 10).
+ */
+const clientBuiltForms = new WeakSet();
+
+/**
  * Whether `fetch` is Node.js undici, which takes `requestInitExt` as a second argument. A Node.js
  * version check is not needed: every supported Node.js (`engines`) ships undici.
  */
@@ -134,9 +141,8 @@ export default function createClient(clientOptions) {
       headers,
       params.header,
     );
-    if (serializedBody instanceof FormData) {
-      const isClientBuilt = serializedBody !== body && bodySerializer === defaultBodySerializer;
-      dropFormContentType(finalHeaders, isClientBuilt);
+    if (isPlatformInstance(serializedBody, "FormData")) {
+      dropFormContentType(finalHeaders, clientBuiltForms.has(serializedBody));
     }
 
     // Client level middleware take priority over request-level middleware
@@ -145,7 +151,7 @@ export default function createClient(clientOptions) {
     const requestInit = {
       redirect: "follow",
       // The Fetch standard requires `duplex: "half"` (its only value) for a stream body.
-      duplex: serializedBody instanceof ReadableStream ? "half" : undefined,
+      duplex: isStreamBody(serializedBody) ? "half" : undefined,
       ...baseOptions,
       ...init,
       body: serializedBody,
@@ -252,6 +258,10 @@ export default function createClient(clientOptions) {
         if (errorAfterMiddleware) {
           throw errorAfterMiddleware;
         }
+      }
+      // A lookalike from the `fetch` option is rejected as one from middleware is (ADR-025).
+      if (!isResponse(response)) {
+        throw new Error("fetch: must return new Response()");
       }
 
       // middleware (response)
@@ -485,18 +495,18 @@ function isResponse(value) {
 
 /**
  * Parse a JSON body. A body that is not JSON, such as the HTML page of a proxy, threw a bare
- * `SyntaxError`; this one names the response, says which `parseAs` reads it, and keeps the first
- * one as `cause` (ADR-041). It holds no body text: a body such as a form-encoded OAuth token
- * answer would carry a secret into logs and error trackers.
+ * `SyntaxError`; this one names the response and says which `parseAs` reads it (ADR-041). It holds
+ * no body text, and so no `cause`: the parser's message quotes the body, and a body such as a
+ * form-encoded OAuth token answer would carry a secret into logs and error trackers.
  */
 function parseJSON(raw, response) {
   try {
     return JSON.parse(raw);
-  } catch (cause) {
+  } catch {
     const contentType = response.headers.get("Content-Type");
     const hint = TEXT_MEDIA_TYPE_RE.test(contentType) ? 'set `parseAs: "text"`' : "set `parseAs`";
     const subject = `Response ${response.status} (${contentType ?? "no Content-Type"})`;
-    throw new SyntaxError(`${subject} is not JSON (${raw.length} characters); ${hint}`, { cause });
+    throw new SyntaxError(`${subject} is not JSON (${raw.length} characters); ${hint}`);
   }
 }
 
@@ -785,30 +795,52 @@ function checkSerializedPath(template, url) {
 }
 
 /**
+ * Whether a value is an instance of the platform class `name`. A runtime may lack the class (React
+ * Native has no `ReadableStream`); then no value is one, and the check does not throw.
+ */
+function isPlatformInstance(value, name) {
+  const type = globalThis[name];
+  return typeof type === "function" && value instanceof type;
+}
+
+/**
+ * A stream body: a `ReadableStream`, or an async iterable such as a Node.js `Readable`, which
+ * `fetch` in Node.js, Deno and Bun also streams. Both need `duplex: "half"` (ADR-013, decision 6).
+ */
+function isStreamBody(body) {
+  return (
+    isPlatformInstance(body, "ReadableStream") || typeof body?.[Symbol.asyncIterator] === "function"
+  );
+}
+
+/**
  * Bodies `fetch` sends as they are, with their own `Content-Type` (FormData, Blob, URLSearchParams)
  * or none. JSON-encoding a Blob, an ArrayBuffer or a stream sent `{}` (ADR-013, decision 6).
  */
 function isRawBody(body) {
   return (
-    body instanceof FormData ||
-    body instanceof Blob ||
-    body instanceof URLSearchParams ||
-    body instanceof ArrayBuffer ||
-    body instanceof ReadableStream ||
-    ArrayBuffer.isView(body)
+    ["FormData", "Blob", "URLSearchParams", "ArrayBuffer"].some((name) =>
+      isPlatformInstance(body, name),
+    ) ||
+    ArrayBuffer.isView(body) ||
+    isStreamBody(body)
   );
 }
 
-/** Whether a form value is a nested object, which form encodings cannot hold; a `Date` is not. */
+/**
+ * Whether a form item is nested: an object or an array, which form encodings cannot hold. A `Date`
+ * is not. A field holds one level of array, so its items are checked, not the field.
+ */
 function isNestedFormValue(value) {
-  return value && typeof value === "object" && !Array.isArray(value) && !isDate(value);
+  return value && typeof value === "object" && !isDate(value);
 }
 
 /**
- * A form body. A nested object has no standard form encoding (servers read `a[b]`, `a.b` or JSON),
- * and `URLSearchParams` wrote it as `[object Object]` (ADR-013, decision 7). `null` and `undefined`
- * fields are left out, as in a multipart body; `URLSearchParams` sent them as the text "null" and
- * "undefined" (ADR-030). A string or a list of pairs is form data already.
+ * A form body. A nested object or array, also as an array item, has no standard form encoding
+ * (servers read `a[b]`, `a.b` or JSON), and `URLSearchParams` wrote it as `[object Object]` or
+ * flattened it (ADR-013, decision 7). `null` and `undefined` fields are left out, as in a multipart
+ * body; `URLSearchParams` sent them as the text "null" and "undefined" (ADR-030). A string or a
+ * list of pairs is form data already.
  */
 function formBody(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -816,12 +848,13 @@ function formBody(body) {
   }
   const form = new URLSearchParams();
   for (const [name, value] of Object.entries(body)) {
-    if (isNestedFormValue(value)) {
+    const items = [value].flat();
+    if (items.some(isNestedFormValue)) {
       throw new Error(NESTED_FORM_VALUE_MESSAGE);
     }
     if (value != null) {
       // An array is one comma-separated value, as `URLSearchParams` writes it.
-      form.append(name, Array.isArray(value) ? value.map(valueText).join(",") : valueText(value));
+      form.append(name, items.map(valueText).join(","));
     }
   }
   return form.toString();
@@ -830,14 +863,15 @@ function formBody(body) {
 /**
  * A `multipart/form-data` body: one part per field, one per item of an array. A `Blob` (or `File`)
  * is a file part, other primitives are text, `null` and `undefined` are left out. A nested object
- * would need a part content type such as JSON, which the client does not guess (ADR-013,
- * decision 10).
+ * or array would need a part content type such as JSON, which the client does not guess (ADR-013,
+ * decision 10). The FormData is marked as the client's, so its `Content-Type` is the platform's.
  */
 function multipartBody(body) {
   const formData = new FormData();
+  clientBuiltForms.add(formData);
   for (const [name, value] of Object.entries(body)) {
     for (const item of [value].flat()) {
-      if (item instanceof Blob) {
+      if (isPlatformInstance(item, "Blob")) {
         formData.append(name, item);
       } else if (isNestedFormValue(item)) {
         throw new Error(NESTED_FORM_VALUE_MESSAGE);

@@ -22,6 +22,22 @@ describe("defaultBodySerializer result type", () => {
     expect([sentBlob, sentBytes]).toEqual([blob, bytes]);
   });
 
+  it("defaultBodySerializer of a stream is that stream", () => {
+    const stream = new Blob(["x"]).stream();
+    const chunks = (async function* () {
+      yield new Uint8Array([1]);
+    })();
+
+    const sentStream = defaultBodySerializer(stream);
+    const sentChunks = defaultBodySerializer(chunks, MULTIPART_HEADERS);
+
+    expectTypeOf(sentStream).toEqualTypeOf<ReadableStream<Uint8Array<ArrayBuffer>>>();
+    expectTypeOf(sentChunks).toEqualTypeOf<
+      AsyncGenerator<Uint8Array<ArrayBuffer>, void, unknown>
+    >();
+    expect([sentStream, sentChunks]).toEqual([stream, chunks]);
+  });
+
   it("defaultBodySerializer of an object without headers is a string", () => {
     const sent = defaultBodySerializer({ a: 1 });
 
@@ -65,7 +81,15 @@ describe("defaultBodySerializer result type", () => {
     const sent = defaultBodySerializer(body, MULTIPART_HEADERS);
 
     expectTypeOf(sent).toEqualTypeOf<
-      FormData | Blob | URLSearchParams | ArrayBuffer | ArrayBufferView | string | undefined
+      | FormData
+      | Blob
+      | URLSearchParams
+      | ArrayBuffer
+      | ArrayBufferView
+      | ReadableStream
+      | AsyncIterable<unknown>
+      | string
+      | undefined
     >();
     expect(sent).toBe(body);
   });

@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import createClient, { defaultBodySerializer } from "../../src/index.js";
+import createClient, { defaultBodySerializer, type HeadersOptions } from "../../src/index.js";
 
 /**
  * `multipart/form-data` bodies and binary responses (roadmap R1, ADR-013 decision 10). An object
@@ -130,6 +130,28 @@ describe("multipart/form-data bodies", () => {
     expect((await request.formData()).get("description")).toBe("hi");
   });
 
+  it("POST drops a hand-set boundary when a bodySerializer wraps the default one", async () => {
+    const requests: Request[] = [];
+    const client = createClient<Paths>({
+      baseUrl: BASE_URL,
+      bodySerializer: (body: unknown, headers?: HeadersOptions) =>
+        defaultBodySerializer(body, headers),
+      fetch: async (request) => {
+        requests.push(request);
+        return Response.json({ id: 1 }, { status: 201 });
+      },
+    });
+
+    await client.POST("/avatars", {
+      headers: { "Content-Type": "multipart/form-data; boundary=myboundary" },
+      body: { file: new Blob(["x"]), description: "hi" },
+    });
+
+    const request = onlyRequest(requests);
+    expect(request.headers.get("Content-Type")).not.toContain("myboundary");
+    expect((await request.formData()).get("description")).toBe("hi");
+  });
+
   it("POST keeps a hand-set boundary for a FormData body the caller built", async () => {
     const requests: RequestInit[] = [];
     const header = "multipart/form-data; boundary=own";
@@ -166,6 +188,15 @@ describe("multipart/form-data bodies", () => {
     });
 
     expect(onlyRequest(requests).headers.get("Content-Type")).toBe(header);
+  });
+
+  it.each([
+    ["a nested array", { m: [[1, 2], [3]] }],
+    ["an array of objects", { tags: [{ id: 1 }] }],
+  ])("defaultBodySerializer rejects %s in a multipart body", (_name, body) => {
+    expect(() => defaultBodySerializer(body, MULTIPART_HEADERS)).toThrow(
+      "Nested form values need your own `bodySerializer()`.",
+    );
   });
 
   it("defaultBodySerializer with a multipart header returns FormData", () => {

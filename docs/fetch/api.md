@@ -79,9 +79,9 @@ As in openapi-fetch, a success body is parsed as JSON unless `parseAs` says othe
 its `Content-Type`; a `text/plain` response needs `parseAs: "text"`. A success body that is not
 JSON (for example the HTML page of a proxy) throws a `SyntaxError` that names the status, the
 `Content-Type` and the length of the body, and says which `parseAs` to set (`parseAs: "text"` for
-a `text/*` response); the parser's own error is its `cause`. The message holds no body text, since
-a body can hold a secret (a form-encoded OAuth token answer) and the message reaches logs; read
-`response` with `parseAs: "text"` to see it. An error
+a `text/*` response). The error holds no body text, since a body can hold a secret (a form-encoded
+OAuth token answer) and errors reach logs, so it has no `cause` either: the parser's message quotes
+the body. Read `response` with `parseAs: "text"` to see it. An error
 response (`4xx`, `5xx`) whose body is not JSON gives the text as `error` instead of throwing.
 
 ### Headers
@@ -250,8 +250,8 @@ const { data, error } = await client.POST("/avatars", {
 });
 ```
 
-A nested object in such a body throws, because a part with JSON needs its own content type and
-servers differ. For that, or any other format, write a `bodySerializer`:
+A nested object or array (an object item, or an array in an array) in such a body throws, because a
+part with JSON needs its own content type and servers differ. For that, or any other format, write a `bodySerializer`:
 
 ```ts
 const { data, error } = await client.PUT("/submit", {
@@ -276,10 +276,11 @@ const { data, error } = await client.PUT("/submit", {
 
 For convenience, `openapi-typesafe-fetch` sets `Content-Type` to `application/json` automatically
 for any request that provides value for the `body` parameter. When the body (or the `bodySerializer` result) is a
-`FormData`, `Blob`, `File`, `URLSearchParams`, `ArrayBuffer` or typed array, `Content-Type` is omitted, allowing the
+`FormData`, `Blob`, `File`, `URLSearchParams`, `ArrayBuffer`, typed array or stream, `Content-Type` is omitted, allowing the
 platform to set it automatically (for `FormData`, with the correct message part boundary). For the
 same reason a `multipart/form-data` `Content-Type` that you set is dropped when the client builds
-the `FormData` from an object, `boundary` or not: the platform picks the boundary of the body. For a
+the `FormData` from an object, `boundary` or not: the platform picks the boundary of the body. This
+holds for a `bodySerializer` of yours that returns the result of `defaultBodySerializer` too. For a
 `FormData` that you build yourself, a `Content-Type` without a `boundary` is dropped, and one with a
 `boundary` is kept for a `fetch` of your own that writes the parts with it.
 
@@ -310,6 +311,9 @@ schema) is sent as is. Set `Content-Type` yourself when the server needs one; a 
 from the platform. A `ReadableStream` is streamed: the client sets `duplex: "half"`, which the Fetch
 standard requires for a stream body. Node.js, Deno and Bun send it; browser support for stream
 request bodies varies (Chromium needs HTTP/2), so in a browser send a `Blob` unless you checked yours.
+An async iterable, such as a Node.js `Readable` (`fs.createReadStream()`), is streamed the same way:
+Node.js, Deno and Bun accept it as a body (Deno only with `Uint8Array` chunks). Browsers do not, so
+there wrap it in a `ReadableStream`.
 
 ```ts
 const { data, error } = await client.PUT("/files/{name}", {
@@ -336,7 +340,8 @@ const { data, error } = await client.POST("/tokens", {
 ```
 
 Form encoding has no standard for nested objects (servers read `a[b]`, `a.b` or JSON), so a nested
-object value throws an error instead of being sent as `[object Object]`. An array becomes one
+object value, an object in an array, or an array in an array throws an error instead of being sent
+as `[object Object]` or flattened. An array becomes one
 comma-separated value (`ids=1%2C2`), a `Date` its ISO 8601 text as in parameters, and a `null` or
 `undefined` field is left out, as in a multipart body. For nested values or repeated keys, write a `bodySerializer` in the format your server reads.
 

@@ -222,6 +222,77 @@ a `ResponseError`:
 | Throw a `ResponseError`, keep the old type | No type change | The type is wrong exactly when the case happens |
 | Export a `ResponseError` class at runtime | `instanceof ResponseError` | Changes what `require()` returns (ADR-022) |
 
+## Amendment (2026-11-09): the recheck of the rc.3 fixes (decisions 6, 7 and 10)
+
+A recheck of the rc.3 hunt fixes found four gaps in the amendments above.
+
+### Platform classes a runtime may lack (decision 6)
+
+The stream amendment checked `body instanceof ReadableStream` on every request. React Native
+(Hermes) has `fetch` and `FormData` but no `ReadableStream`, so every request threw
+`ReferenceError: ReadableStream is not defined`, also a `GET` without a body. openapi-fetch 0.17
+checked `FormData` only.
+
+1. Every check against a platform class (`FormData`, `Blob`, `URLSearchParams`, `ReadableStream`,
+   and `ArrayBuffer` by the same rule) reads the class from `globalThis` and counts no value as an
+   instance when the class is missing. A body that needs a missing class to be built (a multipart
+   object body without `FormData`) still fails with the platform's error, which names the class.
+2. `missing-platform-globals.test.ts` runs the client with these classes removed.
+
+### Stream-like bodies (decision 6)
+
+A Node.js `Readable` (`fs.createReadStream()`) is not a `ReadableStream`, so it was JSON-encoded to
+its internal fields (`{"_events":{},...}`), as in openapi-fetch 0.17, and the upload was lost
+without an error. `fetch` in Node.js (undici), Deno and Bun accepts any async iterable as a body,
+with `duplex: "half"`.
+
+3. A body with a `Symbol.asyncIterator` method is a stream body, like a `ReadableStream`: sent as
+   it is, without the JSON `Content-Type`, with `duplex: "half"`. The platform reads the chunks:
+   Deno rejects chunks that are not `Uint8Array` with its own error. Browsers do not take an async
+   iterable body; the docs say to wrap it in a `ReadableStream` there. The declared result of
+   `defaultBodySerializer` counts both stream kinds as raw bodies too, so it is the stream, not
+   `string`.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Send an async iterable as it is, with `duplex` (chosen) | What the three server runtimes accept; no conversion code | A browser turns it into text, as it does for any body it does not know |
+| Convert it with `ReadableStream.from()` | Works in browsers that have `ReadableStream.from` | Bytes; Chromium lacks it; changes nothing on the server runtimes |
+| Throw for an async iterable | Clear | Rejects a body that every server runtime sends |
+
+### Nested items in form bodies (decisions 7 and 10)
+
+Decisions 7 and 10 checked the field value and skipped arrays, so an item was not checked: in an
+`application/x-www-form-urlencoded` body, `{ tags: [{ id: 1 }] }` was sent as `[object Object]`
+and `[[1, 2], [3]]` was flattened to `1,2,3`; in a multipart body (since the `Date` amendment of
+ADR-041) `[[1, 2], [3]]` became the parts `1,2` and `3`.
+
+4. A form field is a primitive, a `Date`, a `Blob` (multipart only) or an array of them. An object
+   or an array as an item throws the error of decisions 7 and 10, in both form encodings.
+
+### Who built the FormData (decision 10)
+
+The FormData amendment told a client-built `FormData` by function identity
+(`bodySerializer === defaultBodySerializer`). A `bodySerializer` that wraps the default one (to add
+a field or log) returned a `FormData` the client built, but the user's `boundary` header stayed,
+and the server could not split the parts.
+
+5. The default serializer records each `FormData` it builds in a module `WeakSet`. A `FormData` in
+   the set, whoever returns it, gets the platform's `Content-Type`; any other `FormData` keeps the
+   rule of decision 10.
+6. The `WeakSet` is module state next to the request id counter of decision 4. It holds no object
+   alive (a form leaves it with its last reference), its answer for one form never changes, and so
+   it needs no reset between tests or clients.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Mark the forms the client builds in a `WeakSet` (chosen) | Right for any serializer that returns them; no change to the form | A second piece of module state |
+| A symbol property on the `FormData` | No module state | Adds a property to an object the user may get back and inspect |
+| Compare the header boundary with the body | No marking | The platform writes the boundary only when it sends the body |
+
+The four fixes and the response check of the ADR-025 amendment of the same date fit in the
+9.5 kB budget (9,499 bytes): the urlencoded array now uses the item list it already builds, and
+dropping the `cause` of the parse error (ADR-041) frees a few bytes.
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`

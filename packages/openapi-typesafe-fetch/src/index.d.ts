@@ -477,8 +477,18 @@ export declare function defaultPathSerializer(
   pathParams: Record<string, unknown>,
 ): string;
 
-/** Bodies that `fetch` sends as they are, so `defaultBodySerializer` returns them unchanged. */
-type RawRequestBody = FormData | Blob | URLSearchParams | ArrayBuffer | ArrayBufferView;
+/**
+ * Bodies that `fetch` sends as they are, so `defaultBodySerializer` returns them unchanged. A
+ * stream is a `ReadableStream` or an async iterable, such as a Node.js `Readable`.
+ */
+type RawRequestBody =
+  | FormData
+  | Blob
+  | URLSearchParams
+  | ArrayBuffer
+  | ArrayBufferView
+  | ReadableStream
+  | AsyncIterable<unknown>;
 
 /**
  * The result of `defaultBodySerializer` for a body of type `Body`: the body itself when it is raw,

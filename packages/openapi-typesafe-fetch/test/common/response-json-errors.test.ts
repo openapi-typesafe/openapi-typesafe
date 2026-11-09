@@ -67,7 +67,18 @@ describe("a success body that is not JSON", () => {
     expect((failure as SyntaxError).message).toBe(
       `Response 200 (application/json) is not JSON (${PROXY_PAGE.length} characters); set \`parseAs\``,
     );
-    expect((failure as SyntaxError).cause).toBeInstanceOf(SyntaxError);
+    expect((failure as SyntaxError).cause).toBeUndefined();
+  });
+
+  it("the error has no cause, whose parser message would quote a short token whole", async () => {
+    const token = "sk_live_abc123";
+    const client = clientAnswering(() => typedResponse(token, "text/plain"));
+
+    const failure = await client.GET("/greeting").catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(SyntaxError);
+    expect((failure as SyntaxError).cause).toBeUndefined();
+    expect(JSON.stringify(failure, Object.getOwnPropertyNames(failure))).not.toContain(token);
   });
 
   it("the message holds no body text, such as a token of a form-encoded OAuth answer", async () => {
