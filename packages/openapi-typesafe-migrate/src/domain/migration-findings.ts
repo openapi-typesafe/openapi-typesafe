@@ -33,7 +33,8 @@ export type Change =
       readonly from: string;
       readonly to: string;
     }
-  | { readonly kind: "transform-rewritten"; readonly line: number };
+  | { readonly kind: "transform-rewritten"; readonly line: number }
+  | { readonly kind: "declaration-removed"; readonly line: number; readonly name: string };
 
 export type ManualStep =
   | { readonly kind: "manifest-unreadable"; readonly reason: string }

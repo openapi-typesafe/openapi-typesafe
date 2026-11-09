@@ -14,12 +14,14 @@ import { createFileBindings } from "./file-bindings.js";
 import { type GeneratorCall, generatorCalls } from "./generator-calls.js";
 import { plainScriptKind } from "./script-regions.js";
 import { returnEdits, returnedExpressions } from "./transform-returns.js";
+import { removalEdits, unusedDeclarations } from "./unused-declarations.js";
 
 /**
  * The CallbackRewriter port on the TypeScript 6 parser (ADR-015). In each `openapiTS(source, {…})`
  * call where `transform` is the only callback and every value it returns builds a type with
  * `ts.factory` or the helpers, the returns become TypeScript type text and `irCallbacks: true` is
- * added. Every other legacy callback is reported, not changed: it still works, with a warning.
+ * added; the module-level constants and imports that only the old returns used are removed. Every
+ * other legacy callback is reported, not changed: it still works, with a warning.
  */
 
 const TRANSFORM = "transform";
@@ -236,11 +238,20 @@ function findCallFindings(file: ts.SourceFile, text: string, names: FactoryNames
   return all;
 }
 
-/** The rewrite of a file that calls the generator. */
+/** The rewrite of a file that calls the generator, with the declarations it leaves unused. */
 function rewriteFile(file: ts.SourceFile, names: FactoryNames): FileMigration {
   const text = file.text;
   const { edits, changes, manualSteps } = findCallFindings(file, text, names);
-  return { text: applyTextEdits(text, edits), changes, manualSteps };
+  const removed = unusedDeclarations(names, edits);
+  for (const found of removed) {
+    changes.push({
+      kind: "declaration-removed",
+      line: lineAt(text, found.node.getStart()),
+      name: found.name,
+    });
+  }
+  const allEdits = [...edits, ...removalEdits(removed, text)];
+  return { text: applyTextEdits(text, allEdits), changes, manualSteps };
 }
 
 class TypescriptCallbackRewriter implements CallbackRewriter {

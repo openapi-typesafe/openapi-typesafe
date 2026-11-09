@@ -102,6 +102,32 @@ function typeName(argument: ts.Expression | undefined, names: FactoryNames): str
   return undefined;
 }
 
+/** Digits with optional `_` separators between them, as in `1_000`. */
+const digits = (digit: string): string => `${digit}(?:_?${digit})*`;
+const DECIMAL_LITERAL =
+  `(?:(?:0|[1-9](?:_?\\d)*)(?:\\.(?:${digits("\\d")})?)?|\\.${digits("\\d")})` +
+  `(?:[eE][+-]?${digits("\\d")})?`;
+/** A numeric literal as TypeScript writes it: decimal, hex, octal or binary. */
+const NUMERIC_LITERAL_RE = new RegExp(
+  `^(?:0[xX]${digits("[\\da-fA-F]")}|0[oO]${digits("[0-7]")}|0[bB]${digits("[01]")}|` +
+    `${DECIMAL_LITERAL})$`,
+);
+
+/**
+ * The text that `createNumericLiteral(value)` prints. A string prints as given, so it is kept as
+ * written (`1_000`, `1e999`) when it is a numeric literal. A number prints as JavaScript writes
+ * it, and one beyond the range of a number prints `Infinity`, which is no type: that is left.
+ */
+function numericLiteralText(value: ts.Expression): string | undefined {
+  if (ts.isNumericLiteral(value)) {
+    const number = Number(value.text);
+    return Number.isFinite(number) ? String(number) : undefined;
+  }
+  return ts.isStringLiteralLike(value) && NUMERIC_LITERAL_RE.test(value.text)
+    ? value.text
+    : undefined;
+}
+
 function literalText(argument: ts.Expression | undefined, names: FactoryNames): string | undefined {
   if (argument === undefined || !ts.isCallExpression(argument)) {
     return undefined;
@@ -120,9 +146,7 @@ function literalText(argument: ts.Expression | undefined, names: FactoryNames): 
         ? JSON.stringify(value.text)
         : undefined;
     case "createNumericLiteral":
-      return value !== undefined && (ts.isNumericLiteral(value) || ts.isStringLiteralLike(value))
-        ? String(Number(value.text))
-        : undefined;
+      return value === undefined ? undefined : numericLiteralText(value);
     default:
       return undefined;
   }

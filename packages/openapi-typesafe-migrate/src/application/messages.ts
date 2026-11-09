@@ -27,6 +27,8 @@ export function changeMessage(change: Change): string {
       return `line ${change.line}: "${change.from}" → "${change.to}"`;
     case "transform-rewritten":
       return `line ${change.line}: transform returns type text; irCallbacks: true added`;
+    case "declaration-removed":
+      return `line ${change.line}: ${change.name} removed; only the old transform returns used it`;
     default:
       return assertNever(change);
   }

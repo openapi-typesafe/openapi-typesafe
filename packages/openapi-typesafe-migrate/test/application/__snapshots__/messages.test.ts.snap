@@ -9,6 +9,7 @@ exports[`changeMessage > changeMessage describes every kind of change 1`] = `
   "ci.yml:4: a → b",
   "line 3: "a" → "b"",
   "line 7: transform returns type text; irCallbacks: true added",
+  "line 2: DATE removed; only the old transform returns used it",
 ]
 `;
 

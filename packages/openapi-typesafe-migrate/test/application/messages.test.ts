@@ -10,6 +10,7 @@ const CHANGES: readonly Change[] = [
   { kind: "package-name-renamed", location: "ci.yml:4", from: "a", to: "b" },
   { kind: "specifier-renamed", line: 3, from: "a", to: "b" },
   { kind: "transform-rewritten", line: 7 },
+  { kind: "declaration-removed", line: 2, name: "DATE" },
 ];
 
 const STEPS: readonly ManualStep[] = [
