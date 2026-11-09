@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,13 +12,17 @@ import { afterAll, describe, expect, it } from "vitest";
  * TS2742 ("cannot be named without a reference to …/openapi-typesafe-helpers"). The consumer here
  * has the packages in pnpm's layout: each in `node_modules/.pnpm/<id>/node_modules/` next to its
  * own dependencies, and only `openapi-typesafe-fetch` linked into the consumer's `node_modules`.
- * Needs `dist` of this package and of the helpers (`pnpm build`).
+ * Yarn PnP names a type by the package that declares it, so the published declarations hold
+ * copies of the helper types instead of importing them (ADR-034). Needs `dist` of this package
+ * and of the helpers (`pnpm build`).
  */
 
 const PACKAGE_DIR = fileURLToPath(new URL("../..", import.meta.url));
 const HELPERS_DIR = fileURLToPath(new URL("../../../openapi-typesafe-helpers", import.meta.url));
 /** What a package publishes that the compiler reads. */
 const PUBLISHED_PATHS = ["package.json", "dist"];
+/** The published declarations: of the ES module, of the CommonJS module, and of `main`. */
+const DECLARATION_FILES = ["index.d.mts", "index.d.cts", "index.d.ts"];
 /**
  * The test builds and emits a whole TypeScript program. Its twin in the hooks package took 5.1 s on
  * a GitHub runner, past the default 5 s limit; 60 s leaves room for a loaded runner and still
@@ -108,5 +112,13 @@ describe("declarations of a library that uses the client", () => {
     expect(codes).toEqual([]);
     expect(declarations).toContain('import("openapi-typesafe-fetch")');
     expect(declarations).not.toContain("openapi-typesafe-helpers");
+  });
+
+  it.each(DECLARATION_FILES)("%s declares the helper types instead of importing them", (file) => {
+    const declarations = readFileSync(join(PACKAGE_DIR, "dist", file), "utf8");
+
+    expect(declarations).not.toContain("openapi-typesafe-helpers");
+    expect(declarations).toMatch(/^type FilterKeys<Obj, Matchers> =/m);
+    expect(declarations).toMatch(/^export type \{[^}]*\bFilterKeys\b/m);
   });
 });

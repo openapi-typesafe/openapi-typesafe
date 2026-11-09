@@ -293,6 +293,54 @@ The four fixes and the response check of the ADR-025 amendment of the same date 
 9.5 kB budget (9,499 bytes): the urlencoded array now uses the item list it already builds, and
 dropping the `cause` of the parse error (ADR-041) frees a few bytes.
 
+## Amendment (2026-11-09): `isResponseError`, and every error that reaches `error`
+
+The second type hunt before rc.4 found three gaps in the amendment "the hooks throw a
+`ResponseError` without an error body" of the same date. The documented
+narrowing `error instanceof Error` is also true for a network `TypeError`, an abort, the client's
+`SyntaxError` for a body that is not JSON (ADR-041) and a middleware error, and then the types
+claimed `status` and `response`: `error.status` was `undefined` and `error.response.status`
+crashed. `error.name === "ResponseError"` did not compile when the error body has no `name`. And
+an error body of JSON `null` was thrown as is, so the query's status was `"error"` with
+`error === null`, and `if (error)` missed the failure.
+
+Decisions 3 and 4 of that amendment now read:
+
+1. `isResponseError(error: unknown): error is ResponseError` is a runtime named export. It is true
+   for an `Error` whose `name` is `"ResponseError"`. It checks the name, not the class, so it also
+   knows a `ResponseError` of another copy of the package (the CommonJS and the ES module build
+   loaded side by side). An error body parsed from JSON is never an `Error`. `ResponseError`
+   stays an interface, so its constructor is not public API.
+2. `require()` still returns `createClient` (ADR-022, amendment). The named exports are its
+   properties, so `const { isResponseError } = require(…)` works, and the CommonJS declarations
+   put `isResponseError` in the namespace merged with `createClient`.
+3. The error type of the hooks and of `queryOptions` is
+   `Exclude<ErrorBody, undefined | null> | ResponseError | DefaultError`. `DefaultError` is
+   TanStack Query's type for what a query function throws: `Error`, or the type a user registers
+   with `Register`. Network errors, aborts, parse errors and middleware errors reach TanStack's
+   `error` at runtime, so the type says so. This replaces decision 11 of ADR-025 for the hooks
+   (see its amendment): that decision kept them out until 2.0 because code that compiles with
+   openapi-react-query would fail, but the `ResponseError` above already makes code that reads a
+   field of the error body narrow first. With `DefaultError` added, `error.message` still compiles
+   when the body has a `message`; what stops compiling is `error.status` after
+   `error instanceof Error`, which failed at runtime.
+4. A JSON `null` error body is no error body: the hooks throw a `ResponseError` for it, as for an
+   empty one (`error !== undefined && error !== null` decides). The fetch client keeps
+   `error: null`, the parsed body. A schema that declares a nullable error body gets a
+   `ResponseError` too, with the response to read.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Export a type guard `isResponseError` (chosen) | Narrows to `ResponseError` and nothing else; works across copies of the package; no public constructor | A named runtime export, so the CommonJS module needs the property shape of decision 2 |
+| Export a `ResponseError` class for `instanceof` | Familiar | `instanceof` fails across two copies of the package; the constructor becomes semver-covered API |
+| `$api.isResponseError` on the client | No new export | `OpenapiQueryClient` gets a member that an object typed with it by hand must add; the check has nothing to do with one client |
+| Keep `instanceof Error` and `name` in the docs | No code | `instanceof Error` cannot tell a network error; `name` does not compile without `name` in the body and does not narrow `Error`, whose `name` is a `string` |
+| Add `DefaultError` to the error type (chosen) | The type holds every value `error` can hold; follows TanStack's `Register` | `error.status` after `instanceof Error` stops compiling, as it should |
+| Add `unknown` for the other errors | Covers a middleware that throws a non-`Error` | `unknown` absorbs the union: every use of `error` must narrow, also `error.message` |
+| Keep the error type of that amendment | No change | Types claim `status` for a network error, exactly the case of the docs |
+| Treat JSON `null` as no error body (chosen) | `error` is set whenever the query failed | A `null` that the schema declares becomes a `ResponseError` |
+| Throw `null` as the error body | Mirrors the fetch client | TanStack's status says error while `error` is `null` |
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`

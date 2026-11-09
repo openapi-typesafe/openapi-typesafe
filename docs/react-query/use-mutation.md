@@ -8,8 +8,10 @@ The `useMutation` method allows you to use the original [useMutation](https://ta
 
 - The result is the same as the original function.
 - The `mutationKey` is `[method, path]`.
-- `data` and `error` are fully typed. `error` is the declared error body, or a
-  [`ResponseError`](./index.md#errors) when the response failed without one.
+- `data` and `error` are fully typed. `error` is the declared error body, a
+  [`ResponseError`](./index.md#errors) when the response failed without one, or the `Error` of
+  a request that got no response to read (a network or parse error). Tell them apart with
+  `isResponseError(error)`.
 
 ::: tip
 You can find more information about `useMutation` on the [@tanstack/react-query documentation](https://tanstack.com/query/latest/docs/framework/react/guides/mutations).

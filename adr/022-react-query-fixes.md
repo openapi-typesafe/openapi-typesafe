@@ -64,6 +64,30 @@ failure. The roadmap (§3) keeps code that compiles today compiling in 1.x.
 - A first page with `initialPageParam: undefined` no longer sends the page param.
 - Backlog items 32 and 33 hold the 2.0 type changes, with the PRs to start from.
 
+## Amendment (2026-11-09): named runtime exports are properties of `createClient`
+
+Decision 2 kept the infinite query marker out of the runtime exports, because Rollup's CommonJS
+output for a module with a default and named exports makes `require()` return
+`{ default, ...named }` instead of `createClient`. ADR-013 (amendment of 2026-11-09) adds the
+first named runtime export, `isResponseError`.
+
+1. `require("openapi-typesafe-react-query")` still returns `createClient`. The CommonJS build
+   ends with `module.exports = Object.assign(exports.default, exports)`, so every named export is
+   also a property of `createClient` (and `createClient.default` is `createClient`), as in
+   packages such as `express` that export a function with helpers. The ES module has a default
+   and named exports.
+2. The CommonJS declarations stay `export = createClient`, with the named exports and the
+   exported types in a namespace merged with the function (`build.config.ts`).
+3. `test/commonjs-exports.test.ts` loads the built CommonJS module and checks both.
+4. The marker stays private: it is not needed outside the package, and a named export is still
+   public API.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Named exports as properties of `createClient` (chosen) | `require()` keeps its shape; `const { isResponseError } = require(…)` works | A footer in the CommonJS build |
+| Rollup's named CommonJS exports | No build change | `require()` returns `{ default, … }`: breaks `const createClient = require(…)` |
+| Only a property, no ES named export | One shape | ES module users write `createClient.isResponseError` instead of a named import |
+
 ## Review trigger
 
 A reproducible `select` report; the 2.0 planning (items 32, 33); a TanStack Query major version.

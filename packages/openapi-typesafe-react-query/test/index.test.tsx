@@ -219,6 +219,7 @@ describe("client", () => {
             message: string;
           }
         | ResponseError
+        | Error
         | null
       >();
 
@@ -238,6 +239,7 @@ describe("client", () => {
             message: string;
           }
         | ResponseError
+        | Error
         | null
       >();
 
@@ -273,7 +275,7 @@ describe("client", () => {
       );
 
       expectTypeOf(result.current.data).toEqualTypeOf<"select(true)" | undefined>();
-      expectTypeOf(result.current.error).toEqualTypeOf<false | ResponseError | null>();
+      expectTypeOf(result.current.error).toEqualTypeOf<false | ResponseError | Error | null>();
     });
 
     it("returns query options that can be passed to useSuspenseQuery", async () => {
@@ -299,7 +301,7 @@ describe("client", () => {
       await waitFor(() => expect(result.current).not.toBeNull());
 
       expectTypeOf(result.current.data).toEqualTypeOf<"select(true)">();
-      expectTypeOf(result.current.error).toEqualTypeOf<false | ResponseError | null>();
+      expectTypeOf(result.current.error).toEqualTypeOf<false | ResponseError | Error | null>();
     });
 
     it("returns query options without an init", async () => {
@@ -474,7 +476,9 @@ describe("client", () => {
         MethodResponse<typeof client, "get", "/string-array"> | undefined
       >();
       expectTypeOf(data).toEqualTypeOf<string[] | undefined>();
-      expectTypeOf(error).toEqualTypeOf<{ code: number; message: string } | ResponseError | null>();
+      expectTypeOf(error).toEqualTypeOf<
+        { code: number; message: string } | ResponseError | Error | null
+      >();
     });
 
     it("should infer correct data when used with select property", async () => {

@@ -58,9 +58,11 @@ const MyComponent = () => {
 
 ## Errors
 
-`error` is the error body that the schema declares, or a `ResponseError` (a type: narrow with
-`error instanceof Error`) when the response failed without a body, such as an empty `503` from a
-proxy. It carries `status` and `response`. openapi-react-query did not see such a failure: a
+`error` is the error body that the schema declares, a `ResponseError` when the response failed
+without a body, such as an empty `503` from a proxy, or the `Error` of a request that got no
+response to read (a network or parse error). Tell a `ResponseError`, which carries `status` and
+`response`, apart with `isResponseError(error)` (`import createClient, { isResponseError } from
+"openapi-typesafe-react-query"`). openapi-react-query did not see such a failure: a
 mutation succeeded, and a query failed with TanStack's `Query data cannot be undefined`. See
 [Errors](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/react-query/index.md#errors).
 

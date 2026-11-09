@@ -1,5 +1,6 @@
 import {
   type DataTag,
+  type DefaultError,
   type InfiniteData,
   type QueryClient,
   type QueryFunctionContext,
@@ -17,20 +18,21 @@ import {
   useQuery,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+// The helper types come from the client, which declares copies of them in its published
+// declarations: types inferred from the hooks then print the client, a peer every user has, and
+// not `openapi-typesafe-helpers`, which Yarn PnP does not let a library reach (ADR-034).
 import type {
   ClientMethod,
   DefaultParamsOption,
   Client as FetchClient,
   FetchResponse,
-  MaybeOptionalInit,
-  PathOperation,
-} from "openapi-typesafe-fetch";
-import type {
   HttpMethod,
+  MaybeOptionalInit,
   MediaType,
+  PathOperation,
   PathsWithMethod,
   RequiredKeysOf,
-} from "openapi-typesafe-helpers";
+} from "openapi-typesafe-fetch";
 
 // Helper type to dynamically infer the type from the `select` property
 type InferSelectReturnType<TData, TSelect> = TSelect extends (data: TData) => infer R ? R : TData;
@@ -43,11 +45,11 @@ type QueryData<Data> = undefined extends Data ? Exclude<Data, undefined> | null 
 
 /**
  * What the hooks throw when a request fails and the response has no error body: a non-OK status
- * with an empty body, or one whose operation declares no content for it. The fetch client gives
- * `error: undefined` then; throwing that left `error` undefined in TanStack Query while its type
- * said there was an error body, so `error.message` failed at runtime. A type only: narrow with
- * `error instanceof Error` or `error.name === "ResponseError"`. The message names the status, not
- * the URL, which can carry secrets.
+ * with an empty body, a JSON `null` body, or one whose operation declares no content for it. The
+ * fetch client gives `error: undefined` (or `null`) then; throwing that left `error` empty in
+ * TanStack Query while its type said there was an error body. Tell it apart with
+ * `isResponseError(error)`: `error instanceof Error` also matches a network or parse error. The
+ * message names the status, not the URL, which can carry secrets.
  */
 export interface ResponseError extends Error {
   readonly name: "ResponseError";
@@ -58,10 +60,27 @@ export interface ResponseError extends Error {
 }
 
 /**
- * The error of a hook: the error body of a failed response, or a `ResponseError` when it has
- * none. `undefined` is left out: a failed request always throws a value.
+ * The error of a hook: the error body of a failed response, a `ResponseError` when it has none, or
+ * what the request threw before there was a response to read: a network error (`TypeError`), an
+ * abort, a body that is not JSON (`SyntaxError`) or a middleware error. TanStack Query types that
+ * last part as `DefaultError` (`Error` unless `Register` says otherwise). `undefined` and `null`
+ * are left out: a failed response without an error body throws a `ResponseError`.
  */
-export type QueryError<ErrorBody> = Exclude<ErrorBody, undefined> | ResponseError;
+export type QueryError<ErrorBody> =
+  | Exclude<ErrorBody, undefined | null>
+  | ResponseError
+  | DefaultError;
+
+/**
+ * An object whose `queryKey` is tagged with the query's data and error types: the type that
+ * TanStack Query 5.102 exports as `QueryKeyWithDataTag`, for the whole peer range. A named object
+ * type, so the declarations of an exported `queryOptions` result print it by name. Spelled out,
+ * the tag prints TanStack's `dataTagSymbol` keys, which a declaration file cannot import, and
+ * the library's users get TS2304, or `any` cached data with `skipLibCheck`.
+ */
+export type QueryKeyWithDataTag<Key, Data, Error> = {
+  queryKey: DataTag<Key, Data, Error>;
+};
 
 type InitWithUnknowns<Init> = Init & { [key: string]: unknown };
 
@@ -127,22 +146,22 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
       QueryKey<Paths, Method, Path>
     >,
     "queryFn" | "queryKey"
-  > & {
-    queryKey: DataTag<
+  > &
+    QueryKeyWithDataTag<
       QueryKey<Paths, Method, Path>,
       QueryData<Response["data"]>,
       QueryError<Response["error"]>
-    >;
-    queryFn: Exclude<
-      UseQueryOptions<
-        QueryData<Response["data"]>,
-        QueryError<Response["error"]>,
-        InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
-        QueryKey<Paths, Method, Path>
-      >["queryFn"],
-      SkipToken | undefined
-    >;
-  }
+    > & {
+      queryFn: Exclude<
+        UseQueryOptions<
+          QueryData<Response["data"]>,
+          QueryError<Response["error"]>,
+          InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
+          QueryKey<Paths, Method, Path>
+        >["queryFn"],
+        SkipToken | undefined
+      >;
+    }
 >;
 
 export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
@@ -355,13 +374,24 @@ class ResponseWithoutErrorBody extends Error implements ResponseError {
 }
 
 /**
+ * Whether `error` is the `ResponseError` of a failed response without an error body. It narrows a
+ * hook's `error`, where `error instanceof Error` also matches network and parse errors. It checks
+ * the `name`, not the class, so a `ResponseError` of another copy of this package (its CommonJS and
+ * ES module builds loaded side by side) is one too. An error body from JSON is never an `Error`.
+ */
+export function isResponseError(error: unknown): error is ResponseError {
+  return error instanceof Error && error.name === RESPONSE_ERROR_NAME;
+}
+
+/**
  * Throw the error of a failed fetch result. `if (error)` missed two failures: a non-OK response
  * with an empty body (`error` is `undefined`, upstream #2070, #2829) and a falsy error body such as
  * `0`. Without an error body a `ResponseError` is thrown, so the hooks' `error` is never
- * `undefined` (ADR-013, decision 3).
+ * `undefined` (ADR-013, decision 3). A JSON `null` body is no error body either: thrown as is, it
+ * left `error` `null` while the query's status was `"error"`.
  */
 function throwIfFailed(result: { error?: unknown; response: Response }): void {
-  if (result.error !== undefined) {
+  if (result.error !== undefined && result.error !== null) {
     throw result.error;
   }
   if (!result.response.ok) {

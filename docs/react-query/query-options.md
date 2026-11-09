@@ -148,7 +148,10 @@ $api.queryOptions(method, path, options, queryOptions);
 
 - [Query Options](https://tanstack.com/query/latest/docs/framework/react/guides/query-options)
   - Fully typed thus `data` and `error` will be correctly inferred. `error` is the declared
-    error body, or a [`ResponseError`](./index.md#errors) when the response failed without one.
+    error body, a [`ResponseError`](./index.md#errors) when the response failed without one, or
+    the `Error` of a request that got no response to read (a network or parse error).
+  - The type of `queryKey` is `QueryKeyWithDataTag`, named so that the declarations of a library
+    that exports a `queryOptions` result print it by name.
   - `queryKey` is `[method, path, options]`, or `[method, path]` without options. `options` is
     the whole object passed as `init` (`{ params: { path: { id: 1 } } }`), not only its `params`.
   - `queryFn` is set to a fetcher function.

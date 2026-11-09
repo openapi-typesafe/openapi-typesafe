@@ -3,12 +3,18 @@ import { renderHook, waitFor } from "@testing-library/react";
 import createFetchClient from "openapi-typesafe-fetch";
 import type { ReactNode } from "react";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import createClient, { type QueryError, type ResponseError } from "../src/index.js";
+import createClient, {
+  isResponseError,
+  type QueryError,
+  type ResponseError,
+} from "../src/index.js";
 
 /**
  * A non-OK response with an empty body gives `error: undefined` in the fetch client; it is still a
  * failure (upstream #2070, #2829, ADR-013). The hooks throw a `ResponseError` for it, so `error` is
- * never `undefined` and the hook types say so. A falsy error body (`0`) is the error itself.
+ * never `undefined` and the hook types say so. A JSON `null` body counts as no body; a falsy error
+ * body (`0`) is the error itself. Network and parse errors reach `error` too, so its type has
+ * TanStack's `DefaultError` (`Error`) and `isResponseError` tells a `ResponseError` apart.
  */
 
 type Operation = {
@@ -93,7 +99,28 @@ describe("non-OK responses without an error body", () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expectResponseError(result.current.error, SERVER_ERROR);
-    expectTypeOf(result.current.error).toEqualTypeOf<number | ResponseError | null>();
+    expectTypeOf(result.current.error).toEqualTypeOf<number | ResponseError | Error | null>();
+  });
+
+  it("queryFn of a JSON null error body rejects with a ResponseError", async () => {
+    const client = clientAnswering(() => Response.json(null, { status: SERVER_ERROR }));
+
+    const error = await createQueryClient()
+      .fetchQuery(client.queryOptions("get", "/items"))
+      .catch((reason: unknown) => reason);
+
+    expectResponseError(error, SERVER_ERROR);
+  });
+
+  it("useQuery of a JSON null error body has a ResponseError, not null", async () => {
+    const client = clientAnswering(() => Response.json(null, { status: SERVER_ERROR }));
+
+    const { result } = renderHook(() => client.useQuery("get", "/items"), {
+      wrapper: wrapperFor(createQueryClient()),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expectResponseError(result.current.error, SERVER_ERROR);
   });
 
   it("queryFn of a falsy error body rejects with that body", async () => {
@@ -104,27 +131,74 @@ describe("non-OK responses without an error body", () => {
     await expect(query).rejects.toBe(0);
   });
 
-  it("error instanceof Error tells a ResponseError from the error body", () => {
+  it("isResponseError narrows the hook error to a ResponseError", () => {
     type HookError = ReturnType<ReturnType<typeof clientAnswering>["useQuery"]>["error"];
     const error = null as HookError;
 
-    if (error instanceof Error) {
+    if (isResponseError(error)) {
       expectTypeOf(error).toEqualTypeOf<ResponseError>();
     } else {
-      expectTypeOf(error).toEqualTypeOf<number | null>();
+      expectTypeOf(error).toEqualTypeOf<number | Error | null>();
     }
     expect(error).toBeNull();
   });
 
-  it("error instanceof Error leaves out an object error body", () => {
+  it("error instanceof Error does not claim a status: it matches network errors too", () => {
     const error = null as QueryError<{ code: number; message: string }> | null;
 
     if (error instanceof Error) {
-      expectTypeOf(error).toEqualTypeOf<ResponseError>();
+      // @ts-expect-error a network or parse error has no status
+      expect(error.status).toBeUndefined();
     } else if (error) {
       expectTypeOf(error).toEqualTypeOf<{ code: number; message: string }>();
     }
     expect(error).toBeNull();
+  });
+
+  it("QueryError leaves out undefined and null", () => {
+    expectTypeOf<QueryError<{ code: number } | null | undefined>>().toEqualTypeOf<
+      { code: number } | ResponseError | Error
+    >();
+  });
+
+  it("useQuery of a network error has that error, which is no ResponseError", async () => {
+    const networkError = new TypeError("fetch failed");
+    const client = createClient(
+      createFetchClient<Paths>({
+        baseUrl: BASE_URL,
+        fetch: async () => {
+          throw networkError;
+        },
+      }),
+    );
+
+    const { result } = renderHook(() => client.useQuery("get", "/items"), {
+      wrapper: wrapperFor(createQueryClient()),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toBe(networkError);
+    expect(isResponseError(result.current.error)).toBe(false);
+  });
+
+  it("isResponseError is true for a ResponseError only", async () => {
+    const client = clientAnswering(emptyError);
+    const responseError = await createQueryClient()
+      .fetchQuery(client.queryOptions("get", "/items"))
+      .catch((reason: unknown) => reason);
+
+    expect(isResponseError(responseError)).toBe(true);
+    expect(isResponseError(new TypeError("fetch failed"))).toBe(false);
+    expect(isResponseError(new SyntaxError("Unexpected token"))).toBe(false);
+    expect(isResponseError({ name: "ResponseError", status: SERVER_ERROR })).toBe(false);
+    expect(isResponseError(0)).toBe(false);
+    expect(isResponseError(null)).toBe(false);
+  });
+
+  it("isResponseError is true for a ResponseError of another copy of the package", () => {
+    const copy = Object.assign(new Error("Request failed"), { name: "ResponseError" });
+
+    expect(isResponseError(copy)).toBe(true);
   });
 
   it("mutationFn of an empty error response rejects", async () => {
@@ -136,7 +210,7 @@ describe("non-OK responses without an error body", () => {
     const error = await result.current.mutateAsync({}).catch((reason: unknown) => reason);
 
     expectResponseError(error, SERVER_ERROR);
-    expectTypeOf(result.current.error).toEqualTypeOf<number | ResponseError | null>();
+    expectTypeOf(result.current.error).toEqualTypeOf<number | ResponseError | Error | null>();
   });
 
   it("useInfiniteQuery of an empty error response ends in the error state", async () => {
