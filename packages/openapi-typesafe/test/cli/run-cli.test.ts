@@ -344,6 +344,17 @@ describe("runCli with the APIs of a Redocly config", () => {
     expect(cli.generator.calls.map((call) => String(call.source))).toEqual([fakeUrl("/work/api/api.yaml")]);
   });
 
+  it("runCli warns when an output is given as well, and writes each API to its own output", async () => {
+    const cli = cliWithApis({ api: { root: "api.yaml", "x-openapi-ts": { output: "api.ts" } } });
+
+    expect(await runCli(["-o", "ignored.ts"], cli.deps)).toBe(0);
+
+    expect(cli.logger.messages("warn")).toEqual([
+      "APIs are specified in Redocly Config, so --output ignored.ts is ignored: each API is written to its x-openapi-ts.output. (CLI_OUTPUT_IGNORED)",
+    ]);
+    expect([...cli.files.files.keys()]).toEqual([fakePath("/work/api/api.ts")]);
+  });
+
   it("runCli resolves the APIs from the working directory when the config has no file", async () => {
     const cli = createFakeCli();
     cli.redoclyConfigs.configs.set(

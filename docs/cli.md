@@ -169,6 +169,7 @@ A warning does not stop the run: the types are written and the exit code stays `
 | Code | Meaning |
 | :--- | :------ |
 | `CLI_INPUT_IGNORED` | APIs are listed in `redocly.yaml` and an input is given on the command line; the input is ignored and the APIs are generated. See [Multiple schemas](#multiple-schemas) |
+| `CLI_OUTPUT_IGNORED` | APIs are listed in `redocly.yaml` and `--output` is given; each API is written to its `x-openapi-ts.output`, and the `--output` path is not used. See [Multiple schemas](#multiple-schemas) |
 | `CONFIG_SETTING_UNKNOWN` | An API's `x-openapi-ts` block in `redocly.yaml` has a key that is not an openapi-typesafe setting, for example a misspelled flag; the key is ignored. See [Multiple schemas](#multiple-schemas) |
 | `DISCRIMINATOR_MAPPING_INVALID` | A discriminator `mapping` names a schema that is neither an object schema nor an `allOf`, so the generator cannot add the discriminator property to it. That schema keeps its type |
 | `DISCRIMINATOR_VALUE_NOT_ALLOWED` | A discriminator gives a schema a value that the schema's own discriminator property does not allow, so no value matches. The Discriminator Object requires the value, from `mapping` or the schema name, to be one the property admits; add a `mapping` entry. See [discriminator values](./advanced.md#discriminator-values) |
