@@ -13,6 +13,7 @@ import { undeclaredImportSteps } from "../domain/declared-packages.js";
 import { migrateDockerfile } from "../domain/dockerfile-migration.js";
 import { migrateImportMap } from "../domain/import-map-migration.js";
 import { importMapSteps } from "../domain/import-map-reference.js";
+import { isJestConfig, jestJsonSteps, jestScriptSteps } from "../domain/jest-config.js";
 import { migrateJsonCommands } from "../domain/json-command-migration.js";
 import { migrateMakefile } from "../domain/makefile-migration.js";
 import { migratePackageManifest, unreadManifest } from "../domain/manifest-migration.js";
@@ -56,6 +57,7 @@ import {
   HUSKY_FOLDER,
   HUSKY_INTERNALS,
   IMPORT_MAP_FILE,
+  JEST_JSON_CONFIG_FILE,
   JSON5_MANIFEST_FILE,
   LINT_STAGED_JSON_FILE,
   LINT_STAGED_YAML_FILES,
@@ -91,7 +93,8 @@ function migrateSource(text: string, path: string, context: MigrationContext): F
   );
   const imports = importedSpecifiers(text, strings);
   const undeclared = undeclaredImportSteps(imports, path, context.manifests);
-  return withSteps(migrated, [...commandStringSteps(text, strings), ...undeclared]);
+  const patterns = isJestConfig(baseName(path)) ? jestScriptSteps(text, strings) : [];
+  return withSteps(migrated, [...commandStringSteps(text, strings), ...undeclared, ...patterns]);
 }
 
 const jsonCommandsStep = (patterns: readonly CommandPathPattern[]): ConfigStep =>
@@ -186,6 +189,10 @@ const FILE_KINDS: readonly FileKind[] = [
     migrate: yamlConfig(({ version, catalogs }) => [
       (text, read) => migrateWorkspaceCatalogs(text, read, { version, catalogs }, YARNRC_FILE),
     ]),
+  },
+  {
+    matches: (path) => baseName(path) === JEST_JSON_CONFIG_FILE,
+    migrate: jsonConfig(() => [(text, read) => withSteps(unchanged(text), jestJsonSteps(read))]),
   },
   {
     matches: (path) => patchedOldPackage(baseName(path)) !== undefined,

@@ -16,6 +16,7 @@ import {
   type RenameTarget,
   renameNames,
 } from "./dependency-map.js";
+import { JEST_FIELD, jestConfigSteps } from "./jest-config.js";
 import { type FileMigration, unchanged } from "./migration-findings.js";
 import { overriddenPackages } from "./override-targets.js";
 import {
@@ -132,6 +133,9 @@ function migrateManifestMap(manifest: TreeMap, target: RenameTarget, findings: F
   migrateCatalogs(manifest, target, findings);
   migrateSubpathImports(manifest, findings);
   reportSettings(manifest, findings);
+  for (const jest of valuesAt(manifest, JEST_FIELD)) {
+    findings.manualSteps.push(...jestConfigSteps(jest, [JEST_FIELD]));
+  }
   reportOldPeers(manifest, findings);
 }
 

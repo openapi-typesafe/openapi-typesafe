@@ -17,6 +17,13 @@ const STEPS: readonly ManualStep[] = [
   { kind: "spec-kept", name: "b", spec: "latest" },
   { kind: "override-names-package", field: "overrides", name: "a" },
   { kind: "setting-names-package", field: "pnpm.packageExtensions", name: "openapi-fetch" },
+  {
+    kind: "pattern-names-package",
+    location: "jest.moduleNameMapper",
+    value: "^openapi-fetch$",
+    name: "openapi-fetch",
+    to: "openapi-typesafe-fetch",
+  },
   { kind: "versioned-command", location: "ci.yml:3" },
   { kind: "old-name-in-command", location: "ci.yml:4", word: "openapi-typescript" },
   { kind: "flags-in-variable", location: "Makefile:4", variable: "$(FLAGS)", flags: ["-it"] },

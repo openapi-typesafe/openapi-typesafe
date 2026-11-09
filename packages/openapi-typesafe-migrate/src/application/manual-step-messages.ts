@@ -18,6 +18,8 @@ const IMPORT_MAP_NOTE =
   "is a URL or a file outside the project folder, so it was not migrated: rename the old " +
   "packages in it by hand";
 const PATCH_NOTE = "check whether the fix is still needed, then make the patch again or delete it";
+const PATTERN_NOTE = "is a pattern that names";
+const PATTERN_FIX_NOTE = "where it means the package, make it match";
 const SETTING_NOTE = "remove the setting if it no longer applies, or make it name";
 const DEEP_TARGET_NOTE = "points at a file inside the package; check that it exists";
 
@@ -110,6 +112,7 @@ type PackageStep = Extract<
       | "spec-kept"
       | "override-names-package"
       | "setting-names-package"
+      | "pattern-names-package"
       | "deep-target"
       | "old-peer-needed";
   }
@@ -125,6 +128,8 @@ function packageStepMessage(step: PackageStep): string {
       return `"${step.field}" names ${step.name}: update or remove that override`;
     case "setting-names-package":
       return `"${step.field}" names ${step.name}: ${SETTING_NOTE} ${renamed(step.name)}`;
+    case "pattern-names-package":
+      return `${step.location}: "${step.value}" ${PATTERN_NOTE} ${step.name}: ${PATTERN_FIX_NOTE} ${step.to}`;
     case "deep-target":
       return `${step.location}: "${step.specifier}" ${DEEP_TARGET_NOTE}`;
     case "old-peer-needed":
@@ -157,6 +162,7 @@ export function manualStepMessage(step: ManualStep): string {
     case "spec-kept":
     case "override-names-package":
     case "setting-names-package":
+    case "pattern-names-package":
     case "deep-target":
     case "old-peer-needed":
       return packageStepMessage(step);

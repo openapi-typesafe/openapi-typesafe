@@ -12,6 +12,8 @@ export const HUSKY_FOLDER = ".husky/";
 export const HUSKY_INTERNALS = ".husky/_/";
 export const NX_PROJECT_FILE = "project.json";
 export const NX_WORKSPACE_FILE = "nx.json";
+/** Jest's config in JSON; `jest.config.js` and the other scripts are source files. */
+export const JEST_JSON_CONFIG_FILE = "jest.config.json";
 /** The names Task looks for, `.dist` ones included. */
 export const TASKFILE_NAMES: ReadonlySet<string> = new Set(
   ["Taskfile", "taskfile", "Taskfile.dist", "taskfile.dist"].flatMap((name) => [

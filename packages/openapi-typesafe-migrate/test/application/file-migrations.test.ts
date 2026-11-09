@@ -155,6 +155,21 @@ describe("fileMigrationFor", () => {
     expect(fileMigrationFor("patches/left-pad+1.0.0.patch")).toBeUndefined();
   });
 
+  it("fileMigrationFor reports the Jest patterns of jest.config files and no others", () => {
+    const script = 'module.exports = { moduleNameMapper: { "^openapi-fetch$": "m" } };\n';
+    const json = '{ "moduleNameMapper": { "^openapi-fetch$": "m" } }\n';
+    // The strings of a config are values, not module specifiers.
+    const valueScanner = new QuotedStringScanner({ isModuleSpecifier: false });
+    const kinds = (path: string, text: string) =>
+      fileMigrationFor(path)?.(text, path, { ...context, scanner: valueScanner }).manualSteps.map(
+        (step) => step.kind,
+      );
+
+    expect(kinds("jest.config.cjs", script)).toEqual(["pattern-names-package"]);
+    expect(kinds("jest.config.json", json)).toEqual(["pattern-names-package"]);
+    expect(kinds("vite.config.cjs", script)).toEqual([]);
+  });
+
   it("fileMigrationFor reads each command config by the keys of its tool", () => {
     const run = (path: string, text: string): string | undefined =>
       fileMigrationFor(path)?.(text, path, context).text;

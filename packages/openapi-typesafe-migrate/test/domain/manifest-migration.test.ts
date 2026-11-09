@@ -141,6 +141,22 @@ describe("migratePackageManifest", () => {
     ]);
   });
 
+  it("migratePackageManifest reports the Jest patterns of the jest field", () => {
+    const text = manifest({ jest: { moduleNameMapper: { "^openapi-fetch$": "<rootDir>/m.ts" } } });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "pattern-names-package",
+        location: "jest.moduleNameMapper",
+        value: "^openapi-fetch$",
+        name: "openapi-fetch",
+        to: "openapi-typesafe-fetch",
+      },
+    ]);
+  });
+
   it("migratePackageManifest reports that swr-openapi still needs openapi-fetch as its peer", () => {
     const text = manifest({
       dependencies: { "openapi-fetch": "^0.13.1", "swr-openapi": "^5.6.0" },

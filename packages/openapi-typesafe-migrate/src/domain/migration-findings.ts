@@ -85,6 +85,14 @@ export type ManualStep =
   | { readonly kind: "peer-dependency-renamed"; readonly name: string }
   | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
   | { readonly kind: "override-names-package"; readonly field: string; readonly name: string }
+  /** A pattern of a config (Jest's `moduleNameMapper`) that names an old package. */
+  | {
+      readonly kind: "pattern-names-package";
+      readonly location: string;
+      readonly value: string;
+      readonly name: string;
+      readonly to: string;
+    }
   /** A package manager setting (not an override) that names an old package. */
   | { readonly kind: "setting-names-package"; readonly field: string; readonly name: string }
   | { readonly kind: "versioned-command"; readonly location: string }
