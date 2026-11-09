@@ -381,7 +381,9 @@ parameter, as in `/{org}/{repo}` with `org: ""`): with a relative `baseUrl` (the
 reads `//evil.example` as another host and sends the request, headers included, there. An empty value in a
 later segment (`/acme/`) is sent as before. Only what the parameters write is checked: the `baseUrl` and the
 template text before the first parameter are not, so a protocol-relative `baseUrl` such as
-`//api.example.com/v1` works. A custom `pathSerializer` is not checked.
+`//api.example.com/v1` works. A custom `pathSerializer` is not checked. The error names the part of
+the template from the first parameter on (`Dot path segment in "{id}"`),
+never the URL or a value, which can carry a token or credentials.
 
 :::
 

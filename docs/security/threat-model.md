@@ -139,7 +139,7 @@ parameter, a path segment or an object member.
 
 - Controls: path values are always percent-encoded, and query values unless the parameter sets
   `allowReserved`; a path value that would form a `.` or `..` segment makes the call throw
-  (`Dot path segment in …`, ADR-013), because percent-encoding keeps dots; a path that starts with
+  (`Dot path segment in "…"`, ADR-013), because percent-encoding keeps dots; a path that starts with
   `//` once the values are in (an empty first value) throws too, because a browser reads it as
   another host (ADR-030, amendment); values go into the template as text, never as replacement
   patterns; query parameter names are percent-encoded too, except `[ ] $ : @ ,`, and object keys

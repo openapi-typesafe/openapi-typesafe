@@ -236,3 +236,22 @@ describe("the baseUrl is not checked", () => {
     );
   });
 });
+
+/** A path check fails in a log or an error tracker, so its message holds no value and no base. */
+describe("path check messages", () => {
+  const SECRET = "token-0123456789";
+
+  it("a dot segment names the template of the parameters, not the URL", () => {
+    const template = `https://user:${SECRET}@api.example.com/v1/files/{name}/raw?key=${SECRET}`;
+
+    expect(() => defaultPathSerializer(template, { name: ".." })).toThrow(
+      new Error('Dot path segment in "{name}/raw"'),
+    );
+  });
+
+  it("an empty first segment names the template of the parameters, not the values", () => {
+    expect(() => defaultPathSerializer("/{org}/{repo}", { org: "", repo: SECRET })).toThrow(
+      new Error('Empty first path segment in "{org}/{repo}"'),
+    );
+  });
+});

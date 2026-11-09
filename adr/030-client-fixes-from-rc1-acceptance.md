@@ -102,7 +102,7 @@ gives `//evil.example`. A browser resolves that protocol-relative URL against th
 `params.header` and middleware. The dot segment check did not see it: the segment is empty, not a
 dot. openapi-fetch 0.17 builds the same URL.
 
-1. `defaultPathSerializer` throws `Empty first path segment in …` when the path part of its result
+1. `defaultPathSerializer` throws `Empty first path segment …` when the path part of its result
    (before `?` or `#`) starts with `//`, as it throws for a dot segment. A custom `pathSerializer`
    is not checked (ADR-013, decision 2).
 2. Empty values stay allowed everywhere else: RFC 6570 allows them, and `/acme/` or `/a//x` name a
