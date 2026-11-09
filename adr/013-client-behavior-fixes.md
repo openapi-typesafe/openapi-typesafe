@@ -269,6 +269,26 @@ ADR-041) `[[1, 2], [3]]` became the parts `1,2` and `3`.
 4. A form field is a primitive, a `Date`, a `Blob` (multipart only) or an array of them. An object
    or an array as an item throws the error of decisions 7 and 10, in both form encodings.
 
+### Who built the FormData (decision 10)
+
+The FormData amendment told a client-built `FormData` by function identity
+(`bodySerializer === defaultBodySerializer`). A `bodySerializer` that wraps the default one (to add
+a field or log) returned a `FormData` the client built, but the user's `boundary` header stayed,
+and the server could not split the parts.
+
+5. The default serializer records each `FormData` it builds in a module `WeakSet`. A `FormData` in
+   the set, whoever returns it, gets the platform's `Content-Type`; any other `FormData` keeps the
+   rule of decision 10.
+6. The `WeakSet` is module state next to the request id counter of decision 4. It holds no object
+   alive (a form leaves it with its last reference), its answer for one form never changes, and so
+   it needs no reset between tests or clients.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Mark the forms the client builds in a `WeakSet` (chosen) | Right for any serializer that returns them; no change to the form | A second piece of module state |
+| A symbol property on the `FormData` | No module state | Adds a property to an object the user may get back and inspect |
+| Compare the header boundary with the body | No marking | The platform writes the boundary only when it sends the body |
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`

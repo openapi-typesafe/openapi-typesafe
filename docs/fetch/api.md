@@ -279,7 +279,8 @@ for any request that provides value for the `body` parameter. When the body (or 
 `FormData`, `Blob`, `File`, `URLSearchParams`, `ArrayBuffer`, typed array or stream, `Content-Type` is omitted, allowing the
 platform to set it automatically (for `FormData`, with the correct message part boundary). For the
 same reason a `multipart/form-data` `Content-Type` that you set is dropped when the client builds
-the `FormData` from an object, `boundary` or not: the platform picks the boundary of the body. For a
+the `FormData` from an object, `boundary` or not: the platform picks the boundary of the body. This
+holds for a `bodySerializer` of yours that returns the result of `defaultBodySerializer` too. For a
 `FormData` that you build yourself, a `Content-Type` without a `boundary` is dropped, and one with a
 `boundary` is kept for a `fetch` of your own that writes the parts with it.
 

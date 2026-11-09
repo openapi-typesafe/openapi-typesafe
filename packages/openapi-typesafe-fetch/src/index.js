@@ -22,6 +22,13 @@ const NESTED_FORM_VALUE_MESSAGE = "Nested form values need your own `bodySeriali
 const BOUNDARY_PARAMETER_RE = /;\s*boundary=/i;
 
 /**
+ * The FormData objects the default `bodySerializer` built. Only for them is the boundary the
+ * platform's alone, whoever returns them (a `bodySerializer` may wrap the default one). A WeakSet
+ * holds no object alive and needs no reset (ADR-013, decision 10).
+ */
+const clientBuiltForms = new WeakSet();
+
+/**
  * Whether `fetch` is Node.js undici, which takes `requestInitExt` as a second argument. A Node.js
  * version check is not needed: every supported Node.js (`engines`) ships undici.
  */
@@ -135,8 +142,7 @@ export default function createClient(clientOptions) {
       params.header,
     );
     if (isPlatformInstance(serializedBody, "FormData")) {
-      const isClientBuilt = serializedBody !== body && bodySerializer === defaultBodySerializer;
-      dropFormContentType(finalHeaders, isClientBuilt);
+      dropFormContentType(finalHeaders, clientBuiltForms.has(serializedBody));
     }
 
     // Client level middleware take priority over request-level middleware
@@ -854,10 +860,11 @@ function formBody(body) {
  * A `multipart/form-data` body: one part per field, one per item of an array. A `Blob` (or `File`)
  * is a file part, other primitives are text, `null` and `undefined` are left out. A nested object
  * or array would need a part content type such as JSON, which the client does not guess (ADR-013,
- * decision 10).
+ * decision 10). The FormData is marked as the client's, so its `Content-Type` is the platform's.
  */
 function multipartBody(body) {
   const formData = new FormData();
+  clientBuiltForms.add(formData);
   for (const [name, value] of Object.entries(body)) {
     for (const item of [value].flat()) {
       if (isPlatformInstance(item, "Blob")) {

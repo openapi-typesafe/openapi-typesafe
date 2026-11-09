@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import createClient, { defaultBodySerializer } from "../../src/index.js";
+import createClient, { defaultBodySerializer, type HeadersOptions } from "../../src/index.js";
 
 /**
  * `multipart/form-data` bodies and binary responses (roadmap R1, ADR-013 decision 10). An object
@@ -127,6 +127,28 @@ describe("multipart/form-data bodies", () => {
     const request = onlyRequest(requests);
     const declared = /boundary=(.+)$/.exec(request.headers.get("Content-Type") ?? "")?.[1];
     expect(declared).not.toBe("myboundary");
+    expect((await request.formData()).get("description")).toBe("hi");
+  });
+
+  it("POST drops a hand-set boundary when a bodySerializer wraps the default one", async () => {
+    const requests: Request[] = [];
+    const client = createClient<Paths>({
+      baseUrl: BASE_URL,
+      bodySerializer: (body: unknown, headers?: HeadersOptions) =>
+        defaultBodySerializer(body, headers),
+      fetch: async (request) => {
+        requests.push(request);
+        return Response.json({ id: 1 }, { status: 201 });
+      },
+    });
+
+    await client.POST("/avatars", {
+      headers: { "Content-Type": "multipart/form-data; boundary=myboundary" },
+      body: { file: new Blob(["x"]), description: "hi" },
+    });
+
+    const request = onlyRequest(requests);
+    expect(request.headers.get("Content-Type")).not.toContain("myboundary");
     expect((await request.formData()).get("description")).toBe("hi");
   });
 
