@@ -72,8 +72,9 @@ repository around it ignores, it reads the whole tree of that folder. Either way
 was read.
 
 The tool does not trust the folder it migrates. Git is the `git` of an absolute folder on `PATH`
-outside the project, so neither a `git` at the project root nor one in the `node_modules/.bin` that
-`npx` puts on `PATH` runs, and it runs with `core.fsmonitor` turned off and every transport refused
+outside the project and outside every `node_modules`, so neither a `git` at the project root nor
+one in a `node_modules/.bin` that `npx` puts on `PATH` runs (npx adds those of the project and of
+every folder above it, such as a workspace root), and it runs with `core.fsmonitor` turned off and every transport refused
 (`GIT_ALLOW_PROTOCOL` set to an empty list, which no `protocol.*` key of a repository's config can
 undo), so a nested repository's `.git/config` cannot make it run a command, not even through a
 partial clone that fetches a missing object. It does not open a bare repository that is not named

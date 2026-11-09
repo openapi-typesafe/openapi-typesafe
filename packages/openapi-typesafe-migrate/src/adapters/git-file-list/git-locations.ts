@@ -33,6 +33,12 @@ const WINDOWS_EXECUTABLE_EXTENSION = ".exe";
 const GIT_FOLDER = ".git";
 const PARENT_FOLDER = "..";
 /**
+ * The folder where package managers install packages and link their bins. npx puts the
+ * `node_modules/.bin` of the project and of every folder above it on PATH, so a workspace root
+ * above the migrated package, or any package of it, could plant a `git` there.
+ */
+const PACKAGES_FOLDER = "node_modules";
+/**
  * Errors that mean "nothing usable is there": a missing path, a parent that is not a folder, or
  * no permission. Any other error is a fault of the file system and is passed on.
  */
@@ -74,23 +80,34 @@ function isAtOrUnder(paths: typeof posix, folder: string, target: string): boole
   );
 }
 
+/** Whether `path` has a `node_modules` segment; Windows compares names in any case. */
+function isInPackagesFolder(host: GitHost, path: string): boolean {
+  if (host.platform !== WINDOWS) {
+    return path.split(posix.sep).includes(PACKAGES_FOLDER);
+  }
+  return path.split(/[\\/]/).some((segment) => segment.toLowerCase() === PACKAGES_FOLDER);
+}
+
 /**
- * Whether a PATH entry is a folder outside the project. An empty or relative entry names a
- * folder relative to the working directory, and npx puts the project's `node_modules/.bin` on
- * PATH as an absolute path; both can hold a planted git, so both are passed over.
+ * Whether a PATH entry is a folder git may run from. An empty or relative entry names a folder
+ * relative to the working directory, a folder in the project is the project's, and a folder in a
+ * `node_modules` holds the bins of packages, which npx puts on PATH for the project and every
+ * folder above it; each can hold a planted git, so each is passed over.
  */
-async function isOutsideProject(host: GitHost, project: string, folder: string): Promise<boolean> {
+async function isTrustedFolder(host: GitHost, project: string, folder: string): Promise<boolean> {
   const paths = pathsOf(host.platform);
   if (!paths.isAbsolute(folder)) {
     return false;
   }
   const real = await host.fileSystem.realPath(folder);
-  return real !== undefined && !isAtOrUnder(paths, project, real);
+  return (
+    real !== undefined && !isAtOrUnder(paths, project, real) && !isInPackagesFolder(host, real)
+  );
 }
 
 /**
- * The absolute path of the first git on PATH outside the project, or undefined when there is
- * none. The absolute path also keeps Windows from looking in the working directory first, as it
+ * The absolute path of the first git on PATH outside the project and outside every `node_modules`,
+ * or undefined when there is none. The absolute path also keeps Windows from looking in the working directory first, as it
  * does for a bare program name: a `git.exe` planted at the project root never runs.
  */
 export async function findGitExecutable(host: GitHost): Promise<string | undefined> {
@@ -100,7 +117,7 @@ export async function findGitExecutable(host: GitHost): Promise<string | undefin
   const project = (await host.fileSystem.realPath(root)) ?? root;
   for (const folder of pathVariable(host).split(paths.delimiter)) {
     const candidate = paths.join(folder, name);
-    const isTrusted = await isOutsideProject(host, project, folder);
+    const isTrusted = await isTrustedFolder(host, project, folder);
     if (isTrusted && (await host.fileSystem.isExecutableFile(candidate))) {
       return candidate;
     }

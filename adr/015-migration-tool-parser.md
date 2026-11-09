@@ -319,6 +319,12 @@ A recheck of the fixes above found three regressions and four gaps.
   absolute folder, so the lookup of the first review still ran a `git` from the project. A `PATH`
   folder is now skipped when its real path is the project folder or lies under it; the project
   root is given to the git adapter by the composition root, one listing per run.
+- **npx also put the `node_modules/.bin` of every folder above the project on PATH** (the third
+  recheck). Migrating one package of a workspace (`--root packages/api`, or from that folder)
+  still ran a `git` planted in the workspace root's `node_modules/.bin`. A `PATH` folder whose real
+  path has a `node_modules` segment is now skipped too: package managers put the bins of packages
+  there, never a system git. Skipping the folders under the git work tree was rejected: the work
+  tree is found with git, so it is not known before git is chosen.
 - **Overrides that point at a catalog entry** (`overrides: { openapi-fetch: "catalog:" }`) are
   reported and left as they are, so the entry was renamed under them and the install failed. The
   catalog plan now counts them as users of the entry, like a kept dependency.
