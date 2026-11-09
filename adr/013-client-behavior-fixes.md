@@ -222,6 +222,23 @@ a `ResponseError`:
 | Throw a `ResponseError`, keep the old type | No type change | The type is wrong exactly when the case happens |
 | Export a `ResponseError` class at runtime | `instanceof ResponseError` | Changes what `require()` returns (ADR-022) |
 
+## Amendment (2026-11-09): the recheck of the rc.3 fixes (decisions 6, 7 and 10)
+
+A recheck of the rc.3 hunt fixes found four gaps in the amendments above.
+
+### Platform classes a runtime may lack (decision 6)
+
+The stream amendment checked `body instanceof ReadableStream` on every request. React Native
+(Hermes) has `fetch` and `FormData` but no `ReadableStream`, so every request threw
+`ReferenceError: ReadableStream is not defined`, also a `GET` without a body. openapi-fetch 0.17
+checked `FormData` only.
+
+1. Every check against a platform class (`FormData`, `Blob`, `URLSearchParams`, `ReadableStream`,
+   and `ArrayBuffer` by the same rule) reads the class from `globalThis` and counts no value as an
+   instance when the class is missing. A body that needs a missing class to be built (a multipart
+   object body without `FormData`) still fails with the platform's error, which names the class.
+2. `missing-platform-globals.test.ts` runs the client with these classes removed.
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`

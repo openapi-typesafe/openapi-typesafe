@@ -134,7 +134,7 @@ export default function createClient(clientOptions) {
       headers,
       params.header,
     );
-    if (serializedBody instanceof FormData) {
+    if (isPlatformInstance(serializedBody, "FormData")) {
       const isClientBuilt = serializedBody !== body && bodySerializer === defaultBodySerializer;
       dropFormContentType(finalHeaders, isClientBuilt);
     }
@@ -145,7 +145,7 @@ export default function createClient(clientOptions) {
     const requestInit = {
       redirect: "follow",
       // The Fetch standard requires `duplex: "half"` (its only value) for a stream body.
-      duplex: serializedBody instanceof ReadableStream ? "half" : undefined,
+      duplex: isPlatformInstance(serializedBody, "ReadableStream") ? "half" : undefined,
       ...baseOptions,
       ...init,
       body: serializedBody,
@@ -785,17 +785,23 @@ function checkSerializedPath(template, url) {
 }
 
 /**
+ * Whether a value is an instance of the platform class `name`. A runtime may lack the class (React
+ * Native has no `ReadableStream`); then no value is one, and the check does not throw.
+ */
+function isPlatformInstance(value, name) {
+  const type = globalThis[name];
+  return typeof type === "function" && value instanceof type;
+}
+
+/**
  * Bodies `fetch` sends as they are, with their own `Content-Type` (FormData, Blob, URLSearchParams)
  * or none. JSON-encoding a Blob, an ArrayBuffer or a stream sent `{}` (ADR-013, decision 6).
  */
 function isRawBody(body) {
   return (
-    body instanceof FormData ||
-    body instanceof Blob ||
-    body instanceof URLSearchParams ||
-    body instanceof ArrayBuffer ||
-    body instanceof ReadableStream ||
-    ArrayBuffer.isView(body)
+    ["FormData", "Blob", "URLSearchParams", "ArrayBuffer", "ReadableStream"].some((name) =>
+      isPlatformInstance(body, name),
+    ) || ArrayBuffer.isView(body)
   );
 }
 
@@ -837,7 +843,7 @@ function multipartBody(body) {
   const formData = new FormData();
   for (const [name, value] of Object.entries(body)) {
     for (const item of [value].flat()) {
-      if (item instanceof Blob) {
+      if (isPlatformInstance(item, "Blob")) {
         formData.append(name, item);
       } else if (isNestedFormValue(item)) {
         throw new Error(NESTED_FORM_VALUE_MESSAGE);
