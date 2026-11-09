@@ -22,7 +22,7 @@ import { extracted, markerObject, omitted } from "./type-rules.js";
 
 /** How many references one evaluation expands; a deeper one is opaque. */
 const MAX_EXPANSIONS = 200;
-const DEEP_PREFIX = "FlattenedDeepRequired<";
+const DEEP_HELPER = "FlattenedDeepRequired";
 /** How many members distributing an intersection may give; more is opaque. */
 const MAX_DISTRIBUTED = 64;
 
@@ -75,15 +75,15 @@ export class TypeEvaluator {
     if (this.expansions++ > MAX_EXPANSIONS) {
       return OPAQUE;
     }
-    if (name.startsWith(DEEP_PREFIX) && name.endsWith(">")) {
-      const root = this.declared.get(name.slice(DEEP_PREFIX.length, -1));
+    const [first, second] = args;
+    if (name === DEEP_HELPER && first?.kind === "reference" && first.typeArguments.length === 0) {
+      const root = this.declared.get(first.name);
       return root === undefined ? OPAQUE : this.expand({ kind: "type", type: root, deep: true });
     }
     const declared = args.length === 0 ? this.declared.get(name) : undefined;
     if (declared !== undefined) {
       return this.expand({ ...value, type: declared });
     }
-    const [first, second] = args;
     if (first === undefined) {
       return OPAQUE;
     }

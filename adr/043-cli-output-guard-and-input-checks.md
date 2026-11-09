@@ -124,3 +124,13 @@ Consequences: with several APIs, missing outputs exist as empty files between th
 write, which is the same run; a run that fails on a duplicate leaves no new file or directory.
 Review trigger: a file system on which two open files of different paths share a device and file
 number (then the claim would see a duplicate that is none).
+
+## Amendment (2026-11-09): reference names are checked
+
+Decision 7 checked every IR field except the `name` of a `reference`, which only had to be
+non-blank, so `{ kind: "reference", name: "a b" }` from an IR callback printed invalid
+TypeScript. A reference name must now be a type name as TypeScript reads one: identifiers (the
+property name rules) joined by `.`, optionally after `typeof ` (the generator writes
+`typeof Status` and `Status.active`); anything else fails with `CALLBACK_RESULT_UNREADABLE`. The
+generator itself wrote one name with type arguments in it, `FlattenedDeepRequired<components>`;
+it is now a reference with a type argument, which prints the same text.

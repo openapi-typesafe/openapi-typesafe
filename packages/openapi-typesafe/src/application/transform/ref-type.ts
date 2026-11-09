@@ -68,7 +68,8 @@ export function indexKeyword(type: IrType, segment: string, isLast: boolean): Ir
 }
 
 export function rootType(rootSegment: string, isDeep: boolean): IrType {
-  return irReference(isDeep ? `FlattenedDeepRequired<${rootSegment}>` : rootSegment);
+  const root = irReference(rootSegment);
+  return isDeep ? irReference("FlattenedDeepRequired", [root]) : root;
 }
 
 /**

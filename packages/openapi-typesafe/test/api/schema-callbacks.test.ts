@@ -116,6 +116,11 @@ describe("IR callbacks: results the generator cannot print (G12)", () => {
     ],
     ["transform returns an empty union", { transform: () => ({ kind: "union", types: [] }) }, "transform"],
     ["transform returns a bad schema object", { transform: () => ({ schema: {}, questionToken: true }) }, "transform"],
+    [
+      "transform returns a reference named `a b`",
+      { transform: () => ({ kind: "reference", name: "a b", typeArguments: [] }) },
+      "transform",
+    ],
   ])("%s fails with CALLBACK_RESULT_UNREADABLE", async (_name, callbacks, callback) => {
     const generation = itemOf(callbacks as never);
 

@@ -26,6 +26,8 @@ describe("isPrintableIrType", () => {
       { kind: "reference", name: "Record", typeArguments: [STRING, STRING] },
     ],
     ["a generated reference name", { kind: "reference", name: "typeof Status", typeArguments: [] }],
+    ["a qualified reference name", { kind: "reference", name: "Status.active", typeArguments: [] }],
+    ["a qualified type query", { kind: "reference", name: "typeof A.b", typeArguments: [] }],
     ["an array", { kind: "array", element: STRING }],
     [
       "a tuple",
@@ -86,6 +88,22 @@ describe("isPrintableIrType", () => {
     ["a boolean literal of text", { kind: "booleanLiteral", value: "true" }],
     ["a reference without a name", { kind: "reference", name: " ", typeArguments: [] }],
     ["a reference without arguments", { kind: "reference", name: "A" }],
+    ["a reference name with a space", { kind: "reference", name: "a b", typeArguments: [] }],
+    ["an empty reference name", { kind: "reference", name: "", typeArguments: [] }],
+    [
+      "a reference name with arguments in it",
+      { kind: "reference", name: "A<B>", typeArguments: [] },
+    ],
+    [
+      "a reference name with an empty segment",
+      { kind: "reference", name: "A..b", typeArguments: [] },
+    ],
+    [
+      "a reference name that starts with a digit",
+      { kind: "reference", name: "1A", typeArguments: [] },
+    ],
+    ["a bare type query", { kind: "reference", name: "typeof ", typeArguments: [] }],
+    ["a reference name that is no text", { kind: "reference", name: 1, typeArguments: [] }],
     ["an empty union", { kind: "union", types: [] }],
     ["a union with a bad member", { kind: "union", types: [STRING, {}] }],
     [
