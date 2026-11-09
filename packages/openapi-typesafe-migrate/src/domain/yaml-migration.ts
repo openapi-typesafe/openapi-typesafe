@@ -1,0 +1,167 @@
+import {
+  type CommandMigration,
+  commandWordFindings,
+  type Locate,
+  type ShellTextFindings,
+  shellTextFindings,
+} from "./command-migration.js";
+import { ownerKey, type YamlString } from "./config-documents.js";
+import { type Change, lineAt } from "./migration-findings.js";
+import { PACKAGE_RENAMES } from "./package-names.js";
+import type { ShellCommand, ShellWord } from "./shell-words.js";
+import { applyTextEdits, type TextEdit } from "./text-edits.js";
+
+/**
+ * YAML files are migrated only where they hold commands or package names, so the text of other
+ * values (an OpenAPI `description`, a label) stays as written even when it names a package.
+ */
+
+/**
+ * Keys whose value is a shell command or a list of them: GitHub Actions and lefthook `run`,
+ * GitLab, Travis and Bitbucket `script` and its hooks, Azure Pipelines `script` / `bash` /
+ * `pwsh`, CircleCI `command`, Drone `commands`, Docker Compose `command` and `entrypoint`.
+ */
+export const YAML_COMMAND_KEYS: ReadonlySet<string> = new Set([
+  "run",
+  "script",
+  "before_script",
+  "after_script",
+  "before_install",
+  "install",
+  "bash",
+  "pwsh",
+  "powershell",
+  "command",
+  "commands",
+  "entrypoint",
+]);
+
+/** Keys of a Dependabot config whose values are package names (`ignore`, `allow`, `groups`). */
+export const DEPENDABOT_NAME_KEYS: ReadonlySet<string> = new Set([
+  "dependency-name",
+  "patterns",
+  "exclude-patterns",
+]);
+
+/** A line break between two lines with text; a blank line between them stays a line break. */
+const FOLDED_LINE_BREAK_RE = /(?<=\S[^\S\n]*)\n(?=[^\S\n]*\S)/g;
+
+/**
+ * The shell text of a value: where YAML folds a line break to a space, so does the shell text.
+ * The replacement keeps the length, so offsets into it are offsets into the value as written.
+ */
+function shellText(text: string, value: YamlString): string {
+  const slice = text.slice(value.start, value.end);
+  return value.isFolded ? slice.replace(FOLDED_LINE_BREAK_RE, " ") : slice;
+}
+
+/** The values that belong to one of `keys`, also as items of a list. */
+const valuesOf = (strings: readonly YamlString[], keys: ReadonlySet<string>): YamlString[] =>
+  strings.filter((string) => keys.has(ownerKey(string.path) ?? ""));
+
+/**
+ * Keys whose list value is one command in exec form, as Compose and Kubernetes read it: each item
+ * is one word, and no shell splits it. A string value of these keys is still shell text.
+ */
+const EXEC_FORM_KEYS: ReadonlySet<string> = new Set(["command", "entrypoint"]);
+
+const isExecFormItem = (value: YamlString): boolean =>
+  typeof value.path.at(-1) === "number" && EXEC_FORM_KEYS.has(String(value.path.at(-2)));
+
+const listOf = (item: YamlString): string => item.path.slice(0, -1).join(".");
+
+/** The next item of the same list: the documents of a stream may repeat a list's path. */
+const isNextItem = (previous: YamlString, item: YamlString): boolean =>
+  listOf(previous) === listOf(item) && Number(item.path.at(-1)) > Number(previous.path.at(-1));
+
+/** The commands of exec-form lists, one per list, each item a word. */
+function execFormCommands(text: string, items: readonly YamlString[]): ShellCommand[] {
+  const commands: ShellWord[][] = [];
+  let previous: YamlString | undefined;
+  let command: ShellWord[] = [];
+  for (const item of items) {
+    if (previous === undefined || !isNextItem(previous, item)) {
+      command = [];
+      commands.push(command);
+    }
+    const { start, end, value } = item;
+    command.push({ start, end, value, raw: text.slice(start, end) });
+    previous = item;
+  }
+  return commands;
+}
+
+/** The findings of one value read as shell text, with offsets into the whole text. */
+function valueFindings(text: string, value: YamlString, locate: Locate): ShellTextFindings {
+  const found = shellTextFindings(shellText(text, value), (offset) => locate(value.start + offset));
+  return { ...found, edits: shiftedEdits(found.edits, value.start) };
+}
+
+/** The edits of shell findings in a value, as offsets into the whole text. */
+const shiftedEdits = (edits: readonly TextEdit[], offset: number): TextEdit[] =>
+  edits.map((edit) => ({ ...edit, start: edit.start + offset, end: edit.end + offset }));
+
+function appliedFindings(text: string, found: readonly ShellTextFindings[]): CommandMigration {
+  return {
+    text: applyTextEdits(
+      text,
+      found.flatMap((findings) => findings.edits),
+    ),
+    changes: found.flatMap((findings) => findings.changes),
+    manualSteps: found.flatMap((findings) => findings.manualSteps),
+  };
+}
+
+/**
+ * Migrate the commands of a YAML file (CI workflows, Compose files, hook configs). Edits replace
+ * words only, never the blanks between them, so they apply to the value as written even where a
+ * folded scalar was read with spaces for its line breaks.
+ */
+export function migrateYamlCommands(
+  text: string,
+  file: string,
+  strings: readonly YamlString[],
+): CommandMigration {
+  const values = valuesOf(strings, YAML_COMMAND_KEYS);
+  const locate = (offset: number): string => `${file}:${lineAt(text, offset)}`;
+  const shellValues = values.filter((value) => !isExecFormItem(value));
+  return appliedFindings(text, [
+    ...shellValues.map((value) => valueFindings(text, value, locate)),
+    commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),
+  ]);
+}
+
+/** The top-level key of a pnpm `package.yaml` whose values are scripts. */
+const SCRIPTS_KEY = "scripts";
+
+const isScript = (string: YamlString): boolean =>
+  string.path.length === 2 && string.path[0] === SCRIPTS_KEY;
+
+/** Migrate the scripts of a pnpm `package.yaml` manifest; each finding names its script. */
+export function migrateYamlScripts(text: string, strings: readonly YamlString[]): CommandMigration {
+  const scripts = strings.filter(isScript);
+  return appliedFindings(
+    text,
+    scripts.map((script) => valueFindings(text, script, () => script.path.join("."))),
+  );
+}
+
+/** Rename the original packages that a Dependabot config ignores, allows or groups. */
+export function migrateDependabotConfig(
+  text: string,
+  file: string,
+  strings: readonly YamlString[],
+): CommandMigration {
+  const changes: Change[] = [];
+  const edits: TextEdit[] = [];
+  for (const value of valuesOf(strings, DEPENDABOT_NAME_KEYS)) {
+    const from = value.value;
+    const to = PACKAGE_RENAMES.get(from);
+    if (to !== undefined) {
+      const location = `${file}:${lineAt(text, value.start)}`;
+      changes.push({ kind: "package-name-renamed", location, from, to });
+      edits.push({ start: value.start, end: value.end, text: to });
+    }
+  }
+  return { text: applyTextEdits(text, edits), changes, manualSteps: [] };
+}

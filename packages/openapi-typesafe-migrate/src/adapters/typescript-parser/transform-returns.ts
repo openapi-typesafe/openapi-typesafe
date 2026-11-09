@@ -1,12 +1,6 @@
 import ts from "@typescript/typescript6";
+import type { TextEdit } from "../../domain/text-edits.js";
 import { type FactoryNames, typeTextOf } from "./factory-type-text.js";
-
-/** A replacement of a source range by new text. */
-export interface TextEdit {
-  readonly start: number;
-  readonly end: number;
-  readonly text: string;
-}
 
 /** The returned expressions of a function, without those of functions nested in it. */
 export function returnedExpressions(body: ts.ConciseBody): (ts.Expression | undefined)[] {

@@ -18,16 +18,26 @@ Run it with `npx` (or `pnpm dlx`, `yarn dlx`, `bunx`), not as a dependency: it u
 
 ## What it changes
 
-| Where                                                                                  | Change                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Every `package.json`                                                                   | `dependencies`, `devDependencies`, `peerDependencies` and `optionalDependencies` get the new names, with the version of this tool; `^`, `~` and exact ranges keep their style. `catalog:` and `workspace:` stay.                                                                                                                                                                                                        |
-| `pnpm-workspace.yaml`                                                                  | Entries of `catalog:` and `catalogs:`. Comments, formatting and line endings stay.                                                                                                                                                                                                                                                                                                                                      |
-| `package.json` scripts, shell scripts, YAML (CI), `Makefile`, `justfile`, `Dockerfile` | The `openapi-typescript` command, and the flags it renamed: `--immutable-types` / `-it` → `--immutable`, `--support-array-length` → `--array-length`, `--redoc` → `--redocly`, `-ap` → `--additional-properties`.                                                                                                                                                                                                       |
-| Sources (`.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, `.vue`, `.svelte`, `.astro`, …)         | Module specifiers only: `import` / `export … from`, `import()`, `require()`, `require.resolve()`, `import("…")` types and `@import` tags in JSDoc (every block), `declare module`, `/// <reference types>`, and module mocks: `vi.mock()` and the other `vi` / `jest` module methods (`jest.setMock()`, `jest.requireActual()`, …), bun's `mock.module()`. Components: their `<script>` blocks and Astro's frontmatter. |
-| `openapiTS(source, { transform })` calls                                               | When `transform` is the only callback and returns plain `ts.factory` types (or the helper constants), the returns become type text and `irCallbacks: true` is added.                                                                                                                                                                                                                                                    |
+| Where                                                                          | Change                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every `package.json`                                                           | `dependencies`, `devDependencies`, `peerDependencies` and `optionalDependencies` get the new names, with the version of this tool; `^`, `~` and exact ranges keep their style. `catalog:` and `workspace:` stay.                                                                                                                                                                                                        |
+| `pnpm-workspace.yaml`                                                          | Entries of `catalog:` and `catalogs:`. Comments, formatting and line endings stay.                                                                                                                                                                                                                                                                                                                                      |
+| Commands (the files are listed below the table)                                | The `openapi-typescript` command (also as `npx`, `pnpm exec`, `node_modules/.bin/…` or `npm:openapi-typescript`), and the flags it renamed, in that command only: `--immutable-types` / `-it` → `--immutable`, `--support-array-length` → `--array-length`, `--redoc` → `--redocly`, `-ap` → `--additional-properties`. The old package names in install commands (`npm i`, `pnpm add`, `npx -p`, …).                   |
+| `.github/dependabot.yml`                                                       | Every old package name in `dependency-name` and `patterns`.                                                                                                                                                                                                                                                                                                                                                             |
+| Sources (`.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, `.vue`, `.svelte`, `.astro`, …) | Module specifiers only: `import` / `export … from`, `import()`, `require()`, `require.resolve()`, `import("…")` types and `@import` tags in JSDoc (every block), `declare module`, `/// <reference types>`, and module mocks: `vi.mock()` and the other `vi` / `jest` module methods (`jest.setMock()`, `jest.requireActual()`, …), bun's `mock.module()`. Components: their `<script>` blocks and Astro's frontmatter. |
+| `openapiTS(source, { transform })` calls                                       | When `transform` is the only callback and returns plain `ts.factory` types (or the helper constants), the returns become type text and `irCallbacks: true` is added. The options may also be a `const` of the same file that only this call uses. Module constants and imports that only the old returns used are removed. Names are resolved by scope, so a local constant is never taken for a module one.            |
 
-`Makefile`, `justfile` and `Dockerfile` are read only under exactly these names, so
-`Dockerfile.dev` is not changed.
+Commands are read in `package.json` scripts, shell scripts (`.sh`, `.bash`, `.zsh`), husky hooks,
+`Makefile`, `justfile`, `Dockerfile`, CI and other YAML files, Nx `project.json` targets,
+`deno.json` tasks and pnpm `package.yaml` scripts. They are read word by word, the way the shell
+splits them (quotes, `\` line continuations, comments, `&&`, `|`, `sh -c "…"`), so only the
+generator's own flags are renamed, and a script name (`npm run openapi-typescript`) is never
+changed. YAML files are changed only in command keys (`run`, `script`, `command`, `entrypoint`,
+…), in block and flow style, never in other values such as an OpenAPI `description`. A config
+that cannot be parsed and names an old package is reported, not changed. `Makefile`, `justfile` and
+`Dockerfile` are read only under the names make, just and docker look for (also `makefile`,
+`GNUmakefile`, `Justfile`, `.justfile`, `Containerfile` and `*.mk`), so `Dockerfile.dev` is not
+changed.
 
 In a git repository the tool reads the files git lists: tracked files, and untracked files that
 `.gitignore` does not ignore, so ignored build output (`cjs/`, `esm/`, `types/`, …) stays out. A
@@ -55,7 +65,12 @@ The report lists each of these with the file and line:
   `resolutions` / `pnpm` settings (in `package.json` or `pnpm-workspace.yaml`, patches included)
   that name an old package;
 - a renamed peer dependency: users of your package must switch too;
-- `npx openapi-typescript@<version>`: the old package is pinned, change it by hand;
+- `npx openapi-typescript@<version>`, and pinned old packages in install commands
+  (`npm i openapi-fetch@0.13`): change them by hand;
+- a command that runs a file inside the old package
+  (`node node_modules/openapi-typescript/bin/cli.js`): run `openapi-typesafe` instead;
+- strings in sources that run `openapi-typescript` (`execSync("npx openapi-typescript …")`),
+  with the command they should become;
 - deep imports such as `openapi-fetch/dist/...`: check that the file exists in the new package;
 - strings that equal an old package name outside a module specifier (an object key, a label, a
   bundler option such as `external: ["openapi-fetch"]`): they are kept, because only you know
@@ -64,8 +79,9 @@ The report lists each of these with the file and line:
   dependency), so alias `openapi-fetch` to `openapi-typesafe-fetch` with `overrides` or
   `resolutions` (see
   [Libraries built on openapi-fetch](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/fetch/index.md#libraries-built-on-openapi-fetch));
-- `transform` callbacks it cannot rewrite, and `postTransform` / `transformProperty`: they keep
-  working with a deprecation warning; see
+- `transform` callbacks it cannot rewrite, and `postTransform` / `transformProperty`, also in
+  options that other code shares, and `openapiTS()` calls whose options it cannot see (a
+  parameter, a function call): they keep working with a deprecation warning; see
   [IR callbacks](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks).
 
 Then install, regenerate your types and commit them once (the file header names openapi-typesafe

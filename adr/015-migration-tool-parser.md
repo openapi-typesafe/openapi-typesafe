@@ -32,13 +32,13 @@ installed). The generator itself already treats it as the optional TypeScript-no
 
 ## Alternatives
 
-| Option | Pros | Cons |
-|---|---|---|
-| `@typescript/typescript6` (chosen) | Full TypeScript and JSX syntax; same AST the legacy callbacks use | 23 MB install for a one-time `npx` run |
-| Regular expressions | No dependency | Cannot find returns or scopes; would corrupt code it does not understand |
-| `typescript` 7 | Current compiler | No JavaScript API |
-| A smaller parser (Babel, oxc, swc) | Smaller or faster | Another AST to learn, and TypeScript syntax lags behind TypeScript itself |
-| No automatic rewrite (manual guide only) | No dependency | Scope-cut (2) of the plan; every legacy user does it by hand |
+| Option                                   | Pros                                                              | Cons                                                                      |
+| ---------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `@typescript/typescript6` (chosen)       | Full TypeScript and JSX syntax; same AST the legacy callbacks use | 23 MB install for a one-time `npx` run                                    |
+| Regular expressions                      | No dependency                                                     | Cannot find returns or scopes; would corrupt code it does not understand  |
+| `typescript` 7                           | Current compiler                                                  | No JavaScript API                                                         |
+| A smaller parser (Babel, oxc, swc)       | Smaller or faster                                                 | Another AST to learn, and TypeScript syntax lags behind TypeScript itself |
+| No automatic rewrite (manual guide only) | No dependency                                                     | Scope-cut (2) of the plan; every legacy user does it by hand              |
 
 ## Consequences
 
@@ -79,7 +79,7 @@ now treats the tree as untrusted input:
 - **Git config of nested repositories.** Git reads the config of the repository it runs in, and
   `core.fsmonitor` in that config is a command that `ls-files` and `check-ignore` run. A planted
   `.git/config` ran code in a dry run. Every git command now gets `-c core.fsmonitor=false -c
-  safe.bareRepository=explicit`; command-line settings win over every config file. Checked by
+safe.bareRepository=explicit`; command-line settings win over every config file. Checked by
   hand on git 2.54: these two commands write no index (so no hook runs) and start no filter,
   pager or network helper, so `core.fsmonitor` is the only command they take from config. An
   embedded bare repository is refused (`--root` pointed at one), and that folder is walked as a
@@ -126,6 +126,45 @@ now treats the tree as untrusted input:
   same spaces. recheck reports the new patterns as safe; tests bound the time on large input.
   A YAML parser was not added: the file is edited line by line so that comments and formatting
   stay, and the tool has no YAML dependency.
+
+## Amendment (2026-11-08): commands are parsed, names are resolved by scope
+
+A review of rc.3 found that the tool matched text where it needed structure:
+
+- **Commands.** The generator command and its flags were renamed by regular expressions on each
+  line: the flags of every command on a line with the generator changed (`docker run -it` became
+  `docker run --immutable`), flags on a line continued with `\` did not change, and the old name
+  changed wherever it followed a blank, so `npm run openapi-typescript` (a script) and an OpenAPI
+  `description` in a YAML file were renamed too. The domain now splits shell text into simple
+  commands and words by the POSIX rules (quotes, escapes, continuations, comments, control
+  operators, quoted command lines such as `sh -c "…"`), without expanding anything. A table of
+  launchers (`npx`, `pnpm exec`, `cross-env`, `node`, `docker run`, …) and install subcommands
+  tells the program word and the package words apart; only the generator's own arguments get the
+  flag renames, and only package words get package renames. A pinned version is reported.
+- **Files with commands.** YAML files change only in command keys (`run`, `script`, `command`,
+  …) and Dependabot names; JSON configs (Nx `project.json`, `deno.json`) only at command paths,
+  each string replaced in place, so formatting and comments stay. Both formats are read by real
+  parsers behind ports (`JsonDocumentReader`, `YamlDocumentReader`), which give each string value
+  its key path and its offsets in the text; the domain decides which values are commands and
+  edits only those ranges, and nothing is printed back by a library. JSON and JSONC are read with
+  the TypeScript JSON parser (`parseJsonText`, the one tsc reads `tsconfig.json` with; it accepts
+  comments and trailing commas), so no dependency is added for them. YAML is read with `yaml`
+  (eemeli/yaml, `^2.9.1`, a caret range as ADR-003 sets for libraries), with its source tokens,
+  so plain, quoted and block scalars and flow collections (`run: [a, b]`, `{run: x}`) all have
+  exact offsets, and multi-document streams are read. A hand-written scanner was rejected: it
+  read only the block style and drifted from the grammar at its edges. A config that does not
+  parse and names an old package is reported. A list value of `command` or `entrypoint` is one
+  command in exec form (Compose, Kubernetes): each item is one word. The catalogs of
+  `pnpm-workspace.yaml` are still edited line by line as the amendment above says; with `yaml`
+  now a dependency, that reason no longer holds, and moving them onto the reader is open.
+- **Names in `transform` callbacks.** A returned `DATE` was looked up by its spelling among the
+  module constants, so a local `const DATE` in the callback was rewritten with the module's type.
+  Names are now resolved with the checker of a one-file program (no default library, no module
+  resolution, a host that reads no file), so each identifier refers to the declaration in its
+  scope. The same resolution finds options passed as a `const`, the generator through a
+  namespace import, and the module constants and imports that the rewrite leaves unused; those
+  are removed so that `noUnusedLocals` passes, and only when their initializer builds a type, so
+  no side effect is lost.
 
 ## Review trigger
 

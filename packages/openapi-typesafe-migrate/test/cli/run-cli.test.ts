@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
+import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import type { Logger, ProjectFiles } from "../../src/application/ports.js";
 import { HELP_TEXT } from "../../src/cli/cli-text.js";
 import { type CliDependencies, EXIT_CODES, runCli } from "../../src/cli/run-cli.js";
@@ -38,6 +40,7 @@ function setUp(createFiles: (root: string) => ProjectFiles) {
     },
     rewriter: new StubCallbackRewriter(),
     scanner: new QuotedStringScanner(),
+    readers: { json: createJsonTextReader(), yaml: createYamlTextReader() },
     resolvePath: (cwd, path) => (path === "." ? cwd : `${cwd}/${path}`),
   };
   return { dependencies, output, logger };

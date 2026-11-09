@@ -47,7 +47,8 @@
     "test:exports": "pnpm run build && ../../scripts/check-exports.sh --cli-only"
   },
   "dependencies": {
-    "@typescript/typescript6": "^6.0.2"
+    "@typescript/typescript6": "^6.0.2",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "dependency-cruiser": "18.7.2",

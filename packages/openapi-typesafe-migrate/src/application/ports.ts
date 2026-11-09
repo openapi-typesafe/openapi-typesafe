@@ -1,3 +1,4 @@
+import type { JsonString, YamlString } from "../domain/config-documents.js";
 import type { FileMigration } from "../domain/migration-findings.js";
 import type { SourceString } from "../domain/source-migration.js";
 
@@ -40,6 +41,24 @@ export interface CallbackRewriter {
  */
 export interface SourceStringScanner {
   scan(text: string, path: string): SourceString[];
+}
+
+/** Reads a JSON or JSONC document (comments, trailing commas) whose root is an object. */
+export interface JsonDocumentReader {
+  /** Every string value in document order, or undefined for text that is not such a document. */
+  strings(text: string): JsonString[] | undefined;
+}
+
+/** Reads a YAML stream: one document or several, separated by `---`. */
+export interface YamlDocumentReader {
+  /** Every string scalar in document order, or undefined for text that is not valid YAML. */
+  strings(text: string): YamlString[] | undefined;
+}
+
+/** The readers of the config formats whose commands and package names the migration edits. */
+export interface DocumentReaders {
+  readonly json: JsonDocumentReader;
+  readonly yaml: YamlDocumentReader;
 }
 
 /** Structured log events, written to the log file (one JSON object per line). */

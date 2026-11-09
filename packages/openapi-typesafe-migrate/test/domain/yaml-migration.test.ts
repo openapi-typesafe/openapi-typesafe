@@ -1,0 +1,184 @@
+import { describe, expect, it } from "vitest";
+import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
+import type { YamlString } from "../../src/domain/config-documents.js";
+import {
+  migrateDependabotConfig,
+  migrateYamlCommands,
+  migrateYamlScripts,
+} from "../../src/domain/yaml-migration.js";
+
+// The migrations take the strings that the YAML adapter reads; the tests read them with it.
+const yaml = createYamlTextReader();
+const stringsOf = (text: string): YamlString[] => yaml.strings(text) ?? [];
+
+const lines = (...parts: string[]): string => `${parts.join("\n")}\n`;
+
+describe("migrateYamlCommands", () => {
+  it("migrateYamlCommands migrates commands and leaves other values", () => {
+    const text = lines(
+      "info:",
+      "  description: Types are generated with openapi-typescript -it",
+      "jobs:",
+      "  gen:",
+      "    steps:",
+      "      - run: |",
+      "          npx openapi-typescript ./api.yaml \\",
+      "            --immutable-types",
+      "      - run: npx openapi-typescript api.yaml --redoc=r.yaml",
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      text
+        .replaceAll("npx openapi-typescript", "npx openapi-typesafe")
+        .replace("--immutable-types", "--immutable")
+        .replace("--redoc=", "--redocly="),
+    );
+    expect(migrated.changes.map((change) => ("location" in change ? change.location : ""))).toEqual(
+      ["ci.yml:7", "ci.yml:8", "ci.yml:9", "ci.yml:9"],
+    );
+  });
+
+  it("migrateYamlCommands reads a folded scalar as one command and keeps its line breaks", () => {
+    const text = lines("script: >", "  openapi-typescript a", "  -it");
+
+    const migrated = migrateYamlCommands(text, "x.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(lines("script: >", "  openapi-typesafe a", "  --immutable"));
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migrateYamlCommands reports a pinned command", () => {
+    const text = "command: npx openapi-typescript@7 a\n";
+
+    const migrated = migrateYamlCommands(text, "compose.yml", stringsOf(text));
+
+    expect(migrated.manualSteps).toEqual([
+      { kind: "versioned-command", location: "compose.yml:1" },
+    ]);
+  });
+
+  it("migrateYamlCommands migrates commands in flow collections", () => {
+    const text = lines(
+      "command: [npx, openapi-typescript, a.yaml, -it]",
+      "lint: {run: openapi-typescript b -it, glob: '*.yaml'}",
+      'steps: [{run: "npx openapi-typescript c"}]',
+    );
+
+    const migrated = migrateYamlCommands(text, "x.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      lines(
+        "command: [npx, openapi-typesafe, a.yaml, --immutable]",
+        "lint: {run: openapi-typesafe b --immutable, glob: '*.yaml'}",
+        'steps: [{run: "npx openapi-typesafe c"}]',
+      ),
+    );
+  });
+
+  it("migrateYamlCommands reads an exec-form list as one command, list by list", () => {
+    const text = lines(
+      "services:",
+      "  gen:",
+      "    command: [openapi-typescript, a.yaml, -it]",
+      "    entrypoint:",
+      "      - -it",
+      "---",
+      "command: [openapi-typescript, b.yaml, -it]",
+    );
+
+    const migrated = migrateYamlCommands(text, "compose.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      text
+        .replaceAll("[openapi-typescript", "[openapi-typesafe")
+        .replaceAll("yaml, -it]", "yaml, --immutable]"),
+    );
+  });
+
+  it("migrateYamlCommands keeps a blank line of a folded scalar as a command break", () => {
+    const text = lines("script: >", "  echo openapi-typescript", "", "  openapi-typescript a -it");
+
+    const migrated = migrateYamlCommands(text, "x.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      text
+        .replace("a -it", "a --immutable")
+        .replace("  openapi-typescript a", "  openapi-typesafe a"),
+    );
+  });
+
+  it("migrateYamlCommands reads a multi-line plain scalar as one command", () => {
+    const text = lines("run: openapi-typescript a", "  -it");
+
+    const migrated = migrateYamlCommands(text, "x.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(lines("run: openapi-typesafe a", "  --immutable"));
+  });
+});
+
+describe("migrateYamlScripts", () => {
+  it("migrateYamlScripts migrates the scripts of package.yaml by script name", () => {
+    const text = lines(
+      "dependencies:",
+      "  openapi-fetch: ^0.13.0",
+      "scripts:",
+      "  gen: openapi-typescript a -it",
+    );
+
+    const migrated = migrateYamlScripts(text, stringsOf(text));
+
+    expect(migrated.text).toBe(
+      text.replace("openapi-typescript a -it", "openapi-typesafe a --immutable"),
+    );
+    expect(migrated.changes[0]).toEqual({ kind: "command-renamed", location: "scripts.gen" });
+    expect(migrated.manualSteps).toEqual([]);
+  });
+});
+
+describe("migrateDependabotConfig", () => {
+  it("migrateDependabotConfig renames every original package it names", () => {
+    const text = lines(
+      "updates:",
+      "  - ignore:",
+      '      - dependency-name: "openapi-typescript"',
+      "      - dependency-name: openapi-fetch",
+      "      - dependency-name: zod",
+      "    groups:",
+      "      api:",
+      "        patterns:",
+      "          - openapi-react-query",
+      "          - 'openapi-*'",
+    );
+
+    const migrated = migrateDependabotConfig(text, ".github/dependabot.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      text
+        .replace('"openapi-typescript"', '"openapi-typesafe"')
+        .replace("name: openapi-fetch", "name: openapi-typesafe-fetch")
+        .replace("- openapi-react-query", "- openapi-typesafe-react-query"),
+    );
+    expect(migrated.changes).toEqual([
+      {
+        kind: "package-name-renamed",
+        location: ".github/dependabot.yml:3",
+        from: "openapi-typescript",
+        to: "openapi-typesafe",
+      },
+      {
+        kind: "package-name-renamed",
+        location: ".github/dependabot.yml:4",
+        from: "openapi-fetch",
+        to: "openapi-typesafe-fetch",
+      },
+      {
+        kind: "package-name-renamed",
+        location: ".github/dependabot.yml:9",
+        from: "openapi-react-query",
+        to: "openapi-typesafe-react-query",
+      },
+    ]);
+  });
+});

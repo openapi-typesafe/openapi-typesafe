@@ -5,8 +5,10 @@
  *   adapters/  ->  application/ ports, domain/
  */
 
-/** Only the parser adapter (callback rewriter and string scanner) may load TypeScript. */
-const PARSER_ADAPTER = "^src/adapters/typescript-parser";
+/** Only the parser adapters (TypeScript sources, JSON documents) may load TypeScript. */
+const PARSER_ADAPTERS = "^src/adapters/(typescript-parser|json-text)/";
+/** Only the YAML adapter may load the YAML parser. */
+const YAML_ADAPTER = "^src/adapters/yaml-text/";
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
@@ -41,10 +43,17 @@ module.exports = {
     },
     {
       name: "parser-only-in-its-adapter",
-      comment: "The TypeScript parser is a runtime dependency of one adapter only.",
+      comment: "The TypeScript parser is a runtime dependency of the parser adapters only.",
       severity: "error",
-      from: { path: "^src/", pathNot: PARSER_ADAPTER },
+      from: { path: "^src/", pathNot: PARSER_ADAPTERS },
       to: { path: "^@typescript/|node_modules/@typescript/" },
+    },
+    {
+      name: "yaml-only-in-its-adapter",
+      comment: "The YAML parser is a runtime dependency of one adapter only.",
+      severity: "error",
+      from: { path: "^src/", pathNot: YAML_ADAPTER },
+      to: { path: "^yaml$|node_modules/yaml/" },
     },
     {
       name: "no-circular",

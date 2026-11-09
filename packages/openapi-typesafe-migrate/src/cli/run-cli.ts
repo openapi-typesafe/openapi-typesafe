@@ -1,6 +1,7 @@
 import { migrateProject } from "../application/migrate-project.js";
 import type {
   CallbackRewriter,
+  DocumentReaders,
   Logger,
   ProjectFiles,
   SourceStringScanner,
@@ -22,6 +23,7 @@ export interface CliDependencies {
   };
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
+  readonly readers: DocumentReaders;
   readonly resolvePath: (cwd: string, path: string) => string;
 }
 
@@ -76,9 +78,9 @@ async function runMigration(
   const root = dependencies.resolvePath(dependencies.cwd, request.root ?? ".");
   try {
     const files = dependencies.createFiles(root, logger);
-    const { rewriter, scanner } = dependencies;
+    const { rewriter, scanner, readers } = dependencies;
     const input = { version: dependencies.version, isWrite: request.isWrite };
-    const migration = await migrateProject({ files, rewriter, scanner, logger }, input);
+    const migration = await migrateProject({ files, rewriter, scanner, readers, logger }, input);
     dependencies.writeStdout(renderReport(migration, request.isWrite));
     return EXIT_CODES.success;
   } catch (error) {
