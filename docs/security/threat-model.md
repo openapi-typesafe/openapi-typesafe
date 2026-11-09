@@ -136,6 +136,14 @@ parameter, a path segment or an object member.
   which rejects line breaks.
 - Tests: the fetch client's serializer tests, `test/common/path-dot-segments.test.ts` and
   `test/common/param-name-encoding.test.ts`.
+- Known, by the Fetch standard: on a redirect to another origin, `fetch` drops only
+  `Authorization`, `Cookie` and `Proxy-Authorization`. A credential in a custom header
+  (`X-API-Key`, an `apiKey` security scheme) is sent to the new origin, by this client as by
+  openapi-fetch and any `fetch` caller. The client keeps the platform's default
+  (`redirect: "follow"`), because changing it would break APIs that redirect within their own
+  host. The docs give the controls: send credentials in `Authorization`, set `redirect: "error"`,
+  or add the key in a middleware for the API origin only, with `redirect: "manual"`
+  ([Redirects and custom auth headers](/fetch/middleware-auth#redirects-and-custom-auth-headers)).
 
 ### T6. Supply chain — Controlled
 
