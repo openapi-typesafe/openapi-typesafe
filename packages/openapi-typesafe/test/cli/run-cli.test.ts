@@ -224,6 +224,22 @@ describe("runCli with the APIs of a Redocly config", () => {
     expect(cli.files.files.get(fakePath("/work/api/out/2.ts"))).toBe("types of https://example.com/second.yaml");
   });
 
+  it("runCli generates the APIs one after another, in the order of the config", async () => {
+    const cli = cliWithApis({
+      first: { root: "first.yaml", "x-openapi-ts": { output: "first.ts" } },
+      second: { root: "second.yaml", "x-openapi-ts": { output: "second.ts" } },
+      third: { root: "third.yaml", "x-openapi-ts": { output: "third.ts" } },
+    });
+    cli.generator.failures.set(fakeUrl("/work/api/first.yaml"), new Error("unreadable"));
+
+    await runCli([], cli.deps);
+
+    expect(cli.generator.mostAtOnce).toBe(1);
+    expect(cli.generator.calls.map((call) => String(call.source))).toEqual(
+      ["first", "second", "third"].map((name) => fakeUrl(`/work/api/${name}.yaml`)),
+    );
+  });
+
   it("runCli takes an API's boolean flags in camelCase or kebab-case over the CLI flags", async () => {
     const cli = cliWithApis({
       api: {

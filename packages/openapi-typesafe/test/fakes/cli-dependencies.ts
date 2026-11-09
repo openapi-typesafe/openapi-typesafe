@@ -207,18 +207,33 @@ export class FakeGenerator {
   readonly calls: GenerateCall[] = [];
   readonly failures = new Map<string, unknown>();
   readonly readFiles = new Map<string, readonly URL[]>();
+  /** The most generations that ran at the same time. */
+  mostAtOnce = 0;
+  #running = 0;
 
   readonly generate = async (
     source: SchemaSource,
     options: GeneratorOptions,
   ): Promise<GeneratedTypes> => {
     this.calls.push({ source, options });
+    this.#running += 1;
+    this.mostAtOnce = Math.max(this.mostAtOnce, this.#running);
+    try {
+      // Yields once, as a real load does, so generations that run together overlap here.
+      await Promise.resolve();
+      return this.#typesOf(source);
+    } finally {
+      this.#running -= 1;
+    }
+  };
+
+  #typesOf(source: SchemaSource): GeneratedTypes {
     const name = source instanceof URL ? source.href : "stdin";
     if (this.failures.has(name)) {
       throw this.failures.get(name);
     }
     return { contents: `types of ${name}`, localFiles: this.readFiles.get(name) ?? [] };
-  };
+  }
 }
 
 /** A clock that moves 5 ms on every reading. */
