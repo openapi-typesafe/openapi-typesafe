@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
+import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { migrateProject } from "../../src/application/migrate-project.js";
 import type { SkippedFile } from "../../src/application/ports.js";
 import { InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
@@ -20,6 +22,7 @@ function setUp(files: Readonly<Record<string, string>> = PROJECT, skipped: Skipp
     files: new InMemoryProjectFiles(files, skipped),
     rewriter: new StubCallbackRewriter(),
     scanner: new QuotedStringScanner(),
+    readers: { json: createJsonTextReader(), yaml: createYamlTextReader() },
     logger: new RecordingLogger(),
   };
 }

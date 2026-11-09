@@ -119,7 +119,7 @@ export function manualStepMessage(step: ManualStep): string {
     case "override-names-package":
       return `"${step.field}" names ${step.name}: update or remove that override`;
     case "config-unreadable":
-      return "the file is not valid JSON; migrate its commands by hand";
+      return "the file could not be parsed; migrate its commands by hand";
     case "options-not-inspected":
       return `line ${step.line}: ${OPTIONS_NOTE}`;
     case "deep-import":

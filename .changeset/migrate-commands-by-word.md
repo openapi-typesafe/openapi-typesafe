@@ -14,7 +14,9 @@ Commands and `transform` callbacks are migrated more precisely:
 - Husky hooks, `Justfile`, Nx `project.json` targets, `deno.json` tasks and pnpm `package.yaml`
   scripts are read.
 - In YAML files only command keys (`run`, `script`, `command`, …) change, so an OpenAPI
-  `description` stays as written. `.github/dependabot.yml` gets the new name of every package.
+  `description` stays as written. YAML and JSONC are read with real parsers, so flow style
+  (`run: [a, b]`), comments and multi-document files are handled, and a config that does not
+  parse is reported. `.github/dependabot.yml` gets the new name of every package.
 - The `transform` rewrite follows names by scope, so a local constant is no longer taken for the
   module constant of the same name. It removes the constants and imports that only the old
   returns used, so `noUnusedLocals` passes, and keeps numeric literals such as `"1_000"` and

@@ -1,7 +1,9 @@
 import { migrateCommandLines } from "../domain/command-migration.js";
 import { commandStringSteps } from "../domain/command-strings.js";
+import { unreadableConfig, type YamlString } from "../domain/config-documents.js";
 import {
   DENO_TASK_PATHS,
+  type JsonPathPattern,
   migrateJsonCommands,
   NX_COMMAND_PATHS,
 } from "../domain/json-command-migration.js";
@@ -14,13 +16,14 @@ import {
   migrateYamlCommands,
   migrateYamlScripts,
 } from "../domain/yaml-migration.js";
-import type { CallbackRewriter, SourceStringScanner } from "./ports.js";
+import type { CallbackRewriter, DocumentReaders, SourceStringScanner } from "./ports.js";
 
 /** What a migration of one kind of file needs besides the text. */
 export interface MigrationContext {
   readonly version: string;
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
+  readonly readers: DocumentReaders;
 }
 
 /** One kind of file the migration knows, and how to migrate it. */
@@ -98,6 +101,26 @@ function chain(first: FileMigration, next: (text: string) => FileMigration): Fil
   return { text: second.text, changes, manualSteps };
 }
 
+/** The commands of a JSON config at the key paths of `patterns`. */
+const jsonCommands =
+  (patterns: readonly JsonPathPattern[]): FileKind["migrate"] =>
+  (text, _path, context) => {
+    const strings = context.readers.json.strings(text);
+    return strings === undefined
+      ? unreadableConfig(text)
+      : migrateJsonCommands(text, strings, patterns);
+  };
+
+type YamlMigration = (text: string, path: string, strings: readonly YamlString[]) => FileMigration;
+
+/** A migration of the string scalars of a YAML file. */
+const yamlStrings =
+  (migrate: YamlMigration): FileKind["migrate"] =>
+  (text, path, context) => {
+    const strings = context.readers.yaml.strings(text);
+    return strings === undefined ? unreadableConfig(text) : migrate(text, path, strings);
+  };
+
 /** The kinds in order; the first that matches a path migrates it. */
 const FILE_KINDS: readonly FileKind[] = [
   {
@@ -114,23 +137,23 @@ const FILE_KINDS: readonly FileKind[] = [
   },
   {
     matches: (path) => baseName(path) === NX_PROJECT_FILE,
-    migrate: (text) => migrateJsonCommands(text, NX_COMMAND_PATHS),
+    migrate: jsonCommands(NX_COMMAND_PATHS),
   },
   {
     matches: (path) => DENO_CONFIG_FILES.has(baseName(path)),
-    migrate: (text) => migrateJsonCommands(text, DENO_TASK_PATHS),
+    migrate: jsonCommands(DENO_TASK_PATHS),
   },
   {
     matches: (path) => YAML_MANIFEST_FILES.has(baseName(path)),
-    migrate: (text) => migrateYamlScripts(text),
+    migrate: yamlStrings((text, _path, strings) => migrateYamlScripts(text, strings)),
   },
   {
     matches: isDependabotConfig,
-    migrate: (text, path) => migrateDependabotConfig(text, path),
+    migrate: yamlStrings(migrateDependabotConfig),
   },
   {
     matches: (path) => YAML_EXTENSIONS.has(extensionOf(path)),
-    migrate: (text, path) => migrateYamlCommands(text, path),
+    migrate: yamlStrings(migrateYamlCommands),
   },
   {
     matches: (path) =>

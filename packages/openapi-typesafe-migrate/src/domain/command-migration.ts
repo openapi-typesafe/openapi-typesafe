@@ -158,7 +158,15 @@ export interface ShellTextFindings {
 
 /** Find what to migrate in every command of a shell text; `locate` names each place. */
 export function shellTextFindings(text: string, locate: Locate): ShellTextFindings {
-  const findings = shellCommands(text)
+  return commandWordFindings(shellCommands(text), locate);
+}
+
+/** Find what to migrate in commands already split into words, as an exec-form list is. */
+export function commandWordFindings(
+  commands: readonly ShellCommand[],
+  locate: Locate,
+): ShellTextFindings {
+  const findings = commands
     .flatMap((words) => commandFindings(words, locate))
     .sort((left, right) => left.offset - right.offset);
   return {

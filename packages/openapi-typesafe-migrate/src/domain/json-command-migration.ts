@@ -1,12 +1,6 @@
 import { migrateCommand } from "./command-migration.js";
-import { type JsonPath, jsonStrings } from "./json-strings.js";
-import {
-  type Change,
-  type FileMigration,
-  type ManualStep,
-  unchanged,
-} from "./migration-findings.js";
-import { PACKAGE_RENAMES } from "./package-names.js";
+import type { DocumentPath, JsonString } from "./config-documents.js";
+import type { Change, FileMigration, ManualStep } from "./migration-findings.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 
 /**
@@ -34,23 +28,16 @@ export const DENO_TASK_PATHS: readonly JsonPathPattern[] = [
   ["tasks", ANY, "command"],
 ];
 
-const matches = (path: JsonPath, pattern: JsonPathPattern): boolean =>
+const matches = (path: DocumentPath, pattern: JsonPathPattern): boolean =>
   path.length === pattern.length &&
   pattern.every((part, index) => part === ANY || part === String(path[index]));
 
 /** Migrate the command strings of a JSON config whose key paths match one of `patterns`. */
 export function migrateJsonCommands(
   text: string,
+  strings: readonly JsonString[],
   patterns: readonly JsonPathPattern[],
 ): FileMigration {
-  const strings = jsonStrings(text);
-  if (strings === undefined) {
-    // A broken config that names no original package is not this migration's concern.
-    const isNamed = [...PACKAGE_RENAMES.keys()].some((name) => text.includes(name));
-    return isNamed
-      ? { text, changes: [], manualSteps: [{ kind: "config-unreadable" }] }
-      : unchanged(text);
-  }
   const changes: Change[] = [];
   const manualSteps: ManualStep[] = [];
   const edits: TextEdit[] = [];

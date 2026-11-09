@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
+import type { JsonString } from "../../src/domain/config-documents.js";
 import {
   DENO_TASK_PATHS,
   migrateJsonCommands,
   NX_COMMAND_PATHS,
 } from "../../src/domain/json-command-migration.js";
+
+// The migration takes the strings that the JSON adapter reads; the tests read them with it.
+const json = createJsonTextReader();
+const stringsOf = (text: string): JsonString[] => json.strings(text) ?? [];
 
 describe("migrateJsonCommands", () => {
   it("migrateJsonCommands migrates Nx target commands in place", () => {
@@ -19,7 +25,7 @@ describe("migrateJsonCommands", () => {
       "}",
     ].join("\n");
 
-    const migrated = migrateJsonCommands(text, NX_COMMAND_PATHS);
+    const migrated = migrateJsonCommands(text, stringsOf(text), NX_COMMAND_PATHS);
 
     expect(migrated.text).toBe(
       text
@@ -42,22 +48,11 @@ describe("migrateJsonCommands", () => {
       '{\n  // tasks\n  "tasks": {\n    "gen": "deno run -A npm:openapi-typescript a",\n' +
       '    "obj": { "command": "deno run npm:openapi-typescript@7 b" },\n  },\n}\n';
 
-    const migrated = migrateJsonCommands(text, DENO_TASK_PATHS);
+    const migrated = migrateJsonCommands(text, stringsOf(text), DENO_TASK_PATHS);
 
     expect(migrated.text).toBe(text.replace("npm:openapi-typescript a", "npm:openapi-typesafe a"));
     expect(migrated.manualSteps).toEqual([
       { kind: "versioned-command", location: "tasks.obj.command" },
     ]);
-  });
-
-  it("migrateJsonCommands reports a broken config that names an original package", () => {
-    expect(migrateJsonCommands('{ "tasks": { "a": "openapi-typescript" ', DENO_TASK_PATHS)).toEqual(
-      {
-        text: '{ "tasks": { "a": "openapi-typescript" ',
-        changes: [],
-        manualSteps: [{ kind: "config-unreadable" }],
-      },
-    );
-    expect(migrateJsonCommands("{ broken", DENO_TASK_PATHS).manualSteps).toEqual([]);
   });
 });

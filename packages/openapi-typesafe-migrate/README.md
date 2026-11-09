@@ -33,7 +33,8 @@ Commands are read in `package.json` scripts, shell scripts (`.sh`, `.bash`, `.zs
 splits them (quotes, `\` line continuations, comments, `&&`, `|`, `sh -c "…"`), so only the
 generator's own flags are renamed, and a script name (`npm run openapi-typescript`) is never
 changed. YAML files are changed only in command keys (`run`, `script`, `command`, `entrypoint`,
-…), never in other values such as an OpenAPI `description`. `Makefile`, `justfile` and
+…), in block and flow style, never in other values such as an OpenAPI `description`. A config
+that cannot be parsed and names an old package is reported, not changed. `Makefile`, `justfile` and
 `Dockerfile` are read only under the names make, just and docker look for (also `makefile`,
 `GNUmakefile`, `Justfile`, `.justfile`, `Containerfile` and `*.mk`), so `Dockerfile.dev` is not
 changed.

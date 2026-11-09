@@ -6,9 +6,11 @@ import {
   createJsonLinesLogger,
   createTemporaryLogPath,
 } from "../adapters/json-lines-logger/json-lines-logger.js";
+import { createJsonTextReader } from "../adapters/json-text/json-text.js";
 import { createNodeProjectFiles } from "../adapters/node-project-files/node-project-files.js";
 import { createTypescriptCallbackRewriter } from "../adapters/typescript-parser/rewriter.js";
 import { createTypescriptStringScanner } from "../adapters/typescript-parser/source-strings.js";
+import { createYamlTextReader } from "../adapters/yaml-text/yaml-text.js";
 import { type CliDependencies, runCli } from "./run-cli.js";
 
 /**
@@ -45,6 +47,7 @@ const dependencies: CliDependencies = {
   createLogger,
   rewriter: createTypescriptCallbackRewriter(),
   scanner: createTypescriptStringScanner(),
+  readers: { json: createJsonTextReader(), yaml: createYamlTextReader() },
   resolvePath: resolve,
 };
 

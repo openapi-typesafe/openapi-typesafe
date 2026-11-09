@@ -2,6 +2,7 @@ import type { Change, ManualStep } from "../domain/migration-findings.js";
 import { fileMigrationFor, type MigrationContext } from "./file-migrations.js";
 import type {
   CallbackRewriter,
+  DocumentReaders,
   Logger,
   ProjectFiles,
   SkippedFile,
@@ -12,6 +13,7 @@ export interface MigrateProjectDependencies {
   readonly files: ProjectFiles;
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
+  readonly readers: DocumentReaders;
   readonly logger: Logger;
 }
 
@@ -46,8 +48,8 @@ async function migrateFile(
     return undefined;
   }
   const text = await dependencies.files.read(path);
-  const { rewriter, scanner } = dependencies;
-  const context: MigrationContext = { version: input.version, rewriter, scanner };
+  const { rewriter, scanner, readers } = dependencies;
+  const context: MigrationContext = { version: input.version, rewriter, scanner, readers };
   const migration = migrate(text, path, context);
   const isChanged = migration.text !== text;
   if (isChanged && input.isWrite) {

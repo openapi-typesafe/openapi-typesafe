@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
+import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { fileMigrationFor } from "../../src/application/file-migrations.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
 
 const scanner = new QuotedStringScanner();
-const context = { version: "1.0.0", rewriter: new StubCallbackRewriter(), scanner };
+// The document readers are pure parsers, so the tests read configs with the real ones.
+const readers = { json: createJsonTextReader(), yaml: createYamlTextReader() };
+const context = { version: "1.0.0", rewriter: new StubCallbackRewriter(), scanner, readers };
 
 describe("fileMigrationFor", () => {
   it.each([
@@ -58,6 +62,7 @@ describe("fileMigrationFor", () => {
       version: "1.0.0",
       rewriter,
       scanner,
+      readers,
     });
 
     expect(migration?.text).toBe("rewritten");
@@ -114,6 +119,33 @@ describe("fileMigrationFor", () => {
     );
     expect(run("package.yaml", "scripts:\n  g: openapi-typescript a\n")).toBe(
       "scripts:\n  g: openapi-typesafe a\n",
+    );
+  });
+
+  it("fileMigrationFor migrates a deno.jsonc with comments in place", () => {
+    const text = '{\n  // generate the API types\n  "tasks": { "g": "openapi-typescript a" },\n}\n';
+
+    const migration = fileMigrationFor("deno.jsonc")?.(text, "deno.jsonc", context);
+
+    expect(migration?.text).toBe(text.replace("openapi-typescript a", "openapi-typesafe a"));
+  });
+
+  it.each([
+    ["project.json", '{ "targets": { "g": "openapi-typescript" '],
+    ["ci.yml", "run: 'openapi-typescript a\n"],
+    ["package.yaml", "scripts: [openapi-typescript\n"],
+    [".github/dependabot.yml", "- dependency-name: 'openapi-fetch\n"],
+  ])("fileMigrationFor reports a broken %s that names an original package", (path, text) => {
+    expect(fileMigrationFor(path)?.(text, path, context)).toEqual({
+      text,
+      changes: [],
+      manualSteps: [{ kind: "config-unreadable" }],
+    });
+  });
+
+  it("fileMigrationFor leaves a broken config that names no original package", () => {
+    expect(fileMigrationFor("ci.yml")?.("run: 'open\n", "ci.yml", context)?.manualSteps).toEqual(
+      [],
     );
   });
 
