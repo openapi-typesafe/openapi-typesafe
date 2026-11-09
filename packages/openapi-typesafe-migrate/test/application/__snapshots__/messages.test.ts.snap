@@ -34,6 +34,7 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "line 8: a string runs openapi-typescript, so it was kept; change it to "npx openapi-typesafe a.yaml"",
   "line 9: the options of openapiTS() are not an object written in this file: check them for transform, postTransform and transformProperty. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 2: "b/x" imports a file inside the package; check that it exists",
+  "line 2: \`openapi-fetch\${x}\` builds its module name at run time from an old package name, so it was kept; rename it to openapi-typesafe-fetch",
   "line 6: "openapi-fetch" is a string, not a module specifier, so it was kept; if it names the package, change it to "openapi-typesafe-fetch"",
   "swr-openapi takes its client type from openapi-fetch@>=0.15, its peer dependency: alias openapi-fetch to openapi-typesafe-fetch with overrides or resolutions, or passing it the openapi-typesafe-fetch client fails to type-check. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/fetch/index.md#libraries-built-on-openapi-fetch",
   "line 4: transform kept (postTransform or transformProperty are set too, and they need TypeScript nodes); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",

@@ -187,6 +187,30 @@ describe("migrateModuleSpecifiers", () => {
   });
 });
 
+describe("migrateModuleSpecifiers and run-time names", () => {
+  it("migrateModuleSpecifiers reports a template that adds to an old package name", () => {
+    const value = `openapi-typescript-helpers\${suffix}`;
+    const text = `const h = import(\`${value}\`);\nconst o = \`openapi-fetch\${x}\`;\n`;
+    const strings = [stringIn(text, value), stringIn(text, `openapi-fetch\${x}`, false)];
+
+    const migration = migrateModuleSpecifiers(text, strings, "1.0.0");
+
+    expect(migration.text).toBe(text);
+    expect(migration.manualSteps).toEqual([
+      { kind: "dynamic-specifier", line: 1, value, to: "openapi-typesafe-helpers" },
+    ]);
+  });
+
+  it("migrateModuleSpecifiers leaves a template of another package alone", () => {
+    const value = `openapi-fetch-extra\${x}`;
+    const text = `import(\`${value}\`);\n`;
+
+    const migration = migrateModuleSpecifiers(text, [stringIn(text, value)], "1.0.0");
+
+    expect(migration.manualSteps).toEqual([]);
+  });
+});
+
 describe("importedSpecifiers", () => {
   it("importedSpecifiers gives the module specifiers with new names and their lines", () => {
     const text =

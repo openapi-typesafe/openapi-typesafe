@@ -6,7 +6,7 @@ import {
   type ManualStep,
 } from "./migration-findings.js";
 import { migrateNpmSpec } from "./npm-alias.js";
-import { type RenamedSpecifier, renamedSpecifier } from "./package-names.js";
+import { PACKAGE_RENAMES, type RenamedSpecifier, renamedSpecifier } from "./package-names.js";
 import { hideUrlCredentials } from "./url-credentials.js";
 
 /**
@@ -57,6 +57,18 @@ function renamedValue(value: string, version: string): RenamedValue | undefined 
   return npm.isReported ? { ...renamed, keptSpec: hideUrlCredentials(value) } : renamed;
 }
 
+const TEMPLATE_SUBSTITUTION = "${";
+
+/**
+ * The new name of an original package that a template specifier ends its name with, right before
+ * a substitution (`openapi-fetch${suffix}`). The substitution may go on with the name or start a
+ * subpath, so only the user knows what to write; undefined for any other specifier.
+ */
+function dynamicPackage(value: string): string | undefined {
+  const at = value.indexOf(TEMPLATE_SUBSTITUTION);
+  return at === -1 ? undefined : PACKAGE_RENAMES.get(value.slice(0, at));
+}
+
 /** Outer strings first: a string that holds another starts no later and ends no earlier. */
 const byStartThenOuter = (left: SourceString, right: SourceString): number =>
   left.start - right.start || right.end - left.end;
@@ -94,6 +106,13 @@ function distinctStrings(strings: readonly SourceString[]): SourceString[] {
   return distinct;
 }
 
+const dynamicStep = (line: number, value: string, to: string): ManualStep => ({
+  kind: "dynamic-specifier",
+  line,
+  value,
+  to,
+});
+
 /**
  * Rename the original packages where a source file names them as modules. A string that equals a
  * package name anywhere else (an object key, a label, a config value) may mean the package or
@@ -111,10 +130,12 @@ export function migrateModuleSpecifiers(
   const lineOf = lineLocator(text);
   for (const found of distinctStrings(strings)) {
     const renamed = renamedValue(found.value, version);
+    const line = lineOf(found.start);
+    const dynamic = found.isModuleSpecifier ? dynamicPackage(found.value) : undefined;
     if (renamed === undefined) {
+      manualSteps.push(...(dynamic === undefined ? [] : [dynamicStep(line, found.value, dynamic)]));
       continue;
     }
-    const line = lineOf(found.start);
     // A string inside a template that was replaced is part of the replacement, which keeps it as
     // written, so it can only be reported.
     if (!found.isModuleSpecifier || found.start < copiedUpTo) {

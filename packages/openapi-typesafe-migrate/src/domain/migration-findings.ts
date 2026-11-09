@@ -94,6 +94,13 @@ export type ManualStep =
   | { readonly kind: "options-not-inspected"; readonly line: number }
   | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
   | {
+      readonly kind: "dynamic-specifier";
+      readonly line: number;
+      readonly value: string;
+      /** The new name of the package the specifier starts with. */
+      readonly to: string;
+    }
+  | {
       readonly kind: "string-names-package";
       readonly line: number;
       readonly value: string;
