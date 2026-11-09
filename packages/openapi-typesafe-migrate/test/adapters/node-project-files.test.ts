@@ -103,6 +103,19 @@ describe("NodeProjectFiles", () => {
     );
   });
 
+  it("listFiles leaves out links that lead to no file or to the root, without failing", async () => {
+    await put("package.json", "{}");
+    await symlink("loop.ts", join(root, "loop.ts"));
+    await symlink("package.json/x.ts", join(root, "through-file.ts"));
+    await symlink(".", join(root, "self"));
+    const paths = ["package.json", "loop.ts", "through-file.ts", "package.json/y.ts", "self"];
+    const { files } = filesWith({ kind: "listed", paths });
+
+    const listed = await files.listFiles();
+
+    expect(listed).toEqual({ files: ["package.json"], skipped: [] });
+  });
+
   it("listFiles skips paths outside the root that a nested repository lists", async () => {
     await put("vendor/lib/a.ts", "");
     await put("outside.ts", "");
@@ -200,7 +213,7 @@ describe("NodeProjectFiles", () => {
 
   function filesWithGit(directory: string) {
     const logger = new RecordingLogger();
-    const git = createRealGitFileList();
+    const git = createRealGitFileList(root);
     return { files: createNodeProjectFiles(join(root, directory), { git, logger }), logger };
   }
 

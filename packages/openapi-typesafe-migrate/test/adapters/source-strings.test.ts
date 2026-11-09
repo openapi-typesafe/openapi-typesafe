@@ -89,6 +89,23 @@ describe("TypescriptSourceStringScanner", () => {
     );
   });
 
+  it("scan finds the strings in a substitution inside their template", () => {
+    const choice = substitution('on ? "on" : "off"');
+    const text = `const label = \`${choice} items\`;\nimport("openapi-fetch");`;
+
+    const found = scanner.scan(text, "a.tsx");
+
+    expect(found.map((string) => string.value)).toEqual([
+      `${choice} items`,
+      "on",
+      "off",
+      "openapi-fetch",
+    ]);
+    expect(migrateModuleSpecifiers(text, found, VERSION).text).toBe(
+      `const label = \`${choice} items\`;\nimport("openapi-typesafe-fetch");`,
+    );
+  });
+
   it("scan skips comments, JSDoc text and a reference to a path", () => {
     const text = [
       '// "openapi-fetch" in a line comment',

@@ -13,7 +13,8 @@ import { hideUrlCredentials } from "./url-credentials.js";
  * its value, inside the quotes. `isModuleSpecifier` is true where the string names a module:
  * `import … from`, `export … from`, `import()`, `require()`, `import x = require()`,
  * `import("…")` types and JSDoc `@import` tags, `declare module`, `/// <reference types>` and the
- * module mocks of vitest, jest and bun.
+ * module mocks of vitest, jest and bun. Strings nest: a template with substitutions spans its
+ * text as written, so the strings inside its `${…}` lie within it.
  */
 export interface SourceString {
   readonly start: number;
@@ -55,26 +56,39 @@ function renamedValue(value: string, version: string): RenamedValue | undefined 
   return npm.isReported ? { ...renamed, keptSpec: hideUrlCredentials(value) } : renamed;
 }
 
+/** Outer strings first: a string that holds another starts no later and ends no earlier. */
+const byStartThenOuter = (left: SourceString, right: SourceString): number =>
+  left.start - right.start || right.end - left.end;
+
 /**
- * The strings in file order, each span once. A span found twice (two scripts of a component that
- * overlap) is one string, and a module specifier if either finding says so. Spans that overlap
- * otherwise cannot both be replaced: that is a scanner bug, and editing on would corrupt the file.
+ * The strings in file order, outer before inner, each span once. A span found twice (two scripts
+ * of a component that overlap) is one string, and a module specifier if either finding says so.
+ * Spans may nest, as a template holds the strings of its substitutions; spans that cross cannot
+ * both be replaced: that is a scanner bug, and editing on would corrupt the file.
  */
 function distinctStrings(strings: readonly SourceString[]): SourceString[] {
   const distinct: SourceString[] = [];
-  for (const found of [...strings].sort((left, right) => left.start - right.start)) {
+  const enclosing: SourceString[] = [];
+  for (const found of [...strings].sort(byStartThenOuter)) {
     const previous = distinct.at(-1);
-    if (previous === undefined || found.start >= previous.end) {
-      distinct.push(found);
-    } else if (found.start === previous.start && found.end === previous.end) {
+    if (previous?.start === found.start && previous.end === found.end) {
       const isModuleSpecifier = previous.isModuleSpecifier || found.isModuleSpecifier;
       distinct[distinct.length - 1] = { ...previous, isModuleSpecifier };
-    } else {
+      continue;
+    }
+    let outer = enclosing.at(-1);
+    while (outer !== undefined && outer.end <= found.start) {
+      enclosing.pop();
+      outer = enclosing.at(-1);
+    }
+    if (outer !== undefined && found.end > outer.end) {
       throw new Error(
-        `Source strings overlap at offsets ${previous.start}-${previous.end} and ` +
+        `Source strings overlap at offsets ${outer.start}-${outer.end} and ` +
           `${found.start}-${found.end}; the file was not changed.`,
       );
     }
+    enclosing.push(found);
+    distinct.push(found);
   }
   return distinct;
 }
@@ -100,7 +114,9 @@ export function migrateModuleSpecifiers(
       continue;
     }
     const line = lineOf(found.start);
-    if (!found.isModuleSpecifier) {
+    // A string inside a template that was replaced is part of the replacement, which keeps it as
+    // written, so it can only be reported.
+    if (!found.isModuleSpecifier || found.start < copiedUpTo) {
       manualSteps.push({ kind: "string-names-package", line, value: found.value, to: renamed.to });
       continue;
     }

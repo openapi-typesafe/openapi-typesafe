@@ -3,6 +3,7 @@ import {
   findWorkTree,
   type GitFileSystem,
   type GitHost,
+  type RepositoryCheck,
 } from "./git-locations.js";
 import {
   type GitEnvironment,
@@ -46,6 +47,8 @@ const LS_FILES_ARGUMENTS = [
  * lists nothing in an ignored directory, so its listing would look like an empty project.
  */
 const CHECK_IGNORE_ARGUMENTS = ["check-ignore", "--quiet", "."] as const;
+/** Exit code 0 when git finds a repository in the working directory. */
+const REPOSITORY_CHECK_ARGUMENTS = ["rev-parse", "--git-dir"] as const;
 const IGNORED_EXIT_CODE = 0;
 const NOT_IGNORED_EXIT_CODE = 1;
 const IGNORED_REASON = "the git repository around the folder ignores it";
@@ -89,6 +92,8 @@ export interface GitFileListOptions {
   readonly environment: GitEnvironment;
   readonly platform: NodeJS.Platform;
   readonly fileSystem: GitFileSystem;
+  /** The folder the tool migrates; no git in it or under it runs. */
+  readonly projectRoot: string;
   /** Runs one git command; a child process unless a test wraps it. */
   readonly process?: GitProcess;
 }
@@ -110,16 +115,21 @@ class HardenedGitFileList implements GitFileList {
     if (executable === undefined) {
       return { kind: "unavailable", reason: NO_GIT_REASON };
     }
-    const workTree = await findWorkTree(directory, this.#host);
     const { environment } = this.#host;
+    const isRepository: RepositoryCheck = async (folder, ceiling) => {
+      const command = { executable, directory: folder, environment, workTree: undefined, ceiling };
+      const run = await this.#process(hardenedInvocation(command, REPOSITORY_CHECK_ARGUMENTS));
+      return run.kind === "exited" && run.exitCode === 0;
+    };
+    const workTree = await findWorkTree(directory, this.#host, isRepository);
     return listWith({ executable, directory, environment, workTree }, this.#process);
   }
 }
 
 /**
  * A git file list that runs `git check-ignore` and `git ls-files` (git-process.ts has the
- * hardening): git by its absolute path from PATH, with the folder that holds the `.git` of the
- * listed directory as the work tree.
+ * hardening): git by its absolute path from a PATH folder outside the project, with the folder
+ * whose `.git` git takes as the repository of the listed directory as the work tree.
  */
 export function createGitFileList(options: GitFileListOptions): GitFileList {
   return new HardenedGitFileList(options);

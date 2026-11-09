@@ -17,4 +17,9 @@ export class InMemoryGitFileSystem implements GitFileSystem {
   hasEntry(path: string): Promise<boolean> {
     return Promise.resolve(this.#entries.has(path));
   }
+
+  /** The fixed paths hold no links, so a path is its own real path. */
+  realPath(path: string): Promise<string | undefined> {
+    return Promise.resolve(path);
+  }
 }
