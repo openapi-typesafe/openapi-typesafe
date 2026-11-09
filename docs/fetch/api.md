@@ -107,6 +107,20 @@ request wins over the client, and `params.header` over both. They can be a `Head
 list of `[name, value]` pairs or a record. A record value can be a string, a number, a boolean or
 an array of them (each item is appended), and `null` removes a header set at a lower level.
 
+`params.header` values are written in the `simple` style, the only style OpenAPI has for headers,
+as a `simple` path parameter but not percent-encoded:
+
+| Value | Sent as |
+| :---- | :------ |
+| `new Date(0)` | `1970-01-01T00:00:00.000Z` (ISO 8601, UTC) |
+| `["a", "b"]` | `a,b` |
+| `{ role: "admin", page: 2 }` | `role,admin,page,2` |
+| `[]`, `{}` | no header |
+| `null` | removes the header set in `headers` |
+
+An exploded object header (`role=admin,page=2`) needs a string value: the client does not know the
+`explode` of a header.
+
 ::: info Cookie parameters
 
 `params.cookie` is typed but not sent, as in openapi-fetch. Browsers do not let scripts set the

@@ -126,6 +126,7 @@ export default function createClient(clientOptions) {
     }
 
     const pathSerializer = requestPathSerializer || globalPathSerializer || defaultPathSerializer;
+    const headerParams = serializeHeaderParams(params.header);
 
     const serializedBody =
       body === undefined
@@ -138,7 +139,7 @@ export default function createClient(clientOptions) {
             // content-type header. So we re-merge below, setting the content-type at the very
             // beginning to be overwritten. Lastly, based on the way headers work, it’s not a simple
             // “present-or-not” check because null intentionally un-sets headers.
-            mergeHeaders(baseHeaders, headers, params.header),
+            mergeHeaders(baseHeaders, headers, headerParams),
           );
     const requestBody = isFormData(serializedBody)
       ? asFormDataOf(CustomFormData, serializedBody)
@@ -154,7 +155,7 @@ export default function createClient(clientOptions) {
           },
       baseHeaders,
       headers,
-      params.header,
+      headerParams,
     );
     if (isFormData(requestBody)) {
       dropFormContentType(finalHeaders, requestBody[CLIENT_BUILT_FORM] === true);
@@ -593,6 +594,32 @@ function isDate(value) {
  */
 function valueText(value) {
   return isDate(value) ? value.toISOString() : value;
+}
+
+/** Header parameters are written in `simple` style, not exploded: OpenAPI's only header style. */
+const HEADER_PARAM_STYLE = { style: "simple", explode: false, allowReserved: true };
+
+/**
+ * A header parameter value: a `Date` as ISO 8601, an array as `a,b` and an object as `name,value`
+ * pairs, as a `simple` path parameter (ADR-041), since `Headers` sent an object as
+ * `[object Object]` and a `Date` as local time. Not percent-encoded: a header holds no URL. `null`
+ * still removes a header, and an empty array or object sends none.
+ */
+function headerParamValue(value) {
+  if (value === null || typeof value !== "object" || isDate(value)) {
+    return valueText(value);
+  }
+  const serialize = Array.isArray(value) ? serializeArrayParam : serializeObjectParam;
+  return serialize("", value, HEADER_PARAM_STYLE) || undefined;
+}
+
+/** The `params.header` record with each value in the `simple` style. */
+function serializeHeaderParams(header) {
+  if (!header || typeof header !== "object") {
+    return header;
+  }
+  const entries = Object.entries(header).map(([name, value]) => [name, headerParamValue(value)]);
+  return Object.fromEntries(entries);
 }
 
 /** One parameter value (or object key), percent-encoded unless `allowReserved`. */
