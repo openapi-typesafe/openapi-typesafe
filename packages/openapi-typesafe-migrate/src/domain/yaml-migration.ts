@@ -36,6 +36,16 @@ export const YAML_COMMAND_KEYS: ReadonlySet<string> = new Set([
   "entrypoint",
 ]);
 
+/**
+ * Keys whose map holds environment variables (GitHub Actions, Drone and Woodpecker `env`). A
+ * variable can hold a command that a step runs as `$GEN`, so each value is read as shell text:
+ * it changes only where the generator is in command position, never in a sentence that names it.
+ */
+const ENVIRONMENT_KEYS: ReadonlySet<string> = new Set(["env"]);
+
+const isEnvironmentValue = (value: DocumentString): boolean =>
+  value.path.length >= 2 && ENVIRONMENT_KEYS.has(String(value.path.at(-2)));
+
 /** Keys of a Dependabot config whose values are package names (`ignore`, `allow`, `groups`). */
 export const DEPENDABOT_NAME_KEYS: ReadonlySet<string> = new Set([
   "dependency-name",
@@ -128,7 +138,10 @@ export function migrateYamlCommands(
   const values = valuesOf(strings, YAML_COMMAND_KEYS);
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
-  const shellValues = values.filter((value) => !isExecFormItem(value));
+  const commandValues = new Set(values.filter((value) => !isExecFormItem(value)));
+  const shellValues = strings.filter(
+    (value) => commandValues.has(value) || isEnvironmentValue(value),
+  );
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(text, value, locate)),
     commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),

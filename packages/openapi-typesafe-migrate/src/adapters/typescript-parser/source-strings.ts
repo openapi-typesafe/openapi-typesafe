@@ -66,7 +66,7 @@ function isModuleCall(call: ts.CallExpression): boolean {
   return ts.isPropertyAccessExpression(callee) && isModuleMethod(callee);
 }
 
-function isModuleSpecifier(literal: ts.StringLiteralLike): boolean {
+function isModuleSpecifier(literal: ts.StringLiteralLike | ts.TemplateExpression): boolean {
   const parent = literal.parent;
   if (
     ts.isImportDeclaration(parent) ||
@@ -90,6 +90,13 @@ function isModuleSpecifier(literal: ts.StringLiteralLike): boolean {
 
 type FoundStrings = Map<number, SourceString>;
 
+/** The value of a string literal; the text between the backticks of a template with `${…}`. */
+function stringValue(node: ts.StringLiteralLike | ts.TemplateExpression, file: ts.SourceFile) {
+  return ts.isTemplateExpression(node)
+    ? file.text.slice(node.getStart(file) + 1, node.getEnd() - 1)
+    : node.text;
+}
+
 /** Adds the string literals under `root` to `found`; `file` starts at `offset` in the file. */
 function collectStrings(
   root: ts.Node,
@@ -98,14 +105,17 @@ function collectStrings(
   found: FoundStrings,
 ): void {
   const visit = (node: ts.Node): void => {
-    if (ts.isStringLiteralLike(node)) {
+    // A template with substitutions (`npx openapi-typescript ${spec}`) gives its text as written,
+    // `${…}` included: the specifier rename then keeps the substitutions, and a command in it is
+    // reported with them.
+    if (ts.isStringLiteralLike(node) || ts.isTemplateExpression(node)) {
       // The value starts after the opening quote and ends before the closing one.
       const start = offset + node.getStart(file) + 1;
       const end = offset + node.getEnd() - 1;
       found.set(start, {
         start,
         end,
-        value: node.text,
+        value: stringValue(node, file),
         isModuleSpecifier: isModuleSpecifier(node),
       });
     }

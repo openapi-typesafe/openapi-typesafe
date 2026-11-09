@@ -6,6 +6,7 @@ import {
   documentStrings,
   unreadableConfig,
 } from "../domain/config-documents.js";
+import { migrateDockerfile } from "../domain/dockerfile-migration.js";
 import { migrateImportMap } from "../domain/import-map-migration.js";
 import {
   DENO_TASK_PATHS,
@@ -14,6 +15,7 @@ import {
   NX_COMMAND_PATHS,
   PACKAGE_SCRIPT_PATHS,
 } from "../domain/json-command-migration.js";
+import { migrateMakefile } from "../domain/makefile-migration.js";
 import { migratePackageManifest } from "../domain/manifest-migration.js";
 import {
   type Change,
@@ -49,19 +51,13 @@ interface FileKind {
   readonly migrate: (text: string, path: string, context: MigrationContext) => FileMigration;
 }
 
-const SHELL_EXTENSIONS: ReadonlySet<string> = new Set([".sh", ".bash", ".zsh", ".mk"]);
+const SHELL_EXTENSIONS: ReadonlySet<string> = new Set([".sh", ".bash", ".zsh"]);
+const MAKEFILE_EXTENSION = ".mk";
 const YAML_EXTENSIONS: ReadonlySet<string> = new Set([".yml", ".yaml"]);
 /** Makefiles, justfiles and Dockerfiles, by the names make, just and docker look for. */
-const SHELL_FILE_NAMES: ReadonlySet<string> = new Set([
-  "Makefile",
-  "makefile",
-  "GNUmakefile",
-  "justfile",
-  "Justfile",
-  ".justfile",
-  "Dockerfile",
-  "Containerfile",
-]);
+const MAKEFILE_NAMES: ReadonlySet<string> = new Set(["Makefile", "makefile", "GNUmakefile"]);
+const SHELL_FILE_NAMES: ReadonlySet<string> = new Set(["justfile", "Justfile", ".justfile"]);
+const DOCKERFILE_NAMES: ReadonlySet<string> = new Set(["Dockerfile", "Containerfile"]);
 /** Git hooks that husky runs; `.husky/_/` holds husky's own generated scripts. */
 const HUSKY_FOLDER = ".husky/";
 const HUSKY_INTERNALS = ".husky/_/";
@@ -241,6 +237,15 @@ const FILE_KINDS: readonly FileKind[] = [
         stringsStep((text, strings) => migrateYamlCommands(text, path, strings)),
       ]),
     ),
+  },
+  {
+    matches: (path) => DOCKERFILE_NAMES.has(baseName(path)),
+    migrate: whenNamed((text, path) => migrateDockerfile(text, path)),
+  },
+  {
+    matches: (path) =>
+      MAKEFILE_NAMES.has(baseName(path)) || extensionOf(path) === MAKEFILE_EXTENSION,
+    migrate: whenNamed((text, path) => migrateMakefile(text, path)),
   },
   {
     matches: (path) =>
