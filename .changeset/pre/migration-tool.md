@@ -19,9 +19,10 @@ only reports until you add `--write`, and logs every finding to a private JSON L
 - Sources: module specifiers (also mocks, JSDoc `@import`, `npm:` specifiers and the scripts of
   `.vue`, `.svelte` and `.astro` files). A `transform` callback that returns plain `ts.factory`
   types becomes type text with `irCallbacks: true`; callbacks it cannot rewrite are reported.
-- Commands: the generator command and its renamed flags in package scripts, CI files, Makefiles
-  (also variables that hold the generator), Dockerfiles (also the exec form), `Justfile`, Husky
-  hooks, Nx `project.json` targets and `deno.json` tasks, read word by word as the shell splits
-  them, also inside `if`, `while` and `{ … }` blocks. In YAML files only command keys (`run`,
-  `script`, `command`, …) and `env` values change. Install commands and `.github/dependabot.yml`
-  get the new package names; pinned versions and commands it cannot read safely are reported.
+- Commands: the generator command and its renamed flags in package scripts, CI files (also `env`
+  variables that hold the generator), Makefiles (also variables that hold the generator),
+  Dockerfiles (also the exec form and its `sh -c` command line), `Justfile`, Husky hooks, Nx
+  `project.json` targets and `deno.json` tasks, read word by word as the shell splits them, also
+  inside `if`, `while` and `{ … }` blocks. In YAML files only command keys (`run`, `script`,
+  `command`, …) and `env` values change. Install commands and `.github/dependabot.yml` get the new
+  package names; pinned versions and commands it cannot read safely are reported.

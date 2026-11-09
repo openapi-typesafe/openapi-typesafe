@@ -47,6 +47,52 @@ describe("migrateMakefile", () => {
     expect(locations).toEqual([1, 2, 3, 6, 7, 10, 10].map((line) => `Makefile:${line}`));
   });
 
+  it("migrateMakefile follows variables set to the generator variable and target variables", () => {
+    const [oat, gen, tv] = ["OAT", "GEN", "TV"].map((name) => reference("(", name, ")"));
+    const text = lines(
+      "OAT := openapi-typescript",
+      `GEN := ${oat}`,
+      "gen: TV := openapi-typescript",
+      "gen:",
+      `\t${gen} a.yaml -it`,
+      `\t${tv} b.yaml -it`,
+    );
+
+    expect(migrateMakefile(text, "Makefile").text).toBe(
+      lines(
+        "OAT := openapi-typesafe",
+        `GEN := ${oat}`,
+        "gen: TV := openapi-typesafe",
+        "gen:",
+        `\t${gen} a.yaml --immutable`,
+        `\t${tv} b.yaml --immutable`,
+      ),
+    );
+  });
+
+  it("migrateMakefile reports a variable of old flags that the generator gets", () => {
+    const [flags, spec] = ["FLAGS", "SPEC"].map((name) => reference("(", name, ")"));
+    const text = lines(
+      "FLAGS := -it --redoc r.yaml",
+      "SPEC := api.yaml",
+      "gen:",
+      `\topenapi-typescript ${spec} ${flags}`,
+      `\tdocker run ${flags}`,
+    );
+
+    const migrated = migrateMakefile(text, "Makefile");
+
+    expect(migrated.text).toBe(text.replace("\topenapi-typescript", "\topenapi-typesafe"));
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "flags-in-variable",
+        location: "Makefile:4",
+        variable: flags,
+        flags: ["-it", "--redoc"],
+      },
+    ]);
+  });
+
   it("migrateMakefile leaves an unclosed expansion to the shell, which reads a subshell", () => {
     const text = "gen:\n\topenapi-typescript a.yaml -it $(X -it\n";
 

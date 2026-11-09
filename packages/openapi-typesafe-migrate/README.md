@@ -33,16 +33,19 @@ Commands are read in `package.json` scripts, shell scripts (`.sh`, `.bash`, `.zs
 `deno.json` tasks and pnpm `package.yaml` scripts. They are read word by word, the way the shell
 splits them (quotes, `\` line continuations, comments, `&&`, `|`, `sh -c "…"`, and the commands
 inside `if`, `while`, `for` and `{ … }`), so only the generator's own flags are renamed, and a
-script name (`npm run openapi-typescript`) is never changed. A Dockerfile's exec form
-(`RUN ["npx", "openapi-typescript", …]`) is read word by word. A Makefile variable that holds the
-generator (`OAT := openapi-typescript`) is renamed where it is set, and the flags after `$(OAT)`
-where it runs. YAML files are changed only in command keys (`run`, `script`, `command`,
-`entrypoint`, …) and in the values of `env`, in block and flow style, never in other values such
-as an OpenAPI `description`; a YAML file that names no old package is not even parsed. A config
-that cannot be parsed and names an old package is reported with the line and column, not changed. `Makefile`, `justfile` and
-`Dockerfile` are read only under the names make, just and docker look for (also `makefile`,
-`GNUmakefile`, `Justfile`, `.justfile`, `Containerfile` and `*.mk`), so `Dockerfile.dev` is not
-changed.
+script name (`npm run openapi-typescript`) is never changed. A Dockerfile's exec form (`RUN ["npx",
+"openapi-typescript", …]`, also after `RUN --mount=…`) is read word by word, and the command line of
+`["sh", "-c", "…"]` as shell text. A Makefile variable that holds the generator (`OAT :=
+openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed where it is set,
+and the flags after `$(OAT)` where it runs; so is an `env` variable of a workflow and the flags
+after `$GEN`. A variable of old flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may
+serve other commands too, so it is reported, not changed. YAML files are changed only in command
+keys (`run`, `script`, `command`, `entrypoint`, …) and in the values of `env`, in block and flow
+style, never in other values such as an OpenAPI `description`; a YAML file that names no old package
+is not even parsed. A config that cannot be parsed and names an old package is reported with the
+line and column, not changed. `Makefile`, `justfile` and `Dockerfile` are read only under the names
+make, just and docker look for (also `makefile`, `GNUmakefile`, `Justfile`, `.justfile`,
+`Containerfile` and `*.mk`), so `Dockerfile.dev` is not changed.
 
 A range keeps its style: `^` and `>=` give `^1.0.0`, `~` gives `~1.0.0`, an exact version stays
 exact, and a partial version keeps what it fixes (`7`, `7.x` and `0.x` give `^1.0.0`; `0.13` and

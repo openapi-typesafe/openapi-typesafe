@@ -1,7 +1,7 @@
 import {
   type CommandMigration,
   commandWordFindings,
-  type GeneratorReference,
+  type FileVariables,
   runsGenerator,
 } from "./command-migration.js";
 import { lineLocator } from "./migration-findings.js";
@@ -12,13 +12,18 @@ import { applyTextEdits } from "./text-edits.js";
  * Makefiles. Make expands its variables before a recipe line reaches the shell, so a variable can
  * hold the generator command: `OAT := openapi-typescript`, then `$(OAT) a.yaml -it`. The value of
  * an assignment is read as a command and migrated where it is set; the flags after a reference
- * to such a variable are migrated where it is used. Everything else is shell text.
+ * to such a variable, or to one set to it (`GEN := $(OAT)`), are migrated where it is used.
+ * Everything else is shell text.
  */
 
-/** A variable assignment at the start of a line (not a recipe line, which starts with a tab). */
+/**
+ * A variable assignment at the start of a line (not a recipe line, which starts with a tab), also
+ * one for some targets only (`gen: OAT := openapi-typescript`).
+ */
 const ASSIGNMENT_RE = new RegExp(
   [
-    "^(?:(?:export|override|private)[ \\t]+)*",
+    "^(?:[^\\s:#=][^:#=\\n]*:[ \\t]*)?",
+    "(?:(?:export|override|private)[ \\t]+)*",
     "([A-Za-z_][A-Za-z0-9_.-]*)",
     "[ \\t]*(?::::=|::=|:=|\\?=|\\+=|!=|=)",
   ].join(""),
@@ -116,8 +121,18 @@ function withoutAssignmentHeads(text: string, assignments: readonly Assignment[]
   return parts.join("");
 }
 
-/** The variables whose value runs the generator, by the commands that start in their value. */
+/** The variable that `written` references as a whole, after the recipe prefix, or undefined. */
+function referencedName(written: string): string | undefined {
+  const match = VARIABLE_REFERENCE_RE.exec(written.trim().replace(RECIPE_PREFIX_RE, ""));
+  return match === null ? undefined : (match[1] ?? match[2]);
+}
+
+/**
+ * The variables whose value runs the generator: by the commands that start in their value, and
+ * by a value that is a reference to one of them (`GEN := $(OAT)`), however long the chain.
+ */
 function generatorVariables(
+  text: string,
   commands: readonly (readonly ShellWord[])[],
   assignments: readonly Assignment[],
 ): Set<string> {
@@ -131,16 +146,41 @@ function generatorVariables(
       names.add(owner.name);
     }
   }
+  for (let size = -1; size !== names.size; ) {
+    size = names.size;
+    for (const { name, valueStart, valueEnd } of assignments) {
+      if (names.has(referencedName(text.slice(valueStart, valueEnd)) ?? "")) {
+        names.add(name);
+      }
+    }
+  }
   return names;
 }
 
-/** A program word that is a reference to one of `names`, after the recipe prefix. */
-function referenceTo(text: string, names: ReadonlySet<string>): GeneratorReference {
-  return (program) => {
-    const written = text.slice(program.start, program.end).replace(RECIPE_PREFIX_RE, "");
-    const match = VARIABLE_REFERENCE_RE.exec(written);
-    return match !== null && names.has(match[1] ?? match[2] ?? "");
+/** The values each variable gets in the file, joined: any of them can reach a command. */
+function variableValues(text: string, assignments: readonly Assignment[]): Map<string, string> {
+  const values = new Map<string, string>();
+  for (const { name, valueStart, valueEnd } of assignments) {
+    const value = text.slice(valueStart, valueEnd);
+    values.set(name, [values.get(name), value].filter((part) => part !== undefined).join(" "));
+  }
+  return values;
+}
+
+/** The variables of a Makefile, read from its assignments. */
+function makefileVariables(text: string, assignments: readonly Assignment[], names: Set<string>) {
+  const values = variableValues(text, assignments);
+  const nameAt = (word: ShellWord) => referencedName(text.slice(word.start, word.end));
+  const variables: FileVariables = {
+    isGenerator: (program) => names.has(nameAt(program) ?? ""),
+    referenceAt: (word) => {
+      const name = nameAt(word);
+      const value = name === undefined ? undefined : values.get(name);
+      const written = text.slice(word.start, word.end);
+      return value === undefined ? undefined : { written, value };
+    },
   };
+  return variables;
 }
 
 /** Migrate a Makefile; each finding names its `file:line`. */
@@ -148,12 +188,9 @@ export function migrateMakefile(text: string, file: string): CommandMigration {
   const lineOf = lineLocator(text);
   const assignments = assignmentsOf(text);
   const commands = shellCommands(withoutAssignmentHeads(maskExpansions(text), assignments));
-  const names = generatorVariables(commands, assignments);
+  const names = generatorVariables(text, commands, assignments);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
-  const { edits, changes, manualSteps } = commandWordFindings(
-    commands,
-    locate,
-    referenceTo(text, names),
-  );
+  const variables = makefileVariables(text, assignments, names);
+  const { edits, changes, manualSteps } = commandWordFindings(commands, locate, variables);
   return { text: applyTextEdits(text, edits), changes, manualSteps };
 }

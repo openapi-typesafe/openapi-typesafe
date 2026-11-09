@@ -1,14 +1,15 @@
 import {
   type CommandMigration,
   commandWordFindings,
+  type FileVariables,
   type Locate,
+  runsGenerator,
   type ShellTextFindings,
-  shellTextFindings,
 } from "./command-migration.js";
 import { type DocumentString, ownerKey } from "./config-documents.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
-import type { ShellCommand, ShellWord } from "./shell-words.js";
+import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 
 /**
@@ -45,6 +46,37 @@ const ENVIRONMENT_KEYS: ReadonlySet<string> = new Set(["env"]);
 
 const isEnvironmentValue = (value: DocumentString): boolean =>
   value.path.length >= 2 && ENVIRONMENT_KEYS.has(String(value.path.at(-2)));
+
+/** A whole word that expands one shell variable: `$NAME`, `${NAME}`, also in double quotes. */
+const SHELL_VARIABLE_RE = /^"?\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})"?$/;
+
+/**
+ * The `env` variables of a file as its commands use them: `$GEN` runs the generator when an `env`
+ * map sets `GEN` to it. The maps of a workflow, a job and a step are read as one, by name.
+ */
+function environmentVariables(text: string, strings: readonly DocumentString[]): FileVariables {
+  const values = new Map<string, string>();
+  const generators = new Set<string>();
+  for (const value of strings.filter(isEnvironmentValue)) {
+    const name = String(value.path.at(-1));
+    const shell = shellText(text, value);
+    values.set(name, [values.get(name), shell].filter((part) => part !== undefined).join(" "));
+    if (shellCommands(shell).some(runsGenerator)) {
+      generators.add(name);
+    }
+  }
+  const nameAt = (word: ShellWord): string => {
+    const match = SHELL_VARIABLE_RE.exec(word.raw);
+    return match === null ? "" : (match[1] ?? match[2] ?? "");
+  };
+  return {
+    isGenerator: (program) => generators.has(nameAt(program)),
+    referenceAt: (word) => {
+      const value = values.get(nameAt(word));
+      return value === undefined ? undefined : { written: word.raw, value };
+    },
+  };
+}
 
 /** Keys of a Dependabot config whose values are package names (`ignore`, `allow`, `groups`). */
 export const DEPENDABOT_NAME_KEYS: ReadonlySet<string> = new Set([
@@ -104,9 +136,15 @@ function execFormCommands(text: string, items: readonly DocumentString[]): Shell
 }
 
 /** The findings of one value read as shell text, with offsets into the whole text. */
-function valueFindings(text: string, value: DocumentString, locate: Locate): ShellTextFindings {
+function valueFindings(
+  text: string,
+  value: DocumentString,
+  locate: Locate,
+  variables?: FileVariables,
+): ShellTextFindings {
   const { start } = value.content;
-  const found = shellTextFindings(shellText(text, value), (offset) => locate(start + offset));
+  const commands = shellCommands(shellText(text, value));
+  const found = commandWordFindings(commands, (offset) => locate(start + offset), variables);
   return { ...found, edits: shiftedEdits(found.edits, start) };
 }
 
@@ -142,8 +180,9 @@ export function migrateYamlCommands(
   const shellValues = strings.filter(
     (value) => commandValues.has(value) || isEnvironmentValue(value),
   );
+  const variables = environmentVariables(text, strings);
   return appliedFindings(text, [
-    ...shellValues.map((value) => valueFindings(text, value, locate)),
+    ...shellValues.map((value) => valueFindings(text, value, locate, variables)),
     commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),
   ]);
 }
