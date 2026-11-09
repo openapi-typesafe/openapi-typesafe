@@ -19,6 +19,12 @@ const SCRIPT_KINDS: ReadonlyMap<string, ts.ScriptKind> = new Map([
 ]);
 
 const ASTRO_EXTENSION = ".astro";
+const MDX_EXTENSION = ".mdx";
+/** An MDX ESM block starts with `import` or `export` at the start of a line. */
+const MDX_ESM_START_RE = /^(?:import|export)\b/;
+/** A Markdown code fence: three or more backticks or tildes, indented by at most 3 spaces. */
+const CODE_FENCE_RE = /^ {0,3}(`{3,}|~{3,})/;
+const MDX_KIND = ts.ScriptKind.JSX;
 const SCRIPT_OPEN_TAG = "<script";
 const TAG_END = ">";
 /** Astro's component script: the fenced block at the top of the file. */
@@ -105,14 +111,60 @@ function componentRegions(text: string, isAstro: boolean): ScriptRegion[] {
   return regions;
 }
 
+/** Whether a line closes the code fence `fence` opened: the same mark, at least as long. */
+function closesFence(line: string, fence: string): boolean {
+  const mark = CODE_FENCE_RE.exec(line)?.[1];
+  return mark !== undefined && mark[0] === fence[0] && mark.length >= fence.length;
+}
+
+/**
+ * The ESM blocks of an MDX file: from a line that starts with `import` or `export`, outside a
+ * code fence, up to the next blank line (MDX reads them as JavaScript, JSX allowed).
+ */
+function mdxRegions(text: string): ScriptRegion[] {
+  const regions: ScriptRegion[] = [];
+  let fence: string | undefined;
+  let block: { start: number; end: number } | undefined;
+  let offset = 0;
+  for (const line of text.split("\n")) {
+    const end = offset + line.length;
+    if (block !== undefined && line.trim() === "") {
+      regions.push({
+        offset: block.start,
+        text: text.slice(block.start, block.end),
+        kind: MDX_KIND,
+      });
+      block = undefined;
+    } else if (block !== undefined) {
+      block.end = end;
+    } else if (fence !== undefined) {
+      fence = closesFence(line, fence) ? undefined : fence;
+    } else if (MDX_ESM_START_RE.test(line)) {
+      block = { start: offset, end };
+    } else {
+      fence = CODE_FENCE_RE.exec(line)?.[1];
+    }
+    offset = end + 1;
+  }
+  if (block !== undefined) {
+    regions.push({ offset: block.start, text: text.slice(block.start, block.end), kind: MDX_KIND });
+  }
+  return regions;
+}
+
 /**
  * The scripts of a file: the whole file for a plain script, the `<script>` blocks (and Astro's
- * frontmatter) for a single-file component. Component markup is not a script and is left out.
+ * frontmatter) for a single-file component, the ESM blocks of MDX. Markup is not a script and is
+ * left out.
  */
 export function scriptRegions(text: string, path: string): ScriptRegion[] {
   const kind = plainScriptKind(path);
   if (kind !== undefined) {
     return [{ offset: 0, text, kind }];
   }
-  return componentRegions(text, extensionOf(path) === ASTRO_EXTENSION);
+  const extension = extensionOf(path);
+  if (extension === MDX_EXTENSION) {
+    return mdxRegions(text);
+  }
+  return componentRegions(text, extension === ASTRO_EXTENSION);
 }

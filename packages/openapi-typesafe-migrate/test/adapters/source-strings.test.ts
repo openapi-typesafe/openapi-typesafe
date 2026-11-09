@@ -244,6 +244,24 @@ describe("TypescriptSourceStringScanner", () => {
     expect(migrated.text).toBe(text.replace(PACKAGE, "openapi-typesafe-fetch"));
   });
 
+  it("scan with migrateModuleSpecifiers renames the ESM imports of MDX, not its prose", () => {
+    const text = [
+      'import createClient from "openapi-fetch";',
+      "",
+      'Install "openapi-fetch" first.',
+      "",
+      "```ts",
+      'import x from "openapi-fetch";',
+      "```",
+      "<Client />",
+    ].join("\n");
+
+    const migrated = migrateModuleSpecifiers(text, scanner.scan(text, "docs/a.mdx"), VERSION);
+
+    expect(migrated.text).toBe(text.replace(PACKAGE, "openapi-typesafe-fetch"));
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
   it("scan finds nothing in a component without scripts", () => {
     expect(scanner.scan('<p title="openapi-fetch">x</p>', "Badge.svelte")).toEqual([]);
   });

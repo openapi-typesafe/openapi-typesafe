@@ -42,6 +42,7 @@ export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
   ".vue",
   ".svelte",
   ".astro",
+  ".mdx",
 ]);
 
 /** A renamed specifier; `keptSpec` is the old spec when its range could not be replaced. */

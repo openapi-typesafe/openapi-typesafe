@@ -26,6 +26,42 @@ describe("scriptRegions", () => {
     expect(regions.map((region) => region.text)).toEqual(["a <script>b"]);
   });
 
+  it("scriptRegions gives the ESM blocks of MDX up to a blank line, outside code fences", () => {
+    const text = [
+      'import a from "a";',
+      'export { b } from "b";',
+      "  ",
+      "# Title",
+      "important text",
+      "````md",
+      'import c from "c";',
+      "```",
+      'import d from "d";',
+      "````",
+      "~~~",
+      'export * from "e";',
+      "```",
+      'export * from "g";',
+      "~~~",
+      'export const f = "f";',
+    ].join("\n");
+
+    const regions = scriptRegions(text, "docs/page.mdx");
+
+    expect(regions).toEqual([
+      {
+        offset: 0,
+        text: 'import a from "a";\nexport { b } from "b";',
+        kind: ts.ScriptKind.JSX,
+      },
+      {
+        offset: text.indexOf("export const"),
+        text: 'export const f = "f";',
+        kind: ts.ScriptKind.JSX,
+      },
+    ]);
+  });
+
   it("scriptRegions does not take a longer tag name for a script tag", () => {
     const text = "<scripts>a</scripts><script>c</script>";
 

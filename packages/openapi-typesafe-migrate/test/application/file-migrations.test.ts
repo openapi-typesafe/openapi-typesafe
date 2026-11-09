@@ -52,6 +52,7 @@ describe("fileMigrationFor", () => {
     ".simple-git-hooks.json",
     "Taskfile.dist.yaml",
     ".pre-commit-config.yaml",
+    "docs/guide.mdx",
   ])("fileMigrationFor has a migration for %s", (path) => {
     expect(fileMigrationFor(path)).toBeTypeOf("function");
   });
