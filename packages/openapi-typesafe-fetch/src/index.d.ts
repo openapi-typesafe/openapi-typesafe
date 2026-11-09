@@ -527,8 +527,17 @@ type SerializedBody<Body, ObjectResult> = unknown extends Body
         ? ObjectResult
         : string;
 
-/** The `Content-Type` values that make `defaultBodySerializer` turn an object into `FormData`. */
-type MultipartMediaType = "multipart/form-data" | `multipart/form-data;${string}`;
+/**
+ * Whether a lowercase `Content-Type` makes `defaultBodySerializer` turn an object into `FormData`:
+ * `multipart/form-data`, with or without parameters, which spaces or tabs may come before (OWS,
+ * RFC 9110, section 8.3.1).
+ */
+type IsMultipartMediaType<ContentType extends string> =
+  ContentType extends `multipart/form-data${infer Rest}`
+    ? TrimmedStart<Rest> extends "" | `;${string}`
+      ? true
+      : false
+    : false;
 
 /** `Headers` drops the spaces and tabs in front of a value before the media type is read. */
 type TrimmedStart<Text extends string> = Text extends ` ${infer Rest}` | `\t${infer Rest}`
@@ -565,7 +574,7 @@ type ObjectBodyResult<ContentType> = [ContentType] extends [never]
     : ContentType extends string
       ? string extends ContentType
         ? string | FormData
-        : Lowercase<TrimmedStart<ContentType>> extends MultipartMediaType
+        : IsMultipartMediaType<Lowercase<TrimmedStart<ContentType>>> extends true
           ? FormData
           : string
       : string | FormData;
