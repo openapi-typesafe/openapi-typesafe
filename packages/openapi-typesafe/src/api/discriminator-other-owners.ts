@@ -1,3 +1,4 @@
+import { appendAll } from "../domain/append-all.js";
 import { canonicalRef } from "../domain/openapi/json-pointer.js";
 import type { DiscriminatorObject, ReferenceObject, SchemaObject } from "../types.js";
 import type { EnumPatch } from "./discriminator-enum.js";
@@ -46,7 +47,7 @@ function otherOwners(state: ScanState, parentRef: string): OtherOwner[] {
     if (discriminator && name !== undefined && name !== own && !found.has(name)) {
       found.set(name, { discriminator, ownerRef: ref });
     }
-    queue.push(...allOfRefs(state, ref));
+    appendAll(queue, allOfRefs(state, ref));
   }
   return [...found.values()];
 }
