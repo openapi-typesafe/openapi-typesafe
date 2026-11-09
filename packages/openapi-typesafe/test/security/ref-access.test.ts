@@ -95,7 +95,8 @@ async function load(source: URL, refAccess: RefAccess, shouldLint = true) {
     remoteRefTimeoutMs: 2_000,
     remoteDocumentLimits: DEFAULT_REMOTE_DOCUMENT_LIMITS,
   });
-  return loader.load({ source, cwd: pathToFileURL(`${workDir}/`), shouldLint, refAccess });
+  const loaded = await loader.load({ source, cwd: pathToFileURL(`${workDir}/`), shouldLint, refAccess });
+  return loaded.document;
 }
 
 async function loadFailure(source: URL, refAccess: RefAccess): Promise<OpenAPITypesafeError> {

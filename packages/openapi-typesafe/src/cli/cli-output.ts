@@ -1,8 +1,9 @@
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
+import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
 import type { CliArguments } from "./cli-arguments.js";
-import type { CliDependencies } from "./cli-dependencies.js";
+import type { CliDependencies, GeneratedTypes } from "./cli-dependencies.js";
 import { cliError } from "./cli-errors.js";
 
 /** Writing one generated file, or checking it with `--check`, and the line printed for it. */
@@ -108,10 +109,33 @@ function filesAtOutput(run: CliRun, output: OutputFile, files: readonly NamedFil
   );
 }
 
+/** A location as a path relative to the working directory, as error messages name files. */
+function displayPathOf(run: CliRun, location: URL): string {
+  return path.relative(fileURLToPath(run.deps.cwd), fileURLToPath(location)) || ".";
+}
+
+/** The Redocly config file the run read, if any: no output may replace it. */
+export function redoclyConfigFiles(run: CliRun, redocly: RedoclyConfig): NamedFile[] {
+  if (!redocly.configFile) {
+    return [];
+  }
+  const location = resolveLocationUrl(redocly.configFile, run.deps.cwd);
+  return [{ name: `Redocly config ${displayPathOf(run, location)}`, location }];
+}
+
+/** The local files that `owner` (a schema or an API) was generated from, `$ref`'d ones too. */
+export function filesReadBy(run: CliRun, types: GeneratedTypes, owner: string): NamedFile[] {
+  return types.localFiles.map((location) => ({
+    name: `schema ${displayPathOf(run, location)} that ${owner} reads`,
+    location,
+  }));
+}
+
 /**
- * Fail with `CLI_OUTPUT_IS_INPUT` when `output` is one of the `schemas`. Writing it would replace
- * the schema with the types, which upstream did without a word. Checked before generating, so
- * nothing is loaded or written.
+ * Fail with `CLI_OUTPUT_IS_INPUT` when `output` is one of the `schemas` (or the Redocly config).
+ * Writing it would replace that file with the types, which upstream did without a word. The CLI
+ * checks the files it knows before generating, so nothing is loaded or written, and the files
+ * that `$ref`s loaded after generating, before anything is written.
  */
 export function ensureOutputIsNotSchema(
   run: CliRun,
@@ -168,7 +192,7 @@ function printDone(run: CliRun, output: OutputFile): void {
  * With `--check`, fail with `OUTPUT_STALE` when the file differs from `contents` and leave it
  * alone otherwise. Without it, write the file and print where it went.
  */
-export function emitOutput(run: CliRun, output: OutputFile, contents: string): void {
+function emitOutput(run: CliRun, output: OutputFile, contents: string): void {
   if (run.args.isCheck) {
     if (run.deps.files.readText(output.file) !== contents) {
       // The original message, then the file: with several APIs it tells which one is stale.
@@ -181,4 +205,15 @@ export function emitOutput(run: CliRun, output: OutputFile, contents: string): v
   }
   run.deps.files.writeText(output.file, contents);
   printDone(run, output);
+}
+
+/** Write (or `--check`) the types, unless the output is one of the files the run read. */
+export function writeOutput(
+  run: CliRun,
+  output: OutputFile,
+  types: GeneratedTypes,
+  readFiles: readonly NamedFile[],
+): void {
+  ensureOutputIsNotSchema(run, output, readFiles);
+  emitOutput(run, output, types.contents);
 }

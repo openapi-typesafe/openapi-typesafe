@@ -7,7 +7,7 @@ import { createRedoclyConfigSource } from "../adapters/redocly-loader/redocly-co
 import { astToString } from "../api/ast-to-string.js";
 import { COMMENT_HEADER } from "../api/comment-header.js";
 import { defaultLogger, monotonicNow, terminalSupportsColor } from "../api/default-ports.js";
-import openapiTS from "../api/openapi-ts.js";
+import { defaultGeneratorPorts, generateDocument } from "../api/openapi-ts.js";
 import type { CliConsole, CliDependencies, GenerateTypes, TextStyle } from "./cli-dependencies.js";
 import { runCli } from "./run-cli.js";
 
@@ -36,8 +36,11 @@ function terminalStyle(): TextStyle {
 
 const STDIN_DESCRIPTOR = 0;
 
-const generateTypes: GenerateTypes = async (source, options) =>
-  `${COMMENT_HEADER}${astToString(await openapiTS(source, options))}`;
+const generateTypes: GenerateTypes = async (source, options) => {
+  const ports = await defaultGeneratorPorts(options);
+  const { declarations, localFiles } = await generateDocument(source, options, ports);
+  return { contents: `${COMMENT_HEADER}${astToString(declarations)}`, localFiles };
+};
 
 function terminalConsole(): CliConsole {
   return {

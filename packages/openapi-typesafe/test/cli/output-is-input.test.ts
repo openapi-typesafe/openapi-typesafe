@@ -1,3 +1,4 @@
+import { sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runCli } from "../../src/cli/run-cli.js";
 import { createFakeCli, fakePath, fakeRedoclyConfig, fakeUrl } from "../fakes/cli-dependencies.js";
@@ -172,5 +173,73 @@ describe("runCli: Redocly APIs with the same output", () => {
 
     expect(cli.files.files.has(fakePath("/work/api/local.ts"))).toBe(true);
     expect(cli.logger.messages("error").join("\n")).not.toContain("CLI_OUTPUT_DUPLICATE");
+  });
+});
+
+describe("runCli: an output that is a file the run reads besides the root (G11)", () => {
+  it("runCli with --output equal to a $ref'd file exits with 2 and writes nothing", async () => {
+    const cli = cliWithSchema();
+    cli.files.files.set(fakePath("/work/models.yaml"), "M: { type: string }");
+    cli.generator.readFiles.set(fakeUrl("/work/api.yaml"), [new URL(fakeUrl("/work/models.yaml"))]);
+
+    const exitCode = await runCli(["api.yaml", "-o", "models.yaml"], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.files.files.get(fakePath("/work/models.yaml"))).toBe("M: { type: string }");
+    expect(cli.logger.messages("error")).toEqual([
+      "The output models.yaml is the schema models.yaml that api.yaml reads: writing the types would " +
+        "overwrite it. Choose another output file. (CLI_OUTPUT_IS_INPUT)",
+    ]);
+  });
+
+  it("runCli from stdin with --output equal to a $ref'd file exits with 2", async () => {
+    const cli = createFakeCli();
+    cli.generator.readFiles.set("stdin", [new URL(fakeUrl("/work/models.yaml"))]);
+
+    expect(await runCli(["-o", "models.yaml"], cli.deps)).toBe(2);
+    expect(cli.logger.messages("error")[0]).toContain("is the schema models.yaml that stdin reads");
+  });
+
+  it("runCli with --output equal to the Redocly config exits with 2 before generating", async () => {
+    const cli = cliWithSchema();
+    const configPath = fakePath("/work/redocly.yaml");
+    cli.redoclyConfigs.configs.set(configPath, fakeRedoclyConfig({}, configPath));
+    cli.redoclyConfigs.found = configPath;
+
+    const exitCode = await runCli(["api.yaml", "-o", "redocly.yaml"], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.generator.calls).toEqual([]);
+    expect(cli.logger.messages("error")[0]).toContain("is the Redocly config redocly.yaml:");
+  });
+
+  it("runCli with an API output equal to the Redocly config fails that API before generating it", async () => {
+    const cli = cliWithApis({
+      config: { root: "config.yaml", "x-openapi-ts": { output: "./redocly.yaml" } },
+      good: { root: "good.yaml", "x-openapi-ts": { output: "good.ts" } },
+    });
+
+    expect(await runCli([], cli.deps)).toBe(2);
+    expect(cli.logger.messages("error")[0]).toContain(`is the Redocly config ${["api", "redocly.yaml"].join(sep)}:`);
+    expect(cli.generator.calls.map((call) => String(call.source))).toEqual([fakeUrl("/work/api/good.yaml")]);
+  });
+
+  it("runCli with an API output that another API $refs fails that API and writes the reader", async () => {
+    const cli = cliWithApis({
+      writer: { root: "writer.yaml", "x-openapi-ts": { output: "models.yaml" } },
+      reader: { root: "reader.yaml", "x-openapi-ts": { output: "reader.ts" } },
+    });
+    cli.files.files.set(fakePath("/work/api/models.yaml"), "M: { type: string }");
+    cli.generator.readFiles.set(fakeUrl("/work/api/reader.yaml"), [new URL(fakeUrl("/work/api/models.yaml"))]);
+
+    const exitCode = await runCli([], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")).toEqual([
+      `The output models.yaml is the schema ${["api", "models.yaml"].join(sep)} that API reader reads: writing ` +
+        "the types would overwrite it. Choose another output file. (CLI_OUTPUT_IS_INPUT)",
+    ]);
+    expect(cli.files.files.get(fakePath("/work/api/models.yaml"))).toBe("M: { type: string }");
+    expect(cli.files.files.get(fakePath("/work/api/reader.ts"))).toBe(`types of ${fakeUrl("/work/api/reader.yaml")}`);
   });
 });

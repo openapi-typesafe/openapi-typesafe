@@ -20,6 +20,16 @@ export interface SchemaLoadRequest {
   readonly refAccess: RefAccess;
 }
 
+/** A bundled document, and the local files read to build it. */
+export interface LoadedSchema {
+  readonly document: OpenAPI3;
+  /**
+   * The root, when it is a local file, and every local file a `$ref` loaded. The CLI keeps its
+   * output from replacing any of them (`CLI_OUTPUT_IS_INPUT`).
+   */
+  readonly localFiles: readonly URL[];
+}
+
 /**
  * Read, validate and bundle an OpenAPI 3 document into one document (ENGINEERING_PLAN 4.5).
  * Fails with a typed error (ADR-011): `SCHEMA_SOURCE_*`, `SCHEMA_LOAD_FAILED`,
@@ -28,5 +38,5 @@ export interface SchemaLoadRequest {
  * `SCHEMA_TOO_DEEP` or `SCHEMA_KEY_UNSUPPORTED`.
  */
 export interface SchemaLoader {
-  load(request: SchemaLoadRequest): Promise<OpenAPI3>;
+  load(request: SchemaLoadRequest): Promise<LoadedSchema>;
 }

@@ -8,11 +8,16 @@ import {
   type Config as RedoclyConfig,
 } from "@redocly/openapi-core";
 import type { Logger } from "../../application/ports/logger.js";
-import type { SchemaLoader, SchemaLoadRequest } from "../../application/ports/schema-loader.js";
+import type {
+  LoadedSchema,
+  SchemaLoader,
+  SchemaLoadRequest,
+} from "../../application/ports/schema-loader.js";
 import { withStackOverflowReportedAsync } from "../../application/stack-overflow.js";
 import { WARNING_CODES, warningText } from "../../domain/warnings.js";
 import type { OpenAPI3 } from "../../types.js";
 import { repairBundledRefs } from "./bundled-ref-repair.js";
+import { loadedDocuments, localFilesRead } from "./loaded-documents.js";
 import { findMalformedRefs, malformedRefsError } from "./malformed-refs.js";
 import { RefAccessResolver } from "./ref-access.js";
 import { checkRefsResolve } from "./ref-resolution-check.js";
@@ -25,11 +30,7 @@ import {
   versionUnsupportedError,
 } from "./schema-load-errors.js";
 import { parseSchema } from "./schema-source.js";
-import {
-  findUnsupportedKeys,
-  type LoadedDocument,
-  unsupportedKeysError,
-} from "./unsupported-keys.js";
+import { findUnsupportedKeys, unsupportedKeysError } from "./unsupported-keys.js";
 
 /**
  * The SchemaLoader port on Redocly 1.34 (ADR-005): parse any inherited source type, then lint and
@@ -107,21 +108,6 @@ function sourceFilePath(source: URL): string {
   }
 }
 
-/**
- * The root document and every other document the resolver loaded, as far as they parsed. A root
- * read from a file or URL is in the resolver cache too, and is listed once.
- */
-async function loadedDocuments(root: Document, resolver: BaseResolver): Promise<LoadedDocument[]> {
-  const cached = await Promise.all(resolver.cache.values());
-  const bySource = new Map<string, unknown>([[root.source.absoluteRef, root.parsed]]);
-  for (const document of cached) {
-    if ("parsed" in document && !bySource.has(document.source.absoluteRef)) {
-      bySource.set(document.source.absoluteRef, document.parsed);
-    }
-  }
-  return [...bySource].map(([source, parsed]) => ({ source, parsed }));
-}
-
 /** Report the document problems Redocly throws as typed errors; anything else passes through. */
 async function rethrowDocumentError(
   error: unknown,
@@ -148,7 +134,7 @@ class RedoclySchemaLoader implements SchemaLoader {
     this.#options = options;
   }
 
-  async load(request: SchemaLoadRequest): Promise<OpenAPI3> {
+  async load(request: SchemaLoadRequest): Promise<LoadedSchema> {
     const resolver = this.#resolver(request);
     // Parsing is guarded too: `JSON.stringify` of a deep object source overflows the stack on
     // Node.js 22 and 24, before linting starts.
@@ -164,7 +150,7 @@ class RedoclySchemaLoader implements SchemaLoader {
     return bundled;
   }
 
-  async #parseAndBundle(request: SchemaLoadRequest, resolver: BaseResolver): Promise<OpenAPI3> {
+  async #parseAndBundle(request: SchemaLoadRequest, resolver: BaseResolver): Promise<LoadedSchema> {
     const { logger, now } = this.#options;
     const configLoadedAt = now();
     logger.debug("Loaded Redoc config", "redoc", now() - configLoadedAt);
@@ -173,7 +159,10 @@ class RedoclySchemaLoader implements SchemaLoader {
     const document = await parseSchema(request.source, { absoluteRef, resolver });
     logger.debug("Parsed schema", "redoc", now() - parseStartedAt);
     assertOpenAPI3(document.parsed);
-    return this.#lintAndBundle(document, resolver, request.shouldLint);
+    const bundled = await this.#lintAndBundle(document, resolver, request.shouldLint);
+    const isRootAFile = request.source instanceof URL && request.source.protocol === "file:";
+    const localFiles = await localFilesRead(document, resolver, isRootAFile);
+    return { document: bundled, localFiles };
   }
 
   #resolver(request: SchemaLoadRequest): RefAccessResolver {

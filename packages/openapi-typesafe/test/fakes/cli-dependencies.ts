@@ -12,7 +12,11 @@ import type {
   RedoclyConfig,
   RedoclyConfigSource,
 } from "../../src/application/ports/redocly-config-source.js";
-import type { CliConsole, CliDependencies } from "../../src/cli/cli-dependencies.js";
+import type {
+  CliConsole,
+  CliDependencies,
+  GeneratedTypes,
+} from "../../src/cli/cli-dependencies.js";
 import { ERROR_CODES, OpenAPITypesafeError } from "../../src/domain/errors.js";
 import type { GeneratorOptions, SchemaSource } from "../../src/types.js";
 
@@ -149,18 +153,25 @@ export interface GenerateCall {
   readonly options: GeneratorOptions;
 }
 
-/** Generates `types of <source>`, or throws the error registered for that source. */
+/**
+ * Generates `types of <source>`, or throws the error registered for that source. `readFiles`
+ * lists the local files a source reads, as its `$ref`s would load them.
+ */
 export class FakeGenerator {
   readonly calls: GenerateCall[] = [];
   readonly failures = new Map<string, unknown>();
+  readonly readFiles = new Map<string, readonly URL[]>();
 
-  readonly generate = async (source: SchemaSource, options: GeneratorOptions): Promise<string> => {
+  readonly generate = async (
+    source: SchemaSource,
+    options: GeneratorOptions,
+  ): Promise<GeneratedTypes> => {
     this.calls.push({ source, options });
     const name = source instanceof URL ? source.href : "stdin";
     if (this.failures.has(name)) {
       throw this.failures.get(name);
     }
-    return `types of ${name}`;
+    return { contents: `types of ${name}`, localFiles: this.readFiles.get(name) ?? [] };
   };
 }
 

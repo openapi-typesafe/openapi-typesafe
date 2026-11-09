@@ -7,11 +7,13 @@ import type { CliDependencies } from "./cli-dependencies.js";
 import { cliError, describeCliFailure, EXIT_CODES, type ExitCode } from "./cli-errors.js";
 import {
   type CliRun,
-  emitOutput,
   ensureOutputIsNotSchema,
+  filesReadBy,
   type OutputFile,
   outputFileOf,
+  redoclyConfigFiles,
   resolveLocationUrl,
+  writeOutput,
 } from "./cli-output.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
 import { fixOption } from "./fix-option.js";
@@ -68,7 +70,7 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
     );
   }
   const source = schemaSource(run);
-  const outputFile = output ? singleOutputFile(run, output, source) : undefined;
+  const outputFile = output ? singleOutputFile(run, output, source, redocly) : undefined;
   const options = {
     ...run.args.generatorFlags,
     ...refLimitOptions(run.args, run.deps.cwd),
@@ -76,21 +78,29 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
     redocly,
     silent: !output,
   };
-  const contents = await run.deps.generate(source, options);
+  const types = await run.deps.generate(source, options);
   if (!outputFile) {
-    run.deps.writeStdout(contents);
+    run.deps.writeStdout(types.contents);
     return;
   }
-  emitOutput(run, outputFile, contents);
+  writeOutput(run, outputFile, types, filesReadBy(run, types, outputFile.source));
 }
 
-/** The `--output` file; it must not be the schema file, which writing it would replace. */
-function singleOutputFile(run: CliRun, output: string, source: SchemaSource): OutputFile {
+/**
+ * The `--output` file; it must not be the schema file nor the Redocly config, which writing it
+ * would replace.
+ */
+function singleOutputFile(
+  run: CliRun,
+  output: string,
+  source: SchemaSource,
+  redocly: RedoclyConfig,
+): OutputFile {
   const { input } = run.args;
   const outputFile = outputFileOf(run, { source: input ?? "stdin", output }, run.deps.cwd);
-  if (input && source instanceof URL) {
-    ensureOutputIsNotSchema(run, outputFile, [{ name: `schema ${input}`, location: source }]);
-  }
+  const schemas =
+    input && source instanceof URL ? [{ name: `schema ${input}`, location: source }] : [];
+  ensureOutputIsNotSchema(run, outputFile, [...schemas, ...redoclyConfigFiles(run, redocly)]);
   return outputFile;
 }
 

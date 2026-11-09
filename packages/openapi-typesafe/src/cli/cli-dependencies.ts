@@ -24,8 +24,19 @@ export interface TextStyle {
   dim(text: string): string;
 }
 
-/** Generate the printed declarations, with the comment header, for one schema. */
-export type GenerateTypes = (source: SchemaSource, options: GeneratorOptions) => Promise<string>;
+/** The printed declarations of one schema, and the local files they were generated from. */
+export interface GeneratedTypes {
+  /** The declarations, with the comment header. */
+  readonly contents: string;
+  /** The schema, when it is a local file, and every local file its `$ref`s loaded. */
+  readonly localFiles: readonly URL[];
+}
+
+/** Generate the types of one schema. */
+export type GenerateTypes = (
+  source: SchemaSource,
+  options: GeneratorOptions,
+) => Promise<GeneratedTypes>;
 
 export interface CliDependencies {
   /** The working directory, as a directory URL (with a trailing slash). */

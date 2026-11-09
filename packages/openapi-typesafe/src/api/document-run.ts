@@ -34,9 +34,10 @@ export interface GeneratorPorts {
   readonly now: () => number;
 }
 
-/** A validated, bundled document and the context of one generator run. */
+/** A validated, bundled document, the local files it was read from, and the run's context. */
 export interface DocumentRun {
   readonly schema: OpenAPI3;
+  readonly localFiles: readonly URL[];
   readonly ctx: RunContext;
 }
 
@@ -156,7 +157,7 @@ export async function createDocumentRun(
   const fix = outputFixesOf(options, logger);
   const silent = options.silent ?? false;
   const cwd = sourceCwd(options);
-  const schema = await ports.loader.load({
+  const { document: schema, localFiles } = await ports.loader.load({
     source,
     cwd,
     shouldLint: options.lint ?? true,
@@ -181,5 +182,5 @@ export async function createDocumentRun(
     logger,
     deprecations: ports.deprecations,
   };
-  return { schema, ctx };
+  return { schema, localFiles, ctx };
 }
