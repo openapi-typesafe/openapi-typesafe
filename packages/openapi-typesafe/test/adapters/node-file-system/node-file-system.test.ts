@@ -165,6 +165,21 @@ describe("createNodeFileSystem", () => {
     expect(fs.readFileSync(path.join(parent, "missing-dir", "x.ts"), "utf8")).toBe("types");
   });
 
+  it("writeText through a relative link inside a linked directory writes where the system does", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "write-"));
+    fs.mkdirSync(path.join(parent, "real", "sub"), { recursive: true });
+    fs.symlinkSync(path.join(parent, "real", "sub"), path.join(parent, "a"), "dir");
+    fs.symlinkSync(path.join("..", "missing"), path.join(parent, "real", "sub", "link"), "dir");
+
+    createNodeFileSystem().writeText(
+      pathToFileURL(path.join(parent, "a", "link", "x.ts")),
+      "types",
+    );
+
+    expect(fs.readFileSync(path.join(parent, "real", "missing", "x.ts"), "utf8")).toBe("types");
+    expect(fs.existsSync(path.join(parent, "missing"))).toBe(false);
+  });
+
   it("writeText into a path under a file fails with OUTPUT_WRITE_FAILED", () => {
     const blocker = path.join(workDir, "blocker");
     fs.writeFileSync(blocker, "");

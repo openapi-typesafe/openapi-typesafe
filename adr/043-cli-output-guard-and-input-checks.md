@@ -161,3 +161,10 @@ The recheck of the amendments above found four gaps.
 
 A rest element whose type is not an array (TS2574) still prints: it is a type error, as a
 reference to a missing name is, and decision 7 checks only what can print as TypeScript syntax.
+
+## Amendment (2026-11-09): the third recheck of output paths and index signatures
+
+- **A relative link inside a linked directory was read from the wrong place.** With `a -> real/sub`
+  and `real/sub/link -> ../missing`, the identity key and the creation path read `a/link` as
+  `missing`, while the system reads `real/missing`, so the write failed with ENOENT. A relative link
+  target is now read from the real directory of the link.
