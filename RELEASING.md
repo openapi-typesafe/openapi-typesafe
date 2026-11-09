@@ -125,4 +125,13 @@ tarball in `.release/npm/`. npm notes that you are not logged in; for a dry run 
   releases on (`scripts/repo/apply-settings.sh`), GitHub marks the release immutable: its tag and
   files cannot change.
 
+A fresh version is not installable everywhere at once. Package managers with a minimum release age
+skip a version until it is older than that age, and resolve the previous one or fail: Yarn 4
+(`npmMinimalAgeGate`, 24 hours in the Yarn 4 releases we tested), bun (`minimumReleaseAge` in
+`bunfig.toml`, often set to 7 days), pnpm (`minimumReleaseAge`; this repository uses 24 hours) and
+npm (`min-release-age`). This is expected and needs no fix. When you ask people to try a release
+candidate right after it is published, say so: they wait, or exempt the `openapi-typesafe*`
+packages from the gate (Yarn `npmPreapprovedPackages`, bun `minimumReleaseAgeExcludes`, pnpm
+`minimumReleaseAgeExclude`).
+
 The verify logs of each run are in the `release-verify-logs` artifact (`.logs/verify/` locally).
