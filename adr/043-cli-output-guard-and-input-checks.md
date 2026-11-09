@@ -84,13 +84,14 @@ The hunt on `main` after 1.0.0-rc.3 found these problems in the CLI and the Node
   `error.details.problems` as before.
 - The deprecated `debug()` export writes to stderr, as the docs already said.
 
-## Amendment (2026-11-09): the file system decides output identity
+## Amendment (2026-11-09): the file system decides output identity; `.` and `..` name directories
 
 The round-2 hunt found two APIs that still overwrote each other on the first run, although their
 outputs were one file on disk: `café.ts` written in NFC and in NFD on APFS, `straße.ts` and
 `STRASSE.ts` (full case folding), `_/Types.ts` and `_/types.ts` in an empty directory whose name
 has no letters (nothing to probe the letter case rules with), and `link/x.ts` next to
-`missingdir/x.ts` with `link -> missingdir`.
+`missingdir/x.ts` with `link -> missingdir`. And `-o newdir/.`, `-o a/b/..` and
+`output: ./gen/.` wrote a file named like the directory, with exit code `0`.
 
 Decision 1 now reads:
 
@@ -108,6 +109,10 @@ Decision 1 now reads:
    releases its claim too. `--check` claims nothing: it writes nothing, and every output it
    compares must exist, so its file number already decides. The claim is the `FileClaims` port,
    with an in-memory fake in tests.
+
+Decision 2 adds: a path whose last segment is `.` or `..`, checked as written before resolving
+drops it, and a `file:` URL whose parsed path ends with `/` (the URL parser drops `.`, `..` and
+`%2E`) name a directory and fail with `CLI_OUTPUT_INVALID`, as a trailing separator does.
 
 | Option | Pros | Cons |
 | --- | --- | --- |

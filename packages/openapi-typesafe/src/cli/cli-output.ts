@@ -48,9 +48,22 @@ export function resolveLocationUrl(location: string, base: URL): URL {
 
 const FILE_PROTOCOL = "file:";
 
-/** A trailing `/`, or `\\` on Windows: the user named a directory, not a file. */
-function endsWithSeparator(location: string): boolean {
-  return location.endsWith("/") || location.endsWith(path.sep);
+/** Segments that name a directory: the directory itself and its parent. */
+const DIRECTORY_SEGMENTS: ReadonlySet<string> = new Set([".", ".."]);
+
+/**
+ * Whether the location names a directory as written, before resolving drops the sign: a trailing
+ * `/` (or `\\` on Windows), or a last segment `.` or `..` (`-o gen/.`, `-o a/b/..`). For a URL
+ * the parsed path tells it too, since the URL parser drops `.`, `..` and their `%2E` forms.
+ */
+function namesDirectory(location: string, file: URL): boolean {
+  const lastSegment = location
+    .split(path.sep)
+    .flatMap((part) => part.split("/"))
+    .at(-1);
+  return (
+    lastSegment === "" || DIRECTORY_SEGMENTS.has(lastSegment ?? "") || file.pathname.endsWith("/")
+  );
 }
 
 function invalidOutput(output: string, reason: string): Error {
@@ -69,7 +82,7 @@ function outputUrlOf(run: CliRun, output: string, base: URL): URL {
   if (!isLocalFile(file)) {
     throw invalidOutput(output, "names no file on this computer. Use a file path instead.");
   }
-  if (endsWithSeparator(output) || run.deps.files.isDirectory(file)) {
+  if (namesDirectory(output, file) || run.deps.files.isDirectory(file)) {
     throw invalidOutput(output, "is a directory. Name the file to write the types to in it.");
   }
   return file;
@@ -88,8 +101,8 @@ function isLocalFile(file: URL): boolean {
 /**
  * The output file of `source`, as the user wrote it in `output`, relative to `base`. Fails with
  * `CLI_OUTPUT_INVALID` before anything is generated when it is not a local file (a URL of
- * another scheme) or is a directory (a trailing separator, or a directory on disk). Without this
- * check, `-o dir/` wrote a file named `dir`.
+ * another scheme) or is a directory (a trailing separator, a last segment `.` or `..`, or a
+ * directory on disk). Without this check, `-o dir/` and `-o dir/.` wrote a file named `dir`.
  */
 export function outputFileOf(run: CliRun, named: NamedOutput, base: URL): OutputFile {
   return { ...named, file: outputUrlOf(run, named.output, base) };
