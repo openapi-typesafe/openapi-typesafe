@@ -26,10 +26,16 @@ import {
   OLD_PEER_DEPENDENTS,
   OVERRIDE_FIELDS,
   PACKAGE_RENAMES,
+  PNPM_SETTINGS_FIELD,
 } from "./package-names.js";
+import {
+  oldPackagesNamedBy,
+  reportSettingSections,
+  type SettingsFile,
+} from "./settings-sections.js";
 import { migrateSubpathImports } from "./subpath-imports.js";
 import { applyTextEdits } from "./text-edits.js";
-import { itemEntries, keyEntries, nestedKeys, specEntries } from "./tree-entries.js";
+import { itemEntries, keyEntries, specEntries } from "./tree-entries.js";
 
 /**
  * A package manifest: package.json, or the `package.yaml` that pnpm reads in its place. It is
@@ -87,13 +93,25 @@ function migrateCatalogs(manifest: TreeMap, target: RenameTarget, findings: Find
   }
 }
 
-/** Overrides and resolutions can pin the old packages; changing them needs the user's intent. */
-function reportOverrides(manifest: TreeMap, findings: Findings): void {
+/** pnpm's settings in package.json: none of them is migrated, `overrides` among them. */
+const PNPM_SETTINGS: SettingsFile = {
+  migratedSections: new Set(),
+  overrideSections: new Set(["overrides", "patchedDependencies"]),
+  prefix: `${PNPM_SETTINGS_FIELD}.`,
+};
+
+/**
+ * Overrides, resolutions and pnpm's settings can name the old packages; changing them needs the
+ * user's intent (domain/settings-sections.ts).
+ */
+function reportSettings(manifest: TreeMap, findings: Findings): void {
   for (const field of OVERRIDE_FIELDS) {
-    const keys = valuesAt(manifest, field).flatMap(nestedKeys);
-    for (const name of overriddenPackages(keys)) {
+    for (const name of valuesAt(manifest, field).flatMap(oldPackagesNamedBy)) {
       findings.manualSteps.push({ kind: "override-names-package", field, name });
     }
+  }
+  for (const settings of mapsAt(manifest, PNPM_SETTINGS_FIELD)) {
+    reportSettingSections(settings, PNPM_SETTINGS, findings);
   }
 }
 
@@ -113,7 +131,7 @@ function migrateManifestMap(manifest: TreeMap, target: RenameTarget, findings: F
   migrateNameLists(manifest, findings);
   migrateCatalogs(manifest, target, findings);
   migrateSubpathImports(manifest, findings);
-  reportOverrides(manifest, findings);
+  reportSettings(manifest, findings);
   reportOldPeers(manifest, findings);
 }
 

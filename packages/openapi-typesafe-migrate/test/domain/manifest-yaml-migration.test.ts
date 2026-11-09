@@ -62,7 +62,7 @@ describe("migratePackageManifest on package.yaml", () => {
     );
     expect(migrated.manualSteps).toEqual([
       { kind: "peer-dependency-renamed", name: "openapi-typesafe" },
-      { kind: "override-names-package", field: "pnpm", name: "openapi-react-query" },
+      { kind: "override-names-package", field: "pnpm.overrides", name: "openapi-react-query" },
       { kind: "old-peer-needed", dependent: "swr-openapi", peer: "openapi-fetch", range: ">=0.15" },
     ]);
   });

@@ -66,7 +66,10 @@ export const NAMED_CATALOGS_FIELD = "catalogs";
 export const WORKSPACES_FIELD = "workspaces";
 
 /** Fields that can name a package without installing it; they are reported, not rewritten. */
-export const OVERRIDE_FIELDS = ["overrides", "resolutions", "pnpm"] as const;
+export const OVERRIDE_FIELDS = ["overrides", "resolutions"] as const;
+
+/** The pnpm settings of package.json; `pnpm.overrides` is one of them. */
+export const PNPM_SETTINGS_FIELD = "pnpm";
 
 /** An original package that another package still needs as a peer dependency. */
 export interface OldPeer {

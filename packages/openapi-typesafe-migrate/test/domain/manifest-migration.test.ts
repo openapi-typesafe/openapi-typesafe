@@ -109,8 +109,35 @@ describe("migratePackageManifest", () => {
 
     expect(migrated.manualSteps).toEqual([
       { kind: "override-names-package", field: "resolutions", name: "openapi-react-query" },
-      { kind: "override-names-package", field: "pnpm", name: "openapi-typescript-helpers" },
-      { kind: "override-names-package", field: "pnpm", name: "openapi-fetch" },
+      {
+        kind: "override-names-package",
+        field: "pnpm.overrides",
+        name: "openapi-typescript-helpers",
+      },
+      { kind: "override-names-package", field: "pnpm.overrides", name: "openapi-fetch" },
+    ]);
+  });
+
+  it("migratePackageManifest reports the pnpm settings and override values that name one", () => {
+    const pnpm = {
+      packageExtensions: { "openapi-fetch@*": { dependencies: { x: "1" } } },
+      onlyBuiltDependencies: ["openapi-typescript"],
+      peerDependencyRules: { ignoreMissing: ["left-pad"] },
+    };
+    const overrides = { x: "npm:openapi-react-query@0.3.0" };
+    const text = manifest({ pnpm, overrides });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "override-names-package", field: "overrides", name: "openapi-react-query" },
+      { kind: "setting-names-package", field: "pnpm.packageExtensions", name: "openapi-fetch" },
+      {
+        kind: "setting-names-package",
+        field: "pnpm.onlyBuiltDependencies",
+        name: "openapi-typescript",
+      },
     ]);
   });
 

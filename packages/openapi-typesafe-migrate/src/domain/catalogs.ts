@@ -19,6 +19,7 @@ import {
   NAMED_CATALOGS_FIELD,
   OVERRIDE_FIELDS,
   PACKAGE_RENAMES,
+  PNPM_SETTINGS_FIELD,
   WORKSPACES_FIELD,
 } from "./package-names.js";
 import { specEntries } from "./tree-entries.js";
@@ -116,7 +117,7 @@ function nestedTexts(node: TreeNode): { key: string; value: string }[] {
  */
 function addOverrideUses(documents: readonly TreeMap[], inUse: CatalogEntries): void {
   const sections = documents.flatMap((document) =>
-    OVERRIDE_FIELDS.flatMap((field) => valuesAt(document, field)),
+    [...OVERRIDE_FIELDS, PNPM_SETTINGS_FIELD].flatMap((field) => valuesAt(document, field)),
   );
   for (const { key, value } of sections.flatMap(nestedTexts)) {
     const catalog = catalogOfSpec(value);

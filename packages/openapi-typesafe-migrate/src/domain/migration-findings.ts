@@ -85,6 +85,8 @@ export type ManualStep =
   | { readonly kind: "peer-dependency-renamed"; readonly name: string }
   | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
   | { readonly kind: "override-names-package"; readonly field: string; readonly name: string }
+  /** A package manager setting (not an override) that names an old package. */
+  | { readonly kind: "setting-names-package"; readonly field: string; readonly name: string }
   | { readonly kind: "versioned-command"; readonly location: string }
   | {
       readonly kind: "flags-in-variable";

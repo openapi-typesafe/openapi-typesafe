@@ -15,6 +15,7 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "b is a peer dependency: users of this package must switch too (a breaking change for them)",
   "b kept the spec "latest": point it at an openapi-typesafe version",
   ""overrides" names a: update or remove that override",
+  ""pnpm.packageExtensions" names openapi-fetch: remove the setting if it no longer applies, or make it name openapi-typesafe-fetch",
   "ci.yml:3 runs a pinned openapi-typescript@<version>: change it to openapi-typesafe@<version>",
   "ci.yml:4: "openapi-typescript" names an old package where the tool cannot tell what runs it (a script name, an argument of a program it does not know), so it was kept: migrate it by hand",
   "Makefile:4: $(FLAGS) holds old flags of the generator and may serve other commands, so it was kept: rename -it to --immutable",
