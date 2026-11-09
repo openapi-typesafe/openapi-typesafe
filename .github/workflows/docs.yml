@@ -1,18 +1,31 @@
-# Deploy the docs site to GitHub Pages on every push to main (ENGINEERING_PLAN 10.2, 10.5).
+# Deploy the docs site to GitHub Pages from a release (ADR-042, ENGINEERING_PLAN 10.2, 10.5).
+# The site describes the version that `npm install openapi-typesafe` installs (the npm `latest`
+# tag), so it is built from the release tag of that version, never from main: main can already
+# document changes that are not released yet.
+# - release.yml starts this workflow after a release that moves `latest`, with its tag.
+# - A manual run builds the tag given as input, or the tag of the current `latest` version.
+# Either way the run is on main, because the `github-pages` environment deploys from the default
+# branch only; the workflow file comes from main, the site from the tag.
 # ci.yml builds the site and checks its internal links on every pull request, docs-links.yml its
 # external links (ADR-039); this workflow only publishes.
 # Actions are pinned by commit SHA (supply-chain hardening); the comment names the release.
 name: docs
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Release tag to build, for example openapi-typesafe@1.0.0. Empty: the tag of the version
+          on the npm `latest` tag.
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
-# One deployment at a time; a newer push waits instead of cancelling a deployment half way.
+# One deployment at a time; a newer run waits instead of cancelling a deployment half way.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -29,8 +42,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Only a release tag of the generator is built, so a typo cannot publish a branch.
+      - id: tag
+        name: choose the release tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REGISTRY_URL: https://registry.npmjs.org
+          # A few seconds per read; three retries cover a short registry hiccup (CODING_PRINCIPLES
+          # 8.6), as in scripts/release/has-stable-release.sh.
+          RETRY_COUNT: "3"
+          REQUEST_TIMEOUT_SECONDS: "30"
+        run: |
+          tag="${INPUT_TAG}"
+          if [[ -z "${tag}" ]]; then
+            latest="$(curl --silent --show-error --fail --retry "${RETRY_COUNT}" \
+              --max-time "${REQUEST_TIMEOUT_SECONDS}" \
+              "${REGISTRY_URL}/-/package/openapi-typesafe/dist-tags" | jq --raw-output .latest)"
+            tag="openapi-typesafe@${latest}"
+          fi
+          if [[ ! "${tag}" =~ ^openapi-typesafe@[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "docs: '${tag}' is not a release tag of openapi-typesafe" >&2
+            exit 1
+          fi
+          echo "docs: building ${tag}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/tags/${{ steps.tag.outputs.tag }}
           persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

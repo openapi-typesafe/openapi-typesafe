@@ -6,6 +6,8 @@
 #            hashes from `build`, and publishes them with npm trusted publishing (OIDC, with
 #            provenance; no npm token exists). It installs nothing but npm itself.
 #   release  tags each version and creates its GitHub release with the SBOM and the provenance.
+#   docs     starts docs.yml for the release tag of openapi-typesafe when that version is on the
+#            npm `latest` tag, so the docs site describes what `npm install` gets (ADR-042).
 # A manual run is a dry run only: `build`, then `npm publish --dry-run` of the same tarballs.
 # The trusted publisher of every package names this file and the `npm-publish` environment, so
 # renaming either breaks publishing (RELEASING.md).
@@ -256,6 +258,50 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/release/create-github-releases.sh "${RELEASE_DIR}" "${GITHUB_SHA}"
+
+  docs:
+    name: deploy the docs of the release
+    needs: release
+    # After the tags exist, so docs.yml can build the release tag (ADR-042).
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Starting another workflow is the only right this job needs.
+    permissions:
+      actions: write
+    steps:
+      # Only the scripts are needed; the token is not kept in the git config.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-packages
+          path: ${{ env.RELEASE_DIR }}
+      # The site describes the version on the npm `latest` tag: a stable version, or a prerelease
+      # while the package has no stable release (the rule of tag-latest.sh). A prerelease after
+      # 1.0.0 only goes to `next`, so the site keeps the stable docs. Changes made with the
+      # workflow token start no workflows, except a workflow_dispatch like this one.
+      - name: start the docs workflow for the release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(awk -F '\t' '$1 == "openapi-typesafe" { print $2 }' \
+            "${RELEASE_DIR}/manifest.tsv")"
+          if [[ -z "${version}" ]]; then
+            echo "docs: openapi-typesafe is missing from manifest.tsv" >&2
+            exit 1
+          fi
+          if [[ "${version}" == *-* &&
+            "$(scripts/release/has-stable-release.sh openapi-typesafe)" == "true" ]]; then
+            echo "docs: openapi-typesafe@${version} is not latest, the site stays as it is"
+            exit 0
+          fi
+          gh workflow run docs.yml --ref "${GITHUB_REF_NAME}" -f tag="openapi-typesafe@${version}"
+          echo "docs: started docs.yml for openapi-typesafe@${version}"
 
   dry-run:
     name: publish dry run

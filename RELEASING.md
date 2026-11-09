@@ -60,7 +60,12 @@ The beta runs while the repository is private, so nothing goes to npm.
 5. The `release` job creates the tag `<name>@<version>` on the built commit and a GitHub release
    with the changelog section, the CycloneDX SBOM and the npm provenance bundle
    (`scripts/release/create-github-releases.sh`).
-6. For a release candidate or a minor or major release, refresh `docs/compatibility.md` from the
+6. The `docs` job deploys the docs site from the tag `openapi-typesafe@<version>` when that version
+   is on the npm `latest` tag (ADR-042): it starts `.github/workflows/docs.yml` with the tag. The
+   site never shows `main`, so a docs fix goes live with the next release. To rebuild the site by
+   hand: Actions → docs → Run workflow on `main`, with a release tag or empty for the `latest`
+   version.
+7. For a release candidate or a minor or major release, refresh `docs/compatibility.md` from the
    latest full run of the `compat` workflow (its `compat-all` artifact), and link the page from the
    GitHub release notes.
 
