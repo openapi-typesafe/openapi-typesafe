@@ -108,8 +108,8 @@ export type QueryKey<
 /**
  * The last element of an infinite query's key. `useQuery` and `useInfiniteQuery` cache different
  * data (`TData` and `InfiniteData<TData>`), so the same request must not share one key (upstream
- * #2184, ADR-022). A prefix such as `[method, path]` still matches both. Not exported: a runtime
- * named export next to the default export would change what `require()` returns.
+ * #2184, ADR-022). A prefix such as `[method, path]` still matches both. Not exported: it is not
+ * needed outside the package, and a named export is public API; `InfiniteQueryKey` types the key.
  */
 const INFINITE_QUERY_KEY_MARKER = "infinite";
 

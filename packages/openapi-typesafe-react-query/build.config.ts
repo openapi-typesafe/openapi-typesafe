@@ -18,8 +18,10 @@ const CJS_EXPORTS_FOOTER = "module.exports = Object.assign(exports.default, expo
  * The CommonJS declarations say what `require()` returns: `export = createClient`. Such a module
  * may not export anything else (TS2309, reported with `skipLibCheck: false`), so the other exports
  * go into a namespace merged with the function, where `import type { QueryKey } from` and
- * `createClient.isResponseError` still find them. unbuild's own rewrite kept `export type { … }`
- * next to `export =`, and also rewrote `index.d.ts`, which describes the ES module of `main`.
+ * `createClient.isResponseError` still find them. The namespace also declares `default`, which
+ * the CommonJS footer sets to the function itself (`require(…).default`). unbuild's own rewrite
+ * kept `export type { … }` next to `export =`, and also rewrote `index.d.ts`, which describes the
+ * ES module of `main`.
  */
 function cjsDeclarations() {
   return {
@@ -37,12 +39,23 @@ function cjsDeclarations() {
       if (!name) {
         throw new Error(`cjs-declarations: no default export in ${chunk.fileName}`);
       }
-      const named = [...specifiers.filter((specifier) => !DEFAULT_SPECIFIER.test(specifier)), typeExports[1]];
-      const namespace = `declare namespace ${name} {\n  export { ${named.join(", ")} };\n}\nexport = ${name};`;
+      const members = [...specifiers, typeExports[1]];
+      const namespace = [
+        `declare namespace ${name} {`,
+        `  export { ${members.join(", ")} };`,
+        "}",
+        `export = ${name};`,
+      ].join("\n");
       const declarations = code.replace(TYPE_EXPORTS, "").replace(VALUE_EXPORTS, namespace);
       return `${declarations.trimEnd()}\n`;
     },
   };
+}
+
+/** Whether a Rollup plugin is unbuild's plugin that rewrites the CommonJS declarations. */
+function isCjsDefaultExportPlugin(plugin: unknown): boolean {
+  const isNamed = typeof plugin === "object" && plugin !== null && "name" in plugin;
+  return isNamed && plugin.name === CJS_DEFAULT_EXPORT_PLUGIN;
 }
 
 export default defineBuildConfig({
@@ -66,10 +79,7 @@ export default defineBuildConfig({
     },
     "rollup:dts:options"(_ctx, options) {
       const plugins = Array.isArray(options.plugins) ? options.plugins : [options.plugins];
-      const kept = plugins.filter(
-        (plugin) =>
-          !(plugin && typeof plugin === "object" && "name" in plugin && plugin.name === CJS_DEFAULT_EXPORT_PLUGIN),
-      );
+      const kept = plugins.filter((plugin) => !isCjsDefaultExportPlugin(plugin));
       options.plugins = [...kept, cjsDeclarations()];
     },
   },
