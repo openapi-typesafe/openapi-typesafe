@@ -14,6 +14,7 @@ import type {
   TransformOptions,
 } from "../../src/application/transform/transform-context.js";
 import type { IrPropertySignature, IrType } from "../../src/domain/ir/nodes.js";
+import { SCHEMA_DIALECTS } from "../../src/domain/openapi/schema-dialect.js";
 
 export const DEFAULT_TRANSFORM_OPTIONS: TransformOptions = {
   additionalProperties: false,
@@ -31,6 +32,7 @@ export const DEFAULT_TRANSFORM_OPTIONS: TransformOptions = {
   immutable: false,
   propertiesRequiredByDefault: false,
   readWriteMarkers: false,
+  schemaDialect: SCHEMA_DIALECTS.OPENAPI_3_0,
   generatePathParams: false,
   pathParamsAsTypes: false,
   rootTypes: false,
@@ -80,6 +82,11 @@ export class RecordingFooter implements DocumentFooter {
 
   addOperation(build: () => IrPropertySignature): void {
     this.operations.push(build());
+  }
+
+  /** Every operation keeps its ID. */
+  operationKey(operationId: string): string {
+    return operationId;
   }
 }
 

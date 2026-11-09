@@ -6,7 +6,7 @@ import type { IrDeclaration } from "../../../domain/ir/nodes.js";
  * (`Exclude<…>`, `Readonly<…>`). A module declaration of the same name shadows the global: every
  * use of it then fails to compile, or silently names the module's type (`Blob`).
  */
-const GLOBAL_TYPE_NAMES: ReadonlySet<string> = new Set([
+export const GLOBAL_TYPE_NAMES: ReadonlySet<string> = new Set([
   "Array",
   "Blob",
   "Exclude",

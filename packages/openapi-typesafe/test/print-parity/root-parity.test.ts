@@ -15,6 +15,8 @@ import {
   createContext,
   hasDuplicateEnumMembers,
   hasRedeclaredConstArrays,
+  hasRepeatedEnumDeclarations,
+  hasRepeatedOperationKeys,
   hasRepeatedParametersIndex,
   hasRetypedEnumValues,
   hasUnquotedExtractProbe,
@@ -94,6 +96,8 @@ describe("root transformer parity with the fork base", () => {
           const original = run(originalTransformSchema, value, input, code);
           fc.pre(!hasRootAliasEnumCollision(original));
           fc.pre(!hasDuplicateEnumMembers(original) && !hasRedeclaredConstArrays(original));
+          fc.pre(!hasRepeatedEnumDeclarations(original));
+          fc.pre(!hasRepeatedOperationKeys(original));
           fc.pre(!hasRepeatedParametersIndex(original));
           fc.pre(!hasUnquotedExtractProbe(original));
           fc.pre(!reachesFixedLegacyBug(value, input));

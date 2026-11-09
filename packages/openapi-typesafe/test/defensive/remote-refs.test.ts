@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { gzipSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/redocly-schema-loader.js";
 import type { RemoteDocumentLimits } from "../../src/adapters/redocly-loader/remote-fetch.js";
@@ -50,6 +51,15 @@ function fan(request: IncomingMessage, response: ServerResponse): void {
   }, FAN_DELAY_MS);
 }
 
+/** A JSON schema padded with spaces to 4 MiB, sent gzip-compressed: about 4 KiB on the wire. */
+const PADDED_BYTES = 4 * 1024 * 1024;
+const GZIP_BOMB = gzipSync(`${PERSON}${" ".repeat(PADDED_BYTES)}`);
+
+function gzipBomb(response: ServerResponse): void {
+  response.writeHead(200, { "content-type": "application/json", "content-encoding": "gzip" });
+  response.end(GZIP_BOMB);
+}
+
 /** The routes of the local server: a schema, a missing file, a redirect loop, no answer and a slow body. */
 function answer(request: IncomingMessage, response: ServerResponse): void {
   // A Map, so a request path such as `/constructor` cannot reach an object prototype method.
@@ -61,6 +71,8 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
       "/loop.json": () => response.writeHead(302, { location: "/loop.json" }).end(),
       "/hang.json": () => undefined,
       "/drip.json": () => drip(response),
+      "/bomb.json": () => gzipBomb(response),
+      "/bomb-2.json": () => gzipBomb(response),
     }),
   );
   if (request.url?.startsWith("/fan/")) {
@@ -96,9 +108,10 @@ afterAll(async () => {
 async function loadDocument(
   source: unknown,
   remoteDocumentLimits: RemoteDocumentLimits = DEFAULT_REMOTE_DOCUMENT_LIMITS,
+  redoc?: Awaited<ReturnType<typeof defaultRedoclyConfig>>,
 ) {
   const loader = createRedoclySchemaLoader({
-    redoc: await defaultRedoclyConfig(),
+    redoc: redoc ?? (await defaultRedoclyConfig()),
     logger: new RecordingLogger(),
     now: () => 0,
     remoteRefTimeoutMs: TEST_TIMEOUT_MS,
@@ -113,9 +126,13 @@ async function loadDocument(
   return loaded.document;
 }
 
-async function loadFailure(source: unknown, limits?: RemoteDocumentLimits): Promise<OpenAPITypesafeError> {
+async function loadFailure(
+  source: unknown,
+  limits?: RemoteDocumentLimits,
+  redoc?: Awaited<ReturnType<typeof defaultRedoclyConfig>>,
+): Promise<OpenAPITypesafeError> {
   try {
-    await loadDocument(source, limits);
+    await loadDocument(source, limits, redoc);
   } catch (error) {
     return error as OpenAPITypesafeError;
   }
@@ -188,7 +205,7 @@ describe("remote $ref", () => {
 });
 
 describe("remote $ref fan-out", () => {
-  const limits: RemoteDocumentLimits = { maxDocuments: 50, maxParallelFetches: 4 };
+  const limits: RemoteDocumentLimits = { ...DEFAULT_REMOTE_DOCUMENT_LIMITS, maxDocuments: 50, maxParallelFetches: 4 };
 
   it("a fan-out of remote documents stops at the document limit with SCHEMA_REF_FORBIDDEN", async () => {
     fanRequests.total = 0;
@@ -210,6 +227,59 @@ describe("remote $ref fan-out", () => {
 
     expect(fanRequests.maxInFlight).toBeGreaterThan(1);
     expect(fanRequests.maxInFlight).toBeLessThanOrEqual(limits.maxParallelFetches);
+  });
+});
+
+describe("remote documents that are too large once decoded (RC4 S4)", () => {
+  const MEBIBYTE = 1024 * 1024;
+  const limits: RemoteDocumentLimits = {
+    ...DEFAULT_REMOTE_DOCUMENT_LIMITS,
+    maxDocumentBytes: MEBIBYTE,
+    maxTotalBytes: 6 * MEBIBYTE,
+  };
+
+  it("a gzip bomb behind a remote $ref stops at the document limit", async () => {
+    const error = await loadFailure(withRemoteRef("/bomb.json"), limits);
+
+    expect(error).toMatchObject({
+      code: "SCHEMA_REF_FORBIDDEN",
+      details: { ref: `${baseURL}/bomb.json`, reason: "remote-document-too-large", maxDocumentBytes: MEBIBYTE },
+    });
+  });
+
+  it("a gzip bomb as the remote root document stops at the document limit", async () => {
+    const error = await loadFailure(new URL(`${baseURL}/bomb.json`), limits);
+
+    expect(error).toMatchObject({ code: "SCHEMA_REF_FORBIDDEN", details: { reason: "remote-document-too-large" } });
+  });
+
+  it("remote documents within the document limit stop at the total of the run", async () => {
+    const both = documentWith({
+      A: { $ref: `${baseURL}/bomb.json` },
+      B: { $ref: `${baseURL}/bomb-2.json` },
+    });
+
+    const error = await loadFailure(both, { ...limits, maxDocumentBytes: 5 * MEBIBYTE });
+
+    expect(error).toMatchObject({
+      code: "SCHEMA_REF_FORBIDDEN",
+      details: { reason: "remote-documents-too-large", maxTotalBytes: 6 * MEBIBYTE },
+    });
+  });
+
+  it("a customFetch of the Redocly config is limited too", async () => {
+    const redoc = await defaultRedoclyConfig();
+    (redoc.resolve.http as { customFetch?: unknown }).customFetch = fetch;
+
+    const error = await loadFailure(withRemoteRef("/bomb.json"), limits, redoc);
+
+    expect(error).toMatchObject({ code: "SCHEMA_REF_FORBIDDEN", details: { reason: "remote-document-too-large" } });
+  });
+
+  it("a gzip-compressed document within the limits loads", async () => {
+    const bundled = await loadDocument(withRemoteRef("/bomb.json"));
+
+    expect(bundled.components?.schemas?.bomb).toMatchObject({ type: "object" });
   });
 });
 

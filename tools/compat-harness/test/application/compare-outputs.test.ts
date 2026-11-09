@@ -144,6 +144,34 @@ describe("compareOutputs", () => {
     ]);
   });
 
+  it("compareOutputs calls enums kept apart that the golden output merged a fix", async () => {
+    const merged = "export enum Status {}\nexport enum Status {}\n";
+    const cache = setUp({
+      apart: { golden: merged, candidate: "export enum Status {}\nexport enum Status_2 {}\n" },
+      still: { golden: merged, candidate: `${merged}// changed\n` },
+      worse: { golden: merged, candidate: "export enum Status_2 {}\n" },
+    });
+    const path = (label: string, id: string) =>
+      cache.resolve(outputPath(label, "default", id as CorpusEntryId));
+    const typeChecker = new FakeTypeIdentityChecker({
+      [path("candidate", "apart")]: { changed: ["components"] },
+      [path("candidate", "still")]: { changed: ["components"] },
+      [path("candidate", "worse")]: { changed: ["components"] },
+    });
+    const outputCompiler = new FakeOutputCompiler({ [path("candidate", "worse")]: 1 });
+
+    const results = await compareOutputs(
+      { cache, logger: new RecordingLogger(), typeChecker, outputCompiler },
+      OPTIONS,
+    );
+
+    expect(results.map((r) => [r.entryId, r.status])).toEqual([
+      ["apart", ComparisonStatus.GoldenInvalid],
+      ["still", ComparisonStatus.Different],
+      ["worse", ComparisonStatus.Different],
+    ]);
+  });
+
   it("compareOutputs counts a file TypeScript stops on as worse than any error count", async () => {
     const cache = setUp({
       both: { golden: "a", candidate: "b" },

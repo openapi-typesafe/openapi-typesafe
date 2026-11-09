@@ -134,10 +134,14 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
 - `--enum` and `--enum-values` output that did not compile now does.
 - `--root-types` with `--enum`: a root type alias that had the same name as an enum gets a suffix (`ClusterState_2`).
 - `--root-types`: a root type alias that had the same name as a helper type of the file (a schema named `WithRequired` with `--root-types-no-schema-prefix`) gets the same suffix (`WithRequired_2`).
+- `--root-types`: an alias that had the name of `ApiPaths` (with `--make-paths-enum`), a root interface, a `--read-write-markers` type or a type declared in `inject` gets the same suffix (`ApiPaths_2`); that output did not compile (TS2567, TS2300).
+- `--enum`: an enum that had the name of a global type the output refers to gets a number. With `--binary-as-blob`, a schema enum named `Blob` took the place of the global `Blob`, so every `format: binary` field silently got the enum's type; it is now `Blob_2`, and the fields are `Blob` again. An enum named `Record`, `Omit` or `Partial` did not compile; it is now `Record_2`. The same holds for the name of a helper type and of `ApiPaths`. An enum keeps its name where the output does not use the global (`Blob` without `--binary-as-blob`).
+- `--enum`: two schemas whose enum names came out the same (`status` and `Status`, `my-status` and `myStatus`) were merged into one enum, which compiled, but each schema then accepted the values of the other. The later schema's enum now gets a number (`Status_2`), so the type of that schema changes. If you import such an enum, check its name after you regenerate. The requests of one schema location (a property and an inline `allOf` item of it) still share one enum.
 - `--root-types` names that were not identifiers now are: `--root-types-keep-casing` writes characters such as `-` as `_` (`SchemaAddress_3`), and `--root-types-no-schema-prefix` keeps the prefix before a digit (`Schema1`) and before a name that TypeScript reserves, which only `--root-types-keep-casing` can give (`Schemavoid`, not `void`).
 - Names and URLs from the document are escaped where they reach code (`--root-types`, `--path-params-as-types`), so a document can no longer add code to the generated file.
 - The `inject` option is printed as written, so comments in it are kept.
 - `--make-paths-enum`: `ApiPaths` members whose names collided (`GetUser` for both `/user` and `/user/{user_id}`) did not compile. Colliding names built from the URL now name the path parameters (`GetUserByUserId`); names that still collide, such as a repeated `operationId`, get a number (`listItems2`). Names that did not collide stay the same.
+- A repeated `operationId` gave the `operations` interface two members of one name, which did not compile (TS2300). The first operation keeps the ID and each later one gets the lowest free number (`listItems2`, as in `ApiPaths`); the path items refer to it. The `LINT_PROBLEM` warning stays.
 - `--enum` and `--make-paths-enum`: values whose member names come out the same after invalid characters are replaced (`reactions-+1` and `reactions--1` are both `reactions_1`) did not compile. A repeated name gets a number: `reactions_1_2` (a quoted name gets it inside the quotes). Names that did not collide stay the same.
 - `--exclude-deprecated`: a deprecated schema that kept output still references (an array's `items`, a kept operation's response) was left out, so the output named a missing `components["schemas"]` key. It is kept now; a deprecated schema that only dropped parts reference is still left out.
 - `--path-params-as-types`: a template key such as `` `/apps/${string}` `` also matches `/apps/regions` and `` `/apps/${string}/restart` ``, and that output did not compile (TS2411, TS2413) when their types do not fit the template's. When a path surely does not fit (a method or a parameter location one has and the other has not, or an operation or response schema that lacks a required property of the template's), `paths` is now an intersection type alias, `` { … } & { [path: `/apps/${string}`]: … } ``, and every path keeps its type. Output that compiled stays the same, `export interface paths` included.
@@ -195,6 +199,10 @@ These are off by default, so the output does not change until you turn one on.
   `read-write-refs` makes a property `readonly` when the schema it references is `readOnly`.
   `ref-pointers` gives a `$ref` into another schema's keywords the type it points at also where
   an index signature made the original compile as `unknown`.
+  `parameter-content` types a parameter with `content` (a JSON query parameter) by the schema of
+  its media type, instead of `string`.
+  `ref-siblings` applies the keywords next to a `$ref` in OpenAPI 3.1 and 3.2 documents
+  (`required`, `properties`), instead of dropping them; OpenAPI 3.0 keeps ignoring them.
 
 ### Libraries built on openapi-fetch
 

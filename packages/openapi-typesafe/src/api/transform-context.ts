@@ -11,6 +11,7 @@ import type {
   TransformDiagnostics,
   TransformOptions,
 } from "../application/transform/transform-context.js";
+import { SCHEMA_DIALECTS } from "../domain/openapi/schema-dialect.js";
 import type { TransformNodeOptions } from "../types.js";
 import { defaultLogger, monotonicNow } from "./default-ports.js";
 import { ContextFooterSink } from "./footer-sink.js";
@@ -40,6 +41,7 @@ function transformOptions(ctx: RunContext): TransformOptions {
     immutable: ctx.immutable,
     propertiesRequiredByDefault: ctx.propertiesRequiredByDefault,
     readWriteMarkers: ctx.readWriteMarkers,
+    schemaDialect: ctx.schemaDialect ?? SCHEMA_DIALECTS.OPENAPI_3_0,
     generatePathParams: ctx.generatePathParams,
     pathParamsAsTypes: ctx.pathParamsAsTypes,
     rootTypes: ctx.rootTypes,

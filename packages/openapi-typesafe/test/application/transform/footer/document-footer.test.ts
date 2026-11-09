@@ -3,6 +3,9 @@ import {
   type FooterSink,
   RunFooter,
 } from "../../../../src/application/transform/footer/document-footer.js";
+import { EnumNameClaims } from "../../../../src/application/transform/footer/enum-name-claims.js";
+import { OperationKeys } from "../../../../src/application/transform/footer/operation-keys.js";
+import { FIRST_SCHEMA_NAMES } from "../../../../src/application/transform/footer/shared-enum-names.js";
 import { irProperty, irReference } from "../../../../src/domain/ir/constructors.js";
 import type { IrDeclaration, IrPropertySignature } from "../../../../src/domain/ir/nodes.js";
 
@@ -76,6 +79,49 @@ describe("RunFooter", () => {
 
     expect([first, second]).toEqual(["Status", "Status"]);
     expect(sink.declarations).toHaveLength(1);
+  });
+
+  it("addEnum numbers the enum of another schema whose name comes out the same", () => {
+    const sink = new InMemorySink();
+    const footer = new RunFooter(sink, false);
+
+    const first = footer.addEnum({ ...STATUS, name: "/status", values: ["active"] });
+    const second = footer.addEnum({ ...STATUS, name: "/Status", values: ["deleted"] });
+
+    expect([first, second]).toEqual(["Status", "Status_2"]);
+    expect(sink.declarations.map((declaration) => declaration.kind)).toEqual(["enum", "enum"]);
+  });
+
+  it("addEnum with --dedupe-enums numbers other members whose name comes out the same", () => {
+    const sink = new InMemorySink();
+    const footer = new RunFooter(sink, true);
+
+    const first = footer.addEnum({ ...STATUS, name: "/status", values: ["active"] });
+    const second = footer.addEnum({ ...STATUS, name: "/Status", values: ["deleted"] });
+
+    expect([first, second]).toEqual(["Status", "Status_2"]);
+  });
+
+  it("addEnum merges the requests of one schema location into one enum name", () => {
+    // A property and an inline `allOf` item of one schema are typed at one location.
+    const sink = new InMemorySink();
+    const footer = new RunFooter(sink, true);
+
+    const first = footer.addEnum({ ...STATUS, name: "/Pet/kind", values: ["a"] });
+    const second = footer.addEnum({ ...STATUS, name: "/Pet/kind", values: ["b"] });
+
+    expect([first, second]).toEqual(["PetKind", "PetKind"]);
+  });
+
+  it("addEnum gives way to a name the run's claims reserve", () => {
+    const sink = new InMemorySink();
+    const names = {
+      enums: new EnumNameClaims(new Set(["Record"])),
+      operations: new OperationKeys(),
+    };
+    const footer = new RunFooter(sink, false, FIRST_SCHEMA_NAMES, names);
+
+    expect(footer.addEnum({ ...STATUS, name: "/Record" })).toBe("Record_2");
   });
 
   it("addEnumValues adds the helper types once, then a readonly array", () => {

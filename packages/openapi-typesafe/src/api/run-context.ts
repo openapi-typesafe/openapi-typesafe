@@ -1,6 +1,7 @@
 import type { DeprecationReporter } from "../application/ports/deprecation-reporter.js";
 import type { Logger } from "../application/ports/logger.js";
 import type { DocumentFooter } from "../application/transform/transform-context.js";
+import type { SchemaDialect } from "../domain/openapi/schema-dialect.js";
 import type { GlobalContext, LegacyCallbackName, SchemaObject } from "../types.js";
 
 /**
@@ -26,6 +27,8 @@ export interface RunContext extends GlobalContext {
      */
     readonly otherProperties?: Readonly<Record<string, readonly string[]>>;
   };
+  /** The schema dialect of the run's document; without it, OpenAPI 3.0 (`schemaDialectOf`). */
+  schemaDialect?: SchemaDialect;
   /** Footer state of this run (enum registry and enum naming), created on first use. */
   runFooter?: DocumentFooter;
   /** The deprecated callback forms this run has warned about (once each). */

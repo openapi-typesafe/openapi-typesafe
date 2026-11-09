@@ -15,7 +15,7 @@ import type { EnumMemberMetadata } from "../schema/schema-context.js";
 const PARAMETER_SEGMENT_RE = /^(?:{(.+)}|:(.+))$/;
 /** Characters not allowed in an enum key, or a `{param}` / `:param` part (first match only). */
 const INVALID_KEY_PART_RE = /{.*}|:.*|[^a-zA-Z\d_]+/;
-const API_PATHS_NAME = "ApiPaths";
+export const API_PATHS_NAME = "ApiPaths";
 const METHODS: ReadonlySet<string> = new Set<PathItemMethod>([...HTTP_METHODS, QUERY_METHOD]);
 
 /** The members of the `ApiPaths` enum (`--make-paths-enum`). */

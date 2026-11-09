@@ -82,7 +82,7 @@ To reduce errors in TypeScript generation, the following built-in rules are reco
 
 | Rule                                                                                          |    Setting     | Reason                         |
 | :-------------------------------------------------------------------------------------------- | :------------: | :----------------------------- |
-| [operation-operationId-unique](https://redocly.com/docs/cli/rules/built-in-rules/#operations) |    `error`     | Prevents invalid TS generation |
+| [operation-operationId-unique](https://redocly.com/docs/cli/rules/built-in-rules/#operations) |    `error`     | A repeated ID gets a numbered `operations` key (`listItems2`) |
 | [operation-parameters-unique](https://redocly.com/docs/cli/rules/built-in-rules/#parameters)  |    `error`     | Prevents missing params        |
 | [path-not-include-query](https://redocly.com/docs/cli/rules/built-in-rules/#parameters)       |    `error`     | Prevents missing params        |
 | [spec](https://redocly.com/docs/cli/rules/built-in-rules/#special-rules)                      | `3.0` or `3.1` | Enables better schema checks   |
@@ -549,7 +549,8 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
 
 A refused `$ref` fails with `SCHEMA_REF_FORBIDDEN` (CLI exit code `3`); `err.details` has the
 `ref` and the `reason` (`outside-local-root`, `host-not-allowed`, `local-ref-from-remote`, or
-`too-many-remote-documents` from [Limits](#limits)). The
+`too-many-remote-documents`, `remote-document-too-large` and `remote-documents-too-large` from
+[Limits](#limits)). The
 [threat model](/security/threat-model) explains the risks (T3, T4).
 
 ## Limits
@@ -565,6 +566,8 @@ hanging when a document reaches one of these limits.
 | A key named `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `valueOf` or one of the `__define…` / `__lookup…` methods, where the schema loader reads keys, or a `constructor` entry whose value has a string `name` (a security scheme or header named `constructor`) | The schema loader (Redocly 1.x) cannot read it; the error lists every such key | `SCHEMA_KEY_UNSUPPORTED` |
 | YAML aliases (`*name`) that expand a file to more than 1,000,000 nodes and to more than 100 times its written size (a "billion laughs" document) | The file is refused right after parsing, before anything walks it | `SCHEMA_PARSE_FAILED` |
 | More than 10,000 remote documents in one run (each document that refers to new URLs, without end) | The next remote document is refused before it is fetched. At most 16 remote documents are fetched at the same time | `SCHEMA_REF_FORBIDDEN` (reason `too-many-remote-documents`) |
+| A remote document whose body is larger than 256 MiB once decoded (`gzip`, `deflate` and `br` are decoded while it arrives, so a small compressed body cannot fill the memory) | The body is read as a stream and the fetch stops at the limit, before the document is parsed. A `customFetch` in your Redocly config is limited too. The largest real document we know (Microsoft Graph beta) is 71 MiB | `SCHEMA_REF_FORBIDDEN` (reason `remote-document-too-large`, `details.maxDocumentBytes`) |
+| Remote documents of one run larger than 512 MiB together, decoded | The fetch that passes the total stops | `SCHEMA_REF_FORBIDDEN` (reason `remote-documents-too-large`, `details.maxTotalBytes`) |
 | A remote `$ref` or remote document that does not answer, or does not finish sending its body, within 60 seconds | The fetch stops. A `customFetch` in your Redocly config replaces this limit | `SCHEMA_INVALID` (a `$ref`) or `SCHEMA_LOAD_FAILED` (the document) |
 
 Cyclic schemas are fine when the cycle goes through an object property

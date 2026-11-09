@@ -12,12 +12,14 @@ import type {
   EnumValuesRequest,
 } from "../schema/schema-context.js";
 import type { DocumentFooter } from "../transform-context.js";
+import { EnumNameClaims } from "./enum-name-claims.js";
 import {
   type DeclaredMembers,
   EnumNaming,
   enumDeclaration,
   withoutDeclaredMembers,
 } from "./enum-naming.js";
+import { OperationKeys } from "./operation-keys.js";
 import { FIRST_SCHEMA_NAMES, type SharedEnumNames } from "./shared-enum-names.js";
 
 /** Where footer declarations go, in order: the run's `ctx.injectFooter`, open to user code. */
@@ -62,6 +64,12 @@ function declarationKey(name: string, request: EnumDeclarationRequest): string {
   return JSON.stringify([name, request.values, request.metadata]);
 }
 
+/** The naming state a run's footer shares with the rest of the run. */
+export interface RunFooterNames {
+  readonly enums: EnumNameClaims;
+  readonly operations: OperationKeys;
+}
+
 /**
  * The footer of one run: enums (deduplicated with `--dedupe-enums`), `--enum-values` arrays, the
  * helper types they need, and the `operations` interface. Replaces the original's module-level
@@ -83,15 +91,18 @@ export class RunFooter implements DocumentFooter {
   private readonly sink: FooterSink;
   private readonly isDedupingEnums: boolean;
   private readonly sharedNames: SharedEnumNames;
+  private readonly names: RunFooterNames;
 
   constructor(
     sink: FooterSink,
     isDedupingEnums: boolean,
     sharedNames: SharedEnumNames = FIRST_SCHEMA_NAMES,
+    names: RunFooterNames = { enums: new EnumNameClaims(), operations: new OperationKeys() },
   ) {
     this.sink = sink;
     this.isDedupingEnums = isDedupingEnums;
     this.sharedNames = sharedNames;
+    this.names = names;
   }
 
   addEnum(request: EnumDeclarationRequest): string {
@@ -99,11 +110,13 @@ export class RunFooter implements DocumentFooter {
     const ownName = this.naming.enumName(request.name);
     const key = this.isDedupingEnums ? dedupeKey(request) : null;
     // Every schema of a shared enum goes to `sharedNames`, the later ones too.
-    const name = key === null ? ownName : this.sharedNames.nameOf(key, ownName, request);
+    const sharedName = key === null ? ownName : this.sharedNames.nameOf(key, ownName, request);
     const known = key === null ? undefined : this.enumNamesByKey.get(key);
     if (known !== undefined) {
       return known;
     }
+    // The owner is the schema location: its requests share one enum, with `--dedupe-enums` too.
+    const name = this.names.enums.nameFor(sharedName, request.name);
     // Only a repeated member fails to compile; two empty declarations merge, so they stay.
     const declared = request.values.length > 0 ? declarationKey(name, request) : null;
     if (declared !== null && this.declaredEnums.has(declared)) {
@@ -198,6 +211,10 @@ export class RunFooter implements DocumentFooter {
 
   addOperation(build: () => IrPropertySignature): void {
     this.sink.addOperation(build);
+  }
+
+  operationKey(operationId: string): string {
+    return this.names.operations.keyFor(operationId);
   }
 
   private require(helper: HelperType): void {

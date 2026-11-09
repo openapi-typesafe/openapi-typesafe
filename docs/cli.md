@@ -168,7 +168,7 @@ A warning does not stop the run: the types are written and the exit code stays `
 | `DISCRIMINATOR_VALUE_NOT_ALLOWED` | A discriminator gives a schema a value that the schema's own discriminator property does not allow, so no value matches. The Discriminator Object requires the value, from `mapping` or the schema name, to be one the property admits; add a `mapping` entry. See [discriminator values](./advanced.md#discriminator-values) |
 | `ENUM_VALUES_EXCLUDED` | `--enum-values`: other keywords exclude some values of an enum (an `allOf` of enums with other values, a discriminator value the enum does not list), so the array is typed by its own values. See [enum values arrays](./advanced.md#enum-values-arrays) |
 | `FIX_NEEDS_OPTION` | A [fix](#fix) is named without the option it needs (`array-length-tuples` without `--array-length`, `root-type-numbering` without `--root-types`), so it changes nothing |
-| `LINT_PROBLEM` | A Redocly lint rule with severity `warn` found a problem, such as `operation-operationId-unique` ("Every operation must have a unique `operationId`"). The rule is named before the code. Without a `redocly.yaml`, the rules of Redocly's `minimal` config apply, with `operation-operationId-unique` as a warning |
+| `LINT_PROBLEM` | A Redocly lint rule with severity `warn` found a problem, such as `operation-operationId-unique` ("Every operation must have a unique `operationId`"). The rule is named before the code. Without a `redocly.yaml`, the rules of Redocly's `minimal` config apply, with `operation-operationId-unique` as a warning. Operations with a repeated `operationId` still get distinct keys in `operations`: the first in document order keeps the ID, each later one gets the lowest number from 2 that no other operation has as its ID (`listItems2`, the name `--make-paths-enum` gives it too) |
 | `PATH_TEMPLATES_IDENTICAL` | Paths differ only in their parameter names, such as `/users/{id}` and `/users/{name}`. The OpenAPI Paths Object forbids this: "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical." See [pathParamsAsTypes](#pathparamsastypes) for the output |
 | `QUERYSTRING_NEXT_TO_QUERY` | An `in: querystring` parameter is next to `in: query` parameters, which OpenAPI 3.2 does not allow; the parameter is left out of the types. See [OpenAPI 3.2 support](./introduction.md#openapi-3-2-support) |
 | `REF_CIRCULAR` | A `$ref` that the generator follows in the bundled document (a discriminator `mapping` value, a `ctx.resolve` call in a callback, the deprecated `resolveRef` export) leads back to itself; it is left unresolved |
@@ -462,10 +462,12 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `discriminator-values` | The value a discriminator member gets: a schema that a `mapping` names gets the mapped value only (not also its schema name, which made the property `never`); a schema's own `mapping` is kept when it also inherits a discriminator; a member that declares its value gets no second property; with `--enum` the value is a member of the owner's enum (`PetType.Cat`) | [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200), [#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124), [#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700) | 1.0 |
 | `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
 | `nullable-enums` | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum` | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872) | 1.0 |
+| `parameter-content` | A parameter with `content` instead of `schema` (a JSON object in a query parameter) is typed by the schema of its media type, instead of `string` | none (found in the rc.4 review) | 1.0 |
 | `path-param-type-names` | With `--path-params-as-types`, a path parameter named `number`, `string` or `boolean` gets its placeholder, instead of the `$` and the `{name}` text the original leaves when it replaces that name inside an earlier placeholder; needs `--path-params-as-types` | none (found in our own tests) | 1.0 |
 | `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
 | `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
 | `ref-pointers` | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`; where the original does not compile, this is the default | none (found in the compat corpus) | 1.0 |
+| `ref-siblings` | OpenAPI 3.1 and 3.2: keywords next to a `$ref` (`required`, `properties`, `enum`) apply, as JSON Schema 2020-12 says, instead of being dropped; OpenAPI 3.0 ignores them, as its spec says | none (found in the rc.4 review) | 1.0 |
 | `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
 
@@ -1113,6 +1115,46 @@ Where the generated type has an index signature (`--additional-properties`, or t
 `additionalProperties`), the original compiles: `["schema"]` reads the index signature and is
 `unknown`. Changing it could break code, so it stays without the fix; with `ref-pointers` it gets
 the type above too.
+
+#### parameter-content
+
+A parameter is described by `schema` or by `content`, a map with one media type whose schema
+describes the value, for example a JSON object sent in one query parameter. The original read only
+`schema`, so such a parameter was `string`:
+
+```ts
+filter?: string; // [!code --]
+filter?: { status?: string; limit?: number }; // [!code ++]
+```
+
+- The first media type of `content` is read; a media type without a schema gives `unknown`.
+- An `in: querystring` parameter (OpenAPI 3.2) is typed this way without the fix (ADR-020).
+- The fix works in OpenAPI 3.0 documents too, where `content` has the same meaning.
+
+#### ref-siblings
+
+In OpenAPI 3.1 and 3.2 a schema is a JSON Schema 2020-12 schema, where `$ref` is one keyword among
+the others and all of them apply. The original read only the `$ref`:
+
+```yaml
+WithSiblings:
+  $ref: "#/components/schemas/Base"
+  required: [extra]
+  properties: { extra: { type: string } }
+```
+
+```ts
+WithSiblings: components["schemas"]["Base"]; // [!code --]
+WithSiblings: { extra: string } & components["schemas"]["Base"]; // [!code ++]
+```
+
+- The schema is typed as `allOf: [{ $ref }]` next to the same keywords, with every rule for
+  `allOf`: `required` alone gives `WithRequired<Base, "id">`, an `enum` gives its values.
+- Keywords that only annotate (`description`, `title`, `examples`, `default`, `deprecated`,
+  `readOnly`, `writeOnly`, `format`, `x-…`) change nothing, so such a schema keeps the plain
+  reference.
+- OpenAPI 3.0 documents are not changed: their spec says that keywords next to a `$ref` are
+  ignored.
 
 #### root-type-numbering
 

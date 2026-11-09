@@ -1,14 +1,24 @@
 import type { ts } from "../adapters/type-ast-bridge/typescript-types.js";
 import { documentBody, documentClosing } from "../application/transform/document/document.js";
-import { renameTakenAliases } from "../application/transform/document/root-type-aliases.js";
-import { RunFooter } from "../application/transform/footer/document-footer.js";
-import { checkedEnumValues } from "../application/transform/footer/enum-values-check.js";
 import {
+  NAMES_THE_OUTPUT_MAY_NEED,
+  namesTheOutputNeeds,
+  withEnumsRenamed,
+} from "../application/transform/document/enum-names-given-back.js";
+import { operationKeysWritten } from "../application/transform/document/operation-keys-written.js";
+import { renameTakenAliases } from "../application/transform/document/root-type-aliases.js";
+import { RunFooter, type RunFooterNames } from "../application/transform/footer/document-footer.js";
+import { EnumNameClaims } from "../application/transform/footer/enum-name-claims.js";
+import { checkedEnumValues } from "../application/transform/footer/enum-values-check.js";
+import { OperationKeys } from "../application/transform/footer/operation-keys.js";
+import {
+  FIRST_SCHEMA_NAMES,
   SharedEnumNameRecorder,
   type SharedEnumNames,
 } from "../application/transform/footer/shared-enum-names.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
+import { schemaDialectOf } from "../domain/openapi/schema-dialect.js";
 import { FIX } from "../domain/output-fixes.js";
 import type { GlobalContext, OpenAPI3 } from "../types.js";
 import { FirstSchemaNameRecorder } from "./discriminator-enum-names.js";
@@ -71,14 +81,46 @@ function enumNameRecorderOf(ctx: GlobalContext): EnumNameRecorder | null {
   return ctx.fix?.includes(FIX.DISCRIMINATOR_VALUES) ? new FirstSchemaNameRecorder() : null;
 }
 
-/** With a naming fix, `--enum` and `--dedupe-enums`, the run's footer names shared enums. */
-function withSharedEnumNames(document: DocumentObject, ctx: RunContext): void {
-  const recorder = ctx.runFooter === undefined ? enumNameRecorderOf(ctx) : null;
-  if (recorder === null || !ctx.enum || !ctx.dedupeEnums) {
+/**
+ * The run's footer: with a naming fix, `--enum` and `--dedupe-enums` it names shared enums. A
+ * footer that a call before created on the context is kept.
+ */
+function withRunFooter(document: DocumentObject, ctx: RunContext, names: RunFooterNames): void {
+  if (ctx.runFooter !== undefined) {
     return;
   }
-  const names = sharedEnumNamesOf(document, ctx, recorder);
-  ctx.runFooter = new RunFooter(new ContextFooterSink(ctx.injectFooter), true, names);
+  const recorder = enumNameRecorderOf(ctx);
+  const shared =
+    recorder === null || !ctx.enum || !ctx.dedupeEnums
+      ? null
+      : sharedEnumNamesOf(document, ctx, recorder);
+  const sink = new ContextFooterSink(ctx.injectFooter);
+  ctx.runFooter =
+    shared === null
+      ? new RunFooter(sink, ctx.dedupeEnums, FIRST_SCHEMA_NAMES, names)
+      : new RunFooter(sink, true, shared, names);
+}
+
+/**
+ * The document with the enums renamed that gave way to a name the output turned out not to need
+ * (`EnumNameClaims`): they get that name back, as before.
+ */
+function withEnumNamesGivenBack(
+  parts: TransformedDocument,
+  names: RunFooterNames,
+): TransformedDocument {
+  const footer = parts.footer.filter(isIrDeclaration);
+  const renames = names.enums.givenBack(namesTheOutputNeeds({ ...parts, footer }));
+  if (renames.size === 0) {
+    return parts;
+  }
+  return {
+    body: withEnumsRenamed(parts.body, renames),
+    footer: parts.footer.map((entry) =>
+      isIrDeclaration(entry) ? (withEnumsRenamed([entry], renames)[0] ?? entry) : entry,
+    ),
+    closing: withEnumsRenamed(parts.closing, renames),
+  };
 }
 
 /**
@@ -105,14 +147,24 @@ function enumValuesChecked(
 /** @internal Root types, the footer, then the closing declarations (Phase 5, step 6). */
 export function transformDocument(schema: OpenAPI3, ctx: RunContext): TransformedDocument {
   const document = schema as DocumentObject;
-  withSharedEnumNames(document, ctx);
+  ctx.schemaDialect = schemaDialectOf(document.openapi);
+  const names: RunFooterNames = {
+    enums: new EnumNameClaims(NAMES_THE_OUTPUT_MAY_NEED),
+    operations: new OperationKeys(operationKeysWritten(document)),
+  };
+  withRunFooter(document, ctx, names);
   const context = createTransformContext(ctx);
   // documentBody registers the enums in the footer, so the footer is read after it.
   const rawBody = documentBody(document, context, () => ctx.injectFooter.filter(isIrDeclaration));
-  const footer = enumValuesChecked(rawBody, [...ctx.injectFooter], ctx);
-  const closing = documentClosing(document, context, footer.some(isOperations));
-  const body = renameTakenAliases(rawBody, footer.filter(isIrDeclaration), closing);
-  return { body, footer, closing };
+  const rawFooter = enumValuesChecked(rawBody, [...ctx.injectFooter], ctx);
+  const rawClosing = documentClosing(document, context, rawFooter.some(isOperations));
+  const parts = { body: rawBody, footer: rawFooter, closing: rawClosing };
+  const { body, footer, closing } = withEnumNamesGivenBack(parts, names);
+  return {
+    body: renameTakenAliases(body, footer.filter(isIrDeclaration), closing),
+    footer,
+    closing,
+  };
 }
 
 /**

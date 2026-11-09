@@ -171,6 +171,7 @@ class RedoclySchemaLoader implements SchemaLoader {
       timeoutMs: remoteRefTimeoutMs,
       access: request.refAccess,
       maxParallelFetches: remoteDocumentLimits.maxParallelFetches,
+      bodyLimits: remoteDocumentLimits,
     });
     return new RefAccessResolver(config, {
       access: request.refAccess,

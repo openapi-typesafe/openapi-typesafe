@@ -18,3 +18,18 @@ export function withNumberedRepeats(names: readonly string[], numbered: Numbered
     return unique;
   });
 }
+
+/** Separates a repeated declaration name from its number: `Status` → `Status_2`. */
+const DECLARATION_NUMBER_SEPARATOR = "_";
+
+/**
+ * The first of `Name_2`, `Name_3`, … that `taken` does not hold: the suffix `--root-types` uses for
+ * its own conflicts, and every other declaration that must give way to another name.
+ */
+export function freeNumberedName(name: string, taken: ReadonlySet<string>): string {
+  let count = 2;
+  while (taken.has(`${name}${DECLARATION_NUMBER_SEPARATOR}${count}`)) {
+    count += 1;
+  }
+  return `${name}${DECLARATION_NUMBER_SEPARATOR}${count}`;
+}

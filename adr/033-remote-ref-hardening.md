@@ -94,3 +94,39 @@ short.
 The schema loader changes (ADR-005, Redocly 2.x), or Redocly changes `readFileFromUrl`; a report
 of a real document with more than 10,000 remote files, or one that loads slower with 16 parallel
 fetches.
+
+## Amendment (2026-11-08): the decoded size of remote documents is bounded
+
+The review before rc.4 (RC4 S4) found no bound on the size of a remote document. Fetch decodes
+`gzip`, `deflate` and `br` before the loader sees the body, and the loader read the body whole:
+four documents of 0.4 MB on the wire became 1.6 GB in memory, and larger ones ended the process
+with an out-of-memory crash. The threat model called T2 controlled.
+
+6. **Remote bodies are read as a stream, and the decoded bytes are counted while they arrive.**
+   Past 256 MiB for one document, or 512 MiB for all remote documents of one load together, the
+   read stops, the rest of the body is cancelled, and the load fails with `SCHEMA_REF_FORBIDDEN`
+   and the reason `remote-document-too-large` (`details.maxDocumentBytes`) or
+   `remote-documents-too-large` (`details.maxTotalBytes`). A `customFetch` of the Redocly config
+   is wrapped the same way, as it is for redirects. Local files are not limited: they are read as
+   they are on disk, with no decoding step that multiplies them.
+   - 256 MiB per document: the largest document of the 1,820-entry compatibility corpus is
+     Microsoft Graph beta, 71 MiB, so the limit is more than three times it. It is half of the
+     longest string V8 holds (about 512 MiB): a body that passes can still become the text the
+     parser needs; a larger one could not be parsed anyway.
+   - 512 MiB per load: twice the document limit, so a split document may be twice the largest
+     single one. It bounds what a crafted set of documents can make the process hold to that much
+     text and its parsed form; the gzip proof now stops at about 590 MB of resident memory.
+   - The two values join `RemoteDocumentLimits` (`DEFAULT_REMOTE_DOCUMENT_LIMITS`), which the
+     composition roots inject, so tests use small ones. As in decision 5 there is no user option
+     until a report shows a document that needs more.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Stream and count decoded bytes, per document and per load (chosen) | Stops a zip bomb before the memory is taken; the total also stops many documents just under the document limit | Two more limits to document |
+| Check `Content-Length` | No stream code | It is the compressed size, and a server may leave it out |
+| Refuse `Content-Encoding` | Closes the decompression case | Real servers compress large documents; an uncompressed huge body is still unbounded |
+| Only a per-document limit | One value | 10,000 documents of 256 MiB each are still allowed (decision 5) |
+| A user option for the limits | A project with a larger document can raise them | No such document is known (YAGNI); one more flag in every composition root |
+
+Review trigger: a report of a real document larger than 256 MiB, or of a run whose remote
+documents together are larger than 512 MiB.

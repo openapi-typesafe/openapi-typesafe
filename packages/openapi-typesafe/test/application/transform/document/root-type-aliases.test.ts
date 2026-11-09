@@ -56,18 +56,39 @@ describe("renameTakenAliases", () => {
     expect(names(renameTakenAliases(body, [helper]))).toEqual(["WithRequired_2"]);
   });
 
-  it("renameTakenAliases ignores unnamed raw code and value declarations", () => {
-    const body = [rootTypeAlias("Pet", "schemas", "Pet")];
-    const injected: IrDeclaration = { kind: "rawDeclaration", text: "type Pet = string;" };
+  it("renameTakenAliases renames an alias that raw code declares and ignores values", () => {
+    const body = [rootTypeAlias("Pet", "schemas", "Pet"), rootTypeAlias("Tag", "schemas", "Tag")];
+    const injected: IrDeclaration = { kind: "rawDeclaration", text: "export type Pet = string;" };
     const values = {
       kind: "constArray",
-      name: "Pet",
+      name: "Tag",
       isExported: true,
       values: [],
       comments: [],
     } as never;
 
-    expect(renameTakenAliases(body, [injected, values])).toEqual(body);
+    expect(names(renameTakenAliases(body, [injected, values]))).toEqual(["Pet_2", "Tag"]);
+  });
+
+  it("renameTakenAliases renames an alias that a closing declaration takes", () => {
+    const body = [rootTypeAlias("ApiPaths", "schemas", "ApiPaths")];
+
+    const renamed = renameTakenAliases(body, [], [enumDeclaration("ApiPaths")]);
+
+    expect(names(renamed)).toEqual(["ApiPaths_2"]);
+  });
+
+  it("renameTakenAliases renames an alias that a root interface of the body takes", () => {
+    const root: IrDeclaration = {
+      kind: "interface",
+      name: "paths",
+      isExported: true,
+      members: [],
+      comments: [],
+    };
+    const body = [root, rootTypeAlias("paths", "schemas", "paths")];
+
+    expect(names(renameTakenAliases(body, []))).toEqual(["paths", "paths_2"]);
   });
 
   it("renameTakenAliases with an empty footer returns the body unchanged", () => {
