@@ -136,14 +136,14 @@ function commandStepMessage(step: CommandStep): string {
 type UneditedStep = Extract<
   ManualStep,
   {
-    kind:
-      | "config-unreadable"
-      | "manifest-not-read"
-      | "entry-not-edited"
-      | "name-collision"
-      | "catalog-reference-kept"
-      | "catalog-entry-in-use";
+    kind: "config-unreadable" | "manifest-not-read" | "entry-not-edited" | "name-collision";
   }
+>;
+
+/** Steps for catalog entries and the dependencies on them that keep the old names. */
+type CatalogStep = Extract<
+  ManualStep,
+  { kind: "catalog-reference-kept" | "catalog-entry-outside" | "catalog-entry-in-use" }
 >;
 
 function uneditedStepMessage(step: UneditedStep): string {
@@ -162,10 +162,23 @@ function uneditedStepMessage(step: UneditedStep): string {
         `${step.field} has both ${step.from} and ${step.to}, so ${step.from} was kept: ` +
         "remove one of them"
       );
+    default:
+      return assertNever(step);
+  }
+}
+
+function catalogStepMessage(step: CatalogStep): string {
+  switch (step.kind) {
     case "catalog-reference-kept":
       return (
         `${step.field}: ${step.name} was kept, because catalog "${step.catalog}" keeps ` +
         `${step.name}: rename the entry and the dependency together`
+      );
+    case "catalog-entry-outside":
+      return (
+        `${step.field}: ${step.name} was kept, because no catalog of this project has its ` +
+        `"${step.catalog}" entry; a catalog above the root (pnpm-workspace.yaml, .yarnrc.yml or ` +
+        "the workspace package.json) may hold it: rename the entry and the dependency together"
       );
     case "catalog-entry-in-use":
       return (
@@ -222,9 +235,11 @@ export function manualStepMessage(step: ManualStep): string {
     case "manifest-not-read":
     case "entry-not-edited":
     case "name-collision":
-    case "catalog-reference-kept":
-    case "catalog-entry-in-use":
       return uneditedStepMessage(step);
+    case "catalog-reference-kept":
+    case "catalog-entry-outside":
+    case "catalog-entry-in-use":
+      return catalogStepMessage(step);
     case "peer-dependency-renamed":
       return `${step.name} is a peer dependency: ${PEER_NOTE}`;
     case "spec-kept":

@@ -8,6 +8,7 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "catalog: a has a value the tool does not read; rename it by hand",
   "dependencies has both a and b, so a was kept: remove one of them",
   "dependencies: a was kept, because catalog "default" keeps a: rename the entry and the dependency together",
+  "dependencies: a was kept, because no catalog of this project has its "default" entry; a catalog above the root (pnpm-workspace.yaml, .yarnrc.yml or the workspace package.json) may hold it: rename the entry and the dependency together",
   "catalogs.legacy: a was kept, because a dependency or an override still names it: rename the entry and what names it together",
   "b is a peer dependency: users of this package must switch too (a breaking change for them)",
   "b kept the spec "latest": point it at an openapi-typesafe version",

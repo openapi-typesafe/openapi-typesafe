@@ -9,6 +9,7 @@ const STEPS: readonly ManualStep[] = [
   { kind: "entry-not-edited", field: "catalog", name: "a" },
   { kind: "name-collision", field: "dependencies", from: "a", to: "b" },
   { kind: "catalog-reference-kept", field: "dependencies", name: "a", catalog: "default" },
+  { kind: "catalog-entry-outside", field: "dependencies", name: "a", catalog: "default" },
   { kind: "catalog-entry-in-use", catalog: "catalogs.legacy", name: "a" },
   { kind: "peer-dependency-renamed", name: "b" },
   { kind: "spec-kept", name: "b", spec: "latest" },

@@ -163,7 +163,8 @@ function migrateEntry(
 /**
  * Why an entry keeps its old name to stay in step with a catalog, or undefined. A dependency on a
  * catalog entry that stays keeps the name it points at; a catalog entry that a dependency keeps
- * using stays too, so `catalog:` never points at a name the catalog does not have.
+ * using stays too, so `catalog:` never points at a name the catalog does not have. A dependency
+ * on an entry outside the project keeps its name too: the tool edits no file outside the root.
  */
 function catalogHold(entry: SpecEntry, spec: SpecValue, { map, catalogs }: MapContext) {
   if (map.kind === "catalog") {
@@ -173,8 +174,15 @@ function catalogHold(entry: SpecEntry, spec: SpecValue, { map, catalogs }: MapCo
       : undefined;
   }
   const catalog = map.kind === "dependencies" ? catalogOfSpec(spec.value) : undefined;
-  return catalog !== undefined && catalogs.kept.has(catalog, entry.name)
-    ? ({ kind: "catalog-reference-kept", field: map.field, name: entry.name, catalog } as const)
+  if (catalog === undefined) {
+    return undefined;
+  }
+  const reference = { field: mapLabel(map), name: entry.name, catalog };
+  if (!catalogs.defined.has(catalog, entry.name)) {
+    return { kind: "catalog-entry-outside", ...reference } as const;
+  }
+  return catalogs.kept.has(catalog, entry.name)
+    ? ({ kind: "catalog-reference-kept", ...reference } as const)
     : undefined;
 }
 

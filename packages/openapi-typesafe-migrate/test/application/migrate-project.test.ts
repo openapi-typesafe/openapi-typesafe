@@ -216,6 +216,25 @@ describe("migrateProject and catalogs", () => {
     expect(steps).toEqual(expect.arrayContaining(["name-collision", "catalog-entry-in-use"]));
   });
 
+  it("migrateProject keeps a dependency whose catalog entry is outside the root", async () => {
+    const project = {
+      "package.json": manifestOf({
+        "openapi-fetch": "catalog:",
+        "openapi-typescript": "catalog:legacy",
+        "openapi-react-query": "^0.5.0",
+      }),
+    };
+
+    const { files, steps } = await migrated(project);
+
+    expect(JSON.parse(files.get("package.json") ?? "").dependencies).toEqual({
+      "openapi-fetch": "catalog:",
+      "openapi-typescript": "catalog:legacy",
+      "openapi-typesafe-react-query": "^1.0.0",
+    });
+    expect(steps.filter((kind) => kind === "catalog-entry-outside")).toHaveLength(2);
+  });
+
   it("migrateProject keeps a dependency on a catalog entry the tool does not edit", async () => {
     const project = {
       "package.json": manifestOf({
