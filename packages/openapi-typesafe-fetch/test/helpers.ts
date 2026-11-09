@@ -1,4 +1,4 @@
-import type { MediaType } from "openapi-typesafe-helpers";
+import type { MediaType } from "../src/helpers.js";
 import createClient from "../src/index.js";
 
 /**

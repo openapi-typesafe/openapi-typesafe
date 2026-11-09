@@ -6,19 +6,16 @@ import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 
 /**
- * A library built with `declaration: true` under pnpm or Yarn PnP sees only its own dependencies:
- * `openapi-typesafe-helpers` is a dependency of this package, not of the library. Inferred types
- * that print a helper type must name it through `openapi-typesafe-fetch`, or TypeScript fails with
- * TS2742 ("cannot be named without a reference to …/openapi-typesafe-helpers"). The consumer here
- * has the packages in pnpm's layout: each in `node_modules/.pnpm/<id>/node_modules/` next to its
- * own dependencies, and only `openapi-typesafe-fetch` linked into the consumer's `node_modules`.
- * Yarn PnP names a type by the package that declares it, so the published declarations hold
- * copies of the helper types instead of importing them (ADR-034). Needs `dist` of this package
- * and of the helpers (`pnpm build`).
+ * A library built with `declaration: true` under pnpm or Yarn PnP sees only its own dependencies.
+ * Inferred types that print a helper type must name a package the library depends on, or
+ * TypeScript fails with TS2742 under pnpm ("cannot be named without a reference to …") and Yarn
+ * PnP prints an import that the library's users cannot resolve. The client declares the helper
+ * types itself, so they print as `import("openapi-typesafe-fetch")` (ADR-034). The consumer here
+ * has the client in pnpm's layout: in `node_modules/.pnpm/<id>/node_modules/`, linked into the
+ * consumer's `node_modules`. Needs `dist` of this package (`pnpm build`).
  */
 
 const PACKAGE_DIR = fileURLToPath(new URL("../..", import.meta.url));
-const HELPERS_DIR = fileURLToPath(new URL("../../../openapi-typesafe-helpers", import.meta.url));
 /** What a package publishes that the compiler reads. */
 const PUBLISHED_PATHS = ["package.json", "dist"];
 /** The published declarations: of the ES module, of the CommonJS module, and of `main`. */
@@ -58,13 +55,12 @@ function install(packageDir: string, directory: string): void {
   }
 }
 
-/** A consumer project with the client and its helpers installed as pnpm installs them. */
+/** A consumer project with the client installed as pnpm installs it. */
 function createConsumer(): string {
   const directory = mkdtempSync(join(tmpdir(), "fetch-portable-declarations-"));
   temporaryDirectories.push(directory);
   const store = join(directory, "node_modules", ".pnpm", "openapi-typesafe-fetch", "node_modules");
   install(PACKAGE_DIR, join(store, "openapi-typesafe-fetch"));
-  install(HELPERS_DIR, join(store, "openapi-typesafe-helpers"));
   symlinkSync(
     join(store, "openapi-typesafe-fetch"),
     join(directory, "node_modules", "openapi-typesafe-fetch"),

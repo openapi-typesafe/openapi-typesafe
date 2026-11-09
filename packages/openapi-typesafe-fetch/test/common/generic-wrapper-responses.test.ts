@@ -1,5 +1,5 @@
-import type { HttpMethod, PathsWithMethod } from "openapi-typesafe-helpers";
 import { describe, expect, expectTypeOf, it } from "vitest";
+import type { HttpMethod, PathsWithMethod } from "../../src/helpers.js";
 import createClient, {
   type Client,
   type FetchResponse,

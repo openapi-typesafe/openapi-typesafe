@@ -31,6 +31,8 @@ const DEPRECATED_EXPORTS = {
     "QUESTION_TOKEN",
     "enumCache",
   ],
+  // The client declares the helper types; the helpers package names them.
+  "openapi-typesafe-fetch": ["GetValueWithDefault", "FindRequiredKeys", "HasRequiredKeys"],
   "openapi-typesafe-helpers": ["GetValueWithDefault", "FindRequiredKeys", "HasRequiredKeys"],
 };
 

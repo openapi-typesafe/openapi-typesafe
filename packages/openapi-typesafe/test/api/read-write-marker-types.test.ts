@@ -6,10 +6,11 @@ import { typeErrorsOf } from "../typescript-diagnostics.js";
 /**
  * `--read-write-markers` writes its own copy of `Readable` / `Writable` into the output, because
  * generated files must not depend on a package. The copy must declare exactly what
- * openapi-typesafe-helpers declares (ADR-014), so a fix in one cannot miss the other.
+ * openapi-typesafe-fetch declares for its helper types (ADR-014), so a fix in one cannot miss the
+ * other.
  */
 
-const HELPERS_SOURCE = new URL("../../../openapi-typesafe-helpers/src/index.ts", import.meta.url);
+const HELPERS_SOURCE = new URL("../../../openapi-typesafe-fetch/src/helpers.ts", import.meta.url);
 const FIRST_SHARED_DECLARATION = "type ReadWritePrimitive";
 
 /** The declarations without comments, whitespace and the separators formatters disagree on. */
@@ -27,7 +28,7 @@ function sharedDeclarations(text: string): string {
 }
 
 describe("read-write marker helper types", () => {
-  it("the generated helpers declare the same types as openapi-typesafe-helpers", () => {
+  it("the generated helpers declare the same types as openapi-typesafe-fetch", () => {
     const helpers = readFileSync(HELPERS_SOURCE, "utf8");
 
     expect(sharedDeclarations(READ_WRITE_MARKER_TYPES)).toBe(sharedDeclarations(helpers));

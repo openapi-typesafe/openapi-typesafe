@@ -205,9 +205,49 @@ a conditional type that TypeScript expands.
 | Make the helpers a peer of the client | TypeScript could name it | Every user installs a third package only to name types |
 | Use TanStack's `QueryKeyWithDataTag` | One name | Needs `@tanstack/react-query` 5.102; the peer range starts at 5.80 |
 
+## Amendment (2026-11-09): one declaration of the helper types, in the client
+
+The recheck of the amendment above found that its decision 1 did not hold: the client's copies of
+the helper types and those of `openapi-typesafe-helpers` mixed only for concrete types. In generic
+code TypeScript compares two mapped or conditional types by declaration, not by shape: a mapped
+type with an `as` clause, as `Readable` and `Writable` are, or a conditional type whose `extends`
+type is another conditional type. So `Readable<T>` of one package was not assignable to
+`Readable<T>` of the other, and `Writable<OperationRequestBodyContent<O>>` failed even after `Readable` was
+rewritten without the `as` clause. Copies cannot be the same type; only one declaration can.
+
+1. `openapi-typesafe-fetch` declares the helper types (`src/helpers.ts`), and its index re-exports
+   them. Its declaration build no longer inlines another package, and it no longer depends on
+   `openapi-typesafe-helpers`: the client has no runtime dependency, the target of ADR-003
+   decision 1.
+2. `openapi-typesafe-helpers` re-exports them from `openapi-typesafe-fetch`, which becomes its
+   dependency. The names are listed (`export type { … } from`): rollup-plugin-dts 6.5.1 turns
+   `export type * from` of another package into `export * from`, which would also declare the
+   client's functions in a package without runtime code. `test/exports.test.ts` of the helpers
+   checks the list against the client's declarations, and `test/generic-mixing.test.ts` checks
+   that generic code mixes the names of both packages.
+3. Types inferred from the client or the hooks keep printing `openapi-typesafe-fetch`, under npm,
+   pnpm and Yarn PnP. A library under pnpm that depends only on the helpers gets
+   `import("openapi-typesafe-helpers")`, as TypeScript finds the re-export. Under Yarn PnP such a
+   library gets `import("openapi-typesafe-fetch")` for a helper type that a file prints without
+   importing it, which its users cannot resolve (TS2307); the helpers README and the client's API
+   docs give the fixes: a dependency on `openapi-typesafe-fetch`, or an annotation.
+4. The `Readable` and `Writable` that `--read-write-markers` writes into a generated file stay a
+   separate declaration (ADR-014: generated files depend on no package), compared by text with the
+   client's (`test/api/read-write-marker-types.test.ts`). They mix with the client's names for
+   concrete types only.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Declare the types in the client; the helpers re-export them (chosen) | One declaration: the names mix everywhere; client and hooks libraries portable under every package manager | The helpers depend on the client; a helpers-only library under Yarn PnP that prints a helper type needs the client as a dependency |
+| Keep the copies (the amendment above) | No dependency change | Generic code that mixes the names fails (TS2322) |
+| Declare the types in the helpers; the client imports them | The helpers stay standalone | Libraries that use the client fail under Yarn PnP again (about 270 `import("openapi-typesafe-helpers")` per library) |
+| Make the helpers a peer of the client | One declaration | Every user installs a third package only to name types (rejected above) |
+
 ## Review trigger
 
 A user reports a deep upstream path that no longer resolves, a change that this ADR classifies
 as non-breaking breaks a real project, or the 2.0 planning starts. For the declarations: the peer
 range of `@tanstack/react-query` starts at 5.102 (then `QueryKeyWithDataTag` can alias
-TanStack's), or TypeScript names re-exported types under Yarn PnP.
+TanStack's), or TypeScript names re-exported types under Yarn PnP. For the helpers package:
+rollup-plugin-dts keeps `export type * from` (then the list of names goes), or a user reports a
+helpers-only library under Yarn PnP.

@@ -17,15 +17,14 @@ import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 
 /**
- * A library built with `declaration: true` under pnpm or Yarn PnP sees only its own dependencies:
- * `openapi-typesafe-helpers` is a dependency of the client, not of the library. Inferred hook
- * types that print a helper type must name it through a package the library has (the client, a
- * peer of the hooks), or TypeScript fails with TS2742 (pnpm) or prints a package the library
- * cannot resolve (Yarn PnP names a type by the package that declares it, ADR-034). The consumer
- * here has the packages in pnpm's layout: each in `node_modules/.pnpm/<id>/node_modules/` next to
- * its own dependencies and peers. The library's declarations are then read by a user of the
- * library with `skipLibCheck: false`. Needs `dist` of the hooks, the client and the helpers
- * (`pnpm build`).
+ * A library built with `declaration: true` under pnpm or Yarn PnP sees only its own dependencies.
+ * Inferred hook types that print a helper type must name a package the library has: the client,
+ * a peer of the hooks, which declares the helper types. Otherwise TypeScript fails with TS2742
+ * (pnpm) or prints a package the library cannot resolve (Yarn PnP names a type by the package
+ * that declares it, ADR-034). The consumer here has the packages in pnpm's layout: each in
+ * `node_modules/.pnpm/<id>/node_modules/` next to its own dependencies and peers. The library's
+ * declarations are then read by a user of the library with `skipLibCheck: false`. Needs `dist` of
+ * the hooks and the client (`pnpm build`).
  */
 
 const PACKAGES_DIR = fileURLToPath(new URL("../..", import.meta.url));
@@ -106,7 +105,7 @@ function link(target: string, path: string): void {
   symlinkSync(target, path, "dir");
 }
 
-/** A consumer project with the hooks, the client and its helpers installed as pnpm does. */
+/** A consumer project with the hooks and the client installed as pnpm does. */
 function createConsumer(): string {
   const directory = mkdtempSync(join(tmpdir(), "react-query-portable-declarations-"));
   temporaryDirectories.push(directory);
@@ -114,7 +113,6 @@ function createConsumer(): string {
   const fetchStore = join(modules, ".pnpm", "openapi-typesafe-fetch", "node_modules");
   const hooksStore = join(modules, ".pnpm", "openapi-typesafe-react-query", "node_modules");
   install("openapi-typesafe-fetch", join(fetchStore, "openapi-typesafe-fetch"));
-  install("openapi-typesafe-helpers", join(fetchStore, "openapi-typesafe-helpers"));
   install("openapi-typesafe-react-query", join(hooksStore, "openapi-typesafe-react-query"));
   link(join(fetchStore, "openapi-typesafe-fetch"), join(hooksStore, "openapi-typesafe-fetch"));
   link(TANSTACK_DIR, join(hooksStore, "@tanstack", "react-query"));

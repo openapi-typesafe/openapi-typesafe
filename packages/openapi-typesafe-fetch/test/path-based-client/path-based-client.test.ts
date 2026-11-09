@@ -1,5 +1,5 @@
-import type { MediaType } from "openapi-typesafe-helpers";
 import { describe, expect, expectTypeOf, test } from "vitest";
+import type { MediaType } from "../../src/helpers.js";
 import { createPathBasedClient, type PathBasedClient } from "../../src/index.js";
 import type { paths } from "./schemas/path-based-client.js";
 

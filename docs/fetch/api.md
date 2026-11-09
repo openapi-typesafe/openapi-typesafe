@@ -510,7 +510,7 @@ like the rest of the API.
 | `removeTrailingSlash(url)` | Removes one trailing `/`. |
 | `randomID()` | Returns a new ID, unique within the process: the `id` that middleware callbacks get. The name is openapi-fetch's; the ID comes from a counter, not from `Math.random()`. |
 | `ClientPathsWithMethod<Client, Method>`, `MethodResponse<Client, Method, Path>` | Types: the paths of a client that have a method, and the `data` type of one call. |
-| Every type of `openapi-typesafe-helpers` (`PathsWithMethod`, `FilterKeys`, `SuccessResponse`, …) | Exported, and declared in the client's own declarations, so types inferred from the client name them through `openapi-typesafe-fetch`. A library built with `declaration: true` under pnpm or Yarn PnP, which does not depend on the helpers package, no longer fails with TS2742 (pnpm) or prints `import("openapi-typesafe-helpers")`, which its users cannot resolve (Yarn PnP). They are the same types as in `openapi-typesafe-helpers`, so the two mix. |
+| The helper types (`PathsWithMethod`, `FilterKeys`, `SuccessResponse`, …) | Declared by the client; `openapi-typesafe-helpers` re-exports them. The names of both packages are one declaration, so they mix, also in generic code. Types inferred from the client name them through `openapi-typesafe-fetch`, so a library built with `declaration: true` under pnpm or Yarn PnP gets declarations that name a package it depends on. A library under Yarn PnP that depends only on `openapi-typesafe-helpers` and exports an inferred type that prints a helper type gets `import("openapi-typesafe-fetch")`, which its users cannot resolve (TS2307): add `openapi-typesafe-fetch` to its dependencies, or annotate the type. |
 
 `defaultBodySerializer` returns by the body type:
 

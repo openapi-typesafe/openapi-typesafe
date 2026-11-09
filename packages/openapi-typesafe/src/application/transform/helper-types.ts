@@ -52,8 +52,9 @@ export const HELPER_TYPES = {
  * The `--read-write-markers` helper types, written before the root types. Task 7.6 replaces the
  * original text on purpose (ADR-014): primitives (also branded), readonly arrays, tuples,
  * intersected arrays, null-only and `any` properties keep their types (upstream #2615, #2620,
- * #2632, #2717, #2765). The declarations equal `Readable` / `Writable` of openapi-typesafe-helpers
- * (`test/api/read-write-marker-types.test.ts`); the text is what the TypeScript printer prints.
+ * #2632, #2717, #2765). The declarations equal the `Readable` / `Writable` that
+ * openapi-typesafe-fetch declares (`test/api/read-write-marker-types.test.ts`); the text is what
+ * the TypeScript printer prints.
  */
 export const READ_WRITE_MARKER_TYPES = lines(
   "export type $Read<T> = {",

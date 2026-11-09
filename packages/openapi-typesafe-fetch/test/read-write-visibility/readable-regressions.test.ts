@@ -1,5 +1,5 @@
-import type { $Read, $Write, Readable, Writable } from "openapi-typesafe-helpers";
 import { describe, expectTypeOf, it } from "vitest";
+import type { $Read, $Write, Readable, Writable } from "../../src/helpers.js";
 
 /**
  * `Readable` / `Writable` regressions from helpers 0.17 (task 7.6, ADR-014). Without markers both

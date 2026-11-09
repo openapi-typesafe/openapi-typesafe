@@ -7,7 +7,7 @@
   },
   "overrides": [
     {
-      "includes": ["src/**"],
+      "includes": ["src/**", "test/**"],
       "formatter": {
         "lineWidth": 100
       }

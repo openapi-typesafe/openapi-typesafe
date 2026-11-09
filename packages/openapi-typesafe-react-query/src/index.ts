@@ -18,9 +18,9 @@ import {
   useQuery,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-// The helper types come from the client, which declares copies of them in its published
-// declarations: types inferred from the hooks then print the client, a peer every user has, and
-// not `openapi-typesafe-helpers`, which Yarn PnP does not let a library reach (ADR-034).
+// The helper types come from the client, which declares them: types inferred from the hooks then
+// print the client, a peer every user has, and not `openapi-typesafe-helpers`, which Yarn PnP does
+// not let a library reach (ADR-034).
 import type {
   ClientMethod,
   DefaultParamsOption,
