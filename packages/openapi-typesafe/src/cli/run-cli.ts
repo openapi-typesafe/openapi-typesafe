@@ -89,7 +89,7 @@ function singleOutputFile(run: CliRun, output: string, source: SchemaSource): Ou
   const { input } = run.args;
   const outputFile = outputFileOf(run, { source: input ?? "stdin", output }, run.deps.cwd);
   if (input && source instanceof URL) {
-    ensureOutputIsNotSchema(run, outputFile, [{ name: input, location: source }]);
+    ensureOutputIsNotSchema(run, outputFile, [{ name: `schema ${input}`, location: source }]);
   }
   return outputFile;
 }

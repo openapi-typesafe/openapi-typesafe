@@ -1,8 +1,11 @@
 import { kebabCase } from "scule";
+import { isOpenAPITypesafeError, OpenAPITypesafeError } from "../domain/errors.js";
+import type { OutputFixName } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
-import { GENERATOR_FLAGS, hostList } from "./cli-arguments.js";
+import { GENERATOR_FLAGS, type GeneratorFlags, hostList } from "./cli-arguments.js";
 import { cliError } from "./cli-errors.js";
 import { resolveLocationUrl } from "./cli-output.js";
+import { fixNamesOf } from "./fix-option.js";
 import type { RefLimitOptions } from "./ref-limits.js";
 
 /**
@@ -51,20 +54,92 @@ export function unknownSettingWarnings(apiName: string, settings: ApiSettings): 
     );
 }
 
+/** The key a setting is written with: camelCase, else kebab-case; undefined when it is absent. */
+function settingKey(settings: ApiSettings, name: string): string | undefined {
+  if (name in settings) {
+    return name;
+  }
+  const kebabName = kebabCase(name);
+  return kebabName in settings ? kebabName : undefined;
+}
+
 /** The value of a setting in camelCase, else in kebab-case; `undefined` when it is absent. */
 function settingValue(settings: ApiSettings, name: string): unknown {
-  return name in settings ? settings[name] : settings[kebabCase(name)];
+  const key = settingKey(settings, name);
+  return key === undefined ? undefined : settings[key];
 }
 
 function hasSetting(settings: ApiSettings, name: string): boolean {
-  return name in settings || kebabCase(name) in settings;
+  return settingKey(settings, name) !== undefined;
 }
 
-function invalidSetting(apiName: string, name: string, expected: string): Error {
+/** `CLI_CONFIG_INVALID` for the setting `name` of an API, named as the user wrote it. */
+function invalidSetting(apiName: string, settings: ApiSettings, name: string, expected: string) {
+  const key = settingKey(settings, name) ?? kebabCase(name);
   return cliError(
     "CLI_CONFIG_INVALID",
-    `API ${apiName}: \`${kebabCase(name)}\` in x-openapi-ts must be ${expected}`,
+    `API ${apiName}: \`${key}\` in x-openapi-ts must be ${expected}`,
   );
+}
+
+/**
+ * The boolean flags an API sets, in camelCase or kebab-case; they win over the CLI's flags. A
+ * value of another type (`root-types: "true"`) fails with `CLI_CONFIG_INVALID`: ignoring it
+ * would generate other types than the config asks for, without a word.
+ */
+export function apiFlags(apiName: string, settings: ApiSettings): GeneratorFlags {
+  const flags: Partial<Record<(typeof GENERATOR_FLAGS)[number], boolean>> = {};
+  for (const name of GENERATOR_FLAGS) {
+    const value = settingValue(settings, name);
+    if (typeof value === "boolean") {
+      flags[name] = value;
+    } else if (hasSetting(settings, name)) {
+      throw invalidSetting(apiName, settings, name, "true or false");
+    }
+  }
+  return flags;
+}
+
+/** The API's `output` file as written; fails with `CLI_CONFIG_INVALID` when it is not text. */
+export function apiOutputOf(apiName: string, settings: ApiSettings): string {
+  const output = settings[OUTPUT_SETTING];
+  if (typeof output !== "string") {
+    throw invalidSetting(apiName, settings, OUTPUT_SETTING, "a file path");
+  }
+  return output;
+}
+
+/**
+ * The API's `fix` names, which replace the CLI's `--fix` (ADR-021). An entry that is not text
+ * fails with `CLI_CONFIG_INVALID`; an unknown name with `OPTION_FIX_UNKNOWN`, naming the API.
+ */
+export function apiFixNames(
+  apiName: string,
+  settings: ApiSettings,
+): readonly OutputFixName[] | undefined {
+  if (!hasSetting(settings, FIX_SETTING)) {
+    return undefined;
+  }
+  const entries = [settingValue(settings, FIX_SETTING)].flat();
+  if (entries.some((entry) => typeof entry !== "string")) {
+    throw invalidSetting(apiName, settings, FIX_SETTING, "a list of fix names or a comma list");
+  }
+  try {
+    return fixNamesOf(entries);
+  } catch (error) {
+    throw isOpenAPITypesafeError(error) ? withApiName(apiName, error) : error;
+  }
+}
+
+/** The same error, with the API named first in its message. */
+function withApiName(apiName: string, error: OpenAPITypesafeError): OpenAPITypesafeError {
+  const { code, details, cause } = error;
+  return new OpenAPITypesafeError({
+    code,
+    message: `API ${apiName}: ${error.message}`,
+    details,
+    cause,
+  });
 }
 
 /** `local-ref-root: dir`, relative to the config file; empty means the config file's directory. */
@@ -74,7 +149,7 @@ function localRefRootOf(apiName: string, settings: ApiSettings, configRoot: URL)
   }
   const value = settingValue(settings, LOCAL_REF_ROOT_SETTING) ?? "";
   if (typeof value !== "string") {
-    throw invalidSetting(apiName, LOCAL_REF_ROOT_SETTING, "a directory path");
+    throw invalidSetting(apiName, settings, LOCAL_REF_ROOT_SETTING, "a directory path");
   }
   return { localRefRoot: resolveLocationUrl(value === "" ? "." : value, configRoot) };
 }
@@ -87,7 +162,7 @@ function remoteRefHostsOf(apiName: string, settings: ApiSettings): RefLimitOptio
   const value = settingValue(settings, REMOTE_REF_HOSTS_SETTING) ?? [];
   const entries = [value].flat();
   if (entries.some((entry) => typeof entry !== "string")) {
-    throw invalidSetting(apiName, REMOTE_REF_HOSTS_SETTING, "a host list");
+    throw invalidSetting(apiName, settings, REMOTE_REF_HOSTS_SETTING, "a host list");
   }
   return { remoteRefHosts: hostList(entries) ?? [] };
 }

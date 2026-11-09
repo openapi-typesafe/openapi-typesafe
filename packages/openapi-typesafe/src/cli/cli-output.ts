@@ -122,7 +122,7 @@ export function ensureOutputIsNotSchema(
   if (schema) {
     throw cliError(
       "CLI_OUTPUT_IS_INPUT",
-      `The output ${output.output} is the schema ${schema.name}: writing the types would ` +
+      `The output ${output.output} is the ${schema.name}: writing the types would ` +
         "overwrite it. Choose another output file.",
     );
   }
