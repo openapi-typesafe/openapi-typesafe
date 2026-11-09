@@ -2,6 +2,28 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.4
+
+### Patch Changes
+
+- [#60](https://github.com/openapi-typesafe/openapi-typesafe/pull/60) [`fc5608a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fc5608afc7bb1ece3bb4201ff95e5ff3421a1dc1) Thanks [@fedorello](https://github.com/fedorello)! - The hooks name the helper types through `openapi-typesafe-fetch`, and `openapi-typesafe-helpers`
+  is no longer a dependency. A library built with `declaration: true` under pnpm or Yarn PnP that
+  uses the hooks gets declarations that name `openapi-typesafe-fetch`, which it depends on: no TS2742
+  ("cannot be named without a reference to …/openapi-typesafe-helpers") under pnpm, and no
+  `import("openapi-typesafe-helpers")` that its users cannot resolve under Yarn PnP.
+  openapi-react-query fails the same way. TanStack Query's own types keep two limits in a file that
+  does not import `@tanstack/react-query`: TS2742 under pnpm with TypeScript 5.4 (5.5 and later
+  work), and `import("@tanstack/query-core")` under Yarn PnP; the react-query docs ("Libraries that
+  export hooks") give the fixes.
+
+- [#56](https://github.com/openapi-typesafe/openapi-typesafe/pull/56) [`1b565d3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/1b565d347fd84c09b7e660ebcb4c130a0df8df24) Thanks [@fedorello](https://github.com/fedorello)! - A library that exports a `$api.queryOptions(...)` result gets declarations that its users can
+  read: the tagged `queryKey` is typed with the exported `QueryKeyWithDataTag` (TanStack Query's
+  type of that name, for every version of the peer range). The declarations spelled out TanStack's
+  `[dataTagSymbol]` keys without an import, so the library's users failed with TS2304, or got `any`
+  from `queryClient.getQueryData(options.queryKey)` with `skipLibCheck`.
+- Updated dependencies [[`bc4d41d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bc4d41d870d13fdb5eb1303744e5235308cdc2bb), [`1c8af0d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/1c8af0dc371ae8be5b595b055ee1ebc53916088f), [`2afc816`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2afc816881dab23d3dd8fe4d1a2d20456dd917f8), [`cff72cd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cff72cd19bf7a68429f302e0ece79304fcb6ba5c), [`bc4d41d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bc4d41d870d13fdb5eb1303744e5235308cdc2bb), [`1c8af0d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/1c8af0dc371ae8be5b595b055ee1ebc53916088f), [`cff72cd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cff72cd19bf7a68429f302e0ece79304fcb6ba5c)]:
+  - openapi-typesafe-fetch@1.0.0-rc.4
+
 ## 1.0.0-rc.3
 
 ### Patch Changes

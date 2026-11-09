@@ -2,6 +2,61 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.4
+
+### Minor Changes
+
+- [#49](https://github.com/openapi-typesafe/openapi-typesafe/pull/49) [`e12bc23`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e12bc2323d5e61a2755af13ed9939db589c18151) Thanks [@fedorello](https://github.com/fedorello)! - An `--output` or `x-openapi-ts.output` that cannot be a file fails with the new error code
+  `CLI_OUTPUT_INVALID` (exit code `2`) before anything is generated: a URL of another scheme
+  (`-o https://…`), a path that ends with a separator (`-o gen/`) or with `.` or `..`
+  (`-o gen/.`), or an existing directory. openapi-typescript failed on them with `EISDIR` or a
+  stack trace, or wrote a file named like the directory. An output that cannot be written (a file name too long
+  for the file system) leaves no new directories behind; openapi-typescript left them.
+
+- [#39](https://github.com/openapi-typesafe/openapi-typesafe/pull/39) [`a4a1104`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a4a110406891ecd37e39b23f01838f74233adca1) Thanks [@fedorello](https://github.com/fedorello)! - The CLI no longer overwrites a file it should not. Both checks follow symlinks and hard links,
+  and the letter case of a file system that ignores case (asked of the file system, not assumed from
+  the OS), also for outputs that do not exist yet. They run before anything is written and fail with
+  exit code `2`. openapi-typescript checked neither:
+  - An `--output`, or an `x-openapi-ts.output` in `redocly.yaml`, that names a file the CLI
+    reads fails with the new error code `CLI_OUTPUT_IS_INPUT`: the schema, a local file one of
+    its `$ref`s loads, or `redocly.yaml`. With several APIs, every API is read before any output
+    is written, and no output may be a file that any API reads. openapi-typescript replaced the
+    file with the types.
+  - APIs in `redocly.yaml` whose outputs are the same file all fail with the new error code
+    `CLI_OUTPUT_DUPLICATE`; the other APIs are still generated. openapi-typescript let the API
+    that finished last win. Before writing, the CLI creates every missing output, empty, and asks
+    the file system whether two of them are one file, so names that differ only in Unicode
+    normalization or case folding (`café.ts` in NFC and NFD, `straße.ts` and `STRASSE.ts`) or a
+    path through a link to a missing directory are caught too. A run that fails this way leaves no
+    new file or directory.
+
+- [#50](https://github.com/openapi-typesafe/openapi-typesafe/pull/50) [`90e2668`](https://github.com/openapi-typesafe/openapi-typesafe/commit/90e2668f1ac2fe7093fa9bd1858ac1e1aceb8184) Thanks [@fedorello](https://github.com/fedorello)! - Remote documents have size limits. The loader reads each body as a stream and counts the bytes
+  after `gzip`, `deflate` or `br` is decoded, so a compressed "zip bomb" behind a remote `$ref` no
+  longer fills the memory: 1.6 MB on the wire became 1.6 GB before. A body larger than 128 MiB, or
+  remote documents larger than 256 MiB together for one schema, fail with `SCHEMA_REF_FORBIDDEN` and
+  the new reasons `remote-document-too-large` and `remote-documents-too-large`. The parser also
+  counts the nodes it builds: remote documents that parse into more than 8,000,000 nodes together
+  fail with the new reason `remote-documents-too-many-nodes`, so a dense body such as
+  `[{},{},…]` within the byte limits no longer ends the process with an out-of-memory crash.
+  The largest real document we know is 71 MiB and 2.65 million nodes. A `customFetch` in the
+  Redocly config is limited too.
+
+### Patch Changes
+
+- [#53](https://github.com/openapi-typesafe/openapi-typesafe/pull/53) [`5e1d76a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/5e1d76a67d8b64aaa16683d7caed8dfdc9cae297) Thanks [@fedorello](https://github.com/fedorello)! - A key that contains `#/`, such as a path `/items/#/%zz`, a property `a#/b` or a parameter name,
+  no longer makes the generator throw `URIError: URI malformed`. openapi-typescript read such a key
+  as a `$ref`; now it is one segment of the pointers the generator builds, so an `--enum-values`
+  array of such a key points at its own node. The exported `createRef` keeps the old behaviour. The
+  new enum names of such keys are listed under Major Changes.
+
+  These pointers, and the ones in the generator's errors, escape `#` as `%23` and `%` as `%25`
+  (RFC 6901), so a key like `a#` no longer cuts a pointer short. A discriminator `mapping` to a
+  schema whose name has a `%`, such as `50%`, no longer throws `URIError` either.
+
+- [#49](https://github.com/openapi-typesafe/openapi-typesafe/pull/49) [`e12bc23`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e12bc2323d5e61a2755af13ed9939db589c18151) Thanks [@fedorello](https://github.com/fedorello)! - `silent: true` in the Node API also hides the problem lines of a document that fails to load,
+  such as `Can't resolve $ref`; the rejected `SCHEMA_INVALID` error lists them in
+  `details.problems`. openapi-typescript printed them to stderr even with `silent`.
+
 ## 1.0.0-rc.3
 
 ### Patch Changes

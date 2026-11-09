@@ -2,6 +2,57 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.4
+
+### Minor Changes
+
+- [#48](https://github.com/openapi-typesafe/openapi-typesafe/pull/48) [`cff72cd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cff72cd19bf7a68429f302e0ece79304fcb6ba5c) Thanks [@fedorello](https://github.com/fedorello)! - The client declares the helper types (`PathsWithMethod`, `FilterKeys`, `SuccessResponse`, …) in
+  its `openapi-typesafe-fetch/helpers` entry, and `openapi-typesafe-helpers` re-exports them. The
+  names of both packages are one declaration, so they mix, also in generic code: `Readable<T>` of one
+  package fits `Readable<T>` of the other. A library built with `declaration: true` under pnpm or
+  Yarn PnP that uses the client gets declarations that name `openapi-typesafe-fetch/helpers`, of a
+  package it depends on, under every `moduleResolution` (also `node10`): no TS2742 ("cannot be
+  named without a reference to …/openapi-typesafe-helpers") under pnpm, and no `import("openapi-typesafe-helpers")` that its users
+  cannot resolve under Yarn PnP. openapi-fetch fails the same way. The main entry exports the names
+  of openapi-fetch and no helper type, so `export type * from "openapi-typesafe-fetch"` next to a
+  type of the same name still compiles. The client no longer depends on `openapi-typesafe-helpers`,
+  so it has no runtime dependency.
+
+### Patch Changes
+
+- [#40](https://github.com/openapi-typesafe/openapi-typesafe/pull/40) [`bc4d41d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bc4d41d870d13fdb5eb1303744e5235308cdc2bb) Thanks [@fedorello](https://github.com/fedorello)! - A `Date` in an exploded query array or object (the default styles) is sent as ISO 8601
+  (`toISOString()`); openapi-fetch threw "Deeply-nested arrays/objects aren't supported". A `Date`
+  field of a `multipart/form-data` body is sent as ISO 8601 too. The places where openapi-fetch left
+  a `Date` out or sent it as a local time text are listed under Major Changes.
+
+- [#47](https://github.com/openapi-typesafe/openapi-typesafe/pull/47) [`1c8af0d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/1c8af0dc371ae8be5b595b055ee1ebc53916088f) Thanks [@fedorello](https://github.com/fedorello)! - `randomID`, exported at runtime as in openapi-fetch, is declared (`randomID(): string`) and listed
+  in the API docs, so TypeScript code can import it.
+
+- [#61](https://github.com/openapi-typesafe/openapi-typesafe/pull/61) [`2afc816`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2afc816881dab23d3dd8fe4d1a2d20456dd917f8) Thanks [@fedorello](https://github.com/fedorello)! - A `FormData` that `defaultBodySerializer` built gets the platform's boundary also when another
+  copy of the package built it, such as the CommonJS build next to the ES module build in one
+  application. A `bodySerializer` that wrapped the default one of the other build kept a boundary
+  set by hand, and the server could not split the parts. The form is marked with the registered
+  symbol `Symbol.for("openapi-typesafe-fetch/form")`, which is not a form field.
+
+- [#40](https://github.com/openapi-typesafe/openapi-typesafe/pull/40) [`bc4d41d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bc4d41d870d13fdb5eb1303744e5235308cdc2bb) Thanks [@fedorello](https://github.com/fedorello)! - A success body that is not JSON, such as the HTML page of a proxy, throws a `SyntaxError` that
+  names the status, the `Content-Type` and the length of the body and says which `parseAs` to set
+  (`parseAs: "text"` for a `text/*` response), instead of a bare parser error. The error holds no
+  body text, which can be a secret such as an OAuth token: the parser's error, whose message quotes
+  the body, is not kept as `cause` either.
+
+- [#47](https://github.com/openapi-typesafe/openapi-typesafe/pull/47) [`1c8af0d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/1c8af0dc371ae8be5b595b055ee1ebc53916088f) Thanks [@fedorello](https://github.com/fedorello)! - A `ReadableStream` body, or an async iterable such as a Node.js `Readable`
+  (`fs.createReadStream()`), is sent as a stream, with the `duplex: "half"` option that the Fetch
+  standard requires for it. It was JSON-encoded (to `{}`, or to the internal fields of a `Readable`)
+  with a JSON `Content-Type`, so a streamed upload was lost without an error.
+  The declarations name the async iterable type with `/// <reference lib="es2018.asynciterable" />`,
+  so a project whose `lib` is older than ES2018 still compiles.
+
+- [#48](https://github.com/openapi-typesafe/openapi-typesafe/pull/48) [`cff72cd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cff72cd19bf7a68429f302e0ece79304fcb6ba5c) Thanks [@fedorello](https://github.com/fedorello)! - A call with a union of paths (`client.GET(path)` with `path: "/a" | "/b"`) types `data` and
+  `error` as the union of each operation's types. In openapi-fetch a path without a response body
+  typed `data` as its content map, and a path with only a `default` response typed it `undefined`.
+  `SuccessResponse` and `ErrorResponse` of a union of response maps are the union of each map's
+  responses.
+
 ## 1.0.0-rc.3
 
 ### Patch Changes
