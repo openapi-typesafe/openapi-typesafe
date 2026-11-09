@@ -75,15 +75,25 @@ describe("NodeProjectFiles", () => {
     await writeFile(join(outside, "package.json"), "{}");
     await put("vendor/lib/a.ts", "");
     await symlink(outside, join(root, "linked"));
+    await symlink(join(outside, "package.json"), join(root, "linked.json"));
+    await symlink(join(root, "missing.ts"), join(root, "dangling.ts"));
     const escaping = `vendor/lib/../../${relative(root, outside)}/package.json`;
-    const paths = ["vendor/lib/a.ts", escaping, "/etc/hosts", "linked/package.json"];
+    const paths = [
+      "vendor/lib/a.ts",
+      escaping,
+      "/etc/hosts",
+      "linked/package.json",
+      "linked.json",
+      "dangling.ts",
+    ];
     const { files, logger } = filesWith({ kind: "listed", paths });
 
     const listed = await files.listFiles();
     await rm(outside, { recursive: true, force: true });
 
     expect(listed.files).toEqual(["vendor/lib/a.ts"]);
-    const skipped = [escaping, "/etc/hosts", "linked/package.json"].map((path) => ({
+    const outsidePaths = [escaping, "/etc/hosts", "linked/package.json", "linked.json"];
+    const skipped = outsidePaths.map((path) => ({
       path,
       reason: { kind: "outside-root" },
     }));

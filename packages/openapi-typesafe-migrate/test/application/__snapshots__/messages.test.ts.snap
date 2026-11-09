@@ -44,7 +44,7 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
 
 exports[`skippedMessage > skippedMessage describes every reason a file was not read 1`] = `
 [
-  "it leads outside the project folder; check where this git index came from",
+  "it leads outside the project folder (a link, or a path in the git index)",
   "it is not UTF-8 text, so it was not changed; check it by hand",
   "it could not be read (EACCES)",
 ]

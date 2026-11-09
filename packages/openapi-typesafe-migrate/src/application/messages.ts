@@ -172,7 +172,7 @@ export const SKIPPED_HEADING = "Skipped (not read, not written):";
 export function skippedMessage(reason: FileProblem): string {
   switch (reason.kind) {
     case "outside-root":
-      return "it leads outside the project folder; check where this git index came from";
+      return "it leads outside the project folder (a link, or a path in the git index)";
     case "not-utf-8":
       return "it is not UTF-8 text, so it was not changed; check it by hand";
     case "io-error":
