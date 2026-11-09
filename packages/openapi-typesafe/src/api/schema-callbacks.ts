@@ -9,10 +9,10 @@ import type {
 } from "../application/transform/schema/schema-context.js";
 import { ERROR_CODES, OpenAPITypesafeError } from "../domain/errors.js";
 import { irRaw } from "../domain/ir/constructors.js";
+import { isPrintableIrProperty, isPrintableIrType } from "../domain/ir/ir-shape.js";
 import type { IrPropertySignature, IrType } from "../domain/ir/nodes.js";
 import type {
   GlobalContext,
-  IrCallbackType,
   IrPostTransform,
   IrTransform,
   IrTransformProperty,
@@ -29,13 +29,15 @@ import { toIrType } from "./type-helpers.js";
  * their results are read by the bridge.
  */
 
+/** What a legacy `transformProperty` result fails to be. */
+const LEGACY_PROPERTY_PROBLEM = "a property with syntax the generator cannot read";
+
+/** A `transformProperty` result the generator cannot print as a property. */
 export class UnreadablePropertyError extends OpenAPITypesafeError {
-  constructor(path: string | undefined) {
+  constructor(path: string | undefined, problem = LEGACY_PROPERTY_PROBLEM) {
     super({
       code: ERROR_CODES.CALLBACK_RESULT_UNREADABLE,
-      message:
-        `transformProperty at ${path} returned a property ` +
-        "with syntax the generator cannot read",
+      message: `transformProperty at ${path} returned ${problem}`,
       details: { callback: "transformProperty", path },
     });
     this.name = "UnreadablePropertyError";
@@ -44,15 +46,25 @@ export class UnreadablePropertyError extends OpenAPITypesafeError {
 
 /** A `transform` or `postTransform` result that is neither IR nor a TypeScript node. */
 export class UnreadableTypeError extends OpenAPITypesafeError {
-  constructor(callback: "transform" | "postTransform", path: string | undefined) {
+  constructor(
+    callback: "transform" | "postTransform",
+    path: string | undefined,
+    expected = "a TypeScript node",
+  ) {
     super({
       code: ERROR_CODES.CALLBACK_RESULT_UNREADABLE,
-      message: `${callback} at ${path} returned a value that is not a TypeScript node`,
+      message: `${callback} at ${path} returned a value that is not ${expected}`,
       details: { callback, path },
     });
     this.name = "UnreadableTypeError";
   }
 }
+
+/** What an IR type result must be (docs/node.md, IR callbacks). */
+const IR_TYPE_EXPECTED = "an IR type or non-empty type text";
+
+/** What an IR property result must be. */
+const IR_PROPERTY_PROBLEM = "a value that is not an IR property the generator can print";
 
 function nodeOptions(ctx: GlobalContext, location: SchemaLocation): TransformNodeOptions {
   return { ...location, ctx } as TransformNodeOptions;
@@ -63,24 +75,50 @@ export function schemaCallbacks(ctx: GlobalContext): SchemaCallbacks {
   return ctx.irCallbacks ? irSchemaCallbacks(ctx) : legacySchemaCallbacks(ctx);
 }
 
-/** An IR callback type; text is a raw type, printed as written. */
-function fromCallbackType(type: IrCallbackType): IrType {
-  return typeof type === "string" ? irRaw(type) : type;
+/**
+ * An IR callback type; text is a raw type, printed as written. Any other value, and IR the
+ * printer cannot write as TypeScript, fails with `CALLBACK_RESULT_UNREADABLE` (`ir-shape.ts`).
+ */
+function fromCallbackType(
+  callback: "transform" | "postTransform",
+  type: unknown,
+  location: SchemaLocation,
+): IrType {
+  const candidate = typeof type === "string" ? irRaw(type) : type;
+  if (!isPrintableIrType(candidate)) {
+    throw new UnreadableTypeError(callback, location.path, IR_TYPE_EXPECTED);
+  }
+  return candidate;
 }
 
-function irCustomType(result: ReturnType<IrTransform>): CustomType | null {
+function irCustomType(result: unknown, location: SchemaLocation): CustomType | null {
   if (result === undefined || result === null) {
     return null;
   }
   if (typeof result === "object" && "schema" in result) {
-    return { type: fromCallbackType(result.schema), isOptional: Boolean(result.questionToken) };
+    const { schema, questionToken } = result as { schema: unknown; questionToken?: unknown };
+    return {
+      type: fromCallbackType("transform", schema, location),
+      isOptional: Boolean(questionToken),
+    };
   }
-  return { type: fromCallbackType(result), isOptional: false };
+  return { type: fromCallbackType("transform", result, location), isOptional: false };
+}
+
+function irProperty(result: unknown, location: SchemaLocation): IrPropertySignature | null {
+  if (result === undefined || result === null) {
+    return null;
+  }
+  if (!isPrintableIrProperty(result)) {
+    throw new UnreadablePropertyError(location.path, IR_PROPERTY_PROBLEM);
+  }
+  return result;
 }
 
 /**
  * The context fields hold either callback form; `irCallbacks` says which one, so the casts below
- * only name the form the user declared with `OpenAPITSIrOptions`.
+ * only name the form the user declared with `OpenAPITSIrOptions`. The results are checked, since
+ * JavaScript callers can return any value.
  */
 function irSchemaCallbacks(ctx: GlobalContext): SchemaCallbacks {
   const transform = ctx.transform as IrTransform | undefined;
@@ -89,14 +127,19 @@ function irSchemaCallbacks(ctx: GlobalContext): SchemaCallbacks {
   return {
     transform: (schema, location) =>
       transform
-        ? irCustomType(transform(schema as SchemaObject, nodeOptions(ctx, location)))
+        ? irCustomType(transform(schema as SchemaObject, nodeOptions(ctx, location)), location)
         : null,
     postTransform(type, location) {
       const result = postTransform?.(type, nodeOptions(ctx, location));
-      return result === undefined ? null : fromCallbackType(result);
+      return result === undefined ? null : fromCallbackType("postTransform", result, location);
     },
     transformProperty: (property, schema, location) =>
-      transformProperty?.(property, schema as SchemaObject, nodeOptions(ctx, location)) ?? null,
+      transformProperty
+        ? irProperty(
+            transformProperty(property, schema as SchemaObject, nodeOptions(ctx, location)),
+            location,
+          )
+        : null,
   };
 }
 

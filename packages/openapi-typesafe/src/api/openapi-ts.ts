@@ -18,21 +18,36 @@ import transformSchema from "./transform-schema.js";
  * `generateDeclarations` runs with any ports, which is how the CLI calls it.
  */
 
+/** The declarations of one document, and the local files it was read from. */
+export interface GeneratedDocument {
+  readonly declarations: IrDeclaration[];
+  readonly localFiles: readonly URL[];
+}
+
 /** Load, validate and bundle the source, then transform it into IR declarations. */
-export async function generateDeclarations(
+export async function generateDocument(
   source: SchemaSource,
   options: GeneratorOptions,
   ports: GeneratorPorts,
-): Promise<IrDeclaration[]> {
-  const { schema, ctx } = await createDocumentRun(source, options, ports);
+): Promise<GeneratedDocument> {
+  const { schema, localFiles, ctx } = await createDocumentRun(source, options, ports);
   const startedAt = ports.now();
-  const result = withStackOverflowReported("transform", () => transformSchema(schema, ctx));
+  const declarations = withStackOverflowReported("transform", () => transformSchema(schema, ctx));
   ports.logger.debug(
     "Completed AST transformation for entire document",
     "ts",
     ports.now() - startedAt,
   );
-  return result;
+  return { declarations, localFiles };
+}
+
+/** As `generateDocument`, the declarations only. */
+export async function generateDeclarations(
+  source: SchemaSource,
+  options: GeneratorOptions,
+  ports: GeneratorPorts,
+): Promise<IrDeclaration[]> {
+  return (await generateDocument(source, options, ports)).declarations;
 }
 
 /**

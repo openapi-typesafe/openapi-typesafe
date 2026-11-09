@@ -33,11 +33,42 @@ describe("resolveLocationUrl", () => {
     expect(resolveLocationUrl("https://example.com/a.yaml#x", FAKE_CWD).href).toBe("https://example.com/a.yaml#x");
   });
 
+  it("resolveLocationUrl with a relative file: URL resolves it against the base, as upstream (G6)", () => {
+    const configFile = pathToFileURL(fakePath("/work/api/redocly.yaml"));
+
+    expect(resolveLocationUrl("file:a.yaml", FAKE_CWD)).toEqual(pathToFileURL(fakePath("/work/a.yaml")));
+    expect(resolveLocationUrl("file:./a.yaml", configFile)).toEqual(pathToFileURL(fakePath("/work/api/a.yaml")));
+  });
+
   it("resolveLocationUrl with a Windows drive path does not read the drive as a URL scheme", () => {
     const url = resolveLocationUrl("C:\\specs\\api.yaml", FAKE_CWD);
 
     expect(url.protocol).toBe("file:");
     expect(url).toEqual(pathToFileURL(path.resolve(fakePath("/work"), "C:\\specs\\api.yaml")));
+  });
+});
+
+describe("runCli: relative file: URLs", () => {
+  it("runCli with a relative file: URL input guards the output against that file (G6)", async () => {
+    const cli = createFakeCli();
+    cli.files.files.set(fakePath("/work/a.yaml"), "openapi: 3.1.0");
+
+    const exitCode = await runCli(["file:a.yaml", "-o", "a.yaml"], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")[0]).toContain("(CLI_OUTPUT_IS_INPUT)");
+  });
+
+  it("runCli with a relative file: URL as a redocly api root reads it next to the config", async () => {
+    const cli = createFakeCli();
+    const configPath = fakePath("/work/api/redocly.yaml");
+    const api = { root: "file:./a.yaml", "x-openapi-ts": { output: "a.ts" } };
+    cli.redoclyConfigs.configs.set(configPath, fakeRedoclyConfig({ api }, configPath));
+    cli.redoclyConfigs.found = configPath;
+
+    await runCli([], cli.deps);
+
+    expect(cli.generator.calls[0]?.source).toEqual(pathToFileURL(fakePath("/work/api/a.yaml")));
   });
 });
 

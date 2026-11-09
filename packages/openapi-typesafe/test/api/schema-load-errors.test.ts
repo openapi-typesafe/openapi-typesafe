@@ -111,6 +111,16 @@ describe("schema load errors", () => {
     },
   );
 
+  it("openapiTS with a stream that holds only a YAML string names the stream (G14)", async () => {
+    const error = await failureOf(Readable.from(["hello world"]));
+
+    expect(error).toMatchObject({
+      code: "SCHEMA_SOURCE_INVALID",
+      details: { reason: "path", received: "stream", text: "hello world" },
+    });
+    expect(error.message).toMatch(/^The stream held only the YAML string "hello world", not an OpenAPI document\./);
+  });
+
   it("openapiTS with OpenAPI 2.0 fails with SCHEMA_VERSION_UNSUPPORTED and the version", async () => {
     const error = await failureOf({ openapi: "2.0", info: INFO });
 

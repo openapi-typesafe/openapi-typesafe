@@ -1,0 +1,160 @@
+import { describe, expect, it } from "vitest";
+import { isPrintableIrProperty, isPrintableIrType } from "../../../src/domain/ir/ir-shape.js";
+
+const STRING = { kind: "keyword", keyword: "string" } as const;
+
+function property(fields: Record<string, unknown> = {}) {
+  return {
+    kind: "property",
+    name: { kind: "identifier", text: "a" },
+    type: STRING,
+    isOptional: false,
+    isReadonly: false,
+    comments: [],
+    ...fields,
+  };
+}
+
+describe("isPrintableIrType", () => {
+  it.each([
+    ["a keyword", STRING],
+    ["a string literal", { kind: "stringLiteral", value: "x", encoding: "escaped" }],
+    ["a number literal", { kind: "numberLiteral", value: -1 }],
+    ["a boolean literal", { kind: "booleanLiteral", value: true }],
+    [
+      "a reference with arguments",
+      { kind: "reference", name: "Record", typeArguments: [STRING, STRING] },
+    ],
+    ["a generated reference name", { kind: "reference", name: "typeof Status", typeArguments: [] }],
+    ["an array", { kind: "array", element: STRING }],
+    [
+      "a tuple",
+      {
+        kind: "tuple",
+        elements: [
+          { type: STRING, isRest: false, isOptional: true },
+          { type: STRING, isRest: true, isOptional: false },
+        ],
+      },
+    ],
+    ["a union", { kind: "union", types: [STRING, { kind: "keyword", keyword: "null" }] }],
+    ["an intersection", { kind: "intersection", types: [STRING] }],
+    [
+      "an object with members",
+      {
+        kind: "object",
+        members: [
+          property({
+            comments: [
+              { kind: "block", text: "* doc " },
+              { kind: "line", text: " note" },
+            ],
+          }),
+          {
+            kind: "indexSignature",
+            parameterName: "key",
+            parameterType: STRING,
+            type: STRING,
+            isReadonly: true,
+            comments: [],
+          },
+        ],
+      },
+    ],
+    [
+      "an indexed access",
+      { kind: "indexedAccess", object: STRING, index: { kind: "stringLiteral", value: "a" } },
+    ],
+    ["a readonly type", { kind: "readonly", type: { kind: "array", element: STRING } }],
+    ["raw text", { kind: "raw", text: "Date" }],
+  ])("isPrintableIrType of %s is true", (_name, value) => {
+    expect(isPrintableIrType(value)).toBe(true);
+  });
+
+  it.each([
+    ["an empty object (G12)", {}],
+    ["a number", 42],
+    ["null", null],
+    ["an unknown kind", { kind: "conditional" }],
+    ["a kind inherited from Object", { kind: "toString" }],
+    ["an unknown keyword", { kind: "keyword", keyword: "any" }],
+    [
+      "a string literal with an unknown encoding",
+      { kind: "stringLiteral", value: "x", encoding: "html" },
+    ],
+    ["an infinite number", { kind: "numberLiteral", value: Number.POSITIVE_INFINITY }],
+    ["a boolean literal of text", { kind: "booleanLiteral", value: "true" }],
+    ["a reference without a name", { kind: "reference", name: " ", typeArguments: [] }],
+    ["a reference without arguments", { kind: "reference", name: "A" }],
+    ["an empty union", { kind: "union", types: [] }],
+    ["a union with a bad member", { kind: "union", types: [STRING, {}] }],
+    [
+      "a tuple element both rest and optional",
+      { kind: "tuple", elements: [{ type: STRING, isRest: true, isOptional: true }] },
+    ],
+    ["a tuple without elements", { kind: "tuple" }],
+    ["an object without members", { kind: "object" }],
+    ["an object with a bad member", { kind: "object", members: [{ kind: "method" }] }],
+    ["blank raw text (G12)", { kind: "raw", text: "" }],
+  ])("isPrintableIrType of %s is false", (_name, value) => {
+    expect(isPrintableIrType(value)).toBe(false);
+  });
+
+  it("isPrintableIrType of a type that contains itself is false instead of recursing forever", () => {
+    const types: unknown[] = [STRING];
+    const union = { kind: "union", types };
+    types.push(union);
+
+    expect(isPrintableIrType(union)).toBe(false);
+  });
+
+  it("isPrintableIrType accepts one node used twice, which is no cycle", () => {
+    expect(isPrintableIrType({ kind: "union", types: [STRING, STRING] })).toBe(true);
+  });
+});
+
+describe("isPrintableIrProperty", () => {
+  it.each([
+    ["a quoted name", property({ name: { kind: "string", value: "a-b" } })],
+    ["a number name", property({ name: { kind: "number", text: "12" } })],
+    ["a Unicode identifier", property({ name: { kind: "identifier", text: "naïve" } })],
+  ])("isPrintableIrProperty of a property with %s is true", (_name, value) => {
+    expect(isPrintableIrProperty(value)).toBe(true);
+  });
+
+  it.each([
+    ["only a name (G12)", { name: "a" }],
+    [
+      "an identifier that is no identifier",
+      property({ name: { kind: "identifier", text: "a-b" } }),
+    ],
+    ["a negative number name", property({ name: { kind: "number", text: "-1" } })],
+    ["a name of an unknown kind", property({ name: { kind: "computed" } })],
+    ["no name", property({ name: undefined })],
+    ["a bad type", property({ type: { kind: "raw", text: "  " } })],
+    ["isOptional as text", property({ isOptional: "yes" })],
+    ["comments that are no list", property({ comments: "doc" })],
+    [
+      "a block comment that ends itself",
+      property({ comments: [{ kind: "block", text: "a */ b" }] }),
+    ],
+    ["a line comment over two lines", property({ comments: [{ kind: "line", text: "a\nb" }] })],
+    ["a comment of an unknown kind", property({ comments: [{ kind: "jsdoc", text: "a" }] })],
+    ["a comment without text", property({ comments: [{ kind: "line" }] })],
+  ])("isPrintableIrProperty of a property with %s is false", (_name, value) => {
+    expect(isPrintableIrProperty(value)).toBe(false);
+  });
+
+  it("isPrintableIrProperty of an index signature with a bad parameter name is false in an object", () => {
+    const member = {
+      kind: "indexSignature",
+      parameterName: "a b",
+      parameterType: STRING,
+      type: STRING,
+      isReadonly: false,
+      comments: [],
+    };
+
+    expect(isPrintableIrType({ kind: "object", members: [member] })).toBe(false);
+  });
+});

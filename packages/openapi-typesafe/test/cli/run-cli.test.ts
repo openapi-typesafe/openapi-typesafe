@@ -95,7 +95,7 @@ describe("runCli: help, version and flags", () => {
 });
 
 describe("runCli: one schema", () => {
-  it("runCli without --output writes the types to stdout, silently", async () => {
+  it("runCli without --output writes the types to stdout and keeps the warnings (#42)", async () => {
     const cli = createFakeCli();
 
     const exitCode = await runCli(["a.yaml", "--immutable"], cli.deps);
@@ -104,7 +104,8 @@ describe("runCli: one schema", () => {
     expect(cli.stdout).toEqual([`types of ${fakeUrl("/work/a.yaml")}`]);
     expect(cli.console.infoLines).toEqual([]);
     const options = cli.generator.calls[0]?.options;
-    expect(options).toMatchObject({ immutable: true, silent: true });
+    expect(options).toMatchObject({ immutable: true });
+    expect(options).not.toHaveProperty("silent");
     expect(options?.redocly).toBe(cli.redoclyConfigs.defaultConfig);
   });
 
@@ -115,7 +116,7 @@ describe("runCli: one schema", () => {
 
     expect(exitCode).toBe(0);
     expect(cli.generator.calls[0]?.source).toBe(cli.stdin);
-    expect(cli.generator.calls[0]?.options.silent).toBe(false);
+    expect(cli.generator.calls[0]?.options).not.toHaveProperty("silent");
     expect(cli.files.files.get(fakePath("/work/out/types.ts"))).toBe("types of stdin");
     expect(cli.console.infoLines).toEqual(["✨ *openapi-typesafe 1.2.3*", "🚀 stdin → *out/types.ts* [5ms]"]);
   });
@@ -227,7 +228,7 @@ describe("runCli with the APIs of a Redocly config", () => {
     const cli = cliWithApis({
       api: {
         root: "api.yaml",
-        "x-openapi-ts": { output: "api.ts", immutable: false, "export-type": true, enum: "no" },
+        "x-openapi-ts": { output: "api.ts", immutable: false, "export-type": true },
       },
     });
 
@@ -251,14 +252,52 @@ describe("runCli with the APIs of a Redocly config", () => {
     expect(cli.generator.calls[0]?.options.exportType).toBe(false);
   });
 
-  it("runCli ignores an API's flag that is no boolean in either spelling and keeps the CLI flag", async () => {
+  it("runCli with an API flag that is no boolean fails that API, naming key and API (G13)", async () => {
     const cli = cliWithApis({
-      api: { root: "api.yaml", "x-openapi-ts": { output: "api.ts", immutable: "yes", "export-type": 1 } },
+      typo: { root: "typo.yaml", "x-openapi-ts": { output: "typo.ts", "root-types": "true" } },
+      good: { root: "good.yaml", "x-openapi-ts": { output: "good.ts", immutable: true } },
     });
 
-    await runCli(["--immutable", "--export-type"], cli.deps);
+    const exitCode = await runCli([], cli.deps);
 
-    expect(cli.generator.calls[0]?.options).toMatchObject({ immutable: true, exportType: true });
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")).toEqual([
+      "API typo: `root-types` in x-openapi-ts must be true or false (CLI_CONFIG_INVALID)",
+    ]);
+    expect(cli.generator.calls.map((call) => String(call.source))).toEqual([fakeUrl("/work/api/good.yaml")]);
+  });
+
+  it("runCli with an API output that is no text fails that API", async () => {
+    const cli = cliWithApis({ api: { root: "api.yaml", "x-openapi-ts": { output: 5 } } });
+
+    expect(await runCli([], cli.deps)).toBe(2);
+    expect(cli.logger.messages("error")).toEqual([
+      "API api: `output` in x-openapi-ts must be a file path (CLI_CONFIG_INVALID)",
+    ]);
+  });
+
+  it("runCli with x-openapi-ts that is no map fails that API", async () => {
+    const cli = cliWithApis({ api: { root: "api.yaml", "x-openapi-ts": "api.ts" } });
+
+    expect(await runCli([], cli.deps)).toBe(2);
+    expect(cli.logger.messages("error")).toEqual(["API api: `x-openapi-ts` must be a map (CLI_CONFIG_INVALID)"]);
+  });
+
+  it("runCli with an API without a root fails that API and generates the others (G5)", async () => {
+    const cli = cliWithApis({
+      good: { root: "good.yaml", "x-openapi-ts": { output: "good.ts" } },
+      broken: { "x-openapi-ts": { output: "broken.ts" } },
+      numbered: { root: 7, "x-openapi-ts": { output: "numbered.ts" } },
+    });
+
+    const exitCode = await runCli([], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")).toEqual([
+      "API broken: `root` in redocly.yaml must be the path or URL of its schema (CLI_CONFIG_INVALID)",
+      "API numbered: `root` in redocly.yaml must be the path or URL of its schema (CLI_CONFIG_INVALID)",
+    ]);
+    expect([...cli.files.files.keys()]).toEqual([fakePath("/work/api/good.ts")]);
   });
 
   it("runCli with a Redocly config without `apis` generates the input", async () => {

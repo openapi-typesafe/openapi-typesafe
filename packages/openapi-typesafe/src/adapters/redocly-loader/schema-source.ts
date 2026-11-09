@@ -17,6 +17,7 @@ import {
   pathStringError,
   sourceEmptyError,
   sourceInvalidError,
+  type TextOrigin,
 } from "./schema-load-errors.js";
 
 /** Parse a schema source of any supported type into a Redocly document (ENGINEERING_PLAN 4.5). */
@@ -24,6 +25,8 @@ import {
 export interface ParseSchemaOptions {
   absoluteRef: string;
   resolver: BaseResolver;
+  /** Where document text came from, for the message of text that is only a string. */
+  textOrigin?: TextOrigin;
 }
 
 /**
@@ -52,7 +55,7 @@ function parseSchemaText(
   }
   return schema[0] === "{"
     ? parseJsonText(schema, options.absoluteRef)
-    : parseYamlText(schema, options.absoluteRef);
+    : parseYamlText(schema, options.absoluteRef, options.textOrigin ?? "string");
 }
 
 function parseJsonText(text: string, absoluteRef: string): Document {
@@ -63,7 +66,7 @@ function parseJsonText(text: string, absoluteRef: string): Document {
   }
 }
 
-function parseYamlText(text: string, absoluteRef: string): Document {
+function parseYamlText(text: string, absoluteRef: string, origin: TextOrigin): Document {
   let document: Document;
   try {
     document = makeDocumentFromString(text, absoluteRef);
@@ -72,7 +75,7 @@ function parseYamlText(text: string, absoluteRef: string): Document {
   }
   // Text that is only a YAML string scalar, such as "./openapi.yaml", was meant as a file path.
   if (typeof document.parsed === "string") {
-    throw pathStringError(text);
+    throw pathStringError(text, origin);
   }
   const failure = aliasExpansionFailure(document.parsed);
   if (failure !== undefined) {
@@ -139,7 +142,8 @@ export async function parseSchema(schema: unknown, options: ParseSchemaOptions):
     return resolveSchemaURL(options);
   }
   if (schema instanceof Readable) {
-    return parseSchema(await readStream(schema, options.absoluteRef), options);
+    const text = await readStream(schema, options.absoluteRef);
+    return parseSchema(text, { ...options, textOrigin: "stream" });
   }
   if (schema instanceof Buffer) {
     return parseSchema(schema.toString("utf8"), options);

@@ -30,19 +30,29 @@ function causeMessage(cause: unknown): string {
 /** Enough of a source string to recognise it in the message. */
 const SOURCE_TEXT_IN_MESSAGE = 200;
 
+/** Where document text that is only a YAML string came from. */
+export type TextOrigin = "string" | "stream";
+
+const LOAD_FILE_ADVICE =
+  "To load a file, pass a URL: openapiTS(pathToFileURL(path)) from node:url.";
+
 /**
  * A string source is document text, so a file path parses as a YAML string scalar, not as a
- * document (docs/node.md). The message says how to load the file instead.
+ * document (docs/node.md). The message says how to load the file instead. Text read from a
+ * stream (stdin in the CLI) is named as such; `details.text` lets the CLI give its own advice.
  */
-export function pathStringError(text: string): OpenAPITypesafeError {
+export function pathStringError(text: string, origin: TextOrigin): OpenAPITypesafeError {
   const shown =
     text.length > SOURCE_TEXT_IN_MESSAGE ? `${text.slice(0, SOURCE_TEXT_IN_MESSAGE)}…` : text;
+  const message =
+    origin === "string"
+      ? `The string "${shown}" was parsed as YAML text, not loaded as a file. ${LOAD_FILE_ADVICE}`
+      : `The stream held only the YAML string "${shown}", not an OpenAPI document. ` +
+        LOAD_FILE_ADVICE;
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_SOURCE_INVALID,
-    message:
-      `The string "${shown}" was parsed as YAML text, not loaded as a file. ` +
-      "To load a file, pass a URL: openapiTS(pathToFileURL(path)) from node:url.",
-    details: { reason: "path", received: "string" },
+    message,
+    details: { reason: "path", received: origin, text: shown },
   });
 }
 

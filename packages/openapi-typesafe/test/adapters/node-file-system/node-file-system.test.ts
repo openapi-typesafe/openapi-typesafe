@@ -76,6 +76,30 @@ describe("createNodeFileSystem", () => {
     expect(isSame).toBe(fs.existsSync(upper));
   });
 
+  it("isSameFile of two missing files in another letter case follows the file system (G1)", () => {
+    const probe = path.join(workDir, "probe.yaml");
+    fs.writeFileSync(probe, "");
+    const ignoresCase = fs.existsSync(path.join(workDir, "PROBE.yaml"));
+    const lower = pathToFileURL(path.join(workDir, "gen", "types.ts"));
+    const upper = pathToFileURL(path.join(workDir, "gen", "Types.ts"));
+
+    expect(createNodeFileSystem().isSameFile(lower, upper)).toBe(ignoresCase);
+  });
+
+  it("isSameFile of a missing file through a linked directory and in the target is true (G2)", () => {
+    const real = path.join(workDir, "real-dir");
+    const link = path.join(workDir, "link-dir");
+    fs.mkdirSync(real);
+    fs.symlinkSync(real, link, "dir");
+
+    const isSame = createNodeFileSystem().isSameFile(
+      pathToFileURL(path.join(link, "out", "types.ts")),
+      pathToFileURL(path.join(real, "out", "types.ts")),
+    );
+
+    expect(isSame).toBe(true);
+  });
+
   it("isSameFile of two files, or of a missing or unreadable one, is false", () => {
     const first = path.join(workDir, "first.yaml");
     const second = path.join(workDir, "second.yaml");
@@ -90,6 +114,28 @@ describe("createNodeFileSystem", () => {
     expect(
       files.isSameFile(pathToFileURL(first), pathToFileURL(path.join(first, "under.ts"))),
     ).toBe(false);
+  });
+
+  it("isDirectory is true for a directory only", () => {
+    const files = createNodeFileSystem();
+    const file = path.join(workDir, "plain.ts");
+    fs.writeFileSync(file, "");
+
+    expect(files.isDirectory(pathToFileURL(workDir))).toBe(true);
+    expect(files.isDirectory(pathToFileURL(file))).toBe(false);
+    expect(files.isDirectory(pathToFileURL(path.join(workDir, "absent")))).toBe(false);
+  });
+
+  it("readText and writeText of a URL that is no local file fail with a typed error (G4)", () => {
+    const files = createNodeFileSystem();
+    const remote = new URL("https://example.invalid/out.ts");
+
+    expect(() => files.readText(remote)).toThrow(
+      expect.objectContaining({ code: "OUTPUT_READ_FAILED", details: { file: remote.href } }),
+    );
+    expect(() => files.writeText(remote, "")).toThrow(
+      expect.objectContaining({ code: "OUTPUT_WRITE_FAILED", details: { file: remote.href } }),
+    );
   });
 
   it("writeText into a path under a file fails with OUTPUT_WRITE_FAILED", () => {

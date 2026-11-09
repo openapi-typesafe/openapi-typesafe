@@ -34,5 +34,7 @@ Changes that can need work when you move from openapi-typescript 7.13:
 - Relative `$ref`s of a string, object, buffer, stream or stdin source resolve in `cwd`, not in its
   parent.
 - `inject` is printed as written, comments included.
+- In `redocly.yaml`, an `x-openapi-ts` setting of the wrong type (`root-types: "true"`) fails that
+  API with `CLI_CONFIG_INVALID`; openapi-typescript ignored it.
 - Headers from `resolve.http.headers` go over plain HTTP only to `localhost`, `127.0.0.1` and
   `::1`, or to a pattern that starts with `http://`.

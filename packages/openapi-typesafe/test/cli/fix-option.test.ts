@@ -3,7 +3,7 @@ import { parseCliArguments } from "../../src/cli/cli-arguments.js";
 import { fixNamesOf, fixOption } from "../../src/cli/fix-option.js";
 import { HELP_TEXT } from "../../src/cli/help-text.js";
 import { runCli } from "../../src/cli/run-cli.js";
-import { createFakeCli, fakeRedoclyConfig } from "../fakes/cli-dependencies.js";
+import { createFakeCli, fakePath, fakeRedoclyConfig } from "../fakes/cli-dependencies.js";
 
 const CONFIG_PATH = "/work/api/redocly.yaml";
 
@@ -98,6 +98,32 @@ describe("--fix", () => {
     await runCli([], cli.deps);
 
     expect(cli.generator.calls[0]?.options).toMatchObject({ fix: ["allof-required", "all"] });
+  });
+
+  it("runCli with an unknown fix in an API names the API and generates the others (G13)", async () => {
+    const cli = createFakeCli();
+    const configPath = fakePath("/work/redocly.yaml");
+    const apis = {
+      a: { root: "a.yaml", "x-openapi-ts": { output: "a.ts", fix: ["nope"] } },
+      b: { root: "b.yaml", "x-openapi-ts": { output: "b.ts" } },
+    };
+    cli.redoclyConfigs.configs.set(configPath, fakeRedoclyConfig(apis, configPath));
+    cli.redoclyConfigs.found = configPath;
+
+    const exitCode = await runCli([], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")[0]).toMatch(/^API a: Unknown fix "nope"\. .* \(OPTION_FIX_UNKNOWN\)$/);
+    expect([...cli.files.files.keys()]).toEqual([fakePath("/work/b.ts")]);
+  });
+
+  it("runCli with a fix setting that is no text fails with CLI_CONFIG_INVALID", async () => {
+    const cli = cliWithApi({ fix: [1] });
+
+    expect(await runCli([], cli.deps)).toBe(2);
+    expect(cli.logger.messages("error")).toEqual([
+      "API api: `fix` in x-openapi-ts must be a list of fix names or a comma list (CLI_CONFIG_INVALID)",
+    ]);
   });
 
   it("runCli uses --fix for an API without a fix setting", async () => {

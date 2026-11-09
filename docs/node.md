@@ -147,12 +147,12 @@ The Node API takes the generator flags of the [flags table](/cli#flags) in camel
 | `postTransform`    |   `Function`    |                 | Same as `transform` but runs _after_ the TypeScript transformation                           |
 | `transformProperty`|   `Function`    |                 | Transform individual property signatures for Schema Object properties                        |
 | `irCallbacks`      |    `boolean`    |     `false`     | Callbacks receive and return IR nodes instead of TypeScript nodes (see [IR callbacks](#ir-callbacks)) |
-| `silent`           |    `boolean`    |     `false`     | Silence warning messages (fatal errors and [deprecations](#deprecations) will still show)     |
+| `silent`           |    `boolean`    |     `false`     | Print nothing on stderr: no warnings, and no problem lines of a document that fails (the error lists them in `details.problems`). [Deprecations](#deprecations) and `DEBUG` lines still show |
 | `lint`             |    `boolean`    |     `true`      | Lint the document with the Redocly config first. `false` skips it; bundling errors still fail |
 | `cwd`              | `string \| URL` | `process.cwd()` | The directory that relative `$ref`s of a string, object, buffer or stream source resolve from. A file or URL source resolves from its own location |
 | `localRefRoot`     | `string \| URL` |                 | Load local `$ref` files only from this directory and below it; a relative path resolves against `cwd` |
 | `remoteRefHosts`   |   `string[]`    |                 | Load remote `$ref` documents only from these hosts (`name` or `name:port`); `[]` allows none |
-| `fix`              | `OutputFixName[]` |               | Opt-in fixes of the output, by name, or `["all"]`; see [fix](/cli#fix). `OUTPUT_FIXES` lists them |
+| `fix`              | `OutputFixName[]` |               | Opt-in fixes of the output, by name, or `["all"]`; see [fix](/cli#fix). `OUTPUT_FIXES` lists them. A value that is no list, such as `"all"`, or an unknown name fails with `OPTION_FIX_UNKNOWN` |
 | `inject`           |    `string`     |                 | Inject arbitrary TypeScript types into the start of the file                                 |
 | `redocly`          |     `Config`    |                 | A Redocly config object; see [Redocly config](#redocly-config). Without it, Redocly's `minimal` config with `operation-operationId-unique` as an error (the CLI makes it a warning); the Node API does not look for `redocly.yaml`
 | `version`          |     `number`    |                 | Accepted for compatibility with openapi-typescript; no code reads it
@@ -174,6 +174,7 @@ With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` w
 - `postTransform(type, options)` receives the generated IR type.
 - `transformProperty(property, schemaObject, options)` receives the generated IR property (`name`, `type`, `isOptional`, `isReadonly`, `comments`) and returns a new one.
 - Returning `undefined` keeps the generated type or property.
+- A result the generator cannot print fails with `CALLBACK_RESULT_UNREADABLE`, which names the callback and the schema path: a value that is no IR node (`{}`, `42`), IR that would not print as TypeScript (an empty union, a property without `name`, `type` or `comments`, a block comment that contains `*/`), and empty type text. Type text is printed as written and not parsed (that would need the `typescript` package), so a syntax error in it, such as `"string |"`, shows when your project type-checks the output.
 
 ::: code-group
 

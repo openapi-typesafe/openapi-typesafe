@@ -105,6 +105,53 @@ describe("IR callbacks (irCallbacks: true)", () => {
   });
 });
 
+describe("IR callbacks: results the generator cannot print (G12)", () => {
+  it.each([
+    ["transform returns {}", { transform: () => ({}) }, "transform"],
+    ["postTransform returns 42", { postTransform: () => 42 }, "postTransform"],
+    [
+      'transform returns ""',
+      { transform: (schema: { type?: unknown }) => (schema.type === "string" ? "" : undefined) },
+      "transform",
+    ],
+    ["transform returns an empty union", { transform: () => ({ kind: "union", types: [] }) }, "transform"],
+    ["transform returns a bad schema object", { transform: () => ({ schema: {}, questionToken: true }) }, "transform"],
+  ])("%s fails with CALLBACK_RESULT_UNREADABLE", async (_name, callbacks, callback) => {
+    const generation = itemOf(callbacks as never);
+
+    await expect(generation).rejects.toMatchObject({
+      code: "CALLBACK_RESULT_UNREADABLE",
+      message: expect.stringContaining("returned a value that is not an IR type or non-empty type text"),
+      details: { callback },
+    });
+  });
+
+  it("transformProperty returning only a name fails with CALLBACK_RESULT_UNREADABLE", async () => {
+    const generation = itemOf({ transformProperty: () => ({ name: "a" }) as never });
+
+    await expect(generation).rejects.toMatchObject({
+      code: "CALLBACK_RESULT_UNREADABLE",
+      message: expect.stringMatching(/^transformProperty at .* returned a value that is not an IR property/),
+      details: { callback: "transformProperty" },
+    });
+  });
+
+  it("transform returning null keeps the generated type", async () => {
+    expect(await itemOf({ transform: () => null as never })).toBe(await itemOf({}));
+  });
+});
+
+describe("the fix option from JavaScript", () => {
+  it('openapiTS with fix: "all" as a string fails with OPTION_FIX_UNKNOWN (G12)', async () => {
+    const generation = openapiTS(DOCUMENT, { silent: true, fix: "all" as never });
+
+    await expect(generation).rejects.toMatchObject({
+      code: "OPTION_FIX_UNKNOWN",
+      message: 'The fix option must be a list of fix names, such as ["all"]. Got "all".',
+    });
+  });
+});
+
 /** The deprecated forms each run warned about (recorded also when `silent`). */
 async function warningsOf(options: GeneratorOptions): Promise<string[]> {
   const runOptions = { silent: true, ...options };

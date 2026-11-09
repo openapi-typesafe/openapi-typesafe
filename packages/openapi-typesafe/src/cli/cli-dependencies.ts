@@ -1,5 +1,10 @@
 import type { Readable } from "node:stream";
-import type { FileIdentity, FileReader, FileWriter } from "../application/ports/file-system.js";
+import type {
+  DirectoryCheck,
+  FileIdentity,
+  FileReader,
+  FileWriter,
+} from "../application/ports/file-system.js";
 import type { Logger } from "../application/ports/logger.js";
 import type { RedoclyConfigSource } from "../application/ports/redocly-config-source.js";
 import type { GeneratorOptions, SchemaSource } from "../types.js";
@@ -19,8 +24,19 @@ export interface TextStyle {
   dim(text: string): string;
 }
 
-/** Generate the printed declarations, with the comment header, for one schema. */
-export type GenerateTypes = (source: SchemaSource, options: GeneratorOptions) => Promise<string>;
+/** The printed declarations of one schema, and the local files they were generated from. */
+export interface GeneratedTypes {
+  /** The declarations, with the comment header. */
+  readonly contents: string;
+  /** The schema, when it is a local file, and every local file its `$ref`s loaded. */
+  readonly localFiles: readonly URL[];
+}
+
+/** Generate the types of one schema. */
+export type GenerateTypes = (
+  source: SchemaSource,
+  options: GeneratorOptions,
+) => Promise<GeneratedTypes>;
 
 export interface CliDependencies {
   /** The working directory, as a directory URL (with a trailing slash). */
@@ -38,7 +54,7 @@ export interface CliDependencies {
    * input with no prompt, which looks like a hang (upstream #1905).
    */
   readonly isStdinTerminal: () => boolean;
-  readonly files: FileReader & FileWriter & FileIdentity;
+  readonly files: FileReader & FileWriter & FileIdentity & DirectoryCheck;
   readonly redoclyConfigs: RedoclyConfigSource;
   readonly generate: GenerateTypes;
   /** A monotonic time in milliseconds, for the time printed after each output. */

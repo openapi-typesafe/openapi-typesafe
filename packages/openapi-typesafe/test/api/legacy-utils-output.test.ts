@@ -68,7 +68,8 @@ describe("deprecated logging utilities", () => {
 
     debug("loaded", "redoc", 1500);
 
-    expect(plainLines(sink)).toEqual([{ level: "debug", text: "  openapi-ts:redoc 1.5s loaded" }]);
+    // Debug lines go to stderr (`console.error`), so they never mix with types on stdout (#42).
+    expect(plainLines(sink)).toEqual([{ level: "error", text: "  openapi-ts:redoc 1.5s loaded" }]);
   });
 
   it("debug writes nothing without DEBUG", () => {

@@ -68,9 +68,24 @@ function parseFailedMessage(error: OpenAPITypesafeError): string {
   );
 }
 
+/**
+ * Text piped into stdin that is only a YAML string (`echo api.yaml | openapi-typesafe`) gets the
+ * CLI's advice, not the Node API's (`openapiTS(pathToFileURL(path))`).
+ */
+function sourceInvalidMessage(error: OpenAPITypesafeError): string {
+  const { received, text } = error.details;
+  if (received !== "stream" || typeof text !== "string") {
+    return error.message;
+  }
+  return (
+    `stdin held only the YAML string "${text}", not an OpenAPI document. To read a file, pass ` +
+    "its path or URL as the first argument: openapi-typesafe ./openapi.yaml -o ./schema.ts"
+  );
+}
+
 const CLI_ERROR_REPORTS: Readonly<Record<ErrorCode, CliErrorReport>> = {
   SCHEMA_SOURCE_EMPTY: { exitCode: EXIT_CODES.SCHEMA },
-  SCHEMA_SOURCE_INVALID: { exitCode: EXIT_CODES.SCHEMA },
+  SCHEMA_SOURCE_INVALID: { exitCode: EXIT_CODES.SCHEMA, message: sourceInvalidMessage },
   SCHEMA_LOAD_FAILED: { exitCode: EXIT_CODES.SCHEMA, message: loadFailedMessage },
   SCHEMA_PARSE_FAILED: { exitCode: EXIT_CODES.SCHEMA, message: parseFailedMessage },
   SCHEMA_VERSION_UNSUPPORTED: { exitCode: EXIT_CODES.SCHEMA },
@@ -94,6 +109,7 @@ const CLI_ERROR_REPORTS: Readonly<Record<ErrorCode, CliErrorReport>> = {
   CLI_INPUT_MISSING: { exitCode: EXIT_CODES.USAGE },
   CLI_OUTPUT_IS_INPUT: { exitCode: EXIT_CODES.USAGE },
   CLI_OUTPUT_DUPLICATE: { exitCode: EXIT_CODES.USAGE },
+  CLI_OUTPUT_INVALID: { exitCode: EXIT_CODES.USAGE },
   OUTPUT_STALE: { exitCode: EXIT_CODES.OUTPUT_STALE },
   OUTPUT_READ_FAILED: { exitCode: EXIT_CODES.OUTPUT },
   OUTPUT_WRITE_FAILED: { exitCode: EXIT_CODES.OUTPUT },

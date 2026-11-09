@@ -60,7 +60,7 @@ describe("deep nesting", () => {
   it("a schema that loads but is too deep to scan fails with SCHEMA_TOO_DEEP", async () => {
     const deep = documentWith({ Deep: nestedObjects(TOO_DEEP) });
     const ports = {
-      loader: { load: async () => deep as never },
+      loader: { load: async () => ({ document: deep as never, localFiles: [] }) },
       logger: new RecordingLogger(),
       deprecations: new RecordingDeprecations(),
       redoc: await defaultRedoclyConfig(),

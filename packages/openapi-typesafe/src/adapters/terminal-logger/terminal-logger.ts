@@ -16,7 +16,10 @@ export interface TerminalSink {
 }
 
 export interface TerminalLoggerOptions {
-  /** Drop warnings (errors and debug lines are still written). */
+  /**
+   * Drop warnings and error lines; debug lines, which `DEBUG` asks for, are still written. The
+   * error lines are the problems of a document that fails to load, which the thrown error lists.
+   */
   readonly silent: boolean;
   /** The value of `DEBUG`: `*`, `openapi-ts:*` or `openapi-ts:<group>` turn debug lines on. */
   readonly debugFilter: string | undefined;
@@ -92,7 +95,9 @@ class TerminalLogger implements Logger {
   }
 
   error(message: string): void {
-    this.#options.sink.error(this.#palette.red(` ✘  ${redactUrlCredentials(message)}`));
+    if (!this.#options.silent) {
+      this.#options.sink.error(this.#palette.red(` ✘  ${redactUrlCredentials(message)}`));
+    }
   }
 }
 
