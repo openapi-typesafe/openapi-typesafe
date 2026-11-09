@@ -301,10 +301,18 @@ type WithAnyKeys<Init> = Init & { [key: string]: unknown };
  * adds none.
  */
 export type PathOperation<Paths, Path, Method> = Extract<
-  FilterKeys<Paths[Path & keyof Paths], Method>,
+  FilterKeys<PathItem<Paths, Path>, Method>,
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   Record<string | number, any>
 >;
+
+/**
+ * The path item of each path of `Path`. Not `Paths[Path & keyof Paths]`: with template keys
+ * (`--path-params-as-types`), `/apps/${string}` intersected with the keys is every key it
+ * overlaps, such as `/apps/${string}/logs/${number}`, so a call to one path got the responses of
+ * the others too once the responses distribute over the operations.
+ */
+type PathItem<Paths, Path> = Path extends keyof Paths ? Paths[Path] : never;
 
 export type ClientMethod<Paths extends {}, Method extends HttpMethod, Media extends MediaType> = <
   Path extends PathsWithMethod<Paths, Method>,

@@ -218,12 +218,17 @@ export type OperationRequestBodyContent<T> =
  */
 type SuccessStatus<T> = [Extract<keyof T, OkStatus>] extends [never] ? "default" : OkStatus;
 
-/** Return all 2XX responses from a Response Object Map, or `default` if it declares no 2XX one */
+/**
+ * Return all 2XX responses from a Response Object Map, or `default` if it declares no 2XX one. For
+ * a union of maps (a call with a union of paths), the union of each map's responses: `keyof` of a
+ * union is only the shared statuses, so one map of them lost the body of every path that did not
+ * share its statuses, and a `default`-only path typed the data `undefined` (upstream).
+ */
 export type SuccessResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = GetResponseContent<T, Media, SuccessStatus<T>>;
+> = T extends unknown ? GetResponseContent<T, Media, SuccessStatus<T>> : never;
 
 export type GetResponseContent<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
@@ -244,13 +249,14 @@ export type GetResponseContent<
   : never;
 
 /**
- * Return all 5XX and 4XX responses (in that order) from a Response Object Map
+ * Return all 5XX and 4XX responses (in that order) from a Response Object Map; for a union of maps,
+ * the union of each map's responses, as `SuccessResponse`.
  */
 export type ErrorResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = GetResponseContent<T, Media, ErrorStatus>;
+> = T extends unknown ? GetResponseContent<T, Media, ErrorStatus> : never;
 
 /** Return first JSON-like 2XX response from a path + HTTP method */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces

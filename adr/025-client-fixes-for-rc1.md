@@ -121,6 +121,27 @@ it with `onResponse: must return new Response() when modifying the response`.
 | `instanceof Response` | Exact for one realm | Breaks undici, iframes and Electron again (upstream #1847) |
 | Check `ok` only | Fewer bytes | An object without `text()` fails later with a vague `TypeError` |
 
+## Amendment (2026-11-09): responses of a union of paths
+
+The type hunt before rc.4 (T4) found that a call with a union of paths
+(`client.GET(p: "/a" | "/b")`) typed `data` wrong; openapi-fetch 0.17 does the same. The response
+types read one response map of the union, and `keyof` of a union is only the statuses all members
+share: a path without a body in its 2XX response typed `data` as the content map, and a path with
+only a `default` response typed it `undefined`.
+
+1. `SuccessResponse` and `ErrorResponse` (openapi-typesafe-helpers) distribute over a union of
+   response maps. `data` and `error` of such a call are the union of each operation's types, as
+   decision 8 computes the init per operation.
+2. For one map the types do not change. On the GitHub and Stripe schemas the check makes about 4%
+   fewer type instantiations.
+3. A call with an unknown path, which TypeScript checks against every path of the method, now
+   types `error` as the union of their errors instead of `undefined`.
+4. The client finds each path's item with `Path extends keyof Paths ? Paths[Path] : never`, not
+   `Paths[Path & keyof Paths]`: with template keys (`--path-params-as-types`), `/apps/${string}`
+   intersected with the keys is also every key it overlaps, such as `/apps/${string}/logs/${number}`,
+   and with distributed responses a call got their response bodies too.
+5. `union-path-responses.test.ts` checks these calls.
+
 ## Review trigger
 
 The 2.0 planning (items 32 to 35); a TypeScript release that infers return types through a dependent
