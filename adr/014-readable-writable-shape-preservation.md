@@ -51,6 +51,20 @@ Fix the two types so that a type without markers comes out unchanged, and keep t
 - Users without markers get their own types back; users with markers get correct arrays, tuples and null keys.
 - The generator's output for `--read-write-markers` changes (helper text only).
 
+## Amendment (2026-11-09): `any` properties
+
+The type hunt before rc.4 (T3) found that `Readable` dropped a property typed `any` and `Writable`
+typed it `undefined`, so `data.meta` failed with TS2339 and a body with `meta` failed with TS2322.
+The generator does not write `any`, but hand-written types and transform hooks do. A conditional
+type on `any` takes both branches, so `ReadWriteMarkedKeys` counted every `any` key as marked.
+openapi-typescript-helpers 0.1.0 has the `Writable` half of the bug.
+
+1. `ReadWriteMarkedKeys` leaves out a key whose value is `any` (`0 extends 1 & T[K]`) before it
+   checks for a marker. `Readable` and `Writable` keep the key with its `any` type.
+2. The helper text of `--read-write-markers` output changes the same way; the copy and the package
+   stay equal (`test/api/read-write-marker-types.test.ts`). Output that compiled still compiles: the
+   change only adds back keys, and only where a type has `any`.
+
 ## Review trigger
 
 A new report of a type changed by `Readable` / `Writable` without markers, or work on #2726.

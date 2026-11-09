@@ -51,7 +51,8 @@ describe("response", () => {
 
       //@ts-expect-error impossible to determine data type for invalid path
       assertType<never>(result.data);
-      assertType<undefined>(result.error);
+      // The call is checked against every GET path, so the error is one of their errors.
+      expectTypeOf(result.error).toEqualTypeOf<Error | undefined>();
     });
 
     test("returns union for mismatched response", async () => {

@@ -48,6 +48,18 @@ describe("Readable without markers", () => {
     expectTypeOf<Writable<{ files: Blob[] }>["files"][number]>().toExtend<Blob>();
   });
 
+  it("keeps `any` properties, which hand-written types can have", () => {
+    // biome-ignore lint/suspicious/noExplicitAny: the property type under test
+    type Thing = { id: string; meta: any; extra?: any };
+    const body: Writable<Thing> = { id: "1", meta: { size: 1 } };
+
+    expectTypeOf<Readable<Thing>["meta"]>().toBeAny();
+    expectTypeOf<keyof Readable<Thing>>().toEqualTypeOf<"id" | "meta" | "extra">();
+    expectTypeOf<Writable<Thing>["meta"]>().toBeAny();
+    expectTypeOf<keyof Writable<Thing>>().toEqualTypeOf<"id" | "meta" | "extra">();
+    expectTypeOf(body.id).toEqualTypeOf<string>();
+  });
+
   it("keeps the elements of intersected arrays, so unions still narrow (upstream #2620)", () => {
     const data = {} as Readable<Foo | Bar>;
 
@@ -76,6 +88,17 @@ describe("Readable and Writable with markers", () => {
     type Body = { x?: null; y: $Read<number> };
 
     expectTypeOf<Writable<Body>>().toEqualTypeOf<{ x?: null } & { y?: never }>();
+  });
+
+  it("keeps `any` properties next to marked ones", () => {
+    // biome-ignore lint/suspicious/noExplicitAny: the property type under test
+    type Body = { meta: any; id: $Read<number>; secret: $Write<string> };
+
+    expectTypeOf<Readable<Body>["meta"]>().toBeAny();
+    expectTypeOf<keyof Readable<Body>>().toEqualTypeOf<"meta" | "id">();
+    expectTypeOf<Writable<Body>["meta"]>().toBeAny();
+    expectTypeOf<Writable<Body>["id"]>().toEqualTypeOf<undefined>();
+    expectTypeOf<keyof Writable<Body>>().toEqualTypeOf<"meta" | "secret" | "id">();
   });
 
   it("Readable keeps optional undefined-only properties", () => {

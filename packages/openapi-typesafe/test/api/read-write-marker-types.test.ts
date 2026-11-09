@@ -33,14 +33,16 @@ describe("read-write marker helper types", () => {
     expect(sharedDeclarations(READ_WRITE_MARKER_TYPES)).toBe(sharedDeclarations(helpers));
   });
 
-  it("the generated helpers compile and keep tuples and branded primitives", () => {
+  it("the generated helpers compile and keep tuples, branded primitives and any", () => {
     const usage = [
       READ_WRITE_MARKER_TYPES,
       "type UserId = string & { readonly __brand: 'UserId' };",
       "const tuple: Readable<[string, number]> = ['a', 1];",
       "const id: Readable<UserId> = 'x' as UserId;",
       "const pet: Writable<{ id: $Read<number>; x?: null }> = { x: null };",
-      "export { tuple, id, pet };",
+      "const sent: Writable<{ meta: any }> = { meta: { size: 1 } };",
+      "const read: Readable<{ meta: any }>['meta'] = 1;",
+      "export { tuple, id, pet, sent, read };",
     ].join("\n");
 
     expect(typeErrorsOf(usage)).toEqual([]);

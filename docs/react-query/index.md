@@ -136,3 +136,29 @@ const MyComponent = () => {
 You can find more information about `createFetchClient` on the [openapi-typesafe-fetch documentation](../fetch/index.md).
 :::
 
+## Errors
+
+When a request fails, the hooks throw the error body that the schema declares for the status, and
+TanStack Query puts it in `error`. A response can also fail without an error body: a `503` with an
+empty body from a proxy, or a status whose operation declares no content. The fetch client gives
+`error: undefined` then, and the hooks throw a `ResponseError` instead, so `error` is never
+`undefined` once the query failed. Its type is the error body or `ResponseError`:
+
+```tsx
+const { error } = $api.useQuery("get", "/blogposts/{post_id}", {
+  params: { path: { post_id: "5" } },
+});
+
+if (error instanceof Error) {
+  // A ResponseError: `error.status`, `error.response`, and a message such as
+  // "Request failed with status 503 Service Unavailable and no error body".
+  return `The server answered ${error.status}`;
+}
+if (error) return `An error occurred: ${error.message}`; // the declared error body
+```
+
+`ResponseError` is a type (`import type { ResponseError } from "openapi-typesafe-react-query"`),
+not a class you can import: narrow with `error instanceof Error` or
+`error.name === "ResponseError"`. Its message names the status, never the URL, which can carry
+tokens. A falsy error body such as `0` is thrown as it is.
+

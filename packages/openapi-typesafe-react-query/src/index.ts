@@ -41,6 +41,28 @@ type InferSelectReturnType<TData, TSelect> = TSelect extends (data: TData) => in
  */
 type QueryData<Data> = undefined extends Data ? Exclude<Data, undefined> | null : Data;
 
+/**
+ * What the hooks throw when a request fails and the response has no error body: a non-OK status
+ * with an empty body, or one whose operation declares no content for it. The fetch client gives
+ * `error: undefined` then; throwing that left `error` undefined in TanStack Query while its type
+ * said there was an error body, so `error.message` failed at runtime. A type only: narrow with
+ * `error instanceof Error` or `error.name === "ResponseError"`. The message names the status, not
+ * the URL, which can carry secrets.
+ */
+export interface ResponseError extends Error {
+  readonly name: "ResponseError";
+  /** The response that failed. */
+  readonly response: Response;
+  /** Its HTTP status, as `response.status`. */
+  readonly status: number;
+}
+
+/**
+ * The error of a hook: the error body of a failed response, or a `ResponseError` when it has
+ * none. `undefined` is left out: a failed request always throws a value.
+ */
+export type QueryError<ErrorBody> = Exclude<ErrorBody, undefined> | ResponseError;
+
 type InitWithUnknowns<Init> = Init & { [key: string]: unknown };
 
 /**
@@ -86,7 +108,7 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
   Options extends Omit<
     UseQueryOptions<
       QueryData<Response["data"]>,
-      Response["error"],
+      QueryError<Response["error"]>,
       InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
       QueryKey<Paths, Method, Path>
     >,
@@ -100,7 +122,7 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
   Omit<
     UseQueryOptions<
       QueryData<Response["data"]>,
-      Response["error"],
+      QueryError<Response["error"]>,
       InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
       QueryKey<Paths, Method, Path>
     >,
@@ -109,12 +131,12 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
     queryKey: DataTag<
       QueryKey<Paths, Method, Path>,
       QueryData<Response["data"]>,
-      Response["error"]
+      QueryError<Response["error"]>
     >;
     queryFn: Exclude<
       UseQueryOptions<
         QueryData<Response["data"]>,
-        Response["error"],
+        QueryError<Response["error"]>,
         InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
         QueryKey<Paths, Method, Path>
       >["queryFn"],
@@ -132,7 +154,7 @@ export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
   Options extends Omit<
     UseQueryOptions<
       QueryData<Response["data"]>,
-      Response["error"],
+      QueryError<Response["error"]>,
       InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
       QueryKey<Paths, Method, Path>
     >,
@@ -144,7 +166,7 @@ export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
   ...[init, options, queryClient]: InitArguments<Init, [Options?, QueryClient?]>
 ) => UseQueryResult<
   InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
-  Response["error"]
+  QueryError<Response["error"]>
 >;
 
 /**
@@ -212,7 +234,7 @@ export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = 
   Options extends Omit<
     UseInfiniteQueryOptions<
       Response["data"],
-      Response["error"],
+      QueryError<Response["error"]>,
       InferSelectReturnType<
         InfiniteData<Response["data"], PageParam<Initial, Next, Previous>>,
         Options["select"]
@@ -224,7 +246,7 @@ export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = 
   > & {
     placeholderData?: InfinitePlaceholderData<
       Response["data"],
-      Response["error"],
+      QueryError<Response["error"]>,
       Paths,
       Method,
       Path
@@ -246,7 +268,7 @@ export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = 
     InfiniteData<Response["data"], PageParam<Initial, Next, Previous>>,
     Options["select"]
   >,
-  Response["error"]
+  QueryError<Response["error"]>
 >;
 
 export type UseSuspenseQueryMethod<Paths extends {}, Media extends MediaType> = <
@@ -258,7 +280,7 @@ export type UseSuspenseQueryMethod<Paths extends {}, Media extends MediaType> = 
   Options extends Omit<
     UseSuspenseQueryOptions<
       QueryData<Response["data"]>,
-      Response["error"],
+      QueryError<Response["error"]>,
       InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
       QueryKey<Paths, Method, Path>
     >,
@@ -270,7 +292,7 @@ export type UseSuspenseQueryMethod<Paths extends {}, Media extends MediaType> = 
   ...[init, options, queryClient]: InitArguments<Init, [Options?, QueryClient?]>
 ) => UseSuspenseQueryResult<
   InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
-  Response["error"]
+  QueryError<Response["error"]>
 >;
 
 export type UseMutationMethod<Paths extends {}, Media extends MediaType> = <
@@ -284,11 +306,11 @@ export type UseMutationMethod<Paths extends {}, Media extends MediaType> = <
   method: Method,
   url: Path,
   options?: Omit<
-    UseMutationOptions<Response["data"], Response["error"], Init, TOnMutateResult>,
+    UseMutationOptions<Response["data"], QueryError<Response["error"]>, Init, TOnMutateResult>,
     "mutationKey" | "mutationFn"
   >,
   queryClient?: QueryClient,
-) => UseMutationResult<Response["data"], Response["error"], Init, TOnMutateResult>;
+) => UseMutationResult<Response["data"], QueryError<Response["error"]>, Init, TOnMutateResult>;
 
 export interface OpenapiQueryClient<Paths extends {}, Media extends MediaType = MediaType> {
   queryOptions: QueryOptionsFunction<Paths, Media>;
@@ -315,14 +337,35 @@ export type MethodResponse<
     ? NonNullable<FetchResponse<Paths[Path][Method], Options, Media>["data"]>
     : never;
 
+/** The `name` of every `ResponseError`. */
+const RESPONSE_ERROR_NAME = "ResponseError";
+
+/** The `ResponseError` of a failed response without an error body. */
+class ResponseWithoutErrorBody extends Error implements ResponseError {
+  override readonly name = RESPONSE_ERROR_NAME;
+  readonly response: Response;
+  readonly status: number;
+
+  constructor(response: Response) {
+    const statusText = response.statusText ? ` ${response.statusText}` : "";
+    super(`Request failed with status ${response.status}${statusText} and no error body`);
+    this.response = response;
+    this.status = response.status;
+  }
+}
+
 /**
  * Throw the error of a failed fetch result. `if (error)` missed two failures: a non-OK response
  * with an empty body (`error` is `undefined`, upstream #2070, #2829) and a falsy error body such as
- * `0`.
+ * `0`. Without an error body a `ResponseError` is thrown, so the hooks' `error` is never
+ * `undefined` (ADR-013, decision 3).
  */
 function throwIfFailed(result: { error?: unknown; response: Response }): void {
-  if (result.error !== undefined || !result.response.ok) {
+  if (result.error !== undefined) {
     throw result.error;
+  }
+  if (!result.response.ok) {
+    throw new ResponseWithoutErrorBody(result.response);
   }
 }
 

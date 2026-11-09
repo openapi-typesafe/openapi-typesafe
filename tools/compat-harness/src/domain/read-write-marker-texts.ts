@@ -26,8 +26,8 @@ export const FIXED_READ_WRITE_TYPES = lines(
   "type ReadWritePrimitive = string | number | boolean | bigint | symbol | null | " + "undefined;",
   "type ReadWriteLeaf = ReadWritePrimitive | ((...args: never) => unknown);",
   "type ReadWriteMarkedKeys<T, Marker> = {",
-  "    [K in keyof T]-?: NonNullable<T[K]> extends never ? never : NonNullable<T[K]> " +
-    "extends Marker ? K : never;",
+  "    [K in keyof T]-?: 0 extends 1 & T[K] ? never : NonNullable<T[K]> extends never ? never : " +
+    "NonNullable<T[K]> extends Marker ? K : never;",
   "}[keyof T];",
   'type ReadWriteResolveArray<T extends readonly unknown[], Resolved extends "read" | ' +
     '"write"> = T[number][] extends T ? T extends unknown[] ? ' +

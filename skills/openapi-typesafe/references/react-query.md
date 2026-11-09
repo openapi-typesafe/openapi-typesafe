@@ -90,12 +90,13 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
 ## Errors
 
 A query or mutation fails on every non-OK response, also one without a body. The thrown value
-is the typed error body of the operation, or `undefined` when the response had no body. So in
-the hook result:
+is the typed error body of the operation, or a `ResponseError` (`name: "ResponseError"`,
+`status`, `response`) when the response had no error body. So in the hook result:
 
-- check `isError` / `status === "error"`, not only `error`;
-- `error` is the error body type (for example `{ code: string; message: string }`), not an
-  `Error`; do not read `error.message` unless the document defines it;
+- `error` is set whenever the query failed; `if (error)` and `isError` agree;
+- its type is the error body type (for example `{ code: string; message: string }`) or
+  `ResponseError`; narrow with `error instanceof Error` before you read a field of the body;
+- `ResponseError` is a type only (`import type`), not a class to import;
 - network errors and aborts reject as usual.
 
 A `204` success gives `data: null` in queries.
@@ -107,7 +108,7 @@ A `204` success gives `data: null` in queries.
 | `$api.useQuery("GET", ...)` | Lower-case method: `"get"` |
 | `$api.useQuery("get", "/pets/{petId}", { petId })` | `{ params: { path: { petId } } }` |
 | `useMutation(...).mutate(pet)` | `mutate({ body: pet })` |
-| `if (error)` to detect failure | `if (isError)`; `error` is `undefined` for an empty error body |
-| `error.message` on a typed error body | Use the fields the document defines, or `response`-level handling in middleware |
+| `error.code` without narrowing | `if (error instanceof Error)` first: a failure without an error body is a `ResponseError` |
+| `error.message` on a typed error body | Use the fields the document defines; `message` is the `ResponseError`'s only when `error instanceof Error` |
 | Wrapping `fetchClient.GET` in `useQuery` by hand | Use `$api.useQuery` or `$api.queryOptions`; they set the key, the signal and the error handling |
 | Middleware registered on `$api` | Register it on the fetch client: `fetchClient.use(...)` |

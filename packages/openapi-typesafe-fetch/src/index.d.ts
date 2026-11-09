@@ -13,6 +13,11 @@ import type {
   Writable,
 } from "openapi-typesafe-helpers";
 
+// Types inferred from the client print helper types. A library built with `declaration: true`
+// under pnpm or Yarn PnP does not depend on the helpers package, so TypeScript names them through
+// this one; without the re-export it fails with TS2742 (ADR-034).
+export type * from "openapi-typesafe-helpers";
+
 /** Options for each client instance */
 export interface ClientOptions extends Omit<RequestInit, "headers"> {
   /** set the common root URL for all API requests */
@@ -147,7 +152,17 @@ export type RequestBodyOption<T> =
         ? { body?: Writable<OperationRequestBodyContent<T>> }
         : { body: Writable<OperationRequestBodyContent<T>> };
 
-export type FetchOptions<T> = RequestOptions<T> & Omit<RequestInit, "body" | "headers">;
+/**
+ * The init of a call to the operation `T`; for a union of operations, the union of their inits. It
+ * distributes so that the client's init type and a wrapper's `FetchOptions` of a generic path are
+ * the same type, which TypeScript can relate: an alias that distributed only inside the client
+ * gave a conditional type no `FetchOptions` argument was assignable to (TS2345). The operations
+ * of a union are not merged into one deep init type, which gave TS2589 on hundreds of paths
+ * (upstream #1882).
+ */
+export type FetchOptions<T> = T extends unknown
+  ? RequestOptions<T> & Omit<RequestInit, "body" | "headers">
+  : never;
 
 // Readable<T> strips $Write markers (writeOnly properties excluded from response)
 export type FetchResponse<
@@ -254,19 +269,16 @@ export type MaybeOptionalInit<Params, Location extends PropertyKey> = OperationI
  * One conditional type, as openapi-fetch's, not a union with a conditional `undefined`: while the
  * operation is generic, a union made `FetchResponse` distribute over its members, so the `data` of
  * a generic wrapper's call no longer related to `FetchResponse<Paths[Path][Method], Init, Media>`.
+ * Its check type is not a type parameter, so TypeScript takes a `FetchOptions` of a generic path
+ * for it when that type fits both branches. `FetchOptions` itself makes one init per operation:
+ * while the path is generic it stays an alias, not an `infer` type, which TypeScript reads as
+ * `unknown`, so the init stays the contextual type of an argument and a literal such as
+ * `"available"` keeps its type (swr-openapi's `Exact<Init>` checks).
  */
 type OperationInits<Operation> =
-  RequiredKeysOf<OperationFetchOptions<Operation>> extends never
-    ? OperationFetchOptions<Operation> | undefined
-    : OperationFetchOptions<Operation>;
-
-/**
- * Each operation's init. A distributive alias, not `extends infer Operation`: while the path is
- * not known, TypeScript reads an `infer` type as `unknown`, so the init lost its type as the
- * contextual type of an argument and a literal such as `"available"` widened to `string`
- * (swr-openapi's `Exact<Init>` checks).
- */
-type OperationFetchOptions<Operation> = Operation extends unknown ? FetchOptions<Operation> : never;
+  RequiredKeysOf<FetchOptions<Operation>> extends never
+    ? FetchOptions<Operation> | undefined
+    : FetchOptions<Operation>;
 
 // The final init param to accept.
 // - Determines if the param is optional or not.
@@ -294,10 +306,18 @@ type WithAnyKeys<Init> = Init & { [key: string]: unknown };
  * adds none.
  */
 export type PathOperation<Paths, Path, Method> = Extract<
-  FilterKeys<Paths[Path & keyof Paths], Method>,
+  FilterKeys<PathItem<Paths, Path>, Method>,
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   Record<string | number, any>
 >;
+
+/**
+ * The path item of each path of `Path`. Not `Paths[Path & keyof Paths]`: with template keys
+ * (`--path-params-as-types`), `/apps/${string}` intersected with the keys is every key it
+ * overlaps, such as `/apps/${string}/logs/${number}`, so a call to one path got the responses of
+ * the others too once the responses distribute over the operations.
+ */
+type PathItem<Paths, Path> = Path extends keyof Paths ? Paths[Path] : never;
 
 export type ClientMethod<Paths extends {}, Method extends HttpMethod, Media extends MediaType> = <
   Path extends PathsWithMethod<Paths, Method>,

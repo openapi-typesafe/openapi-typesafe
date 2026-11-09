@@ -133,6 +133,32 @@ minor release, with a changeset that says so, until it is declared final (at the
 The output of documents without these keys stays covered by decision 1. This is the only
 experimental part of 1.x; a new one needs its own ADR.
 
+## Amendment (2026-11-09): the client exports the helper types
+
+The type hunt before rc.4 (T5) found that a library built with `declaration: true` under pnpm or
+Yarn PnP failed with TS2742 on hooks and generic wrappers: their inferred types print helper types
+such as `FilterKeys`, and `openapi-typesafe-helpers` is a dependency of the client and the hooks,
+not of the library, so TypeScript found no specifier for it. openapi-fetch 0.17 and
+openapi-react-query 0.5.4 fail the same way for the hooks.
+
+1. `openapi-typesafe-fetch` re-exports every type of `openapi-typesafe-helpers`
+   (`export type * from`). TypeScript then names them as `import("openapi-typesafe-fetch").…`. The
+   names are covered by decision 1 as the client's own exports are; a name the client declares
+   itself wins, and none is shared today.
+2. The hooks do not re-export them: `openapi-typesafe-fetch` is a peer dependency of
+   `openapi-typesafe-react-query`, so every library that uses the hooks has it, and TypeScript names
+   the helper types of a hook through it. One set of names stays one place to look.
+3. `test/exports/portable-declarations.test.ts` (fetch) and `test/portable-declarations.test.ts`
+   (react-query) emit the declarations of a consumer with the packages in pnpm's layout and fail on
+   any diagnostic.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Re-export the helper types from the client (chosen) | Fixes every inferred type, also of the hooks; one line | Many more exported names in the client |
+| Also re-export them from the hooks | The hooks need no peer to name them | The same names in two packages; the peer is required anyway |
+| Write the types so that they print only the client's names | No new exports | Every helper type would need a copy in the client; a type the compiler expands still prints helpers |
+| Tell users to add `openapi-typesafe-helpers` to their dependencies | No change | A dependency only to name types; the error does not say so |
+
 ## Review trigger
 
 A user reports a deep upstream path that no longer resolves, a change that this ADR classifies

@@ -51,8 +51,8 @@ export const HELPER_TYPES = {
 /**
  * The `--read-write-markers` helper types, written before the root types. Task 7.6 replaces the
  * original text on purpose (ADR-014): primitives (also branded), readonly arrays, tuples,
- * intersected arrays and null-only properties keep their types (upstream #2615, #2620, #2632,
- * #2717, #2765). The declarations equal `Readable` / `Writable` of openapi-typesafe-helpers
+ * intersected arrays, null-only and `any` properties keep their types (upstream #2615, #2620,
+ * #2632, #2717, #2765). The declarations equal `Readable` / `Writable` of openapi-typesafe-helpers
  * (`test/api/read-write-marker-types.test.ts`); the text is what the TypeScript printer prints.
  */
 export const READ_WRITE_MARKER_TYPES = lines(
@@ -65,8 +65,8 @@ export const READ_WRITE_MARKER_TYPES = lines(
   "type ReadWritePrimitive = string | number | boolean | bigint | symbol | null | undefined;",
   "type ReadWriteLeaf = ReadWritePrimitive | ((...args: never) => unknown);",
   "type ReadWriteMarkedKeys<T, Marker> = {",
-  "    [K in keyof T]-?: NonNullable<T[K]> extends never ? never : NonNullable<T[K]> " +
-    "extends Marker ? K : never;",
+  "    [K in keyof T]-?: 0 extends 1 & T[K] ? never : NonNullable<T[K]> extends never ? never : " +
+    "NonNullable<T[K]> extends Marker ? K : never;",
   "}[keyof T];",
   'type ReadWriteResolveArray<T extends readonly unknown[], Resolved extends "read" | ' +
     '"write"> = T[number][] extends T ? T extends unknown[] ? ReadWriteResolve<T[number], ' +

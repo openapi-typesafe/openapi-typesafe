@@ -204,7 +204,7 @@ aliased to `openapi-typesafe-fetch` with `overrides` (npm, bun, `pnpm-workspace.
 
 - A string body with a non-JSON `Content-Type` such as `text/plain` is sent as is, not JSON-encoded. A JSON `Content-Type` is `application/json` or a `+json` type; line-based JSON formats such as `application/x-ndjson`, `application/jsonl` and `application/json-seq` send a string body as is too.
 - A path parameter that makes a `.` or `..` segment is rejected before the request is sent.
-- openapi-typesafe-react-query fails on every non-OK response, also one without a body.
+- openapi-typesafe-react-query fails on every non-OK response, also one without a body. Without an error body it throws a `ResponseError` (`status`, `response`), so the hooks' `error` type is the error body or `ResponseError`: narrow with `error instanceof Error` before you read a field of the body. See [Errors](/react-query/#errors).
 - Middleware request ids come from a counter instead of `Math.random()`.
 - A path that starts with `//` once the path parameters are in (an empty first parameter) is rejected before the request is sent, since a browser sends it to another host.
 - An error response with an empty body gives `error: undefined`, also without `Content-Length`; it gave `""`.
@@ -220,5 +220,10 @@ aliased to `openapi-typesafe-fetch` with `overrides` (npm, bun, `pnpm-workspace.
 - A success body that is not JSON (for example a proxy's HTML page) throws a `SyntaxError` that names the status, the `Content-Type` and the length of the body (not its text, which can hold a secret) and says which `parseAs` to set (`parseAs: "text"` for a `text/*` response), with the parser's error as `cause`; before, it was the parser's bare `SyntaxError`. Bodies are still parsed as JSON unless `parseAs` is set, as in openapi-fetch. See [response body](/fetch/api#response-body).
 - `TRACE()` is unchanged, and its platform differences are documented: browsers, Node.js and Deno reject it, Bun sends it and returns an empty body. See [TRACE](/fetch/api#trace).
 - `Readable` and `Writable` keep function types, so a `Blob` or `Date` in response data keeps its methods (`data.file.arrayBuffer()`).
+- `Readable` and `Writable` keep properties typed `any`; `Writable` typed them `undefined`.
+- A call with a union of paths types `data` and `error` as the union of each path's types. `FetchOptions` of a union of operations is the union of their inits.
+- A call whose method is typed `HttpMethod` (`client.request(method as HttpMethod, path)`, or `Parameters<typeof client.request>`) accepts every path that has some method, as `PathsWithMethod<Paths, HttpMethod>` now means (upstream [#2178](https://github.com/openapi-ts/openapi-typescript/issues/2178)). The method is not checked against the path then; pass the method as a literal type to have it checked.
+- `Client<paths>` has a `QUERY()` method for OpenAPI 3.2. An object you write by hand with the type `Client<paths>`, such as a fake client in tests, needs a `QUERY` member too, or TypeScript fails with TS2741.
+- The client re-exports every type of `openapi-typesafe-helpers`, so a library built with `declaration: true` under pnpm or Yarn PnP no longer fails with TS2742 on inferred client and hook types.
 
 The full list, with the upstream issues each change closes, is in the [changelog](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/packages/openapi-typesafe/CHANGELOG.md).

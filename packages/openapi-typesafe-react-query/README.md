@@ -56,6 +56,14 @@ const MyComponent = () => {
 
 > You can find more information about `createFetchClient` in the [openapi-typesafe-fetch documentation](../openapi-typesafe-fetch).
 
+## Errors
+
+`error` is the error body that the schema declares, or a `ResponseError` (a type: narrow with
+`error instanceof Error`) when the response failed without a body, such as an empty `503` from a
+proxy. It carries `status` and `response`. openapi-react-query did not see such a failure: a
+mutation succeeded, and a query failed with TanStack's `Query data cannot be undefined`. See
+[Errors](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/react-query/index.md#errors).
+
 ## Migrating from openapi-react-query
 
 ```diff
