@@ -95,9 +95,9 @@ export type QuerySerializerOptions = {
    */
   array?: {
     /** default: "form" */
-    style: "form" | "spaceDelimited" | "pipeDelimited";
+    style?: "form" | "spaceDelimited" | "pipeDelimited";
     /** default: true */
-    explode: boolean;
+    explode?: boolean;
   };
   /**
    * Set serialization for objects.
@@ -105,9 +105,9 @@ export type QuerySerializerOptions = {
    */
   object?: {
     /** default: "deepObject" */
-    style: "form" | "deepObject";
+    style?: "form" | "deepObject";
     /** default: true */
-    explode: boolean;
+    explode?: boolean;
   };
   /**
    * The `allowReserved` keyword specifies whether the reserved characters

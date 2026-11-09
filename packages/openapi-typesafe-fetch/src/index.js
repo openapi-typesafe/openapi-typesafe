@@ -259,7 +259,7 @@ export default function createClient(clientOptions) {
                   break;
                 }
 
-                if (result instanceof Error) {
+                if (isError(result)) {
                   errorAfterMiddleware = result;
                   continue;
                 }
@@ -741,22 +741,23 @@ export function serializeArrayParam(name, value, options) {
   return values.length ? joinExploded(values, options.style) : "";
 }
 
-/** One query parameter with the default styles: `form` arrays, `deepObject` objects. */
+/**
+ * One query parameter with the default styles: exploded `form` arrays and `deepObject` objects.
+ * `style` and `explode` are optional, and one left out or `undefined` takes its default.
+ */
 function serializeQueryParam(name, value, options) {
   const allowReserved = options?.allowReserved || false;
   if (Array.isArray(value)) {
     return serializeArrayParam(name, value, {
-      style: "form",
-      explode: true,
-      ...options?.array,
+      style: options?.array?.style ?? "form",
+      explode: options?.array?.explode ?? true,
       allowReserved,
     });
   }
   if (value && typeof value === "object" && !isDate(value)) {
     return serializeObjectParam(name, value, {
-      style: "deepObject",
-      explode: true,
-      ...options?.object,
+      style: options?.object?.style ?? "deepObject",
+      explode: options?.object?.explode ?? true,
       allowReserved,
     });
   }
@@ -869,6 +870,15 @@ function checkSerializedPath(template, url) {
  */
 function typeTag(value) {
   return Object.prototype.toString.call(value).slice(TYPE_TAG_START, TYPE_TAG_END);
+}
+
+/**
+ * An `Error` of any realm: an Error of another realm (an iframe, `node:vm`) has the type tag
+ * `Error` but fails `instanceof`. A `DOMException` of this realm, which has its own tag, still
+ * counts by `instanceof`.
+ */
+function isError(value) {
+  return value instanceof Error || typeTag(value) === "Error";
 }
 
 function isFormData(value) {

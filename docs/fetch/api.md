@@ -176,8 +176,8 @@ openapi-typesafe-fetch ships the common serialization methods out-of-the-box:
 
 | Option          |       Type        | Description                                                                                                                                                    |
 | :-------------- | :---------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`.        |
-| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`. |
+| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`; each one left out takes its default. |
+| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`; each one left out takes its default. |
 | `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding of values (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`. |
 
 ```ts
@@ -496,7 +496,7 @@ Each middleware callback can return:
 
 - **onRequest**: A `Request` to modify the request, a `Response` to short-circuit the middleware chain, or `undefined` to leave request untouched (skip)
 - **onResponse**: Either a `Response` to modify the response, or `undefined` to leave it untouched (skip)
-- **onError**: Either an `Error` to modify the error that is thrown, a `Response` which means that the `fetch` call will proceed as successful, or `undefined` to leave the error untouched (skip)
+- **onError**: Either an `Error` (of any realm) to modify the error that is thrown, a `Response` which means that the `fetch` call will proceed as successful, or `undefined` to leave the error untouched (skip)
 
 A `Request` is recognized by its `method`, `url` and `headers`, a `Response` by its `ok`, `status`,
 `headers` and `text()`, not by its class. So one from the `undici` package, from another realm (an
