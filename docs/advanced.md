@@ -110,7 +110,7 @@ Instead, treat “consistency” in a more holistic sense, recognizing that pres
 
 Enable `compilerOptions.noUncheckedIndexedAccess` in TSConfig ([docs](https://www.typescriptlang.org/tsconfig#noUncheckedIndexedAccess)) so any `additionalProperties` key will be typed as `T | undefined`.
 
-The default behavior of [Additional Properties](https://swagger.io/docs/specification/data-models/dictionaries/) (dictionaries) will generate a type of `Record<string, T>`, which can very easily produce null reference errors. TypeScript lets you access any arbitrary key without checking it exists first, so it won’t save you from typos or the event a key is just missing.
+The default behavior of [Additional Properties](https://swagger.io/docs/specification/data-models/dictionaries/) (dictionaries) will generate an index signature, `{ [key: string]: T; }`, which can very easily produce null reference errors. TypeScript lets you access any arbitrary key without checking it exists first, so it won’t save you from typos or the event a key is just missing.
 
 ### Be specific in your schema
 
@@ -159,7 +159,7 @@ additionalProperties: true
       <td>
 
 ```ts
-Record<string, unknown>;
+{ [key: string]: unknown; }
 ```
 
 </td>
@@ -180,7 +180,7 @@ additionalProperties:
       <td>
 
 ```ts
-Record<string, string>;
+{ [key: string]: string; }
 ```
 
 </td>
