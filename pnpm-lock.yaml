@@ -440,9 +440,9 @@ importers:
         specifier: ^3.5.44
         version: 3.5.45(typescript@6.0.3)
     devDependencies:
-      '@tsconfig/node20':
-        specifier: ^20.1.9
-        version: 20.1.10
+      '@tsconfig/node22':
+        specifier: ^22.0.6
+        version: 22.0.6
       '@vitejs/plugin-vue':
         specifier: ^6.0.10
         version: 6.0.10(vite@8.3.5(@types/node@22.20.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.45(typescript@6.0.3))
@@ -1972,8 +1972,8 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@tsconfig/node20@20.1.10':
-    resolution: {integrity: sha512-5OZgdnxbFuvwm05iVwPXMU5/7iPuVDDZzAnxPDLj+kjN7fwQZSSVgHQhKTNkBPOO6Qef2D5MxPAoPLCGqE2VuQ==}
+  '@tsconfig/node22@22.0.6':
+    resolution: {integrity: sha512-/5thavHAnWDZwH2H6eEn/T8pBEBhtuKaWGMslsj82kJfvzQgOgEMK7X4goBbIUjgVtAzPTtM9Ml64LA0uxO6Iw==}
 
   '@turbo/darwin-64@2.11.10':
     resolution: {integrity: sha512-By4idRap5+nLnMuRzLB4qkOPRlvNdyY1ne4VJYDyUoUB11H94k7uif9mbe3JT8JSNXs1D68uMcBj6hJ/jMQRvA==}
@@ -6364,7 +6364,7 @@ snapshots:
       '@types/react': 19.3.0
       '@types/react-dom': 19.3.0(@types/react@19.3.0)
 
-  '@tsconfig/node20@20.1.10': {}
+  '@tsconfig/node22@22.0.6': {}
 
   '@turbo/darwin-64@2.11.10':
     optional: true
