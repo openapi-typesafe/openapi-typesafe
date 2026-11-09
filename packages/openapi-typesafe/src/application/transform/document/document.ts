@@ -20,10 +20,10 @@ import { apiPathsEnumDeclaration } from "./paths-enum.js";
 import { webhooksType } from "./webhooks.js";
 
 /** The root types, in output order. */
-const ROOT_KEYS = Object.freeze(["paths", "webhooks", "components", "$defs"] as const);
+export const ROOT_KEYS = Object.freeze(["paths", "webhooks", "components", "$defs"] as const);
 type RootKey = (typeof ROOT_KEYS)[number];
 
-const OPERATIONS_NAME = "operations";
+export const OPERATIONS_NAME = "operations";
 /** The type of a root without members: `Record<string, never>`. */
 const EMPTY_ROOT_TYPE = irRecord(irKeyword("string"), irKeyword("never"));
 

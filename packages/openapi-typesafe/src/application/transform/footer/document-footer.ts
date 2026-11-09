@@ -12,6 +12,7 @@ import type {
   EnumValuesRequest,
 } from "../schema/schema-context.js";
 import type { DocumentFooter } from "../transform-context.js";
+import { EnumNameClaims } from "./enum-name-claims.js";
 import {
   type DeclaredMembers,
   EnumNaming,
@@ -62,6 +63,11 @@ function declarationKey(name: string, request: EnumDeclarationRequest): string {
   return JSON.stringify([name, request.values, request.metadata]);
 }
 
+/** The naming state a run's footer shares with the rest of the run. */
+export interface RunFooterNames {
+  readonly enums: EnumNameClaims;
+}
+
 /**
  * The footer of one run: enums (deduplicated with `--dedupe-enums`), `--enum-values` arrays, the
  * helper types they need, and the `operations` interface. Replaces the original's module-level
@@ -83,15 +89,18 @@ export class RunFooter implements DocumentFooter {
   private readonly sink: FooterSink;
   private readonly isDedupingEnums: boolean;
   private readonly sharedNames: SharedEnumNames;
+  private readonly names: RunFooterNames;
 
   constructor(
     sink: FooterSink,
     isDedupingEnums: boolean,
     sharedNames: SharedEnumNames = FIRST_SCHEMA_NAMES,
+    names: RunFooterNames = { enums: new EnumNameClaims() },
   ) {
     this.sink = sink;
     this.isDedupingEnums = isDedupingEnums;
     this.sharedNames = sharedNames;
+    this.names = names;
   }
 
   addEnum(request: EnumDeclarationRequest): string {
@@ -99,11 +108,13 @@ export class RunFooter implements DocumentFooter {
     const ownName = this.naming.enumName(request.name);
     const key = this.isDedupingEnums ? dedupeKey(request) : null;
     // Every schema of a shared enum goes to `sharedNames`, the later ones too.
-    const name = key === null ? ownName : this.sharedNames.nameOf(key, ownName, request);
+    const sharedName = key === null ? ownName : this.sharedNames.nameOf(key, ownName, request);
     const known = key === null ? undefined : this.enumNamesByKey.get(key);
     if (known !== undefined) {
       return known;
     }
+    // The owner is the schema location: its requests share one enum, with `--dedupe-enums` too.
+    const name = this.names.enums.nameFor(sharedName, request.name);
     // Only a repeated member fails to compile; two empty declarations merge, so they stay.
     const declared = request.values.length > 0 ? declarationKey(name, request) : null;
     if (declared !== null && this.declaredEnums.has(declared)) {

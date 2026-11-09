@@ -11,6 +11,7 @@ import originalFooter from "./original/footer.js";
 import {
   hasDuplicateEnumMembers,
   hasRedeclaredConstArrays,
+  hasRepeatedEnumDeclarations,
   hasRepeatedParametersIndex,
   hasUnquotedExtractProbe,
   RUNS,
@@ -93,6 +94,7 @@ describe("footer parity", () => {
         fc.property(input, (value) => {
           const expected = run(originalFooter, value);
           fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
+          fc.pre(!hasRepeatedEnumDeclarations(expected));
           fc.pre(!hasRepeatedParametersIndex(expected));
           fc.pre(!hasUnquotedExtractProbe(expected));
           expect(run((ctx) => createTransformContext(ctx).footer, value)).toBe(expected);

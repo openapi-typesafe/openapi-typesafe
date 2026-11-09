@@ -461,6 +461,17 @@ export function hasDuplicateEnumMembers(output: string): boolean {
   return [...membersByEnum.values()].some((names) => new Set(names).size !== names.length);
 }
 
+/**
+ * Whether the original output declares one enum name twice. TypeScript merges the declarations,
+ * so the enums of two schemas whose names come out the same (`status`, `Status`) accepted the
+ * values of each other. The new generator numbers the later schema's enum (`Status_2`); the
+ * requests of one schema location still share one enum (enum-name-claims.test.ts).
+ */
+export function hasRepeatedEnumDeclarations(output: string): boolean {
+  const names = [...output.matchAll(ENUM_BLOCK_RE)].map((match) => match[1] ?? "");
+  return new Set(names).size !== names.length;
+}
+
 const REPEATED_PARAMETERS_RE =
   /^export const \S+: ReadonlyArray<(?:Extract<)*FlattenedDeepRequired<(?:paths>|webhooks>|components>\["pathItems"\])\["[^"]*"\]\["parameters"\]\["parameters"\]/m;
 
