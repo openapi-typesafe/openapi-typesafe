@@ -70,7 +70,7 @@ export interface OpenAPITSBaseOptions {
    * still fail the run.
    */
   lint?: boolean;
-  /** (optional) Should logging be suppressed? (necessary for STDOUT) */
+  /** Hide warnings (default: false). Every line of the logger goes to stderr, never to stdout. */
   silent?: boolean;
   /** Accepted for compatibility with openapi-typescript; not read. */
   version?: number;

@@ -205,6 +205,32 @@ describe("CLI", () => {
     );
   });
 
+  describe("stdout and stderr", () => {
+    const duplicateOperationIds = [
+      "openapi: 3.1.0",
+      'info: { title: t, version: "1" }',
+      "paths:",
+      '  /a: { get: { operationId: same, responses: { "204": { description: none } } } }',
+      '  /b: { get: { operationId: same, responses: { "204": { description: none } } } }',
+    ].join("\n");
+
+    test("types on stdout keep their warnings, on stderr (#42)", async () => {
+      const { stdout, stderr } = await execa(cmd, [], { cwd, input: duplicateOperationIds });
+
+      expect(stripAnsi(stderr)).toContain("(LINT_PROBLEM)");
+      expect(stdout).not.toContain("LINT_PROBLEM");
+      expect(stdout).toContain("export interface paths");
+    });
+
+    test("debug lines go to stderr, not into the types on stdout", async () => {
+      const env = { DEBUG: "openapi-ts:*" };
+      const { stdout, stderr } = await execa(cmd, [], { cwd, env, input: duplicateOperationIds });
+
+      expect(stripAnsi(stderr)).toContain("openapi-ts:lint");
+      expect(stdout).not.toContain("openapi-ts:");
+    });
+  });
+
   describe("Redocly config", () => {
     test.skipIf(os.platform() === "win32")("automatic config", async () => {
       const cwd = new URL("./fixtures/redocly/", import.meta.url);

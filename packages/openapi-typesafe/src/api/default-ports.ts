@@ -3,7 +3,10 @@ import { createConfig, type Config as RedoclyConfig } from "@redocly/openapi-cor
 import supportsColor from "supports-color";
 import { createNodeDeprecationReporter } from "../adapters/node-deprecations/node-deprecations.js";
 import type { RemoteDocumentLimits } from "../adapters/redocly-loader/remote-fetch.js";
-import { createTerminalLogger } from "../adapters/terminal-logger/terminal-logger.js";
+import {
+  createTerminalLogger,
+  type TerminalSink,
+} from "../adapters/terminal-logger/terminal-logger.js";
 import type { DeprecationReporter } from "../application/ports/deprecation-reporter.js";
 import type { Logger } from "../application/ports/logger.js";
 
@@ -18,13 +21,26 @@ export function terminalSupportsColor(): boolean {
   return Boolean(stdout) && stdout !== false && stdout.hasBasic !== false;
 }
 
-/** The terminal logger with `DEBUG` from the environment, writing to the console. */
+/**
+ * Every line of the logger goes to stderr: the CLI writes the types to stdout, and `console.debug`
+ * writes there too, so debug lines would end up inside the generated file.
+ */
+const STDERR_SINK: TerminalSink = {
+  // biome-ignore lint/suspicious/noConsole: the terminal logger's own channel
+  debug: (line) => console.error(line),
+  // biome-ignore lint/suspicious/noConsole: the terminal logger's own channel
+  warn: (line) => console.warn(line),
+  // biome-ignore lint/suspicious/noConsole: the terminal logger's own channel
+  error: (line) => console.error(line),
+};
+
+/** The terminal logger with `DEBUG` from the environment, writing to stderr. */
 export function defaultLogger(silent: boolean): Logger {
   return createTerminalLogger({
     silent,
     debugFilter: process.env.DEBUG,
     useColors: terminalSupportsColor(),
-    sink: console,
+    sink: STDERR_SINK,
   });
 }
 

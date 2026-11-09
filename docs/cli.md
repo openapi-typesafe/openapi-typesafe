@@ -158,7 +158,7 @@ The following flags are supported in the CLI:
 
 ## Warnings
 
-A warning does not stop the run: the types are written and the exit code stays `0`. Every warning (a line that starts with `⚠`) ends with its code, as an error does. A warning from a Redocly lint rule also names the rule, so `redocly.yaml` can change its severity or turn it off; problems listed in a [lint ignore file](#redocly-config) are not printed. A notice about flags, such as `--root-types-keep-casing has no effect without --root-types flag` or `Unknown flag --x is ignored (see --help)`, has no `⚠` and no code.
+A warning does not stop the run: the types are written and the exit code stays `0`. Warnings, errors and [debug lines](./advanced.md#debugging) go to stderr, also when the types go to stdout (without `--output`), so they never mix with the types; openapi-typescript printed no warnings when it wrote to stdout, and its debug lines went to stdout. Every warning (a line that starts with `⚠`) ends with its code, as an error does. A warning from a Redocly lint rule also names the rule, so `redocly.yaml` can change its severity or turn it off; problems listed in a [lint ignore file](#redocly-config) are not printed. A notice about flags, such as `--root-types-keep-casing has no effect without --root-types flag` or `Unknown flag --x is ignored (see --help)`, has no `⚠` and no code.
 
 | Code | Meaning |
 | :--- | :------ |

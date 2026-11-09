@@ -52,7 +52,10 @@ function schemaSource(run: CliRun): SchemaSource {
   return run.deps.stdin();
 }
 
-/** One schema from a path, a URL or stdin; without `--output`, the types go to stdout only. */
+/**
+ * One schema from a path, a URL or stdin; without `--output`, the types go to stdout. Warnings and
+ * errors go to stderr either way, so they never mix with the types (upstream dropped warnings).
+ */
 async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promise<void> {
   const { input, output } = run.args;
   if (input?.includes("*")) {
@@ -76,7 +79,6 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
     ...refLimitOptions(run.args, run.deps.cwd),
     ...fixOption(run.args.fix),
     redocly,
-    silent: !output,
   };
   const types = await run.deps.generate(source, options);
   if (!outputFile) {

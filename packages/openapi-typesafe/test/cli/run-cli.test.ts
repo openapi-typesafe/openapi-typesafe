@@ -95,7 +95,7 @@ describe("runCli: help, version and flags", () => {
 });
 
 describe("runCli: one schema", () => {
-  it("runCli without --output writes the types to stdout, silently", async () => {
+  it("runCli without --output writes the types to stdout and keeps the warnings (#42)", async () => {
     const cli = createFakeCli();
 
     const exitCode = await runCli(["a.yaml", "--immutable"], cli.deps);
@@ -104,7 +104,8 @@ describe("runCli: one schema", () => {
     expect(cli.stdout).toEqual([`types of ${fakeUrl("/work/a.yaml")}`]);
     expect(cli.console.infoLines).toEqual([]);
     const options = cli.generator.calls[0]?.options;
-    expect(options).toMatchObject({ immutable: true, silent: true });
+    expect(options).toMatchObject({ immutable: true });
+    expect(options).not.toHaveProperty("silent");
     expect(options?.redocly).toBe(cli.redoclyConfigs.defaultConfig);
   });
 
@@ -115,7 +116,7 @@ describe("runCli: one schema", () => {
 
     expect(exitCode).toBe(0);
     expect(cli.generator.calls[0]?.source).toBe(cli.stdin);
-    expect(cli.generator.calls[0]?.options.silent).toBe(false);
+    expect(cli.generator.calls[0]?.options).not.toHaveProperty("silent");
     expect(cli.files.files.get(fakePath("/work/out/types.ts"))).toBe("types of stdin");
     expect(cli.console.infoLines).toEqual(["✨ *openapi-typesafe 1.2.3*", "🚀 stdin → *out/types.ts* [5ms]"]);
   });
