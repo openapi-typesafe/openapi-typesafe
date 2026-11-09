@@ -558,11 +558,17 @@ A refused `$ref` fails with `SCHEMA_REF_FORBIDDEN` (CLI exit code `3`); `err.det
 openapi-typesafe fails with a typed error (`err.code`, CLI exit code `3`) instead of crashing or
 hanging when a document reaches one of these limits.
 
-The limits on remote documents bound the memory they can make a run take. A run is not free:
-Microsoft Graph beta (71 MiB) peaks at about 1.6 GB of resident memory when loaded from a URL.
-Crafted remote documents that stay just under the limits (a 127 MiB string, two of them, or a
-dense array of almost 8 million objects) peak at about 1.2 to 1.7 GB in our measurements, on
-Node.js 26 and macOS. Local files are not limited: they are as large as you made them.
+The limits on remote documents count per schema: one `openapiTS()` call, the schema of one CLI
+run, or one API of a `redocly.yaml`. The CLI generates the APIs of a config one after another, so
+a config with several APIs takes the memory of its largest one. The limits bound the memory that
+remote documents can make a schema take, they do not make it small: Microsoft Graph beta
+(71 MiB) peaks at about 1.6 GB of resident memory when loaded from a URL. Crafted remote documents
+that stay just under the limits (a 127 MiB string, two of them, or a schema of almost 8 million
+nodes that the output uses) peak at about 1.2 to 2.3 GB in our measurements, on Node.js 26 and
+macOS with its default heap of 4 GB; the garbage collector takes more of the room it has. They
+also finish within a heap of 2 GB (`--max-old-space-size=2048`, about the default on a machine
+with 8 GB of memory), more slowly. Local files are not limited: they are as large as you made
+them.
 
 | Limit | What happens | Error code |
 | :-- | :-- | :-- |
@@ -571,10 +577,10 @@ Node.js 26 and macOS. Local files are not limited: they are as large as you made
 | A `$ref` that points at itself, or two `$ref`s that point at each other, with no schema in between | The cycle has no type | `SCHEMA_REF_INVALID` |
 | A key named `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `valueOf` or one of the `__define…` / `__lookup…` methods, where the schema loader reads keys, or a `constructor` entry whose value has a string `name` (a security scheme or header named `constructor`) | The schema loader (Redocly 1.x) cannot read it; the error lists every such key | `SCHEMA_KEY_UNSUPPORTED` |
 | YAML aliases (`*name`) that expand a file to more than 1,000,000 nodes and to more than 100 times its written size (a "billion laughs" document) | The file is refused right after parsing, before anything walks it | `SCHEMA_PARSE_FAILED` |
-| More than 10,000 remote documents in one run (each document that refers to new URLs, without end) | The next remote document is refused before it is fetched. At most 16 remote documents are fetched at the same time | `SCHEMA_REF_FORBIDDEN` (reason `too-many-remote-documents`) |
+| More than 10,000 remote documents for one schema (each document that refers to new URLs, without end) | The next remote document is refused before it is fetched. At most 16 remote documents are fetched at the same time | `SCHEMA_REF_FORBIDDEN` (reason `too-many-remote-documents`) |
 | A remote document whose body is larger than 128 MiB once decoded (`gzip`, `deflate` and `br` are decoded while it arrives, so a small compressed body cannot fill the memory) | The body is read as a stream and the fetch stops at the limit, before the document is parsed. A `customFetch` in your Redocly config is limited too. The largest real document we know (Microsoft Graph beta) is 71 MiB | `SCHEMA_REF_FORBIDDEN` (reason `remote-document-too-large`, `details.maxDocumentBytes`) |
-| Remote documents of one run larger than 256 MiB together, decoded | The fetch that passes the total stops | `SCHEMA_REF_FORBIDDEN` (reason `remote-documents-too-large`, `details.maxTotalBytes`) |
-| Remote documents of one run that parse into more than 8,000,000 nodes together (keys and values; a dense body such as `[{},{},…]` takes far more memory than its bytes) | The parser stops at the limit, before the rest of the document is built. Microsoft Graph beta parses into 2.65 million nodes | `SCHEMA_REF_FORBIDDEN` (reason `remote-documents-too-many-nodes`, `details.maxNodes`) |
+| Remote documents of one schema larger than 256 MiB together, decoded | The fetch that passes the total stops | `SCHEMA_REF_FORBIDDEN` (reason `remote-documents-too-large`, `details.maxTotalBytes`) |
+| Remote documents of one schema that parse into more than 8,000,000 nodes together (keys and values; a dense body such as `[{},{},…]` takes far more memory than its bytes) | The parser stops at the limit, before the rest of the document is built. Microsoft Graph beta parses into 2.65 million nodes | `SCHEMA_REF_FORBIDDEN` (reason `remote-documents-too-many-nodes`, `details.maxNodes`) |
 | A remote `$ref` or remote document that does not answer, or does not finish sending its body, within 60 seconds | The fetch stops. A request whose connection closes before any response (a kept-alive connection the server closed) is sent once more within the same 60 seconds. A `customFetch` in your Redocly config replaces this limit | `SCHEMA_INVALID` (a `$ref`) or `SCHEMA_LOAD_FAILED` (the document) |
 
 Cyclic schemas are fine when the cycle goes through an object property

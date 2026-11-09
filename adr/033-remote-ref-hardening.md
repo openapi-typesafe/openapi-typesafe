@@ -180,3 +180,51 @@ pushes them one by one.
 
 Review trigger: a real remote document larger than 128 MiB or with more than 8 million nodes, a
 Redocly upgrade (the parse rule is copied), or a measured peak above 2 GB within the limits.
+
+## Amendment (2026-11-09): the review at the 2 GB trigger
+
+The recheck of the round-2 hunt hit the trigger above. A remote schema of 7.8 million nodes that
+the output uses (39 objects of 100,000 properties each, 54 MiB of JSON) peaked at 2,121 MB through
+the Node API and 2,320 MB through the CLI. It also showed that the limits counted per load while
+the docs and T2 said "per run": the CLI generated the APIs of a `redocly.yaml` all at once, as
+openapi-typescript does, so two such APIs passed 10 million remote nodes in one run (2.4 GB), and
+the CPU work of a large API delayed the fetch of a small one until its 60-second limit ended it.
+
+Our own measurements of the same schema, on Node.js 26 and macOS, varied from 1,657 to 2,283 MB
+between runs with the default heap of 4 GB. With `--max-old-space-size=2048` (about the default
+heap on a machine with 8 GB of memory) the CLI generated two of these APIs and peaked at
+1,975 MB. So a peak above 2 GB is the garbage collector using the room it has, not memory the
+schema needs: the limits still end a remote document that would crash the process. Decisions:
+
+7. **The limits count per schema, and a run generates one schema at a time.** The CLI generates
+   the APIs of a config one after another, in the order of the config, and writes them at the
+   end as before (ADR-043). A run takes the memory of its largest API, plus the text of the
+   others until they are written, and no API holds up the fetches of another. The docs and T2
+   say "per schema".
+8. **The printed text is one flat string.** The text writer joined its parts with `+=`, and V8
+   keeps such a string as a tree of its parts until it is flattened: about six times the size of
+   the text. The CLI keeps each API's text until every API is generated, so the first of two
+   large APIs kept about 760 MB (six times its 127 million characters). The writer now collects
+   the parts and joins them once; with the two APIs above the run peaked at 2,172 MB, against
+   2,048 to 2,192 MB for one of them alone.
+9. **A request whose connection closed before any response is sent once more.** Generating one
+   API after another showed the next cost of CPU work: the server closed a kept-alive connection
+   while the process was busy, and the next request on it failed with `EPIPE`. RFC 9112 §9.3.1
+   allows a client to send an idempotent request again in that case, and browsers do. The
+   loader's own fetch sends a `GET` or `HEAD` once more, within the same 60-second signal, when
+   fetch fails with `ECONNRESET`, `EPIPE` or `UND_ERR_SOCKET` before a response; a second failure
+   is thrown. A `customFetch` of the Redocly config is not retried: it owns its connections.
+
+The byte and node limits stay: lowering them would buy back memory that a 2 GB heap does not
+need, and refuse documents three times smaller than now.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| One budget of remote bytes and nodes for all APIs of a run | The docs' "per run" becomes true | A config with several real APIs, each well under the limits, fails because of the others |
+| Generate the APIs one after another (chosen) | Memory of the largest API; no timeouts from another API's work | A config of many remote APIs takes the sum of their times, not the longest |
+| Lower the node limit to 6 million | Peaks under 1.8 GB | Refuses a document 2.3 times Graph beta for memory a 2 GB heap has |
+| Keep each API's text as UTF-8 bytes until written | Smallest possible held text | Decodes again to write and to check; fixes only the CLI, not `astToString` |
+| Retry every failed fetch with backoff | Covers more network errors | A refused connection or a DNS failure is an answer; retrying it only waits |
+
+Review trigger: a remote document within the limits that fails with "heap out of memory" in a
+heap of 2 GB, or a report of a config of many remote APIs that became too slow.

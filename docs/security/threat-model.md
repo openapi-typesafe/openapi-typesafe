@@ -60,20 +60,22 @@ the generator.
 - Controls: typed errors `SCHEMA_TOO_DEEP`, `SCHEMA_REF_INVALID`, `SCHEMA_KEY_UNSUPPORTED`; a
   60-second limit on every remote fetch, body included; the YAML parser stops at 100 levels; a
   YAML file whose aliases expand it more than 100 times past 1,000,000 nodes fails with
-  `SCHEMA_PARSE_FAILED`; at most 10,000 remote documents per run, fetched at most 16 at a time,
+  `SCHEMA_PARSE_FAILED`; at most 10,000 remote documents per schema (one API of a `redocly.yaml`, whose APIs are
+  generated one after another), fetched at most 16 at a time,
   so a document that keeps referring to new URLs ends with `SCHEMA_REF_FORBIDDEN` instead of
   sending requests until the local ports run out (ADR-033); remote bodies are read as a stream
   and counted after `gzip`, `deflate` or `br` is decoded, so a body larger than 128 MiB, or remote
-  documents larger than 256 MiB together in one run, end with `SCHEMA_REF_FORBIDDEN` (reasons
+  documents larger than 256 MiB together for one schema, end with `SCHEMA_REF_FORBIDDEN` (reasons
   `remote-document-too-large`, `remote-documents-too-large`) before a compressed "zip bomb" fills
   the memory, also through a `customFetch` of the Redocly config; the parser counts the nodes it
-  builds, and remote documents of one run that parse into more than 8,000,000 nodes together stop
+  builds, and remote documents of one schema that parse into more than 8,000,000 nodes together stop
   with `SCHEMA_REF_FORBIDDEN` (reason `remote-documents-too-many-nodes`), since a dense body takes
   far more memory than its bytes; path keys are scanned in linear time.
 - Residual risk: the limits bound the memory of remote documents, they do not make it small.
-  Documents just under them peak at about 1.7 GB of resident memory (measured; the largest real
-  document, Microsoft Graph beta, takes about 1.6 GB). Run untrusted documents in a process
-  whose memory limit you choose. Local files have no size limit.
+  Documents just under them peak at about 1.2 to 2.3 GB of resident memory with the default heap
+  of 4 GB, and finish within a heap of 2 GB (measured; the largest real document, Microsoft Graph
+  beta, takes about 1.6 GB). Run untrusted documents in a process whose memory limit you choose.
+  Local files have no size limit.
 - Tests: `test/defensive/`. Limits are listed in docs/advanced.md, "Limits".
 
 ### T3. Local file read through `$ref` — Controlled by an option (R1)
