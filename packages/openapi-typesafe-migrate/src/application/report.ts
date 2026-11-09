@@ -1,4 +1,5 @@
 import { assertNever } from "../domain/assert-never.js";
+import { terminalSafeText } from "../domain/terminal-text.js";
 import { manualStepMessage } from "./manual-step-messages.js";
 import {
   changeMessage,
@@ -69,6 +70,15 @@ function writeSection(write: WriteOutcome): string[] {
 }
 
 /**
+ * The report's lines as printed. A line quotes file names and text of the project, so each one is
+ * shown as one plain line: a line break or an escape sequence in a file name must not forge a CI
+ * command or erase the lines before it (terminal-text.ts).
+ */
+function printed(lines: readonly string[]): string {
+  return `${lines.map(terminalSafeText).join("\n")}\n`;
+}
+
+/**
  * The summary the command prints: changes per file, manual steps, skipped paths, what to do
  * next, and what was written.
  */
@@ -76,7 +86,7 @@ export function renderReport(migration: ProjectMigration): string {
   const reports = migration.files;
   const skipped = skippedSection(migration.skipped);
   if (reports.length === 0) {
-    return `${[...skipped, NOTHING_FOUND].join("\n")}\n`;
+    return printed([...skipped, NOTHING_FOUND]);
   }
   const lines = [
     ...changesSection(reports),
@@ -87,5 +97,5 @@ export function renderReport(migration: ProjectMigration): string {
     "",
     ...writeSection(migration.write),
   ];
-  return `${lines.join("\n")}\n`;
+  return printed(lines);
 }

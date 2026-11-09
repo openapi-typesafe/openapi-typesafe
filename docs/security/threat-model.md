@@ -101,7 +101,7 @@ This matters in CI and on servers that generate types from user-supplied documen
 
 - Control: `--remote-ref-hosts <hosts>` (`remoteRefHosts`) refuses a remote `$ref`, and each
   redirect, to a host that is not listed, with `SCHEMA_REF_FORBIDDEN`; `[]` refuses all
-  (ADR-017). It is off by default, as in openapi-typescript. A listed name is trusted: its address
+  (ADR-017). The root document, which the developer chose, and its redirects are not limited. It is off by default, as in openapi-typescript. A listed name is trusted: its address
   is not checked after DNS resolution.
 - Tests: `test/security/ref-access.test.ts`, `test/adapters/redocly-loader/ref-access.test.ts`.
 
@@ -129,10 +129,28 @@ token ended up in the job log.
   of every URL as `?***`, since it often holds an API key or a signature (`?api_key=…`); a
   location that does not parse as a URL is shown with everything up to its last `@` hidden, and a
   `$ref` with an uppercase scheme loads as a URL instead of a file path that showed it (ADR-033).
-  Header values from `redocly.yaml` are never printed.
+  A component the bundle names after a URL with a query is named without it, so the query never
+  reaches the generated file; the redaction of a `cause` walks its nested objects too; and the
+  CLI's line for a written file hides the secrets of its source URL. Header values from
+  `redocly.yaml` are never printed.
 - Tests: `test/domain/url-secrets.test.ts`, `test/domain/cause-secrets.test.ts`,
   `test/defensive/remote-refs.test.ts`, `test/cli/location-url.test.ts`,
+  `test/adapters/redocly-loader/query-named-components.test.ts`, `test/cli/run-cli.test.ts`,
   `test/adapters/terminal-logger/terminal-logger.test.ts`.
+
+### T4c. Forged CI commands and hidden lines in the output — Controlled
+
+A path key, an `operationId` or a file name of a project holds a line break or an escape
+sequence. Printed as it is, the line break starts a line that CI reads as a command (`::error …`
+in GitHub Actions, `##vso[…]` in Azure Pipelines), and the escape sequence erases the lines
+before it or moves the cursor.
+
+- Controls: the terminal logger of the generator and the report of the migration command show
+  every control character as an escape (`\n`, `\u001b`), so each message stays one line
+  (ADR-045). The generated file escapes text on its own (T1).
+- Tests: `test/domain/terminal-text.test.ts` in both packages,
+  `test/adapters/terminal-logger/terminal-logger.test.ts`, the migration's
+  `test/application/report.test.ts`.
 
 ### T5. Unsafe requests from the fetch client — Controlled
 

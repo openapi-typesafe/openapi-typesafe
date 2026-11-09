@@ -8,6 +8,7 @@ import type {
   SourceStringScanner,
 } from "../application/ports.js";
 import { renderReport } from "../application/report.js";
+import { terminalSafeText } from "../domain/terminal-text.js";
 import { type CliRequest, parseCliArguments } from "./cli-arguments.js";
 import { HELP_TEXT, logError, logNote, rootError, usageError } from "./cli-text.js";
 
@@ -104,7 +105,8 @@ async function runMigration(
   } catch (error) {
     const message = errorMessage(error);
     logger.warn("migration_failed", { root, message });
-    dependencies.writeStderr(`${message}\n`);
+    // The message of a failed read or parse quotes a file name or text of the project.
+    dependencies.writeStderr(`${terminalSafeText(message)}\n`);
     return EXIT_CODES.failure;
   } finally {
     dependencies.writeStdout(logNote(path));

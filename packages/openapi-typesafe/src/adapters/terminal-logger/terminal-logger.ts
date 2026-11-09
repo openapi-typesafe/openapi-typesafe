@@ -1,12 +1,18 @@
 import colors from "ansi-colors";
 import type { DebugGroup, Logger } from "../../application/ports/logger.js";
+import { terminalSafeText } from "../../domain/terminal-text.js";
 import { redactUrlSecrets } from "../../domain/url-secrets.js";
 
 /**
  * The Logger port on a terminal, with the original output format: ` ⚠  ` warnings, ` ✘  `
  * errors, and `openapi-ts:<group>` debug lines filtered by `DEBUG` (ENGINEERING_PLAN 4.5). No
- * line shows the user info of a URL.
+ * line shows the secrets of a URL, and each message prints as one line: a message quotes the
+ * document, whose control characters could forge CI commands (terminal-text.ts).
  */
+
+function shownText(message: string): string {
+  return terminalSafeText(redactUrlSecrets(message));
+}
 
 /** Where the lines go: `console` in production, a recording sink in tests. */
 export interface TerminalSink {
@@ -84,19 +90,19 @@ class TerminalLogger implements Logger {
     // The original wrote no space without a duration (`openapi-ts:lintIgnored …`).
     const time =
       durationMs === undefined ? " " : this.#palette.green(` ${formatDuration(durationMs)} `);
-    const text = redactUrlSecrets(message);
+    const text = shownText(message);
     this.#options.sink.debug(`  ${this.#palette.bold(name)}${time}${text}`);
   }
 
   warn(message: string): void {
     if (!this.#options.silent) {
-      this.#options.sink.warn(this.#palette.yellow(` ⚠  ${redactUrlSecrets(message)}`));
+      this.#options.sink.warn(this.#palette.yellow(` ⚠  ${shownText(message)}`));
     }
   }
 
   error(message: string): void {
     if (!this.#options.silent) {
-      this.#options.sink.error(this.#palette.red(` ✘  ${redactUrlSecrets(message)}`));
+      this.#options.sink.error(this.#palette.red(` ✘  ${shownText(message)}`));
     }
   }
 }

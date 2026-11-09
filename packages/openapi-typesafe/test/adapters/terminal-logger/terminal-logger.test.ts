@@ -146,3 +146,20 @@ describe("credentials in URLs", () => {
     expect(sink.lines).toHaveLength(3);
   });
 });
+
+describe("control characters", () => {
+  it("every line shows the control characters of its message as escapes", () => {
+    const { logger, sink } = loggerWith({ debugFilter: "*" });
+    const forged = "/a\n::error title=x::forged\u001b[2K";
+
+    logger.debug(`path ${forged}`, "ts");
+    logger.warn(`path ${forged}`);
+    logger.error(`path ${forged}`);
+
+    expect(sink.lines).toEqual([
+      "debug:  openapi-ts:ts path /a\\n::error title=x::forged\\u001b[2K",
+      "warn: ⚠  path /a\\n::error title=x::forged\\u001b[2K",
+      "error: ✘  path /a\\n::error title=x::forged\\u001b[2K",
+    ]);
+  });
+});
