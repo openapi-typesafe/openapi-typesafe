@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ClaimedFile } from "../../application/ports/file-system.js";
-import type { FileNumber } from "./file-identity.js";
+import { creationPath, type FileNumber, type PathQueries } from "./file-identity.js";
 
 /**
  * Claiming an output on Node's `fs` (ADR-043, decision 1): the file is opened for appending,
@@ -60,8 +60,9 @@ function removeDirectories(directories: readonly string[]): void {
       if (code === "ENOTEMPTY" || code === "EEXIST") {
         return;
       }
-      // Removed since: nothing to remove, but its parents may still be empty.
-      if (code !== "ENOENT") {
+      // Removed since: nothing to remove, but its parents may still be empty. Windows also gives
+      // ENOENT for a file put in its place, which must fail like any other path it cannot remove.
+      if (code !== "ENOENT" || fs.lstatSync(directory, { throwIfNoEntry: false }) !== undefined) {
         throw error;
       }
     }
@@ -69,15 +70,15 @@ function removeDirectories(directories: readonly string[]): void {
 }
 
 /**
- * Create `directory` and give the directories that this created, as real paths. The trailing
- * separator makes `mkdir` follow a link to a missing directory, as `writeText` does with its
- * directory URL; without it `mkdir` fails on the link itself. What it creates is the target of
- * such a link, so the new directories are the real paths of the missing ones.
+ * Create `directory` and give the directories that this created. Through a link to a missing
+ * directory it creates the link's target, as a write through the link would, so the path to
+ * create and the new directories are real paths, where links are already followed.
  */
-function createDirectory(directory: string): string[] {
-  const missing = missingDirectories(directory, fs.existsSync);
-  fs.mkdirSync(`${directory}${path.sep}`, { recursive: true });
-  return missing.map((created) => fs.realpathSync.native(created));
+function createDirectory(directory: string, queries: PathQueries): string[] {
+  const target = creationPath(directory, queries);
+  const missing = missingDirectories(target, fs.existsSync);
+  fs.mkdirSync(target, { recursive: true });
+  return missing;
 }
 
 /** Open `filePath` for appending, which creates it, and give its identity and whether it is new. */
@@ -97,8 +98,8 @@ function openClaim(filePath: string): { identity: string; createdFile: string | 
  * Claim the file at `filePath`; the caller turns a failure into a typed error. A claim that fails
  * after creating directories (a file name too long for the file system) removes them again.
  */
-export function claimFileAt(filePath: string): ClaimedFile {
-  const directories = createDirectory(path.dirname(filePath));
+export function claimFileAt(filePath: string, queries: PathQueries): ClaimedFile {
+  const directories = createDirectory(path.dirname(filePath), queries);
   let opened: ReturnType<typeof openClaim>;
   try {
     opened = openClaim(filePath);
@@ -119,8 +120,8 @@ export function claimFileAt(filePath: string): ClaimedFile {
 }
 
 /** Write `contents` to `filePath`, creating its directory; a failed write removes what it made. */
-export function writeFileAt(filePath: string, contents: string): void {
-  const directories = createDirectory(path.dirname(filePath));
+export function writeFileAt(filePath: string, contents: string, queries: PathQueries): void {
+  const directories = createDirectory(path.dirname(filePath), queries);
   try {
     fs.writeFileSync(filePath, contents, "utf8");
   } catch (error) {

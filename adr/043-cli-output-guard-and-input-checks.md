@@ -140,14 +140,16 @@ it is now a reference with a type argument, which prints the same text.
 The recheck of the amendments above found four gaps.
 
 - **A claim through a link to a missing directory failed.** `mkdir` with `recursive: true` fails
-  on the link itself; the single-output write had passed a directory URL, whose trailing
-  separator makes `mkdir` follow the link. Claims and writes now create the directory the same
-  way, with a trailing separator, and take the real paths of the directories they created, which
-  are the link's targets.
+  on the link itself. A trailing separator makes it follow the link on macOS only; Linux and
+  Windows still fail. Claims and writes now follow such links themselves, as the identity key
+  does, and create the real path of the target: `link/x.ts` with `link -> missing` creates
+  `missing`. The directories they created are then real paths, which a failed run removes.
 - **A failed claim kept the directories it created**, and so did a failed single-output write
   (a file name too long for the file system). Both now remove them, deepest first, as a released
   claim does. A directory that was removed since needs no removal, and its new parents are still
-  removed; any other failure to remove one fails the run with `OUTPUT_WRITE_FAILED`.
+  removed; any other failure to remove one fails the run with `OUTPUT_WRITE_FAILED`. Windows
+  reports a file put in place of the directory as missing too (ENOENT), so a path that still
+  exists is never taken as removed.
 - **Reference names that are TypeScript keywords passed.** `keyof`, `typeof`, `readonly`,
   `unique`, `infer` and `new` start a type operator where a type is expected, and `import`,
   `let`, `yield` and the strict-mode reserved words cannot start a type name. The first name of a

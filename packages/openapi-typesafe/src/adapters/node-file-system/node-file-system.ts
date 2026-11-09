@@ -121,14 +121,14 @@ class NodeFileSystem implements FileReader, FileWriter, FileIdentity, DirectoryC
 
   writeText(file: URL, contents: string): void {
     try {
-      writeFileAt(fileURLToPath(file), contents);
+      writeFileAt(fileURLToPath(file), contents, NODE_PATH_QUERIES);
     } catch (cause) {
       throw fileError(ERROR_CODES.OUTPUT_WRITE_FAILED, "write", file, cause);
     }
   }
 
   claimFile(file: URL): ClaimedFile {
-    const claim = typedWrite(file, () => claimFileAt(fileURLToPath(file)));
+    const claim = typedWrite(file, () => claimFileAt(fileURLToPath(file), NODE_PATH_QUERIES));
     return {
       identity: claim.identity,
       release: () => typedWrite(file, () => claim.release()),
