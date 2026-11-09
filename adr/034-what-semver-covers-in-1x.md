@@ -276,6 +276,30 @@ helper types through the new entry.
 | Mark every type of `src/index.d.ts` `export` | Deep imports resolve | The main entry exports the internal types too, and the helper names still collide |
 | Declare the types in the helpers; the client imports them | The helpers stay standalone | Libraries that use the client fail under pnpm and Yarn PnP (rejected above) |
 
+## Amendment (2026-11-09): nothing installs the helpers for code that does not list them
+
+A third project of the run, permit-cli, imports `openapi-typescript-helpers` without listing it:
+openapi-fetch and openapi-react-query depend on it, so npm installs it next to them. After the
+amendment "one declaration of the helper types, in the client", neither the client nor the hooks
+depend on `openapi-typesafe-helpers`, so the switched import fails with TS2307, and every type
+that depends on it fails after it. With the package added, the type check passes.
+
+1. This stays as it is: a breaking change for code that imports a package it does not list. The
+   Major changes of the client and the migration guide name it with its fixes: a dependency on
+   `openapi-typesafe-helpers`, or an import from `openapi-typesafe-fetch/helpers`.
+2. The migration tool reports each such import: a renamed import of `openapi-typesafe-helpers` in a
+   source file that no `package.json` at or above it lists, under the old or the new name. A file
+   that no manifest contains is not judged, and a manifest that cannot be read counts as listing
+   every package. It reports and does not add the dependency, as for the other dependencies the
+   user must decide on (the version, the field, the workspace that should own it).
+3. permit-cli is an expected failure of the run at its type check (ADR-044).
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Name the break, report the import (chosen) | The client keeps no runtime dependency; the user gets the fix with the file and line | Code that relied on the old package's dependency needs one line of `package.json` |
+| The client depends on the helpers again | Such code keeps working | A dependency cycle (the helpers depend on the client), and a runtime dependency of the client only for types |
+| The migration tool adds the dependency | No manual step | The tool would pick the version, the field and the workspace; a `package.yaml` or a catalog has no safe place to add it |
+
 ## Review trigger
 
 A user reports a deep upstream path that no longer resolves, a change that this ADR classifies

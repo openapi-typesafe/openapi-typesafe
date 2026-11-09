@@ -93,6 +93,10 @@ The generator does not need the `typescript` package. It prints types itself, so
 
 [swr-openapi](https://github.com/htunnicliff/swr-openapi) 5 has `openapi-fetch` (0.15 or newer) as a peer dependency and takes its client type from it. Alias `openapi-fetch` to `openapi-typesafe-fetch` with `overrides` or `resolutions`, as [Libraries built on openapi-fetch](/fetch/#libraries-built-on-openapi-fetch) shows; without the alias, passing it the `openapi-typesafe-fetch` client fails with TS2345. The tool's report reminds you of this when it finds swr-openapi.
 
+### openapi-typesafe-helpers is not installed with the client
+
+openapi-fetch and openapi-react-query depend on `openapi-typescript-helpers`, so code could import it without listing it. The client declares the helper types itself and the hooks name them through it, so nothing installs `openapi-typesafe-helpers` for you, and such an import fails with TS2307 (`Cannot find module 'openapi-typesafe-helpers'`). Add `openapi-typesafe-helpers` to the dependencies, or import the types from `openapi-typesafe-fetch/helpers`. The tool's report names each such import.
+
 ### Renamed CLI flags
 
 As in openapi-typescript 7, the old spellings fail with an error that names the new one: `--immutable-types` and `-it` (use `--immutable`), `--support-array-length` (`--array-length`), `--redoc` (`--redocly`) and `-ap` (`--additional-properties`).

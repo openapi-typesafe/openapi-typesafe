@@ -38,6 +38,10 @@ Changes that can need work when you move from openapi-fetch 0.17:
   double's result needs a `response`, and its `error` must fit the operations' error type.
 - `Client<paths>` has a `QUERY()` method: an object written by hand with that type, such as a
   fake client in tests, needs a `QUERY` member (TS2741).
+- The client and the hooks no longer install `openapi-typesafe-helpers`; openapi-fetch and
+  openapi-react-query installed `openapi-typescript-helpers`. Code that imports it without listing
+  it fails with TS2307: add `openapi-typesafe-helpers` to the dependencies, or import the types
+  from `openapi-typesafe-fetch/helpers`. The migration tool reports such an import.
 - A custom `fetch` must return a `Response` of any realm or Fetch implementation: an object
   without `ok`, `status`, `headers` and `text()`, such as a hand-written test double, throws
   `fetch: must return new Response()`, as such a result of middleware does. Return
