@@ -4,9 +4,11 @@ import { ERROR_CODES, OpenAPITypesafeError } from "../domain/errors.js";
  * Deeply nested schemas (ENGINEERING_PLAN 8.5). Loading, bundling, transforming and printing walk
  * schemas recursively, and Redocly follows each `$ref` inside the walk. On the default Node.js
  * stack, about 550 levels of inline schemas or a chain of about 900 `$ref`s (each schema refers to
- * the next) run out of call stack. Real documents stay far below: every YAML or JSON file goes
- * through the YAML parser, which stops at 100 levels, and the whole corpus passes. The overflow is
- * reported as a typed error instead of a `RangeError` with a stack trace.
+ * the next) run out of call stack. Redocly's walk also passes the keys of an object to one call as
+ * arguments, so a single object with more than about 100,000 keys runs out of it while loading.
+ * Real documents stay far below: every YAML or JSON file goes through the YAML parser, which stops
+ * at 100 levels, and the whole corpus passes. The overflow is reported as a typed error instead of
+ * a `RangeError` with a stack trace.
  */
 
 /** The step that ran out of call stack; named in the message and the details. */
@@ -20,13 +22,15 @@ export function isStackOverflowError(error: unknown): boolean {
   return error instanceof RangeError && STACK_OVERFLOW_MESSAGE.test(error.message);
 }
 
-/** The typed error for a document nested too deeply for the call stack. */
+/** The typed error for a document nested too deeply, or too wide, for the call stack. */
 export function schemaTooDeepError(step: DeepSchemaStep, cause: unknown): OpenAPITypesafeError {
+  const wide = step === "load" ? ", and so does an object with more than about 100,000 keys" : "";
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_TOO_DEEP,
     message:
       `The schema is nested too deeply to ${step}: the call stack ran out. Both inline ` +
-      "schemas and chains of $ref (each schema referring to the next) count; shorten the deepest.",
+      `schemas and chains of $ref (each schema referring to the next) count${wide}; shorten ` +
+      "the deepest.",
     details: { step },
     cause,
   });

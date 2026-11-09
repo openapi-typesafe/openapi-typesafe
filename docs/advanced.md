@@ -567,7 +567,7 @@ Node.js 26 and macOS. Local files are not limited: they are as large as you made
 | Limit | What happens | Error code |
 | :-- | :-- | :-- |
 | A YAML or JSON file nested more than 100 levels deep | The YAML parser stops. A document passed as an object or as JSON text skips this limit | `SCHEMA_PARSE_FAILED` |
-| About 550 levels of inline schemas, or a chain of about 900 `$ref`s where each schema refers to the next | The call stack runs out. The numbers are for the default Node.js stack and vary a little between runs and runtimes | `SCHEMA_TOO_DEEP` |
+| About 550 levels of inline schemas, or a chain of about 900 `$ref`s where each schema refers to the next; while loading, also one object with more than about 100,000 keys (the schema loader passes the keys to one call) | The call stack runs out. The numbers are for the default Node.js stack and vary a little between runs and runtimes | `SCHEMA_TOO_DEEP` |
 | A `$ref` that points at itself, or two `$ref`s that point at each other, with no schema in between | The cycle has no type | `SCHEMA_REF_INVALID` |
 | A key named `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `valueOf` or one of the `__define…` / `__lookup…` methods, where the schema loader reads keys, or a `constructor` entry whose value has a string `name` (a security scheme or header named `constructor`) | The schema loader (Redocly 1.x) cannot read it; the error lists every such key | `SCHEMA_KEY_UNSUPPORTED` |
 | YAML aliases (`*name`) that expand a file to more than 1,000,000 nodes and to more than 100 times its written size (a "billion laughs" document) | The file is refused right after parsing, before anything walks it | `SCHEMA_PARSE_FAILED` |
