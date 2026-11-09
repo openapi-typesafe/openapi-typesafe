@@ -127,6 +127,34 @@ now treats the tree as untrusted input:
   A YAML parser was not added: the file is edited line by line so that comments and formatting
   stay, and the tool has no YAML dependency.
 
+## Amendment (2026-11-08): commands are parsed, names are resolved by scope
+
+A review of rc.3 found that the tool matched text where it needed structure:
+
+- **Commands.** The generator command and its flags were renamed by regular expressions on each
+  line: the flags of every command on a line with the generator changed (`docker run -it` became
+  `docker run --immutable`), flags on a line continued with `\` did not change, and the old name
+  changed wherever it followed a blank, so `npm run openapi-typescript` (a script) and an OpenAPI
+  `description` in a YAML file were renamed too. The domain now splits shell text into simple
+  commands and words by the POSIX rules (quotes, escapes, continuations, comments, control
+  operators, quoted command lines such as `sh -c "…"`), without expanding anything. A table of
+  launchers (`npx`, `pnpm exec`, `cross-env`, `node`, `docker run`, …) and install subcommands
+  tells the program word and the package words apart; only the generator's own arguments get the
+  flag renames, and only package words get package renames. A pinned version is reported.
+- **Files with commands.** YAML files change only in command keys (`run`, `script`, `command`,
+  …) and Dependabot names; JSON configs (Nx `project.json`, `deno.json`) only at command paths,
+  each string replaced in place. Both are read by small scanners in the domain that keep offsets,
+  so formatting and comments stay. A YAML or JSONC library was not added: the tool keeps one
+  dependency, and a library that re-prints the file would change its formatting.
+- **Names in `transform` callbacks.** A returned `DATE` was looked up by its spelling among the
+  module constants, so a local `const DATE` in the callback was rewritten with the module's type.
+  Names are now resolved with the checker of a one-file program (no default library, no module
+  resolution, a host that reads no file), so each identifier refers to the declaration in its
+  scope. The same resolution finds options passed as a `const`, the generator through a
+  namespace import, and the module constants and imports that the rewrite leaves unused; those
+  are removed so that `noUnusedLocals` passes, and only when their initializer builds a type, so
+  no side effect is lost.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.
