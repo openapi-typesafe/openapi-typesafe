@@ -83,23 +83,72 @@ const REMOVED_FLAGS: readonly (readonly [string, string])[] = [
 ];
 
 /** Flags that only work together with `--root-types`. */
-const ROOT_TYPES_FLAGS = ["--root-types-no-schema-prefix", "--root-types-keep-casing"] as const;
+const ROOT_TYPES_FLAGS = ["rootTypesNoSchemaPrefix", "rootTypesKeepCasing"] as const;
 
-function rejectRemovedFlags(argv: readonly string[]): void {
+const OPTIONS_END = "--";
+const LONG_PREFIX = "--";
+const NEGATION_PREFIX = "--no-";
+const VALUE_SEPARATOR = "=";
+const BOOLEAN_VALUES: ReadonlySet<string> = new Set(["true", "false"]);
+
+/** A flag as written before `--`: its name (`--redoc`, `-o`) and the text after `=`, if any. */
+interface WrittenFlag {
+  readonly name: string;
+  readonly value: string | undefined;
+}
+
+function writtenFlags(argv: readonly string[]): WrittenFlag[] {
+  const end = argv.indexOf(OPTIONS_END);
+  return (end === -1 ? argv : argv.slice(0, end))
+    .filter((arg) => arg.startsWith("-") && arg !== "-")
+    .map((arg) => {
+      const at = arg.indexOf(VALUE_SEPARATOR);
+      return at === -1
+        ? { name: arg, value: undefined }
+        : { name: arg.slice(0, at), value: arg.slice(at + 1) };
+    });
+}
+
+/** An old flag fails by its name, also with a value (`--redoc=redocly.yaml`). */
+function rejectRemovedFlags(flags: readonly WrittenFlag[]): void {
   for (const [flag, message] of REMOVED_FLAGS) {
-    if (argv.includes(flag)) {
+    if (flags.some(({ name }) => name === flag)) {
       throw cliError("CLI_FLAG_REMOVED", message);
     }
   }
 }
 
+const BOOLEAN_FLAG_NAMES: ReadonlySet<string> = new Set(
+  BOOLEAN_FLAGS.map((flag) => `${LONG_PREFIX}${flag}`),
+);
+
+/**
+ * A boolean flag takes `=true` or `=false`, and its `--no-` form takes no value. yargs-parser read
+ * any other value as false (`--enum=1`, `--alphabetize=yes`), which turned the option off.
+ */
+function rejectInvalidBooleans(flags: readonly WrittenFlag[]): void {
+  for (const { name, value } of flags) {
+    const negated = name.startsWith(NEGATION_PREFIX)
+      ? `${LONG_PREFIX}${name.slice(NEGATION_PREFIX.length)}`
+      : undefined;
+    const isNegatedWithValue = negated !== undefined && BOOLEAN_FLAG_NAMES.has(negated);
+    const isInvalid = BOOLEAN_FLAG_NAMES.has(name) && !BOOLEAN_VALUES.has(value ?? "true");
+    if (value !== undefined && (isNegatedWithValue || isInvalid)) {
+      throw cliError(
+        "CLI_FLAG_INVALID",
+        `${name}=${value}: a boolean flag takes no value, or =true or =false.`,
+      );
+    }
+  }
+}
+
 /** Notices for flags that have no effect in this combination, printed before the run. */
-export function ineffectiveFlagNotices(argv: readonly string[]): string[] {
-  if (argv.includes("--root-types")) {
+export function ineffectiveFlagNotices(flags: GeneratorFlags): string[] {
+  if (flags.rootTypes === true) {
     return [];
   }
-  return ROOT_TYPES_FLAGS.filter((flag) => argv.includes(flag)).map(
-    (flag) => `${flag} has no effect without --root-types flag`,
+  return ROOT_TYPES_FLAGS.filter((flag) => flags[flag] === true).map(
+    (flag) => `--${kebabCase(flag)} has no effect without --root-types flag`,
   );
 }
 
@@ -117,7 +166,10 @@ function optionalString(value: unknown): string | undefined {
   return value === undefined ? undefined : String(value);
 }
 
-/** The last value of a flag that may be given more than once. */
+/**
+ * The last value of a flag that takes one value: given twice, the last one wins, as for the
+ * boolean flags (yargs-parser gives a list of every value).
+ */
 function lastString(value: unknown): string | undefined {
   return optionalString(Array.isArray(value) ? value.at(-1) : value);
 }
@@ -186,11 +238,14 @@ function writtenFlagName(key: string, argv: readonly string[]): string {
 }
 
 /**
- * Parse the arguments after `node cli.js`. Fails with `CLI_FLAG_REMOVED` for an old flag and with
+ * Parse the arguments after `node cli.js`. Fails with `CLI_FLAG_REMOVED` for an old flag, with
+ * `CLI_FLAG_INVALID` for a boolean flag with another value than true or false, and with
  * `OPTION_FIX_UNKNOWN` for an unknown `--fix` name.
  */
 export function parseCliArguments(argv: readonly string[]): CliArguments {
-  rejectRemovedFlags(argv);
+  const flags = writtenFlags(argv);
+  rejectRemovedFlags(flags);
+  rejectInvalidBooleans(flags);
   const parsed = parser([...argv], {
     boolean: BOOLEAN_FLAGS,
     string: STRING_FLAGS,
@@ -198,8 +253,8 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
   });
   return {
     input: optionalString(parsed._[0]),
-    output: optionalString(parsed.output),
-    redocly: optionalString(parsed.redocly),
+    output: lastString(parsed.output),
+    redocly: lastString(parsed.redocly),
     isCheck: parsed.check === true,
     isHelp: "help" in parsed,
     isVersion: "version" in parsed,

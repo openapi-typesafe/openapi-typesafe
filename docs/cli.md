@@ -156,6 +156,12 @@ The following flags are supported in the CLI:
 
 `--content-never` is accepted for compatibility with openapi-typescript and has no effect.
 
+A flag that takes one value (`--output`, `--redocly`, `--local-ref-root`) or a boolean flag may be
+given more than once: the last one wins. `--fix` and `--remote-ref-hosts` add up instead. A flag
+may also be written as `--flag=value`; a boolean flag takes `=true` or `=false` there
+(`--enum=false`), and any other value fails with `CLI_FLAG_INVALID`. A removed flag fails with
+`CLI_FLAG_REMOVED` in either form (`--redoc=redocly.yaml`).
+
 ## Warnings
 
 A warning does not stop the run: the types are written and the exit code stays `0`. Warnings, errors and [debug lines](./advanced.md#debugging) go to stderr, also when the types go to stdout (without `--output`), so they never mix with the types; openapi-typescript printed no warnings when it wrote to stdout, and its debug lines went to stdout. Every warning (a line that starts with `⚠`) ends with its code, as an error does. A warning from a Redocly lint rule also names the rule, so `redocly.yaml` can change its severity or turn it off; problems listed in a [lint ignore file](#redocly-config) are not printed. A notice about flags, such as `--root-types-keep-casing has no effect without --root-types flag` or `Unknown flag --x is ignored (see --help)`, has no `⚠` and no code.
@@ -184,7 +190,7 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 | :--: | :------ | :---------- |
 | `0` | Success; with `--check`, the output is up to date | |
 | `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
-| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `CLI_OUTPUT_IS_INPUT`, `CLI_OUTPUT_DUPLICATE`, `CLI_OUTPUT_INVALID`, `CLI_LOCATION_INVALID`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_FLAG_INVALID`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `CLI_OUTPUT_IS_INPUT`, `CLI_OUTPUT_DUPLICATE`, `CLI_OUTPUT_INVALID`, `CLI_LOCATION_INVALID`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
 | `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 | `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |

@@ -126,10 +126,10 @@ async function generate(run: CliRun): Promise<unknown[]> {
 /** Run the command; the failures it returns did not stop the other outputs. */
 async function runCommand(argv: readonly string[], deps: CliDependencies): Promise<unknown[]> {
   const startedAt = deps.now();
-  for (const notice of ineffectiveFlagNotices(argv)) {
+  const args = parseCliArguments(argv);
+  for (const notice of ineffectiveFlagNotices(args.generatorFlags)) {
     deps.console.notice(notice);
   }
-  const args = parseCliArguments(argv);
   for (const flag of args.unknownFlags) {
     deps.console.notice(`Unknown flag ${flag} is ignored (see --help)`);
   }
