@@ -1111,6 +1111,17 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   itself keeps the original type. The inline type is the one the generator writes for that schema,
   so with `--enum` it uses the same enum, not a second one named after the pointer.
 
+A parameter `$ref` to a parameter of another operation or path item
+(`#/paths/~1a/get/parameters/0`) is indexed by the parameter's location and name. When every
+parameter of that location is optional, the location is an optional member (`query?:`), so it is
+wrapped in `NonNullable` first; a `$ref` to an OpenAPI 3.2 `in: querystring` parameter reads the
+`query` member that the parameter types:
+
+```ts
+q?: paths["/a"]["get"]["parameters"]["query"]["q"]; // [!code --]
+q?: NonNullable<paths["/a"]["get"]["parameters"]["query"]>["q"]; // [!code ++]
+```
+
 Where the generated type has an index signature (`--additional-properties`, or the schema's own
 `additionalProperties`), the original compiles: `["schema"]` reads the index signature and is
 `unknown`. Changing it could break code, so it stays without the fix; with `ref-pointers` it gets

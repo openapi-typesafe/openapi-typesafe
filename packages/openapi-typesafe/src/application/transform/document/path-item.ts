@@ -3,10 +3,6 @@ import type { IrMember, IrPropertySignature, IrType } from "../../../domain/ir/n
 import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { appendPointer, ROOT_POINTER } from "../../../domain/openapi/json-pointer.js";
 import type { OperationObject } from "../../../domain/openapi/operation-object.js";
-import type {
-  ParameterObject,
-  ParameterOrReference,
-} from "../../../domain/openapi/parameter-object.js";
 import {
   ADDITIONAL_OPERATIONS_KEY,
   HTTP_METHODS,
@@ -21,6 +17,7 @@ import type { SchemaLocation } from "../schema/schema-context.js";
 import type { TransformContext } from "../transform-context.js";
 import { documentMember } from "./document-member.js";
 import { operationMembers } from "./operation.js";
+import { mergedParameters } from "./parameter-entries.js";
 import { parametersMember } from "./parameters.js";
 
 /** Redocly reads `#` in an operation ID as a pointer, so it is replaced (upstream issue #1542). */
@@ -47,26 +44,6 @@ function isIncluded(
 }
 
 /**
- * Path item parameters followed by the operation's, keyed by location and name, so an operation
- * parameter replaces the path item parameter it redefines (upstream issue #1798).
- */
-function mergedParameters(
-  pathItem: PathItemObject,
-  operation: OperationObject,
-  context: TransformContext,
-): ParameterOrReference[] {
-  const byKey = new Map<string, ParameterOrReference>();
-  for (const parameter of [...(pathItem.parameters ?? []), ...(operation.parameters ?? [])]) {
-    const resolved =
-      "$ref" in parameter
-        ? (context.refs.resolve(parameter.$ref) as ParameterObject | undefined)
-        : parameter;
-    byKey.set(`${resolved?.in}-${resolved?.name}`, parameter);
-  }
-  return [...byKey.values()];
-}
-
-/**
  * An operation with an `operationId` goes into the `operations` interface and is referenced from
  * the path item; others are written inline.
  */
@@ -76,7 +53,7 @@ function operationType(
   location: SchemaLocation,
   context: TransformContext,
 ): IrType {
-  const merged = { ...operation, parameters: mergedParameters(pathItem, operation, context) };
+  const merged = { ...operation, parameters: mergedParameters(pathItem, operation, context.refs) };
   if (!operation.operationId) {
     return irObject(operationMembers(merged, location, context));
   }

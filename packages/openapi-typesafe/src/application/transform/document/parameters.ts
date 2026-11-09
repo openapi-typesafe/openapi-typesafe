@@ -15,35 +15,22 @@ import {
   type ParameterOrReference,
   QUERYSTRING_LOCATION,
 } from "../../../domain/openapi/parameter-object.js";
-import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { FIX } from "../../../domain/output-fixes.js";
-import { refType } from "../ref-type.js";
 import type { SchemaLocation } from "../schema/schema-context.js";
 import { withSchemaComment } from "../schema-comment.js";
 import type { TransformContext } from "../transform-context.js";
 import { isExplodedQueryObject } from "./exploded-query.js";
 import { parameterType } from "./parameter.js";
+import {
+  type ParameterEntry,
+  parameterEntries,
+  type ResolvedEntry,
+  resolveParameter,
+} from "./parameter-entries.js";
+import { referencedParameterType } from "./referenced-parameter.js";
 
 /** `[^{}]` keeps the scan linear: `[^}]` retried from every `{` of a long run of them. */
 const PATH_TEMPLATE_RE = /\{([^{}]+)\}/g;
-
-/** A parameter as written in the document, and the object its `$ref` points to. */
-interface ParameterEntry {
-  readonly original: ParameterOrReference;
-  readonly resolved: ParameterObject | undefined;
-}
-
-/** An entry whose `$ref` resolved, so its location and name are known. */
-type ResolvedEntry = ParameterEntry & { readonly resolved: ParameterObject };
-
-function resolveParameter(
-  parameter: ParameterOrReference,
-  context: TransformContext,
-): ParameterObject | undefined {
-  return "$ref" in parameter
-    ? (context.refs.resolve(parameter.$ref) as ParameterObject | undefined)
-    : parameter;
-}
 
 /** Required string parameters for every `{name}` in a path template. */
 function pathTemplateParameters(path: string): ParameterObject[] {
@@ -67,7 +54,7 @@ function withPathTemplateParameters(
   }
   for (const parameter of pathTemplateParameters(location.path)) {
     const isDefined = result.some((candidate) => {
-      const resolved = resolveParameter(candidate, context);
+      const resolved = resolveParameter(candidate, context.refs);
       return resolved?.in === "path" && resolved.name === parameter.name;
     });
     if (!isDefined) {
@@ -77,43 +64,11 @@ function withPathTemplateParameters(
   return result;
 }
 
-function isDeprecatedParameter(parameter: ParameterObject | undefined): boolean {
-  const schema = parameter?.schema as SchemaObject | undefined;
-  return Boolean(parameter?.deprecated || schema?.deprecated);
-}
-
-/** Resolved parameters, sorted for `--alphabetize`, without deprecated ones if excluded. */
-function parameterEntries(
-  parameters: readonly ParameterOrReference[],
-  context: TransformContext,
-): ParameterEntry[] {
-  const entries = parameters.map((original) => ({
-    original,
-    resolved: resolveParameter(original, context),
-  }));
-  if (context.options.alphabetize) {
-    // Unlike map keys, the original sorts parameters with the default locale's `localeCompare`.
-    entries.sort((left, right) =>
-      (left.resolved?.name ?? "").localeCompare(right.resolved?.name ?? ""),
-    );
-  }
-  return context.options.excludeDeprecated
-    ? entries.filter(({ resolved }) => !isDeprecatedParameter(resolved))
-    : entries;
-}
-
 /** The original quotes a name that is not text (a missing name prints as `"undefined"`). */
 function parameterName(name: unknown): IrPropertyName {
   return typeof name === "string" || typeof name === "number"
     ? toPropertyName(name)
     : { kind: "string", value: String(name) };
-}
-
-function referencedParameterType(ref: string, resolved: ParameterObject): IrType {
-  // A `$ref` that resolves to another `$ref` is not a parameter object yet: index it as a path.
-  const isParameter = !(resolved as { $ref?: unknown }).$ref;
-  const parameter = isParameter ? { in: resolved.in, name: resolved.name } : null;
-  return refType(ref, { parameter });
 }
 
 function entryType(
@@ -123,7 +78,7 @@ function entryType(
 ): IrType {
   const path = appendPointer(location.path, ["parameters", resolved.in, resolved.name]);
   return "$ref" in original
-    ? referencedParameterType(original.$ref, resolved)
+    ? referencedParameterType(original.$ref, resolved, context)
     : parameterType(resolved, { ...location, path }, context);
 }
 

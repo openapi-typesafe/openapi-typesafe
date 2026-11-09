@@ -74,3 +74,22 @@ documents that were already broken.
   `--properties-required-by-default`, `--exclude-deprecated`); a change there must change both. The
   compat harness checks it: a `different` case in a default option set is a regression.
 - In 2.0 `ref-pointers` becomes the default with the other fixes.
+
+## Amendment (2026-11-09): parameter `$ref`s to another operation's parameters
+
+The full compatibility run found `$ref`s to a parameter object, not a schema:
+`parameters: [{ $ref: "#/paths/~1chargers/get/parameters/0" }]`. The original writes them as the
+parameter's location and name, `paths["/chargers"]["get"]["parameters"]["query"]["field[]"]`. A
+location whose parameters are all optional is an optional member (`query?:`), so that does not
+compile (TS2339), and a `$ref` to an OpenAPI 3.2 `in: querystring` parameter indexed a member
+`querystring` that the generated types do not have (ADR-020 types it as `query`).
+
+The same rule as above applies: only a type that surely fails changes. The parameters of the
+target's list are read as the generator types them (the operation's merged with its path item's,
+without those that `--exclude-deprecated` drops); when none in the parameter's location is
+required, the location is wrapped in `NonNullable` before the name; a `querystring` parameter
+reads `["query"]` unless `in: query` parameters sit next to it, where it is not typed at all. A
+list the generator types elsewhere (a `$ref` operation or path item) or does not type (a callback)
+keeps the original type. This lives in `document/referenced-parameter.ts`, next to the parameter
+types, not in the schema pointer walk: the target is a parameter object, whose generated shape is
+the `parameters` member, not a schema type.

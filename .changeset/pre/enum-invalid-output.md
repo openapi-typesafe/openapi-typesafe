@@ -19,6 +19,8 @@ listed under Major Changes.
 - `--path-params-as-types` where a template also matches a path of another type (TS2411, TS2413,
   TS2374) (upstream [#1752](https://github.com/openapi-ts/openapi-typescript/issues/1752)).
 - A `$ref` into another schema's keywords (`…/items/properties/time`, `…/allOf/0`).
+- A parameter `$ref` to another operation's parameter (`#/paths/~1a/get/parameters/0`) where all
+  parameters of its location are optional, and to an OpenAPI 3.2 `in: querystring` parameter.
 - A `$ref` to a key with `~`, `/` or `%` in another file.
 - Operations with a repeated `operationId` get distinct keys in `operations` (TS2300): the first
   in document order keeps the ID and each later one gets the lowest free number from 2
