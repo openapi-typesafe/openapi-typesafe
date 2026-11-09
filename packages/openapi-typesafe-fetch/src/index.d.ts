@@ -551,3 +551,9 @@ export declare function mergeHeaders(...allHeaders: (HeadersOptions | undefined)
 
 /** Remove trailing slash from url */
 export declare function removeTrailingSlash(url: string): string;
+
+/**
+ * Return a new ID, unique within the process: the request `id` that middleware callbacks get.
+ * It comes from a counter shared by all clients, not from `Math.random()`; the name is upstream's.
+ */
+export declare function randomID(): string;

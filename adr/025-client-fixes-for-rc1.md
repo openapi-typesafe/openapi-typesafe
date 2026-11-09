@@ -99,6 +99,28 @@ not a contract: what shipped only in rc.0 may change (maintainer decision, 2026-
 - Per-request `fetch` and raw bodies keep the DOM types and `instanceof` checks.
 - Backlog items 34 and 35 hold the 2.0 type changes.
 
+## Amendment (2026-11-08): a response is recognized by every member the client reads
+
+Decision 1 recognized a `Response` by `status` and `headers` only. The bug hunt on rc.3
+(`RC4_BUGS.md`, item F6) returned `{ status: 200, headers, text }` from `onResponse`, as a
+hand-written test double or an adapter for another client might. The client took it, read
+`response.ok` as `undefined`, and put the body of a 200 into `error`. openapi-fetch 0.17 rejected
+it with `onResponse: must return new Response() when modifying the response`.
+
+1. `isResponse` checks the members the client reads on every response: `ok` (a boolean), `status`
+   (a number), `headers` (with `get`) and `text` (a function). A `Response` of any realm or Fetch
+   implementation has them; a lookalike without them gets the existing error of its callback
+   (`onRequest`, `onResponse` or `onError`).
+2. `body` is not checked: a real response may have `body: null`. The other readers (`json`,
+   `blob`, `arrayBuffer`) are read only for their `parseAs`, and a missing one fails with the
+   platform's `TypeError`.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Every member read on each response (chosen) | Fails at the callback with the documented message; still realm-safe | A few bytes |
+| `instanceof Response` | Exact for one realm | Breaks undici, iframes and Electron again (upstream #1847) |
+| Check `ok` only | Fewer bytes | An object without `text()` fails later with a vague `TypeError` |
+
 ## Review trigger
 
 The 2.0 planning (items 32 to 35); a TypeScript release that infers return types through a dependent

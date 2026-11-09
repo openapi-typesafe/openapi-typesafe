@@ -5,7 +5,7 @@ description: A type-safe fetch client for OpenAPI, with typed paths, parameters,
 
 # openapi-typesafe-fetch
 
-openapi-typesafe-fetch is a type-safe fetch client that pulls in your OpenAPI schema. It weighs about **9 kB** minified (3.5 kB gzipped), has virtually zero runtime, and works with React, Vue, Svelte, or vanilla JS. It is a drop-in successor to [openapi-fetch](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch) 0.17: in most projects you change only the import. The [migration guide](/migration-guide) lists the few differences.
+openapi-typesafe-fetch is a type-safe fetch client that pulls in your OpenAPI schema. It weighs about **9 kB** minified (3.7 kB gzipped), has virtually zero runtime, and works with React, Vue, Svelte, or vanilla JS. It is a drop-in successor to [openapi-fetch](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch) 0.17: in most projects you change only the import. The [migration guide](/migration-guide) lists the few differences.
 
 The syntax is inspired by popular libraries like react-query or Apollo client, but without all the bells and whistles and in a small package.
 
@@ -78,7 +78,7 @@ imports without an extension.
 
 :::
 
-Lastly, be sure to **run typechecking** in your project. This can be done by adding `tsc --noEmit` to your [npm scripts](https://docs.npmjs.com/cli/v9/using-npm/scripts) like so:
+Lastly, be sure to **run typechecking** in your project. This can be done by adding `tsc --noEmit` to your [npm scripts](https://docs.npmjs.com/cli/using-npm/scripts) like so:
 
 ::: code-group
 
@@ -155,7 +155,9 @@ A wrong path is reported on the arguments, not on the path string:
   `"/blogposts/{post_id}"`, gives `Expected 2 arguments, but got 1`. Pass the options object to see
   the real cause: `Argument of type '"/blogposts/5"' is not assignable to parameter of type
   'PathsWithMethod<paths, "get">'`.
-- A path that exists but has no such method gives `not assignable to parameter of type 'never'`.
+- A path that exists but has no such method gives `not assignable to parameter of type
+  'PathsWithMethod<paths, "post">'` (for `POST`). The type is `never` only when no path of the
+  schema has the method.
 
 :::
 
@@ -231,7 +233,7 @@ path (`Argument of type '"/nope"' is not assignable…`) and the editor complete
 path gave `Type instantiation is excessively deep and possibly infinite` (TS2589) and no
 completion (upstream #1882). The init is now computed per operation.
 
-When every operation of the method requires an init (path or query parameters, or a body), a call
+When any operation of the method requires an init (path or query parameters, or a body), a call
 with a wrong path and no init reports the missing init first (`Expected 2 arguments`), as for any
 overload TypeScript checks the argument count before the argument types.
 

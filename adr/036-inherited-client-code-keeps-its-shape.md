@@ -20,8 +20,9 @@ the audit, before the code was formatted at 100 columns):
 | react-query `src/index.ts` | `createClient` | 82 lines |
 | react-query `src/index.ts` | `useInfiniteQuery` (the method type and its implementation) | 5 parameters |
 
-`serializeObjectParam` and `serializeArrayParam` were split into helpers by the fixes of ADR-041
-and no longer break the rules.
+`serializeObjectParam` and `serializeArrayParam` were split into helpers by the fixes of ADR-041,
+and `defaultPathSerializer` by the fix of the ADR-030 amendment of 2026-11-08 (its path checks
+moved to a helper); they no longer break the rules.
 
 The code came from openapi-fetch and openapi-react-query and was changed by our fixes (ADR-022,
 ADR-025, ADR-030). In this shape it passed the rc.1 acceptance tests A1 to A3 and the full

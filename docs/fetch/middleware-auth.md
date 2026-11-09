@@ -292,5 +292,33 @@ const client = createClient<paths>({
 });
 ```
 
+To keep following redirects within the API, add the credential in a middleware, only for requests to the
+API's origin, and turn automatic redirects off, so that `fetch` cannot copy the header to another host. With
+`redirect: "manual"`, Node.js, Deno and Bun return the `3xx` response with its `Location`; call the client
+again for a `Location` you trust, and the middleware adds the key only if it points to the API:
+
+```ts
+import createClient, { type Middleware } from "openapi-typesafe-fetch";
+import type { paths } from "./my-openapi-3-schema";
+
+const API_ORIGIN = "https://myapi.dev";
+
+const apiKeyForApiOnly: Middleware = {
+  onRequest({ request }) {
+    if (new URL(request.url).origin === API_ORIGIN) {
+      request.headers.set("X-API-Key", apiKey);
+    }
+    return request;
+  },
+};
+
+const client = createClient<paths>({ baseUrl: `${API_ORIGIN}/v1/`, redirect: "manual" });
+client.use(apiKeyForApiOnly);
+```
+
+A middleware alone is not enough: with `redirect: "follow"`, `fetch` follows the redirect inside one
+call and sends the headers of the first request, the key included. In a browser a `manual` redirect is
+an opaque response (`status` 0, no `Location`), so use `redirect: "error"` there.
+
 Prefer `Authorization` for credentials where the API allows it: it is the one header the platform removes
 on a cross-origin redirect.

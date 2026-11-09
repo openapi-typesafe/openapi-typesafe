@@ -7,14 +7,12 @@ const DOT_SEGMENT_RE = /(^|\/)\.\.?(\/|$)/;
 /** Where the path of a URL ends: its query or fragment, which have no segments. */
 const QUERY_OR_FRAGMENT_RE = /[?#]/;
 /**
- * Any JSON media type: `application/json`, `application/problem+json`, with or without
- * parameters.
+ * A JSON media type: `json` or a `+json` suffix (RFC 6838), as in `application/problem+json`, with
+ * or without parameters. Not `x-ndjson`, `jsonl` or `json-seq`: their bodies are lines of JSON.
  */
-const JSON_MEDIA_TYPE_RE = /json/i;
+const JSON_MEDIA_TYPE_RE = /^[^/]+\/([^;]*\+)?json\s*(;|$)/i;
 /** `text/*` media types: a JSON parse error of such a body points to `parseAs: "text"`. */
 const TEXT_MEDIA_TYPE_RE = /^text\//i;
-/** How much of a body that is not JSON its error shows: enough to tell an HTML page or a message. */
-const BODY_EXCERPT_LENGTH = 100;
 /** `application/x-www-form-urlencoded`, with or without parameters such as `charset`. */
 const FORM_MEDIA_TYPE_RE = /^application\/x-www-form-urlencoded(;|$)/i;
 /** `multipart/form-data`, with or without parameters. */
@@ -136,14 +134,9 @@ export default function createClient(clientOptions) {
       headers,
       params.header,
     );
-    // `fetch` sends a FormData as multipart with a boundary only it knows. A `Content-Type` without
-    // that boundary, set by hand, replaced the platform's, and the server could not split the parts
-    // (upstream #1214), so it goes and the platform sets its own (ADR-013, decision 10).
-    if (
-      serializedBody instanceof FormData &&
-      !BOUNDARY_PARAMETER_RE.test(finalHeaders.get("Content-Type"))
-    ) {
-      finalHeaders.delete("Content-Type");
+    if (serializedBody instanceof FormData) {
+      const isClientBuilt = serializedBody !== body && bodySerializer === defaultBodySerializer;
+      dropFormContentType(finalHeaders, isClientBuilt);
     }
 
     // Client level middleware take priority over request-level middleware
@@ -151,6 +144,8 @@ export default function createClient(clientOptions) {
 
     const requestInit = {
       redirect: "follow",
+      // The Fetch standard requires `duplex: "half"` (its only value) for a stream body.
+      duplex: serializedBody instanceof ReadableStream ? "half" : undefined,
       ...baseOptions,
       ...init,
       body: serializedBody,
@@ -452,6 +447,18 @@ export function createPathBasedClient(clientOptions) {
 
 // utils
 
+/**
+ * `fetch` sends a FormData as multipart with a boundary only it knows, so a `Content-Type` set by
+ * hand replaced the platform's and the server could not split the parts (upstream #1214). It goes,
+ * and the platform sets its own, unless the user built the FormData and named a boundary for a
+ * `fetch` of their own (ADR-013, decision 10).
+ */
+function dropFormContentType(headers, isClientBuilt) {
+  if (isClientBuilt || !BOUNDARY_PARAMETER_RE.test(headers.get("Content-Type"))) {
+    headers.delete("Content-Type");
+  }
+}
+
 // Fetch API objects are recognized by the members the client uses, not by `instanceof`: that is
 // bound to one realm's class, and a Request from the `undici` package, another realm (an iframe,
 // an Electron host) or a custom `Request` option is not an instance of it (upstream #1847). The
@@ -468,13 +475,19 @@ function isRequest(value) {
 }
 
 function isResponse(value) {
-  return typeof value?.status === "number" && isHeaders(value.headers);
+  return (
+    typeof value?.ok === "boolean" &&
+    typeof value.status === "number" &&
+    typeof value.text === "function" &&
+    isHeaders(value.headers)
+  );
 }
 
 /**
  * Parse a JSON body. A body that is not JSON, such as the HTML page of a proxy, threw a bare
  * `SyntaxError`; this one names the response, says which `parseAs` reads it, and keeps the first
- * one as `cause` (ADR-041).
+ * one as `cause` (ADR-041). It holds no body text: a body such as a form-encoded OAuth token
+ * answer would carry a secret into logs and error trackers.
  */
 function parseJSON(raw, response) {
   try {
@@ -482,9 +495,8 @@ function parseJSON(raw, response) {
   } catch (cause) {
     const contentType = response.headers.get("Content-Type");
     const hint = TEXT_MEDIA_TYPE_RE.test(contentType) ? 'set `parseAs: "text"`' : "set `parseAs`";
-    const excerpt = JSON.stringify(raw.slice(0, BODY_EXCERPT_LENGTH));
     const subject = `Response ${response.status} (${contentType ?? "no Content-Type"})`;
-    throw new SyntaxError(`${subject} is not JSON; ${hint}: ${excerpt}`, { cause });
+    throw new SyntaxError(`${subject} is not JSON (${raw.length} characters); ${hint}`, { cause });
   }
 }
 
@@ -518,8 +530,10 @@ async function readErrorBody(response) {
   }
 }
 
-// Parameter names and object keys can be data (an `additionalProperties` object). They are encoded
-// like values, except for characters common in names that do not split a URL (ADR-013, decision 9).
+// Parameter names can be data (the keys of a free-form query). They are encoded like values,
+// except for characters common in the names a schema declares (`filter[status]`, `$filter`) that
+// do not split a URL (ADR-013, decision 9). Object keys are always data, so they are encoded as
+// values are, with no exceptions: a `,` or `]` in a key added members for the server.
 const KEPT_NAME_ESCAPES = /%(?:5B|5D|24|3A|40|2C)/g;
 
 function encodeName(name) {
@@ -535,11 +549,16 @@ function isDate(value) {
 }
 
 /**
- * One parameter value, percent-encoded unless `allowReserved`. A `Date` is sent as ISO 8601:
- * `String(date)` is a local-time text such as "Thu Jan 01 1970 ..." (ADR-041).
+ * A parameter or form value as it is sent: a `Date` as ISO 8601, because `String(date)` is a
+ * local-time text such as "Thu Jan 01 1970 ..." (ADR-041); any other value as it is.
  */
+function valueText(value) {
+  return isDate(value) ? value.toISOString() : value;
+}
+
+/** One parameter value (or object key), percent-encoded unless `allowReserved`. */
 function encodeValue(value, allowReserved) {
-  const text = isDate(value) ? value.toISOString() : value;
+  const text = valueText(value);
   return allowReserved === true ? text : encodeURIComponent(text);
 }
 
@@ -570,7 +589,7 @@ function joinExploded(values, style) {
 function serializeUnexplodedObject(name, value, options) {
   const values = [];
   for (const k in value) {
-    values.push(encodeName(k), encodeValue(value[k], options.allowReserved));
+    values.push(encodeValue(k), encodeValue(value[k], options.allowReserved));
   }
   const final = values.join(",");
   switch (options.style) {
@@ -603,7 +622,8 @@ export function serializeObjectParam(name, value, options) {
   }
   const values = [];
   for (const k in value) {
-    const finalName = options.style === "deepObject" ? `${name}[${encodeName(k)}]` : encodeName(k);
+    const key = encodeValue(k);
+    const finalName = options.style === "deepObject" ? `${name}[${key}]` : key;
     if (value[k] != null) {
       values.push(serializePrimitiveParam(finalName, value[k], options));
     }
@@ -702,10 +722,13 @@ export function createQuerySerializer(options) {
  * @type {import("./index.js").defaultPathSerializer}
  * @see https://swagger.io/docs/specification/serialization/#path
  */
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export function defaultPathSerializer(pathname, pathParams) {
+  const matches = pathname.match(PATH_PARAM_RE);
+  if (!matches) {
+    return pathname;
+  }
   let nextURL = pathname;
-  for (const match of pathname.match(PATH_PARAM_RE) ?? []) {
+  for (const match of matches) {
     let name = match.substring(1, match.length - 1);
     let explode = false;
     let style = "simple";
@@ -737,24 +760,33 @@ export function defaultPathSerializer(pathname, pathParams) {
     // A function: a string replacement reads `$'`, `$&` and the like, which object keys keep.
     nextURL = nextURL.replace(match, () => serialized);
   }
-  const path = nextURL.split(QUERY_OR_FRAGMENT_RE, 1)[0];
-  // `encodeURIComponent` keeps dots, so a value `..` would move the request up a path level
-  // (ADR-013).
-  // Only the path is checked: before a query (`/a/{id}?v=2`), `$` did not match after `..`.
-  if (DOT_SEGMENT_RE.test(path)) {
-    throw new Error(`Dot path segment in ${nextURL}`);
-  }
-  // `//host/…` is a protocol-relative URL: with a relative baseUrl a browser sends it to that
-  // host.
-  if (path.startsWith("//")) {
-    throw new Error(`Empty first path segment in ${nextURL}`);
-  }
+  checkSerializedPath(pathname, nextURL);
   return nextURL;
 }
 
 /**
+ * Throw when the path parameters moved the request. Only the path part (before `?` or `#`) from the
+ * segment of the first parameter on is checked: the text before it is the `baseUrl` and the
+ * template, which no value changes, and a protocol-relative base (`//api.example/v1`) is valid.
+ */
+function checkSerializedPath(template, url) {
+  const fixed = template.slice(0, template.search(PATH_PARAM_RE));
+  const path = url.split(QUERY_OR_FRAGMENT_RE, 1)[0];
+  // `encodeURIComponent` keeps dots, so a value `..` would move the request up a path level
+  // (ADR-013).
+  if (DOT_SEGMENT_RE.test(path.slice(fixed.lastIndexOf("/") + 1))) {
+    throw new Error(`Dot path segment in ${url}`);
+  }
+  // `//host/…` is a protocol-relative URL: with a relative baseUrl a browser sends it to that host
+  // (ADR-030).
+  if (path.startsWith("//") && !fixed.startsWith("//")) {
+    throw new Error(`Empty first path segment in ${url}`);
+  }
+}
+
+/**
  * Bodies `fetch` sends as they are, with their own `Content-Type` (FormData, Blob, URLSearchParams)
- * or none. JSON-encoding a Blob or an ArrayBuffer sent `{}` (ADR-013, decision 6).
+ * or none. JSON-encoding a Blob, an ArrayBuffer or a stream sent `{}` (ADR-013, decision 6).
  */
 function isRawBody(body) {
   return (
@@ -762,8 +794,14 @@ function isRawBody(body) {
     body instanceof Blob ||
     body instanceof URLSearchParams ||
     body instanceof ArrayBuffer ||
+    body instanceof ReadableStream ||
     ArrayBuffer.isView(body)
   );
+}
+
+/** Whether a form value is a nested object, which form encodings cannot hold; a `Date` is not. */
+function isNestedFormValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) && !isDate(value);
 }
 
 /**
@@ -778,11 +816,12 @@ function formBody(body) {
   }
   const form = new URLSearchParams();
   for (const [name, value] of Object.entries(body)) {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
+    if (isNestedFormValue(value)) {
       throw new Error(NESTED_FORM_VALUE_MESSAGE);
     }
     if (value != null) {
-      form.append(name, value);
+      // An array is one comma-separated value, as `URLSearchParams` writes it.
+      form.append(name, Array.isArray(value) ? value.map(valueText).join(",") : valueText(value));
     }
   }
   return form.toString();
@@ -800,10 +839,10 @@ function multipartBody(body) {
     for (const item of [value].flat()) {
       if (item instanceof Blob) {
         formData.append(name, item);
-      } else if (item && typeof item === "object") {
+      } else if (isNestedFormValue(item)) {
         throw new Error(NESTED_FORM_VALUE_MESSAGE);
       } else if (item != null) {
-        formData.append(name, String(item));
+        formData.append(name, String(valueText(item)));
       }
     }
   }

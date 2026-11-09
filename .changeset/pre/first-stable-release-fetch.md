@@ -16,7 +16,8 @@ Changes that can need work when you move from openapi-fetch 0.17:
 - A string body with a non-JSON `Content-Type` is sent as is, without JSON quotes (upstream
   [#2555](https://github.com/openapi-ts/openapi-typescript/issues/2555), [#2382](https://github.com/openapi-ts/openapi-typescript/issues/2382)).
 - A nested object in a form or multipart body throws; write a `bodySerializer` for it.
-- Query parameter names and object keys are percent-encoded like values (`[ ] $ : @ ,` stay).
+- Query parameter names and object keys are percent-encoded like values (`[ ] $ : @ ,` stay in
+  names, not in object keys).
 - A path parameter that makes a `.` or `..` segment, or a path that starts with `//`, rejects
   before `fetch` is called (upstream [#2483](https://github.com/openapi-ts/openapi-typescript/issues/2483)).
 - A path that already has a query string gets `&` before `params.query`, not a second `?`.

@@ -103,6 +103,92 @@ like at runtime, so each needs a decision instead of a silent fix. The client bu
   (one shared error message, two regular expressions instead of a media type parser); the rest is the
   behavior itself.
 
+## Amendment (2026-11-08): object keys are encoded without exceptions (decision 9)
+
+The bug hunt on rc.3 (`RC4_BUGS.md`, item S3) showed that the name exceptions of decision 9 also
+applied to object keys, which are data. With `explode: false`, a key `color,role,admin,x` and the
+value `red` were sent as `color,role,admin,x,red`, and a server that splits the list into pairs read
+`{ color: "role", admin: "x" }`. In a `deepObject`, a key `tag][role` was sent as
+`filter[tag][role]=admin`, a nested member for bracket parsers. openapi-fetch 0.17 does not encode
+keys at all.
+
+1. Object keys are encoded as values are (`encodeURIComponent`), in every query and path style,
+   with no exceptions: `,` `[` `]` `$` `:` `@` included. `allowReserved` does not apply to them.
+2. Parameter names, the names a schema declares, keep the exceptions of decision 9, so
+   `filter[status]` and `$filter` are sent unchanged.
+3. Percent-encoding is all the client can do. A server that decodes the text before it splits it
+   still reads such a key as structure: `qs`, the default query parser of Express, decodes
+   `filter[tag%5D%5Brole]` to `filter[tag][role]`. No encoding of a style survives such a parser,
+   and the client does not reject keys (see the table); the docs tell users to validate keys that
+   come from end users. Such a key stays inside its own parameter.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Encode object keys fully (chosen) | The text on the wire is the one RFC 6570 gives; a server that splits before it decodes reads the key | A key with `$`, `:` or `@` changes on the wire; decode-first parsers are still fooled |
+| Keep the name exceptions for keys | No change | Data in a key adds members to its object |
+| Throw on `[`, `]` or `,` in an object key | Fails closed for every parser | Rejects data that RFC 6570 encodes without trouble; breaks keys that servers read fine |
+
+The change adds no bytes: keys use the value encoder.
+
+## Amendment (2026-11-08): a FormData the client builds gets the platform's boundary (decision 10)
+
+The bug hunt on rc.3 (`RC4_BUGS.md`, item F3) sent an object body with
+`Content-Type: multipart/form-data; boundary=myboundary`. The client built the `FormData`, so the
+platform wrote the parts with its own boundary, but decision 10 kept the user's header because it
+named a boundary. The server read `myboundary` and could not split the parts.
+
+1. When the client builds the `FormData` from an object (the default `bodySerializer` returned a
+   new `FormData`), a `Content-Type` set by hand is removed, with or without a `boundary`, and the
+   platform sets its own. No one but the platform knows that boundary.
+2. For a `FormData` the user built (the body itself, or the result of their own
+   `bodySerializer`), decision 10 stays: a `Content-Type` without a `boundary` is removed, one with
+   a `boundary` is kept for a `fetch` of their own that writes the parts with it.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Remove the header for a FormData the client built (chosen) | The header always matches the body the platform writes | none found: a hand-set boundary could never match that body |
+| Remove a multipart header for every FormData | Simplest | A custom `fetch` that writes parts with a given boundary loses it |
+| Build the parts with the user's boundary | Keeps the header | Needs a multipart writer in the client; the platform already has one |
+
+## Amendment (2026-11-08): what a JSON media type is (decision 1)
+
+Decision 1 called every `Content-Type` with `json` in it a JSON media type. The bug hunt on rc.3
+(`RC4_BUGS.md`, item F4) found that a string body for `application/x-ndjson`, `application/jsonl`
+or `application/json-seq` was JSON-encoded into one quoted string, so the server got no records.
+openapi-fetch 0.17 does the same. These formats are lines of JSON texts, not one JSON text: a
+string body is their payload.
+
+1. A JSON media type is `application/json` or a media type with the `+json` structured syntax
+   suffix (RFC 6838, section 4.2.8), such as `application/problem+json`, in any letter case, with
+   or without parameters. Any other `Content-Type` sends a string body as is.
+2. Without a `Content-Type`, a string is a JSON string value, as before.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| The `json` subtype or a `+json` suffix (chosen) | The registered rule; line-based formats work | A made-up type such as `application/x-json` sends a string as is |
+| Keep "contains `json`" | No change | Every NDJSON or JSON Lines upload is broken |
+| A list of line-based types | Names the known cases | Misses the next format; the RFC rule already covers them |
+
+## Amendment (2026-11-08): stream bodies (decision 6)
+
+The bug hunt on rc.3 (`RC4_BUGS.md`, item F5) found that a `ReadableStream` body, a valid fetch
+body and the natural way to stream a `format: binary` upload, was JSON-encoded to `{}` with
+`Content-Type: application/json`, as in openapi-fetch 0.17. The upload was lost without an error.
+
+1. A `ReadableStream` is a raw body like the others of decision 6: sent as it is, without the
+   JSON `Content-Type`.
+2. The Fetch standard requires `duplex: "half"`, its only value, for a stream body: Node.js and
+   Chromium throw without it. The client sets it for a stream body, before the client and request
+   options, so a `duplex` the user passes still wins. Other bodies get no `duplex`.
+3. Browsers differ in their support for stream request bodies; the docs say so and point to a
+   `Blob`. The client does not detect support: the platform's error is clear.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Send the stream, set `duplex: "half"` (chosen) | Works on Node.js, Deno and Bun with no extra option; what the standard asks | Bytes for the check |
+| Send the stream, let the user set `duplex` | Fewer bytes | Every streamed upload fails on Node.js until the user finds the option |
+| Throw for a stream body | Clear | Rejects a body that `fetch` supports |
+
 ## Review trigger
 
 A user report of a real API that takes `.` or `..` as a path value, or a type-level redesign of `error`

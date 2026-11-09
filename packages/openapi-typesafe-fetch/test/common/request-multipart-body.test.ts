@@ -116,6 +116,45 @@ describe("multipart/form-data bodies", () => {
     expect((await onlyRequest(requests).formData()).get("description")).toBe("raw");
   });
 
+  it("POST with an object body drops a hand-set boundary, so the parts can be split", async () => {
+    const { client, requests } = recordingClient(() => Response.json({ id: 1 }, { status: 201 }));
+
+    await client.POST("/avatars", {
+      headers: { "Content-Type": "multipart/form-data; boundary=myboundary" },
+      body: { file: new Blob(["x"]), description: "hi" },
+    });
+
+    const request = onlyRequest(requests);
+    const declared = /boundary=(.+)$/.exec(request.headers.get("Content-Type") ?? "")?.[1];
+    expect(declared).not.toBe("myboundary");
+    expect((await request.formData()).get("description")).toBe("hi");
+  });
+
+  it("POST keeps a hand-set boundary for a FormData body the caller built", async () => {
+    const requests: RequestInit[] = [];
+    const header = "multipart/form-data; boundary=own";
+    const client = createClient<Paths>({
+      baseUrl: BASE_URL,
+      // Records the init; a fetch of the caller's own may write the parts with the boundary it names.
+      Request: class extends Request {
+        constructor(input: RequestInfo | URL, init?: RequestInit) {
+          super(input, init);
+          requests.push(init ?? {});
+        }
+      },
+      fetch: async () => Response.json({ id: 1 }, { status: 201 }),
+    });
+    const form = new FormData();
+    form.append("description", "raw");
+
+    await client.POST("/avatars", {
+      headers: { "Content-Type": header },
+      body: form as unknown as { file: Blob },
+    });
+
+    expect(new Headers(requests[0]?.headers).get("Content-Type")).toBe(header);
+  });
+
   it("POST keeps a multipart header that names its own boundary", async () => {
     const { client, requests } = recordingClient(() => Response.json({ id: 1 }, { status: 201 }));
     const header = "multipart/form-data; boundary=custom";
@@ -131,6 +170,15 @@ describe("multipart/form-data bodies", () => {
 
   it("defaultBodySerializer with a multipart header returns FormData", () => {
     expect(defaultBodySerializer({ a: "1" }, MULTIPART_HEADERS)).toBeInstanceOf(FormData);
+  });
+
+  it("defaultBodySerializer sends a Date field as an ISO 8601 text part", () => {
+    const at = new Date("2026-11-08T12:30:00.000Z");
+
+    const form = defaultBodySerializer({ at, all: [at] }, MULTIPART_HEADERS) as FormData;
+
+    expect(form.get("at")).toBe("2026-11-08T12:30:00.000Z");
+    expect(form.getAll("all")).toEqual(["2026-11-08T12:30:00.000Z"]);
   });
 
   it("defaultBodySerializer with a null body and a multipart header keeps the JSON encoding", () => {

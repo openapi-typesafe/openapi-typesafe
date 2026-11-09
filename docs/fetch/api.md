@@ -78,8 +78,10 @@ client.GET("/my-url", options);
 As in openapi-fetch, a success body is parsed as JSON unless `parseAs` says otherwise, whatever
 its `Content-Type`; a `text/plain` response needs `parseAs: "text"`. A success body that is not
 JSON (for example the HTML page of a proxy) throws a `SyntaxError` that names the status, the
-`Content-Type` and the first 100 characters of the body, and says which `parseAs` to set
-(`parseAs: "text"` for a `text/*` response); the parser's own error is its `cause`. An error
+`Content-Type` and the length of the body, and says which `parseAs` to set (`parseAs: "text"` for
+a `text/*` response); the parser's own error is its `cause`. The message holds no body text, since
+a body can hold a secret (a form-encoded OAuth token answer) and the message reaches logs; read
+`response` with `parseAs: "text"` to see it. An error
 response (`4xx`, `5xx`) whose body is not JSON gives the text as `error` instead of throwing.
 
 ### Headers
@@ -169,7 +171,14 @@ its own, in an array or in an object, and in path parameters too; an invalid `Da
 empty object) is left out together with its `&`, and so are the `null` and `undefined` items and
 members of exploded arrays and objects.
 
-Parameter names and object keys are encoded too, so a key from your data (`{ "a&b": 1 }`) cannot add a parameter or a path segment. `[`, `]`, `$`, `:`, `@` and `,` stay as written, so names such as `filter[status]` and `$filter` are sent unchanged.
+Parameter names and object keys are encoded too, so a key from your data (`{ "a&b": 1 }`) cannot
+add a parameter or a path segment. In parameter names, `[`, `]`, `$`, `:`, `@` and `,` stay as
+written, so names such as `filter[status]` and `$filter` are sent unchanged. Object keys are
+encoded as values are, with no exceptions: `{ "a,b": 1 }` is `a%2Cb,1` and `{ "a]": 1 }` in a
+`deepObject` is `filter[a%5D]=1`, so a key cannot add members for a server that splits the text
+first. A server that decodes the text before it splits it (for example `qs`, the default query
+parser of Express, which reads `filter[a%5D%5Bb]` as `filter[a][b]`) still cannot tell such a key
+apart: validate keys that come from end users, or use a style where they are plain values.
 
 #### Array styles
 
@@ -230,8 +239,8 @@ When serializing yourself, the string will be kept exactly as-authored, so youâ€
 Similar to [querySerializer](#queryserializer), bodySerializer allows you to customize how the requestBody is serialized if you donâ€™t want the default [JSON.stringify()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify) behavior.
 
 A `multipart/form-data` body needs no serializer: set the header and pass the object. Each field
-becomes a part (a `Blob` or `File` a file part, an array one part per item, `null` and `undefined`
-left out), and the platform sets the boundary. Generate the types with
+becomes a part (a `Blob` or `File` a file part, a `Date` its ISO 8601 text, an array one part per
+item, `null` and `undefined` left out), and the platform sets the boundary. Generate the types with
 [`--binary-as-blob`](/cli#binaryasblob) so file fields are typed `Blob`.
 
 ```ts
@@ -252,9 +261,12 @@ const { data, error } = await client.PUT("/submit", {
   },
   bodySerializer(body) {
     const fd = new FormData();
-    fd.append("name", body.name);
-    // the nested object becomes a JSON part with its own content type
-    fd.append("query", new Blob([JSON.stringify(body.query)], { type: "application/json" }));
+    // `body` can be `undefined` when the schema's request body is optional (the default)
+    if (body) {
+      fd.append("name", body.name);
+      // the nested object becomes a JSON part with its own content type
+      fd.append("query", new Blob([JSON.stringify(body.query)], { type: "application/json" }));
+    }
     return fd;
   },
 });
@@ -265,8 +277,11 @@ const { data, error } = await client.PUT("/submit", {
 For convenience, `openapi-typesafe-fetch` sets `Content-Type` to `application/json` automatically
 for any request that provides value for the `body` parameter. When the body (or the `bodySerializer` result) is a
 `FormData`, `Blob`, `File`, `URLSearchParams`, `ArrayBuffer` or typed array, `Content-Type` is omitted, allowing the
-platform to set it automatically (for `FormData`, with the correct message part boundary). A
-`Content-Type` without a `boundary` that you set for a `FormData` body is dropped for the same reason.
+platform to set it automatically (for `FormData`, with the correct message part boundary). For the
+same reason a `multipart/form-data` `Content-Type` that you set is dropped when the client builds
+the `FormData` from an object, `boundary` or not: the platform picks the boundary of the body. For a
+`FormData` that you build yourself, a `Content-Type` without a `boundary` is dropped, and one with a
+`boundary` is kept for a `fetch` of your own that writes the parts with it.
 
 You can also set `Content-Type` manually through `headers` object either in the fetch options,
 or when instantiating the client.
@@ -277,6 +292,9 @@ or when instantiating the client.
 
 A string body is sent as is when you set a non-JSON `Content-Type`, such as `text/plain`. Without a
 `Content-Type`, or with a JSON one, a string is sent as a JSON string value (`"abc"` becomes `"\"abc\""`).
+A JSON media type is `application/json` or one with a `+json` suffix (`application/problem+json`),
+with or without parameters (RFC 6838). Line-based formats such as `application/x-ndjson`,
+`application/jsonl` and `application/json-seq` are not: a string body is their text, sent as is.
 
 ```ts
 const { data, error } = await client.POST("/notes", {
@@ -287,8 +305,11 @@ const { data, error } = await client.POST("/notes", {
 
 ### Binary body
 
-A `Blob`, `File`, `ArrayBuffer` or typed array (the usual type for a `format: binary` schema) is sent as
-is. Set `Content-Type` yourself when the server needs one; a `Blob` with a `type` gets it from the platform.
+A `Blob`, `File`, `ArrayBuffer`, typed array or `ReadableStream` (the usual types for a `format: binary`
+schema) is sent as is. Set `Content-Type` yourself when the server needs one; a `Blob` with a `type` gets it
+from the platform. A `ReadableStream` is streamed: the client sets `duplex: "half"`, which the Fetch
+standard requires for a stream body. Node.js, Deno and Bun send it; browser support for stream
+request bodies varies (Chromium needs HTTP/2), so in a browser send a `Blob` unless you checked yours.
 
 ```ts
 const { data, error } = await client.PUT("/files/{name}", {
@@ -316,8 +337,8 @@ const { data, error } = await client.POST("/tokens", {
 
 Form encoding has no standard for nested objects (servers read `a[b]`, `a.b` or JSON), so a nested
 object value throws an error instead of being sent as `[object Object]`. An array becomes one
-comma-separated value (`ids=1%2C2`), and a `null` or `undefined` field is left out, as in a multipart
-body. For nested values or repeated keys, write a `bodySerializer` in the format your server reads.
+comma-separated value (`ids=1%2C2`), a `Date` its ISO 8601 text as in parameters, and a `null` or
+`undefined` field is left out, as in a multipart body. For nested values or repeated keys, write a `bodySerializer` in the format your server reads.
 
 ## pathSerializer
 
@@ -353,7 +374,9 @@ query string or fragment in its template too (`/echo/{id}?v=2`); the query and f
 checked. It also rejects a path that starts with `//` once the parameters are in (an empty first
 parameter, as in `/{org}/{repo}` with `org: ""`): with a relative `baseUrl` (the default `""`) a browser
 reads `//evil.example` as another host and sends the request, headers included, there. An empty value in a
-later segment (`/acme/`) is sent as before. A custom `pathSerializer` is not checked.
+later segment (`/acme/`) is sent as before. Only what the parameters write is checked: the `baseUrl` and the
+template text before the first parameter are not, so a protocol-relative `baseUrl` such as
+`//api.example.com/v1` works. A custom `pathSerializer` is not checked.
 
 :::
 
@@ -438,10 +461,11 @@ Each middleware callback can return:
 - **onResponse**: Either a `Response` to modify the response, or `undefined` to leave it untouched (skip)
 - **onError**: Either an `Error` to modify the error that is thrown, a `Response` which means that the `fetch` call will proceed as successful, or `undefined` to leave the error untouched (skip)
 
-A `Request` is recognized by its `method`, `url` and `headers`, a `Response` by its `status` and
-`headers`, not by its class. So one from the `undici` package, from another realm (an iframe, an
-Electron host) or of a custom `Request` class works too. A plain copy such as `{ ...request }` has
-none of them and throws.
+A `Request` is recognized by its `method`, `url` and `headers`, a `Response` by its `ok`, `status`,
+`headers` and `text()`, not by its class. So one from the `undici` package, from another realm (an
+iframe, an Electron host) or of a custom `Request` class works too. A plain copy such as
+`{ ...request }`, or a test double without `ok`, lacks them and throws, instead of being read as an
+error response.
 
 ### Ejecting middleware
 
@@ -479,6 +503,7 @@ like the rest of the API.
 | `createFinalURL(pathname, options)` | Builds the request URL from `baseUrl`, the path and the query parameters. |
 | `mergeHeaders(...headers)` | Merges header sets into one `Headers`; later ones win, and `null` removes a header. |
 | `removeTrailingSlash(url)` | Removes one trailing `/`. |
+| `randomID()` | Returns a new ID, unique within the process: the `id` that middleware callbacks get. The name is openapi-fetch's; the ID comes from a counter, not from `Math.random()`. |
 | `ClientPathsWithMethod<Client, Method>`, `MethodResponse<Client, Method, Path>` | Types: the paths of a client that have a method, and the `data` type of one call. |
 
 `defaultBodySerializer` returns by the body type:

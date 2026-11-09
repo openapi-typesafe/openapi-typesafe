@@ -35,6 +35,22 @@ async function sentRequest(body: unknown, headers: Record<string, string> = {}):
   return request;
 }
 
+/** A client that records the init it gives `Request`; a platform Request hides some options. */
+function initRecordingClient() {
+  const inits: RequestInit[] = [];
+  const client = createClient<Paths>({
+    baseUrl: BASE_URL,
+    Request: class extends Request {
+      constructor(input: RequestInfo | URL, init?: RequestInit) {
+        super(input, init);
+        inits.push(init ?? {});
+      }
+    },
+    fetch: async () => Response.json({ ok: true }),
+  });
+  return { client, inits };
+}
+
 describe("raw request bodies", () => {
   it("a Blob body is sent as its bytes with its own type", async () => {
     const request = await sentRequest(new Blob(["blob body"], { type: "text/plain" }));
@@ -51,6 +67,39 @@ describe("raw request bodies", () => {
 
     expect([...new Uint8Array(await request.arrayBuffer())]).toEqual([1, 2, 255]);
     expect(request.headers.get("Content-Type")).toBe("application/octet-stream");
+  });
+
+  it("a ReadableStream body is sent as its bytes, without a JSON content type", async () => {
+    const stream = new Blob(["streamed bytes"]).stream();
+
+    const request = await sentRequest(stream, { "Content-Type": "application/octet-stream" });
+
+    expect(await request.text()).toBe("streamed bytes");
+    expect(request.headers.get("Content-Type")).toBe("application/octet-stream");
+  });
+
+  it("a ReadableStream body gets duplex half, which the Fetch standard requires", async () => {
+    const { client, inits } = initRecordingClient();
+
+    await client.POST("/upload", { body: new Blob(["streamed bytes"]).stream() });
+
+    expect(inits).toHaveLength(1);
+    expect(inits[0]).toMatchObject({ duplex: "half" });
+    expect(new Headers(inits[0]?.headers).get("Content-Type")).toBeNull();
+  });
+
+  it("a body that is not a stream gets no duplex", async () => {
+    const { client, inits } = initRecordingClient();
+
+    await client.POST("/upload", { body: new Blob(["bytes"]) });
+
+    expect(inits[0]).toMatchObject({ duplex: undefined });
+  });
+
+  it("defaultBodySerializer returns a ReadableStream as it is", () => {
+    const stream = new Blob(["x"]).stream();
+
+    expect(defaultBodySerializer(stream)).toBe(stream);
   });
 
   it("a URLSearchParams body is sent as a form", async () => {
@@ -98,6 +147,14 @@ describe("form bodies", () => {
 
     expect(await request.text()).toBe("a=1");
     expect(request.headers.get("Content-Type")).toBe(contentType);
+  });
+
+  it("defaultBodySerializer sends a Date field as ISO 8601, alone or in an array", () => {
+    const at = new Date("2026-11-08T12:30:00.000Z");
+
+    expect(defaultBodySerializer({ at, all: [at, at] }, FORM_HEADERS)).toBe(
+      "at=2026-11-08T12%3A30%3A00.000Z&all=2026-11-08T12%3A30%3A00.000Z%2C2026-11-08T12%3A30%3A00.000Z",
+    );
   });
 
   it("defaultBodySerializer rejects a nested object instead of sending [object Object]", () => {

@@ -202,21 +202,22 @@ aliased to `openapi-typesafe-fetch` with `overrides` (npm, bun, `pnpm-workspace.
 
 ### Client fixes
 
-- A string body with a non-JSON `Content-Type` such as `text/plain` is sent as is, not JSON-encoded.
+- A string body with a non-JSON `Content-Type` such as `text/plain` is sent as is, not JSON-encoded. A JSON `Content-Type` is `application/json` or a `+json` type; line-based JSON formats such as `application/x-ndjson`, `application/jsonl` and `application/json-seq` send a string body as is too.
 - A path parameter that makes a `.` or `..` segment is rejected before the request is sent.
 - openapi-typesafe-react-query fails on every non-OK response, also one without a body.
 - Middleware request ids come from a counter instead of `Math.random()`.
 - A path that starts with `//` once the path parameters are in (an empty first parameter) is rejected before the request is sent, since a browser sends it to another host.
 - An error response with an empty body gives `error: undefined`, also without `Content-Length`; it gave `""`.
 - openapi-typesafe-react-query: `useInfiniteQuery` has its own query key, `[...queryKey, "infinite"]`, so it no longer shares a cache entry with `useQuery`. `[method, path]` still matches it as a prefix; code that reads or writes the entry with the exact key must append `"infinite"`.
-- A `Blob`, `File`, `ArrayBuffer`, typed array or `URLSearchParams` body is sent as is; before, it was JSON-encoded to `{}`.
+- A `Blob`, `File`, `ArrayBuffer`, typed array, `URLSearchParams` or `ReadableStream` body is sent as is (a stream with `duplex: "half"`); before, it was JSON-encoded to `{}`.
 - A nested object in an `application/x-www-form-urlencoded` body throws instead of being sent as `[object Object]`; write a `bodySerializer` for the format your server reads.
-- An object body with `Content-Type: multipart/form-data` is sent as `FormData` (one part per field), not as JSON, and a `multipart/form-data` header without a boundary no longer breaks a `FormData` upload.
+- An object body with `Content-Type: multipart/form-data` is sent as `FormData` (one part per field), not as JSON, with the boundary the platform picks (a boundary set by hand in the header is dropped), and a `multipart/form-data` header without a boundary no longer breaks a `FormData` upload.
 - A path that already has a query string gets `&` before `params.query`, not a second `?`.
+- Query parameter names and object keys are percent-encoded like values, so data in a key cannot add a parameter, a path segment or an object member. Names keep `[ ] $ : @ ,` as written (`filter[status]`, `$filter`); object keys are encoded without exceptions.
 - `defaultBodySerializer` declares the type it returns instead of `string`: a raw body as its own type, `undefined` for `undefined`, and `FormData` or `string | FormData` for an object with a multipart or an unknown `Content-Type`. An object without headers, or with headers written as a record, is still `string` unless the `Content-Type` is multipart. Code that used the result as a `string` in the other cases, or in a global `bodySerializer` (its `body` is typed `undefined`), no longer compiles: check `typeof result === "string"`.
-- A `Date` parameter is sent as ISO 8601 (`toISOString()`) in every query and path style. Before, a `Date` on its own or in a path was left out (it is an object without members), and one in an array or a `form` object was sent as `String(date)`, a local time text.
+- A `Date` parameter is sent as ISO 8601 (`toISOString()`) in every query and path style, and so is a `Date` field of a form or multipart body. Before, a `Date` on its own or in a path was left out (it is an object without members), and one in an array, a `form` object or a form body was sent as `String(date)`, a local time text.
 - A query parameter that serializes to nothing (an empty array or object, `null`) no longer leaves a stray `&` (`a=1&&b=2`), and `null` items of exploded arrays and objects are left out too.
-- A success body that is not JSON (for example a proxy's HTML page) throws a `SyntaxError` that names the status, the `Content-Type` and the start of the body and says which `parseAs` to set (`parseAs: "text"` for a `text/*` response), with the parser's error as `cause`; before, it was the parser's bare `SyntaxError`. Bodies are still parsed as JSON unless `parseAs` is set, as in openapi-fetch. See [response body](/fetch/api#response-body).
+- A success body that is not JSON (for example a proxy's HTML page) throws a `SyntaxError` that names the status, the `Content-Type` and the length of the body (not its text, which can hold a secret) and says which `parseAs` to set (`parseAs: "text"` for a `text/*` response), with the parser's error as `cause`; before, it was the parser's bare `SyntaxError`. Bodies are still parsed as JSON unless `parseAs` is set, as in openapi-fetch. See [response body](/fetch/api#response-body).
 - `TRACE()` is unchanged, and its platform differences are documented: browsers, Node.js and Deno reject it, Bun sends it and returns an empty body. See [TRACE](/fetch/api#trace).
 - `Readable` and `Writable` keep function types, so a `Blob` or `Date` in response data keeps its methods (`data.file.arrayBuffer()`).
 

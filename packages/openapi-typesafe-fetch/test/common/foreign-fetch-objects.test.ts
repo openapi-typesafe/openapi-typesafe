@@ -111,6 +111,22 @@ describe("middleware results from another fetch implementation", () => {
     await expect(client.GET("/items")).rejects.toThrow(/onRequest: must return/);
   });
 
+  it("onResponse returning an object without ok and text() throws", async () => {
+    const { client } = createRecordingClient();
+    const lookalike = { status: 200, headers: new Headers(), text: async () => '{"id":1}' };
+    client.use({ onResponse: () => lookalike as unknown as Response });
+
+    await expect(client.GET("/items")).rejects.toThrow(/onResponse: must return new Response/);
+  });
+
+  it("onRequest returning a status and headers without ok throws", async () => {
+    const { client } = createRecordingClient();
+    const lookalike = { status: 200, headers: new Headers() };
+    client.use({ onRequest: () => lookalike as unknown as Response });
+
+    await expect(client.GET("/items")).rejects.toThrow(/onRequest: must return/);
+  });
+
   it("onRequest returning a method and a url without headers still throws", async () => {
     const { client } = createRecordingClient();
     client.use({ onRequest: ({ request }) => ({ method: "GET", url: request.url }) as Request });

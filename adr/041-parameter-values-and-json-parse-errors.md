@@ -84,6 +84,54 @@ The bundle was 8.66 kB against a budget of 8.75 kB.
   request data.
 - Only the bodies that threw before are affected: a body that parsed as JSON gives the same data.
 
+## Amendment (2026-11-08): findings of the rc.3 bug hunt
+
+The bug hunt on rc.3 (`RC4_BUGS.md`, items S2 and F2) found two gaps in this decision.
+
+### The parse error holds no body text (S2)
+
+Decision 4 put the first 100 characters of the body into `error.message`. An OAuth token endpoint
+that answers in form encoding unless it is asked for JSON (GitHub does this) sends
+`access_token=gho_…`, so the token went into `String(error)`, `console.error` output, log lines and
+the `value` of an error tracker event. The Context said that the excerpt "holds no request data";
+it holds response data, which is just as secret.
+
+1. The message is ``Response <status> (<Content-Type or "no Content-Type">) is not JSON (<length>
+   characters); <hint>``: the length of the body text, never the text. The hint and the
+   `SyntaxError` class stay.
+2. The parser's error stays the `cause`. Its message is the platform's: V8 quotes up to 10
+   characters of the input (`Unexpected token 'a', "access_tok"... is not valid JSON`), and
+   openapi-fetch 0.17 threw that error as it is, so nothing new reaches a log through it.
+3. To see the body, read the response with `parseAs: "text"`; the docs say so.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Status, type, length and hint (chosen) | Tells an HTML page (a long body of a `text/html` type) from a short message; no secret can leak | The text itself takes one more request with `parseAs: "text"` |
+| Keep a shorter excerpt (20 characters) | Shows the start of a page | A token or a session id fits in 20 characters |
+| Keep the excerpt, mask values that look secret | Readable | Guessing what a secret looks like misses some; extra code |
+| A `body` property on the error | Text available to code | Error trackers serialize own properties too |
+
+### Dates in form bodies (F2)
+
+Decision 1 covered parameters only. In an `application/x-www-form-urlencoded` or
+`multipart/form-data` body a `Date` is an object, so it hit the nested value check of ADR-013
+(decisions 7 and 10) and threw `Nested form values need your own bodySerializer()`.
+openapi-fetch 0.17 sent `String(date)` in a form, a local-time text.
+
+4. A `Date` field, or a `Date` item of an array field, is sent as `toISOString()` in both form
+   bodies, by the same rule as parameters: a value with a `toISOString` method counts.
+
+### Size
+
+5. The fixes of the rc.3 bug hunt (S2, S3 and F1 to F6, in this ADR and in the amendments of
+   ADR-013, ADR-025 and ADR-030 of the same date) take the bundle from 8.99 kB to 9.37 kB
+   minified (3.57 kB to 3.70 kB gzipped), over the 9.25 kB budget. The largest parts are the
+   `baseUrl`-aware path check (F1), the stream body with its `duplex` (F5), the FormData header
+   rule (F3) and the fuller `Response` check (F6). The code was already cut down: object keys
+   reuse the value encoder, and the form bodies share one `Date` rule with parameters. The rest is
+   the behavior, so the budget rises to 9.5 kB. Correctness ranks above size (CODING_PRINCIPLES
+   §1), and the descriptions state the new gzipped size.
+
 ## Review trigger
 
 A report of a server that needs empty parameters on the wire or a `Date` in another format, a
