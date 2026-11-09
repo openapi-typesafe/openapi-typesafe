@@ -24,6 +24,7 @@
     "./*": "./*"
   },
   "files": [
+    "CHANGELOG.md",
     "dist"
   ],
   "homepage": "https://github.com/openapi-typesafe/openapi-typesafe#readme",

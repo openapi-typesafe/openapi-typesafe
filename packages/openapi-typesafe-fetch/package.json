@@ -24,6 +24,7 @@
     "./*": "./*"
   },
   "files": [
+    "CHANGELOG.md",
     "dist",
     "src"
   ],
