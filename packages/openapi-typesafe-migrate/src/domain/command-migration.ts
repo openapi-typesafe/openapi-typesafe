@@ -1,6 +1,6 @@
 import { NPM_SPECIFIER_PREFIX } from "./command-launchers.js";
 import { commandRoles, type PackageWord } from "./command-roles.js";
-import { type Change, lineAt, type ManualStep } from "./migration-findings.js";
+import { type Change, lineLocator, type ManualStep } from "./migration-findings.js";
 import {
   FLAG_RENAMES,
   GENERATOR_COMMAND,
@@ -131,7 +131,20 @@ function withoutRecipePrefix(words: ShellCommand): ShellCommand {
   return [{ ...first, value: first.value.replace(RECIPE_PREFIX_RE, "") }, ...rest];
 }
 
-function commandFindings(command: ShellCommand, locate: Locate): Finding[] {
+/**
+ * Tells whether a program word runs the generator through a variable that the same file sets
+ * (`$(OAT)` in a Makefile with `OAT := openapi-typescript`). The variable's value is migrated where
+ * it is set; the flags after it are migrated where it is used.
+ */
+export type GeneratorReference = (program: ShellWord) => boolean;
+
+const NO_GENERATOR_REFERENCES: GeneratorReference = () => false;
+
+function commandFindings(
+  command: ShellCommand,
+  locate: Locate,
+  isGeneratorReference: GeneratorReference,
+): Finding[] {
   const words = withoutRecipePrefix(command);
   const roles = commandRoles(words);
   const findings = roles.packages.flatMap((found) => packageFindings(found, locate));
@@ -142,11 +155,23 @@ function commandFindings(command: ShellCommand, locate: Locate): Finding[] {
   const found = programFindings(program, locate(program.start));
   findings.push(...found);
   // Only a renamed command is ours to change; a pinned one still runs the old package.
-  if (found.some((finding) => finding.change?.kind === "command-renamed")) {
+  const isRenamed = found.some((finding) => finding.change?.kind === "command-renamed");
+  if (isRenamed || isGeneratorReference(program)) {
     const flags = words.slice((roles.program as number) + 1);
     findings.push(...flags.flatMap((word) => flagFindings(word, locate)));
   }
   return findings;
+}
+
+/**
+ * Whether a command runs the generator by its old name, so a variable set to it holds the
+ * generator command.
+ */
+export function runsGenerator(command: ShellCommand): boolean {
+  const words = withoutRecipePrefix(command);
+  const { program } = commandRoles(words);
+  const word = program === undefined ? undefined : words[program];
+  return word !== undefined && packageReference(word.value).name === GENERATOR_COMMAND;
 }
 
 /** The findings of a shell text as edits, without applying them. */
@@ -165,9 +190,10 @@ export function shellTextFindings(text: string, locate: Locate): ShellTextFindin
 export function commandWordFindings(
   commands: readonly ShellCommand[],
   locate: Locate,
+  isGeneratorReference: GeneratorReference = NO_GENERATOR_REFERENCES,
 ): ShellTextFindings {
   const findings = commands
-    .flatMap((words) => commandFindings(words, locate))
+    .flatMap((words) => commandFindings(words, locate, isGeneratorReference))
     .sort((left, right) => left.offset - right.offset);
   return {
     edits: findings.flatMap((finding) => (finding.edit === undefined ? [] : [finding.edit])),
@@ -196,5 +222,6 @@ export function migrateCommand(text: string, location: string): CommandMigration
  * continued with `\` onto the next lines is one command. Each finding names its `file:line`.
  */
 export function migrateCommandLines(text: string, file: string): CommandMigration {
-  return migrateShellText(text, (offset) => `${file}:${lineAt(text, offset)}`);
+  const lineOf = lineLocator(text);
+  return migrateShellText(text, (offset) => `${file}:${lineOf(offset)}`);
 }

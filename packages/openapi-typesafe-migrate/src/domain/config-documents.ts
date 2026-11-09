@@ -1,5 +1,5 @@
 import { columnAt, type FileMigration, lineAt, unchanged } from "./migration-findings.js";
-import { PACKAGE_RENAMES } from "./package-names.js";
+import { namesOriginalPackage } from "./package-names.js";
 
 /**
  * A JSON, JSONC or YAML config as a parser adapter reads it: a tree per document with the offsets
@@ -129,8 +129,7 @@ export function ownerKey(path: DocumentPath): string | undefined {
  * place where it stops being valid.
  */
 export function unreadableConfig(text: string, offset: number | undefined): FileMigration {
-  const isNamed = [...PACKAGE_RENAMES.keys()].some((name) => text.includes(name));
-  if (!isNamed) {
+  if (!namesOriginalPackage(text)) {
     return unchanged(text);
   }
   const position =

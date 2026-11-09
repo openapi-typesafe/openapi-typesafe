@@ -31,10 +31,14 @@ Run it with `npx` (or `pnpm dlx`, `yarn dlx`, `bunx`), not as a dependency: it u
 Commands are read in `package.json` scripts, shell scripts (`.sh`, `.bash`, `.zsh`), husky hooks,
 `Makefile`, `justfile`, `Dockerfile`, CI and other YAML files, Nx `project.json` targets,
 `deno.json` tasks and pnpm `package.yaml` scripts. They are read word by word, the way the shell
-splits them (quotes, `\` line continuations, comments, `&&`, `|`, `sh -c "…"`), so only the
-generator's own flags are renamed, and a script name (`npm run openapi-typescript`) is never
-changed. YAML files are changed only in command keys (`run`, `script`, `command`, `entrypoint`,
-…), in block and flow style, never in other values such as an OpenAPI `description`. A config
+splits them (quotes, `\` line continuations, comments, `&&`, `|`, `sh -c "…"`, and the commands
+inside `if`, `while`, `for` and `{ … }`), so only the generator's own flags are renamed, and a
+script name (`npm run openapi-typescript`) is never changed. A Dockerfile's exec form
+(`RUN ["npx", "openapi-typescript", …]`) is read word by word. A Makefile variable that holds the
+generator (`OAT := openapi-typescript`) is renamed where it is set, and the flags after `$(OAT)`
+where it runs. YAML files are changed only in command keys (`run`, `script`, `command`,
+`entrypoint`, …) and in the values of `env`, in block and flow style, never in other values such
+as an OpenAPI `description`; a YAML file that names no old package is not even parsed. A config
 that cannot be parsed and names an old package is reported with the line and column, not changed. `Makefile`, `justfile` and
 `Dockerfile` are read only under the names make, just and docker look for (also `makefile`,
 `GNUmakefile`, `Justfile`, `.justfile`, `Containerfile` and `*.mk`), so `Dockerfile.dev` is not
@@ -49,8 +53,10 @@ kept and reported.
 Manifests, catalogs and import maps are edited in place: only the renamed keys and the new values
 change, and comments, formatting, key order and line endings stay. A byte order mark is kept. An
 entry whose new name is already in the same map is left and reported, and so is an entry the tool
-does not edit (a YAML alias, anchor or block value). Sources also get `npm:` specifiers renamed
-(`import x from "npm:openapi-fetch@^0.13"`).
+does not edit (a YAML alias, anchor or block value). A catalog entry and the `catalog:`
+dependencies on it keep one name: an entry stays while a dependency that was left still uses it,
+and a dependency stays while its entry does, so the install never misses a catalog entry; both are
+reported. Sources also get `npm:` specifiers renamed (`import x from "npm:openapi-fetch@^0.13"`).
 
 In a git repository the tool reads the files git lists: tracked files, and untracked files that
 `.gitignore` does not ignore, so ignored build output (`cjs/`, `esm/`, `types/`, …) stays out. A
@@ -61,13 +67,18 @@ repository around it ignores, it reads the whole tree of that folder. Either way
 `coverage` are skipped, and links are not followed. The log names the folders and how each one
 was read.
 
-The tool does not trust the folder it migrates. Git runs with `core.fsmonitor` turned off and
-every network transport refused (`protocol.allow=never`, `GIT_NO_LAZY_FETCH=1`), so a nested
-repository's `.git/config` cannot make it run a command, not even through a partial clone that
-fetches a missing object; and it does not open a bare repository that is not named explicitly. A path that git lists but that leads outside the folder
-(`../`, an absolute path, or a linked parent folder) is not read or written; the report lists it
-under "Skipped". A file is written as a new file that replaces the old one (same mode), so a hard
-link to a file elsewhere keeps its old text; the log notes it.
+The tool does not trust the folder it migrates. Git is the `git` of an absolute folder on
+`PATH`, never one in the project, and it runs with `core.fsmonitor` turned off and every
+transport refused (`GIT_ALLOW_PROTOCOL` set to an empty list, which no `protocol.*` key of a
+repository's config can undo), so a nested repository's `.git/config` cannot make it run a
+command, not even through a partial clone that fetches a missing object. It does not open a bare
+repository that is not named explicitly, and the folder that holds `.git` is the work tree, so a
+`core.worktree` in the config cannot point the listing at another folder; `GIT_DIR` and the other
+variables that name a repository are not passed on. A path that git lists but that leads outside
+the folder (`../`, an absolute path, a linked parent folder or a link to a file elsewhere) is not
+read or written; the report lists it under "Skipped". A file is written as a new file that
+replaces the old one (same mode), so a hard link to a file elsewhere keeps its old text; the log
+notes it.
 A file whose bytes are not UTF-8 (a Latin-1 source, for example) is not changed, because its
 text cannot be written back without changing other characters; neither is a file that cannot be
 read. The report lists both under "Skipped". Every file is read and migrated before the first one
@@ -88,7 +99,8 @@ The report lists each of these with the file and line:
   (`npm i openapi-fetch@0.13`): change them by hand;
 - a command that runs a file inside the old package
   (`node node_modules/openapi-typescript/bin/cli.js`): run `openapi-typesafe` instead;
-- strings in sources that run `openapi-typescript` (`execSync("npx openapi-typescript …")`),
+- strings in sources that run `openapi-typescript` (`execSync("npx openapi-typescript …")`, also
+  a template such as `` `npx openapi-typescript ${spec}` ``),
   with the command they should become;
 - deep imports such as `openapi-fetch/dist/...`: check that the file exists in the new package;
 - strings that equal an old package name outside a module specifier (an object key, a label, a

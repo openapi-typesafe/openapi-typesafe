@@ -72,4 +72,26 @@ describe("shellCommands", () => {
     expect(values("a \\")).toEqual([["a", "\\"]]);
     expect(values("")).toEqual([]);
   });
+
+  it("shellCommands reads the command after a reserved word in command position", () => {
+    const text =
+      "if a; then b -x; elif c; else d; fi; while ! e; do { f; }; done; until g; do h; done";
+
+    expect(values(text)).toEqual([["a"], ["b", "-x"], ["c"], ["d"], ["e"], ["f"], ["g"], ["h"]]);
+  });
+
+  it("shellCommands reads no command in a for, select or case clause or a [[ test", () => {
+    const text = "for f in a b; do c $f; done\ncase $x in d) e;; esac\n[[ -n y ]] && g";
+
+    expect(values(text)).toEqual([["c", "$f"], ["e"], ["g"]]);
+    expect(values("select s in a b; do c; done; function h { i; }")).toEqual([["c"], ["i"]]);
+  });
+
+  it("shellCommands keeps reserved words that are quoted or not in command position", () => {
+    expect(values(`"if" a; echo then fi; 'do' b`)).toEqual([
+      ["if", "a"],
+      ["echo", "then", "fi"],
+      ["do", "b"],
+    ]);
+  });
 });

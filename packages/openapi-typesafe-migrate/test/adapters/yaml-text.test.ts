@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
+import {
+  createYamlTextReader,
+  YAML_PARSE_OPTIONS,
+} from "../../src/adapters/yaml-text/yaml-text.js";
 import {
   type DocumentString,
   documentStrings,
@@ -232,8 +235,23 @@ describe("YamlTextReader tree", () => {
   it.each([
     ["a: [\n", 5],
     ["a: 1\na: 2\n", 5],
+    ["x: {a: 1, b: 2, a: 3}\n", 16],
+    ["- k: 1\n- {k: 1, k: 2}\n", 16],
+    ["a: 1\n---\nb: {c: 1}\nb: 2\n", 19],
   ])("read refuses %j at offset %i", (text, offset) => {
     expect(reader.read(text)).toEqual({ kind: "unreadable", offset });
+  });
+
+  it("read keeps keys that only look alike: other types, and keys that are not scalars", () => {
+    expect(reader.read("1: a\n'1': b\n? [k]\n: c\n? [k]\n: d\n").kind).toBe("read");
+  });
+
+  it("read leaves duplicate keys to its own linear check, not to the quadratic one of yaml", () => {
+    // The yaml check compares each key with every key before it: 80 000 keys took 24 s on a
+    // laptop. A timed test cannot tell that from a slow runner (the linear read of the same map
+    // took 0.4 s on the laptop and 16 s on CI), so the option itself is checked; the tests above
+    // show that duplicates are still refused.
+    expect(YAML_PARSE_OPTIONS.uniqueKeys).toBe(false);
   });
 
   it("read refuses nesting deeper than the stack allows, as an error", () => {

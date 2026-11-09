@@ -130,14 +130,58 @@ function convert(node: unknown, conversion: Conversion): TreeNode {
 }
 
 /**
+ * The offset of the first key that repeats an earlier scalar key of the same map, under `node`.
+ * YAML forbids such a key. The `yaml` package checks it by comparing each key with every key
+ * before it, which took 25 s on a 6 MB OpenAPI document; this check is linear and finds the same
+ * keys: scalar keys with the same value.
+ */
+function duplicateKeyOffset(node: unknown): number | undefined {
+  if (isSeq(node)) {
+    return firstOffset(node.items);
+  }
+  if (!isMap(node)) {
+    return undefined;
+  }
+  const keys = new Set<unknown>();
+  for (const pair of node.items) {
+    if (isScalar(pair.key) && keys.has(pair.key.value)) {
+      return spanOf(pair.key).start;
+    }
+    keys.add(isScalar(pair.key) ? pair.key.value : pair.key);
+  }
+  return firstOffset(node.items.flatMap((pair) => [pair.key, pair.value]));
+}
+
+function firstOffset(nodes: readonly unknown[]): number | undefined {
+  for (const node of nodes) {
+    const offset = duplicateKeyOffset(node);
+    if (offset !== undefined) {
+      return offset;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * How the `yaml` package parses a config. Its own duplicate key check compares each key with every
+ * key before it, so it is turned off (`uniqueKeys: false`) for the linear one above; the source
+ * tokens give the offsets of the strings the migrations edit.
+ */
+export const YAML_PARSE_OPTIONS = { keepSourceTokens: true, uniqueKeys: false } as const;
+
+/**
  * The `yaml` package stops at nesting deeper than the stack allows and reports it as an error, so
  * a tree it gives is shallow enough for the migrations to walk.
  */
 function read(text: string): DocumentRead {
-  const documents = parseAllDocuments(text, { keepSourceTokens: true });
+  const documents = parseAllDocuments(text, YAML_PARSE_OPTIONS);
   const error = documents.flatMap((document) => document.errors)[0];
   if (error !== undefined) {
     return { kind: "unreadable", offset: error.pos[0] };
+  }
+  const duplicate = firstOffset(documents.map((document) => document.contents));
+  if (duplicate !== undefined) {
+    return { kind: "unreadable", offset: duplicate };
   }
   const roots = documents.flatMap((document) =>
     document.contents === null ? [] : [convert(document.contents, { isFlow: false })],

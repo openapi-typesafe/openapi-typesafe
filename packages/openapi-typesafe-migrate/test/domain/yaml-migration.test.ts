@@ -17,6 +17,30 @@ function stringsOf(text: string): DocumentString[] {
 const lines = (...parts: string[]): string => `${parts.join("\n")}\n`;
 
 describe("migrateYamlCommands", () => {
+  it("migrateYamlCommands migrates commands in env values and leaves other text there", () => {
+    const text = lines(
+      "env:",
+      "  GEN: npx openapi-typescript api.yaml -it",
+      "  NOTE: made by openapi-typescript -it",
+      "jobs:",
+      "  a:",
+      "    env: { RUN_GEN: 'openapi-typescript b.yaml', run: openapi-typescript -it }",
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      lines(
+        "env:",
+        "  GEN: npx openapi-typesafe api.yaml --immutable",
+        "  NOTE: made by openapi-typescript -it",
+        "jobs:",
+        "  a:",
+        "    env: { RUN_GEN: 'openapi-typesafe b.yaml', run: openapi-typesafe --immutable }",
+      ),
+    );
+  });
+
   it("migrateYamlCommands migrates commands and leaves other values", () => {
     const text = lines(
       "info:",

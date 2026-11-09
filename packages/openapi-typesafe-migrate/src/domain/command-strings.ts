@@ -1,5 +1,5 @@
 import { migrateCommand } from "./command-migration.js";
-import { lineAt, type ManualStep } from "./migration-findings.js";
+import { lineLocator, type ManualStep } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import type { SourceString } from "./source-migration.js";
 
@@ -12,6 +12,7 @@ const NO_LOCATION = "";
  * changed: a string is data, and only the author knows that it reaches a shell.
  */
 export function commandStringSteps(text: string, strings: readonly SourceString[]): ManualStep[] {
+  const lineOf = lineLocator(text);
   return strings.flatMap((found) => {
     // A string that is just a package name is reported by the specifier migration.
     if (found.isModuleSpecifier || PACKAGE_RENAMES.has(found.value)) {
@@ -20,6 +21,6 @@ export function commandStringSteps(text: string, strings: readonly SourceString[
     const migrated = migrateCommand(found.value, NO_LOCATION).text;
     return migrated === found.value
       ? []
-      : [{ kind: "command-string" as const, line: lineAt(text, found.start), to: migrated }];
+      : [{ kind: "command-string" as const, line: lineOf(found.start), to: migrated }];
   });
 }

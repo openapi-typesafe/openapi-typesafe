@@ -10,7 +10,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type {
   FileProblem,
   FileRead,
@@ -22,6 +22,7 @@ import type {
   SkippedFile,
 } from "../../application/ports.js";
 import type { GitFileList } from "../git-file-list/git-file-list.js";
+import { entryAt, isInFolder, isRelativeDownward, type ListedEntry } from "./paths-in-root.js";
 
 /**
  * Installed packages, git metadata, build output and the output folders of frameworks and test
@@ -48,7 +49,6 @@ const TEMPORARY_SUFFIX = ".openapi-typesafe-migrate.tmp";
 const PERMISSION_BITS = 0o7777;
 /** Only the owner can read the new text until it has the mode of the file it replaces. */
 const TEMPORARY_MODE = 0o600;
-const PARENT_DIRECTORY = "..";
 const OUTSIDE_ROOT: FileProblem = { kind: "outside-root" };
 const NOT_UTF_8: FileProblem = { kind: "not-utf-8" };
 const UTF_8 = "utf-8";
@@ -105,56 +105,6 @@ async function listTree(root: string, relative: string): Promise<string[]> {
     }),
   );
   return nested.flat();
-}
-
-/** What a path that git lists is on disk. */
-type ListedEntry = "file" | "directory" | "other" | "outside";
-
-/**
- * Whether `path` stays under the folder it is relative to, by its text. Git checks a path when it
- * adds it to the index, but it prints an index that it did not write (one in a planted `.git`) as
- * it is, with `../` or a leading `/`. Links are checked by the real path.
- */
-function isRelativeDownward(path: string): boolean {
-  return !isAbsolute(path) && !path.split("/").includes(PARENT_DIRECTORY);
-}
-
-/** Whether the real path `target` is in the real folder `folder`, not the folder itself. */
-function isInFolder(folder: string, target: string): boolean {
-  const path = relative(folder, target);
-  return (
-    path !== "" &&
-    path !== PARENT_DIRECTORY &&
-    !path.startsWith(`${PARENT_DIRECTORY}${sep}`) &&
-    !isAbsolute(path)
-  );
-}
-
-/**
- * Git also lists links and tracked files deleted from the working tree; only regular files that
- * exist are the project's files. A directory is a submodule or a nested repository. A file or
- * directory whose real path is outside the root (by `..`, or by a linked parent folder) is
- * "outside".
- */
-async function entryAt(root: string, realRoot: string, path: string): Promise<ListedEntry> {
-  if (!isRelativeDownward(path)) {
-    return "outside";
-  }
-  try {
-    const stats = await lstat(join(root, path));
-    if (!stats.isFile() && !stats.isDirectory()) {
-      return "other";
-    }
-    if (!isInFolder(realRoot, await realpath(join(root, path)))) {
-      return "outside";
-    }
-    return stats.isFile() ? "file" : "directory";
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return "other";
-    }
-    throw error;
-  }
 }
 
 interface ListedPaths {

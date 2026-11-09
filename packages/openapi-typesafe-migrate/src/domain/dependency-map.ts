@@ -1,4 +1,5 @@
 import { assertNever } from "./assert-never.js";
+import { type CatalogPlan, catalogOfSpec } from "./catalog-plan.js";
 import type { Change, ManualStep } from "./migration-findings.js";
 import { migrateNpmSpec } from "./npm-alias.js";
 import { PACKAGE_RENAMES, renamedSpecifier } from "./package-names.js";
@@ -48,14 +49,28 @@ export const newFindings = (): Findings => ({ edits: [], changes: [], manualStep
  */
 export type SpecMap =
   | { readonly kind: "dependencies"; readonly field: string }
-  | { readonly kind: "catalog"; readonly catalog: string }
+  | {
+      readonly kind: "catalog";
+      /** Where the catalog is in its file (`catalogs.legacy`), for the report. */
+      readonly catalog: string;
+      /** The name that `catalog:<name>` gives it (`default` for `catalog:`). */
+      readonly name: string;
+    }
   | { readonly kind: "imports"; readonly field: string };
+
+/** What renamed entries get: the version of the tool, and the plan of the project's catalogs. */
+export interface RenameTarget {
+  readonly version: string;
+  readonly catalogs: CatalogPlan;
+}
 
 /** Where a map is, the version renamed entries get, and where the findings go. */
 export interface MapContext {
   readonly map: SpecMap;
   readonly version: string;
   readonly findings: Findings;
+  /** What the project's catalogs keep under the old names (domain/catalogs.ts). */
+  readonly catalogs: CatalogPlan;
 }
 
 const PEER_FIELD = "peerDependencies";
@@ -146,6 +161,24 @@ function migrateEntry(
 }
 
 /**
+ * Why an entry keeps its old name to stay in step with a catalog, or undefined. A dependency on a
+ * catalog entry that stays keeps the name it points at; a catalog entry that a dependency keeps
+ * using stays too, so `catalog:` never points at a name the catalog does not have.
+ */
+function catalogHold(entry: SpecEntry, spec: SpecValue, { map, catalogs }: MapContext) {
+  if (map.kind === "catalog") {
+    const isInUse = catalogs.inUse.has(map.name, entry.name);
+    return isInUse
+      ? ({ kind: "catalog-entry-in-use", catalog: map.catalog, name: entry.name } as const)
+      : undefined;
+  }
+  const catalog = map.kind === "dependencies" ? catalogOfSpec(spec.value) : undefined;
+  return catalog !== undefined && catalogs.kept.has(catalog, entry.name)
+    ? ({ kind: "catalog-reference-kept", field: map.field, name: entry.name, catalog } as const)
+    : undefined;
+}
+
+/**
  * Rename the original packages of a dependency field or catalog, in place, with `version` as
  * the new version, and retarget `npm:` aliases of them. An entry whose value is not a string (a
  * YAML anchor or flow value) is not one the tool understands: it is left and reported.
@@ -162,8 +195,11 @@ export function migrateSpecMap(entries: readonly SpecEntry[], context: MapContex
     if (!isFree({ from: entry.name, to, field, names }, context.findings)) {
       continue;
     }
+    const hold = entry.spec === undefined ? undefined : catalogHold(entry, entry.spec, context);
     if (entry.spec === undefined) {
       context.findings.manualSteps.push({ kind: "entry-not-edited", field, name: entry.name });
+    } else if (hold !== undefined) {
+      context.findings.manualSteps.push(hold);
     } else {
       migrateEntry(entry, entry.spec, to, context);
     }

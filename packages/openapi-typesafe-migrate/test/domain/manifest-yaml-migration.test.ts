@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { fileMigrationFor } from "../../src/application/file-migrations.js";
+import { NO_CATALOG_PLAN } from "../../src/domain/catalog-plan.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
 
@@ -15,7 +16,13 @@ function migratePackageYaml(text: string, version: string) {
   if (migrate === undefined) {
     throw new Error("package.yaml has no migration");
   }
-  return migrate(text, "package.yaml", { version, rewriter, scanner, readers });
+  return migrate(text, "package.yaml", {
+    version,
+    catalogs: NO_CATALOG_PLAN,
+    rewriter,
+    scanner,
+    readers,
+  });
 }
 
 describe("migratePackageManifest on package.yaml", () => {

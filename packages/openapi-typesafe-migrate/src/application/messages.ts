@@ -112,7 +112,14 @@ function commandStepMessage(step: CommandStep): string {
 /** Steps for places of a structured file (JSON, YAML) that the tool could not edit. */
 type UneditedStep = Extract<
   ManualStep,
-  { kind: "config-unreadable" | "entry-not-edited" | "name-collision" }
+  {
+    kind:
+      | "config-unreadable"
+      | "entry-not-edited"
+      | "name-collision"
+      | "catalog-reference-kept"
+      | "catalog-entry-in-use";
+  }
 >;
 
 function uneditedStepMessage(step: UneditedStep): string {
@@ -129,6 +136,16 @@ function uneditedStepMessage(step: UneditedStep): string {
         `${step.field} has both ${step.from} and ${step.to}, so ${step.from} was kept: ` +
         "remove one of them"
       );
+    case "catalog-reference-kept":
+      return (
+        `${step.field}: ${step.name} was kept, because catalog "${step.catalog}" keeps ` +
+        `${step.name}: rename the entry and the dependency together`
+      );
+    case "catalog-entry-in-use":
+      return (
+        `${step.catalog}: ${step.name} was kept, because a dependency still names it: ` +
+        "rename the entry and the dependency together"
+      );
     default:
       return assertNever(step);
   }
@@ -142,6 +159,8 @@ export function manualStepMessage(step: ManualStep): string {
     case "config-unreadable":
     case "entry-not-edited":
     case "name-collision":
+    case "catalog-reference-kept":
+    case "catalog-entry-in-use":
       return uneditedStepMessage(step);
     case "peer-dependency-renamed":
       return `${step.name} is a peer dependency: ${PEER_NOTE}`;
@@ -172,7 +191,7 @@ export const SKIPPED_HEADING = "Skipped (not read, not written):";
 export function skippedMessage(reason: FileProblem): string {
   switch (reason.kind) {
     case "outside-root":
-      return "it leads outside the project folder; check where this git index came from";
+      return "it leads outside the project folder (a link, or a path in the git index)";
     case "not-utf-8":
       return "it is not UTF-8 text, so it was not changed; check it by hand";
     case "io-error":

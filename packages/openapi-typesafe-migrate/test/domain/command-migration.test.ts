@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { migrateCommand, migrateCommandLines } from "../../src/domain/command-migration.js";
 
+const LARGE_FILE_LINES = 100_000;
+/**
+ * The linear count takes 0.1 s on a laptop and 3.2 s on the slowest CI runner (Intel macOS);
+ * counting the line breaks again for each command took 57 s on the laptop. The limit sits
+ * between the two with room on both sides, since a fixed limit cannot follow machine speed.
+ */
+const TIME_LIMIT_MS = 20_000;
+/** Above the limit, so a slow run fails on the time check, which prints the time it took. */
+const TEST_TIMEOUT_MS = 2 * TIME_LIMIT_MS;
+
 describe("migrateCommand", () => {
   it("migrateCommand renames the generator command after shell punctuation", () => {
     const migrated = migrateCommand(
@@ -219,6 +229,50 @@ describe("migrateCommandLines", () => {
 
     expect(migrated.text).toBe("set -e\nopenapi-typesafe a.yaml\n");
     expect(migrated.changes).toEqual([{ kind: "command-renamed", location: "gen.sh:2" }]);
+  });
+
+  it("migrateCommandLines renames commands inside compound commands", () => {
+    const text = [
+      "if [ -f api.yaml ]; then",
+      "  npx openapi-typescript api.yaml -it",
+      "fi",
+      'for f in specs/*.yaml; do npx openapi-typescript "$f" -it; done',
+      "! openapi-typescript a.yaml --redoc r.yaml",
+      "",
+    ].join("\n");
+
+    const migrated = migrateCommandLines(text, "gen.sh");
+
+    expect(migrated.text).toBe(
+      [
+        "if [ -f api.yaml ]; then",
+        "  npx openapi-typesafe api.yaml --immutable",
+        "fi",
+        'for f in specs/*.yaml; do npx openapi-typesafe "$f" --immutable; done',
+        "! openapi-typesafe a.yaml --redocly r.yaml",
+        "",
+      ].join("\n"),
+    );
+    expect(migrated.changes.map((change) => ("location" in change ? change.location : ""))).toEqual(
+      ["gen.sh:2", "gen.sh:2", "gen.sh:4", "gen.sh:4", "gen.sh:5", "gen.sh:5"],
+    );
+  });
+
+  it("migrateCommandLines names the lines of a large file in linear time", {
+    timeout: TEST_TIMEOUT_MS,
+  }, () => {
+    // 100 000 commands took 57 s when each place counted the line breaks before it.
+    const lines = Array.from({ length: LARGE_FILE_LINES }, (_, index) => `echo ${index}`);
+    const text = `${lines.join("\n")}\nopenapi-typescript a.yaml -it\n`;
+    const started = performance.now();
+
+    const migrated = migrateCommandLines(text, "gen.sh");
+
+    expect(performance.now() - started).toBeLessThan(TIME_LIMIT_MS);
+    expect(migrated.changes[0]).toEqual({
+      kind: "command-renamed",
+      location: `gen.sh:${LARGE_FILE_LINES + 1}`,
+    });
   });
 
   it("migrateCommandLines collects manual steps of every line", () => {

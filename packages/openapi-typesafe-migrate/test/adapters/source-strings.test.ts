@@ -15,6 +15,9 @@ function specifierFlags(text: string, path = "a.ts"): boolean[] {
 
 const VERSION = "1.0.0";
 
+/** The text `${name}` of a template substitution, as a source file holds it. */
+const substitution = (name: string): string => ["$", "{", name, "}"].join("");
+
 describe("TypescriptSourceStringScanner", () => {
   it.each([
     ["an import", 'import createClient from "openapi-fetch";'],
@@ -68,6 +71,22 @@ describe("TypescriptSourceStringScanner", () => {
     ["a JSX attribute", 'const a = <Badge name="openapi-fetch" />;'],
   ])("scan finds %s as a string that is not a module specifier", (_position, text) => {
     expect(specifierFlags(text, "a.tsx")).toEqual([false]);
+  });
+
+  it("scan gives a template with substitutions as written, and as a specifier where it is one", () => {
+    const spec = substitution("spec");
+    const x = substitution("x");
+    const text = `execSync(\`npx openapi-typescript ${spec} -it\`);\nimport(\`openapi-fetch/${x}\`);`;
+
+    const found = scanner.scan(text, "a.mjs").filter((string) => string.value.includes("openapi"));
+
+    expect(found).toEqual([
+      { start: 10, end: 44, value: `npx openapi-typescript ${spec} -it`, isModuleSpecifier: false },
+      { start: 56, end: 74, value: `openapi-fetch/${x}`, isModuleSpecifier: true },
+    ]);
+    expect(migrateModuleSpecifiers(text, found, VERSION).text).toContain(
+      `import(\`openapi-typesafe-fetch/${x}\`)`,
+    );
   });
 
   it("scan skips comments, JSDoc text and a reference to a path", () => {

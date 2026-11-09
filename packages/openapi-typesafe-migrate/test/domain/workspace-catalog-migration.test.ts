@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
+import { NO_CATALOG_PLAN } from "../../src/domain/catalog-plan.js";
 import {
   migrateWorkspaceCatalogs,
   PNPM_WORKSPACE_FILE,
@@ -7,9 +8,10 @@ import {
 } from "../../src/domain/workspace-catalog-migration.js";
 
 const reader = createYamlTextReader();
+const TARGET = { version: "1.0.0", catalogs: NO_CATALOG_PLAN };
 
 const pnpm = (text: string) =>
-  migrateWorkspaceCatalogs(text, reader.read(text), "1.0.0", PNPM_WORKSPACE_FILE);
+  migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE);
 
 /** Far above the few milliseconds a linear scan takes, far below the seconds of a quadratic one. */
 const TIME_LIMIT_MS = 1000;
@@ -36,12 +38,7 @@ describe("migrateWorkspaceCatalogs", () => {
       "",
     ].join("\n");
 
-    const migrated = migrateWorkspaceCatalogs(
-      text,
-      reader.read(text),
-      "1.0.0",
-      PNPM_WORKSPACE_FILE,
-    );
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE);
 
     expect(migrated.text).toBe(
       [
@@ -73,13 +70,11 @@ describe("migrateWorkspaceCatalogs", () => {
   it("migrateWorkspaceCatalogs leaves a file without catalog entries unchanged", () => {
     const text = "packages:\n  - apps/*\noverrides:\n  react: 19.0.0\n";
 
-    expect(migrateWorkspaceCatalogs(text, reader.read(text), "1.0.0", PNPM_WORKSPACE_FILE)).toEqual(
-      {
-        text,
-        changes: [],
-        manualSteps: [],
-      },
-    );
+    expect(migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE)).toEqual({
+      text,
+      changes: [],
+      manualSteps: [],
+    });
   });
 
   it("migrateWorkspaceCatalogs reports overrides and patches that name an original package", () => {
@@ -92,12 +87,7 @@ describe("migrateWorkspaceCatalogs", () => {
       "",
     ].join("\n");
 
-    const migrated = migrateWorkspaceCatalogs(
-      text,
-      reader.read(text),
-      "1.0.0",
-      PNPM_WORKSPACE_FILE,
-    );
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE);
 
     expect(migrated.text).toBe(text);
     expect(migrated.manualSteps).toEqual([
@@ -110,12 +100,7 @@ describe("migrateWorkspaceCatalogs", () => {
   it("migrateWorkspaceCatalogs hides URL credentials in the findings, not in the file", () => {
     const text = "catalog:\n  openapi-fetch: https://u:SECRET@npm.acme/x.tgz\n";
 
-    const migrated = migrateWorkspaceCatalogs(
-      text,
-      reader.read(text),
-      "1.0.0",
-      PNPM_WORKSPACE_FILE,
-    );
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE);
 
     expect(migrated.text).toBe(
       "catalog:\n  openapi-typesafe-fetch: https://u:SECRET@npm.acme/x.tgz\n",
@@ -129,7 +114,7 @@ describe("migrateWorkspaceCatalogs", () => {
     const text = `catalog:\n  openapi-fetch: ${"x".repeat(LONG_LINE_LENGTH)}\ry\n`;
 
     const { milliseconds } = timed(() =>
-      migrateWorkspaceCatalogs(text, reader.read(text), "1.0.0", PNPM_WORKSPACE_FILE),
+      migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE),
     );
 
     expect(milliseconds).toBeLessThan(TIME_LIMIT_MS);
@@ -140,7 +125,7 @@ describe("migrateWorkspaceCatalogs", () => {
     const text = `overrides:\n${" ".repeat(half)}${"a".repeat(half)}\n`;
 
     const { result, milliseconds } = timed(() =>
-      migrateWorkspaceCatalogs(text, reader.read(text), "1.0.0", PNPM_WORKSPACE_FILE),
+      migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE),
     );
 
     expect(result.manualSteps).toEqual([]);
@@ -150,12 +135,7 @@ describe("migrateWorkspaceCatalogs", () => {
   it("migrateWorkspaceCatalogs reports an override key that has a colon inside", () => {
     const text = "overrides:\n  a:b>openapi-fetch: 0.13.0\n  'c:d>openapi-typescript': 7\n";
 
-    const migrated = migrateWorkspaceCatalogs(
-      text,
-      reader.read(text),
-      "1.0.0",
-      PNPM_WORKSPACE_FILE,
-    );
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE);
 
     expect(migrated.manualSteps).toEqual([
       { kind: "override-names-package", field: "overrides", name: "openapi-fetch" },
@@ -173,12 +153,7 @@ describe("migrateWorkspaceCatalogs", () => {
       "",
     ].join("\r\n");
 
-    const migrated = migrateWorkspaceCatalogs(
-      text,
-      reader.read(text),
-      "1.0.0",
-      PNPM_WORKSPACE_FILE,
-    );
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE);
 
     expect(migrated.text).toBe(
       [
@@ -199,12 +174,7 @@ describe("migrateWorkspaceCatalogs", () => {
   it("migrateWorkspaceCatalogs keeps the ending of each line in a file with mixed endings", () => {
     const text = "catalog:\r\n  openapi-fetch: ^0.17.0\n  openapi-typescript: 7.13.0\r\n";
 
-    const migrated = migrateWorkspaceCatalogs(
-      text,
-      reader.read(text),
-      "1.0.0",
-      PNPM_WORKSPACE_FILE,
-    );
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE);
 
     expect(migrated.text).toBe(
       "catalog:\r\n  openapi-typesafe-fetch: ^1.0.0\n  openapi-typesafe: 1.0.0\r\n",
@@ -286,7 +256,7 @@ describe("migrateWorkspaceCatalogs", () => {
   it("migrateWorkspaceCatalogs quotes a new value that plain YAML would read otherwise", () => {
     const text = "catalog:\n  openapi-fetch: ^0.13.0\ncatalogs:\n  x: { openapi-typescript: 7 }\n";
 
-    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), "1.0.0", {
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, {
       reportedSections: new Set(),
     });
 
@@ -313,7 +283,7 @@ describe("migrateWorkspaceCatalogs", () => {
     const text =
       "nodeLinker: node-modules\ncatalog:\n  openapi-fetch: ^0.13.0\noverrides:\n  x: 1\n";
 
-    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), "1.0.0", YARNRC_FILE);
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, YARNRC_FILE);
 
     expect(migrated.text).toBe(
       "nodeLinker: node-modules\ncatalog:\n  openapi-typesafe-fetch: ^1.0.0\noverrides:\n  x: 1\n",

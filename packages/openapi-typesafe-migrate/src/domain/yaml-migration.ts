@@ -6,7 +6,7 @@ import {
   shellTextFindings,
 } from "./command-migration.js";
 import { type DocumentString, ownerKey } from "./config-documents.js";
-import { type Change, lineAt } from "./migration-findings.js";
+import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import type { ShellCommand, ShellWord } from "./shell-words.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
@@ -35,6 +35,16 @@ export const YAML_COMMAND_KEYS: ReadonlySet<string> = new Set([
   "commands",
   "entrypoint",
 ]);
+
+/**
+ * Keys whose map holds environment variables (GitHub Actions, Drone and Woodpecker `env`). A
+ * variable can hold a command that a step runs as `$GEN`, so each value is read as shell text:
+ * it changes only where the generator is in command position, never in a sentence that names it.
+ */
+const ENVIRONMENT_KEYS: ReadonlySet<string> = new Set(["env"]);
+
+const isEnvironmentValue = (value: DocumentString): boolean =>
+  value.path.length >= 2 && ENVIRONMENT_KEYS.has(String(value.path.at(-2)));
 
 /** Keys of a Dependabot config whose values are package names (`ignore`, `allow`, `groups`). */
 export const DEPENDABOT_NAME_KEYS: ReadonlySet<string> = new Set([
@@ -126,8 +136,12 @@ export function migrateYamlCommands(
   strings: readonly DocumentString[],
 ): CommandMigration {
   const values = valuesOf(strings, YAML_COMMAND_KEYS);
-  const locate = (offset: number): string => `${file}:${lineAt(text, offset)}`;
-  const shellValues = values.filter((value) => !isExecFormItem(value));
+  const lineOf = lineLocator(text);
+  const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
+  const commandValues = new Set(values.filter((value) => !isExecFormItem(value)));
+  const shellValues = strings.filter(
+    (value) => commandValues.has(value) || isEnvironmentValue(value),
+  );
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(text, value, locate)),
     commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),
@@ -160,12 +174,13 @@ export function migrateDependabotConfig(
 ): CommandMigration {
   const changes: Change[] = [];
   const edits: TextEdit[] = [];
+  const lineOf = lineLocator(text);
   for (const value of valuesOf(strings, DEPENDABOT_NAME_KEYS)) {
     const from = value.value;
     const to = PACKAGE_RENAMES.get(from);
     if (to !== undefined) {
       const { start, end } = value.content;
-      const location = `${file}:${lineAt(text, start)}`;
+      const location = `${file}:${lineOf(start)}`;
       changes.push({ kind: "package-name-renamed", location, from, to });
       edits.push({ start, end, text: to });
     }

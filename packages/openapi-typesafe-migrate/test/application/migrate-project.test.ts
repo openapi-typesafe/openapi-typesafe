@@ -188,3 +188,78 @@ describe("migrateProject", () => {
     expect(migration.write).toEqual({ kind: "dry-run" });
   });
 });
+
+describe("migrateProject and catalogs", () => {
+  const manifestOf = (dependencies: Readonly<Record<string, string>>) =>
+    `${JSON.stringify({ dependencies }, undefined, 2)}\n`;
+
+  async function migrated(files: Readonly<Record<string, string>>) {
+    const dependencies = setUp(files);
+    const migration = await migrateProject(dependencies, { version: "1.0.0", isWrite: true });
+    const steps = migration.files.flatMap((file) => file.manualSteps.map((step) => step.kind));
+    return { files: dependencies.files.files, steps };
+  }
+
+  it("migrateProject keeps a catalog entry that a colliding dependency still uses", async () => {
+    const project = {
+      "package.json": manifestOf({
+        "openapi-fetch": "catalog:",
+        "openapi-typesafe-fetch": "^1.0.0-rc.2",
+      }),
+      "pnpm-workspace.yaml": "packages:\n  - .\ncatalog:\n  openapi-fetch: ^0.13.0\n",
+    };
+
+    const { files, steps } = await migrated(project);
+
+    expect(files.get("pnpm-workspace.yaml")).toBe(project["pnpm-workspace.yaml"]);
+    expect(files.get("package.json")).toBe(project["package.json"]);
+    expect(steps).toEqual(expect.arrayContaining(["name-collision", "catalog-entry-in-use"]));
+  });
+
+  it("migrateProject keeps a dependency on a catalog entry the tool does not edit", async () => {
+    const project = {
+      "package.json": manifestOf({
+        "openapi-fetch": "catalog:",
+        "openapi-typescript": "catalog:",
+        "openapi-react-query": "catalog:",
+        "openapi-typescript-helpers": "catalog:x",
+      }),
+      "pnpm-workspace.yaml": [
+        "x: &v ^0.13.0",
+        "catalog:",
+        "  openapi-fetch: *v",
+        "  openapi-typescript: { }",
+        "  openapi-react-query: ^0.5.0",
+        "catalogs:",
+        "  x: { openapi-typescript-helpers: ^0.0.15 }",
+        "",
+      ].join("\n"),
+    };
+
+    const { files, steps } = await migrated(project);
+
+    expect(JSON.parse(files.get("package.json") ?? "").dependencies).toEqual({
+      "openapi-fetch": "catalog:",
+      "openapi-typescript": "catalog:",
+      "openapi-typesafe-react-query": "catalog:",
+      "openapi-typesafe-helpers": "catalog:x",
+    });
+    expect(files.get("pnpm-workspace.yaml")).toContain("  openapi-typesafe-react-query: ^1.0.0");
+    expect(steps.filter((kind) => kind === "catalog-reference-kept")).toHaveLength(2);
+  });
+
+  it("migrateProject plans catalogs from package.yaml and leaves out files it cannot read", async () => {
+    const files = {
+      "package.yaml": "dependencies:\n  openapi-fetch: 'catalog:'\n  openapi-typesafe-fetch: ^1\n",
+      "pnpm-workspace.yaml": "catalog:\n  openapi-fetch: ^0.13.0\n",
+      ".yarnrc.yml": "catalog: [openapi-fetch\n",
+      "apps/a/package.json": '{ "dependencies": { "openapi-fetch": "catalog:" } }\n',
+    };
+    const unreadable = { "apps/a/package.json": { kind: "io-error", code: "EACCES" } } as const;
+    const dependencies = setUp(files, [], { unreadable });
+
+    await migrateProject(dependencies, { version: "1.0.0", isWrite: true });
+
+    expect(dependencies.files.files.get("pnpm-workspace.yaml")).toBe(files["pnpm-workspace.yaml"]);
+  });
+});

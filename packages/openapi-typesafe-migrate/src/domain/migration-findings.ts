@@ -69,6 +69,13 @@ export type ManualStep =
       readonly from: string;
       readonly to: string;
     }
+  | {
+      readonly kind: "catalog-reference-kept";
+      readonly field: string;
+      readonly name: string;
+      readonly catalog: string;
+    }
+  | { readonly kind: "catalog-entry-in-use"; readonly catalog: string; readonly name: string }
   | { readonly kind: "peer-dependency-renamed"; readonly name: string }
   | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
   | { readonly kind: "override-names-package"; readonly field: string; readonly name: string }
@@ -126,6 +133,32 @@ export function lineAt(text: string, offset: number): number {
     index = text.indexOf("\n", index + 1);
   }
   return line;
+}
+
+/**
+ * Line numbers (1-based) of character offsets in `text`, for a migration that names many places
+ * of one text. The line starts are found once and searched by halves, so naming every command of
+ * a large file stays linear in its size (`lineAt` for each one was quadratic: 57 s on 4 MB).
+ */
+export function lineLocator(text: string): (offset: number) => number {
+  const lineStarts = [0];
+  for (let index = text.indexOf("\n"); index !== -1; index = text.indexOf("\n", index + 1)) {
+    lineStarts.push(index + 1);
+  }
+  return (offset) => {
+    // The last line start at or before `offset`; a break at `offset` itself ends that line.
+    let low = 0;
+    let high = lineStarts.length - 1;
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      if ((lineStarts[middle] as number) <= offset) {
+        low = middle;
+      } else {
+        high = middle - 1;
+      }
+    }
+    return low + 1;
+  };
 }
 
 /** Column number (1-based) of a character offset. */
