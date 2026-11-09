@@ -28,13 +28,14 @@ export interface OutputFile {
 const URL_SCHEME = /^[a-z][a-z\d+.-]+:/i;
 
 /**
- * The URL of a location the user wrote: a URL as it is, else a file path, absolute or relative to
- * the directory of `base` (a directory or file URL). A path is not parsed as a URL, so `#`, `?` and
- * `%` are part of the file name.
+ * The URL of a location the user wrote: a URL, else a file path, absolute or relative to the
+ * directory of `base` (a directory or file URL). A relative `file:` URL (`file:api.yaml`) resolves
+ * against `base` too, as in openapi-typescript. A path is not parsed as a URL, so `#`, `?` and `%`
+ * are part of the file name.
  */
 export function resolveLocationUrl(location: string, base: URL): URL {
   if (URL_SCHEME.test(location)) {
-    return new URL(location);
+    return new URL(location, base);
   }
   const baseDirectory = fileURLToPath(new URL(".", base));
   return pathToFileURL(path.resolve(baseDirectory, location));
@@ -106,7 +107,7 @@ export function ensureOutputIsOwn(
 /** As `resolveLocationUrl`, but undefined for a URL that does not parse instead of a throw. */
 export function parseLocationUrl(location: string, base: URL): URL | undefined {
   if (URL_SCHEME.test(location)) {
-    return URL.parse(location) ?? undefined;
+    return URL.parse(location, base.href) ?? undefined;
   }
   return resolveLocationUrl(location, base);
 }
