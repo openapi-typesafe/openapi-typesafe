@@ -168,6 +168,11 @@ if (error) return `An error occurred: ${error.message}`; // the declared error b
 
 `error instanceof Error` alone does not find a `ResponseError`: it is also true for a network or
 parse error, which has no `status`. An error body from JSON is never an `Error`.
+
+If you register `defaultError: unknown`, `error` is `unknown`, as it is for TanStack Query's own
+hooks: a union with `unknown` is `unknown`, and a request can throw anything before there is a
+response. `isResponseError(error)` and `error instanceof Error` still narrow it; check the error
+body with a type guard of your own.
 `isResponseError` checks the `name` (`"ResponseError"`), so it also knows a `ResponseError` of
 another copy of the package, such as its CommonJS build next to its ES module build. With
 CommonJS, `require("openapi-typesafe-react-query")` returns `createClient`, and `isResponseError`

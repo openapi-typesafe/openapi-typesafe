@@ -20,7 +20,9 @@ Changes that can need work when you move from openapi-react-query 0.5.4:
   [#2372](https://github.com/openapi-ts/openapi-typescript/issues/2372)). Narrow with
   `error instanceof Error` before you read a field of the body, and with the new export
   `isResponseError(error)` before you read `status`; `error.message` still compiles when the body
-  has a `message`. Exported types `ResponseError` and `QueryError`.
+  has a `message`. Exported types `ResponseError` and `QueryError`. With a registered
+  `defaultError: unknown` the `error` type is `unknown`, as for TanStack Query's own hooks; the
+  same checks narrow it.
 - `useInfiniteQuery` has its own key, `[...queryKey, "infinite"]`, so it no longer shares a cache
   entry with `useQuery` (upstream [#2184](https://github.com/openapi-ts/openapi-typescript/issues/2184)). Prefix matches still work; code that uses the exact
   key must append `"infinite"`.

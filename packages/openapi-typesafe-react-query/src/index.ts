@@ -63,8 +63,9 @@ export interface ResponseError extends Error {
  * The error of a hook: the error body of a failed response, a `ResponseError` when it has none, or
  * what the request threw before there was a response to read: a network error (`TypeError`), an
  * abort, a body that is not JSON (`SyntaxError`) or a middleware error. TanStack Query types that
- * last part as `DefaultError` (`Error` unless `Register` says otherwise). `undefined` and `null`
- * are left out: a failed response without an error body throws a `ResponseError`.
+ * last part as `DefaultError` (`Error` unless `Register` says otherwise; a registered `unknown`
+ * makes the whole type `unknown`, as for TanStack's own hooks). `undefined` and `null` are left
+ * out: a failed response without an error body throws a `ResponseError`.
  */
 export type QueryError<ErrorBody> =
   | Exclude<ErrorBody, undefined | null>
