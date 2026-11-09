@@ -303,20 +303,7 @@ export default function createClient(clientOptions) {
       }
     }
 
-    const contentLength = response.headers.get("Content-Length");
-    // handle empty content
-    if (
-      response.status === 204 ||
-      request.method === "HEAD" ||
-      (contentLength === "0" && !response.headers.get("Transfer-Encoding")?.includes("chunked"))
-    ) {
-      return response.ok ? { data: undefined, response } : { error: undefined, response };
-    }
-
-    if (response.ok) {
-      return { data: await readSuccessBody(response, parseAs), response };
-    }
-    return { error: await readErrorBody(response), response };
+    return readResult(response, parseAs);
   }
 
   return {
@@ -521,6 +508,32 @@ function parseJSON(raw, response) {
     const subject = `Response ${response.status} (${contentType ?? "no Content-Type"})`;
     throw new SyntaxError(`${subject} is not JSON (${raw.length} characters); ${hint}`);
   }
+}
+
+/**
+ * Whether the headers say the body is empty: a `Content-Length` of 0 without chunked transfer.
+ * A 204 and an answer to HEAD have an empty body anyway.
+ */
+function hasDeclaredEmptyBody(response) {
+  return (
+    response.headers.get("Content-Length") === "0" &&
+    !response.headers.get("Transfer-Encoding")?.includes("chunked")
+  );
+}
+
+/**
+ * The `data` or `error` of a response. An empty body is no data for JSON and no error, but each
+ * other `parseAs` reads the body with its method, also an empty one: `""`, an empty Blob or
+ * ArrayBuffer, or `response.body`, as their types say.
+ */
+async function readResult(response, parseAs) {
+  if (!response.ok) {
+    return { error: await readErrorBody(response), response };
+  }
+  if (parseAs === "json" && hasDeclaredEmptyBody(response)) {
+    return { data: undefined, response };
+  }
+  return { data: await readSuccessBody(response, parseAs), response };
 }
 
 /** The data of a success response, by `parseAs` (default `"json"`, as in openapi-fetch). */

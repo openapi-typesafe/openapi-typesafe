@@ -95,6 +95,11 @@ OAuth token answer) and errors reach logs, so it has no `cause` either: the pars
 the body. Read `response` with `parseAs: "text"` to see it. An error
 response (`4xx`, `5xx`) whose body is not JSON gives the text as `error` instead of throwing.
 
+An empty body (a 204, an answer to HEAD, a `Content-Length` of 0) is `undefined` data with the
+default `parseAs: "json"` and an `undefined` error. Another `parseAs` reads it with its method, as
+its type says: `""` for `"text"`, an empty `Blob` or `ArrayBuffer`, and `response.body` for
+`"stream"` (`null` for a 204).
+
 ### Headers
 
 `headers` can be set on the client, on a request, and as `params.header`; for the same name the
