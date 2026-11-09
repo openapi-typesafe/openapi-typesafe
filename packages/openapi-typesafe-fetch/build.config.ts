@@ -19,6 +19,13 @@ function libReferences(): string {
   return libraries.map((library) => `/// <reference lib="${library}" />`).join("\n");
 }
 
+/**
+ * Rollup's warning for a module without code. The helpers entry has no runtime code on purpose: it
+ * declares the helper types, and its empty `helpers.mjs` and `helpers.cjs` let `import` and
+ * `require()` of `openapi-typesafe-fetch/helpers` resolve. Every other warning stays.
+ */
+const EMPTY_BUNDLE_WARNING = "EMPTY_BUNDLE";
+
 /** Whether a Rollup plugin is unbuild's plugin that rewrites the CommonJS declarations. */
 function isCjsDefaultExportPlugin(plugin: unknown): boolean {
   const isNamed = typeof plugin === "object" && plugin !== null && "name" in plugin;
@@ -26,7 +33,9 @@ function isCjsDefaultExportPlugin(plugin: unknown): boolean {
 }
 
 export default defineBuildConfig({
-  entries: ["./src/index.js"],
+  // The helper types get their own declaration file, which the client's declarations import, so
+  // a type inferred from the client names them by `openapi-typesafe-fetch/helpers` (ADR-034).
+  entries: ["./src/index.js", "./src/helpers.ts"],
   declaration: "compatible",
   clean: true,
   sourcemap: true,
@@ -39,6 +48,19 @@ export default defineBuildConfig({
     output: { exports: "named" },
   },
   hooks: {
+    "rollup:options"(_ctx, options) {
+      const report = options.onwarn;
+      options.onwarn = (warning, warn) => {
+        if (warning.code === EMPTY_BUNDLE_WARNING) {
+          return;
+        }
+        if (report) {
+          report(warning, warn);
+        } else {
+          warn(warning);
+        }
+      };
+    },
     // `require()` returns `{ default, ...named }`, so the CommonJS declarations keep the default
     // export. `export = createClient` declared a callable module that `require()` does not return,
     // and next to the named exports it is an error (TS2309) that a `@ts-ignore` hid. The last

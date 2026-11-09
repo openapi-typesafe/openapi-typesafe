@@ -8,8 +8,8 @@ import {
   classifyDependent,
   comparedGeneratedFile,
   type DependentResult,
-  DependentStatus,
   type GeneratedFileComparison,
+  isAcceptedStatus,
   missingGeneratedFile,
   RunVariant,
   type StepResult,
@@ -248,17 +248,19 @@ async function checkProject(context: ProjectContext): Promise<DependentResult> {
     : fetchResults;
   const candidate = isFetched ? await runVariant(context, RunVariant.Candidate) : [];
   const generatedFiles = await compareGeneratedFiles(context);
-  const verdict = classifyDependent(baseline, candidate);
+  const { expectedFailure } = project;
+  const verdict = classifyDependent(baseline, candidate, expectedFailure);
   context.dependencies.logger.info("dependent_checked", {
     project: project.id,
     status: verdict.status,
     failedStep: verdict.failedStep,
   });
-  if (verdict.status === DependentStatus.Passed) {
+  if (isAcceptedStatus(verdict.status)) {
     await eraseCheckouts(context);
   }
   const { id: projectId, repository, commit } = project;
-  return { projectId, repository, commit, ...verdict, baseline, candidate, generatedFiles };
+  const checked = { ...verdict, expectedFailure, baseline, candidate, generatedFiles };
+  return { projectId, repository, commit, ...checked };
 }
 
 /**

@@ -19,7 +19,11 @@ import { renderReport } from "../application/use-cases/render-report.ts";
 import type { CorpusEntry } from "../domain/corpus-entry.ts";
 import { selectCorpusSubset } from "../domain/corpus-subset.ts";
 import type { DependentProject } from "../domain/dependent-project.ts";
-import { DependentStatus, summarizeDependents } from "../domain/dependent-result.ts";
+import {
+  DependentStatus,
+  isAcceptedStatus,
+  summarizeDependents,
+} from "../domain/dependent-result.ts";
 import { HarnessError, HarnessErrorCode } from "../domain/errors.ts";
 import { INTENTIONAL_DIFFERENCES } from "../domain/intentional-differences.ts";
 import type { CorpusManifest } from "../domain/manifest.ts";
@@ -207,11 +211,14 @@ async function runDependents(container: HarnessContainer): Promise<ExitCode> {
   const summary = summarizeDependents(results);
   printLine(
     `Dependents: ${DependentStatus.Passed}=${summary.passed} ` +
+      `${DependentStatus.ExpectedFailure}=${summary.expectedFailures} ` +
       `${DependentStatus.Regressed}=${summary.regressed} ` +
+      `${DependentStatus.StaleExpectation}=${summary.staleExpectations} ` +
       `${DependentStatus.BaselineFailed}=${summary.baselineFailed}`,
   );
-  // A baseline failure is a problem too: the manifest entry no longer checks anything.
-  return summary.passed === summary.total ? 0 : 1;
+  // A baseline failure and a stale expectation are problems too: the manifest entry no longer
+  // checks what it says.
+  return results.every((result) => isAcceptedStatus(result.status)) ? 0 : 1;
 }
 
 async function runMerge(container: HarnessContainer): Promise<ExitCode> {

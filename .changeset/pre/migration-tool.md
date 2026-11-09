@@ -18,7 +18,9 @@ only reports until you add `--write`, and logs every finding to a private JSON L
   dependency or an override still uses stays, so the install never misses an entry.
 - Sources: module specifiers (also mocks, JSDoc `@import`, `npm:` specifiers and the scripts of
   `.vue`, `.svelte` and `.astro` files). A `transform` callback that returns plain `ts.factory`
-  types becomes type text with `irCallbacks: true`; callbacks it cannot rewrite are reported.
+  types becomes type text with `irCallbacks: true`; callbacks it cannot rewrite are reported. An
+  import of `openapi-typesafe-helpers` in a package whose `package.json`, or one above it, does not
+  list it is reported: openapi-fetch installed the old package, the client does not.
 - Commands: the generator command and its renamed flags in package scripts, CI files (also `env`
   variables that hold the generator), Makefiles (also variables that hold the generator),
   Dockerfiles (also the exec form and its `sh -c` command line), `Justfile`, Husky hooks, Nx

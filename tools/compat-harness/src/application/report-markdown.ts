@@ -105,14 +105,26 @@ function dependentsSection(dependents: DependentsReport | null): string[] {
   const { summary } = dependents;
   const header = ["Project", "Commit", "Status", "Failed step", "Steps passed", "Same output"];
   return [
-    `${summary.total} projects: ${summary.passed} passed, ${summary.regressed} regressed, ` +
-      `${summary.baselineFailed} failed before the switch. Generated files with the same ` +
-      `output: ${summary.identicalGeneratedFiles}/${summary.generatedFiles}.`,
+    `${summary.total} projects: ${summary.passed} passed, ${summary.expectedFailures} failed ` +
+      `as documented, ${summary.regressed} regressed, ${summary.staleExpectations} no longer ` +
+      `failed as expected, ${summary.baselineFailed} failed before the switch. Generated files ` +
+      `with the same output: ${summary.identicalGeneratedFiles}/${summary.generatedFiles}.`,
     "",
     tableRow(header),
     tableRow(header.map(() => "---")),
     ...dependents.results.map(dependentRow),
+    ...expectedFailureList(dependents.results),
   ];
+}
+
+/** The documented breaking change behind each expected failure, as a list under the table. */
+function expectedFailureList(results: readonly DependentResult[]): string[] {
+  const expected = results.flatMap(({ projectId, expectedFailure }) =>
+    expectedFailure === null
+      ? []
+      : [`- ${projectId} (${expectedFailure.step}): ${expectedFailure.reason}`],
+  );
+  return expected.length === 0 ? [] : ["", "Expected failures:", "", ...expected];
 }
 
 /** A level-two section: a blank line, the heading, a blank line and the body. */

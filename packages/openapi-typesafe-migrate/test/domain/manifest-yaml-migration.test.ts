@@ -19,6 +19,7 @@ function migratePackageYaml(text: string, version: string) {
   return migrate(text, "package.yaml", {
     version,
     catalogs: NO_CATALOG_PLAN,
+    manifests: [],
     rewriter,
     scanner,
     readers,

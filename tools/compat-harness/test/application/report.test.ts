@@ -210,6 +210,7 @@ const DEPENDENT: DependentResult = {
   commit: "0123456789abcdef0123456789abcdef01234567",
   status: DependentStatus.Regressed,
   failedStep: "test",
+  expectedFailure: null,
   baseline: [],
   candidate: [
     { name: "install", status: StepStatus.Passed, durationMs: 1, outputExcerpt: "" },
@@ -241,7 +242,11 @@ describe("real projects in the report", () => {
     const markdown = renderMarkdownReport(report);
 
     expect(report.dependents?.summary).toMatchObject({ total: 1, regressed: 1 });
-    expect(markdown).toContain("1 projects: 0 passed, 1 regressed, 0 failed before the switch.");
+    expect(markdown).toContain(
+      "1 projects: 0 passed, 0 failed as documented, 1 regressed, 0 no longer failed as " +
+        "expected, 0 failed before the switch.",
+    );
+    expect(markdown).not.toContain("Expected failures:");
     expect(markdown).toContain(
       "| [demo](https://github.com/owner/demo) | `0123456789ab` | regressed | test | 1/2 | 1/1 |",
     );
@@ -255,6 +260,26 @@ describe("real projects in the report", () => {
     );
 
     expect(markdown).toContain("| passed |  | 1/2 |");
+  });
+});
+
+describe("expected failures in the report", () => {
+  it("renderMarkdownReport lists the breaking change behind an expected failure", () => {
+    const expected = {
+      ...DEPENDENT,
+      status: DependentStatus.ExpectedFailure,
+      expectedFailure: { step: "test", reason: "TypeScript 5.4 or newer is needed." },
+    };
+
+    const markdown = renderMarkdownReport(
+      buildCompatibilityReport({ ...INPUT, dependents: [expected] }),
+    );
+
+    expect(markdown).toContain("1 projects: 0 passed, 1 failed as documented, 0 regressed");
+    expect(markdown).toContain("| expected-failure | test | 1/2 |");
+    expect(markdown).toContain(
+      "Expected failures:\n\n- demo (test): TypeScript 5.4 or newer is needed.",
+    );
   });
 });
 

@@ -243,11 +243,68 @@ rewritten without the `as` clause. Copies cannot be the same type; only one decl
 | Declare the types in the helpers; the client imports them | The helpers stay standalone | Libraries that use the client fail under Yarn PnP again (about 270 `import("openapi-typesafe-helpers")` per library) |
 | Make the helpers a peer of the client | One declaration | Every user installs a third package only to name types (rejected above) |
 
+## Amendment (2026-11-09): the helper types in their own entry of the client
+
+The full compatibility run checks 22 open-source projects as they are, switched by package name
+only. Two of them failed on the amendment above:
+
+- unsplash-js writes `export type * from "openapi-fetch"` next to `export type * from` a file
+  that declares its own `ErrorResponse`. openapi-fetch exports no helper type, so this compiled;
+  the client's index re-exported them all, so the two `ErrorResponse` failed with TS2308.
+- coderabbit-bitbucket imports `InitParam` from `openapi-fetch/src/index.js`. openapi-fetch's
+  `src/index.d.ts` has no export list, and a declaration file without one exports all of its
+  top-level types. The re-export of decision 1 was an export list, so every type that the file
+  does not mark `export` (`InitParam`, `BodyType`, the middleware callbacks) stopped resolving.
+
+Decision 1 changes: the helper types keep their one declaration in the client (`src/helpers.ts`),
+but in a second entry, `openapi-typesafe-fetch/helpers`, with its own declaration files and an
+empty runtime file so that `import` and `require()` of it resolve. The client's declarations import
+them from it and do not export them. TypeScript names a type by a package path that resolves to
+its declaration file, so types inferred from the client print
+`import("openapi-typesafe-fetch/helpers")`, of a package that a library using the client depends
+on; no re-export is needed. `src/index.d.ts`
+again has no export list. `openapi-typesafe-helpers` re-exports the entry with `export type *`: the
+declaration build turns it into `export *`, which is the same for an entry without runtime code,
+so the list of names of decision 2 goes. Tests check that the main entry exports no helper type,
+that every top-level type of `src/index.d.ts` is exported, and that a library under pnpm names the
+helper types through the new entry.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A `helpers` entry of the client (chosen) | One declaration; inferred types name a package the library depends on; the main entry and `src/index.d.ts` export what openapi-fetch's do | One more entry of the client, without runtime code |
+| Keep the re-export from the index | No change | `export type *` of the client next to a same-named type fails (TS2308); unmarked types of `src/index.d.ts` stop resolving |
+| Mark every type of `src/index.d.ts` `export` | Deep imports resolve | The main entry exports the internal types too, and the helper names still collide |
+| Declare the types in the helpers; the client imports them | The helpers stay standalone | Libraries that use the client fail under pnpm and Yarn PnP (rejected above) |
+
+## Amendment (2026-11-09): nothing installs the helpers for code that does not list them
+
+A third project of the run, permit-cli, imports `openapi-typescript-helpers` without listing it:
+openapi-fetch and openapi-react-query depend on it, so npm installs it next to them. After the
+amendment "one declaration of the helper types, in the client", neither the client nor the hooks
+depend on `openapi-typesafe-helpers`, so the switched import fails with TS2307, and every type
+that depends on it fails after it. With the package added, the type check passes.
+
+1. This stays as it is: a breaking change for code that imports a package it does not list. The
+   Major changes of the client and the migration guide name it with its fixes: a dependency on
+   `openapi-typesafe-helpers`, or an import from `openapi-typesafe-fetch/helpers`.
+2. The migration tool reports each such import: a renamed import of `openapi-typesafe-helpers` in a
+   source file that no `package.json` at or above it lists, under the old or the new name. A file
+   that no manifest contains is not judged, and a manifest that cannot be read counts as listing
+   every package. It reports and does not add the dependency, as for the other dependencies the
+   user must decide on (the version, the field, the workspace that should own it).
+3. permit-cli is an expected failure of the run at its type check (ADR-044).
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Name the break, report the import (chosen) | The client keeps no runtime dependency; the user gets the fix with the file and line | Code that relied on the old package's dependency needs one line of `package.json` |
+| The client depends on the helpers again | Such code keeps working | A dependency cycle (the helpers depend on the client), and a runtime dependency of the client only for types |
+| The migration tool adds the dependency | No manual step | The tool would pick the version, the field and the workspace; a `package.yaml` or a catalog has no safe place to add it |
+
 ## Review trigger
 
 A user reports a deep upstream path that no longer resolves, a change that this ADR classifies
 as non-breaking breaks a real project, or the 2.0 planning starts. For the declarations: the peer
 range of `@tanstack/react-query` starts at 5.102 (then `QueryKeyWithDataTag` can alias
-TanStack's), or TypeScript names re-exported types under Yarn PnP. For the helpers package:
-rollup-plugin-dts keeps `export type * from` (then the list of names goes), or a user reports a
-helpers-only library under Yarn PnP.
+TanStack's), or TypeScript names re-exported types under Yarn PnP. For the helpers package: a
+user reports a helpers-only library under Yarn PnP. For the client: a project that passes on
+openapi-fetch fails on an export name of either entry.

@@ -13,6 +13,7 @@ const readers = { json: createJsonTextReader(), yaml: createYamlTextReader() };
 const context = {
   version: "1.0.0",
   catalogs: NO_CATALOG_PLAN,
+  manifests: [],
   rewriter: new StubCallbackRewriter(),
   scanner,
   readers,

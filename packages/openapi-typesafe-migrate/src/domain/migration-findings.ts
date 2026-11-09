@@ -110,7 +110,14 @@ export type ManualStep =
       readonly line: number;
       readonly reason: TransformKeepReason;
     }
-  | { readonly kind: "legacy-callback"; readonly line: number; readonly callback: string };
+  | { readonly kind: "legacy-callback"; readonly line: number; readonly callback: string }
+  | {
+      readonly kind: "package-not-declared";
+      readonly line: number;
+      readonly name: string;
+      /** The original packages that installed it as their own dependency. */
+      readonly installers: readonly string[];
+    };
 
 /** Why a `transform` callback was left as it is. */
 export type TransformKeepReason =

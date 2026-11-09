@@ -18,21 +18,23 @@ import {
   useQuery,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-// The helper types come from the client, which declares them: types inferred from the hooks then
-// print the client, a peer every user has, and not `openapi-typesafe-helpers`, which Yarn PnP does
-// not let a library reach (ADR-034).
 import type {
   ClientMethod,
   DefaultParamsOption,
   Client as FetchClient,
   FetchResponse,
-  HttpMethod,
   MaybeOptionalInit,
-  MediaType,
   PathOperation,
+} from "openapi-typesafe-fetch";
+// The helper types come from the client, which declares them: types inferred from the hooks then
+// print the client's `helpers` entry, of a peer every user has, and not `openapi-typesafe-helpers`,
+// which Yarn PnP does not let a library reach (ADR-034).
+import type {
+  HttpMethod,
+  MediaType,
   PathsWithMethod,
   RequiredKeysOf,
-} from "openapi-typesafe-fetch";
+} from "openapi-typesafe-fetch/helpers";
 
 // Helper type to dynamically infer the type from the `select` property
 type InferSelectReturnType<TData, TSelect> = TSelect extends (data: TData) => infer R ? R : TData;

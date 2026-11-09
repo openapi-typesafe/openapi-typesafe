@@ -64,7 +64,11 @@
         }
       ],
       "generatedFiles": [],
-      "notes": "A library on top of openapi-fetch and openapi-typescript-helpers. Its vitest run fails to start at this commit (vitest 4 with vite 5 in the lockfile), so only the type check runs; it includes the type tests."
+      "notes": "A library on top of openapi-fetch and openapi-typescript-helpers. Its vitest run fails to start at this commit (vitest 4 with vite 5 in the lockfile), so only the type check runs; it includes the type tests.",
+      "expectedFailure": {
+        "step": "typecheck",
+        "reason": "Its tests mock client.GET with { data, error } and an Error as error. ReturnType and vi.spyOn of a client method give the types of a call, where openapi-fetch gave any for the generated interface paths, so a mocked result needs a response and an error of the operations' error type (migration guide, Client fixes)."
+      }
     },
     {
       "id": "openapi-fetch-gen",
@@ -388,7 +392,11 @@
         }
       ],
       "generatedFiles": [],
-      "notes": "The schemas come from remote specs, so the committed files are kept. Only the type check runs: the Ink terminal UI tests fail at random between runs of the same code."
+      "notes": "The schemas come from remote specs, so the committed files are kept. Only the type check runs: the Ink terminal UI tests fail at random between runs of the same code.",
+      "expectedFailure": {
+        "step": "typecheck",
+        "reason": "source/hooks/useClient.ts imports openapi-typescript-helpers, which it does not list: openapi-fetch installed it. The client no longer installs openapi-typesafe-helpers, so the import fails with TS2307 and the types that depend on it fail after it; with openapi-typesafe-helpers added, the type check passes (migration guide, openapi-typesafe-helpers is not installed with the client)."
+      }
     },
     {
       "id": "miro-code",
@@ -759,7 +767,11 @@
         "test/fixtures/fetcher-modes.api.ts",
         "test/fixtures/example.api.ts"
       ],
-      "notes": "An axios client built on openapi-typescript-helpers (0.0.12 upstream, so the baseline pin to 0.1.0 is already an upgrade). Generates fixtures from a Redocly config with --enum; test:int runs vitest with type checking. Lint is left out; its unit suite is disabled in its own CI."
+      "notes": "An axios client built on openapi-typescript-helpers (0.0.12 upstream, so the baseline pin to 0.1.0 is already an upgrade). Generates fixtures from a Redocly config with --enum; test:int runs vitest with type checking. Lint is left out; its unit suite is disabled in its own CI.",
+      "expectedFailure": {
+        "step": "install",
+        "reason": "It pins TypeScript 5.3. The typescript peer of openapi-typesafe needs 5.4 or newer, so npm stops with ERESOLVE (migration guide, No TypeScript dependency)."
+      }
     }
   ]
 }

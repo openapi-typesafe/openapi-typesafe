@@ -37,6 +37,7 @@ const PROJECT: DependentProject = {
   ],
   generatedFiles: ["gen/schema.ts", "gen/never.ts"],
   notes: "",
+  expectedFailure: null,
 };
 
 const isCandidate = (run: CommandRun): boolean => run.cwd.includes("/candidate");
@@ -54,7 +55,10 @@ function defaultEffect(run: CommandRun): FakeCommandEffect {
   return {};
 }
 
-function setUp(script: (run: CommandRun) => FakeCommandEffect = defaultEffect) {
+function setUp(
+  script: (run: CommandRun) => FakeCommandEffect = defaultEffect,
+  project: DependentProject = PROJECT,
+) {
   const work = new InMemoryFileStore();
   const cache = new InMemoryFileStore();
   const dependencies = {
@@ -66,7 +70,7 @@ function setUp(script: (run: CommandRun) => FakeCommandEffect = defaultEffect) {
     logger: new RecordingLogger(),
     intentionalDifferences: [],
   };
-  const input = { projects: [PROJECT], specs: SPECS, timeoutMs: 1_000, stepLogDirectory: "/logs" };
+  const input = { projects: [project], specs: SPECS, timeoutMs: 1_000, stepLogDirectory: "/logs" };
   return { dependencies, input, run: () => checkDependents(dependencies, input) };
 }
 
@@ -164,6 +168,23 @@ describe("checkDependents", () => {
       { name: "test", status: StepStatus.NotRun, durationMs: 0, outputExcerpt: "" },
     ]);
     expect(dependencies.work.files.has("checkouts/demo/candidate/app/gen/schema.ts")).toBe(true);
+  });
+
+  it("checkDependents accepts the failure that the manifest expects and erases the checkouts", async () => {
+    const expectedFailure = { step: "typecheck", reason: "a documented breaking change" };
+    const { dependencies, run } = setUp(
+      failingInCandidate("pnpm run typecheck", { exitCode: 2, outputTail: "error TS2345" }),
+      { ...PROJECT, expectedFailure },
+    );
+
+    const [result] = await run();
+
+    expect(result).toMatchObject({
+      status: DependentStatus.ExpectedFailure,
+      failedStep: "typecheck",
+      expectedFailure,
+    });
+    expect(dependencies.work.files.has("checkouts/demo/candidate/app/gen/schema.ts")).toBe(false);
   });
 
   it("checkDependents reports a step that runs out of time as timed out", async () => {
