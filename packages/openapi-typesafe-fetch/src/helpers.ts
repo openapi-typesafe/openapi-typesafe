@@ -11,9 +11,12 @@ export type HttpMethod =
   | "trace"
   /** OpenAPI 3.2: a safe, idempotent request with a body. */
   | "query";
-/** 2XX statuses */
+/**
+ * Some 2XX statuses, kept for code that names them. The client does not classify by this list: a
+ * status is a success or an error by its first digit (`SuccessStatusKey`, `ErrorStatusKey`).
+ */
 export type OkStatus = 200 | 201 | 202 | 203 | 204 | 206 | 207 | "2XX";
-/** 4XX and 5XX statuses */
+/** Some 4XX and 5XX statuses and `default`, kept like `OkStatus`. */
 export type ErrorStatus =
   | 500
   | 501
@@ -67,8 +70,36 @@ export type ErrorStatus =
   | "4XX"
   | "default";
 
+type StatusDigit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+/**
+ * The keys of a Response Object Map whose text matches a pattern. A generated map has numeric keys
+ * (`200`) and string ones (`"2XX"`, `"default"`), and a numeric literal matches no template
+ * literal type, so each key is matched by its text.
+ */
+type StatusKeysMatching<Keys, Pattern extends string> = Keys extends string | number
+  ? `${Keys}` extends Pattern
+    ? Keys
+    : never
+  : never;
+
+/**
+ * The success statuses of a Response Object Map: every 2XX one. A closed list of statuses left out
+ * the ones it did not name (205, 208, 226), and their bodies were typed as no data.
+ */
+export type SuccessStatusKey<T> = StatusKeysMatching<
+  keyof T,
+  `2${StatusDigit}${StatusDigit}` | "2XX"
+>;
+
+/** The error statuses of a Response Object Map: every 4XX and 5XX one, and `default`. */
+export type ErrorStatusKey<T> = StatusKeysMatching<
+  keyof T,
+  `${4 | 5}${StatusDigit}${StatusDigit}` | "4XX" | "5XX" | "default"
+>;
+
 /** Get a union of OK Statuses */
-export type OKStatusUnion<T> = FilterKeys<T, OkStatus>;
+export type OKStatusUnion<T> = FilterKeys<T, SuccessStatusKey<T>>;
 
 /** Get first error status, in order */
 // biome-ignore format: this is dumb but reliable
@@ -216,7 +247,9 @@ export type OperationRequestBodyContent<T> =
  * Responses Object), so then it covers every success (upstream #1862). With a 2XX status declared,
  * `default` is left to the errors, as before.
  */
-type SuccessStatus<T> = [Extract<keyof T, OkStatus>] extends [never] ? "default" : OkStatus;
+type SuccessStatus<T> = [SuccessStatusKey<T>] extends [never]
+  ? Extract<keyof T, "default">
+  : SuccessStatusKey<T>;
 
 /**
  * Return all 2XX responses from a Response Object Map, or `default` if it declares no 2XX one. For
@@ -249,14 +282,14 @@ export type GetResponseContent<
   : never;
 
 /**
- * Return all 5XX and 4XX responses (in that order) from a Response Object Map; for a union of maps,
+ * Return all 4XX, 5XX and `default` responses from a Response Object Map; for a union of maps,
  * the union of each map's responses, as `SuccessResponse`.
  */
 export type ErrorResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = T extends unknown ? GetResponseContent<T, Media, ErrorStatus> : never;
+> = T extends unknown ? GetResponseContent<T, Media, ErrorStatusKey<T>> : never;
 
 /** Return first JSON-like 2XX response from a path + HTTP method */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
