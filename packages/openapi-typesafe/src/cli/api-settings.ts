@@ -1,9 +1,8 @@
 import { kebabCase } from "scule";
-import { isOpenAPITypesafeError, OpenAPITypesafeError } from "../domain/errors.js";
 import type { OutputFixName } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import { GENERATOR_FLAGS, type GeneratorFlags, hostList } from "./cli-arguments.js";
-import { cliError } from "./cli-errors.js";
+import { ApiFailure, cliError } from "./cli-errors.js";
 import { fixNamesOf } from "./fix-option.js";
 import { localRootUrl, type RefLimitOptions } from "./ref-limits.js";
 
@@ -127,19 +126,8 @@ export function apiFixNames(
   try {
     return fixNamesOf(entries);
   } catch (error) {
-    throw isOpenAPITypesafeError(error) ? withApiName(apiName, error) : error;
+    throw new ApiFailure(apiName, error);
   }
-}
-
-/** The same error, with the API named first in its message. */
-function withApiName(apiName: string, error: OpenAPITypesafeError): OpenAPITypesafeError {
-  const { code, details, cause } = error;
-  return new OpenAPITypesafeError({
-    code,
-    message: `API ${apiName}: ${error.message}`,
-    details,
-    cause,
-  });
 }
 
 /**

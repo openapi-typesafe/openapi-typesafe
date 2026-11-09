@@ -10,7 +10,7 @@ import {
   unknownSettingWarnings,
 } from "./api-settings.js";
 import { type GeneratedApi, writeGeneratedApis } from "./api-writes.js";
-import { cliError } from "./cli-errors.js";
+import { ApiFailure, cliError } from "./cli-errors.js";
 import {
   type CliRun,
   ensureOutputIsNotSchema,
@@ -136,8 +136,12 @@ async function generateApi(
   ensureOutputIsNotSchema(run, outputFile, files.schemas);
   ensureOutputIsOwn(run, outputFile, otherOutputs(files, target.name));
   const source = resolveLocationUrl(target.root, target.configRoot);
-  const types = await run.deps.generate(source, apiOptions(run, redocly, target));
-  return { name: target.name, outputFile, types };
+  const options = apiOptions(run, redocly, target);
+  try {
+    return { name: target.name, outputFile, types: await run.deps.generate(source, options) };
+  } catch (error) {
+    throw new ApiFailure(target.name, error);
+  }
 }
 
 /**

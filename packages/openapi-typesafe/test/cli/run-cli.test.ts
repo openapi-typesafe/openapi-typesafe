@@ -409,8 +409,20 @@ describe("runCli with the APIs of a Redocly config", () => {
 
     expect(exitCode).toBe(2);
     const errors = cli.logger.messages("error");
-    expect(errors[0]).toBe("first (CLI_FLAG_REMOVED)");
-    expect(errors[1]).toMatch(/^Unexpected error: Error: second/);
+    expect(errors[0]).toBe("API a: first (CLI_FLAG_REMOVED)");
+    expect(errors[1]).toMatch(/^API b: Unexpected error: Error: second/);
+  });
+
+  it("runCli names the API of a load error and keeps its exit code", async () => {
+    const cli = cliWithApis({ a: { root: "a.yaml", "x-openapi-ts": { output: "a.ts" } } });
+    cli.generator.failures.set(
+      fakeUrl("/work/api/a.yaml"),
+      refForbiddenError("/etc/passwd", { reason: "outside-local-root", localRoot: "/work" }),
+    );
+
+    expect(await runCli([], cli.deps)).toBe(3);
+
+    expect(cli.logger.messages("error")[0]).toMatch(/^API a: .* \(SCHEMA_REF_FORBIDDEN\)$/);
   });
 });
 
