@@ -121,6 +121,17 @@ openapi-fetch 0.17 sent `String(date)` in a form, a local-time text.
 4. A `Date` field, or a `Date` item of an array field, is sent as `toISOString()` in both form
    bodies, by the same rule as parameters: a value with a `toISOString` method counts.
 
+### Size
+
+5. The fixes of the rc.3 bug hunt (S2, S3 and F1 to F6, in this ADR and in the amendments of
+   ADR-013, ADR-025 and ADR-030 of the same date) take the bundle from 8.99 kB to 9.37 kB
+   minified (3.57 kB to 3.70 kB gzipped), over the 9.25 kB budget. The largest parts are the
+   `baseUrl`-aware path check (F1), the stream body with its `duplex` (F5), the FormData header
+   rule (F3) and the fuller `Response` check (F6). The code was already cut down: object keys
+   reuse the value encoder, and the form bodies share one `Date` rule with parameters. The rest is
+   the behavior, so the budget rises to 9.5 kB. Correctness ranks above size (CODING_PRINCIPLES
+   §1), and the descriptions state the new gzipped size.
+
 ## Review trigger
 
 A report of a server that needs empty parameters on the wire or a `Date` in another format, a
