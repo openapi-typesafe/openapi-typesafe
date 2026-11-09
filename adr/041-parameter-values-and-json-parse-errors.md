@@ -171,3 +171,16 @@ only with `explode: false` (`form`, `spaceDelimited`, `pipeDelimited`) and in an
 out, as the table says. The decisions do not change; the changelog lists the wire changes
 (urlencoded and `explode: false` values, and values that were left out) as changes that can need
 work.
+
+## Amendment (2026-11-09): the path check names the template, not the URL
+
+The path check of ADR-013 and ADR-030 threw `Dot path segment in <url>` and
+`Empty first path segment in <url>`. The URL holds the `baseUrl`, which may carry credentials
+(`https://user:secret@host`), and the values, which may carry a token (`/files/{token}`); errors
+reach logs and error trackers, as the parse error does (amendment "the parse error has no
+`cause`"). The messages now name the part of the template from the segment of the first parameter
+on, before `?` or `#` (`Dot path segment in "{name}/raw"`): it says which
+parameters to look at and holds no value and no part of the `baseUrl`. Masking secrets in the URL
+was rejected for the reason the parse error does not mask its excerpt: a guess at what a secret
+looks like misses some.
+

@@ -779,19 +779,24 @@ export function defaultPathSerializer(pathname, pathParams) {
  * Throw when the path parameters moved the request. Only the path part (before `?` or `#`) from the
  * segment of the first parameter on is checked: the text before it is the `baseUrl` and the
  * template, which no value changes, and a protocol-relative base (`//api.example/v1`) is valid.
+ * The message names that part of the template, never the URL: the `baseUrl` and the values may
+ * carry secrets (a token in the path, credentials in the base), and errors reach logs (ADR-041).
  */
 function checkSerializedPath(template, url) {
   const fixed = template.slice(0, template.search(PATH_PARAM_RE));
+  const start = fixed.lastIndexOf("/") + 1;
   const path = url.split(QUERY_OR_FRAGMENT_RE, 1)[0];
+  const parameters = template.slice(start).split(QUERY_OR_FRAGMENT_RE, 1)[0];
+  const pathError = (problem) => new Error(`${problem} path segment in "${parameters}"`);
   // `encodeURIComponent` keeps dots, so a value `..` would move the request up a path level
   // (ADR-013).
-  if (DOT_SEGMENT_RE.test(path.slice(fixed.lastIndexOf("/") + 1))) {
-    throw new Error(`Dot path segment in ${url}`);
+  if (DOT_SEGMENT_RE.test(path.slice(start))) {
+    throw pathError("Dot");
   }
   // `//host/…` is a protocol-relative URL: with a relative baseUrl a browser sends it to that host
   // (ADR-030).
   if (path.startsWith("//") && !fixed.startsWith("//")) {
-    throw new Error(`Empty first path segment in ${url}`);
+    throw pathError("Empty first");
   }
 }
 

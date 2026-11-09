@@ -33,8 +33,9 @@ source files without `node_modules`. GitHub code search was not available.
 
 1. **Covered by semver.** A minor or patch release does not remove, rename or narrow:
    - the package `exports` entries other than `./*` (today the `.` entry of each library
-     package), the names they export and the documented types of those names, including the documented fields of
-     `GlobalContext` and the IR node types; and the `bin` names;
+     package and the `./helpers` entry of the client), the names they export and the documented
+     types of those names, including the documented fields of `GlobalContext` and the IR node
+     types; and the `bin` names;
    - the CLI flags in `docs/cli.md`, the `x-openapi-ts` keys of `redocly.yaml`, the Node API
      options in `docs/node.md`, and their defaults;
    - the error codes (`ERROR_CODES`), warning codes (`WARNING_CODES`), output fix names
@@ -287,10 +288,11 @@ that depends on it fails after it. With the package added, the type check passes
 1. This stays as it is: a breaking change for code that imports a package it does not list. The
    Major changes of the client and the migration guide name it with its fixes: a dependency on
    `openapi-typesafe-helpers`, or an import from `openapi-typesafe-fetch/helpers`.
-2. The migration tool reports each such import: a renamed import of `openapi-typesafe-helpers` in a
-   source file that no `package.json` at or above it lists, under the old or the new name. A file
-   that no manifest contains is not judged, and a manifest that cannot be read counts as listing
-   every package. It reports and does not add the dependency, as for the other dependencies the
+2. The migration tool reports each such import: an import of `openapi-typesafe-helpers` (renamed
+   now or by an earlier run) in a source file that no `package.json` and no Deno import map
+   (`deno.json`, `deno.jsonc`, `import_map.json`) at or above it lists, under the old or the new
+   name. A file that none of them contains is not judged, and one that cannot be read counts as
+   listing every package. It reports and does not add the dependency, as for the other dependencies the
    user must decide on (the version, the field, the workspace that should own it).
 3. permit-cli is an expected failure of the run at its type check (ADR-044).
 
@@ -299,6 +301,21 @@ that depends on it fails after it. With the package added, the type check passes
 | Name the break, report the import (chosen) | The client keeps no runtime dependency; the user gets the fix with the file and line | Code that relied on the old package's dependency needs one line of `package.json` |
 | The client depends on the helpers again | Such code keeps working | A dependency cycle (the helpers depend on the client), and a runtime dependency of the client only for types |
 | The migration tool adds the dependency | No manual step | The tool would pick the version, the field and the workspace; a `package.yaml` or a catalog has no safe place to add it |
+
+## Amendment (2026-11-09): one declaration of the helper types under node10 too
+
+`moduleResolution: node10` reads `main` and `typesVersions`, not `exports`. `main` is
+`dist/index.mjs`, so the client's types are `dist/index.d.mts`, which imports the helper types from
+`dist/helpers.d.mts`; `typesVersions` mapped `openapi-typesafe-fetch/helpers` (and so
+`openapi-typesafe-helpers`, which re-exports it) to `dist/helpers.d.ts`. Two files declared the
+same types, and generic code that mixes the names of both entries failed with TS2322 and TS2719,
+as before the amendment "one declaration of the helper types, in the client".
+
+Decision: `typesVersions` maps the entry to `dist/helpers.d.mts`, the file that the declarations
+of `main` import, so each resolution loads one declaration of the helper types. A test
+type-checks a consumer that mixes both entries under `node10`, `node16` and `bundler` and checks
+that it loads one helpers declaration file. Pointing `main` at the CommonJS build instead was
+rejected: it changes what `require()` without `exports` loads, for a fix that is only about types.
 
 ## Review trigger
 

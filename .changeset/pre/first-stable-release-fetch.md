@@ -26,7 +26,8 @@ Changes that can need work when you move from openapi-fetch 0.17:
 - Query parameter names and object keys are percent-encoded like values (`[ ] $ : @ ,` stay in
   names, not in object keys).
 - A path parameter that makes a `.` or `..` segment, or a path that starts with `//`, rejects
-  before `fetch` is called (upstream [#2483](https://github.com/openapi-ts/openapi-typescript/issues/2483)).
+  before `fetch` is called (upstream [#2483](https://github.com/openapi-ts/openapi-typescript/issues/2483)),
+  with an error that names the path template, not the URL or the values.
 - A path that already has a query string gets `&` before `params.query`, not a second `?`.
 - `defaultBodySerializer` declares its real return type instead of `string`; check
   `typeof result === "string"` where you used the result as a string.

@@ -61,7 +61,7 @@ that runs `openapi-typescript`. Nothing else is required.
 | `npx openapi-typescript@<version>` | Use `npx openapi-typesafe@<version>` with a 1.x version; the versions restart at 1.0 |
 | Deep import (`openapi-fetch/dist/...`) | Check that the file exists in the new package; prefer the package root |
 | A string equal to an old package name outside an import (object key, label, bundler option) | Rename it if it means the package; the tool renames module specifiers only |
-| Import of `openapi-typesafe-helpers` that no `package.json` at or above the file lists | Add `openapi-typesafe-helpers` to the dependencies, or import the types from `openapi-typesafe-fetch/helpers`; openapi-fetch installed the old package, the client does not (TS2307) |
+| Import of `openapi-typesafe-helpers` that no `package.json` or Deno import map at or above the file lists | Add `openapi-typesafe-helpers` to the dependencies, or import the types from `openapi-typesafe-fetch/helpers`; openapi-fetch installed the old package, the client does not (TS2307) |
 | `swr-openapi` in the dependencies | Alias `openapi-fetch` to `openapi-typesafe-fetch` with `overrides` (npm, bun, pnpm) or `resolutions` (yarn); without it, passing the client fails with TS2345 |
 | `transform` it cannot rewrite, `postTransform`, `transformProperty` | They keep working with a deprecation warning; move them to IR callbacks (below) |
 

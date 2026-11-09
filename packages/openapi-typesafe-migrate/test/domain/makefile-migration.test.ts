@@ -101,3 +101,15 @@ describe("migrateMakefile", () => {
     );
   });
 });
+
+describe("migrateMakefile and one-letter variables", () => {
+  it("migrateMakefile follows a one-letter variable written without parentheses", () => {
+    const text = lines("G := openapi-typescript", "gen:", "\t$G g.yaml -it", "\t$Gx g.yaml -it");
+
+    const migrated = migrateMakefile(text, "Makefile");
+
+    expect(migrated.text).toBe(
+      lines("G := openapi-typesafe", "gen:", "\t$G g.yaml --immutable", "\t$Gx g.yaml -it"),
+    );
+  });
+});

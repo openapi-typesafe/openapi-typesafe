@@ -14,7 +14,8 @@ function at(posixPath: string): string {
 
 /**
  * Files and directories by path, on a file system that ignores letter case or not. `links` maps a
- * link path to its target, as a symbolic link does.
+ * link path to its target as written in the link: a relative target is read from the real
+ * directory of the link, as a symbolic link's is.
  */
 class InMemoryTree implements PathQueries {
   readonly #paths: string[];
@@ -33,7 +34,7 @@ class InMemoryTree implements PathQueries {
     }
     this.#paths = [...withAncestors];
     this.#ignoresCase = ignoresCase;
-    this.#links = new Map([...links].map(([link, target]) => [at(link), at(target)]));
+    this.#links = new Map([...links].map(([link, target]) => [at(link), target]));
   }
 
   #stored(filePath: string): string | undefined {
@@ -50,7 +51,9 @@ class InMemoryTree implements PathQueries {
         : path.join(this.#resolve(parent) ?? parent, path.basename(filePath));
     const stored = this.#stored(base);
     const target = stored === undefined ? undefined : this.#links.get(stored);
-    return target === undefined ? stored : this.#stored(target);
+    return stored === undefined || target === undefined
+      ? stored
+      : this.#stored(path.resolve(path.dirname(stored), target));
   }
 
   status(filePath: string): FileNumber | undefined {
@@ -118,6 +121,19 @@ describe("fileIdentityKey", () => {
     expect(fileIdentityKey(at("/work/link/x.ts"), tree)).toBe(
       fileIdentityKey(at("/work/missing/x.ts"), tree),
     );
+  });
+
+  it("fileIdentityKey reads a relative link target from the real directory of the link", () => {
+    const tree = new InMemoryTree(
+      ["/work/real/sub/a.yaml"],
+      false,
+      new Map([
+        ["/work/a", "/work/real/sub"],
+        ["/work/real/sub/link", "../missing"],
+      ]),
+    );
+
+    expect(fileIdentityKey(at("/work/a/link/x.ts"), tree)).toBe(at("/work/real/missing/x.ts"));
   });
 
   it("fileIdentityKey of a path through a link loop ends and keeps the path", () => {

@@ -228,3 +228,16 @@ need, and refuse documents three times smaller than now.
 
 Review trigger: a remote document within the limits that fails with "heap out of memory" in a
 heap of 2 GB, or a report of a config of many remote APIs that became too slow.
+
+## Amendment (2026-11-09): messages hide the query of a URL
+
+Messages hid the user info of a URL (`https://***@host/…`) and showed the rest. A schema URL
+often carries its secret in the query instead: an API key (`?api_key=…`) or the signature of a
+pre-signed URL (`?X-Amz-Signature=…`). Every failure to load such a URL printed it, in CI job logs
+too.
+
+Decision: messages, the URLs in `details`, and the terminal logger hide the whole query of every
+URL as `?***`; the path and the fragment stay, so a message still names the document and the
+place in it. `src/domain/url-secrets.ts` finds a URL by its `://` and takes it whole, up to a space,
+quote or angle bracket, which a serialized URL percent-encodes; the scan stays linear. Hiding only
+parameters with secret-looking names was rejected: no list of names covers every API.

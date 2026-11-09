@@ -16,12 +16,13 @@ import {
   type RenameTarget,
   renameNames,
 } from "./dependency-map.js";
-import type { FileMigration } from "./migration-findings.js";
+import { type FileMigration, unchanged } from "./migration-findings.js";
 import { overriddenPackages } from "./override-targets.js";
 import {
   DEPENDENCY_FIELDS,
   NAME_KEYED_FIELDS,
   NAME_LIST_FIELDS,
+  namesOriginalPackage,
   OLD_PEER_DEPENDENTS,
   OVERRIDE_FIELDS,
   PACKAGE_RENAMES,
@@ -133,4 +134,15 @@ export function migratePackageManifest(
   }
   const { edits, changes, manualSteps } = findings;
   return { text: applyTextEdits(text, edits), changes, manualSteps };
+}
+
+/**
+ * A manifest in a format the tool does not read: pnpm's `package.json5`. JSON5 has its own
+ * strings (single quotes, line continuations), so it is not edited; a manifest that names an
+ * original package is reported for the user to migrate.
+ */
+export function unreadManifest(text: string): FileMigration {
+  return namesOriginalPackage(text)
+    ? { ...unchanged(text), manualSteps: [{ kind: "manifest-not-read" }] }
+    : unchanged(text);
 }

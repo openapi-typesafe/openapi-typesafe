@@ -1,4 +1,10 @@
-import { type CommandMigration, commandWordFindings, migrateCommand } from "./command-migration.js";
+import {
+  type CommandMigration,
+  commandWordFindings,
+  migrateCommand,
+  shellVariables,
+  type VariableDefinition,
+} from "./command-migration.js";
 import { lineLocator, type ManualStep } from "./migration-findings.js";
 import {
   type ShellCommand,
@@ -35,6 +41,11 @@ const QUOTED_RE = /"(?:[^"\\\n]|\\.)*"/y;
 const ITEM_SEPARATOR = ",";
 const NOT_LINE_BREAK_RE = /[^\n]/g;
 const ARRAY_END = "]";
+/** Instructions that set variables which later shell-form commands expand (`$GEN`). */
+const VARIABLE_INSTRUCTIONS: ReadonlySet<string> = new Set(["ARG", "ENV"]);
+const LEGACY_ENV_INSTRUCTION = "ENV";
+const ASSIGNMENT = "=";
+const QUOTES: ReadonlySet<string> = new Set(['"', "'"]);
 
 /** Where a pattern with the sticky flag matches at `index`, or undefined. */
 function matchAt(pattern: RegExp, text: string, index: number): string | undefined {
@@ -169,17 +180,66 @@ function escapedScriptSteps(scripts: readonly ShellWord[], lineOf: (offset: numb
   });
 }
 
+/** A variable that `ARG` or `ENV` sets: its name, and its value as commands at their offsets. */
+interface DockerVariable {
+  readonly name: string;
+  readonly commands: readonly ShellCommand[];
+}
+
+/** The variable of one `NAME=value` word, its quotes taken off, or undefined. */
+function assignedVariable(word: ShellWord): DockerVariable | undefined {
+  const at = word.raw.indexOf(ASSIGNMENT);
+  if (at <= 0) {
+    return undefined;
+  }
+  const raw = word.raw.slice(at + 1);
+  const isQuoted = raw.length >= 2 && QUOTES.has(raw[0] as string) && raw.at(-1) === raw[0];
+  const value = isQuoted ? raw.slice(1, -1) : raw;
+  const start = word.start + at + 1 + (isQuoted ? 1 : 0);
+  return { name: word.raw.slice(0, at), commands: shellCommandsAt(value, start) };
+}
+
+/**
+ * The variables that `ARG NAME=value` and `ENV NAME=value …` set, and `ENV NAME value`, the
+ * legacy form that sets one variable to the rest of the line.
+ */
+function dockerVariables(commands: readonly ShellCommand[]): DockerVariable[] {
+  return commands.flatMap(([instruction, first, ...rest]) => {
+    if (instruction === undefined || first === undefined) {
+      return [];
+    }
+    if (!VARIABLE_INSTRUCTIONS.has(instruction.value)) {
+      return [];
+    }
+    if (instruction.value === LEGACY_ENV_INSTRUCTION && !first.raw.includes(ASSIGNMENT)) {
+      return [{ name: first.value, commands: [rest] }];
+    }
+    return [first, ...rest].flatMap((word) => assignedVariable(word) ?? []);
+  });
+}
+
+const definitionOf = ({ name, commands }: DockerVariable): VariableDefinition => ({
+  name,
+  value: commands.flatMap((words) => words.map((word) => word.raw)).join(" "),
+});
+
 /**
  * Migrate the commands of a Dockerfile: exec-form arrays word by word, everything else as shell
- * text. Each finding names its `file:line`.
+ * text, with the values of `ARG` and `ENV` variables as commands that `$NAME` runs. Each finding
+ * names its `file:line`.
  */
 export function migrateDockerfile(text: string, file: string): CommandMigration {
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const forms = execForms(text);
   const exec = execCommands(forms);
-  const commands = [...shellCommands(withoutExecForms(text, forms)), ...exec.commands];
-  const { edits, changes, manualSteps } = commandWordFindings(commands, locate);
+  const shellForm = shellCommands(withoutExecForms(text, forms));
+  // A value that runs the generator is migrated where it is set, its flags where it is used.
+  const definitions = dockerVariables(shellForm);
+  const values = definitions.flatMap((variable) => variable.commands);
+  const commands = [...shellForm, ...values, ...exec.commands];
+  const variables = shellVariables(definitions.map(definitionOf));
+  const { edits, changes, manualSteps } = commandWordFindings(commands, locate, variables);
   const steps = [...manualSteps, ...escapedScriptSteps(exec.escaped, lineOf)];
   return { text: applyTextEdits(text, edits), changes, manualSteps: steps };
 }

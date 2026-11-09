@@ -241,3 +241,53 @@ describe("migrateDependabotConfig", () => {
     ]);
   });
 });
+
+describe("migrateYamlCommands and expressions", () => {
+  it("migrateYamlCommands reads an env expression as the variable it expands", () => {
+    const expression = (name: string): string => ["$", "{{ env.", name, " }}"].join("");
+    const text = lines(
+      "env:",
+      "  JG: openapi-typescript",
+      "jobs:",
+      "  a:",
+      "    steps:",
+      `      - run: npx ${expression("JG")} x.yaml -it`,
+      `      - run: npx ${expression("OTHER")} y.yaml -it`,
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      lines(
+        "env:",
+        "  JG: openapi-typesafe",
+        "jobs:",
+        "  a:",
+        "    steps:",
+        `      - run: npx ${expression("JG")} x.yaml --immutable`,
+        `      - run: npx ${expression("OTHER")} y.yaml -it`,
+      ),
+    );
+  });
+
+  it("migrateYamlCommands migrates the flags of the generator next to an empty env key", () => {
+    const text = lines(
+      "env:",
+      '  "": openapi-typescript',
+      "steps:",
+      "  - run: openapi-typescript a.yaml -it",
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      lines(
+        "env:",
+        '  "": openapi-typesafe',
+        "steps:",
+        "  - run: openapi-typesafe a.yaml --immutable",
+      ),
+    );
+    expect(migrated.manualSteps).toEqual([]);
+  });
+});

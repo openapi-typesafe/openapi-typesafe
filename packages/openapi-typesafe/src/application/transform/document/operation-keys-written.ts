@@ -1,3 +1,4 @@
+import { appendAll } from "../../../domain/append-all.js";
 import { operationKeyOf } from "./path-item.js";
 
 /**
@@ -20,7 +21,7 @@ export function operationKeysWritten(document: object): Set<string> {
     if (typeof operationId === "string") {
       keys.add(operationKeyOf(operationId));
     }
-    pending.push(...Object.values(value));
+    appendAll(pending, Object.values(value));
   }
   return keys;
 }

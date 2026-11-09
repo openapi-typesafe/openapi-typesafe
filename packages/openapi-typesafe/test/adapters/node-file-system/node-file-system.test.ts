@@ -156,6 +156,28 @@ describe("createNodeFileSystem", () => {
     expect(fs.readdirSync(parent)).toEqual([]);
   });
 
+  it("writeText into a directory name too long for the file system removes the new parents", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "write-"));
+    const tooLong = "x".repeat(FILE_NAME_TOO_LONG);
+    const file = pathToFileURL(path.join(parent, "new1", tooLong, "types.ts"));
+
+    expect(() => createNodeFileSystem().writeText(file, "types")).toThrow(
+      expect.objectContaining({ code: "OUTPUT_WRITE_FAILED" }),
+    );
+    expect(fs.readdirSync(parent)).toEqual([]);
+  });
+
+  it("claimFile in a directory name too long for the file system removes the new parents", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "claim-"));
+    const tooLong = "x".repeat(FILE_NAME_TOO_LONG);
+    const file = pathToFileURL(path.join(parent, "new1", tooLong, "types.ts"));
+
+    expect(() => createNodeFileSystem().claimFile(file)).toThrow(
+      expect.objectContaining({ code: "OUTPUT_WRITE_FAILED" }),
+    );
+    expect(fs.readdirSync(parent)).toEqual([]);
+  });
+
   it("writeText through a link to a missing directory writes into its target", () => {
     const parent = fs.mkdtempSync(path.join(workDir, "write-"));
     fs.symlinkSync(path.join(parent, "missing-dir"), path.join(parent, "link"), "dir");
@@ -163,6 +185,21 @@ describe("createNodeFileSystem", () => {
     createNodeFileSystem().writeText(pathToFileURL(path.join(parent, "link", "x.ts")), "types");
 
     expect(fs.readFileSync(path.join(parent, "missing-dir", "x.ts"), "utf8")).toBe("types");
+  });
+
+  it("writeText through a relative link inside a linked directory writes where the system does", () => {
+    const parent = fs.mkdtempSync(path.join(workDir, "write-"));
+    fs.mkdirSync(path.join(parent, "real", "sub"), { recursive: true });
+    fs.symlinkSync(path.join(parent, "real", "sub"), path.join(parent, "a"), "dir");
+    fs.symlinkSync(path.join("..", "missing"), path.join(parent, "real", "sub", "link"), "dir");
+
+    createNodeFileSystem().writeText(
+      pathToFileURL(path.join(parent, "a", "link", "x.ts")),
+      "types",
+    );
+
+    expect(fs.readFileSync(path.join(parent, "real", "missing", "x.ts"), "utf8")).toBe("types");
+    expect(fs.existsSync(path.join(parent, "missing"))).toBe(false);
   });
 
   it("writeText into a path under a file fails with OUTPUT_WRITE_FAILED", () => {

@@ -1,4 +1,5 @@
 import type { Logger } from "../application/ports/logger.js";
+import { appendAll } from "../domain/append-all.js";
 import { FIX, type OutputFix } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { DiscriminatorObject, OpenAPI3, SchemaObject } from "../types.js";
@@ -104,7 +105,10 @@ function mergeIntoPatchedEnum(state: ScanState, key: string, values: readonly st
     return false;
   }
   const merged = patched.enum as unknown[];
-  merged.push(...values.filter((value) => !merged.includes(value)));
+  appendAll(
+    merged,
+    values.filter((value) => !merged.includes(value)),
+  );
   return true;
 }
 

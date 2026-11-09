@@ -37,8 +37,9 @@ script name (`npm run openapi-typescript`) is never changed. A Dockerfile's exec
 "openapi-typescript", …]`, also after `RUN --mount=…`) is read word by word, and the command line of
 `["sh", "-c", "…"]` as shell text. A Makefile variable that holds the generator (`OAT :=
 openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed where it is set,
-and the flags after `$(OAT)` where it runs; so is an `env` variable of a workflow and the flags
-after `$GEN`. A variable of old flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may
+and the flags after `$(OAT)` (or `$G` for a one-letter name) where it runs; so is an `env` variable
+of a workflow and the flags after `$GEN` or `${{ env.GEN }}`, and a Dockerfile `ARG` or `ENV`
+variable and the flags after `$GEN`. A variable of old flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may
 serve other commands too, so it is reported, not changed. YAML files are changed only in command
 keys (`run`, `script`, `command`, `entrypoint`, …) and in the values of `env`, in block and flow
 style, never in other values such as an OpenAPI `description`; a YAML file that names no old package
@@ -72,8 +73,9 @@ repository around it ignores, it reads the whole tree of that folder. Either way
 was read.
 
 The tool does not trust the folder it migrates. Git is the `git` of an absolute folder on `PATH`
-outside the project, so neither a `git` at the project root nor one in the `node_modules/.bin` that
-`npx` puts on `PATH` runs, and it runs with `core.fsmonitor` turned off and every transport refused
+outside the project and outside every `node_modules`, so neither a `git` at the project root nor
+one in a `node_modules/.bin` that `npx` puts on `PATH` runs (npx adds those of the project and of
+every folder above it, such as a workspace root), and it runs with `core.fsmonitor` turned off and every transport refused
 (`GIT_ALLOW_PROTOCOL` set to an empty list, which no `protocol.*` key of a repository's config can
 undo), so a nested repository's `.git/config` cannot make it run a command, not even through a
 partial clone that fetches a missing object. It does not open a bare repository that is not named
@@ -99,6 +101,8 @@ The report lists each of these with the file and line:
   `resolutions` / `pnpm` settings (in `package.json` or `pnpm-workspace.yaml`, patches included)
   that name an old package;
 - a renamed peer dependency: users of your package must switch too;
+- a pnpm `package.json5` that names an old package: the tool does not read JSON5, so rename the
+  packages and the command there by hand, or write it as `package.json` and run the tool again;
 - `npx openapi-typescript@<version>`, and pinned old packages in install commands
   (`npm i openapi-fetch@0.13`): change them by hand;
 - a command that runs a file inside the old package
@@ -107,9 +111,12 @@ The report lists each of these with the file and line:
   a template such as `` `npx openapi-typescript ${spec}` ``),
   with the command they should become;
 - deep imports such as `openapi-fetch/dist/...`: check that the file exists in the new package;
-- imports of `openapi-typesafe-helpers` in a package whose `package.json`, or one above it, does
-  not list it: openapi-fetch and openapi-react-query installed `openapi-typescript-helpers` with
-  them, the openapi-typesafe packages do not. Add it to the dependencies, or import the types from
+- a module name built at run time right after an old package name
+  (``import(`openapi-fetch${suffix}`)``): the rest may go on with the name, so only you know what
+  to write;
+- imports of `openapi-typesafe-helpers` that no `package.json` or Deno import map at or above the
+  file lists, also imports that an earlier run renamed: openapi-fetch and openapi-react-query
+  installed `openapi-typescript-helpers` with them, the openapi-typesafe packages do not. Add it to the dependencies, or import the types from
   `openapi-typesafe-fetch/helpers`;
 - strings that equal an old package name outside a module specifier (an object key, a label, a
   bundler option such as `external: ["openapi-fetch"]`): they are kept, because only you know

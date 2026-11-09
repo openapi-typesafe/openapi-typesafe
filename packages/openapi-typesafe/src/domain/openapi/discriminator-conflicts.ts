@@ -1,3 +1,4 @@
+import { appendAll } from "../append-all.js";
 import { admittedPropertyValues, resolveLocalRef } from "./admitted-values.js";
 import { isUnionMember, unionAt } from "./discriminated-union.js";
 import {
@@ -110,7 +111,7 @@ function ownersIn(document: unknown): Owner[] {
     if (owner !== null) {
       found.push(owner);
     }
-    stack.push(...childrenOf(visit).reverse());
+    appendAll(stack, childrenOf(visit).reverse());
   }
   return found;
 }

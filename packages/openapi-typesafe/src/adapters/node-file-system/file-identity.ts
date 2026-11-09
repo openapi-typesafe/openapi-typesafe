@@ -89,7 +89,9 @@ function ignoresCase(directory: string, queries: PathQueries): boolean {
 /**
  * The nearest ancestor of `filePath` that exists (or the path itself), and the rest below it. A
  * link to a missing file or directory is followed to its target, which a write would create: so
- * `link/x.ts` with `link -> missing` is `missing/x.ts`.
+ * `link/x.ts` with `link -> missing` is `missing/x.ts`. A relative target is read from the real
+ * directory of the link, as the system does: with `a -> real/sub` and
+ * `real/sub/link -> ../missing`, `a/link` is `real/missing`, not `missing`.
  */
 function nearestExisting(filePath: string, queries: PathQueries): [string, string[]] {
   const missing: string[] = [];
@@ -98,7 +100,7 @@ function nearestExisting(filePath: string, queries: PathQueries): [string, strin
   while (queries.status(current) === undefined) {
     const target = hops < MAX_LINK_HOPS ? queries.linkTarget(current) : undefined;
     if (target !== undefined) {
-      current = path.resolve(path.dirname(current), target);
+      current = path.resolve(queries.realPath(path.dirname(current)), target);
       hops += 1;
       continue;
     }

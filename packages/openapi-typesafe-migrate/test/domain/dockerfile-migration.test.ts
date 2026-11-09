@@ -83,3 +83,54 @@ describe("migrateDockerfile", () => {
     );
   });
 });
+
+describe("migrateDockerfile and variables", () => {
+  const braced = (name: string): string => ["$", "{", name, "}"].join("");
+
+  it("migrateDockerfile migrates ARG and ENV values and the flags where they run", () => {
+    const text = lines(
+      "ARG GEN=openapi-typescript",
+      'ENV TOOL="npx openapi-typescript" OTHER=x',
+      "ENV LEGACY openapi-typescript",
+      "RUN npx $GEN a.yaml -it",
+      `RUN ${braced("TOOL")} b.yaml -it && $LEGACY c.yaml --redoc`,
+      "RUN $OTHER d.yaml -it",
+    );
+
+    const migrated = migrateDockerfile(text, "Dockerfile");
+
+    expect(migrated.text).toBe(
+      lines(
+        "ARG GEN=openapi-typesafe",
+        'ENV TOOL="npx openapi-typesafe" OTHER=x',
+        "ENV LEGACY openapi-typesafe",
+        "RUN npx $GEN a.yaml --immutable",
+        `RUN ${braced("TOOL")} b.yaml --immutable && $LEGACY c.yaml --redocly`,
+        "RUN $OTHER d.yaml -it",
+      ),
+    );
+  });
+
+  it("migrateDockerfile leaves a variable that is not set to the generator alone", () => {
+    const text = lines(
+      "ARG NODE=24",
+      "ENV",
+      "LABEL GEN=openapi-typescript",
+      "RUN $NODE a.yaml -it",
+    );
+
+    const migrated = migrateDockerfile(text, "Dockerfile");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migrateDockerfile reads a word without a name before = as no variable", () => {
+    const text = lines("ARG =openapi-typescript", "RUN npx other a.yaml -it");
+
+    const migrated = migrateDockerfile(text, "Dockerfile");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([]);
+  });
+});

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { migrateModuleSpecifiers, type SourceString } from "../../src/domain/source-migration.js";
+import {
+  importedSpecifiers,
+  migrateModuleSpecifiers,
+  type SourceString,
+} from "../../src/domain/source-migration.js";
 
 /** The quoted string `value` where it first appears in `text`, as a scanner reports it. */
 function stringIn(text: string, value: string, isModuleSpecifier = true): SourceString {
@@ -179,6 +183,47 @@ describe("migrateModuleSpecifiers", () => {
     expect(migrated.manualSteps).toEqual([
       { kind: "deep-import", line: 1, specifier: to },
       { kind: "spec-kept", name: to, spec: "npm:openapi-fetch@next/dist/x.js" },
+    ]);
+  });
+});
+
+describe("migrateModuleSpecifiers and run-time names", () => {
+  it("migrateModuleSpecifiers reports a template that adds to an old package name", () => {
+    const value = `openapi-typescript-helpers\${suffix}`;
+    const text = `const h = import(\`${value}\`);\nconst o = \`openapi-fetch\${x}\`;\n`;
+    const strings = [stringIn(text, value), stringIn(text, `openapi-fetch\${x}`, false)];
+
+    const migration = migrateModuleSpecifiers(text, strings, "1.0.0");
+
+    expect(migration.text).toBe(text);
+    expect(migration.manualSteps).toEqual([
+      { kind: "dynamic-specifier", line: 1, value, to: "openapi-typesafe-helpers" },
+    ]);
+  });
+
+  it("migrateModuleSpecifiers leaves a template of another package alone", () => {
+    const value = `openapi-fetch-extra\${x}`;
+    const text = `import(\`${value}\`);\n`;
+
+    const migration = migrateModuleSpecifiers(text, [stringIn(text, value)], "1.0.0");
+
+    expect(migration.manualSteps).toEqual([]);
+  });
+});
+
+describe("importedSpecifiers", () => {
+  it("importedSpecifiers gives the module specifiers with new names and their lines", () => {
+    const text =
+      'import "openapi-fetch/x";\nconst label = "openapi-typesafe-helpers";\nimport "zod";\n';
+    const strings = [
+      stringIn(text, "openapi-fetch/x"),
+      stringIn(text, "openapi-typesafe-helpers", false),
+      stringIn(text, "zod"),
+    ];
+
+    expect(importedSpecifiers(text, strings)).toEqual([
+      { specifier: "openapi-typesafe-fetch/x", line: 1 },
+      { specifier: "zod", line: 3 },
     ]);
   });
 });

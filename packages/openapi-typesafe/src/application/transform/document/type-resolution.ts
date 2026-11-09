@@ -1,3 +1,4 @@
+import { appendAll } from "../../../domain/append-all.js";
 import type {
   IrIndexSignature,
   IrMember,
@@ -156,7 +157,7 @@ export class TypeResolution {
       if (objects === null) {
         return null;
       }
-      parts.push(...objects);
+      appendAll(parts, objects);
     }
     return parts;
   }

@@ -1,3 +1,4 @@
+import { appendAll } from "../../../domain/append-all.js";
 import { irKeyword, irObject, irRecord } from "../../../domain/ir/constructors.js";
 import type {
   IrDeclaration,
@@ -191,7 +192,7 @@ export function documentBody(
   if (inject !== "") {
     declarations.push({ kind: "rawDeclaration", text: inject });
   }
-  declarations.push(...rootsDeclarations(document, context, footer));
+  appendAll(declarations, rootsDeclarations(document, context, footer));
   return declarations;
 }
 

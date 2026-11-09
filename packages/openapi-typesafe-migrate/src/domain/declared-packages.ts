@@ -1,5 +1,5 @@
 import { mapsAt, type TreeMap, textEntries } from "./config-documents.js";
-import type { Change, ManualStep } from "./migration-findings.js";
+import type { ManualStep } from "./migration-findings.js";
 import { DEPENDENCY_FIELDS, PACKAGE_RENAMES } from "./package-names.js";
 
 /**
@@ -73,24 +73,28 @@ const packageOfSpecifier = (specifier: string): string => {
   return slash === -1 ? specifier : specifier.slice(0, slash);
 };
 
+/** A module specifier of a source file, as the migration leaves it, and its line. */
+export interface ImportedSpecifier {
+  readonly specifier: string;
+  readonly line: number;
+}
+
 /**
- * The imports that a source file got renamed to a package that no manifest above it declares and
- * that the original packages no longer install. A Deno `npm:` specifier installs its package
- * itself and is not a package name, so it is never reported.
+ * The imports of a source file, as the migration leaves them, of a package that no manifest or
+ * import map at or above the file declares and that the original packages no longer install. An
+ * import already renamed by an earlier run counts too, so a second run still reports it. A Deno
+ * `npm:` specifier installs its package itself and is not a package name, so it is never reported.
  */
 export function undeclaredImportSteps(
-  changes: readonly Change[],
+  imports: readonly ImportedSpecifier[],
   filePath: string,
   manifests: readonly ManifestDeclarations[],
 ): ManualStep[] {
-  return changes.flatMap((change) => {
-    if (change.kind !== "specifier-renamed") {
-      return [];
-    }
-    const name = packageOfSpecifier(change.to);
+  return imports.flatMap(({ specifier, line }) => {
+    const name = packageOfSpecifier(specifier);
     const installers = NO_LONGER_INSTALLED.get(name);
     return installers === undefined || isDeclaredFor(manifests, filePath, name)
       ? []
-      : [{ kind: "package-not-declared", line: change.line, name, installers } as const];
+      : [{ kind: "package-not-declared", line, name, installers } as const];
   });
 }

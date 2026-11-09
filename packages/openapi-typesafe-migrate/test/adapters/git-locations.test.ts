@@ -50,6 +50,34 @@ describe("findGitExecutable", () => {
     expect(await findGitExecutable(host)).toBe("/usr/bin/git");
   });
 
+  it("findGitExecutable passes over the node_modules/.bin folders above the project", async () => {
+    const host = posixHost("/node_modules/.bin:/repo/node_modules/.bin:/usr/bin", [
+      "/node_modules/.bin/git",
+      "/repo/node_modules/.bin/git",
+      "/usr/bin/git",
+    ]);
+
+    expect(await findGitExecutable(host)).toBe("/usr/bin/git");
+  });
+
+  it("findGitExecutable passes over a PATH folder whose real path is in a node_modules", async () => {
+    const fileSystem = new InMemoryGitFileSystem(["/tools/git", "/usr/bin/git"], [], {
+      "/tools": "/repo/node_modules/.bin",
+    });
+    const host = { ...posixHost("/tools:/usr/bin", []), fileSystem };
+
+    expect(await findGitExecutable(host)).toBe("/usr/bin/git");
+  });
+
+  it("findGitExecutable keeps folders whose names only contain node_modules", async () => {
+    const host = posixHost("/opt/node_modules_tools/bin:/usr/bin", [
+      "/opt/node_modules_tools/bin/git",
+      "/usr/bin/git",
+    ]);
+
+    expect(await findGitExecutable(host)).toBe("/opt/node_modules_tools/bin/git");
+  });
+
   it("findGitExecutable gives undefined without PATH or without git on it", async () => {
     expect(await findGitExecutable(posixHost(undefined, ["/usr/bin/git"]))).toBeUndefined();
     expect(await findGitExecutable(posixHost("/usr/bin", []))).toBeUndefined();
@@ -57,13 +85,16 @@ describe("findGitExecutable", () => {
 
   it("findGitExecutable on Windows reads Path in any case and finds git.exe", async () => {
     const host: GitHost = {
-      environment: { Path: ".;project;C:\\project\\bin;C:\\Program Files\\Git\\cmd" },
+      environment: {
+        Path: ".;project;C:\\project\\bin;C:\\repo\\Node_Modules\\.bin;C:\\Program Files\\Git\\cmd",
+      },
       platform: "win32",
       projectRoot: "C:\\project",
       fileSystem: new InMemoryGitFileSystem([
         "git.exe",
         "project\\git.exe",
         "C:\\project\\bin\\git.exe",
+        "C:\\repo\\Node_Modules\\.bin\\git.exe",
         "C:\\Program Files\\Git\\cmd\\git.exe",
       ]),
     };

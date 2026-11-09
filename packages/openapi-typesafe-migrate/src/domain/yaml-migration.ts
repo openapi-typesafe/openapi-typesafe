@@ -3,8 +3,8 @@ import {
   commandWordFindings,
   type FileVariables,
   type Locate,
-  runsGenerator,
   type ShellTextFindings,
+  shellVariables,
 } from "./command-migration.js";
 import { type DocumentString, ownerKey } from "./config-documents.js";
 import { type Change, lineLocator } from "./migration-findings.js";
@@ -47,35 +47,16 @@ const ENVIRONMENT_KEYS: ReadonlySet<string> = new Set(["env"]);
 const isEnvironmentValue = (value: DocumentString): boolean =>
   value.path.length >= 2 && ENVIRONMENT_KEYS.has(String(value.path.at(-2)));
 
-/** A whole word that expands one shell variable: `$NAME`, `${NAME}`, also in double quotes. */
-const SHELL_VARIABLE_RE = /^"?\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})"?$/;
-
 /**
  * The `env` variables of a file as its commands use them: `$GEN` runs the generator when an `env`
  * map sets `GEN` to it. The maps of a workflow, a job and a step are read as one, by name.
  */
 function environmentVariables(text: string, strings: readonly DocumentString[]): FileVariables {
-  const values = new Map<string, string>();
-  const generators = new Set<string>();
-  for (const value of strings.filter(isEnvironmentValue)) {
-    const name = String(value.path.at(-1));
-    const shell = shellText(text, value);
-    values.set(name, [values.get(name), shell].filter((part) => part !== undefined).join(" "));
-    if (shellCommands(shell).some(runsGenerator)) {
-      generators.add(name);
-    }
-  }
-  const nameAt = (word: ShellWord): string => {
-    const match = SHELL_VARIABLE_RE.exec(word.raw);
-    return match === null ? "" : (match[1] ?? match[2] ?? "");
-  };
-  return {
-    isGenerator: (program) => generators.has(nameAt(program)),
-    referenceAt: (word) => {
-      const value = values.get(nameAt(word));
-      return value === undefined ? undefined : { written: word.raw, value };
-    },
-  };
+  return shellVariables(
+    strings
+      .filter(isEnvironmentValue)
+      .map((value) => ({ name: String(value.path.at(-1)), value: shellText(text, value) })),
+  );
 }
 
 /** Keys of a Dependabot config whose values are package names (`ignore`, `allow`, `groups`). */
@@ -92,9 +73,20 @@ const FOLDED_LINE_BREAK_RE = /(?<=\S[^\S\n]*)\n(?=[^\S\n]*\S)/g;
  * The shell text of a value: where YAML folds a line break to a space, so does the shell text.
  * The replacement keeps the length, so offsets into it are offsets into the value as written.
  */
+/**
+ * A GitHub Actions expression that reads one `env` variable: `${{ env.NAME }}`. The runner puts its
+ * value into the command before the shell runs, as the shell expands `$NAME`.
+ */
+const ENV_EXPRESSION_RE = /\$\{\{[ \t]*env\.([A-Za-z_][A-Za-z0-9_]*)[ \t]*\}\}/g;
+
+/** `${{ env.NAME }}` read as `$NAME`, padded with blanks so that every offset stays. */
+const asShellVariable = (expression: string, name: string): string =>
+  `$${name}`.padEnd(expression.length, " ");
+
 function shellText(text: string, value: DocumentString): string {
   const slice = text.slice(value.content.start, value.content.end);
-  return value.isFolded ? slice.replace(FOLDED_LINE_BREAK_RE, " ") : slice;
+  const unfolded = value.isFolded ? slice.replace(FOLDED_LINE_BREAK_RE, " ") : slice;
+  return unfolded.replace(ENV_EXPRESSION_RE, asShellVariable);
 }
 
 /** The values that belong to one of `keys`, also as items of a list. */

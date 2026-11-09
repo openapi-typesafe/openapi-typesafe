@@ -125,9 +125,10 @@ redirect fails, because fetch refuses such URLs, and the message named the whole
 token ended up in the job log.
 
 - Controls: every typed error message, the URLs in `details` and every line the terminal logger
-  writes show such a URL as `https://***@host/…`. Header values from `redocly.yaml` are never
+  writes show such a URL as `https://***@host/…`, and the query of every URL as `?***`, since it
+  often holds an API key or a signature (`?api_key=…`). Header values from `redocly.yaml` are never
   printed.
-- Tests: `test/domain/url-credentials.test.ts`, `test/defensive/remote-refs.test.ts`,
+- Tests: `test/domain/url-secrets.test.ts`, `test/defensive/remote-refs.test.ts`,
   `test/adapters/terminal-logger/terminal-logger.test.ts`.
 
 ### T5. Unsafe requests from the fetch client — Controlled
@@ -139,7 +140,7 @@ parameter, a path segment or an object member.
 
 - Controls: path values are always percent-encoded, and query values unless the parameter sets
   `allowReserved`; a path value that would form a `.` or `..` segment makes the call throw
-  (`Dot path segment in …`, ADR-013), because percent-encoding keeps dots; a path that starts with
+  (`Dot path segment in "…"`, ADR-013), because percent-encoding keeps dots; a path that starts with
   `//` once the values are in (an empty first value) throws too, because a browser reads it as
   another host (ADR-030, amendment); values go into the template as text, never as replacement
   patterns; query parameter names are percent-encoded too, except `[ ] $ : @ ,`, and object keys

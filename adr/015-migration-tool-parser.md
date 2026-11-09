@@ -294,6 +294,10 @@ package.json and `package.yaml` stay with the command migrations. A hand-written
 scanner was rejected: it drifted from the grammar at its edges (flow collections, escapes,
 ranges with spaces), which is where these findings came from. A config that does not parse and
 names an original package is reported with the line and column where it stops being valid.
+pnpm's `package.json5` is not read: JSON5 strings (single quotes, line continuations) need a
+third reader that would serve one rare file. Such a manifest that names an original package is
+reported, and the declared-package rule counts it as declaring every package, like a manifest
+that cannot be parsed.
 
 ## Amendment (2026-11-09): the recheck of the second review
 
@@ -319,6 +323,12 @@ A recheck of the fixes above found three regressions and four gaps.
   absolute folder, so the lookup of the first review still ran a `git` from the project. A `PATH`
   folder is now skipped when its real path is the project folder or lies under it; the project
   root is given to the git adapter by the composition root, one listing per run.
+- **npx also put the `node_modules/.bin` of every folder above the project on PATH** (the third
+  recheck). Migrating one package of a workspace (`--root packages/api`, or from that folder)
+  still ran a `git` planted in the workspace root's `node_modules/.bin`. A `PATH` folder whose real
+  path has a `node_modules` segment is now skipped too: package managers put the bins of packages
+  there, never a system git. Skipping the folders under the git work tree was rejected: the work
+  tree is found with git, so it is not known before git is chosen.
 - **Overrides that point at a catalog entry** (`overrides: { openapi-fetch: "catalog:" }`) are
   reported and left as they are, so the entry was renamed under them and the install failed. The
   catalog plan now counts them as users of the entry, like a kept dependency.
@@ -331,6 +341,13 @@ A recheck of the fixes above found three regressions and four gaps.
   changed, because the same variable may serve other commands. The `FileVariables` interface of
   the command migration carries both questions, so Makefiles and YAML files answer them the same
   way.
+- **The generator behind `ARG` and `ENV` of a Dockerfile, a one-letter Makefile `$G` and a
+  workflow `${{ env.GEN }}`** was neither migrated nor reported (the third recheck). Dockerfiles
+  now answer `FileVariables` too, from their `ARG` and `ENV` values (also of the legacy form
+  `ENV NAME value`); a Makefile reads `$G` as the variable `G`, as make does; a workflow reads
+  `${{ env.GEN }}` as `$GEN`, because the runner puts the same value there. One builder,
+  `shellVariables`, turns the definitions of each file kind into the answers, so the rule that a
+  word without a variable matches no definition holds for all of them.
 
 ## Review trigger
 

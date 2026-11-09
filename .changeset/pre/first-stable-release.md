@@ -48,6 +48,9 @@ Changes that can need work when you move from openapi-typescript 7.13:
   to them. A type read through them can be narrower than before (a tuple stays a tuple).
 - In `redocly.yaml`, an `x-openapi-ts` setting of the wrong type (`root-types: "true"`) fails that
   API with `CLI_CONFIG_INVALID`; openapi-typescript ignored it.
+- `--root-types`: a character of a schema name that TypeScript 5.4 cannot read in a name (a letter
+  newer than its Unicode tables, or a zero-width joiner) becomes `_` in the alias, so the output
+  compiles with TypeScript 5.4 too. Rename the imports of such an alias.
 - Headers from `resolve.http.headers` go over plain HTTP only to `localhost`, `127.0.0.1` and
   `::1`, or to a pattern that starts with `http://`.
 - A discriminator `mapping` to a schema whose key needs a pointer escape (`a~b`, `c/d`), or a

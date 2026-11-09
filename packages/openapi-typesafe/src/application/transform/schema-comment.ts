@@ -1,3 +1,4 @@
+import { appendAll } from "../../domain/append-all.js";
 import type { IrComment, IrPropertySignature } from "../../domain/ir/nodes.js";
 import { FIX, type OutputFix } from "../../domain/output-fixes.js";
 
@@ -80,7 +81,10 @@ function valueTagLines(schema: AnnotatedSchema): string[] {
     lines.push(`@${tag} ${formatValue(value)}`);
   }
   if (Array.isArray(schema.examples)) {
-    lines.push(...schema.examples.map((example: unknown) => `@example ${formatValue(example)}`));
+    appendAll(
+      lines,
+      schema.examples.map((example: unknown) => `@example ${formatValue(example)}`),
+    );
   }
   return lines;
 }

@@ -152,6 +152,24 @@ describe("fileMigrationFor", () => {
     });
   });
 
+  it("fileMigrationFor reports a package.json5 that names an original package, unchanged", () => {
+    const text = "{\n  dependencies: { 'openapi-fetch': '^0.13.0' },\n}\n";
+
+    expect(fileMigrationFor("package.json5")?.(text, "package.json5", context)).toEqual({
+      text,
+      changes: [],
+      manualSteps: [{ kind: "manifest-not-read" }],
+    });
+  });
+
+  it("fileMigrationFor leaves a package.json5 that names no original package", () => {
+    const text = "{ dependencies: { 'other': '^1.0.0' } }\n";
+
+    expect(
+      fileMigrationFor("package.json5")?.(text, "package.json5", context)?.manualSteps,
+    ).toEqual([]);
+  });
+
   it("fileMigrationFor leaves a broken config that names no original package", () => {
     expect(fileMigrationFor("ci.yml")?.("run: 'open\n", "ci.yml", context)?.manualSteps).toEqual(
       [],

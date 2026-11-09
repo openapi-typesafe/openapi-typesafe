@@ -48,12 +48,22 @@ describe("countNodes", () => {
   });
 });
 
-describe("countNodes of a large array", () => {
-  it("countNodes of an array of a million objects counts them without overflowing the stack", () => {
-    const objects = Array.from({ length: 1_000_000 }, () => ({}));
+/**
+ * A million objects take 0.2 s on a laptop and took 7 s on a loaded macOS Intel runner, past the
+ * default 5 s limit; 60 s leaves room for such a runner and still fails on a hang.
+ */
+const LARGE_ARRAY_TIMEOUT_MS = 60_000;
 
-    expect(countNodes(objects)).toEqual({ stored: 1_000_001, expanded: 1_000_001 });
-  });
+describe("countNodes of a large array", () => {
+  it(
+    "countNodes of an array of a million objects counts them without overflowing the stack",
+    () => {
+      const objects = Array.from({ length: 1_000_000 }, () => ({}));
+
+      expect(countNodes(objects)).toEqual({ stored: 1_000_001, expanded: 1_000_001 });
+    },
+    LARGE_ARRAY_TIMEOUT_MS,
+  );
 });
 
 describe("isAliasExpansionExcessive", () => {

@@ -149,8 +149,8 @@ have the same version. The full rule is
 **Stable in 1.x.** A minor or patch release does not remove, rename or narrow:
 
 - the package entry points (`import … from "openapi-typesafe"` and the same for the other
-  packages), their exported names and documented types, and the `openapi-typesafe` and
-  `openapi-typesafe-migrate` commands;
+  packages, and `openapi-typesafe-fetch/helpers`), their exported names and documented types, and
+  the `openapi-typesafe` and `openapi-typesafe-migrate` commands;
 - the [CLI flags](./cli.md#flags), the `x-openapi-ts` settings in `redocly.yaml`, the
   [Node API options](./node.md#options) and their defaults;
 - the [error codes and exit codes](./cli.md#exit-codes), the [warning codes](./cli.md#warnings),

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
-import { migrateImportMap as migrateTree } from "../../src/domain/import-map-migration.js";
+import { isMap } from "../../src/domain/config-documents.js";
+import {
+  importMapNames,
+  migrateImportMap as migrateTree,
+} from "../../src/domain/import-map-migration.js";
 
 const reader = createJsonTextReader();
 
@@ -94,5 +98,19 @@ describe("migrateImportMap", () => {
       { kind: "config-unreadable", position: { line: 1, column: 19 } },
     ]);
     expect(migrateImportMap("", "1.0.0")).toEqual({ text: "", changes: [], manualSteps: [] });
+  });
+});
+
+describe("importMapNames", () => {
+  it("importMapNames gives the package of every key of imports and scopes", () => {
+    const read = reader.read(
+      JSON.stringify({
+        imports: { a: "npm:a", "b/": "npm:b/", "c/x": "npm:c/x", "@s/d/e": "npm:@s/d/e" },
+        scopes: { "./x/": { f: "npm:f" } },
+      }),
+    );
+    const roots = read.kind === "read" ? read.documents.filter(isMap) : [];
+
+    expect(roots.flatMap(importMapNames)).toEqual(["a", "b", "c", "@s/d", "f"]);
   });
 });
