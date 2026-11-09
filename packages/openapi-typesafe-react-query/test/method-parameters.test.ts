@@ -93,7 +93,7 @@ describe("Parameters of the hooks", () => {
     $api.queryOptions(method, "/items/{id}", { params: { path: { id: 1 } } });
     const { queryKey } = $api.queryOptions(method, "/feed");
 
-    expect(queryKey).toEqual(["post", "/feed"]);
+    expect(queryKey).toEqual(["post", "/feed", { baseUrl: BASE_URL }]);
   });
 
   it("a helper over Parameters of queryOptions invalidates that query", async () => {

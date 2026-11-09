@@ -365,6 +365,11 @@ type PathMethodCalls<PathInfo extends Record<string | number, any>, Media extend
 };
 
 export interface Client<Paths extends {}, Media extends MediaType = MediaType> {
+  /**
+   * The `baseUrl` of `createClient`, without a trailing slash; empty when none was given. A
+   * request's own `baseUrl` replaces it for that request.
+   */
+  readonly baseUrl: string;
   request: ClientRequestMethod<Paths, Media>;
   /** Call a GET endpoint */
   GET: ClientMethod<Paths, "get", Media>;

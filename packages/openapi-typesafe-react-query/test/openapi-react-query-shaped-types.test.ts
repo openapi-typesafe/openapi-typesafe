@@ -57,11 +57,15 @@ describe("hook types written like openapi-react-query's", () => {
     const api = createClient(createFetchClient<Paths>({ baseUrl: BASE_URL }));
     const queryOptions = queryOptionsOf(api);
 
-    expect(queryOptions("get", "/items").queryKey).toEqual(["get", "/items"]);
+    expect(queryOptions("get", "/items").queryKey).toEqual([
+      "get",
+      "/items",
+      { baseUrl: BASE_URL },
+    ]);
     expect(queryOptions("get", "/items/{id}", { params: { path: { id: 1 } } }).queryKey).toEqual([
       "get",
       "/items/{id}",
-      { params: { path: { id: 1 } } },
+      { params: { path: { id: 1 } }, baseUrl: BASE_URL },
     ]);
     // @ts-expect-error "/items/{id}" needs its path parameter
     queryOptions("get", "/items/{id}");

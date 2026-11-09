@@ -52,7 +52,11 @@ describe("hook wrappers that type the init as FetchOptions", () => {
   it("queryOptions takes FetchOptions of a generic path", () => {
     const options = itemOptions("/items/{id}", { params: { path: { id: 1 } } });
 
-    expect(options.queryKey).toEqual(["get", "/items/{id}", { params: { path: { id: 1 } } }]);
+    expect(options.queryKey).toEqual([
+      "get",
+      "/items/{id}",
+      { params: { path: { id: 1 } }, baseUrl: BASE_URL },
+    ]);
   });
 
   it("useQuery, useSuspenseQuery and an indexed init type the data of the path", () => {

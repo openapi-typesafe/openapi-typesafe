@@ -1,6 +1,7 @@
 import {
   type DataTag,
   type DefaultError,
+  type DefinedUseQueryResult,
   type InfiniteData,
   type QueryClient,
   type QueryFunctionContext,
@@ -35,6 +36,8 @@ import type {
   PathsWithMethod,
   RequiredKeysOf,
 } from "openapi-typesafe-fetch/helpers";
+import { queryKeyInit } from "./query-key.js";
+import { withQuerySignal } from "./query-signal.js";
 
 // Helper type to dynamically infer the type from the `select` property
 type InferSelectReturnType<TData, TSelect> = TSelect extends (data: TData) => infer R ? R : TData;
@@ -100,6 +103,12 @@ type InitArguments<Init, Rest extends unknown[]> =
     ? [InitWithUnknowns<Init>?, ...Rest]
     : [InitWithUnknowns<Init>, ...Rest];
 
+/**
+ * The key of a query: the method, the path and the request. Its init is the init of the call with
+ * the headers as a plain object and the client's `baseUrl` when the init has none, so two
+ * requests never share a key; it is left out when there is neither. Read a query's key from
+ * `queryOptions(...).queryKey` rather than writing it out.
+ */
 export type QueryKey<
   Paths extends {},
   Method extends HttpMethod,
@@ -120,6 +129,33 @@ export type InfiniteQueryKey<
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
 > = readonly [...QueryKey<Paths, Method, Path>, typeof INFINITE_QUERY_KEY_MARKER];
+
+/**
+ * Whether the options give an `initialData` that is never `undefined`: a value, or a function that
+ * never returns `undefined`. Then `data` is never `undefined` either, as for TanStack Query's own
+ * `useQuery` with `DefinedInitialDataOptions`.
+ */
+type HasDefinedInitialData<Options> = Options extends { initialData: infer Initial }
+  ? Initial extends (...args: never) => infer Returned
+    ? undefined extends Returned
+      ? false
+      : true
+    : undefined extends Initial
+      ? false
+      : true
+  : false;
+
+/** The result of `useQuery`: its `data` is defined when the options give defined initial data. */
+type QueryResult<Data, Error, Options> =
+  HasDefinedInitialData<Options> extends true
+    ? DefinedUseQueryResult<Data, Error>
+    : UseQueryResult<Data, Error>;
+
+/**
+ * The `initialData` of the options, kept in the type `queryOptions` returns, so TanStack Query's
+ * `useQuery` takes the result as options with defined initial data.
+ */
+type InitialDataOf<Options> = Pick<Options, Extract<keyof Options, "initialData">>;
 
 export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
@@ -154,7 +190,8 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
       QueryKey<Paths, Method, Path>,
       QueryData<Response["data"]>,
       QueryError<Response["error"]>
-    > & {
+    > &
+    InitialDataOf<Options> & {
       queryFn: Exclude<
         UseQueryOptions<
           QueryData<Response["data"]>,
@@ -186,9 +223,10 @@ export type UseQueryMethod<Paths extends {}, Media extends MediaType> = <
   method: Method,
   url: Path,
   ...[init, options, queryClient]: InitArguments<Init, [Options?, QueryClient?]>
-) => UseQueryResult<
+) => QueryResult<
   InferSelectReturnType<QueryData<Response["data"]>, Options["select"]>,
-  QueryError<Response["error"]>
+  QueryError<Response["error"]>,
+  Options
 >;
 
 /**
@@ -408,7 +446,6 @@ const DEFAULT_PAGE_PARAM_NAME = "cursor";
 interface PageRequest {
   readonly pageParamName: string;
   readonly pageParam: unknown;
-  readonly signal: AbortSignal;
 }
 
 /**
@@ -416,10 +453,10 @@ interface PageRequest {
  * `initialPageParam: undefined`) is left out instead of being sent as `0` (upstream #2715, #2340,
  * ADR-022), so a cursor API gets no cursor on the first page.
  */
-function pageInit(init: unknown, { pageParamName, pageParam, signal }: PageRequest) {
+function pageInit(init: unknown, { pageParamName, pageParam }: PageRequest) {
   const { params, ...rest } = (init ?? {}) as { params?: { query?: DefaultParamsOption } };
   const page = pageParam === undefined ? {} : { [pageParamName]: pageParam };
-  return { ...rest, signal, params: { ...params, query: { ...params?.query, ...page } } };
+  return { ...rest, params: { ...params, query: { ...params?.query, ...page } } };
 }
 
 /**
@@ -430,48 +467,65 @@ function pageInit(init: unknown, { pageParamName, pageParam, signal }: PageReque
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
   client: FetchClient<Paths, Media>,
 ): OpenapiQueryClient<Paths, Media> {
-  const queryFn = async <Method extends HttpMethod, Path extends PathsWithMethod<Paths, Method>>({
-    queryKey,
-    signal,
-  }: QueryFunctionContext<QueryKey<Paths, Method, Path>>) => {
-    // While `Path` is generic, TypeScript cannot work out that the key is a tuple: the init is a
-    // conditional type per operation (`MaybeOptionalInit`), and the key's type waits for it.
-    const [method, path, init] = queryKey as readonly [Method, Path, unknown?];
+  /**
+   * Send one request of a query: the call's own init, with a signal that TanStack Query can abort.
+   * The key only names the cache entry, as for `useInfiniteQuery`: a function in the init (a
+   * `fetch`, a `middleware`) cannot be part of a key, so the request is read from the call.
+   */
+  const fetchPage = async <Method extends HttpMethod, Path extends PathsWithMethod<Paths, Method>>(
+    method: Method,
+    path: Path,
+    init: unknown,
+    signal: AbortSignal,
+  ) => {
     const mth = method.toUpperCase() as Uppercase<typeof method>;
     const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
-    // The init is `unknown` here. An `any` init lets the call infer the generic response type
-    // that `queryOptions` declares; a typed init makes TypeScript compare two unresolved
-    // conditional types, which it cannot do.
-    // biome-ignore lint/suspicious/noExplicitAny: see the comment above
-    const result = await fn(path, { signal, ...(init as any) });
-    throwIfFailed(result);
-    // TanStack Query rejects `undefined` query data. The fetch client gives `undefined` for every
-    // success without a body: a 204, `Content-Length: 0`, an empty chunked body, a HEAD request
-    // (upstream #2234). A parsed body is never `undefined`, so this changes nothing else.
-    return result.data ?? null;
+    const request = withQuerySignal(init, signal);
+    try {
+      // The init is `unknown` here. An `any` init lets the call infer the generic response type
+      // that `queryOptions` declares; a typed init makes TypeScript compare two unresolved
+      // conditional types, which it cannot do.
+      // biome-ignore lint/suspicious/noExplicitAny: see the comment above
+      const result = await fn(path, request.init as any);
+      throwIfFailed(result);
+      return result.data;
+    } finally {
+      request.release();
+    }
   };
 
-  const queryOptions: QueryOptionsFunction<Paths, Media> = (method, path, ...[init, options]) => ({
-    queryKey: (init === undefined
-      ? ([method, path] as const)
-      : ([method, path, init] as const)) as DataTag<
-      QueryKey<Paths, typeof method, typeof path>,
-      // biome-ignore lint/suspicious/noExplicitAny: the declared return type sets the data type
-      any,
-      // biome-ignore lint/suspicious/noExplicitAny: the declared return type sets the error type
-      any
-    >,
-    queryFn,
-    ...options,
-  });
+  const queryOptions: QueryOptionsFunction<Paths, Media> = (method, path, ...[init, options]) => {
+    const keyInit = queryKeyInit(init, client.baseUrl);
+    return {
+      queryKey: (keyInit === undefined
+        ? ([method, path] as const)
+        : ([method, path, keyInit] as const)) as DataTag<
+        QueryKey<Paths, typeof method, typeof path>,
+        // biome-ignore lint/suspicious/noExplicitAny: the declared return type sets the data type
+        any,
+        // biome-ignore lint/suspicious/noExplicitAny: the declared return type sets the error type
+        any
+      >,
+      // TanStack Query rejects `undefined` query data. The fetch client gives `undefined` for
+      // every success without a body: a 204, `Content-Length: 0`, an empty chunked body, a HEAD
+      // request (upstream #2234). A parsed body is never `undefined`, so this changes nothing else.
+      queryFn: async ({ signal }: QueryFunctionContext) =>
+        (await fetchPage(method, path, init, signal)) ?? null,
+      // Without options, `Options` is its constraint, which has no `initialData` to keep.
+      ...(options as typeof options & {}),
+    };
+  };
 
   return {
     queryOptions,
     useQuery: (method, path, ...[init, options, queryClient]) =>
+      // TanStack Query's `useQuery` returns `DefinedUseQueryResult` for options with defined
+      // `initialData`; while `Options` is generic it cannot pick that overload, and the declared
+      // `QueryResult` gives the caller the same answer. Both are the same object at runtime.
       useQuery(
         queryOptions(method, path, init as InitWithUnknowns<typeof init>, options),
         queryClient,
-      ),
+      ) as never,
     useSuspenseQuery: (method, path, ...[init, options, queryClient]) =>
       useSuspenseQuery(
         queryOptions(method, path, init as InitWithUnknowns<typeof init>, options),
@@ -481,23 +535,13 @@ export default function createClient<Paths extends {}, Media extends MediaType =
     useInfiniteQuery: (method, path, init, options, queryClient) => {
       const { pageParamName = DEFAULT_PAGE_PARAM_NAME, placeholderData, ...restOptions } = options;
       const { queryKey } = queryOptions(method, path, init);
-      const mth = method.toUpperCase() as Uppercase<typeof method>;
-      const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
       return useInfiniteQuery(
         {
           queryKey: [...queryKey, INFINITE_QUERY_KEY_MARKER] as const,
-          // The request comes from the arguments; the key only identifies the cache entry.
-          queryFn: async ({ pageParam, signal }) => {
-            const result = await fn(
-              path,
-              // biome-ignore lint/suspicious/noExplicitAny: a generic init; see queryFn
-              pageInit(init, { pageParamName, pageParam, signal }) as any,
-            );
-            throwIfFailed(result);
-            // An empty page stays `undefined`, as in upstream: TanStack Query rejects only
-            // `undefined` query data, and the infinite query data is the `{ pages }` object.
-            return result.data;
-          },
+          // An empty page stays `undefined`, as in upstream: TanStack Query rejects only
+          // `undefined` query data, and the infinite query data is the `{ pages }` object.
+          queryFn: ({ pageParam, signal }) =>
+            fetchPage(method, path, pageInit(init, { pageParamName, pageParam }), signal),
           ...restOptions,
           // Typed with an `unknown` page param for the caller (`InfinitePlaceholderData`). TanStack
           // passes the previous data of this query, with its own page params, and takes it back.

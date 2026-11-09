@@ -51,7 +51,11 @@ describe("QUERY method", () => {
 
     const options = client.queryOptions("query", "/posts/search", { body: { text: "a" } });
 
-    expect(options.queryKey).toEqual(["query", "/posts/search", { body: { text: "a" } }]);
+    expect(options.queryKey).toEqual([
+      "query",
+      "/posts/search",
+      { body: { text: "a" }, baseUrl: BASE_URL },
+    ]);
     // @ts-expect-error `text` is required
     client.queryOptions("query", "/posts/search", { body: {} });
   });
