@@ -1,3 +1,4 @@
+import { canonicalRef } from "../domain/openapi/json-pointer.js";
 import type { DiscriminatorObject, ReferenceObject, SchemaObject } from "../types.js";
 import type { EnumPatch } from "./discriminator-enum.js";
 import { enumKey, patchDiscriminatorEnum, type ScanState } from "./discriminator-patch.js";
@@ -22,7 +23,7 @@ function allOfRefs(state: ScanState, ref: string): string[] {
   const schema = resolveDocumentRef<SchemaObject>(state.schema, ref, { silent, logger });
   const items = (schema?.allOf ?? []) as (SchemaObject | ReferenceObject)[];
   return items.flatMap((item) =>
-    "$ref" in item && typeof item.$ref === "string" ? [item.$ref] : [],
+    "$ref" in item && typeof item.$ref === "string" ? [canonicalRef(item.$ref)] : [],
   );
 }
 
@@ -75,7 +76,7 @@ export function inheritOtherOwners(state: ScanState, parentRef: string, ref: str
     }
     recordOtherProperty(state, ref, discriminator.propertyName);
     const mapped = Object.entries(discriminator.mapping ?? {})
-      .filter(([, target]) => target === ref)
+      .filter(([, target]) => canonicalRef(target) === ref)
       .map(([value]) => value);
     const name = ref.slice(ref.lastIndexOf("/") + 1);
     const patch: EnumPatch = { ref, values: mapped, discriminator, discriminatorRef: ownerRef };

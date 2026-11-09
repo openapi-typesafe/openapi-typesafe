@@ -1,4 +1,4 @@
-import { createRef, parseRefPointer } from "./json-pointer.js";
+import { appendPointer, parseRefPointer, ROOT_POINTER } from "./json-pointer.js";
 import { QUERYSTRING_LOCATION } from "./parameter-object.js";
 import { type PathItemObject, pathItemOperations } from "./path-item-object.js";
 
@@ -60,7 +60,7 @@ function locatedParameters(
   }
   return parameters.flatMap((entry, index) => {
     const parameter = resolveLocal(document, entry);
-    const pointer = createRef([...segments, String(index)]);
+    const pointer = appendPointer(ROOT_POINTER, [...segments, index]);
     return isObject(parameter) ? [{ pointer, parameter }] : [];
   });
 }

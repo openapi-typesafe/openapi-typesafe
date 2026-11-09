@@ -1,6 +1,6 @@
 import { irKeyword, irObject } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import type { ResponsesObject } from "../../../domain/openapi/response-object.js";
 import { documentEntries } from "../document-entries.js";
 import { refType } from "../ref-type.js";
@@ -20,7 +20,7 @@ export function responsesType(
         ? refType(response.$ref)
         : responseType(
             response,
-            { ...location, path: createRef([location.path, "responses", code]) },
+            { ...location, path: appendPointer(location.path, ["responses", code]) },
             context,
           );
     return documentMember(code, type, response, { isReadonly: context.options.immutable });

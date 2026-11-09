@@ -1,4 +1,4 @@
-import { escapePointerSegment } from "./json-pointer.js";
+import { canonicalRef, escapePointerSegment } from "./json-pointer.js";
 import type { Schema, SchemaObject } from "./schema-object.js";
 
 /**
@@ -51,7 +51,7 @@ function reaches(schema: Schema, search: Search): boolean {
   }
   const ref = (schema as { readonly $ref?: unknown }).$ref;
   if (typeof ref === "string") {
-    if (ref === search.target) {
+    if (canonicalRef(ref) === canonicalRef(search.target)) {
       return true;
     }
     if (search.visited.has(ref)) {
@@ -84,7 +84,9 @@ function mappingRef(target: unknown): string | undefined {
   if (typeof target !== "string") {
     return undefined;
   }
-  return target.startsWith("#") ? target : `${COMPONENT_SCHEMAS}${escapePointerSegment(target)}`;
+  return target.startsWith("#")
+    ? canonicalRef(target)
+    : `${COMPONENT_SCHEMAS}${escapePointerSegment(target)}`;
 }
 
 /** Whether the discriminator `mapping` of `union` names the schema at `target`. */
@@ -93,7 +95,7 @@ export function unionMaps(union: SchemaObject, target: string): boolean {
   if (!isSchemaObject(mapping)) {
     return false;
   }
-  return Object.values(mapping).some((value) => mappingRef(value) === target);
+  return Object.values(mapping).some((value) => mappingRef(value) === canonicalRef(target));
 }
 
 /**

@@ -1,7 +1,7 @@
 import { irObject, irProperty } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer, ROOT_POINTER } from "../../../domain/openapi/json-pointer.js";
 import type { PathItemObject, PathsObject } from "../../../domain/openapi/path-item-object.js";
 import { documentEntries } from "../document-entries.js";
 import type { TransformContext } from "../transform-context.js";
@@ -14,7 +14,7 @@ import { pathItemType } from "./path-item.js";
  */
 export function webhooksType(webhooks: PathsObject, context: TransformContext): IrType {
   const members = documentEntries(webhooks, context.options).map(([name, pathItem]) => {
-    const location = { path: createRef(["webhooks", name]) };
+    const location = { path: appendPointer(ROOT_POINTER, ["webhooks", name]) };
     const type = pathItemType(pathItem as PathItemObject, location, context);
     return irProperty(toPropertyName(name), type, { isReadonly: context.options.immutable });
   });

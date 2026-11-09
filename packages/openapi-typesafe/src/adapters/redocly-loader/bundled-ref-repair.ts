@@ -1,4 +1,4 @@
-import { escapePointerSegment, parseRefPointer } from "../../domain/openapi/json-pointer.js";
+import { childPointer, parseRefPointer, ROOT_POINTER } from "../../domain/openapi/json-pointer.js";
 import { findRefHolders } from "./ref-holders.js";
 
 /**
@@ -48,7 +48,7 @@ function repairedRef(document: unknown, ref: string): string | null {
   if (!resolves(document, raw)) {
     return null;
   }
-  return `${LOCAL_REF_PREFIX}${raw.map(escapePointerSegment).join("/")}`;
+  return raw.reduce((pointer, key) => childPointer(pointer, key), ROOT_POINTER);
 }
 
 /** Repair the local `$ref`s of a bundled document in place, as Redocly's bundle edits it. */

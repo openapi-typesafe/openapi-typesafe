@@ -11,6 +11,7 @@ import type {
   TransformDiagnostics,
   TransformOptions,
 } from "../application/transform/transform-context.js";
+import { canonicalRef } from "../domain/openapi/json-pointer.js";
 import { SCHEMA_DIALECTS } from "../domain/openapi/schema-dialect.js";
 import type { TransformNodeOptions } from "../types.js";
 import { defaultLogger, monotonicNow } from "./default-ports.js";
@@ -78,9 +79,10 @@ export function createTransformContext(ctx: RunContext): TransformContext {
     options: transformOptions(ctx),
     refs: { resolve: (ref) => ctx.resolve(ref) },
     discriminators: {
-      objectAt: (ref) => ctx.discriminators.objects[ref],
-      isHandled: (ref) => ctx.discriminators.refsHandled.includes(ref),
-      otherPropertiesAt: (ref) => ctx.discriminators.otherProperties?.[ref] ?? [],
+      // The scan keys pointers canonically; a caller may pass a `$ref` as the document writes it.
+      objectAt: (ref) => ctx.discriminators.objects[canonicalRef(ref)],
+      isHandled: (ref) => ctx.discriminators.refsHandled.includes(canonicalRef(ref)),
+      otherPropertiesAt: (ref) => ctx.discriminators.otherProperties?.[canonicalRef(ref)] ?? [],
       enumParentOf: (schema) =>
         ctx.discriminators.enumParents?.get(schema) as DiscriminatorEnumParent | undefined,
     },

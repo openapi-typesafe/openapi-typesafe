@@ -1,6 +1,6 @@
 import { irKeyword } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import {
   type ParameterObject,
   QUERYSTRING_LOCATION,
@@ -25,7 +25,7 @@ function contentParameterType(
   if (mediaType === undefined || entry === undefined) {
     return irKeyword("string");
   }
-  const path = createRef([location.path, "content", mediaType]);
+  const path = appendPointer(location.path, ["content", mediaType]);
   return contentEntryType(entry, { ...location, path }, context);
 }
 

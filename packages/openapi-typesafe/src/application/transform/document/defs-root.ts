@@ -1,7 +1,7 @@
 import { irObject, irProperty } from "../../../domain/ir/constructors.js";
 import type { IrObjectType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer, ROOT_POINTER } from "../../../domain/openapi/json-pointer.js";
 import type { Schema } from "../../../domain/openapi/schema-object.js";
 import { transformSchema } from "../schema/schema-transform.js";
 import type { TransformContext } from "../transform-context.js";
@@ -17,7 +17,7 @@ export function defsRootType(
   context: TransformContext,
 ): IrObjectType {
   const members = Object.entries(defs).map(([name, schema]) => {
-    const location = { path: createRef(["$defs", name]), schema };
+    const location = { path: appendPointer(ROOT_POINTER, ["$defs", name]), schema };
     const type = transformSchema(schema, location, context);
     return irProperty(toPropertyName(name), type, { isReadonly: context.options.immutable });
   });

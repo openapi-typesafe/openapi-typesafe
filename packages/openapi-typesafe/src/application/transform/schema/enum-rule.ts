@@ -6,7 +6,11 @@ import {
   irString,
 } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
-import { createRef, parseRefPointer } from "../../../domain/openapi/json-pointer.js";
+import {
+  appendPointer,
+  parseRefPointer,
+  ROOT_POINTER,
+} from "../../../domain/openapi/json-pointer.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { FIX } from "../../../domain/output-fixes.js";
 import { literalType } from "../literal-type.js";
@@ -228,7 +232,7 @@ function enumValuesPointer(path: string | undefined): { ref: string; extract: st
       : pointer
           .slice(firstVariantStart)
           .filter((segment) => !UNION_KEYWORDS.has(segment) && !INDEX_RE.test(segment));
-  return { ref: createRef(kept), extract };
+  return { ref: appendPointer(ROOT_POINTER, kept), extract };
 }
 
 function addEnumValues(schema: SchemaObject, request: SchemaRequest): void {

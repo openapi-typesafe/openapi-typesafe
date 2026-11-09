@@ -1,7 +1,7 @@
 import { irKeyword, irObject, irProperty } from "../../../domain/ir/constructors.js";
 import type { IrMember, IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer, ROOT_POINTER } from "../../../domain/openapi/json-pointer.js";
 import type { OperationObject } from "../../../domain/openapi/operation-object.js";
 import type {
   ParameterObject,
@@ -86,7 +86,7 @@ function operationType(
       isReadonly: context.options.immutable,
     }),
   );
-  return refType(createRef(["operations", operationId]));
+  return refType(appendPointer(ROOT_POINTER, ["operations", operationId]));
 }
 
 /** An included operation, the member name it gets and its location below the path item. */
@@ -121,7 +121,7 @@ function methodMember(
     const isReadonly = context.options.immutable;
     return irProperty(toPropertyName(method), irKeyword("never"), { isOptional: true, isReadonly });
   }
-  const path = createRef([location.path, method]);
+  const path = appendPointer(location.path, [method]);
   return operationMember({ name: method, operation, path }, pathItem, location, context);
 }
 
@@ -138,7 +138,7 @@ function additionalOperationsMember(
   const members = entries
     .filter(([, operation]) => isIncluded(operation, context))
     .map(([method, operation]) => {
-      const path = createRef([location.path, ADDITIONAL_OPERATIONS_KEY, method]);
+      const path = appendPointer(location.path, [ADDITIONAL_OPERATIONS_KEY, method]);
       return operationMember({ name: method, operation, path }, pathItem, location, context);
     });
   return members.length > 0
@@ -157,7 +157,7 @@ export function pathItemType(
   location: SchemaLocation,
   context: TransformContext,
 ): IrType {
-  const parametersLocation = { ...location, path: createRef([location.path, "parameters"]) };
+  const parametersLocation = { ...location, path: appendPointer(location.path, ["parameters"]) };
   const members: IrMember[] = [
     parametersMember(pathItem.parameters ?? [], parametersLocation, context),
     ...HTTP_METHODS.map((method) => methodMember(method, pathItem, location, context)),

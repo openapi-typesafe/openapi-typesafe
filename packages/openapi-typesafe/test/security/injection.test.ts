@@ -143,6 +143,19 @@ describe("injection through document text", () => {
     );
   });
 
+  it("a key that starts with #/ and a malformed percent escape generates", async () => {
+    // Found by the property above (seed 1890710371): the key was read back as a `$ref`, so
+    // generating threw URIError instead of writing the file.
+    const text = `#/% export const ${MARKER} = 1; `;
+
+    const output = await generated(attackDocument(text), { exportType: true, immutable: true });
+
+    expect(output === null ? null : inspect(output)).toEqual({
+      syntaxErrors: [],
+      markerIdentifiers: 0,
+    });
+  });
+
   it("a name that upper-cases to a letter newer than TypeScript's tables still parses", async () => {
     // Found by a 500-run property run: `ꟓ` upper-cases to `꟒` (Unicode 17), which Node.js 26
     // counts as an identifier letter and TypeScript 5.9 does not (ADR-019).

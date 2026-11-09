@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { repairBundledRefs } from "../../../src/adapters/redocly-loader/bundled-ref-repair.js";
 import { findRefHolders } from "../../../src/adapters/redocly-loader/ref-holders.js";
+import { parseRefPointer } from "../../../src/domain/openapi/json-pointer.js";
 
 function bundledWith(
   ref: string,
@@ -18,6 +19,7 @@ describe("repairBundledRefs", () => {
     ["#/components/schemas/a~0b", "a~0b", "#/components/schemas/a~00b"],
     ["#/components/schemas/a~1b", "a~1b", "#/components/schemas/a~01b"],
     ["#/components/schemas/50%", "50%", "#/components/schemas/50%25"],
+    ["#/components/schemas/50%#", "50%#", "#/components/schemas/50%25%23"],
   ])("repairBundledRefs with %s pointing at the raw key escapes it", (ref, key, repaired) => {
     const document = bundledWith(ref, key);
 
@@ -46,6 +48,15 @@ describe("findRefHolders", () => {
     const pointers = findRefHolders(document).map((holder) => holder.pointer);
 
     expect(pointers.sort()).toEqual(["#/a/0", "#/b~1c"]);
+  });
+
+  it("findRefHolders escapes keys like the generator, so each pointer reads back", () => {
+    const document = { "a#": { "#/%41": { $ref: "#/x" } }, "50%": { $ref: "#/y" } };
+
+    const pointers = findRefHolders(document).map((holder) => holder.pointer);
+
+    expect(pointers.sort()).toEqual(["#/50%25", "#/a%23/%23~1%2541"]);
+    expect(pointers.map(parseRefPointer).sort()).toEqual([["50%"], ["a#", "#/%41"]]);
   });
 
   it("findRefHolders visits a node shared by aliases once and stops on a cycle", () => {

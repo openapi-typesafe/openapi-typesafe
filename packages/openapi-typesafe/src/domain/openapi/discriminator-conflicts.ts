@@ -1,6 +1,12 @@
 import { admittedPropertyValues, resolveLocalRef } from "./admitted-values.js";
 import { isUnionMember, unionAt } from "./discriminated-union.js";
-import { createRef, escapePointerSegment, parseRefPointer } from "./json-pointer.js";
+import {
+  appendPointer,
+  canonicalRef,
+  escapePointerSegment,
+  parseRefPointer,
+  ROOT_POINTER,
+} from "./json-pointer.js";
 
 /**
  * Discriminator members whose discriminator value their own property does not allow. By the
@@ -45,8 +51,11 @@ function refsOf(list: unknown): string[] {
   );
 }
 
+/** A mapping value as a canonical `$ref`: Redocly writes it percent-decoded (`canonicalRef`). */
 function mappingTarget(target: string): string {
-  return target.startsWith("#") ? target : `${COMPONENT_SCHEMAS}${escapePointerSegment(target)}`;
+  return target.startsWith("#")
+    ? canonicalRef(target)
+    : `${COMPONENT_SCHEMAS}${escapePointerSegment(target)}`;
 }
 
 function ownerAt(node: JsonObject, pointer: () => string): Owner | null {
@@ -76,7 +85,7 @@ function pointerOf(visit: Visit): string {
   for (let current: Visit | null = visit; current?.key != null; current = current.parent) {
     segments.unshift(current.key);
   }
-  return createRef(segments);
+  return appendPointer(ROOT_POINTER, segments);
 }
 
 function childrenOf(visit: Visit): Visit[] {
@@ -200,8 +209,10 @@ function membersOf(owner: Owner, search: ConflictSearch): Member[] {
   const listed = owner.memberRefs.map((ref) => ({ ref, skipped: new Set([owner.pointer]) }));
   const members = new Map<string, Member>();
   for (const member of [...listed, ...inheritingMembers(owner, search)]) {
-    if (!members.has(member.ref)) {
-      members.set(member.ref, member);
+    // A member may be listed by a `$ref` and found by its pointer: both name it canonically.
+    const key = canonicalRef(member.ref);
+    if (!members.has(key)) {
+      members.set(key, member);
     }
   }
   return [...members.values()];
@@ -209,7 +220,9 @@ function membersOf(owner: Owner, search: ConflictSearch): Member[] {
 
 function memberValues(owner: Owner, member: string): { values: string[]; isImplicit: boolean } {
   const values = Object.entries(owner.mapping)
-    .filter(([, target]) => typeof target === "string" && mappingTarget(target) === member)
+    .filter(
+      ([, target]) => typeof target === "string" && mappingTarget(target) === canonicalRef(member),
+    )
     .map(([key]) => key);
   const name = parseRefPointer(member).pop() ?? "";
   return values.length > 0 ? { values, isImplicit: false } : { values: [name], isImplicit: true };

@@ -1,5 +1,6 @@
 import type { Logger } from "../application/ports/logger.js";
 import { isUnionMember, unionAt } from "../domain/openapi/discriminated-union.js";
+import { appendPointer, canonicalRef, ROOT_POINTER } from "../domain/openapi/json-pointer.js";
 import { FIX } from "../domain/output-fixes.js";
 import type {
   DiscriminatorObject,
@@ -22,7 +23,6 @@ import {
   type ScanState,
 } from "./discriminator-patch.js";
 import { resolveDocumentRef, walkDocument } from "./document-refs.js";
-import { createRef } from "./legacy-utils.js";
 
 /**
  * The inherited discriminator pre-pass. It finds every discriminator in the bundled document and
@@ -39,9 +39,11 @@ function inferredMapping(oneOf: (SchemaObject | ReferenceObject)[]): Discriminat
     if (!("$ref" in item)) {
       continue;
     }
+    // The value is the name as the `$ref` writes it, as in the original.
     const value = item.$ref.split("/").pop();
+    const ref = canonicalRef(item.$ref);
     if (value) {
-      mapping[item.$ref] = { ...mapping[item.$ref], inferred: value };
+      mapping[ref] = { ...mapping[ref], inferred: value };
     }
   }
   return mapping;
@@ -52,10 +54,11 @@ function addDefinedMapping(
   mapping: DiscriminatorMapping,
   defined: Readonly<Record<string, string>>,
 ): void {
-  for (const [mappedValue, mappedRef] of Object.entries(defined)) {
-    if (!mappedRef) {
+  for (const [mappedValue, target] of Object.entries(defined)) {
+    if (!target) {
       continue;
     }
+    const mappedRef = canonicalRef(target);
     if (!mapping[mappedRef]?.defined) {
       mapping[mappedRef] = { defined: [] };
     }
@@ -94,7 +97,7 @@ function collectDiscriminator(
   if (!discriminator?.propertyName) {
     return;
   }
-  const discriminatorRef = createRef(path);
+  const discriminatorRef = appendPointer(ROOT_POINTER, path);
   state.objects[discriminatorRef] = discriminator;
   state.owners.add(discriminatorRef);
   if (!Array.isArray(value.oneOf)) {
@@ -110,7 +113,7 @@ function collectDiscriminator(
 /** The mapping keys of `discriminator` that point at `ref`. */
 function valuesMappedTo(discriminator: DiscriminatorObject, ref: string): string[] {
   return Object.entries(discriminator.mapping ?? {})
-    .filter(([, mappedRef]) => mappedRef === ref)
+    .filter(([, mappedRef]) => canonicalRef(mappedRef) === ref)
     .map(([mappedValue]) => mappedValue);
 }
 
@@ -184,12 +187,17 @@ function inheritDiscriminators(
   }
   for (const item of value.allOf as (SchemaObject | ReferenceObject)[]) {
     if ("$ref" in item) {
-      if (!inheritFromRef(state, item.$ref, createRef(path))) {
+      if (!inheritFromRef(state, canonicalRef(item.$ref), appendPointer(ROOT_POINTER, path))) {
         return;
       }
     } else if (item.discriminator?.propertyName) {
       // The inline item is typed at the schema's own location.
-      recordInherited(state, createRef(path), item.discriminator, createRef(path));
+      recordInherited(
+        state,
+        appendPointer(ROOT_POINTER, path),
+        item.discriminator,
+        appendPointer(ROOT_POINTER, path),
+      );
     }
   }
 }

@@ -1,7 +1,7 @@
 import { irObject, irProperty } from "../../../domain/ir/constructors.js";
 import type { IrPropertySignature, IrType } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer, createRef } from "../../../domain/openapi/json-pointer.js";
 import {
   type ContentMap,
   isMediaTypeComponentRef,
@@ -48,9 +48,10 @@ function itemSchemaAt(
     const resolved = isMediaTypeComponentRef(entry.$ref)
       ? (context.refs.resolve(entry.$ref) as MediaTypeObject | undefined)
       : undefined;
+    // `createRef` reads the `$ref` itself as a pointer; only the constant segment is appended.
     return { schema: resolved?.itemSchema, path: createRef([entry.$ref, "itemSchema"]) };
   }
-  return { schema: entry.itemSchema, path: createRef([path, "itemSchema"]) };
+  return { schema: entry.itemSchema, path: appendPointer(path, ["itemSchema"]) };
 }
 
 /**
@@ -64,7 +65,7 @@ export function itemContentMember(
   flags: { readonly isReadonly: boolean },
 ): IrPropertySignature | null {
   const members = documentEntries(content, context.options).flatMap(([mediaType, entry]) => {
-    const contentPath = createRef([location.path, "content", mediaType]);
+    const contentPath = appendPointer(location.path, ["content", mediaType]);
     const item = itemSchemaAt(entry, contentPath, context);
     if (item.schema === undefined) {
       return [];

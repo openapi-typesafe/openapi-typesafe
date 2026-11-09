@@ -1,7 +1,7 @@
 import { irKeyword, irProperty } from "../../../domain/ir/constructors.js";
 import type { IrPropertySignature } from "../../../domain/ir/nodes.js";
 import { toPropertyName } from "../../../domain/ir/property-name.js";
-import { createRef } from "../../../domain/openapi/json-pointer.js";
+import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import type { OperationObject } from "../../../domain/openapi/operation-object.js";
 import type { RequestBodyObject } from "../../../domain/openapi/request-body-object.js";
 import { refType } from "../ref-type.js";
@@ -31,7 +31,7 @@ function requestBodyMember(
     ? refType(body.$ref)
     : requestBodyType(
         body,
-        { ...location, path: createRef([location.path, "requestBody"]) },
+        { ...location, path: appendPointer(location.path, ["requestBody"]) },
         context,
       );
   const resolved = isReference

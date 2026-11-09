@@ -1,4 +1,4 @@
-import { escapePointerSegment } from "../../domain/openapi/json-pointer.js";
+import { childPointer, ROOT_POINTER } from "../../domain/openapi/json-pointer.js";
 
 /** An object with a string `$ref`, and its JSON Pointer in the document. */
 export interface RefHolder {
@@ -30,13 +30,13 @@ export function findRefHolders(document: unknown): RefHolder[] {
       pending.push({ value, pointer });
     }
   };
-  enqueue(document, "#");
+  enqueue(document, ROOT_POINTER);
   for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
     if (hasStringRef(next.value)) {
       found.push({ node: next.value, pointer: next.pointer });
     }
     for (const [key, child] of Object.entries(next.value)) {
-      enqueue(child, `${next.pointer}/${escapePointerSegment(key)}`);
+      enqueue(child, childPointer(next.pointer, key));
     }
   }
   return found;

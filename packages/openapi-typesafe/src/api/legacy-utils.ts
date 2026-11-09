@@ -36,7 +36,11 @@ export function createDiscriminatorProperty(
   return discriminatorProperty(discriminator, path, readonly);
 }
 
-/** Create a $ref pointer (even from other $refs) */
+/**
+ * Create a $ref pointer (even from other $refs). A part that contains `#/` is read as a `$ref`
+ * and contributes its decoded segments, so it throws URIError for a malformed percent escape; any
+ * other part is one segment. To append raw document keys, escape each one instead.
+ */
 export function createRef(parts: (number | string | undefined | null)[]): string {
   return createDomainRef(parts);
 }

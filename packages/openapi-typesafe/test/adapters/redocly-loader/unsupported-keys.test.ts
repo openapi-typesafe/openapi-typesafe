@@ -19,6 +19,14 @@ describe("findUnsupportedKeys", () => {
     expect(keys).toHaveLength(2);
   });
 
+  it("findUnsupportedKeys escapes % and # in pointers like the generator", () => {
+    const parsed = { "a#": { "50%": { valueOf: 1 } } };
+
+    const keys = findUnsupportedKeys([{ source: "/x.yaml", parsed }]);
+
+    expect(keys).toEqual([{ key: "valueOf", pointer: "#/a%23/50%25/valueOf", source: "/x.yaml" }]);
+  });
+
   it("findUnsupportedKeys ignores supported keys, scalar documents and values", () => {
     const parsed = { toString: "valueOf", constructor: { enum: ["hasOwnProperty"] } };
 
