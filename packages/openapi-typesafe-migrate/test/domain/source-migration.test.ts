@@ -64,6 +64,21 @@ describe("migrateModuleSpecifiers", () => {
     ]);
   });
 
+  it("migrateModuleSpecifiers keeps the bundler query of a renamed specifier", () => {
+    const text = [
+      'import u from "openapi-fetch?url";',
+      'import r from "openapi-fetch/x.js?raw";',
+    ].join("\n");
+    const strings = [stringIn(text, "openapi-fetch?url"), stringIn(text, "openapi-fetch/x.js?raw")];
+
+    const migrated = migrateModuleSpecifiers(text, strings, VERSION);
+
+    expect(migrated.text).toBe(text.replaceAll("openapi-fetch", "openapi-typesafe-fetch"));
+    expect(migrated.manualSteps).toEqual([
+      { kind: "deep-import", line: 2, specifier: "openapi-typesafe-fetch/x.js?raw" },
+    ]);
+  });
+
   it("migrateModuleSpecifiers reports a package name outside a module specifier and keeps it", () => {
     const text = 'const versions = {\n  "openapi-typescript": "7.13.0",\n};';
 

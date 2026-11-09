@@ -88,6 +88,8 @@ export const OLD_PEER_DEPENDENTS: ReadonlyMap<string, OldPeer> = new Map([
 ]);
 
 const PATH_SEPARATOR = "/";
+/** Bundlers read a query after a specifier (`?url`, `?raw`) as how to load the module. */
+const QUERY_START = "?";
 
 /** A module specifier with the package renamed, and whether it reaches into the package. */
 export interface RenamedSpecifier {
@@ -97,15 +99,19 @@ export interface RenamedSpecifier {
 
 /**
  * The new name of a whole package name, or of a name and a subpath (`openapi-fetch/x`, and the
- * `openapi-fetch/` prefix of an import map); undefined for other specifiers.
+ * `openapi-fetch/` prefix of an import map), with any query of a bundler kept as written
+ * (`openapi-fetch?url`, `openapi-fetch/x.js?raw`); undefined for other specifiers.
  */
 export function renamedSpecifier(value: string): RenamedSpecifier | undefined {
-  const slash = value.indexOf(PATH_SEPARATOR);
-  const name = slash === -1 ? value : value.slice(0, slash);
+  const ends = [value.indexOf(PATH_SEPARATOR), value.indexOf(QUERY_START)].filter(
+    (at) => at !== -1,
+  );
+  const name = value.slice(0, ends.length === 0 ? value.length : Math.min(...ends));
   const renamed = PACKAGE_RENAMES.get(name);
   if (renamed === undefined) {
     return undefined;
   }
-  const subpath = value.slice(name.length);
-  return { to: `${renamed}${subpath}`, isDeep: subpath !== "" && subpath !== PATH_SEPARATOR };
+  const rest = value.slice(name.length);
+  const subpath = rest.split(QUERY_START, 1)[0] ?? rest;
+  return { to: `${renamed}${rest}`, isDeep: subpath !== "" && subpath !== PATH_SEPARATOR };
 }
