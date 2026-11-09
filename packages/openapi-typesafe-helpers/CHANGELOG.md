@@ -2,6 +2,18 @@
 
 This package is a fork of `openapi-typescript-helpers`. The entries above `0.1.0` are releases of openapi-typesafe-helpers; `0.1.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript-helpers` versions.
 
+## 1.0.0-rc.4
+
+### Patch Changes
+
+- [#48](https://github.com/openapi-typesafe/openapi-typesafe/pull/48) [`cff72cd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cff72cd19bf7a68429f302e0ece79304fcb6ba5c) Thanks [@fedorello](https://github.com/fedorello)! - A call with a union of paths (`client.GET(path)` with `path: "/a" | "/b"`) types `data` and
+  `error` as the union of each operation's types. In openapi-fetch a path without a response body
+  typed `data` as its content map, and a path with only a `default` response typed it `undefined`.
+  `SuccessResponse` and `ErrorResponse` of a union of response maps are the union of each map's
+  responses.
+- Updated dependencies [[`bc4d41d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bc4d41d870d13fdb5eb1303744e5235308cdc2bb), [`1c8af0d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/1c8af0dc371ae8be5b595b055ee1ebc53916088f), [`2afc816`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2afc816881dab23d3dd8fe4d1a2d20456dd917f8), [`cff72cd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cff72cd19bf7a68429f302e0ece79304fcb6ba5c), [`bc4d41d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bc4d41d870d13fdb5eb1303744e5235308cdc2bb), [`1c8af0d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/1c8af0dc371ae8be5b595b055ee1ebc53916088f), [`cff72cd`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cff72cd19bf7a68429f302e0ece79304fcb6ba5c)]:
+  - openapi-typesafe-fetch@1.0.0-rc.4
+
 ## 1.0.0-rc.3
 
 No changes in this release.
