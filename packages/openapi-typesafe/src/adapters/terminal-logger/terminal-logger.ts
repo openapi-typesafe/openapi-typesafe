@@ -1,6 +1,6 @@
 import colors from "ansi-colors";
 import type { DebugGroup, Logger } from "../../application/ports/logger.js";
-import { redactUrlCredentials } from "../../domain/url-credentials.js";
+import { redactUrlSecrets } from "../../domain/url-secrets.js";
 
 /**
  * The Logger port on a terminal, with the original output format: ` ⚠  ` warnings, ` ✘  `
@@ -84,19 +84,19 @@ class TerminalLogger implements Logger {
     // The original wrote no space without a duration (`openapi-ts:lintIgnored …`).
     const time =
       durationMs === undefined ? " " : this.#palette.green(` ${formatDuration(durationMs)} `);
-    const text = redactUrlCredentials(message);
+    const text = redactUrlSecrets(message);
     this.#options.sink.debug(`  ${this.#palette.bold(name)}${time}${text}`);
   }
 
   warn(message: string): void {
     if (!this.#options.silent) {
-      this.#options.sink.warn(this.#palette.yellow(` ⚠  ${redactUrlCredentials(message)}`));
+      this.#options.sink.warn(this.#palette.yellow(` ⚠  ${redactUrlSecrets(message)}`));
     }
   }
 
   error(message: string): void {
     if (!this.#options.silent) {
-      this.#options.sink.error(this.#palette.red(` ✘  ${redactUrlCredentials(message)}`));
+      this.#options.sink.error(this.#palette.red(` ✘  ${redactUrlSecrets(message)}`));
     }
   }
 }

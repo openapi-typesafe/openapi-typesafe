@@ -69,7 +69,7 @@ When generation fails, `openapiTS()` rejects with an `OpenAPITypesafeError`. Eac
 | Code | Key | Type |
 | :--- | :-- | :--- |
 | `SCHEMA_INVALID` | `problems` | `string[]`: one text per problem found |
-| `SCHEMA_REF_FORBIDDEN` | `ref` | `string`: the refused `$ref` as an absolute URL; user info shows as `***` |
+| `SCHEMA_REF_FORBIDDEN` | `ref` | `string`: the refused `$ref` as an absolute URL; user info and the query show as `***` |
 | `SCHEMA_REF_FORBIDDEN` | `reason` | `string`: one of `outside-local-root`, `host-not-allowed`, `local-ref-from-remote`, `too-many-remote-documents`, `remote-document-too-large`, `remote-documents-too-large`, `remote-documents-too-many-nodes` (see [Untrusted documents](./advanced.md#untrusted-documents)); a minor release may add reasons |
 
 `details` is typed as `Readonly<Record<string, unknown>>`, so check a value before you use it.
