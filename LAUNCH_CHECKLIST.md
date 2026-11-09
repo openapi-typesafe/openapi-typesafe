@@ -3,10 +3,12 @@
 The steps of the 1.0 launch. Every step below is a one-way action, so the maintainer decides when
 each one starts. The commands and details are in [RELEASING.md](RELEASING.md).
 
-State on 2026-11-07: the repository is public since 2026-11-04. `1.0.0-rc.0` (2026-11-04) and
-`1.0.0-rc.1` (2026-11-05) are on npm under `next`, with provenance. Trusted publishing is on and
-token publishing is off for all five packages. The rc.1 acceptance fixes are merged (PR #15); the
-pre-1.0 audit fixes are in PR #16. Left: `1.0.0-rc.2`, `1.0.0` and the skill registry.
+State on 2026-11-08: the repository is public since 2026-11-04. `1.0.0-rc.0` (2026-11-04),
+`1.0.0-rc.1` (2026-11-05), `1.0.0-rc.2` and `1.0.0-rc.3` (both 2026-11-08) are on npm with
+provenance; `latest` and `next` both point at `1.0.0-rc.3`. Trusted publishing is on and token
+publishing is off for all five packages. CI tests Node.js 22, 24 and 26. The project has the
+OpenSSF Best Practices passing badge (project 16469). Left: the fixes of the rc.3 review, then
+`1.0.0` and the skill registry.
 
 ## Done
 
@@ -48,8 +50,8 @@ Done on 2026-11-04.
 - [x] `scripts/repo/apply-settings.sh --apply`: rulesets for `main` and release tags, secret
       scanning with push protection, private vulnerability reporting, the `npm-publish`
       environment, pull requests opened by workflows, GitHub Pages.
-- [ ] Decide on the `sha_pinning_required` Actions setting (all actions are already SHA-pinned;
-      the setting is still off).
+- [x] Require SHA-pinned actions: `sha_pinning_required` is on (set by
+      `scripts/repo/apply-settings.sh`).
 - [x] `docs`, `scorecard` and `release` run and pass; the docs site is live.
 - [x] The macOS and Windows test jobs run (macOS on `macos-15-intel`).
 
@@ -62,15 +64,20 @@ Done on 2026-11-04.
 - [x] `1.0.0-rc.0` (2026-11-04) and `1.0.0-rc.1` (2026-11-05) published under `next` with
       provenance.
 - [x] Publish the compatibility report (`docs/compatibility.md`, run of 2026-11-04).
-- [ ] Merge PR #16, then the version pull request for `1.0.0-rc.2`, and approve `publish`. The
-      workflow tags it `latest` as well as `next`, which replaces the `0.0.0` placeholder on
-      `latest`.
-- [ ] Refresh `docs/compatibility.md` from the full nightly run of the release candidate, and
-      link it from the GitHub release notes.
+- [x] `1.0.0-rc.2` and `1.0.0-rc.3` (2026-11-08) published. The workflow tagged them `latest` as
+      well as `next`, which replaced the `0.0.0` placeholder on `latest`.
+- [x] OpenSSF Best Practices passing badge earned; the README shows it.
+- [ ] Fix the findings of the rc.3 review and release the next candidate the same way.
+- [ ] Before its version pull request is merged, refresh `docs/compatibility.md` from a full run
+      on the release commit (RELEASING.md, "Refresh the compatibility report"), and link it from
+      the GitHub release notes.
+- [ ] Once ADR-042 is on `main`, run the `docs` workflow by hand once, so the site shows the
+      `latest` release instead of `main`.
 
 ## 4. Stable release
 
-- [ ] `pnpm exec changeset pre exit`, merge the version pull request, approve `publish`.
+- [ ] Refresh `docs/compatibility.md` for `1.0.0` (RELEASING.md), then
+      `pnpm exec changeset pre exit`, merge the version pull request, approve `publish`.
 - [ ] `1.0.0` on the `latest` tag with provenance.
 - [ ] Remove the "Release candidate" sentence from the READMEs and the docs introduction.
 
@@ -82,5 +89,5 @@ Done on 2026-11-04.
 
 - Verify locally first
   (`VERIFY_FAIL_ON_WARNINGS=1 scripts/verify.sh build lint test size coverage types skills`,
-  plus the tests on Node.js 22 and 24 with `npx node@22` / `npx node@24`), and push several
-  fixes at once to save runner time.
+  plus the tests on Node.js 22, 24 and 26 with `npx node@22` / `npx node@24` / `npx node@26`),
+  and push several fixes at once to save runner time.
