@@ -130,3 +130,53 @@ with an out-of-memory crash. The threat model called T2 controlled.
 
 Review trigger: a report of a real document larger than 256 MiB, or of a run whose remote
 documents together are larger than 512 MiB.
+
+## Amendment (2026-11-09): limits bound the memory, not only the bytes
+
+The round-2 hunt (S4) found that decision 6 bounded bytes, not memory. A remote body of 250 MiB
+of `[{},{},…]`, under both byte limits and under a quarter of a megabyte as gzip, ended the
+process with "JavaScript heap out of memory" at its 4 GB heap: parsing turns three bytes into an
+object. The docs and threat model T2 claimed more than held. Measured on Node.js 26 and macOS
+(peak resident memory of one `openapiTS()` call, one remote document behind a `$ref`):
+
+| Remote body | Peak memory |
+| --- | --- |
+| Microsoft Graph beta (71 MiB, 2.65 million parsed nodes), gzip | 1,553 MB |
+| `[{},…]`: 16 / 32 / 64 MiB (5.6 / 11 / 22 million objects) | 850 / 1,461 / 2,563 MB |
+| `[0,…]`: 16 / 32 / 64 MiB (8 / 16 / 32 million numbers) | 686 / 1,327 / 1,954 MB |
+| One string of 127 / 255 MiB; two of 255 MiB | 1,173 / 1,931 / 2,485 MB |
+
+So text costs about 7 bytes of memory per byte (copies on the way from the stream to the parsed
+string), and a parsed node about 110 bytes; the 1,820 corpus documents have at most 0.1 nodes
+per byte, a crafted body 0.33 or more. Decision 6 now reads:
+
+6. **Remote documents are bounded in bytes and in parsed nodes.** The body is read as a stream
+   and its decoded bytes are counted as before, with lower limits: **128 MiB per document**
+   (1.8 times Graph beta) and **256 MiB per load** (a split document may be twice the largest
+   single one). The resolver parses every remote document itself, with Redocly's own
+   `parseYaml` and its rule for which documents are parsed, and the parser reports every node
+   it builds (keys included): past **8,000,000 nodes for all remote documents of one load**
+   (three times Graph beta) the parse stops, before the rest is built, and the load fails with
+   `SCHEMA_REF_FORBIDDEN`, reason `remote-documents-too-many-nodes` (`details.maxNodes`). The
+   three values are in `DEFAULT_REMOTE_DOCUMENT_LIMITS`; tests inject small ones. Local files
+   stay unlimited.
+
+With these limits the crafted bodies above stop at 278 MB (250 MiB of `{},`, by bytes),
+1,403 MB (127 MiB of `{},`, by nodes) and 1,491 MB (127 MiB of `0,`), and the largest ones that
+pass peak at 1,560 MB (two strings of 127 MiB) and 1,687 MB (7.3 million objects): about what
+Graph beta takes. The docs ("Limits") and T2 state these numbers and no more: the limits bound
+the memory of remote documents near that of the largest real one; they do not make it small.
+
+The node count also showed that counting the stored nodes of a parsed document (the YAML alias
+check) spread an array of millions of children into one call, which overflowed the stack; it now
+pushes them one by one.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Lower byte limits only | One mechanism | A dense body costs 40 times its bytes: a limit low enough for it (about 40 MiB) refuses Graph beta |
+| Count structure characters in the stream before parsing | Stops before parsing | YAML has no cheap exact count; an estimate counts commas and colons in descriptions and overstates real documents 2 to 4 times |
+| A node limit per document as well as per load | Names the document | Every document is under the load limit too; one more value for no case |
+| Count nodes while parsing, lower byte limits (chosen) | Exact for JSON and YAML; bounds both costs that were measured | The resolver parses remote documents itself, with Redocly's rule copied (ADR-005 pins Redocly 1.34) |
+
+Review trigger: a real remote document larger than 128 MiB or with more than 8 million nodes, a
+Redocly upgrade (the parse rule is copied), or a measured peak above 2 GB within the limits.

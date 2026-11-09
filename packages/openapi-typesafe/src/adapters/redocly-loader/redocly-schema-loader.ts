@@ -176,6 +176,7 @@ class RedoclySchemaLoader implements SchemaLoader {
     return new RefAccessResolver(config, {
       access: request.refAccess,
       maxRemoteDocuments: remoteDocumentLimits.maxDocuments,
+      maxRemoteNodes: remoteDocumentLimits.maxNodes,
     });
   }
 

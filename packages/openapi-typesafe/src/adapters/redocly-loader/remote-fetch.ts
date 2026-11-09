@@ -115,6 +115,8 @@ export interface RemoteDocumentLimits extends RemoteBodyLimits {
   readonly maxDocuments: number;
   /** Remote documents fetched at the same time; the others wait for a free slot. */
   readonly maxParallelFetches: number;
+  /** Nodes (keys and values) the remote documents of one load may parse into together. */
+  readonly maxNodes: number;
 }
 
 /**

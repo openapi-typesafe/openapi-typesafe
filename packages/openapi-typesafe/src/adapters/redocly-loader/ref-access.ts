@@ -13,6 +13,7 @@ import { ERROR_CODES, type OpenAPITypesafeError } from "../../domain/errors.js";
 import { redactUrlCredentials } from "../../domain/url-credentials.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
 import { isHostAllowed } from "./allowed-hosts.js";
+import { isParsedSource, RemoteNodeLimit } from "./remote-node-limit.js";
 import { refForbiddenError } from "./schema-load-errors.js";
 
 /**
@@ -101,6 +102,8 @@ export interface RefAccessLimits {
   readonly access: RefAccess;
   /** Remote documents one load may fetch, the root included (threat model T2). */
   readonly maxRemoteDocuments: number;
+  /** Nodes the remote documents of one load may parse into together (threat model T2). */
+  readonly maxRemoteNodes: number;
 }
 
 /**
@@ -110,6 +113,7 @@ export interface RefAccessLimits {
  */
 export class RefAccessResolver extends BaseResolver {
   readonly #limits: RefAccessLimits;
+  readonly #nodeLimit: RemoteNodeLimit;
   readonly #refusals: OpenAPITypesafeError[] = [];
   /** The root document's ref: it is chosen by the developer, so it is not limited. */
   #rootRef: string | undefined;
@@ -119,6 +123,7 @@ export class RefAccessResolver extends BaseResolver {
   constructor(config: ResolveConfig, limits: RefAccessLimits) {
     super(config);
     this.#limits = limits;
+    this.#nodeLimit = new RemoteNodeLimit(limits.maxRemoteNodes);
   }
 
   /** The first document that was refused, if any. */
@@ -145,12 +150,27 @@ export class RefAccessResolver extends BaseResolver {
 
   /** Refuse a YAML alias bomb before Redocly walks it (pre-beta test plan 10.2). */
   override parseDocument(source: Source, isRoot = false): Document {
-    const document = super.parseDocument(source, isRoot);
+    const document = this.#parsed(source, isRoot);
     const failure = aliasExpansionFailure(document.parsed);
     if (failure !== undefined) {
       throw new YamlParseError(failure, source);
     }
     return document;
+  }
+
+  /** A remote document is parsed within the node limit; any other one as Redocly parses it. */
+  #parsed(source: Source, isRoot: boolean): Document {
+    if (!isRemoteRef(source.absoluteRef) || !isParsedSource(source, isRoot)) {
+      return super.parseDocument(source, isRoot);
+    }
+    try {
+      return this.#nodeLimit.parse(source);
+    } catch (error) {
+      if (isRefusal(error)) {
+        this.#refusals.push(error);
+      }
+      throw new YamlParseError(error as Error, source);
+    }
   }
 
   override async loadExternalRef(absoluteRef: string): Promise<Source> {
