@@ -1,5 +1,6 @@
 import type { Logger } from "../application/ports/logger.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
+import { hasUrlScheme } from "../domain/location-text.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { SchemaSource } from "../types.js";
 import { ineffectiveFlagNotices, parseCliArguments } from "./cli-arguments.js";
@@ -52,13 +53,29 @@ function schemaSource(run: CliRun): SchemaSource {
   return run.deps.stdin();
 }
 
+/** The character that made the original CLI read a schema argument as a glob pattern. */
+const GLOB_WILDCARD = "*";
+
+/**
+ * Whether the schema argument is a glob pattern, which the CLI no longer expands: a path with a
+ * `*` that names no file. A URL is no pattern (`?fields=*` is its query), nor a file whose name
+ * has a `*`, which the CLI reads as any other file.
+ */
+function isGlobPattern(run: CliRun, input: string): boolean {
+  return (
+    input.includes(GLOB_WILDCARD) &&
+    !hasUrlScheme(input) &&
+    !run.deps.files.isFile(resolveLocationUrl(input, run.deps.cwd))
+  );
+}
+
 /**
  * One schema from a path, a URL or stdin; without `--output`, the types go to stdout. Warnings and
  * errors go to stderr either way, so they never mix with the types (upstream dropped warnings).
  */
 async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promise<void> {
   const { input, output } = run.args;
-  if (input?.includes("*")) {
+  if (input !== undefined && isGlobPattern(run, input)) {
     throw cliError(
       "CLI_GLOB_UNSUPPORTED",
       "Globbing has been deprecated in favor of redocly.yaml’s `apis` keys. " +
@@ -71,6 +88,9 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
       "CLI_CHECK_OUTPUT_MISSING",
       "--check needs the generated file to compare with: add --output <file>.",
     );
+  }
+  for (const notice of ineffectiveFlagNotices(run.args.generatorFlags)) {
+    run.deps.console.notice(notice);
   }
   const source = schemaSource(run);
   const outputFile = output ? singleOutputFile(run, output, source, redocly) : undefined;
@@ -142,9 +162,6 @@ function warnAboutIgnoredArguments(run: CliRun): void {
 async function runCommand(argv: readonly string[], deps: CliDependencies): Promise<unknown[]> {
   const startedAt = deps.now();
   const args = parseCliArguments(argv);
-  for (const notice of ineffectiveFlagNotices(args.generatorFlags)) {
-    deps.console.notice(notice);
-  }
   for (const flag of args.unknownFlags) {
     deps.console.notice(`Unknown flag ${flag} is ignored (see --help)`);
   }

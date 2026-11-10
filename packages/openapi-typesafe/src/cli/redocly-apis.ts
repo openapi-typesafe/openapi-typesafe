@@ -10,6 +10,7 @@ import {
   unknownSettingWarnings,
 } from "./api-settings.js";
 import { type GeneratedApi, writeGeneratedApis } from "./api-writes.js";
+import { ineffectiveFlagNotices } from "./cli-arguments.js";
 import { ApiFailure, cliError } from "./cli-errors.js";
 import {
   type CliRun,
@@ -24,7 +25,7 @@ import {
 } from "./cli-output.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
 import { fixOption } from "./fix-option.js";
-import { refLimitOptions } from "./ref-limits.js";
+import { type RefLimitOptions, refLimitOptions } from "./ref-limits.js";
 
 /** The `apis` of a Redocly config: each API is generated into its `x-openapi-ts.output`. */
 
@@ -92,16 +93,33 @@ function apiTarget(api: RedoclyApi, configRoot: URL): ApiTarget {
   return { name, root, settings, configRoot };
 }
 
-/** The generator options of one API: its own settings win over the CLI's flags. */
-function apiOptions(run: CliRun, redocly: RedoclyConfig, target: ApiTarget): GeneratorOptions {
+/**
+ * What every API of a run shares: the config, the files of all APIs, and the reference limits of
+ * the command line, which are checked once before any API, so an invalid flag fails the run once.
+ */
+interface ApiRun {
+  readonly redocly: RedoclyConfig;
+  readonly files: ConfigFiles;
+  readonly refLimits: RefLimitOptions;
+}
+
+/**
+ * The generator options of one API: its own settings win over the CLI's flags. A flag that has
+ * no effect with the merged flags is named for this API, since its settings may turn on the flag
+ * that the command line lacks, or set one that has no effect themselves.
+ */
+function apiOptions(run: CliRun, apiRun: ApiRun, target: ApiTarget): GeneratorOptions {
   const { name, settings, configRoot } = target;
+  const flags = { ...run.args.generatorFlags, ...apiFlags(name, settings) };
+  for (const notice of ineffectiveFlagNotices(flags)) {
+    run.deps.console.notice(`API ${name}: ${notice}`);
+  }
   return {
-    ...run.args.generatorFlags,
-    ...apiFlags(name, settings),
-    ...refLimitOptions(run.args, run.deps.cwd),
+    ...flags,
+    ...apiRun.refLimits,
     ...apiRefLimitOptions(name, settings, configRoot),
     ...fixOption(apiFixNames(name, settings) ?? run.args.fix),
-    redocly,
+    redocly: apiRun.redocly,
   };
 }
 
@@ -122,12 +140,8 @@ function otherOutputs(files: ConfigFiles, apiName: string): NamedFile[] {
  * Generate the types of one API. Its output must not be a file the run reads before any API is
  * loaded (the root of any API, the Redocly config) nor another API's output.
  */
-async function generateApi(
-  run: CliRun,
-  redocly: RedoclyConfig,
-  target: ApiTarget,
-  files: ConfigFiles,
-): Promise<GeneratedApi> {
+async function generateApi(run: CliRun, apiRun: ApiRun, target: ApiTarget): Promise<GeneratedApi> {
+  const { files } = apiRun;
   for (const warning of unknownSettingWarnings(target.name, target.settings)) {
     run.deps.logger.warn(warning);
   }
@@ -136,9 +150,10 @@ async function generateApi(
   ensureOutputIsNotSchema(run, outputFile, files.schemas);
   ensureOutputIsOwn(run, outputFile, otherOutputs(files, target.name));
   const source = resolveLocationUrl(target.root, target.configRoot);
-  const options = apiOptions(run, redocly, target);
+  const options = apiOptions(run, apiRun, target);
   try {
-    return { name: target.name, outputFile, types: await run.deps.generate(source, options) };
+    const types = await run.deps.generate(source, options, target.name);
+    return { name: target.name, outputFile, types };
   } catch (error) {
     throw new ApiFailure(target.name, error);
   }
@@ -196,8 +211,9 @@ async function settledInTurn<T, R>(
 export async function generateRedoclyApis(run: CliRun, redocly: RedoclyConfig): Promise<unknown[]> {
   const apis = redoclyApisOf(redocly);
   const { configRoot, files } = configFilesOf(run, redocly, apis);
+  const apiRun = { redocly, files, refLimits: refLimitOptions(run.args, run.deps.cwd) };
   const results = await settledInTurn(apis, (api) =>
-    generateApi(run, redocly, apiTarget(api, configRoot), files),
+    generateApi(run, apiRun, apiTarget(api, configRoot)),
   );
   const generated = results.flatMap((result) =>
     result.status === "fulfilled" ? [result.value] : [],

@@ -114,7 +114,9 @@ function contextFlags(options: GeneratorOptions): ContextFlags {
  */
 function outputFixesOf(options: GeneratorOptions, logger: Logger): readonly OutputFix[] {
   const names = outputFixNamesOf(options.fix ?? []);
-  for (const notice of ineffectiveFixNotices(names, (option) => options[option] === true)) {
+  // The options with their defaults: `defaultNonNullable` is on unless set to false.
+  const flags = contextFlags(options);
+  for (const notice of ineffectiveFixNotices(names, (option) => flags[option])) {
     logger.warn(warningText(notice, WARNING_CODES.FIX_NEEDS_OPTION));
   }
   return [...resolveOutputFixes(names)];

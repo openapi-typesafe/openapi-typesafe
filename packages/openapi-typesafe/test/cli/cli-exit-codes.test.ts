@@ -135,7 +135,8 @@ describe("CLI exit codes", () => {
       const { exitCode, stderr } = await runCli([], cwd);
 
       expect(exitCode).toBe(3);
-      expect(stderr).toMatch(/✘ {2}Servers must be present/);
+      // Each problem line names the API of redocly.yaml it belongs to.
+      expect(stderr).toMatch(/✘ {2}API a@v1: Servers must be present/);
       expect(stderr).toMatch(/The OpenAPI document has \d+ errors? \(see above\) \(SCHEMA_INVALID\)/);
     },
     TIMEOUT,

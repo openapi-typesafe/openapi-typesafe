@@ -64,4 +64,24 @@ describe("isParsedSource", () => {
     expect(isParsedSource(source("v1.2/pet?x=a.md", "", "text/plain"), false)).toBe(true);
     expect(isParsedSource(new Source("/work/schemas/pet", ""), false)).toBe(false);
   });
+
+  it("isParsedSource parses a URL whose extension names no text format", () => {
+    expect(isParsedSource(source("schemas/v1.0", "", "text/plain"), false)).toBe(true);
+    expect(isParsedSource(source("schemas/pet.v2", "", "text/plain"), false)).toBe(true);
+    expect(isParsedSource(new Source("/work/schemas/pet.v2", ""), false)).toBe(false);
+  });
+
+  it.each(["a.md", "a.markdown", "a.txt", "a.html", "a.htm"])(
+    "isParsedSource keeps the text format %s as text",
+    (name) => {
+      expect(isParsedSource(source(name, "", "text/plain"), false)).toBe(false);
+    },
+  );
+
+  it.each(["text/markdown", "text/x-markdown; charset=utf-8", "text/html"])(
+    "isParsedSource keeps a URL of type %s as text",
+    (mimeType) => {
+      expect(isParsedSource(source("docs/intro", "", mimeType), false)).toBe(false);
+    },
+  );
 });

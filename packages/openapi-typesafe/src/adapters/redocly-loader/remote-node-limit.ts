@@ -13,6 +13,13 @@ import { refForbiddenError } from "./schema-load-errors.js";
 /** The extensions that Redocly 1.34's `BaseResolver.parseDocument` parses as YAML or JSON. */
 const PARSED_EXTENSIONS: ReadonlySet<string> = new Set([".json", ".yml", ".yaml"]);
 const PARSED_MIME_TYPE = /(json|yaml|openapi)/;
+/**
+ * The text formats that a `$ref` loads as text, as a `description` from a Markdown file. A URL
+ * keeps its document as text only when its extension or type names one of them: the last segment
+ * of an API's path often has a dot that is no file type (`/schemas/v1.0`, `/schemas/pet.v2`).
+ */
+const TEXT_EXTENSIONS: ReadonlySet<string> = new Set([".md", ".markdown", ".txt", ".html", ".htm"]);
+const TEXT_MIME_TYPE = /^text\/(markdown|x-markdown|html)\b/;
 const REMOTE_URL_RE = /^https?:\/\//;
 const PATH_SEPARATOR_RE = /[/\\]/;
 const EXTENSION_START = ".";
@@ -37,19 +44,20 @@ function documentPath(absoluteRef: string): string {
 /**
  * Whether a source is parsed as YAML or JSON, or kept as text (a Markdown `description`, say).
  * It is parsed when it is the root, when its type or the extension of its path says JSON or YAML,
- * and when it is a URL whose path has no extension: an API serves its documents at paths like
- * `/schemas/pet`, often as `text/plain`, and Redocly kept those as text, which failed as a
- * schema. A local file without an extension is kept as text, as Redocly keeps it.
+ * and when it is a URL whose path and type name no text format: an API serves its documents at
+ * paths like `/schemas/pet` or `/schemas/v1.0`, often as `text/plain`, and Redocly kept those as
+ * text, which failed as a schema. A local file is kept as text unless its name says JSON or YAML,
+ * as Redocly keeps it.
  */
 export function isParsedSource(source: Source, isRoot: boolean): boolean {
-  const { absoluteRef, mimeType } = source;
+  const { absoluteRef, mimeType = "" } = source;
   const extension = extensionOf(documentPath(absoluteRef));
-  const isExtensionlessUrl = REMOTE_URL_RE.test(absoluteRef) && extension === "";
+  const isTextUrl = TEXT_EXTENSIONS.has(extension) || TEXT_MIME_TYPE.test(mimeType);
   return (
     isRoot ||
     PARSED_EXTENSIONS.has(extension) ||
-    PARSED_MIME_TYPE.test(mimeType ?? "") ||
-    isExtensionlessUrl
+    PARSED_MIME_TYPE.test(mimeType) ||
+    (REMOTE_URL_RE.test(absoluteRef) && !isTextUrl)
   );
 }
 

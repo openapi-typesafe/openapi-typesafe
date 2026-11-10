@@ -30,6 +30,14 @@ export interface DirectoryCheck {
 }
 
 /**
+ * Whether a `file:` location is an existing file. A schema argument with a `*` is a glob pattern
+ * only when no file has that name.
+ */
+export interface FileCheck {
+  isFile(file: URL): boolean;
+}
+
+/**
  * An output file that exists before its content is written: the claim created it, empty, when it
  * was missing, so the file system has given it its own identity.
  */

@@ -1,4 +1,5 @@
 import { createRedoclySchemaLoader } from "../adapters/redocly-loader/redocly-schema-loader.js";
+import type { Logger } from "../application/ports/logger.js";
 import { withStackOverflowReported } from "../application/stack-overflow.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { GeneratorOptions, SchemaSource } from "../types.js";
@@ -52,10 +53,12 @@ export async function generateDeclarations(
 
 /**
  * The default ports: the terminal logger, Node.js deprecation warnings, the given or default
- * Redocly config, Redocly loading.
+ * Redocly config, Redocly loading. A given `logger` takes every line, the loader's included.
  */
-export async function defaultGeneratorPorts(options: GeneratorOptions): Promise<GeneratorPorts> {
-  const logger = defaultLogger(options.silent ?? false);
+export async function defaultGeneratorPorts(
+  options: GeneratorOptions,
+  logger: Logger = defaultLogger(options.silent ?? false),
+): Promise<GeneratorPorts> {
   const redoc = options.redocly ?? (await defaultRedoclyConfig());
   const loader = createRedoclySchemaLoader({
     redoc,

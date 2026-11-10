@@ -50,7 +50,7 @@ apis:
 
 :::
 
-Under `x-openapi-ts`, an API can set `output`, every generator flag of the [flags table](#flags) (the boolean flags except `--check`, `--help` and `--version`; `lint: false` is `--no-lint`), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint. A setting of the wrong type (`root-types: "true"`, an `output` that is no text, an `x-openapi-ts` that is no map) and an API without a `root` fail that API with `CLI_CONFIG_INVALID`, which names the API and the key; an unknown name in an API's `fix` fails it with `OPTION_FIX_UNKNOWN`, which names the API. An error while an API is loaded or generated starts with `API <name>:` too, and keeps its code and exit code. The other APIs are still generated. `content-never` is accepted and has no effect, as on the command line.
+Under `x-openapi-ts`, an API can set `output`, every generator flag of the [flags table](#flags) (the boolean flags except `--check`, `--help` and `--version`; `lint: false` is `--no-lint`), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint. A setting of the wrong type (`root-types: "true"`, an `output` that is no text, an `x-openapi-ts` that is no map) and an API without a `root` fail that API with `CLI_CONFIG_INVALID`, which names the API and the key; an unknown name in an API's `fix` fails it with `OPTION_FIX_UNKNOWN`, which names the API. An error while an API is loaded or generated starts with `API <name>:` too, and keeps its code and exit code; so does every warning, problem and debug line of its generation. A notice about flags follows the CLI flags together with the API's settings and names the API (`API a: --root-types-keep-casing has no effect without --root-types flag`). An invalid `--local-ref-root` fails the run once, before any API. The other APIs are still generated. `content-never` is accepted and has no effect, as on the command line.
 
 ::: tip
 
@@ -66,7 +66,7 @@ npx openapi-typesafe
 
 ::: warning
 
-Globs are not supported (openapi-typescript 7 removed them): the CLI fails with `CLI_GLOB_UNSUPPORTED`. List the schemas under `apis` in `redocly.yaml` instead, which also gives each schema its own output location and settings.
+Globs are not supported (openapi-typescript 7 removed them): a schema path with a `*` fails with `CLI_GLOB_UNSUPPORTED`. A URL (`…/openapi?fields=*`) and an existing file whose name has a `*` are read as they are. List the schemas under `apis` in `redocly.yaml` instead, which also gives each schema its own output location and settings.
 
 :::
 
@@ -774,7 +774,8 @@ an operation or a path item, also under `webhooks`, callbacks and `components` (
   kept optional becomes required: the client must send it.
 - The exported transformers can be given a `path` that points nowhere in the document; the words
   still decide there.
-- It changes nothing with `--default-non-nullable=false`.
+- It changes nothing with `--default-non-nullable=false`; naming it then prints the warning
+  `FIX_NEEDS_OPTION` (`--fix all` does not).
 
 #### discriminator-member-required
 

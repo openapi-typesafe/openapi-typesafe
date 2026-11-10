@@ -116,6 +116,7 @@ export interface OutputFixRequirement {
   readonly option:
     | "arrayLength"
     | "dedupeEnums"
+    | "defaultNonNullable"
     | "enum"
     | "pathParamsAsTypes"
     | "rootTypes"
@@ -134,6 +135,7 @@ const NO_SCHEMA_PREFIX = {
 const REQUIREMENTS: Readonly<Partial<Record<OutputFixName, readonly OutputFixRequirement[]>>> = {
   [FIX.ARRAY_LENGTH_TUPLES]: [{ option: "arrayLength", flag: "--array-length" }],
   [FIX.DEDUPE_ENUM_NAMES]: [ENUM, { option: "dedupeEnums", flag: "--dedupe-enums" }],
+  [FIX.DEFAULT_INPUT_LOCATIONS]: [{ option: "defaultNonNullable", flag: "--default-non-nullable" }],
   [FIX.NULLABLE_ENUMS]: [ENUM],
   [FIX.PATH_PARAM_TYPE_NAMES]: [{ option: "pathParamsAsTypes", flag: "--path-params-as-types" }],
   [FIX.ROOT_TYPE_NUMBERING]: [ROOT_TYPES, NO_SCHEMA_PREFIX],
