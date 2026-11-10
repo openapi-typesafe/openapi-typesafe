@@ -974,6 +974,11 @@ query?: Partial<components["schemas"]["GetPosts"]>; // [!code ++]
 ```
 
 - The other query parameters stay keys of their own: `{ sort?: string } & Partial<…>`.
+- An object with an index signature (`additionalProperties`) also takes the value types of the
+  other query keys there: `{ page?: number } & Partial<{ [key: string]: string | number |
+  undefined }>`. TypeScript checks an index signature against every key, so with only `string`
+  no value with `page` was assignable. When the object is a `$ref`, its type is written out in
+  place for this; without other query keys the `$ref` is kept.
 - An optional parameter's properties are all optional (`Partial`): leaving the parameter out sends
   none of them. A required parameter keeps the object as it is, and `query` is required.
 - A schema is an object when its `type` is `object` (also with `null`), when it has object keywords
