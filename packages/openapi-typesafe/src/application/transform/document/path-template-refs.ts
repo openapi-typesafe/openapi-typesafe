@@ -3,7 +3,7 @@ import type { IrDeclaration } from "../../../domain/ir/nodes.js";
 import type { PathsObject } from "../../../domain/openapi/path-item-object.js";
 import { documentEntries } from "../document-entries.js";
 import type { TransformContext } from "../transform-context.js";
-import { pathTemplateParts, templateText } from "./paths.js";
+import { pathTemplateParts, templateText } from "./path-template-key.js";
 
 /**
  * `--path-params-as-types` and `$ref`s into a templated path. Such a path is an index signature

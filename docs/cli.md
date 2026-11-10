@@ -304,6 +304,15 @@ the intersection. `` paths[`/user/${string}`] `` is then the intersection of bot
 merge the paths in the document to get one. Without the flag, each path keeps its own key.
 :::
 
+::: info Boolean path parameters
+`` `${boolean}` `` is the union `"true" | "false"`, and an index signature takes no union of
+literals (TS1337), so the original's `` [path: `/flags/${boolean}`] `` did not compile. Each
+boolean parameter is written as two keys instead, `"/flags/true"` and `"/flags/false"`, with the
+same path item type; other placeholders stay (`` [path: `/a/${number}/b/true`] ``). A path with n
+boolean parameters gets 2ⁿ keys. A key that a path of the document already has is left out: that
+path is the more specific one, and a key written twice does not compile.
+:::
+
 ::: info `$ref`s into a templated path
 A `$ref` into a path, such as `#/paths/~1pets~1%7Bid%7D/get/responses/200`, is typed as an index
 of `paths`. When the template has a `${number}` or `${boolean}` placeholder, the URL `/pets/{id}`
