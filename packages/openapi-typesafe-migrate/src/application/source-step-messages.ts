@@ -17,6 +17,9 @@ const KEEP_REASONS: Readonly<Record<TransformKeepReason, string>> = {
   "typed-options":
     "its options are declared with a type built from OpenAPITSOptions, which the tool cannot " +
     "change to OpenAPITSIrOptions",
+  "spread-options":
+    "its options take keys from another object (`...base`), whose callbacks and type the tool " +
+    "cannot see",
 };
 const OPTIONS_NOTE =
   "the options of openapiTS() are not an object written in this file: check them for " +

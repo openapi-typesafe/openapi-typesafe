@@ -32,6 +32,13 @@ function entriesOf(text: string): string[] {
 }
 
 describe("JsonTextReader strings", () => {
+  it("read marks a string with an escape", () => {
+    expect(stringsOf('{ "a": "x \\" y", "b": "plain" }')?.map((value) => value.isEscaped)).toEqual([
+      true,
+      false,
+    ]);
+  });
+
   it("read finds every string value with its key path and offsets", () => {
     const text = '{"a": "x", "b": [1, "y", {"c": "z\\n"}], "d": true, "e": null, "f": -1.5e3}';
 

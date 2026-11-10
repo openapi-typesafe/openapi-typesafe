@@ -37,11 +37,21 @@ function skipTrivia(text: string, index: number): number {
   return index;
 }
 
-/** The commands of a text without nested ones, and the bodies of its here-documents. */
+/**
+ * The commands of a text without nested ones, the bodies of its here-documents, and the commands
+ * whose output a pipe gives to the next one (`cat <<EOF | sh`).
+ */
 interface TopLevel {
   readonly commands: ShellWord[][];
   readonly heredocs: HeredocBody[];
+  readonly pipes: ReadonlySet<number>;
 }
+
+/**
+ * A pipe; the two `|` of `||` give an empty command between the two around them, which is no
+ * command that a pipe gives a here-document.
+ */
+const PIPE = "|";
 
 /**
  * The commands of `text`, in order, without nested ones. The body of a here-document is input
@@ -51,6 +61,7 @@ interface TopLevel {
 function topLevelCommands(text: string, indent: number): TopLevel {
   const commands: ShellWord[][] = [[]];
   const heredocs: HeredocBody[] = [];
+  const pipes = new Set<number>();
   let pending: PendingHeredoc[] = [];
   let index = 0;
   while (index < text.length) {
@@ -68,6 +79,9 @@ function topLevelCommands(text: string, indent: number): TopLevel {
       commands.push([]);
       index = read.end;
     } else if (COMMAND_SEPARATORS.has(text[index] as string)) {
+      if (text[index] === PIPE) {
+        pipes.add(commands.length - 1);
+      }
       commands.push([]);
       index++;
     } else {
@@ -76,7 +90,7 @@ function topLevelCommands(text: string, indent: number): TopLevel {
       index = word.end;
     }
   }
-  return { commands, heredocs };
+  return { commands, heredocs, pipes };
 }
 
 /**
@@ -153,26 +167,58 @@ function nestedCommandText(word: ShellWord): string | undefined {
     : undefined;
 }
 
-/** Shells that run the script a here-document gives them, and Docker's `RUN <<EOF`. */
-const SCRIPT_READERS: ReadonlySet<string> = new Set([
-  "sh",
-  "bash",
-  "dash",
-  "ash",
-  "zsh",
-  "ksh",
-  "RUN",
-]);
+/** Shells that run the script a here-document or a pipe gives them. */
+const SHELLS: ReadonlySet<string> = new Set(["sh", "bash", "dash", "ash", "zsh", "ksh"]);
+/** Docker's `RUN <<EOF` runs the here-document, or gives it to the command after its options. */
+const DOCKER_RUN = "RUN";
+/** A command that writes the here-document it reads as it is, so a pipe gives it on. */
+const PASS_THROUGH = "cat";
 const PATH_SEPARATOR = "/";
+const OPTION_PREFIX = "-";
+
+const programName = (command: ShellCommand): string =>
+  command[0]?.value.split(PATH_SEPARATOR).at(-1) ?? "";
+
+const isOption = (word: ShellWord): boolean => word.value.startsWith(OPTION_PREFIX);
+
+/** Whether a command is a shell with options only, which runs its input as a script. */
+const isScriptShell = (command: ShellCommand): boolean =>
+  SHELLS.has(programName(command)) && command.slice(1).every(isOption);
 
 /**
- * Whether a command runs the here-document it reads as a script: a shell or `RUN` with options
- * only (`bash -e <<EOF`, `RUN --mount=… <<EOF`). Any other command reads it as data (`cat`).
+ * Whether a command runs the here-document it reads as a script: a shell with options only
+ * (`bash -e <<EOF`), or `RUN` with options only or with such a shell after them (`RUN <<EOT
+ * bash`). Any other command reads it as data (`cat`, `bash gen.sh`).
  */
 function readsScript(command: ShellCommand): boolean {
-  const [program, ...rest] = command;
-  const name = program?.value.split(PATH_SEPARATOR).at(-1) ?? "";
-  return SCRIPT_READERS.has(name) && rest.every((word) => word.value.startsWith("-"));
+  if (programName(command) !== DOCKER_RUN) {
+    return isScriptShell(command);
+  }
+  const after = command.slice(1);
+  const shell = after.slice(after.findIndex((word) => !isOption(word)));
+  return after.every(isOption) || isScriptShell(shell);
+}
+
+/** Whether a command writes its here-document unchanged, so the next command of a pipe reads it. */
+const passesThrough = (command: ShellCommand): boolean =>
+  programName(command) === PASS_THROUGH && command.slice(1).every(isOption);
+
+/**
+ * The here-documents that the command at `index` runs as scripts: its own, when it reads them as
+ * a script, and those of a `cat` whose output a pipe gives it, when it is a shell. Each is read
+ * after the command that runs it, so the commands stay in the order of the text.
+ */
+function scriptsRunBy(top: TopLevel, index: number, command: ShellCommand): HeredocBody[] {
+  const previous = index - 1;
+  const isPipedScript =
+    top.pipes.has(previous) &&
+    isScriptShell(command) &&
+    passesThrough(simpleCommand(top.commands[previous] ?? []));
+  return top.heredocs.filter(
+    (body) =>
+      (body.command === index && readsScript(command)) ||
+      (body.command === previous && isPipedScript),
+  );
 }
 
 /** Moves the offsets of words found in a part of a text to offsets in the whole text. */
@@ -191,9 +237,9 @@ export function shellCommandsAt(text: string, offset: number, indent = 0): Shell
  * the indentation of a YAML block scalar: a here-document delimiter line may have them.
  */
 export function shellCommands(text: string, indent = 0): ShellCommand[] {
-  const { commands: topLevel, heredocs } = topLevelCommands(text, indent);
+  const top = topLevelCommands(text, indent);
   const commands: ShellCommand[] = [];
-  for (const [index, words] of topLevel.entries()) {
+  for (const [index, words] of top.commands.entries()) {
     const command = simpleCommand(words);
     if (command.length > 0) {
       commands.push(command);
@@ -205,7 +251,7 @@ export function shellCommands(text: string, indent = 0): ShellCommand[] {
         commands.push(...nested);
       }
     }
-    const scripts = heredocs.filter((body) => body.command === index && readsScript(command));
+    const scripts = scriptsRunBy(top, index, command);
     commands.push(...scripts.flatMap((body) => shellCommandsAt(body.text, body.start, indent)));
   }
   return commands;

@@ -11,7 +11,8 @@ import type { FileBindings } from "./file-bindings.js";
 export type GeneratorOptions =
   /**
    * An object literal that only this call uses: it may be rewritten. `annotations` are the types
-   * it is declared with: the type of its `const`, and `satisfies` or `as` around it.
+   * it is declared with: the type of its `const`, and `satisfies` or `as` around it, also as a
+   * JSDoc `@type` or `@satisfies` of a JavaScript file.
    */
   | {
       readonly kind: "own";
@@ -44,6 +45,21 @@ function isGenerator(callee: ts.Expression, bindings: FileBindings): boolean {
 }
 
 /**
+ * The types of the JSDoc `@type` and `@satisfies` tags of a node of a JavaScript file, which
+ * TypeScript checks it with as with an annotation: `@type {T}` on `(value)` is `value as T`. In a
+ * TypeScript file such a tag checks nothing.
+ */
+function jsDocTypes(node: ts.Node): ts.TypeNode[] {
+  if ((node.flags & ts.NodeFlags.JavaScriptFile) === 0) {
+    return [];
+  }
+  return ts
+    .getJSDocTags(node)
+    .filter((tag) => ts.isJSDocTypeTag(tag) || ts.isJSDocSatisfiesTag(tag))
+    .map((tag) => (tag as ts.JSDocTypeTag | ts.JSDocSatisfiesTag).typeExpression.type);
+}
+
+/**
  * The expression without parentheses, `as` and `satisfies`, which do not change the value, and
  * the types of the `as` and `satisfies` around it.
  */
@@ -52,7 +68,7 @@ function unwrapped(
   types: ts.TypeNode[] = [],
 ): { value: ts.Expression; types: ts.TypeNode[] } {
   if (ts.isParenthesizedExpression(expression)) {
-    return unwrapped(expression.expression, types);
+    return unwrapped(expression.expression, [...types, ...jsDocTypes(expression)]);
   }
   if (ts.isAsExpression(expression) || ts.isSatisfiesExpression(expression)) {
     return unwrapped(expression.expression, [...types, expression.type]);
@@ -84,6 +100,7 @@ function constantOptions(
     ...outerTypes,
     ...found.types,
     ...(declared === undefined ? [] : [declared]),
+    ...jsDocTypes(declaration),
   ];
   return { kind: "own", options: found.value, annotations };
 }

@@ -22,6 +22,9 @@ const PATTERN_NOTE = "is a pattern that names";
 const PATTERN_FIX_NOTE = "where it means the package, make it match";
 const SETTING_NOTE = "remove the setting if it no longer applies, or make it name";
 const DEEP_TARGET_NOTE = "points at a file inside the package; check that it exists";
+const OLD_PATH_NOTE =
+  "is a path into node_modules of an old package, which is no longer installed:";
+const OLD_PATH_FIX_NOTE = "point it at the files of";
 
 const renamed = (name: string): string => PACKAGE_RENAMES.get(name) ?? name;
 
@@ -52,7 +55,13 @@ type UneditedStep = Extract<
 /** Steps for catalog entries and the dependencies on them that keep the old names. */
 type CatalogStep = Extract<
   ManualStep,
-  { kind: "catalog-reference-kept" | "catalog-entry-outside" | "catalog-entry-in-use" }
+  {
+    kind:
+      | "catalog-reference-kept"
+      | "catalog-entry-outside"
+      | "catalog-entry-missing"
+      | "catalog-entry-in-use";
+  }
 >;
 
 function uneditedStepMessage(step: UneditedStep): string {
@@ -93,6 +102,11 @@ function catalogStepMessage(step: CatalogStep): string {
         `"${step.catalog}" entry; a catalog above the root (pnpm-workspace.yaml, .yarnrc.yml or ` +
         "the workspace package.json) may hold it: rename the entry and the dependency together"
       );
+    case "catalog-entry-missing":
+      return (
+        `${step.field}: ${step.name} was kept, because no catalog of the workspace has its ` +
+        `"${step.catalog}" entry: add the entry, or give the dependency a version`
+      );
     case "catalog-entry-in-use":
       return (
         `${step.catalog}: ${step.name} was kept, because a dependency or an override still ` +
@@ -114,6 +128,7 @@ type PackageStep = Extract<
       | "setting-names-package"
       | "pattern-names-package"
       | "deep-target"
+      | "old-package-path"
       | "old-peer-needed";
   }
 >;
@@ -135,6 +150,8 @@ function packageStepMessage(step: PackageStep): string {
       );
     case "deep-target":
       return `${step.location}: "${step.specifier}" ${DEEP_TARGET_NOTE}`;
+    case "old-package-path":
+      return `${step.location}: "${step.path}" ${OLD_PATH_NOTE} ${OLD_PATH_FIX_NOTE} ${step.to}`;
     case "old-peer-needed":
       return oldPeerMessage(step);
     default:
@@ -159,6 +176,7 @@ export function manualStepMessage(step: ManualStep): string {
       return uneditedStepMessage(step);
     case "catalog-reference-kept":
     case "catalog-entry-outside":
+    case "catalog-entry-missing":
     case "catalog-entry-in-use":
       return catalogStepMessage(step);
     case "peer-dependency-renamed":
@@ -167,6 +185,7 @@ export function manualStepMessage(step: ManualStep): string {
     case "setting-names-package":
     case "pattern-names-package":
     case "deep-target":
+    case "old-package-path":
     case "old-peer-needed":
       return packageStepMessage(step);
     default:

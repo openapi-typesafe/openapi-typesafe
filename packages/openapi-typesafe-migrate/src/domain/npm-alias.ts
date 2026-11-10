@@ -57,6 +57,12 @@ export interface MigratedNpmSpec {
   readonly isDeep: boolean;
 }
 
+/** Whether `spec` is an `npm:` specifier of an original package (`npm:openapi-fetch@^0.13`). */
+export function isOldPackageNpmSpec(spec: string): boolean {
+  const parsed = parseNpmSpec(spec);
+  return parsed !== undefined && PACKAGE_RENAMES.has(parsed.name);
+}
+
 /**
  * The `npm:` spec with the openapi-typesafe package and version, or undefined when `spec` is not
  * an `npm:` spec of an original package. A spec without a range keeps none; a range that is not

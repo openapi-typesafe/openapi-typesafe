@@ -86,6 +86,20 @@ function scalarText(node: Scalar): string | undefined {
   return isWritten ? node.source : undefined;
 }
 
+/** The text that starts an escape in a quoted scalar, by the type of its token. */
+const ESCAPES: Readonly<Partial<Record<string, string>>> = {
+  "single-quoted-scalar": "''",
+  "double-quoted-scalar": "\\",
+};
+
+/** Whether a quoted scalar has an escape in its text as written. */
+function isEscaped(token: CST.Token | undefined): boolean {
+  const escapeStart = token === undefined ? undefined : ESCAPES[token.type];
+  return escapeStart !== undefined && token !== undefined && "source" in token
+    ? token.source.includes(escapeStart)
+    : false;
+}
+
 function convertScalar(node: Scalar, isFlow: boolean): TreeNode {
   const span = spanOf(node);
   const value = scalarText(node);
@@ -100,6 +114,7 @@ function convertScalar(node: Scalar, isFlow: boolean): TreeNode {
     value,
     content: contentRange(node.srcToken, span),
     isFolded: node.type !== Scalar.BLOCK_LITERAL,
+    isEscaped: isEscaped(node.srcToken),
     encode: isReplaceable ? encoderFor(quotings, isFlow) : undefined,
     ...span,
   };

@@ -26,6 +26,11 @@ export interface TreeScalar extends Span {
   /** Line breaks fold to spaces in every YAML scalar but a literal block scalar (`|`). */
   readonly isFolded: boolean;
   /**
+   * Whether the value differs from its text as written by more than folding: a JSON string or a
+   * double-quoted YAML scalar with an escape (`\"`, `\n`), a single-quoted one with `''`.
+   */
+  readonly isEscaped: boolean;
+  /**
    * Writes a new value as the format needs it at this place, in the quoting of the old one when
    * that quoting can hold it. Undefined where a whole new value could change other places or the
    * type: a YAML block scalar, an anchored or a tagged scalar.

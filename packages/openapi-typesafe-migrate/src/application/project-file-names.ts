@@ -50,6 +50,11 @@ export const YAML_MANIFEST_FILES: ReadonlySet<string> = new Set(["package.yaml",
 /** pnpm also reads a manifest from `package.json5`, a format the tool reports but does not read. */
 export const JSON5_MANIFEST_FILE = "package.json5";
 export const MANIFEST_FILE = "package.json";
+/**
+ * TypeScript's project configs by the names tsc and editors look for: `tsconfig.json`,
+ * `jsconfig.json`, and the `tsconfig.build.json` kind that `--project` and `extends` name.
+ */
+export const PROJECT_CONFIG_NAME = /^[jt]sconfig(\.[^/]+)?\.json$/;
 /** The package manager writes these again on install; their entries are not commands. */
 export const LOCK_FILES: ReadonlySet<string> = new Set(["pnpm-lock.yaml", "yarn.lock", "bun.lock"]);
 

@@ -24,13 +24,17 @@ export const YAML_COMMAND_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Task (Taskfile.yml): `cmds` and `cmd` run commands, `sh` computes a variable or checks a
- * precondition with one, and `status` lists commands that tell whether a task is up to date.
+ * Task (Taskfile.yml): `cmds` and `cmd` run commands, `defer` runs one when the task ends, `sh`
+ * computes a variable or checks a precondition with one, `preconditions` lists such checks in
+ * short form, and `status` lists commands that tell whether a task is up to date. A deferred task
+ * (`defer: { task: … }`) and a precondition's `msg` are under other keys.
  */
 export const TASKFILE_COMMAND_KEYS: ReadonlySet<string> = new Set([
   ...YAML_COMMAND_KEYS,
   "cmds",
   "cmd",
+  "defer",
   "sh",
+  "preconditions",
   "status",
 ]);

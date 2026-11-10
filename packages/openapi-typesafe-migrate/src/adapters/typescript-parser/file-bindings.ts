@@ -21,7 +21,14 @@ export type Binding =
   /** A module-level `const` with an initializer. */
   | { readonly kind: "constant"; readonly initializer: ts.Expression }
   /** A module-level function declaration. */
-  | { readonly kind: "function"; readonly declaration: ts.FunctionDeclaration };
+  | { readonly kind: "function"; readonly declaration: ts.FunctionDeclaration }
+  /** A module-level type: an alias, an interface or a JSDoc `@typedef`. */
+  | { readonly kind: "local-type"; readonly declaration: LocalTypeDeclaration };
+
+export type LocalTypeDeclaration =
+  | ts.TypeAliasDeclaration
+  | ts.InterfaceDeclaration
+  | ts.JSDocTypedefTag;
 
 export interface FileBindings {
   /** Every binding of the file, by its declaration node. */
@@ -36,7 +43,10 @@ export interface FileBindings {
 }
 
 /** The generator after the specifier rename, and before it, for files the rename skipped. */
-const GENERATOR_MODULES: ReadonlySet<string> = new Set(["openapi-typesafe", "openapi-typescript"]);
+export const GENERATOR_MODULES: ReadonlySet<string> = new Set([
+  "openapi-typesafe",
+  "openapi-typescript",
+]);
 const TYPESCRIPT_MODULES: ReadonlySet<string> = new Set(["typescript", "@typescript/typescript6"]);
 const DEFAULT_EXPORT = "default";
 
@@ -58,7 +68,10 @@ function addNamedImports(clause: ts.ImportClause, isGenerator: boolean, into: Bi
   }
 }
 
-function addImport(statement: ts.ImportDeclaration, into: BindingMap): void {
+/** An `import` statement, or a JSDoc `@import` tag of a JavaScript file, which has its parts. */
+type ImportForm = Pick<ts.ImportDeclaration, "importClause" | "moduleSpecifier">;
+
+function addImport(statement: ImportForm, into: BindingMap): void {
   const clause = statement.importClause;
   const specifier = ts.isStringLiteral(statement.moduleSpecifier)
     ? statement.moduleSpecifier.text
@@ -89,16 +102,22 @@ function addConstants(statement: ts.VariableStatement, into: BindingMap): void {
   }
 }
 
+function addStatement(statement: ts.Statement, into: BindingMap): void {
+  if (ts.isImportDeclaration(statement)) {
+    addImport(statement, into);
+  } else if (ts.isVariableStatement(statement)) {
+    addConstants(statement, into);
+  } else if (ts.isFunctionDeclaration(statement) && statement.name !== undefined) {
+    into.set(statement, { kind: "function", declaration: statement });
+  } else if (ts.isTypeAliasDeclaration(statement) || ts.isInterfaceDeclaration(statement)) {
+    into.set(statement, { kind: "local-type", declaration: statement });
+  }
+}
+
 function collectBindings(file: ts.SourceFile): BindingMap {
   const bindings: BindingMap = new Map();
   for (const statement of file.statements) {
-    if (ts.isImportDeclaration(statement)) {
-      addImport(statement, bindings);
-    } else if (ts.isVariableStatement(statement)) {
-      addConstants(statement, bindings);
-    } else if (ts.isFunctionDeclaration(statement) && statement.name !== undefined) {
-      bindings.set(statement, { kind: "function", declaration: statement });
-    }
+    addStatement(statement, bindings);
   }
   return bindings;
 }
@@ -144,6 +163,22 @@ function isDeclaredName(identifier: ts.Identifier, declaration: ts.Node): boolea
   );
 }
 
+/**
+ * The binding of a JSDoc declaration of a JavaScript file: a `@typedef`, or a name of an
+ * `@import`. The checker finds them in any JSDoc comment, so they are bound when a name refers to
+ * one; TypeScript's API lists only the last JSDoc comment of a node.
+ */
+function addJSDocBinding(declaration: ts.Node, into: BindingMap): void {
+  if (ts.isJSDocTypedefTag(declaration)) {
+    into.set(declaration, { kind: "local-type", declaration });
+    return;
+  }
+  const importTag = ts.findAncestor(declaration, ts.isJSDocImportTag);
+  if (importTag !== undefined) {
+    addImport(importTag, into);
+  }
+}
+
 function indexUses(file: ts.SourceFile, bindings: FileBindings): Map<ts.Node, ts.Identifier[]> {
   const uses = new Map<ts.Node, ts.Identifier[]>();
   const visit = (node: ts.Node): void => {
@@ -178,6 +213,9 @@ class CheckedFileBindings implements FileBindings {
     // The checker is built on first use: most files never call the generator.
     this.#checker ??= createChecker(this.#file);
     const declaration = symbolOf(this.#checker, identifier)?.declarations?.[0];
+    if (declaration !== undefined && !this.#bindings.has(declaration)) {
+      addJSDocBinding(declaration, this.#bindings);
+    }
     return declaration !== undefined && this.#bindings.has(declaration) ? declaration : undefined;
   }
 

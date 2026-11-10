@@ -235,6 +235,48 @@ describe("migrateProject and catalogs", () => {
     expect(steps.filter((kind) => kind === "catalog-entry-outside")).toHaveLength(2);
   });
 
+  it.each([
+    ["pnpm-workspace.yaml", "packages:\n  - .\n"],
+    [".yarnrc.yml", "nodeLinker: node-modules\n"],
+  ])(
+    "migrateProject at a workspace root with %s reports a missing catalog entry",
+    async (file, text) => {
+      const project = {
+        "package.json": manifestOf({ "openapi-fetch": "catalog: " }),
+        [file]: text,
+      };
+
+      const { files, steps } = await migrated(project);
+
+      expect(files.get("package.json")).toBe(project["package.json"]);
+      expect(steps).toEqual(["catalog-entry-missing"]);
+    },
+  );
+
+  it("migrateProject at a bun workspace root reports a missing catalog entry", async () => {
+    const root = JSON.stringify({ workspaces: ["packages/*"] });
+    const project = {
+      "package.json": `${root}\n`,
+      "packages/a/package.json": manifestOf({ "openapi-fetch": "catalog:" }),
+    };
+
+    const { steps } = await migrated(project);
+
+    expect(steps).toEqual(["catalog-entry-missing"]);
+  });
+
+  it("migrateProject in a package without workspace files reports an entry outside", async () => {
+    const project = {
+      "package.json": manifestOf({ "openapi-fetch": "catalog:" }),
+      "sub/.yarnrc.yml": "nodeLinker: node-modules\n",
+      "sub/package.json": `${JSON.stringify({ workspaces: ["x"], dependencies: { "openapi-fetch": "1" } })}\n`,
+    };
+
+    const { steps } = await migrated(project);
+
+    expect(steps).toEqual(["catalog-entry-outside"]);
+  });
+
   it("migrateProject keeps a dependency on a catalog entry the tool does not edit", async () => {
     const project = {
       "package.json": manifestOf({

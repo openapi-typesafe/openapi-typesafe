@@ -468,4 +468,53 @@ describe("migratePackageManifest", () => {
       },
     ]);
   });
+
+  it("migratePackageManifest renames the specifiers of an original package in browser", () => {
+    const text = manifest({
+      browser: {
+        "openapi-fetch": false,
+        "openapi-typescript-helpers/x.js": "./shim.js",
+        "./server.js": "openapi-react-query",
+        "left-pad": false,
+      },
+    });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(JSON.parse(migrated.text).browser).toEqual({
+      "openapi-typesafe-fetch": false,
+      "openapi-typesafe-helpers/x.js": "./shim.js",
+      "./server.js": "openapi-typesafe-react-query",
+      "left-pad": false,
+    });
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "deep-target",
+        location: "browser.openapi-typescript-helpers/x.js",
+        specifier: "openapi-typesafe-helpers/x.js",
+      },
+    ]);
+  });
+
+  it("migratePackageManifest keeps a browser key whose new name is there too", () => {
+    const text = manifest({ browser: { "openapi-fetch": false, "openapi-typesafe-fetch": false } });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "name-collision",
+        field: "browser",
+        from: "openapi-fetch",
+        to: "openapi-typesafe-fetch",
+      },
+    ]);
+  });
+
+  it("migratePackageManifest keeps a browser string, the package's own file", () => {
+    const text = manifest({ browser: "./dist/browser.js", dependencies: {} });
+
+    expect(migratePackageManifest(text, "1.0.0").text).toBe(text);
+  });
 });

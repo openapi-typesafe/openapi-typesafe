@@ -74,6 +74,7 @@ export const manifestCatalogMaps = (manifest: TreeMap): CatalogMap[] => [
 export interface CatalogDocuments {
   readonly manifests: readonly TreeMap[];
   readonly catalogFiles: readonly TreeMap[];
+  readonly isWorkspaceRoot: boolean;
 }
 
 /**
@@ -135,7 +136,11 @@ function addOverrideUses(documents: readonly TreeMap[], inUse: CatalogEntries): 
  * dependencies on it keep the old name as well (dependency-map.ts makes both decisions by this
  * plan).
  */
-export function planCatalogs({ manifests, catalogFiles }: CatalogDocuments): CatalogPlan {
+export function planCatalogs({
+  manifests,
+  catalogFiles,
+  isWorkspaceRoot,
+}: CatalogDocuments): CatalogPlan {
   const inUse = entriesInUse(manifests);
   addOverrideUses([...manifests, ...catalogFiles], inUse);
   const kept = new CatalogEntries();
@@ -156,5 +161,5 @@ export function planCatalogs({ manifests, catalogFiles }: CatalogDocuments): Cat
       }
     }
   }
-  return { inUse, kept, defined };
+  return { inUse, kept, defined, isWorkspaceRoot };
 }

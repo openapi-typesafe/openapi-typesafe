@@ -98,6 +98,28 @@ describe("YamlTextReader strings", () => {
     expect(strings.map((value) => value.isFolded)).toEqual([false, true, true]);
   });
 
+  it("read marks a quoted scalar whose value differs from its text by an escape", () => {
+    const text = [
+      String.raw`a: "x \" y"`,
+      "b: 'it''s'",
+      'c: "no escape"',
+      "d: 'one'",
+      String.raw`e: a\b`,
+      "f: |",
+      String.raw`  a\b`,
+      "",
+    ].join("\n");
+
+    expect(stringsOf(text)?.map((value) => value.isEscaped)).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
   it("read finds block scalars of a file with CRLF line ends", () => {
     const text = "run: |+\r\n  a\r\n\r\nnext: b\r\n";
 

@@ -61,9 +61,41 @@ function doubleQuoted(text: string, start: number): QuotedPart {
 export const isLineContinuation = (text: string, index: number): boolean =>
   text[index] === BACKSLASH && (text[index + 1] === "\n" || text.startsWith("\r\n", index + 1));
 
-/** The part of a word that starts at `index`: a quoted string, an escape or one character. */
+/** `$((…))`: an arithmetic expansion (POSIX 2.6.4), whose `<<` is a shift, not a here-document. */
+const ARITHMETIC_OPEN = "$((";
+const NESTING_OPEN = "(";
+const NESTING_CLOSE = ")";
+/** The parentheses that `$((` opens and `))` closes. */
+const ARITHMETIC_DEPTH = 2;
+
+/**
+ * The arithmetic expansion at `start`, up to the `))` that closes it, as written: it holds an
+ * expression, not commands, so its parentheses do not end the command. Undefined when it is not
+ * closed, a syntax error that the shell reports.
+ */
+function arithmeticExpansion(text: string, start: number): QuotedPart | undefined {
+  let depth = ARITHMETIC_DEPTH;
+  for (let index = start + ARITHMETIC_OPEN.length; index < text.length; index++) {
+    depth += text[index] === NESTING_OPEN ? 1 : text[index] === NESTING_CLOSE ? -1 : 0;
+    if (depth === 0) {
+      return { end: index + 1, value: text.slice(start, index + 1) };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The part of a word that starts at `index`: a quoted string, an escape, an arithmetic expansion
+ * or one character.
+ */
 export function wordPart(text: string, index: number): QuotedPart {
   const char = text[index] as string;
+  const arithmetic = text.startsWith(ARITHMETIC_OPEN, index)
+    ? arithmeticExpansion(text, index)
+    : undefined;
+  if (arithmetic !== undefined) {
+    return arithmetic;
+  }
   if (char === "'") {
     return singleQuoted(text, index);
   }

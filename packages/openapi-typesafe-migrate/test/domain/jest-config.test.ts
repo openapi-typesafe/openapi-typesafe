@@ -67,6 +67,17 @@ describe("jestScriptSteps", () => {
   });
 });
 
+describe("jestScriptSteps module strings", () => {
+  it.each(["openapi-fetch/$1", "npm:openapi-fetch@^0.13.0"])(
+    "jestScriptSteps leaves %s to the report of strings that name a package",
+    (value) => {
+      const strings = [{ start: 0, end: 0, value, isModuleSpecifier: false }];
+
+      expect(jestScriptSteps(`"${value}"`, strings)).toEqual([]);
+    },
+  );
+});
+
 describe("jestJsonSteps", () => {
   it("jestJsonSteps reports the keys and values of jest.config.json by their place", () => {
     const read = createJsonTextReader().read(
@@ -81,5 +92,21 @@ describe("jestJsonSteps", () => {
       "transformIgnorePatterns.0",
     ]);
     expect(jestJsonSteps({ kind: "unreadable", offset: 0 })).toEqual([]);
+  });
+
+  it("jestJsonSteps reports a value that is just an old package name, which nothing else reports", () => {
+    const read = createJsonTextReader().read(
+      JSON.stringify({ moduleNameMapper: { "^@api$": "openapi-fetch" } }),
+    );
+
+    expect(jestJsonSteps(read)).toEqual([
+      {
+        kind: "pattern-names-package",
+        location: "moduleNameMapper.^@api$",
+        value: "openapi-fetch",
+        name: "openapi-fetch",
+        to: "openapi-typesafe-fetch",
+      },
+    ]);
   });
 });

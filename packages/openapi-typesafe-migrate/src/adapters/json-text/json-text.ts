@@ -13,6 +13,7 @@ import type { DocumentRead, TreeEntry, TreeNode } from "../../domain/config-docu
 const FILE_NAME = "document.json";
 /** The length of the quote on each side of a JSON string. */
 const QUOTE_LENGTH = 1;
+const JSON_ESCAPE = "\\";
 
 const encode = (value: string): string => JSON.stringify(value);
 
@@ -23,7 +24,8 @@ function spanOf(node: ts.Node, file: ts.SourceFile): { start: number; end: numbe
 function convertString(node: ts.StringLiteral, file: ts.SourceFile): TreeNode {
   const span = spanOf(node, file);
   const content = { start: span.start + QUOTE_LENGTH, end: span.end - QUOTE_LENGTH };
-  return { kind: "scalar", value: node.text, content, isFolded: false, encode, ...span };
+  const isEscaped = file.text.slice(content.start, content.end).includes(JSON_ESCAPE);
+  return { kind: "scalar", value: node.text, content, isFolded: false, isEscaped, encode, ...span };
 }
 
 function convertObject(node: ts.ObjectLiteralExpression, file: ts.SourceFile): TreeNode {

@@ -12,6 +12,7 @@ const STEPS: readonly ManualStep[] = [
   { kind: "name-collision", field: "dependencies", from: "a", to: "b" },
   { kind: "catalog-reference-kept", field: "dependencies", name: "a", catalog: "default" },
   { kind: "catalog-entry-outside", field: "dependencies", name: "a", catalog: "default" },
+  { kind: "catalog-entry-missing", field: "dependencies", name: "a", catalog: "default" },
   { kind: "catalog-entry-in-use", catalog: "catalogs.legacy", name: "a" },
   { kind: "peer-dependency-renamed", name: "b" },
   { kind: "spec-kept", name: "b", spec: "latest" },
@@ -50,6 +51,12 @@ const STEPS: readonly ManualStep[] = [
     to: "openapi-typesafe-fetch",
   },
   { kind: "deep-target", location: "imports.#b", specifier: "b/x" },
+  {
+    kind: "old-package-path",
+    location: "compilerOptions.paths.a.0",
+    path: "./node_modules/openapi-fetch/dist/index.d.ts",
+    to: "openapi-typesafe-fetch",
+  },
   { kind: "dynamic-specifier", line: 2, value: `openapi-fetch\${x}`, to: "openapi-typesafe-fetch" },
   { kind: "string-names-package", line: 6, value: "openapi-fetch", to: "openapi-typesafe-fetch" },
   { kind: "old-peer-needed", dependent: "swr-openapi", peer: "openapi-fetch", range: ">=0.15" },
@@ -59,6 +66,7 @@ const STEPS: readonly ManualStep[] = [
   { kind: "transform-not-rewritten", line: 4, reason: "shared-options" },
   { kind: "transform-not-rewritten", line: 4, reason: "unknown-return" },
   { kind: "transform-not-rewritten", line: 4, reason: "typed-options" },
+  { kind: "transform-not-rewritten", line: 4, reason: "spread-options" },
   { kind: "legacy-callback", line: 5, callback: "postTransform" },
   {
     kind: "package-not-declared",

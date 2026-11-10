@@ -137,6 +137,35 @@ describe("shellCommands and here-documents", () => {
     ]);
   });
 
+  it("shellCommands reads the here-document of RUN that a shell after its options runs", () => {
+    expect(
+      values("RUN --mount=x <<EOT bash -e\nnpx gen a\nEOT\nRUN <<EOT cat\nnpx gen b\nEOT"),
+    ).toEqual([
+      ["RUN", "--mount=x", "bash", "-e"],
+      ["npx", "gen", "a"],
+      ["RUN", "cat"],
+    ]);
+  });
+
+  it("shellCommands reads a here-document that cat gives a shell through a pipe", () => {
+    expect(values("cat <<EOF | sh -s\nnpx gen a\nEOF")).toEqual([
+      ["cat"],
+      ["sh", "-s"],
+      ["npx", "gen", "a"],
+    ]);
+  });
+
+  it.each([
+    ["cat <<EOF || sh\nnpx gen\nEOF", [["cat"], ["sh"]]],
+    ["cat <<EOF | sh gen.sh\nnpx gen\nEOF", [["cat"], ["sh", "gen.sh"]]],
+    ["cat <<EOF; sh\nnpx gen\nEOF", [["cat"], ["sh"]]],
+    ["cat a.txt <<EOF | sh\nnpx gen\nEOF", [["cat", "a.txt"], ["sh"]]],
+    ["tee <<EOF | sh\nnpx gen\nEOF", [["tee"], ["sh"]]],
+    ["cat <<EOF\nnpx gen\nEOF", [["cat"]]],
+  ])("shellCommands reads the here-document of %j as data", (text, commands) => {
+    expect(values(text)).toEqual(commands);
+  });
+
   it("shellCommands reads a here-document as data when a shell runs a script file", () => {
     expect(values("bash gen.sh <<EOF\nnpx gen\nEOF")).toEqual([["bash", "gen.sh"]]);
   });
@@ -146,6 +175,20 @@ describe("shellCommands and here-documents", () => {
     const word = shellCommands(text)[1]?.[1];
 
     expect(text.slice(word?.start, word?.end)).toBe("gen");
+  });
+
+  it("shellCommands reads an arithmetic expansion as one word part, so its << is a shift", () => {
+    expect(values("x=$((1<<2)) y=$(( (3) * 2 ))z\nnpx gen a.yaml")).toEqual([
+      ["x=$((1<<2))", "y=$(( (3) * 2 ))z"],
+      ["npx", "gen", "a.yaml"],
+    ]);
+  });
+
+  it("shellCommands reads an unclosed arithmetic expansion as characters and separators", () => {
+    expect(values("echo $((1 + 2")).toEqual([
+      ["echo", "$"],
+      ["1", "+", "2"],
+    ]);
   });
 
   it("shellCommands reads a here-string and an empty delimiter as words", () => {
