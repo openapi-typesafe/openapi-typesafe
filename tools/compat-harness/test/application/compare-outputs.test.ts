@@ -172,6 +172,32 @@ describe("compareOutputs", () => {
     ]);
   });
 
+  it("compareOutputs calls a reference moved off an enum of other values a fix", async () => {
+    const shared = "export enum A {\n    One = 1\n}\n";
+    const own = 'export enum B {\n    One = "1"\n}\n';
+    const cache = setUp({
+      split: { golden: `let x: A;\n${shared}`, candidate: `let x: B;\n${shared}${own}` },
+      other: { golden: `let x: A;\n${shared}`, candidate: `let y: B;\n${shared}${own}` },
+    });
+    const path = (label: string, id: string) =>
+      cache.resolve(outputPath(label, "default", id as CorpusEntryId));
+    const typeChecker = new FakeTypeIdentityChecker({
+      [path("candidate", "split")]: { changed: ["x"] },
+      [path("candidate", "other")]: { changed: ["x"] },
+    });
+    const outputCompiler = new FakeOutputCompiler({});
+
+    const results = await compareOutputs(
+      { cache, logger: new RecordingLogger(), typeChecker, outputCompiler },
+      OPTIONS,
+    );
+
+    expect(results.map((r) => [r.entryId, r.status])).toEqual([
+      ["split", ComparisonStatus.GoldenInvalid],
+      ["other", ComparisonStatus.Different],
+    ]);
+  });
+
   it("compareOutputs counts a file TypeScript stops on as worse than any error count", async () => {
     const cache = setUp({
       both: { golden: "a", candidate: "b" },

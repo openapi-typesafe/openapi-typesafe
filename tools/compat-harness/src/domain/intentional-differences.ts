@@ -78,7 +78,8 @@ export const INTENTIONAL_DIFFERENCES: readonly IntentionalDifference[] = [
       `${UPSTREAM}#2765`,
     ],
     description:
-      "`--read-write-markers`: `Readable` / `Writable` keep primitives, arrays, tuples and null-only keys",
+      "`--read-write-markers`: `Readable` / `Writable` keep primitives, arrays, tuples and " +
+      "null-only keys, and find the marked keys next to an index signature",
     golden: literalPattern(FORK_BASE_READ_WRITE_TYPES),
     candidate: literalReplacement(FIXED_READ_WRITE_TYPES),
   },
