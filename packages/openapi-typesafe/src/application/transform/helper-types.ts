@@ -65,10 +65,10 @@ export const READ_WRITE_MARKER_TYPES = lines(
   "};",
   "type ReadWritePrimitive = string | number | boolean | bigint | symbol | null | undefined;",
   "type ReadWriteLeaf = ReadWritePrimitive | ((...args: never) => unknown);",
-  "type ReadWriteMarkedKeys<T, Marker> = {",
-  "    [K in keyof T]-?: 0 extends 1 & T[K] ? never : NonNullable<T[K]> extends never ? never : " +
-    "NonNullable<T[K]> extends Marker ? K : never;",
-  "}[keyof T];",
+  "type ReadWriteMarkedKeys<T, Marker> = keyof {",
+  "    [K in keyof T as 0 extends 1 & T[K] ? never : NonNullable<T[K]> extends never ? never : " +
+    "NonNullable<T[K]> extends Marker ? K : never]: never;",
+  "};",
   'type ReadWriteResolveArray<T extends readonly unknown[], Resolved extends "read" | ' +
     '"write"> = T[number][] extends T ? T extends unknown[] ? ReadWriteResolve<T[number], ' +
     "Resolved>[] : readonly ReadWriteResolve<T[number], Resolved>[] : {",

@@ -27,7 +27,7 @@ export type $Read<T> = { readonly $read: T };
 export type $Write<T> = { readonly $write: T };
 type ReadWritePrimitive = string | number | boolean | bigint | symbol | null | undefined;
 type ReadWriteLeaf = ReadWritePrimitive | ((...args: never) => unknown);
-type ReadWriteMarkedKeys<T, Marker> = { [K in keyof T]-?: 0 extends 1 & T[K] ? never : NonNullable<T[K]> extends never ? never : NonNullable<T[K]> extends Marker ? K : never }[keyof T];
+type ReadWriteMarkedKeys<T, Marker> = keyof { [K in keyof T as 0 extends 1 & T[K] ? never : NonNullable<T[K]> extends never ? never : NonNullable<T[K]> extends Marker ? K : never]: never };
 type ReadWriteResolveArray<T extends readonly unknown[], Resolved extends "read" | "write"> = T[number][] extends T ? T extends unknown[] ? ReadWriteResolve<T[number], Resolved>[] : readonly ReadWriteResolve<T[number], Resolved>[] : { [K in keyof T]: ReadWriteResolve<T[K], Resolved> };
 type ReadWriteResolve<T, Resolved extends "read" | "write"> = Resolved extends "read" ? Readable<T> : Writable<T>;
 export type Readable<T> = T extends $Write<any> ? never : T extends $Read<infer U> ? Readable<U> : T extends ReadWriteLeaf ? T : T extends readonly unknown[] ? ReadWriteResolveArray<T, "read"> : T extends object ? { [K in keyof T as K extends ReadWriteMarkedKeys<T, $Write<any>> ? never : K]: Readable<T[K]> } : T;

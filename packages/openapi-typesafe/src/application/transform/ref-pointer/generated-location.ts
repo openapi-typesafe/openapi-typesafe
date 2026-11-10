@@ -1,6 +1,6 @@
 import { appendPointer, ROOT_POINTER } from "../../../domain/openapi/json-pointer.js";
 import type { RefResolver } from "../schema/schema-context.js";
-import { isJsonObject } from "./generated-shape.js";
+import { isJsonObject } from "./located-node.js";
 import {
   leadingSegmentsOf,
   type RefPointer,

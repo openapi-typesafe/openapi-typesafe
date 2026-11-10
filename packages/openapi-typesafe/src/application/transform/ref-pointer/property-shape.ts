@@ -1,0 +1,97 @@
+import type { Schema } from "../../../domain/openapi/schema-object.js";
+import { propertyAccessFlags } from "../schema/access-flags.js";
+import { isInputLocation } from "../schema/input-location.js";
+import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
+import {
+  followLocated,
+  followRefs,
+  isJsonObject,
+  type JsonObject,
+  type LocatedNode,
+} from "./located-node.js";
+
+/**
+ * What the generated type of an object schema makes of one of its properties: optional, left
+ * out, wrapped in a read or write marker, or a value that may be `undefined` or `null`.
+ */
+
+/** `nullable: true` or a `type` list with `null`: the generated type includes `null`. */
+export function isNullableSchema(node: unknown): boolean {
+  if (!isJsonObject(node)) {
+    return false;
+  }
+  return node.nullable === true || (Array.isArray(node.type) && node.type.includes("null"));
+}
+
+/**
+ * Whether the generated type has the property as optional, as `objectType` decides: a `default`
+ * makes a property required except in an input location, where the client may leave it out.
+ */
+export function isOptionalProperty(
+  owner: LocatedNode & { node: JsonObject },
+  key: string,
+  options: SchemaOptions,
+): boolean {
+  const { node } = owner;
+  const required = Array.isArray(node.required) ? node.required : undefined;
+  const property = (node.properties as JsonObject)[key];
+  const hasDefault = isJsonObject(property) && property.default !== undefined;
+  const isDefaultRequired =
+    hasDefault && options.defaultNonNullable && !isInputLocation(owner.location, options.fixes);
+  const isRequired =
+    required?.includes(key) === true ||
+    (required === undefined && options.propertiesRequiredByDefault) ||
+    isDefaultRequired;
+  return !isRequired;
+}
+
+/**
+ * Whether `--exclude-deprecated` leaves the property out: its object, or the one its `$ref`
+ * names, is deprecated (`objectType`). The key is then not in the generated type at all.
+ */
+export function isExcludedProperty(
+  property: unknown,
+  options: SchemaOptions,
+  refs: RefResolver,
+): boolean {
+  const resolved = followRefs(property, refs);
+  return options.excludeDeprecated && isJsonObject(resolved) && Boolean(resolved.deprecated);
+}
+
+/**
+ * Whether `--read-write-markers` wraps the type of a property or `$defs` member: one that is only
+ * `readOnly` or only `writeOnly` is `$Read<T>` or `$Write<T>` (object-type.ts).
+ */
+export function isMarkedProperty(value: unknown, options: SchemaOptions, refs: RefResolver) {
+  if (!options.readWriteMarkers || !isJsonObject(value)) {
+    return false;
+  }
+  const flags = propertyAccessFlags(value as Schema, { options, refs });
+  return flags.isReadOnly !== flags.isWriteOnly;
+}
+
+/** Whether a value is there: `present`, `absent` (may be `undefined` or `null`) or `unknown`. */
+export type Presence = "present" | "absent" | "unknown";
+
+/** The presence of a value of `schema` itself: `absent` when its type includes `null`. */
+export function schemaPresence(schema: unknown, refs: RefResolver): Presence {
+  return isNullableSchema(followRefs(schema, refs)) ? "absent" : "present";
+}
+
+/** The presence of property `key` of `schema`: optional or nullable is `absent`. */
+export function propertyPresence(
+  schema: LocatedNode,
+  key: string,
+  options: SchemaOptions,
+  refs: RefResolver,
+): Presence {
+  const owner = followLocated(schema, refs);
+  const { node } = owner;
+  const properties = isJsonObject(node) && isJsonObject(node.properties) ? node.properties : {};
+  if (!isJsonObject(node) || !Object.hasOwn(properties, key)) {
+    return "unknown";
+  }
+  return isOptionalProperty({ ...owner, node }, key, options)
+    ? "absent"
+    : schemaPresence(properties[key], refs);
+}

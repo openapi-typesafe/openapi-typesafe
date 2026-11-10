@@ -72,7 +72,7 @@ const mixed: Mixed = { n: 1, on: false };`;
   it("openapiTS output with a $ref into a boolean path compiles", async () => {
     const code = await generate({ ...FLAGS, "/toggles/{enabled}": { $ref: "#/paths/~1flags~1%7Benabled%7D" } });
 
-    expect(code).toContain(`"/toggles/{enabled}": paths[\`/flags/\${boolean}\`];`);
+    expect(code).toContain('"/toggles/{enabled}": paths["/flags/true" | "/flags/false"];');
     expect(typeErrorsOf(code)).toEqual([]);
   });
 

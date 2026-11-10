@@ -16,6 +16,34 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * The child of a node under a pointer key. A pointer may pass through a `$ref`
+ * (`#/components/schemas/Wrap/properties/o/properties/v`, where `o` is a `$ref`): a key the node
+ * does not have is read from the node's target, as the generated types index it (ADR-026). A key
+ * the node has is read from it, so a pointer to a sibling of a `$ref` (OpenAPI 3.1) stays as
+ * written.
+ */
+function childOf(
+  schema: unknown,
+  node: unknown,
+  key: string,
+  options: ResolveRefOptions & { logger: Logger },
+): unknown {
+  if (!isObject(node)) {
+    return undefined;
+  }
+  const { visited = [] } = options;
+  const target = node.$ref;
+  if (node[key] || typeof target !== "string" || visited.includes(target)) {
+    return node[key];
+  }
+  const resolved = resolveDocumentRef(schema, target, {
+    ...options,
+    visited: [...visited, target],
+  });
+  return isObject(resolved) ? resolved[key] : undefined;
+}
+
 /** Resolve a `$ref` in a document; warns and returns undefined when it cannot. */
 export function resolveDocumentRef<T>(
   schema: unknown,
@@ -30,7 +58,7 @@ export function resolveDocumentRef<T>(
   }
   let node: unknown = schema;
   for (const key of pointer) {
-    const child = isObject(node) ? node[key] : undefined;
+    const child = childOf(schema, node, key, { ...options, logger });
     if (!child) {
       logger.warn(warningText(`Could not resolve $ref "${$ref}"`, WARNING_CODES.REF_NOT_FOUND));
       return undefined;

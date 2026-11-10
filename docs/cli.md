@@ -1175,6 +1175,16 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   path item `parameters/0`) gets the target's type written inline; a target that points back at
   itself keeps the original type. The inline type is the one the generator writes for that schema,
   so with `--enum` it uses the same enum, not a second one named after the pointer.
+- The `content` of a header is left out: the header is a map of its media types
+  (`components["headers"]["H"]["text/plain"]`), or with the `parameter-header-content` fix the
+  type of its first media type. A pointer into another media type with the fix, into the `content`
+  of a parameter typed `string`, or into `content` next to a `schema` gets the target's type
+  inline.
+- With `--read-write-markers`, a property that is only `readOnly` or only `writeOnly` is
+  `$Read<T>` or `$Write<T>`, which has no other member, so a pointer through it gets the target's
+  type inline; a pointer to the property itself keeps `$Read<T>`.
+- A pointer may pass through another `$ref` (`Wrap/properties/o/properties/v`, where `o` is a
+  `$ref`): the rest of the pointer is read from the `$ref`'s target.
 
 A parameter `$ref` to a parameter of another operation or path item
 (`#/paths/~1a/get/parameters/0`) is indexed by the parameter's location and name. When every

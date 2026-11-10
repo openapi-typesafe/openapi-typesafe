@@ -48,3 +48,81 @@ describe("default-input-locations fix", () => {
     expect([response, body, parameters]).toEqual(["", "?", ""]);
   });
 });
+
+/** A `$ref` through a property with a default reads it as the output types it: optional or not. */
+const OBJ = { type: "object", default: {}, properties: { x: { type: "string" } } };
+const HOLDER = { type: "object", properties: { obj: OBJ } };
+const REF_DOCUMENT = {
+  openapi: "3.1.0",
+  info: { title: "t", version: "1" },
+  paths: {
+    "/x": {
+      post: {
+        requestBody: { content: { "application/json": { schema: HOLDER } } },
+        responses: { 204: { description: "ok" } },
+      },
+    },
+    "/y": {
+      post: {
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: { type: "object", properties: { ref: { $ref: "#/components/schemas/Holder" } } },
+            },
+          },
+        },
+        responses: { 204: { description: "ok" } },
+      },
+    },
+    "/system-parameters": {
+      get: {
+        responses: { 200: { description: "ok", content: { "application/json": { schema: HOLDER } } } },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Model: { type: "object", properties: { hyperparameters: HOLDER } },
+      Run: { type: "object", required: ["hyperparameters"], properties: { hyperparameters: HOLDER } },
+      Holder: HOLDER,
+      Body: { $ref: "#/paths/~1x/post/requestBody/content/application~1json/schema/properties/obj/properties/x" },
+      Response: {
+        $ref: "#/paths/~1system-parameters/get/responses/200/content/application~1json/schema/properties/obj/properties/x",
+      },
+      Required: { $ref: "#/components/schemas/Run/properties/hyperparameters/properties/obj/properties/x" },
+      Component: {
+        $ref: "#/paths/~1y/post/requestBody/content/application~1json/schema/properties/ref/properties/obj/properties/x",
+      },
+      Nested: { $ref: "#/components/schemas/Model/properties/hyperparameters/properties/obj/properties/x" },
+    },
+  },
+} as unknown as OpenAPI3;
+
+async function refTypes(fix: readonly "default-input-locations"[]): Promise<string[]> {
+  const output = astToString(await openapiTS(REF_DOCUMENT, { silent: true, fix }));
+  return ["Body", "Response", "Nested", "Required", "Component"].map(
+    (name) => output.match(new RegExp(`${name}: (.+);`))?.[1] ?? "none",
+  );
+}
+
+describe("$refs through a defaulted property", () => {
+  it("openapiTS reads a defaulted property as optional where the location names an input", async () => {
+    expect(await refTypes([])).toEqual([
+      'NonNullable<NonNullable<paths["/x"]["post"]["requestBody"]>["content"]["application/json"]["obj"]>["x"]',
+      'NonNullable<paths["/system-parameters"]["get"]["responses"]["200"]["content"]["application/json"]["obj"]>["x"]',
+      'NonNullable<NonNullable<components["schemas"]["Model"]["hyperparameters"]>["obj"]>["x"]',
+      'NonNullable<components["schemas"]["Run"]["hyperparameters"]["obj"]>["x"]',
+      'NonNullable<NonNullable<paths["/y"]["post"]["requestBody"]>["content"]["application/json"]["ref"]>["obj"]["x"]',
+    ]);
+  });
+
+  it("openapiTS with the fix reads it as required in a response and a property named parameters", async () => {
+    expect(await refTypes(["default-input-locations"])).toEqual([
+      'NonNullable<NonNullable<paths["/x"]["post"]["requestBody"]>["content"]["application/json"]["obj"]>["x"]',
+      'paths["/system-parameters"]["get"]["responses"]["200"]["content"]["application/json"]["obj"]["x"]',
+      'NonNullable<components["schemas"]["Model"]["hyperparameters"]>["obj"]["x"]',
+      'components["schemas"]["Run"]["hyperparameters"]["obj"]["x"]',
+      'NonNullable<NonNullable<paths["/y"]["post"]["requestBody"]>["content"]["application/json"]["ref"]>["obj"]["x"]',
+    ]);
+  });
+});

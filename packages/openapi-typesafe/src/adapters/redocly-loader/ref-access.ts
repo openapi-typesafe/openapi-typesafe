@@ -13,6 +13,7 @@ import { ERROR_CODES, type OpenAPITypesafeError } from "../../domain/errors.js";
 import { redactUrlSecrets } from "../../domain/url-secrets.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
 import { isHostAllowed } from "./allowed-hosts.js";
+import { pointMappingNamesAtSchemas } from "./mapping-schema-names.js";
 import { isParsedSource, RemoteNodeLimit } from "./remote-node-limit.js";
 import { refForbiddenError } from "./schema-load-errors.js";
 
@@ -162,13 +163,18 @@ export class RefAccessResolver extends BaseResolver {
     return super.resolveDocument(base, ref, isRoot);
   }
 
-  /** Refuse a YAML alias bomb before Redocly walks it (pre-beta test plan 10.2). */
+  /**
+   * Refuse a YAML alias bomb before Redocly walks it (pre-beta test plan 10.2). A document a
+   * `$ref` loads has its own `components.schemas`, so its mapping names point at those schemas
+   * before Redocly resolves them, as the root's do (`pointMappingNamesAtSchemas`).
+   */
   override parseDocument(source: Source, isRoot = false): Document {
     const document = this.#parsed(source, isRoot);
     const failure = aliasExpansionFailure(document.parsed);
     if (failure !== undefined) {
       throw new YamlParseError(failure, source);
     }
+    pointMappingNamesAtSchemas(document.parsed);
     return document;
   }
 

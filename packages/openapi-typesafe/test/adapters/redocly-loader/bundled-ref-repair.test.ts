@@ -42,6 +42,44 @@ describe("repairBundledRefs", () => {
 });
 
 describe("findRefHolders", () => {
+  it("findRefHolders leaves out $refs in examples, defaults, const, enum and extensions", () => {
+    const data = { $ref: "#/data" };
+    const schema = {
+      example: data,
+      examples: [data],
+      default: { nested: data },
+      const: data,
+      enum: [data],
+      "x-meta": data,
+      items: { $ref: "#/items" },
+    };
+
+    const pointers = findRefHolders({ schema }).map((holder) => holder.pointer);
+
+    expect(pointers).toEqual(["#/schema/items"]);
+  });
+
+  it("findRefHolders reads a property, a schema or a response named like a data keyword", () => {
+    const named = { $ref: "#/x" };
+    const document = {
+      components: { schemas: { default: named, Pet: { properties: { example: named } } } },
+      paths: { "/": { get: { responses: { default: { $ref: "#/r" } } } } },
+    };
+
+    const pointers = findRefHolders(document).map((holder) => holder.pointer);
+
+    expect(pointers.sort()).toEqual([
+      "#/components/schemas/default",
+      "#/paths/~1/get/responses/default",
+    ]);
+  });
+
+  it("findRefHolders reads the keywords of a property named like a name map", () => {
+    const schema = { properties: { properties: { default: { $ref: "#/data" } } } };
+
+    expect(findRefHolders({ schema })).toEqual([]);
+  });
+
   it("findRefHolders lists each $ref with its pointer, inside arrays too", () => {
     const document = { a: [{ $ref: "#/x" }], "b/c": { $ref: "#/y" }, d: { $ref: 1 } };
 

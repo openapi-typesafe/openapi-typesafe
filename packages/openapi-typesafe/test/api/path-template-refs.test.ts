@@ -66,3 +66,52 @@ const pet: Pet = { name: "Rex" };`;
     expect(await generate("integer", {})).toContain('"/animals/{id}": paths["/pets/{id}"];');
   });
 });
+
+describe("--path-params-as-types references into a boolean path", () => {
+  const flag = { name: "enabled", in: "path", required: true, schema: { type: "boolean" } };
+  const json = (type: string) => ({ "application/json": { schema: { type } } });
+  const response = (type: string) => ({ 200: { description: "ok", content: json(type) } });
+  const SCHEMA_REF = "#/paths/~1flags~1{enabled}/get/responses/200/content/application~1json/schema";
+
+  async function generateWith(paths: Record<string, unknown>, ref = SCHEMA_REF): Promise<string> {
+    const document = {
+      openapi: "3.1.0",
+      info: { title: "t", version: "1" },
+      paths,
+      components: { schemas: { A: { $ref: ref } } },
+    } as unknown as OpenAPI3;
+    return astToString(await openapiTS(document, { silent: true, pathParamsAsTypes: true }));
+  }
+
+  it("openapiTS indexes paths by both keys of a boolean path", async () => {
+    const output = await generateWith({
+      "/flags/{enabled}": { get: { parameters: [flag], responses: response("integer") } },
+    });
+
+    expect(output).toContain('A: paths["/flags/true" | "/flags/false"]["get"]');
+  });
+
+  it("openapiTS leaves out the key that a path of the document takes", async () => {
+    const output = await generateWith({
+      "/flags/true": { get: { responses: response("string") } },
+      "/flags/{enabled}": { get: { parameters: [flag], responses: response("integer") } },
+    });
+
+    expect(output).toContain('A: paths["/flags/false"]["get"]');
+    expect(typeErrorsOf(`${output}\nconst a: components["schemas"]["A"] = 1;`)).toEqual([]);
+    expect(typeErrorsOf(`${output}\nconst a: components["schemas"]["A"] = "text";`)).not.toEqual([]);
+  });
+
+  it("openapiTS leaves out the keys that an earlier boolean path takes", async () => {
+    const named = (name: string) => ({ ...flag, name });
+    const output = await generateWith(
+      {
+        "/x/{a}/true": { get: { parameters: [named("a")], responses: response("string") } },
+        "/x/{b}/{c}": { get: { parameters: [named("b"), named("c")], responses: response("integer") } },
+      },
+      "#/paths/~1x~1{b}~1{c}/get/responses/200/content/application~1json/schema",
+    );
+
+    expect(output).toContain('A: paths["/x/true/false" | "/x/false/false"]["get"]');
+  });
+});

@@ -1,9 +1,5 @@
+import { placeOf } from "../../../domain/openapi/document-places.js";
 import { parseRefPointer } from "../../../domain/openapi/json-pointer.js";
-import {
-  ADDITIONAL_OPERATIONS_KEY,
-  HTTP_METHODS,
-  QUERY_METHOD,
-} from "../../../domain/openapi/path-item-object.js";
 import { FIX, type OutputFix } from "../../../domain/output-fixes.js";
 
 /** The words that mark an input anywhere in a location, as the original reads them. */
@@ -34,76 +30,6 @@ function namesInput(path: string): boolean {
  * original's words still mark an input there.
  */
 function isStructuralInput(path: string): boolean {
-  let place: Place = "root";
-  for (const segment of parseRefPointer(path)) {
-    place = nextPlace(place, segment);
-    if (place === "outside") {
-      return namesInput(path);
-    }
-    if (place === "input" || place === "other") {
-      return place === "input";
-    }
-  }
-  return false;
-}
-
-/**
- * The structural places on the way to a schema. `named*` places and `callback` are maps whose
- * next segment is a name (a path, a component name, a callback expression). `outside` (a root key
- * that is no document key), `input` and `other` end the walk.
- */
-type Place =
-  | "root"
-  | "outside"
-  | "components"
-  | "namedPathItems"
-  | "namedCallbacks"
-  | "callback"
-  | "pathItem"
-  | "namedOperations"
-  | "operation"
-  | "input"
-  | "other";
-
-const OPERATION_KEYS: ReadonlySet<string> = new Set([...HTTP_METHODS, QUERY_METHOD]);
-
-/** The place each fixed field leads to; any other field leads to `other`. */
-const FIELDS: Readonly<Partial<Record<Place, Readonly<Record<string, Place>>>>> = {
-  root: {
-    paths: "namedPathItems",
-    webhooks: "namedPathItems",
-    components: "components",
-    $defs: "other",
-  },
-  components: {
-    parameters: "input",
-    requestBodies: "input",
-    pathItems: "namedPathItems",
-    callbacks: "namedCallbacks",
-  },
-  pathItem: { parameters: "input", [ADDITIONAL_OPERATIONS_KEY]: "namedOperations" },
-  operation: { parameters: "input", requestBody: "input", callbacks: "namedCallbacks" },
-};
-
-/** Maps whose every key leads to the same place. */
-const NAMED: Readonly<Partial<Record<Place, Place>>> = {
-  namedPathItems: "pathItem",
-  namedCallbacks: "callback",
-  callback: "pathItem",
-  namedOperations: "operation",
-};
-
-function nextPlace(place: Place, segment: string): Place {
-  const named = NAMED[place];
-  if (named !== undefined) {
-    return named;
-  }
-  if (place === "pathItem" && OPERATION_KEYS.has(segment)) {
-    return "operation";
-  }
-  const fields = FIELDS[place] ?? {};
-  if (Object.hasOwn(fields, segment)) {
-    return fields[segment] as Place;
-  }
-  return place === "root" ? "outside" : "other";
+  const place = placeOf(parseRefPointer(path));
+  return place === "outside" ? namesInput(path) : place === "input";
 }

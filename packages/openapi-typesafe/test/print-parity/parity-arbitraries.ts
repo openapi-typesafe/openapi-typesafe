@@ -573,19 +573,25 @@ function originalEnumKey({ values, metadata }: EnumShape): string {
   return keys.join(",");
 }
 
-/** The current dedupe key: a member keeps its value next to its name. */
+/** The current dedupe key: the original pairs, and each value with its own name and description. */
 function enumKey({ values, metadata }: EnumShape): string {
-  const keys = [...values].sort().map((value, index) => {
+  const memberOf = (value: string | number, index: number) => {
     const member = metadata[index];
     return [value, member?.name ?? null, member?.description || null];
-  });
-  return JSON.stringify(keys);
+  };
+  const originalPairs = [...values].sort().map(memberOf);
+  const ownPairs = values
+    .map((value, index) => ({ text: String(value), member: memberOf(value, index) }))
+    .sort((left, right) => (left.text === right.text ? 0 : left.text < right.text ? -1 : 1))
+    .map(({ member }) => member);
+  return JSON.stringify([originalPairs, ownPairs]);
 }
 
 /**
- * Whether the original's `--dedupe-enums` would merge two of these enums whose values differ: its
- * key let a member name stand in for the value, so `A = 0` and `A = "a"` became one enum and a
- * type took values its schema forbids. The new footer keeps them apart (document-footer.test.ts).
+ * Whether the original's `--dedupe-enums` would merge two of these enums whose members differ: its
+ * key let a member name stand in for the value, so `A = 0` and `A = "a"` became one enum, and it
+ * paired sorted values with unsorted names, so `asc` could be named `Desc`. A type then took
+ * values its schema forbids. The new footer keeps them apart (document-footer.test.ts).
  */
 export function mergesDifferentEnums(enums: readonly EnumShape[]): boolean {
   return enums.some((first) =>

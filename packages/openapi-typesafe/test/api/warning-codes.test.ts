@@ -4,8 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/redocly-schema-loader.js";
 import { DEFAULT_REMOTE_DOCUMENT_LIMITS } from "../../src/api/default-ports.js";
 import { resolveDocumentRef } from "../../src/api/document-refs.js";
-import { createDocumentRun } from "../../src/api/document-run.js";
-import { defaultGeneratorPorts } from "../../src/api/openapi-ts.js";
+import { defaultGeneratorPorts, generateDocument } from "../../src/api/openapi-ts.js";
 import { WARNING_CODES as DOMAIN_WARNING_CODES } from "../../src/domain/warnings.js";
 import { WARNING_CODES } from "../../src/index.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
@@ -15,7 +14,7 @@ import { RecordingLogger } from "../fakes/cli-dependencies.js";
 const DOCUMENT_START = 'openapi: 3.1.0\ninfo: { title: t, version: "1" }\n';
 
 /** The warnings of a run, from the loader too, with the default rules of the CLI. */
-async function warningsOf(source: string): Promise<string[]> {
+async function warningsOf(source: string, options: { excludeDeprecated?: boolean } = {}): Promise<string[]> {
   const ports = await defaultGeneratorPorts({ silent: true });
   const logger = new RecordingLogger();
   const redoc = await createConfig(
@@ -29,11 +28,28 @@ async function warningsOf(source: string): Promise<string[]> {
     remoteRefTimeoutMs: 1000,
     remoteDocumentLimits: DEFAULT_REMOTE_DOCUMENT_LIMITS,
   });
-  await createDocumentRun(source, { silent: true }, { ...ports, redoc, loader, logger });
+  // The whole run, transform included: some warnings come from the transform.
+  await generateDocument(source, { silent: true, ...options }, { ...ports, redoc, loader, logger });
   return logger.messages("warn");
 }
 
 describe("warning codes", () => {
+  it("generateDocument with --exclude-deprecated reads a $ref through a $ref without a warning", async () => {
+    const schemas = `components:
+  schemas:
+    Old: { deprecated: true, type: object, properties: { v: { type: string } } }
+    Base: { type: object, properties: { v: { type: string } } }
+    Wrap: { type: object, properties: { o: { $ref: "#/components/schemas/Base" }, p: { $ref: "#/components/schemas/Old" } } }
+    Holder: { type: object, properties: { q: { $ref: "#/components/schemas/Wrap/properties/o/properties/v" } } }
+    V: { $ref: "#/components/schemas/Wrap/properties/o/properties/v" }
+    W: { $ref: "#/components/schemas/Wrap/properties/p/properties/v" }
+`;
+
+    const warnings = await warningsOf(`${DOCUMENT_START}paths: {}\n${schemas}`, { excludeDeprecated: true });
+
+    expect(warnings).toEqual([]);
+  });
+
   it("createDocumentRun with a Redocly lint warning ends it with the rule and LINT_PROBLEM", async () => {
     const operation = (path: string) =>
       `  ${path}: { get: { operationId: same, responses: { "204": { description: none } } } }`;

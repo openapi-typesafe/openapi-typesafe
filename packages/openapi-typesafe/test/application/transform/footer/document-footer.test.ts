@@ -88,6 +88,16 @@ describe("RunFooter", () => {
       { values: ["a"], metadata: [described("x")] },
       { values: ["a"], metadata: [described("y")] },
     ],
+    [
+      "the same names on swapped values",
+      { values: ["desc", "asc"], metadata: [named("Desc"), named("Asc")] },
+      { values: ["asc", "desc"], metadata: [named("Desc"), named("Asc")] },
+    ],
+    [
+      "each value with its own name in another order",
+      { values: ["a", "b"], metadata: [named("X"), named("Y")] },
+      { values: ["b", "a"], metadata: [named("Y"), named("X")] },
+    ],
   ])("addEnum with --dedupe-enums keeps enums apart with %s", (_case, first, second) => {
     const sink = new InMemorySink();
     const footer = new RunFooter(sink, true);
@@ -97,6 +107,18 @@ describe("RunFooter", () => {
 
     expect(secondName).not.toBe(firstName);
     expect(sink.declarations).toHaveLength(2);
+  });
+
+  it("addEnum with --dedupe-enums reuses an enum with the same names in the same order", () => {
+    const sink = new InMemorySink();
+    const footer = new RunFooter(sink, true);
+    const sort = { values: ["desc", "asc"], metadata: [named("Desc"), named("Asc")] };
+
+    const firstName = footer.addEnum({ ...STATUS, ...sort });
+    const secondName = footer.addEnum({ ...STATUS, name: "other", ...sort });
+
+    expect(secondName).toBe(firstName);
+    expect(sink.declarations).toHaveLength(1);
   });
 
   it("addEnum with --dedupe-enums treats an empty description as none", () => {

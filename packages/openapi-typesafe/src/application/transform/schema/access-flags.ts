@@ -30,7 +30,7 @@ function merged(left: AccessFlags, right: AccessFlags): AccessFlags {
  */
 function appliedFlags(
   schema: Schema | undefined,
-  context: SchemaContext,
+  context: Pick<SchemaContext, "refs">,
   seen: ReadonlySet<Schema>,
 ): AccessFlags {
   if (typeof schema !== "object" || schema === null || seen.has(schema)) {
@@ -52,7 +52,10 @@ function appliedFlags(
  * it count, as in openapi-typescript; with it, also those of the schemas its `$ref` and `allOf`
  * apply (upstream #1938).
  */
-export function propertyAccessFlags(value: Schema, context: SchemaContext): AccessFlags {
+export function propertyAccessFlags(
+  value: Schema,
+  context: Pick<SchemaContext, "options" | "refs">,
+): AccessFlags {
   if (typeof value !== "object") {
     return NO_FLAGS;
   }

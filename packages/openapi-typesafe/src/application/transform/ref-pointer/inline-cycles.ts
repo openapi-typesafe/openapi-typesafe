@@ -1,5 +1,5 @@
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
-import { isJsonObject } from "./generated-shape.js";
+import { isJsonObject } from "./located-node.js";
 import { pointerNode, refPointerOf } from "./pointer-walk.js";
 import { typedWalk } from "./typed-walk.js";
 
