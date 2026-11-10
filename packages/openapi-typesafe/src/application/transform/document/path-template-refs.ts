@@ -17,11 +17,12 @@ const PATHS_TYPE_NAME = "paths";
 
 /** The template of each templated path whose URL does not match it, by URL. */
 export function unmatchedTemplateKeys(
-  paths: PathsObject | undefined,
+  paths: PathsObject | null | undefined,
   context: TransformContext,
 ): ReadonlyMap<string, string> {
   const keys = new Map<string, string>();
-  if (!context.options.pathParamsAsTypes || paths === undefined) {
+  // A document may hold any value as `paths`; one that is no object has no paths.
+  if (!context.options.pathParamsAsTypes || typeof paths !== "object" || paths === null) {
     return keys;
   }
   for (const [url, pathItem] of documentEntries(paths, context.options)) {

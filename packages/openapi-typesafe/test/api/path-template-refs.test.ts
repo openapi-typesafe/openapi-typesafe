@@ -54,6 +54,14 @@ const pet: Pet = { name: "Rex" };`;
     expect(await generate("string")).toContain('"/animals/{id}": paths["/pets/{id}"];');
   });
 
+  it("openapiTS with paths that are no object has no templated paths", async () => {
+    const document = { openapi: "3.1.0", info: { title: "t", version: "1" }, paths: null } as unknown as OpenAPI3;
+
+    const output = astToString(await openapiTS(document, { silent: true, pathParamsAsTypes: true }));
+
+    expect(output).toContain("export type paths = Record<string, never>;");
+  });
+
   it("openapiTS keeps the URL without --path-params-as-types", async () => {
     expect(await generate("integer", {})).toContain('"/animals/{id}": paths["/pets/{id}"];');
   });
