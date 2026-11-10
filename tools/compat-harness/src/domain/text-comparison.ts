@@ -17,21 +17,46 @@ export interface TextComparison {
   readonly intentionalDifferenceIds: readonly string[];
 }
 
+/** Golden and candidate output as compared: normalized, the golden rewritten on purpose. */
+export interface ComparableTexts {
+  readonly golden: string;
+  readonly candidate: string;
+  readonly intentionalDifferenceIds: readonly string[];
+}
+
 /**
- * Compare golden and candidate output line by line after `normalizeGeneratedOutput`, with the
- * golden text rewritten by the intentional differences first.
+ * Both texts after `normalizeGeneratedOutput`, with the golden text rewritten by the intentional
+ * differences first.
  */
+export function comparableTexts(
+  golden: string,
+  candidate: string,
+  intentionalDifferences: readonly IntentionalDifference[] = [],
+): ComparableTexts {
+  const rewritten = applyIntentionalDifferences(
+    normalizeGeneratedOutput(golden),
+    intentionalDifferences,
+  );
+  return {
+    golden: rewritten.text,
+    candidate: normalizeGeneratedOutput(candidate),
+    intentionalDifferenceIds: rewritten.appliedIds,
+  };
+}
+
+/** Compare golden and candidate output line by line as `comparableTexts` gives them. */
 export function compareGeneratedTexts(
   golden: string,
   candidate: string,
   intentionalDifferences: readonly IntentionalDifference[] = [],
 ): TextComparison {
-  const rewritten = applyIntentionalDifferences(
-    normalizeGeneratedOutput(golden),
-    intentionalDifferences,
-  );
-  const goldenLines = rewritten.text.split("\n");
-  const candidateLines = normalizeGeneratedOutput(candidate).split("\n");
+  return compareComparableTexts(comparableTexts(golden, candidate, intentionalDifferences));
+}
+
+/** Compare texts that `comparableTexts` prepared, line by line. */
+export function compareComparableTexts(texts: ComparableTexts): TextComparison {
+  const goldenLines = texts.golden.split("\n");
+  const candidateLines = texts.candidate.split("\n");
   const lineCount = Math.max(goldenLines.length, candidateLines.length);
 
   let firstDifferentLine: number | null = null;
@@ -46,6 +71,6 @@ export function compareGeneratedTexts(
     isIdentical: differentLineCount === 0,
     firstDifferentLine,
     differentLineCount,
-    intentionalDifferenceIds: rewritten.appliedIds,
+    intentionalDifferenceIds: texts.intentionalDifferenceIds,
   };
 }

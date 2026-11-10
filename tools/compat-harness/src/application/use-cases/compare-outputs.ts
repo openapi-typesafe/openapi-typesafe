@@ -6,7 +6,8 @@ import {
   type GenerationResult,
   GenerationStatus,
 } from "../../domain/run-result.ts";
-import { compareGeneratedTexts } from "../../domain/text-comparison.ts";
+import { isSharedEnumSplit } from "../../domain/shared-enums.ts";
+import { comparableTexts, compareComparableTexts } from "../../domain/text-comparison.ts";
 import { encodeJson } from "../codecs.ts";
 import { mapWithConcurrency } from "../concurrency.ts";
 import { countErrorsOrStop, isCheckerLimit } from "../error-counts.ts";
@@ -45,28 +46,31 @@ export interface CompareOutputsOptions {
 
 type TypeVerdict = Pick<ComparisonResult, "status" | "differentTypeNames">;
 
-/** The output files of one case, and whether the candidate keeps apart enums the golden merged. */
+/**
+ * The output files of one case, and whether the candidate stops schemas sharing an enum the way the
+ * golden did: by merging two enums of one name, or by reusing an enum of other values.
+ */
 interface CasePaths {
   readonly goldenPath: string;
   readonly candidatePath: string;
-  readonly isEnumMergeFixed: boolean;
+  readonly isEnumSharingFixed: boolean;
 }
 
 /**
- * A changed golden type is a fix when the golden file does not compile, or merges two enums of one
- * name that ours keeps apart (RC4 G8), and ours is no worse. A file TypeScript stops on counts as
+ * A changed golden type is a fix when the golden file does not compile, or lets schemas share an
+ * enum that ours keeps apart (RC4 G8, RC5 G1), and ours is no worse. A file TypeScript stops on counts as
  * worse than any error count, so ours may stop only where it does.
  */
 async function changedTypesStatus(
   dependencies: CompareOutputsDependencies,
-  { goldenPath, candidatePath, isEnumMergeFixed }: CasePaths,
+  { goldenPath, candidatePath, isEnumSharingFixed }: CasePaths,
 ): Promise<ComparisonResult["status"]> {
   const { outputCompiler: compiler, logger } = dependencies;
   if (compiler === undefined) {
     return ComparisonStatus.Different;
   }
   const goldenErrors = await countErrorsOrStop(compiler, logger, goldenPath);
-  if (goldenErrors === 0 && !isEnumMergeFixed) {
+  if (goldenErrors === 0 && !isEnumSharingFixed) {
     return ComparisonStatus.Different;
   }
   const candidateErrors = await countErrorsOrStop(compiler, logger, candidatePath);
@@ -128,11 +132,8 @@ async function compareCase(
   }
   const goldenText = await readOutput(dependencies.cache, options.goldenLabel, golden);
   const candidateText = await readOutput(dependencies.cache, options.candidateLabel, candidate);
-  const text = compareGeneratedTexts(
-    goldenText,
-    candidateText,
-    dependencies.intentionalDifferences,
-  );
+  const texts = comparableTexts(goldenText, candidateText, dependencies.intentionalDifferences);
+  const text = compareComparableTexts(texts);
   const lines = {
     firstDifferentLine: text.firstDifferentLine,
     differentLineCount: text.differentLineCount,
@@ -154,7 +155,9 @@ async function compareCase(
       candidatePath: dependencies.cache.resolve(
         outputPath(options.candidateLabel, candidate.optionSetId, candidate.entryId),
       ),
-      isEnumMergeFixed: isEnumMergeFixed(goldenText, candidateText),
+      isEnumSharingFixed:
+        isEnumMergeFixed(goldenText, candidateText) ||
+        isSharedEnumSplit(texts.golden, texts.candidate),
     },
   );
   return { ...base, ...lines, ...verdict };
