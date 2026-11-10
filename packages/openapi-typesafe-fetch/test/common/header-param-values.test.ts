@@ -15,7 +15,8 @@ type Paths = {
         header?: {
           "X-Since"?: Date;
           "X-Tags"?: string[];
-          "X-Filter"?: Record<string, string | number>;
+          "X-Filter"?: Record<string, unknown>;
+          "X-List"?: unknown[];
           "X-Trace"?: string | null;
           "X-Limit"?: number;
         };
@@ -61,6 +62,22 @@ describe("header parameter values", () => {
     const headers = await sentHeaders({ "X-Filter": { role: "admin", page: 2 } });
 
     expect(headers.get("X-Filter")).toBe("role,admin,page,2");
+  });
+
+  it("an object's names are not percent-encoded either", async () => {
+    const headers = await sentHeaders({ "X-Filter": { "a b": "c d", é: "é" } });
+
+    expect(headers.get("X-Filter")).toBe("a b,c d,é,é");
+  });
+
+  it("a nested object value fails instead of sending [object Object]", async () => {
+    await expect(sentHeaders({ "X-Filter": { filter: { role: "admin" } } })).rejects.toThrow(
+      "Deeply-nested",
+    );
+  });
+
+  it("a nested array item fails instead of sending [object Object]", async () => {
+    await expect(sentHeaders({ "X-List": ["a", { b: 1 }] })).rejects.toThrow("Deeply-nested");
   });
 
   it("an empty array or object sends no header", async () => {

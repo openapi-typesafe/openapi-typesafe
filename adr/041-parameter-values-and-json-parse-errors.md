@@ -232,3 +232,22 @@ realm in `onError`. The budget rises from 9.7 kB to 10.6 kB. Correctness ranks a
 same measure: about 10.5 kB minified and 4 kB gzipped; `openapi-typesafe-react-query` is about
 2.2 kB minified and 1 kB gzipped, so its "1 kB" is now "2 kB minified, 1 kB gzipped".
 
+## Amendment (2026-11-10): nested values, object names and partial query options
+
+The recheck of the rc.5 fixes found three more cases.
+
+1. A nested object or array as an array item or an object value, in a header or in a query or
+   path parameter that is not exploded, was sent as `[object Object]`. Every value now goes
+   through one function that fails for it, with the message of a nested query value.
+2. The names of a non-exploded object were percent-encoded also with `allowReserved`, so a header
+   object `{ "a b": "c" }` went out as `a%20b,c`, while the docs say header values are not
+   encoded. A name is part of the value, so `allowReserved` keeps it as it is too.
+3. A request's `querySerializer.array` or `.object` replaced the client's whole, so
+   `{ array: { explode: false } }` dropped the client's `pipeDelimited` style. Since each of
+   `style` and `explode` may be left out, they merge by key: the request's, then the client's,
+   then the default.
+
+With the platform body classes of ADR-030 the bundle grows from 10,524 to 10,742 bytes
+(size-limit, minified; about 4.2 kB gzipped). The budget rises from 10.6 kB to 10.8 kB, and the
+docs state about 10.7 kB minified and 4 kB gzipped. Correctness ranks above size
+(CODING_PRINCIPLES §1), as in the amendments above.

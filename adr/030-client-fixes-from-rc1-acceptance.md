@@ -235,6 +235,25 @@ reads only its own implementation's FormData.
 | `instanceof` of the classes of the options | No tag checks | A FormData of another realm still JSON-encoded; needs a Blob and a stream class option too |
 | Duck typing by methods only | No tags | A plain object with an `append` method would be sent as a FormData |
 
+## Amendment (2026-11-10): the platform's own body classes
+
+The recheck of the rc.5 fixes found that the type tag missed classes a platform installs as its
+globals. React Native's FormData, Blob and URLSearchParams have no type tag, and its FormData no
+`entries`; jsdom 20 (Jest 29) has a Blob and a File with the tag but no `arrayBuffer`. Their
+bodies were JSON-encoded, as `{"_parts":[...]}` or `{}`, which rc.4 sent as they were.
+
+1. A body is of a class when it is an instance of this realm's global class of that name, which
+   the platform's `fetch` takes, or when it has the class's type tag and the methods the client
+   uses (decision 1 of the amendment above). One function, `isClass`, tells every kind, an
+   `Error` too.
+2. A forged tag on a plain object without the methods is still read as an object.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Global class or tag with methods (chosen) | The platform's classes and every other realm's | About 60 bytes |
+| Tag alone | Smallest | React Native's classes have no tag |
+| A class option for each kind | Explicit | Every React Native and Jest app must pass three classes |
+
 ## Review trigger
 
 A TypeScript release that relates generic signatures across declarations; a library that types

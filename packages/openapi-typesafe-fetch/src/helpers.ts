@@ -92,10 +92,13 @@ export type SuccessStatusKey<T> = StatusKeysMatching<
   `2${StatusDigit}${StatusDigit}` | "2XX"
 >;
 
-/** The error statuses of a Response Object Map: every 4XX and 5XX one, and `default`. */
+/**
+ * The error statuses of a Response Object Map: every 1XX, 3XX, 4XX and 5XX one, and `default`. The
+ * client returns each response that is not `ok` as `error`, also a 3XX with `redirect: "manual"`.
+ */
 export type ErrorStatusKey<T> = StatusKeysMatching<
   keyof T,
-  `${4 | 5}${StatusDigit}${StatusDigit}` | "4XX" | "5XX" | "default"
+  `${1 | 3 | 4 | 5}${StatusDigit}${StatusDigit}` | `${1 | 3 | 4 | 5}XX` | "default"
 >;
 
 /** Get a union of OK Statuses */
@@ -282,8 +285,8 @@ export type GetResponseContent<
   : never;
 
 /**
- * Return all 4XX, 5XX and `default` responses from a Response Object Map; for a union of maps,
- * the union of each map's responses, as `SuccessResponse`.
+ * Return all 1XX, 3XX, 4XX, 5XX and `default` responses from a Response Object Map; for a union
+ * of maps, the union of each map's responses, as `SuccessResponse`.
  */
 export type ErrorResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces

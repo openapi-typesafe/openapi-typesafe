@@ -35,9 +35,13 @@ const CLIENT_BUILT_FORM = Symbol.for("openapi-typesafe-fetch/form");
 /** `[object Name]`: the type tag is between these indexes of `Object.prototype.toString`. */
 const TYPE_TAG_START = "[object ".length;
 const TYPE_TAG_END = -1;
-const BLOB_TAGS = new Set(["Blob", "File"]);
-/** Raw bodies told by their type tag alone: they have no methods the client uses. */
-const RAW_BODY_TAGS = new Set(["URLSearchParams", "ArrayBuffer"]);
+const BLOB_CLASSES = ["Blob", "File"];
+/** Raw bodies with no methods the client uses. */
+const RAW_BODY_CLASSES = ["URLSearchParams", "ArrayBuffer"];
+/** The methods of a body's class that the client uses, which tell a forged type tag. */
+const FORM_DATA_METHODS = ["append", "entries"];
+const BLOB_METHODS = ["arrayBuffer"];
+const STREAM_METHODS = ["getReader"];
 
 /**
  * Whether `fetch` is Node.js undici, which takes `requestInitExt` as a second argument. A Node.js
@@ -119,10 +123,7 @@ export default function createClient(clientOptions) {
       querySerializer =
         typeof requestQuerySerializer === "function"
           ? requestQuerySerializer
-          : createQuerySerializer({
-              ...(typeof globalQuerySerializer === "object" ? globalQuerySerializer : {}),
-              ...requestQuerySerializer,
-            });
+          : createQuerySerializer(mergeQueryOptions(globalQuerySerializer, requestQuerySerializer));
     }
 
     const pathSerializer = requestPathSerializer || globalPathSerializer || defaultPathSerializer;
@@ -624,8 +625,17 @@ function serializeHeaderParams(header) {
   return Object.fromEntries(entries);
 }
 
-/** One parameter value (or object key), percent-encoded unless `allowReserved`. */
+/**
+ * One parameter value (or object key), percent-encoded unless `allowReserved`. A nested object or
+ * array has no standard encoding: as an array item or an object value it was sent as
+ * `[object Object]` (ADR-041).
+ */
 function encodeValue(value, allowReserved) {
+  if (value && typeof value === "object" && !isDate(value)) {
+    throw new Error(
+      "Deeply-nested arrays/objects aren’t supported. Provide your own `querySerializer()` to handle these.",
+    );
+  }
   const text = valueText(value);
   return allowReserved === true ? text : encodeURIComponent(text);
 }
@@ -638,11 +648,6 @@ export function serializePrimitiveParam(name, value, options) {
   if (value === undefined || value === null) {
     return "";
   }
-  if (typeof value === "object" && !isDate(value)) {
-    throw new Error(
-      "Deeply-nested arrays/objects aren’t supported. Provide your own `querySerializer()` to handle these.",
-    );
-  }
   return `${name}=${encodeValue(value, options?.allowReserved)}`;
 }
 
@@ -653,11 +658,17 @@ function joinExploded(values, style) {
   return style === "label" || style === "matrix" ? `${joiner}${final}` : final;
 }
 
-/** A non-exploded object: names and values in one comma-separated list. */
+/**
+ * A non-exploded object: names and values in one comma-separated list. A name is part of the
+ * value, so `allowReserved` keeps it as it is too: a header name with a space was sent as `a%20b`.
+ */
 function serializeUnexplodedObject(name, value, options) {
   const values = [];
   for (const k in value) {
-    values.push(encodeValue(k), encodeValue(value[k], options.allowReserved));
+    values.push(
+      encodeValue(k, options.allowReserved),
+      encodeValue(value[k], options.allowReserved),
+    );
   }
   const final = values.join(",");
   switch (options.style) {
@@ -787,6 +798,21 @@ export function createQuerySerializer(options) {
 }
 
 /**
+ * The request's query options over the client's. `array` and `object` merge by key, since each of
+ * `style` and `explode` may be left out: `{ array: { explode: false } }` dropped the client's
+ * `pipeDelimited` style (ADR-041).
+ */
+function mergeQueryOptions(clientOptions, requestOptions) {
+  const base = typeof clientOptions === "function" ? {} : (clientOptions ?? {});
+  return {
+    ...base,
+    ...requestOptions,
+    array: { ...base.array, ...requestOptions.array },
+    object: { ...base.object, ...requestOptions.object },
+  };
+}
+
+/**
  * Handle different OpenAPI 3.x serialization styles
  * @type {import("./index.js").defaultPathSerializer}
  * @see https://swagger.io/docs/specification/serialization/#path
@@ -875,29 +901,39 @@ function typeTag(value) {
 }
 
 /**
+ * Whether a value is of the class `name`: an instance of this realm's global class of that name,
+ * which the platform's `fetch` takes, or a value with its type tag and the methods the client uses.
+ * The classes of React Native have no type tag, and the Blob of jsdom 20 no `arrayBuffer`; the tag
+ * alone tells the classes of another realm or implementation (ADR-030).
+ */
+function isClass(value, name, methods = []) {
+  const type = globalThis[name];
+  return (
+    (typeof type === "function" && value instanceof type) ||
+    (typeTag(value) === name && methods.every((method) => typeof value[method] === "function"))
+  );
+}
+
+/**
  * An `Error` of any realm: an Error of another realm (an iframe, `node:vm`) has the type tag
  * `Error` but fails `instanceof`. A `DOMException` of this realm, which has its own tag, still
  * counts by `instanceof`.
  */
 function isError(value) {
-  return value instanceof Error || typeTag(value) === "Error";
+  return isClass(value, "Error");
 }
 
 function isFormData(value) {
-  return (
-    typeTag(value) === "FormData" &&
-    typeof value.append === "function" &&
-    typeof value.entries === "function"
-  );
+  return isClass(value, "FormData", FORM_DATA_METHODS);
 }
 
 /** A `Blob` or a `File`, of any realm. */
 function isBlob(value) {
-  return BLOB_TAGS.has(typeTag(value)) && typeof value.arrayBuffer === "function";
+  return BLOB_CLASSES.some((name) => isClass(value, name, BLOB_METHODS));
 }
 
 function isReadableStream(value) {
-  return typeTag(value) === "ReadableStream" && typeof value.getReader === "function";
+  return isClass(value, "ReadableStream", STREAM_METHODS);
 }
 
 /**
@@ -935,7 +971,7 @@ function isRawBody(body) {
   return (
     isFormData(body) ||
     isBlob(body) ||
-    RAW_BODY_TAGS.has(typeTag(body)) ||
+    RAW_BODY_CLASSES.some((name) => isClass(body, name)) ||
     ArrayBuffer.isView(body) ||
     isStreamBody(body)
   );

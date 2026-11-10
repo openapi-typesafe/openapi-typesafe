@@ -194,6 +194,14 @@ reads every 2XX status as a success.
 | Longer closed lists | No new helper | Still misses statuses servers invent (419, 499 variants); a list to keep in step |
 | A union of all 200 numeric codes | Plain `Extract` | 200 literals written by hand; the string keys still need their own case |
 
+## Amendment (2026-11-10): every status that is not a success is an error
+
+The recheck of the rc.5 fixes found a declared 3XX (with `redirect: "manual"`, which the
+middleware docs recommend) or 1XX response in neither `data` nor `error` of the types, while the
+client returns every response that is not `ok` as `error`. `ErrorStatusKey<T>` now matches 1XX,
+3XX, 4XX and 5XX keys, the `1XX` and `3XX` ranges, and `default`, so the types follow
+`response.ok` as the success key does.
+
 ## Review trigger
 
 The 2.0 planning (items 32 to 35); a TypeScript release that infers return types through a dependent

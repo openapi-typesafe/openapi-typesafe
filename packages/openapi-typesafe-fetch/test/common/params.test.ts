@@ -572,6 +572,46 @@ describe("params", () => {
         expect(actualURL.searchParams.get("string")).toBe("bad/character🐶");
       });
 
+      test("a partial per-request array option keeps the client's other array options", async () => {
+        let actualURL = new URL("https://fakeurl.example");
+        const client = createObservedClient<paths>(
+          {
+            querySerializer: { array: { style: "pipeDelimited", explode: true } },
+          },
+          async (req) => {
+            actualURL = new URL(req.url);
+            return Response.json({});
+          },
+        );
+
+        await client.GET("/query-params", {
+          params: { query: { array: ["1", "2"] } },
+          querySerializer: { array: { explode: false } },
+        });
+
+        expect(actualURL.search).toBe("?array=1|2");
+      });
+
+      test("a partial per-request object option keeps the client's other object options", async () => {
+        let actualURL = new URL("https://fakeurl.example");
+        const client = createObservedClient<paths>(
+          {
+            querySerializer: { object: { style: "form", explode: true } },
+          },
+          async (req) => {
+            actualURL = new URL(req.url);
+            return Response.json({});
+          },
+        );
+
+        await client.GET("/query-params", {
+          params: { query: { object: { foo: "bar", bar: "baz" } } },
+          querySerializer: { object: { explode: false } },
+        });
+
+        expect(actualURL.search).toBe("?object=foo,bar,bar,baz");
+      });
+
       describe("function", () => {
         test("global default", async () => {
           let actualURL = new URL("https://fakeurl.example");

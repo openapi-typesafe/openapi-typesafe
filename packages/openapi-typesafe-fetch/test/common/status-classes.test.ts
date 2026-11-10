@@ -21,6 +21,7 @@ type Responses = {
   205: { content: { "application/json": { reset: true } } };
   208: { content: { "application/json": Accepted } };
   226: { content: { "application/json": { delta: string } } };
+  302: { content: { "application/json": { location: string } } };
   304: { content: never };
   419: { content: { "application/json": Expired } };
   599: { content: { "application/json": { timeout: true } } };
@@ -29,23 +30,34 @@ type Responses = {
 type Paths = { "/reports": { post: { responses: Responses } } };
 
 describe("statuses outside the named lists", () => {
-  it("SuccessStatusKey has every 2XX status and ErrorStatusKey every 4XX and 5XX one", () => {
+  it("SuccessStatusKey has every 2XX status and ErrorStatusKey every other one", () => {
     expectTypeOf<SuccessStatusKey<Responses>>().toEqualTypeOf<205 | 208 | 226>();
-    expectTypeOf<ErrorStatusKey<Responses>>().toEqualTypeOf<419 | 599>();
+    expectTypeOf<ErrorStatusKey<Responses>>().toEqualTypeOf<302 | 304 | 419 | 599>();
   });
 
   it("the ranges and default are classified as before", () => {
-    type Ranges = { "2XX": unknown; "4XX": unknown; "5XX": unknown; default: unknown };
+    type Ranges = {
+      "1XX": unknown;
+      "2XX": unknown;
+      "3XX": unknown;
+      "4XX": unknown;
+      "5XX": unknown;
+      default: unknown;
+    };
 
     expectTypeOf<SuccessStatusKey<Ranges>>().toEqualTypeOf<"2XX">();
-    expectTypeOf<ErrorStatusKey<Ranges>>().toEqualTypeOf<"4XX" | "5XX" | "default">();
+    expectTypeOf<ErrorStatusKey<Ranges>>().toEqualTypeOf<
+      "1XX" | "3XX" | "4XX" | "5XX" | "default"
+    >();
   });
 
   it("SuccessResponse and ErrorResponse have the bodies of those statuses", () => {
     expectTypeOf<SuccessResponse<Responses>>().toEqualTypeOf<
       { reset: true } | Accepted | { delta: string }
     >();
-    expectTypeOf<ErrorResponse<Responses>>().toEqualTypeOf<Expired | { timeout: true }>();
+    expectTypeOf<ErrorResponse<Responses>>().toEqualTypeOf<
+      { location: string } | Expired | { timeout: true }
+    >();
     expectTypeOf<OKStatusUnion<Responses>>().toEqualTypeOf<Responses[205 | 208 | 226]>();
   });
 
@@ -63,7 +75,21 @@ describe("statuses outside the named lists", () => {
     expect(reported.data).toEqual({ reported: true });
     expect(expired.error).toEqual({ reason: "session expired" });
     if (expired.error) {
-      expectTypeOf(expired.error).toEqualTypeOf<Expired | { timeout: true }>();
+      expectTypeOf(expired.error).toEqualTypeOf<
+        { location: string } | Expired | { timeout: true }
+      >();
     }
+  });
+
+  it("a 302 read with redirect manual is an error with its body", async () => {
+    const client = createClient<Paths>({
+      baseUrl: "https://api.example.com",
+      fetch: async () => Response.json({ location: "/login" }, { status: 302 }),
+    });
+
+    const { data, error } = await client.POST("/reports", { redirect: "manual" });
+
+    expect(data).toBeUndefined();
+    expect(error).toEqual({ location: "/login" });
   });
 });
