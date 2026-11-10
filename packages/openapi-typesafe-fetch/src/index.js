@@ -13,10 +13,13 @@ const QUERY_OR_FRAGMENT_RE = /[?#]/;
 const JSON_MEDIA_TYPE_RE = /^[^/]+\/([^;]*\+)?json\s*(;|$)/i;
 /** `text/*` media types: a JSON parse error of such a body points to `parseAs: "text"`. */
 const TEXT_MEDIA_TYPE_RE = /^text\//i;
-/** `application/x-www-form-urlencoded`, with or without parameters such as `charset`. */
-const FORM_MEDIA_TYPE_RE = /^application\/x-www-form-urlencoded(;|$)/i;
-/** `multipart/form-data`, with or without parameters. */
-const MULTIPART_MEDIA_TYPE_RE = /^multipart\/form-data(;|$)/i;
+/**
+ * `application/x-www-form-urlencoded`, with or without parameters such as `charset`. Spaces and
+ * tabs may come before the `;` (OWS, RFC 9110, section 8.3.1).
+ */
+const FORM_MEDIA_TYPE_RE = /^application\/x-www-form-urlencoded[ \t]*(;|$)/i;
+/** `multipart/form-data`, with or without parameters, also after spaces or tabs (OWS). */
+const MULTIPART_MEDIA_TYPE_RE = /^multipart\/form-data[ \t]*(;|$)/i;
 const NESTED_FORM_VALUE_MESSAGE = "Nested form values need your own `bodySerializer()`.";
 /** The `boundary` parameter of a multipart `Content-Type`; only the platform knows its value. */
 const BOUNDARY_PARAMETER_RE = /;\s*boundary=/i;
@@ -28,6 +31,13 @@ const BOUNDARY_PARAMETER_RE = /;\s*boundary=/i;
  * package, so a form one of them built is known to the others (ADR-013, decision 10).
  */
 const CLIENT_BUILT_FORM = Symbol.for("openapi-typesafe-fetch/form");
+
+/** `[object Name]`: the type tag is between these indexes of `Object.prototype.toString`. */
+const TYPE_TAG_START = "[object ".length;
+const TYPE_TAG_END = -1;
+const BLOB_TAGS = new Set(["Blob", "File"]);
+/** Raw bodies told by their type tag alone: they have no methods the client uses. */
+const RAW_BODY_TAGS = new Set(["URLSearchParams", "ArrayBuffer"]);
 
 /**
  * Whether `fetch` is Node.js undici, which takes `requestInitExt` as a second argument. A Node.js
@@ -62,6 +72,7 @@ export default function createClient(clientOptions) {
   let {
     baseUrl = "",
     Request: CustomRequest = globalThis.Request,
+    FormData: CustomFormData = globalThis.FormData,
     fetch: baseFetch = globalThis.fetch,
     querySerializer: globalQuerySerializer,
     bodySerializer: globalBodySerializer,
@@ -115,6 +126,7 @@ export default function createClient(clientOptions) {
     }
 
     const pathSerializer = requestPathSerializer || globalPathSerializer || defaultPathSerializer;
+    const headerParams = serializeHeaderParams(params.header);
 
     const serializedBody =
       body === undefined
@@ -127,23 +139,26 @@ export default function createClient(clientOptions) {
             // content-type header. So we re-merge below, setting the content-type at the very
             // beginning to be overwritten. Lastly, based on the way headers work, it’s not a simple
             // “present-or-not” check because null intentionally un-sets headers.
-            mergeHeaders(baseHeaders, headers, params.header),
+            mergeHeaders(baseHeaders, headers, headerParams),
           );
+    const requestBody = isFormData(serializedBody)
+      ? asFormDataOf(CustomFormData, serializedBody)
+      : serializedBody;
     const finalHeaders = mergeHeaders(
       // with no body, we should not to set Content-Type
-      serializedBody === undefined ||
+      requestBody === undefined ||
         // a raw body (FormData, Blob, ...) gets its Content-Type from the platform, or none
-        isRawBody(serializedBody)
+        isRawBody(requestBody)
         ? {}
         : {
             "Content-Type": "application/json",
           },
       baseHeaders,
       headers,
-      params.header,
+      headerParams,
     );
-    if (isPlatformInstance(serializedBody, "FormData")) {
-      dropFormContentType(finalHeaders, serializedBody[CLIENT_BUILT_FORM] === true);
+    if (isFormData(requestBody)) {
+      dropFormContentType(finalHeaders, requestBody[CLIENT_BUILT_FORM] === true);
     }
 
     // Client level middleware take priority over request-level middleware
@@ -152,10 +167,10 @@ export default function createClient(clientOptions) {
     const requestInit = {
       redirect: "follow",
       // The Fetch standard requires `duplex: "half"` (its only value) for a stream body.
-      duplex: isStreamBody(serializedBody) ? "half" : undefined,
+      duplex: isStreamBody(requestBody) ? "half" : undefined,
       ...baseOptions,
       ...init,
-      body: serializedBody,
+      body: requestBody,
       headers: finalHeaders,
     };
 
@@ -244,7 +259,7 @@ export default function createClient(clientOptions) {
                   break;
                 }
 
-                if (result instanceof Error) {
+                if (isError(result)) {
                   errorAfterMiddleware = result;
                   continue;
                 }
@@ -292,20 +307,7 @@ export default function createClient(clientOptions) {
       }
     }
 
-    const contentLength = response.headers.get("Content-Length");
-    // handle empty content
-    if (
-      response.status === 204 ||
-      request.method === "HEAD" ||
-      (contentLength === "0" && !response.headers.get("Transfer-Encoding")?.includes("chunked"))
-    ) {
-      return response.ok ? { data: undefined, response } : { error: undefined, response };
-    }
-
-    if (response.ok) {
-      return { data: await readSuccessBody(response, parseAs), response };
-    }
-    return { error: await readErrorBody(response), response };
+    return readResult(response, parseAs, request.method);
   }
 
   return {
@@ -512,6 +514,34 @@ function parseJSON(raw, response) {
   }
 }
 
+/**
+ * Whether the response has no body: an answer to HEAD (RFC 9110 §9.3.2) or a `Content-Length` of
+ * 0 without chunked transfer. An answer to HEAD keeps the `Content-Length` that GET would send, so
+ * the method is read, not the length. A 204 needs no check: a `Response` with it has no body.
+ */
+function hasEmptyBody(response, method) {
+  const isDeclaredEmpty =
+    response.headers.get("Content-Length") === "0" &&
+    !response.headers.get("Transfer-Encoding")?.includes("chunked");
+  return method === "HEAD" || isDeclaredEmpty;
+}
+
+/**
+ * The `data` or `error` of a response. A response without a body has no error and, for JSON, no
+ * data; each other `parseAs` reads the body with its method, also an empty one: `""`, an empty
+ * Blob or ArrayBuffer, or `response.body`, as their types say.
+ */
+async function readResult(response, parseAs, method) {
+  const isEmpty = hasEmptyBody(response, method);
+  if (!response.ok) {
+    return { error: isEmpty ? undefined : await readErrorBody(response), response };
+  }
+  if (parseAs === "json" && isEmpty) {
+    return { data: undefined, response };
+  }
+  return { data: await readSuccessBody(response, parseAs), response };
+}
+
 /** The data of a success response, by `parseAs` (default `"json"`, as in openapi-fetch). */
 async function readSuccessBody(response, parseAs) {
   if (parseAs === "stream") {
@@ -566,6 +596,32 @@ function isDate(value) {
  */
 function valueText(value) {
   return isDate(value) ? value.toISOString() : value;
+}
+
+/** Header parameters are written in `simple` style, not exploded: OpenAPI's only header style. */
+const HEADER_PARAM_STYLE = { style: "simple", explode: false, allowReserved: true };
+
+/**
+ * A header parameter value: a `Date` as ISO 8601, an array as `a,b` and an object as `name,value`
+ * pairs, as a `simple` path parameter (ADR-041), since `Headers` sent an object as
+ * `[object Object]` and a `Date` as local time. Not percent-encoded: a header holds no URL. `null`
+ * still removes a header, and an empty array or object sends none.
+ */
+function headerParamValue(value) {
+  if (value === null || typeof value !== "object" || isDate(value)) {
+    return valueText(value);
+  }
+  const serialize = Array.isArray(value) ? serializeArrayParam : serializeObjectParam;
+  return serialize("", value, HEADER_PARAM_STYLE) || undefined;
+}
+
+/** The `params.header` record with each value in the `simple` style. */
+function serializeHeaderParams(header) {
+  if (!header || typeof header !== "object") {
+    return header;
+  }
+  const entries = Object.entries(header).map(([name, value]) => [name, headerParamValue(value)]);
+  return Object.fromEntries(entries);
 }
 
 /** One parameter value (or object key), percent-encoded unless `allowReserved`. */
@@ -687,22 +743,23 @@ export function serializeArrayParam(name, value, options) {
   return values.length ? joinExploded(values, options.style) : "";
 }
 
-/** One query parameter with the default styles: `form` arrays, `deepObject` objects. */
+/**
+ * One query parameter with the default styles: exploded `form` arrays and `deepObject` objects.
+ * `style` and `explode` are optional, and one left out or `undefined` takes its default.
+ */
 function serializeQueryParam(name, value, options) {
   const allowReserved = options?.allowReserved || false;
   if (Array.isArray(value)) {
     return serializeArrayParam(name, value, {
-      style: "form",
-      explode: true,
-      ...options?.array,
+      style: options?.array?.style ?? "form",
+      explode: options?.array?.explode ?? true,
       allowReserved,
     });
   }
   if (value && typeof value === "object" && !isDate(value)) {
     return serializeObjectParam(name, value, {
-      style: "deepObject",
-      explode: true,
-      ...options?.object,
+      style: options?.object?.style ?? "deepObject",
+      explode: options?.object?.explode ?? true,
       allowReserved,
     });
   }
@@ -807,12 +864,59 @@ function checkSerializedPath(template, url) {
 }
 
 /**
- * Whether a value is an instance of the platform class `name`. A runtime may lack the class (React
- * Native has no `ReadableStream`); then no value is one, and the check does not throw.
+ * The type tag of a value (`Object.prototype.toString`): the classes of the Fetch API and the
+ * built-ins name themselves with it in every realm and in other implementations such as the
+ * `undici` package. `instanceof` checked the class of this realm only, so a FormData from undici
+ * was JSON-encoded as `{}` (ADR-030). A runtime that lacks a class (React Native has no
+ * `ReadableStream`) simply has no value with its tag.
  */
-function isPlatformInstance(value, name) {
-  const type = globalThis[name];
-  return typeof type === "function" && value instanceof type;
+function typeTag(value) {
+  return Object.prototype.toString.call(value).slice(TYPE_TAG_START, TYPE_TAG_END);
+}
+
+/**
+ * An `Error` of any realm: an Error of another realm (an iframe, `node:vm`) has the type tag
+ * `Error` but fails `instanceof`. A `DOMException` of this realm, which has its own tag, still
+ * counts by `instanceof`.
+ */
+function isError(value) {
+  return value instanceof Error || typeTag(value) === "Error";
+}
+
+function isFormData(value) {
+  return (
+    typeTag(value) === "FormData" &&
+    typeof value.append === "function" &&
+    typeof value.entries === "function"
+  );
+}
+
+/** A `Blob` or a `File`, of any realm. */
+function isBlob(value) {
+  return BLOB_TAGS.has(typeTag(value)) && typeof value.arrayBuffer === "function";
+}
+
+function isReadableStream(value) {
+  return typeTag(value) === "ReadableStream" && typeof value.getReader === "function";
+}
+
+/**
+ * The FormData as an instance of the client's `FormData` class. A `Request` takes only its own
+ * implementation's FormData: undici's read the platform's as the text `[object FormData]`. So a
+ * FormData of another class, such as the one the client builds for a multipart body, is copied
+ * into one of the `FormData` option, the class of the `Request` option's implementation.
+ */
+function asFormDataOf(FormDataClass, form) {
+  if (typeof FormDataClass !== "function" || form instanceof FormDataClass) {
+    return form;
+  }
+  const copy = new FormDataClass();
+  for (const [name, value] of form.entries()) {
+    copy.append(name, value);
+  }
+  // The copy has a boundary of its own, so a `Content-Type` written for the original is wrong.
+  copy[CLIENT_BUILT_FORM] = true;
+  return copy;
 }
 
 /**
@@ -820,9 +924,7 @@ function isPlatformInstance(value, name) {
  * `fetch` in Node.js, Deno and Bun also streams. Both need `duplex: "half"` (ADR-013, decision 6).
  */
 function isStreamBody(body) {
-  return (
-    isPlatformInstance(body, "ReadableStream") || typeof body?.[Symbol.asyncIterator] === "function"
-  );
+  return isReadableStream(body) || typeof body?.[Symbol.asyncIterator] === "function";
 }
 
 /**
@@ -831,9 +933,9 @@ function isStreamBody(body) {
  */
 function isRawBody(body) {
   return (
-    ["FormData", "Blob", "URLSearchParams", "ArrayBuffer"].some((name) =>
-      isPlatformInstance(body, name),
-    ) ||
+    isFormData(body) ||
+    isBlob(body) ||
+    RAW_BODY_TAGS.has(typeTag(body)) ||
     ArrayBuffer.isView(body) ||
     isStreamBody(body)
   );
@@ -892,7 +994,7 @@ function multipartBody(body) {
   formData[CLIENT_BUILT_FORM] = true;
   for (const [name, value] of Object.entries(body)) {
     for (const item of formItems(value)) {
-      if (isPlatformInstance(item, "Blob")) {
+      if (isBlob(item)) {
         formData.append(name, item);
       } else if (isNestedFormValue(item)) {
         throw new Error(NESTED_FORM_VALUE_MESSAGE);
@@ -944,11 +1046,16 @@ export function createFinalURL(pathname, options) {
   if (search.startsWith("?")) {
     search = search.substring(1);
   }
-  if (search) {
-    // A path may already have a query string.
-    finalURL += `${finalURL.includes("?") ? "&" : "?"}${search}`;
+  if (!search) {
+    return finalURL;
   }
-  return finalURL;
+  // The query goes before a fragment of the template (`/docs#intro`), which ends the URL, and
+  // joins a query the template already has.
+  const hashIndex = finalURL.indexOf("#");
+  const fragmentStart = hashIndex === -1 ? finalURL.length : hashIndex;
+  const beforeFragment = finalURL.slice(0, fragmentStart);
+  const joiner = beforeFragment.includes("?") ? "&" : "?";
+  return `${beforeFragment}${joiner}${search}${finalURL.slice(fragmentStart)}`;
 }
 
 /**

@@ -198,3 +198,37 @@ The size budget rises from 9.6 kB to 9.7 kB: the segment check takes the minifie
 9,597 to 9,640 bytes, 40 bytes over the old budget. Correctness ranks above size
 (CODING_PRINCIPLES §1), as in the amendments of ADR-013.
 
+## Amendment (2026-11-09): header parameter values
+
+The runtime hunt before rc.5 found that `params.header` values went to `Headers` as they were: a
+`Date` as local time (`Thu Jan 01 1970 01:00:00 GMT+0100`), an object as `[object Object]`, an
+array as `a, b` from `Headers.append`. The value rules of this ADR now cover headers too, in the
+`simple` style, the only style OpenAPI defines for headers:
+
+1. A `Date` is `toISOString()`, as in the query and the path.
+2. An array is `a,b` and an object is `name,value` pairs (`role,admin`): the value is written by
+   `serializeArrayParam` and `serializeObjectParam` in the non-exploded `simple` style, the
+   default for headers, so a header follows the rules of a `simple` path parameter (decision 2).
+   An empty array or object sends no header.
+3. `null` still removes a header set at a lower level, and other values are sent as their text.
+4. Values are not percent-encoded (`allowReserved`): a header holds no URL, and `Headers` rejects
+   what it cannot send. The `headers` option keeps its own rules (an array is appended item by
+   item).
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| `simple` style, not exploded (chosen) | OpenAPI's default for headers; same `Date` text as the query | An exploded object header (`role=admin`) needs a string |
+| Read `explode` from the schema | Exact | The client has no schema at runtime |
+| Keep `Headers.append` for arrays | No change for arrays | `a, b` is not the `simple` style; objects still `[object Object]` |
+
+## Amendment (2026-11-09): size after the rc.5 client fixes
+
+The fixes of the runtime hunt before rc.5 take the bundle from 9,640 to 10,524 bytes (size-limit,
+minified): telling bodies by their type tag and copying a FormData into the `FormData` option
+(ADR-030), status keys by first digit (types only, ADR-025), the empty body by `parseAs`, header
+parameters in the `simple` style (above), the query before a fragment, and an `Error` of another
+realm in `onError`. The budget rises from 9.7 kB to 10.6 kB. Correctness ranks above size
+(CODING_PRINCIPLES §1), as in the amendments of ADR-013. The size the docs state comes from the
+same measure: about 10.5 kB minified and 4 kB gzipped; `openapi-typesafe-react-query` is about
+2.2 kB minified and 1 kB gzipped, so its "1 kB" is now "2 kB minified, 1 kB gzipped".
+

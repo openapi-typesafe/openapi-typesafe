@@ -34,6 +34,12 @@ export interface ClientOptions extends Omit<RequestInit, "headers"> {
   fetch?: (input: Request) => Promise<Response>;
   /** custom Request (defaults to globalThis.Request) */
   Request?: typeof Request;
+  /**
+   * The `FormData` class of the `Request` implementation (defaults to globalThis.FormData). A
+   * FormData body of another class, also the one the client builds for a multipart body, is sent
+   * as a copy of this class.
+   */
+  FormData?: typeof FormData;
   /** global querySerializer */
   querySerializer?: QuerySerializer<unknown> | QuerySerializerOptions;
   /** global bodySerializer */
@@ -57,7 +63,8 @@ export interface ClientOptions extends Omit<RequestInit, "headers"> {
  * `createClient` overload with `ClientOptions` comes first, so an inline `fetch` gets a typed
  * `Request` input.
  */
-export interface CustomFetchClientOptions extends Omit<ClientOptions, "fetch" | "Request"> {
+export interface CustomFetchClientOptions
+  extends Omit<ClientOptions, "fetch" | "Request" | "FormData"> {
   /** `fetch` of another implementation (for example `fetch` from `undici`) */
   fetch?: (input: never, init?: never) => PromiseLike<object>;
   /** `Request` of the same implementation (for example `Request` from `undici`) */
@@ -65,6 +72,8 @@ export interface CustomFetchClientOptions extends Omit<ClientOptions, "fetch" | 
     input: string,
     init: never,
   ) => object;
+  /** `FormData` of the same implementation (for example `FormData` from `undici`) */
+  FormData?: new () => object;
 }
 
 export type HeadersOptions =
@@ -86,9 +95,9 @@ export type QuerySerializerOptions = {
    */
   array?: {
     /** default: "form" */
-    style: "form" | "spaceDelimited" | "pipeDelimited";
+    style?: "form" | "spaceDelimited" | "pipeDelimited";
     /** default: true */
-    explode: boolean;
+    explode?: boolean;
   };
   /**
    * Set serialization for objects.
@@ -96,9 +105,9 @@ export type QuerySerializerOptions = {
    */
   object?: {
     /** default: "deepObject" */
-    style: "form" | "deepObject";
+    style?: "form" | "deepObject";
     /** default: true */
-    explode: boolean;
+    explode?: boolean;
   };
   /**
    * The `allowReserved` keyword specifies whether the reserved characters
@@ -518,8 +527,17 @@ type SerializedBody<Body, ObjectResult> = unknown extends Body
         ? ObjectResult
         : string;
 
-/** The `Content-Type` values that make `defaultBodySerializer` turn an object into `FormData`. */
-type MultipartMediaType = "multipart/form-data" | `multipart/form-data;${string}`;
+/**
+ * Whether a lowercase `Content-Type` makes `defaultBodySerializer` turn an object into `FormData`:
+ * `multipart/form-data`, with or without parameters, which spaces or tabs may come before (OWS,
+ * RFC 9110, section 8.3.1).
+ */
+type IsMultipartMediaType<ContentType extends string> =
+  ContentType extends `multipart/form-data${infer Rest}`
+    ? TrimmedStart<Rest> extends "" | `;${string}`
+      ? true
+      : false
+    : false;
 
 /** `Headers` drops the spaces and tabs in front of a value before the media type is read. */
 type TrimmedStart<Text extends string> = Text extends ` ${infer Rest}` | `\t${infer Rest}`
@@ -556,7 +574,7 @@ type ObjectBodyResult<ContentType> = [ContentType] extends [never]
     : ContentType extends string
       ? string extends ContentType
         ? string | FormData
-        : Lowercase<TrimmedStart<ContentType>> extends MultipartMediaType
+        : IsMultipartMediaType<Lowercase<TrimmedStart<ContentType>>> extends true
           ? FormData
           : string
       : string | FormData;

@@ -211,6 +211,30 @@ from `[value].flat()`, which skips holes. A hole is now an `undefined` item (`Ar
 multipart body, which leaves out `null` and `undefined` items. Both bodies take their items from
 one function, `formItems`.
 
+## Amendment (2026-11-09): bodies of another realm or implementation
+
+The runtime hunt before rc.5 found that the client told a body's kind by `instanceof` of this
+realm's classes. A FormData from the `undici` package was JSON-encoded as `{}` with a JSON
+`Content-Type`; a Blob from an iframe was JSON-encoded too. And the FormData the client builds for
+a multipart object body reached undici's `Request` as the text `[object FormData]`: a `Request`
+reads only its own implementation's FormData.
+
+1. A body's kind comes from its type tag (`Object.prototype.toString`), which the Fetch API classes
+   and the built-ins set in every realm and implementation, and from the methods the client uses:
+   a FormData has `append` and `entries`, a Blob or a File `arrayBuffer`, a `ReadableStream`
+   `getReader`. `URLSearchParams` and `ArrayBuffer` go by their tag alone.
+2. `createClient` takes a `FormData` class next to `Request`, `globalThis.FormData` by default. A
+   FormData body of another class is copied into one of it, and the client builds a multipart body
+   with it. The copy has its own boundary, so a `Content-Type` written for the original is dropped,
+   as for a FormData the client builds.
+3. The undici recipe of the docs passes `fetch`, `Request` and `FormData` from the package.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Type tag and methods; a `FormData` option (chosen) | Works for every realm and implementation; one option next to `Request` | A plain object with a forged tag is read as that kind, as `fetch` itself reads it |
+| `instanceof` of the classes of the options | No tag checks | A FormData of another realm still JSON-encoded; needs a Blob and a stream class option too |
+| Duck typing by methods only | No tags | A plain object with an `append` method would be sent as a FormData |
+
 ## Review trigger
 
 A TypeScript release that relates generic signatures across declarations; a library that types

@@ -171,6 +171,29 @@ claimed `status` for a network error. So item 35 is done in 1.0: the error type 
 Query's `DefaultError` (ADR-013, last amendment, decision 3). Item 34 (excess keys in `params` and
 `body`) stays for 2.0.
 
+## Amendment (2026-11-09): a status is classified by its first digit
+
+The runtime hunt before rc.5 found that the types told a success from an error by two closed
+lists, `OkStatus` and `ErrorStatus`, from upstream. A declared 205, 208 or 226 was in neither, so
+`data` had no body, and a 419 typed `error` without its body. At runtime `response.ok` already
+reads every 2XX status as a success.
+
+1. `SuccessStatusKey<T>` is every key of a Response Object Map whose text is a 2XX status or
+   `2XX`; `ErrorStatusKey<T>` every 4XX or 5XX one, `4XX`, `5XX` and `default`. A generated map
+   has numeric keys, and a numeric literal matches no template literal type, so a key is matched
+   by its text (`${K}`).
+2. `SuccessResponse`, `ErrorResponse` and `OKStatusUnion` use them; decision 6 is unchanged: with
+   no 2XX key, the success is `default`.
+3. `OkStatus` and `ErrorStatus` stay exported for code that names them, documented as lists the
+   client does not classify by. `FirstErrorStatus` keeps upstream's ordered list: picking the
+   lowest status of a union has no cheap type, and the client does not use it.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Match the key text by first digit (chosen) | Every status of the RFC 9110 ranges; one distributive conditional, no mapped type | Two new helper names |
+| Longer closed lists | No new helper | Still misses statuses servers invent (419, 499 variants); a list to keep in step |
+| A union of all 200 numeric codes | Plain `Extract` | 200 literals written by hand; the string keys still need their own case |
+
 ## Review trigger
 
 The 2.0 planning (items 32 to 35); a TypeScript release that infers return types through a dependent

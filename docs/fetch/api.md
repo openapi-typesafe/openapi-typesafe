@@ -18,6 +18,7 @@ createClient<paths>(options);
 | `baseUrl`         | `string`        | Prefix all fetch URLs with this option (e.g. `"https://myapi.dev/v1/"`)                                                                 |
 | `fetch`           | `fetch`         | Fetch instance used for requests (default: `globalThis.fetch`)                                                                          |
 | `Request`         | `Request`       | Request class the client builds requests with (default: `globalThis.Request`)                                                           |
+| `FormData`        | `FormData`      | FormData class of multipart bodies, of the same implementation as `Request` (default: `globalThis.FormData`)                            |
 | `querySerializer` | QuerySerializer | (optional) Provide a [querySerializer](#queryserializer)                                                                                |
 | `bodySerializer`  | BodySerializer  | (optional) Provide a [bodySerializer](#bodyserializer)                                                                                  |
 | `pathSerializer`  | PathSerializer  | (optional) Provide a [pathSerializer](#pathserializer)                                                                                  |
@@ -33,14 +34,20 @@ trailing slash, or `""` without one. `openapi-typesafe-react-query` puts it into
 `fetch` and `Request` of another Fetch API implementation, such as the `undici` package, are typed
 by that package, not by the DOM lib, so TypeScript cannot relate them to `Request` and `Response`.
 `createClient` and `createPathBasedClient` take them anyway (`CustomFetchClientOptions`) and check
-only that `fetch` returns a promise and `Request` is a class. Pass both from the same package: the
-undici `fetch` reads a request of another class as the URL `[object Request]`.
+only that `fetch` returns a promise and `Request` is a class. Pass `fetch`, `Request` and
+`FormData` from the same package: the undici `fetch` reads a request of another class as the URL
+`[object Request]`, and its `Request` reads a FormData of another class as the text
+`[object FormData]`. The client builds multipart bodies with the `FormData` option and copies a
+FormData body of another class into one of it.
 
 ```ts
-import { fetch, Request } from "undici";
+import { FormData, fetch, Request } from "undici";
 
-const client = createClient<paths>({ baseUrl: "https://myapi.dev/v1/", fetch, Request });
+const client = createClient<paths>({ baseUrl: "https://myapi.dev/v1/", fetch, Request, FormData });
 ```
+
+A body is told by its type tag (`Symbol.toStringTag`), not by `instanceof`, so a FormData, a Blob or
+a `ReadableStream` of another realm (an iframe) or implementation is sent as it is.
 
 ### TRACE
 
@@ -88,12 +95,31 @@ OAuth token answer) and errors reach logs, so it has no `cause` either: the pars
 the body. Read `response` with `parseAs: "text"` to see it. An error
 response (`4xx`, `5xx`) whose body is not JSON gives the text as `error` instead of throwing.
 
+An empty body (a 204, an answer to HEAD, a `Content-Length` of 0) is `undefined` data with the
+default `parseAs: "json"` and an `undefined` error. Another `parseAs` reads it with its method, as
+its type says: `""` for `"text"`, an empty `Blob` or `ArrayBuffer`, and `response.body` for
+`"stream"` (`null` for a 204).
+
 ### Headers
 
 `headers` can be set on the client, on a request, and as `params.header`; for the same name the
 request wins over the client, and `params.header` over both. They can be a `Headers` object, a
 list of `[name, value]` pairs or a record. A record value can be a string, a number, a boolean or
 an array of them (each item is appended), and `null` removes a header set at a lower level.
+
+`params.header` values are written in the `simple` style, the only style OpenAPI has for headers,
+as a `simple` path parameter but not percent-encoded:
+
+| Value | Sent as |
+| :---- | :------ |
+| `new Date(0)` | `1970-01-01T00:00:00.000Z` (ISO 8601, UTC) |
+| `["a", "b"]` | `a,b` |
+| `{ role: "admin", page: 2 }` | `role,admin,page,2` |
+| `[]`, `{}` | no header |
+| `null` | removes the header set in `headers` |
+
+An exploded object header (`role=admin,page=2`) needs a string value: the client does not know the
+`explode` of a header.
 
 ::: info Cookie parameters
 
@@ -150,8 +176,8 @@ openapi-typesafe-fetch ships the common serialization methods out-of-the-box:
 
 | Option          |       Type        | Description                                                                                                                                                    |
 | :-------------- | :---------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`.        |
-| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`. |
+| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`; each one left out takes its default. |
+| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`; each one left out takes its default. |
 | `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding of values (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`. |
 
 ```ts
@@ -470,7 +496,7 @@ Each middleware callback can return:
 
 - **onRequest**: A `Request` to modify the request, a `Response` to short-circuit the middleware chain, or `undefined` to leave request untouched (skip)
 - **onResponse**: Either a `Response` to modify the response, or `undefined` to leave it untouched (skip)
-- **onError**: Either an `Error` to modify the error that is thrown, a `Response` which means that the `fetch` call will proceed as successful, or `undefined` to leave the error untouched (skip)
+- **onError**: Either an `Error` (of any realm) to modify the error that is thrown, a `Response` which means that the `fetch` call will proceed as successful, or `undefined` to leave the error untouched (skip)
 
 A `Request` is recognized by its `method`, `url` and `headers`, a `Response` by its `ok`, `status`,
 `headers` and `text()`, not by its class. So one from the `undici` package, from another realm (an
