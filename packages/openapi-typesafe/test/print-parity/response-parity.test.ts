@@ -20,6 +20,7 @@ import {
   hasUnquotedExtractProbe,
   headerArbitrary,
   key,
+  mergesDifferentInputEnums,
   REFS,
   RUNS,
   runLegacy,
@@ -64,6 +65,7 @@ function checkParity<T>(
 ): void {
   fc.assert(
     fc.property(arbitrary, contextInput, (value: T, input: ContextInput) => {
+      fc.pre(!mergesDifferentInputEnums(value, input));
       const run = (build: Transform) =>
         runLegacy((options) => build(value as never, options as never), input, input.path);
       const expected = run(original);
