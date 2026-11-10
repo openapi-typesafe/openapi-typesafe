@@ -522,3 +522,96 @@ export function hasUnquotedExtractProbe(output: string): boolean {
     (match) => !PROBE_NAME_RE.test(match[1] ?? ""),
   );
 }
+
+/** A `${boolean}` placeholder in a path key: `` [path: `/a/${boolean}`] ``. */
+const BOOLEAN_PATH_KEY_RE = /\[path: `[^`]*\$\{boolean\}/;
+
+/**
+ * Whether the original output has a `${boolean}` path key, which no index signature takes
+ * (TS1337), so that output did not compile. The new generator writes the keys `true` and `false`.
+ */
+export function hasBooleanPathKey(output: string): boolean {
+  return BOOLEAN_PATH_KEY_RE.test(output);
+}
+
+/** The values and member metadata of one `--enum` declaration. */
+export interface EnumShape {
+  readonly values: readonly (string | number)[];
+  readonly metadata: readonly (
+    | { readonly name?: string; readonly description?: string }
+    | undefined
+  )[];
+}
+
+/** The original's dedupe cache key: a member name stood in for its value. */
+function originalEnumKey({ values, metadata }: EnumShape): string {
+  const keys = [...values].sort().map((value, index) => {
+    const member = metadata[index];
+    return `${member?.name ?? String(value)}:${member?.description || ""}`;
+  });
+  return keys.join(",");
+}
+
+/** The current dedupe key: a member keeps its value next to its name. */
+function enumKey({ values, metadata }: EnumShape): string {
+  const keys = [...values].sort().map((value, index) => {
+    const member = metadata[index];
+    return [value, member?.name ?? null, member?.description || null];
+  });
+  return JSON.stringify(keys);
+}
+
+/**
+ * Whether the original's `--dedupe-enums` would merge two of these enums whose values differ: its
+ * key let a member name stand in for the value, so `A = 0` and `A = "a"` became one enum and a
+ * type took values its schema forbids. The new footer keeps them apart (document-footer.test.ts).
+ */
+export function mergesDifferentEnums(enums: readonly EnumShape[]): boolean {
+  return enums.some((first) =>
+    enums.some(
+      (second) =>
+        originalEnumKey(first) === originalEnumKey(second) && enumKey(first) !== enumKey(second),
+    ),
+  );
+}
+
+const ENUM_NAME_KEYS = ["x-enum-varnames", "x-enumNames"] as const;
+const ENUM_DESCRIPTION_KEYS = ["x-enum-descriptions", "x-enumDescriptions"] as const;
+
+/** The first string at `index` of the arrays under `keys`, as the enum rule reads metadata. */
+function metadataText(schema: Record<string, unknown>, keys: readonly string[], index: number) {
+  for (const key of keys) {
+    const list = schema[key];
+    if (Array.isArray(list) && list[index] !== undefined && list[index] !== null) {
+      return String(list[index]);
+    }
+  }
+  return undefined;
+}
+
+/** Every schema-like object with a string and number `enum`, anywhere in `value`. */
+function enumShapesOf(value: unknown): EnumShape[] {
+  if (typeof value !== "object" || value === null) {
+    return [];
+  }
+  const nested = Object.values(value).flatMap(enumShapesOf);
+  const schema = value as Record<string, unknown>;
+  const values = schema.enum;
+  const isTsEnum =
+    Array.isArray(values) &&
+    values.every((item) => typeof item === "string" || typeof item === "number");
+  if (!isTsEnum) {
+    return nested;
+  }
+  const metadata = values.map((_, index) => ({
+    name: metadataText(schema, ENUM_NAME_KEYS, index),
+    description: metadataText(schema, ENUM_DESCRIPTION_KEYS, index),
+  }));
+  return [{ values, metadata }, ...nested];
+}
+
+/** {@link mergesDifferentEnums} for the enums of a parity input, with `--enum --dedupe-enums`. */
+export function mergesDifferentInputEnums(value: unknown, input: ContextInput): boolean {
+  const { flags } = input;
+  return flags.enum && flags.dedupeEnums && mergesDifferentEnums(enumShapesOf(value));
+}
