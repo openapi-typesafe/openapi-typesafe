@@ -26,8 +26,22 @@ describe("refAccessOf", () => {
     expect(access).toEqual({ localRoot, remoteHosts: ["a.com", "b.com:8080"] });
   });
 
+  it("refAccessOf reads a localRefRoot string with a file: scheme as a URL", () => {
+    expect(refAccessOf({ localRefRoot: "file:///specs/" }, CWD)).toEqual({
+      localRoot: new URL("file:///specs/"),
+    });
+  });
+
+  it("refAccessOf reads a Windows drive path as a path, not a URL", () => {
+    const access = refAccessOf({ localRefRoot: "C:specs" }, CWD);
+
+    expect(access.localRoot?.protocol).toBe("file:");
+  });
+
   it.each([
     [new URL("https://user:secret@example.com/specs/"), "got a https: URL."],
+    ["https://user:secret@example.com/specs/", "got a https: URL."],
+    ["http://[::1/specs", "got a string that is no valid URL."],
     [42, "got a number."],
     [null, "got null."],
     [["specs"], "got a list."],

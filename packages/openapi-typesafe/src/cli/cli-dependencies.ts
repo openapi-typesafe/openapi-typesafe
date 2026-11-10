@@ -1,6 +1,7 @@
 import type { Readable } from "node:stream";
 import type {
   DirectoryCheck,
+  FileCheck,
   FileClaims,
   FileIdentity,
   FileReader,
@@ -33,10 +34,14 @@ export interface GeneratedTypes {
   readonly localFiles: readonly URL[];
 }
 
-/** Generate the types of one schema. */
+/**
+ * Generate the types of one schema. With `apiName`, an API of `redocly.yaml`, every line the
+ * generation logs names that API.
+ */
 export type GenerateTypes = (
   source: SchemaSource,
   options: GeneratorOptions,
+  apiName?: string,
 ) => Promise<GeneratedTypes>;
 
 export interface CliDependencies {
@@ -55,7 +60,7 @@ export interface CliDependencies {
    * input with no prompt, which looks like a hang (upstream #1905).
    */
   readonly isStdinTerminal: () => boolean;
-  readonly files: FileReader & FileWriter & FileIdentity & DirectoryCheck & FileClaims;
+  readonly files: FileReader & FileWriter & FileIdentity & DirectoryCheck & FileCheck & FileClaims;
   readonly redoclyConfigs: RedoclyConfigSource;
   readonly generate: GenerateTypes;
   /** A monotonic time in milliseconds, for the time printed after each output. */

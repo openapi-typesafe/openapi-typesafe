@@ -165,14 +165,18 @@ describe("ineffectiveFlagNotices", () => {
 });
 
 describe("parseCliArguments flags with values", () => {
-  it.each(["--redoc=redocly.yaml", "--immutable-types=true", "--support-array-length=false"])(
-    "parseCliArguments fails with CLI_FLAG_REMOVED for %s",
-    (flag) => {
-      expect(() => parseCliArguments([flag])).toThrow(expect.objectContaining({ code: "CLI_FLAG_REMOVED" }));
-    },
-  );
+  it.each([
+    "--redoc=redocly.yaml",
+    "--immutable-types=true",
+    "--support-array-length=false",
+    "--immutableTypes",
+    "--supportArrayLength=true",
+    "--no-immutable-types",
+  ])("parseCliArguments fails with CLI_FLAG_REMOVED for %s", (flag) => {
+    expect(() => parseCliArguments([flag])).toThrow(expect.objectContaining({ code: "CLI_FLAG_REMOVED" }));
+  });
 
-  it.each(["--enum=1", "--alphabetize=yes", "--rootTypes=on", "--check=", "--no-enum=true"])(
+  it.each(["--enum=1", "--alphabetize=yes", "--rootTypes=on", "--check=", "--no-enum=true", "-t=yes", "-t=1"])(
     "parseCliArguments fails with CLI_FLAG_INVALID for %s",
     (flag) => {
       expect(() => parseCliArguments(["schema.yaml", flag])).toThrow(
@@ -180,6 +184,15 @@ describe("parseCliArguments flags with values", () => {
       );
     },
   );
+
+  it("parseCliArguments takes true and false as the values of a boolean alias", () => {
+    expect(parseCliArguments(["-t=true"]).generatorFlags).toEqual({ exportType: true });
+    expect(parseCliArguments(["-t=false"]).generatorFlags).toEqual({ exportType: false });
+  });
+
+  it("parseCliArguments takes a value of an alias that is no boolean flag", () => {
+    expect(parseCliArguments(["-o=out.ts"]).output).toBe("out.ts");
+  });
 
   it("parseCliArguments takes true and false as the values of a boolean flag", () => {
     const args = parseCliArguments(["--enum=true", "--alphabetize=false", "--check=true"]);

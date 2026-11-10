@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   type BaseResolver,
   type Document,
-  makeDocumentFromString,
+  parseYaml,
   ResolveError,
   Source,
   YamlParseError,
@@ -74,12 +74,24 @@ function parseJsonText(text: string, absoluteRef: string): Document {
   }
 }
 
+/**
+ * How a parser message names document text that is no file. The document itself is named as a
+ * file in the working directory, so that its relative `$ref`s resolve there, but no such file
+ * exists, and a message that named it sent the user looking for it.
+ */
+const TEXT_ORIGIN_NAMES: Readonly<Record<TextOrigin, string>> = {
+  string: "the schema string",
+  stream: "the schema stream",
+};
+
 function parseYamlText(text: string, absoluteRef: string, origin: TextOrigin): Document {
+  const source = new Source(absoluteRef, text);
   let document: Document;
   try {
-    document = makeDocumentFromString(text, absoluteRef);
+    document = { source, parsed: parseYaml(text, { filename: TEXT_ORIGIN_NAMES[origin] }) };
   } catch (cause) {
-    throw parseFailedError("yaml", absoluteRef, cause);
+    // As Redocly's own parse: the error keeps the first line, not the parser's code excerpt.
+    throw parseFailedError("yaml", absoluteRef, new YamlParseError(cause as Error, source));
   }
   // Text that is only a YAML string scalar, such as "./openapi.yaml", was meant as a file path.
   if (typeof document.parsed === "string") {

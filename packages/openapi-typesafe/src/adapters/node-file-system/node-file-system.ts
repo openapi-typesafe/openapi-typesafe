@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import type {
   ClaimedFile,
   DirectoryCheck,
+  FileCheck,
   FileClaims,
   FileIdentity,
   FileReader,
@@ -110,7 +111,9 @@ function typedWrite<T>(file: URL, step: () => T): T {
   }
 }
 
-class NodeFileSystem implements FileReader, FileWriter, FileIdentity, DirectoryCheck, FileClaims {
+class NodeFileSystem
+  implements FileReader, FileWriter, FileIdentity, DirectoryCheck, FileCheck, FileClaims
+{
   readText(file: URL): string {
     try {
       return fs.readFileSync(file, "utf8");
@@ -144,6 +147,15 @@ class NodeFileSystem implements FileReader, FileWriter, FileIdentity, DirectoryC
     }
   }
 
+  isFile(file: URL): boolean {
+    try {
+      return fs.statSync(file).isFile();
+    } catch {
+      // Missing or unreadable: no file; the read that follows reports a failure.
+      return false;
+    }
+  }
+
   isSameFile(left: URL, right: URL): boolean {
     const leftPath = fileURLToPath(left);
     const rightPath = fileURLToPath(right);
@@ -166,6 +178,7 @@ export function createNodeFileSystem(): FileReader &
   FileWriter &
   FileIdentity &
   DirectoryCheck &
+  FileCheck &
   FileClaims {
   return new NodeFileSystem();
 }

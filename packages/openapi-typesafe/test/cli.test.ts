@@ -285,7 +285,7 @@ describe("CLI", { timeout: SPAWN_TIMEOUT_MS }, () => {
         });
         throw new Error("Linting should have thrown an error");
       } catch (err) {
-        expect(stripAnsi(String(err))).toMatch(/✘ {2}Servers must be present/);
+        expect(stripAnsi(String(err))).toMatch(/✘ {2}API a@v1: Servers must be present/);
       }
     });
   });

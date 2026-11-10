@@ -89,6 +89,15 @@ describe("schema load errors", () => {
   });
 
   it.each([
+    ["the schema string", "openapi: 3.1.0\ninfo: [unclosed"],
+    ["the schema stream", Readable.from(["openapi: 3.1.0\ninfo: [unclosed"])],
+  ])("openapiTS with broken YAML text names it %s, in one line", async (name, source) => {
+    const error = await failureOf(source);
+
+    expect(error.message).toBe(`unexpected end of the stream within a flow collection in "${name}" (3:1)`);
+  });
+
+  it.each([
     ["yaml", "multi-document.yaml"],
     ["yaml", "tab-indent.yaml"],
     ["json", "truncated.json"],

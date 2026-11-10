@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import openapiTS, { astToString, type OpenAPI3 } from "../../src/index.js";
+import { createDocumentRun } from "../../src/api/document-run.js";
+import { defaultGeneratorPorts } from "../../src/api/openapi-ts.js";
+import openapiTS, { astToString, type OpenAPI3, type OpenAPITSOptions } from "../../src/index.js";
+import { RecordingLogger } from "../fakes/cli-dependencies.js";
 
 /**
  * `--default-non-nullable`: a default makes an output property required, never an input one. The
@@ -124,5 +127,27 @@ describe("$refs through a defaulted property", () => {
       'components["schemas"]["Run"]["hyperparameters"]["obj"]["x"]',
       'NonNullable<NonNullable<paths["/y"]["post"]["requestBody"]>["content"]["application/json"]["ref"]>["obj"]["x"]',
     ]);
+  });
+});
+
+describe("default-input-locations notice", () => {
+  async function warningsOf(options: OpenAPITSOptions): Promise<string[]> {
+    const ports = await defaultGeneratorPorts({ silent: true });
+    const logger = new RecordingLogger();
+    const source = 'openapi: 3.1.0\ninfo: { title: t, version: "1" }\npaths: {}\n';
+    await createDocumentRun(source, { silent: true, ...options }, { ...ports, logger });
+    return logger.messages("warn");
+  }
+
+  it("createDocumentRun with the fix and defaultNonNullable false warns", async () => {
+    const warnings = await warningsOf({ fix: ["default-input-locations"], defaultNonNullable: false });
+
+    expect(warnings).toEqual([
+      'Fix "default-input-locations" has no effect without defaultNonNullable (--default-non-nullable) (FIX_NEEDS_OPTION)',
+    ]);
+  });
+
+  it("createDocumentRun with the fix and the default defaultNonNullable does not warn", async () => {
+    expect(await warningsOf({ fix: ["default-input-locations"] })).toEqual([]);
   });
 });

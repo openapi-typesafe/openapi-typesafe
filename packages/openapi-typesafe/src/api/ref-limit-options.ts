@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { RefAccess } from "../application/ports/schema-loader.js";
 import { ERROR_CODES, OpenAPITypesafeError } from "../domain/errors.js";
+import { hasUrlScheme } from "../domain/location-text.js";
 import type { GeneratorOptions } from "../types.js";
 
 /**
@@ -31,15 +32,27 @@ function optionInvalid(option: string, expected: string, got: string): OpenAPITy
   });
 }
 
-/** The local root as a `file:` URL; a path resolves against the cwd. */
-function localRootOf(value: unknown, cwd: URL): URL {
-  if (typeof value === "string") {
+const LOCAL_ROOT_EXPECTED = "a directory path or a file: URL";
+
+/**
+ * A string as the CLI reads `--local-ref-root`: a URL when it has a scheme (`file:///specs/`),
+ * else a path that resolves against the cwd. Undefined when it does not parse as a URL.
+ */
+function localRootUrlOf(value: string, cwd: URL): URL | undefined {
+  if (!hasUrlScheme(value)) {
     return pathToFileURL(path.resolve(fileURLToPath(cwd), value));
   }
-  if (value instanceof URL && value.protocol === FILE_PROTOCOL) {
-    return value;
+  return URL.parse(value, cwd.href) ?? undefined;
+}
+
+/** The local root as a `file:` URL; the option is set, so it is not undefined. */
+function localRootOf(value: unknown, cwd: URL): URL {
+  const root = typeof value === "string" ? localRootUrlOf(value, cwd) : value;
+  if (root instanceof URL && root.protocol === FILE_PROTOCOL) {
+    return root;
   }
-  throw optionInvalid("localRefRoot", "a directory path or a file: URL", kindOf(value));
+  const got = root === undefined ? "a string that is no valid URL" : kindOf(root);
+  throw optionInvalid("localRefRoot", LOCAL_ROOT_EXPECTED, got);
 }
 
 function remoteHostsOf(value: unknown): readonly string[] {

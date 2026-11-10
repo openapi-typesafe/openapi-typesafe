@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type {
   ClaimedFile,
   DirectoryCheck,
+  FileCheck,
   FileClaims,
   FileIdentity,
   FileReader,
@@ -81,7 +82,7 @@ export class RecordingConsole implements CliConsole {
  * `writeFailures` list the paths a claim or a write fails for.
  */
 export class InMemoryFiles
-  implements FileReader, FileWriter, FileIdentity, DirectoryCheck, FileClaims
+  implements FileReader, FileWriter, FileIdentity, DirectoryCheck, FileCheck, FileClaims
 {
   readonly files = new Map<string, string>();
   readonly links = new Map<string, string>();
@@ -126,6 +127,10 @@ export class InMemoryFiles
       this.directories.has(directory) ||
       [...this.files.keys()].some((name) => name.startsWith(inside))
     );
+  }
+
+  isFile(file: URL): boolean {
+    return this.files.has(this.targetOf(file));
   }
 
   isSameFile(left: URL, right: URL): boolean {
@@ -197,6 +202,7 @@ export function fakeRedoclyConfig(
 export interface GenerateCall {
   readonly source: SchemaSource;
   readonly options: GeneratorOptions;
+  readonly apiName?: string | undefined;
 }
 
 /**
@@ -214,8 +220,9 @@ export class FakeGenerator {
   readonly generate = async (
     source: SchemaSource,
     options: GeneratorOptions,
+    apiName?: string,
   ): Promise<GeneratedTypes> => {
-    this.calls.push({ source, options });
+    this.calls.push({ source, options, apiName });
     this.#running += 1;
     this.mostAtOnce = Math.max(this.mostAtOnce, this.#running);
     try {

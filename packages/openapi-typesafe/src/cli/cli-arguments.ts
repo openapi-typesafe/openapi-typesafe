@@ -109,18 +109,41 @@ function writtenFlags(argv: readonly string[]): WrittenFlag[] {
     });
 }
 
-/** An old flag fails by its name, also with a value (`--redoc=redocly.yaml`). */
+/**
+ * A long flag as yargs-parser reads it: in kebab-case and without `--no-`, so `--immutableTypes`
+ * and `--no-immutable-types` are `--immutable-types`. A short flag stays as written.
+ */
+function canonicalFlagName(name: string): string {
+  if (!name.startsWith(LONG_PREFIX)) {
+    return name;
+  }
+  const bare = name.startsWith(NEGATION_PREFIX)
+    ? name.slice(NEGATION_PREFIX.length)
+    : name.slice(LONG_PREFIX.length);
+  return `${LONG_PREFIX}${kebabCase(bare)}`;
+}
+
+/** An old flag fails by its name in any spelling, also with a value (`--redoc=redocly.yaml`). */
 function rejectRemovedFlags(flags: readonly WrittenFlag[]): void {
+  const names = new Set(flags.map(({ name }) => canonicalFlagName(name)));
   for (const [flag, message] of REMOVED_FLAGS) {
-    if (flags.some(({ name }) => name === flag)) {
+    if (names.has(flag)) {
       throw cliError("CLI_FLAG_REMOVED", message);
     }
   }
 }
 
-const BOOLEAN_FLAG_NAMES: ReadonlySet<string> = new Set(
-  BOOLEAN_FLAGS.map((flag) => `${LONG_PREFIX}${flag}`),
-);
+const ALIASES = { redocly: ["c"], exportType: ["t"], output: ["o"] };
+
+/** The short aliases of boolean flags (`-t`), which take a value the same way (`-t=true`). */
+const BOOLEAN_ALIASES = Object.entries(ALIASES)
+  .filter(([flag]) => CAMEL_CASE_BOOLEAN_FLAGS.includes(flag))
+  .flatMap(([, aliases]) => aliases.map((alias) => `-${alias}`));
+
+const BOOLEAN_FLAG_NAMES: ReadonlySet<string> = new Set([
+  ...BOOLEAN_FLAGS.map((flag) => `${LONG_PREFIX}${flag}`),
+  ...BOOLEAN_ALIASES,
+]);
 
 /**
  * A boolean flag takes `=true` or `=false`, and its `--no-` form takes no value. yargs-parser read
@@ -205,8 +228,6 @@ const STRING_FLAGS = [
   "fix",
   ...["localRefRoot", "remoteRefHosts"].flatMap((flag) => [flag, kebabCase(flag)]),
 ];
-
-const ALIASES = { redocly: ["c"], exportType: ["t"], output: ["o"] };
 
 /** Every name yargs-parser can return for a flag this CLI reads. */
 const KNOWN_FLAGS = new Set<string>([

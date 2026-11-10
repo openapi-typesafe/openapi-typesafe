@@ -74,6 +74,25 @@ describe("runCli: help, version and flags", () => {
     expect(cli.logger.messages("error")[0]).toContain("(CLI_GLOB_UNSUPPORTED)");
   });
 
+  it("runCli with a * in a URL generates it, since a URL is no glob pattern", async () => {
+    const cli = createFakeCli();
+
+    const exitCode = await runCli(["https://api.test/openapi?fields=*"], cli.deps);
+
+    expect(exitCode).toBe(0);
+    expect(cli.generator.calls.map((call) => String(call.source))).toEqual(["https://api.test/openapi?fields=*"]);
+  });
+
+  it("runCli with a * in the name of an existing file generates that file", async () => {
+    const cli = createFakeCli();
+    cli.files.files.set(fakePath("/work/api*.yaml"), "openapi: 3.1.0");
+
+    const exitCode = await runCli(["api*.yaml"], cli.deps);
+
+    expect(exitCode).toBe(0);
+    expect(cli.generator.calls.map((call) => String(call.source))).toEqual([fakeUrl("/work/api*.yaml")]);
+  });
+
   it("runCli with --redocly at a missing path exits with 2", async () => {
     const cli = createFakeCli();
 
@@ -127,6 +146,14 @@ describe("runCli: one schema", () => {
     await runCli(["https://example.com/a.yaml?token=SECRET", "-o", "a.ts"], cli.deps);
 
     expect(cli.console.infoLines.at(-1)).toBe("🚀 https://example.com/a.yaml?*** → *a.ts* [5ms]");
+  });
+
+  it("runCli prints the names of the line for a written file as one plain line", async () => {
+    const cli = createFakeCli();
+
+    await runCli(["a\u001b[2K.yaml", "-o", "a\n::error::x.ts"], cli.deps);
+
+    expect(cli.console.infoLines.at(-1)).toBe("🚀 a\\u001b[2K.yaml → *a\\n::error::x.ts* [5ms]");
   });
 
   it("runCli without a schema and with stdin a terminal fails instead of waiting (upstream #1905)", async () => {

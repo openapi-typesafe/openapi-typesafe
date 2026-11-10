@@ -9,6 +9,8 @@ import { astToString } from "../api/ast-to-string.js";
 import { COMMENT_HEADER } from "../api/comment-header.js";
 import { defaultLogger, monotonicNow, terminalSupportsColor } from "../api/default-ports.js";
 import { defaultGeneratorPorts, generateDocument } from "../api/openapi-ts.js";
+import { terminalSafeText } from "../domain/terminal-text.js";
+import { apiLogger } from "./api-logger.js";
 import type { CliConsole, CliDependencies, GenerateTypes, TextStyle } from "./cli-dependencies.js";
 import { runCli } from "./run-cli.js";
 
@@ -37,8 +39,10 @@ function terminalStyle(): TextStyle {
 
 const STDIN_DESCRIPTOR = 0;
 
-const generateTypes: GenerateTypes = async (source, options) => {
-  const ports = await defaultGeneratorPorts(options);
+const generateTypes: GenerateTypes = async (source, options, apiName) => {
+  const terminalLogger = defaultLogger(options.silent ?? false);
+  const logger = apiName === undefined ? terminalLogger : apiLogger(terminalLogger, apiName);
+  const ports = await defaultGeneratorPorts(options, logger);
   const { declarations, localFiles } = await generateDocument(source, options, ports);
   return { contents: `${COMMENT_HEADER}${astToString(declarations)}`, localFiles };
 };
@@ -47,8 +51,9 @@ function terminalConsole(): CliConsole {
   return {
     // biome-ignore lint/suspicious/noConsole: the CLI's own output lines
     info: (text) => console.info(text),
+    // A notice names flags and API names as written, so it is shown as one plain line.
     // biome-ignore lint/suspicious/noConsole: the CLI's own notices
-    notice: (text) => console.warn(text),
+    notice: (text) => console.warn(terminalSafeText(text)),
   };
 }
 

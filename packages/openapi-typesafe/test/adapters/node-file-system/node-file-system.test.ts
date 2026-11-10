@@ -123,6 +123,16 @@ describe("createNodeFileSystem", () => {
     ).toBe(false);
   });
 
+  it("isFile is true for a file only", () => {
+    const files = createNodeFileSystem();
+    const file = path.join(workDir, "plain.ts");
+    fs.writeFileSync(file, "");
+
+    expect(files.isFile(pathToFileURL(file))).toBe(true);
+    expect(files.isFile(pathToFileURL(workDir))).toBe(false);
+    expect(files.isFile(pathToFileURL(path.join(workDir, "absent")))).toBe(false);
+  });
+
   it("isDirectory is true for a directory only", () => {
     const files = createNodeFileSystem();
     const file = path.join(workDir, "plain.ts");

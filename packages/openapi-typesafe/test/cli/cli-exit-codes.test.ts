@@ -128,6 +128,16 @@ describe("CLI exit codes", () => {
   );
 
   it(
+    "cli prints a notice that names an unknown flag with an escape sequence as one plain line",
+    async () => {
+      const { stderr } = await runCli(["--ab\u001bc", "--version"]);
+
+      expect(stderr).toBe("Unknown flag --ab\\u001bc is ignored (see --help)");
+    },
+    TIMEOUT,
+  );
+
+  it(
     "cli with lint errors prints each one, then exits with 3 and SCHEMA_INVALID",
     async () => {
       const cwd = fileURLToPath(new URL("../fixtures/redocly-lint-error/", import.meta.url));
@@ -135,7 +145,8 @@ describe("CLI exit codes", () => {
       const { exitCode, stderr } = await runCli([], cwd);
 
       expect(exitCode).toBe(3);
-      expect(stderr).toMatch(/✘ {2}Servers must be present/);
+      // Each problem line names the API of redocly.yaml it belongs to.
+      expect(stderr).toMatch(/✘ {2}API a@v1: Servers must be present/);
       expect(stderr).toMatch(/The OpenAPI document has \d+ errors? \(see above\) \(SCHEMA_INVALID\)/);
     },
     TIMEOUT,
