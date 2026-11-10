@@ -18,12 +18,10 @@ import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import { type AccessFlags, propertyAccessFlags } from "./access-flags.js";
 import { discriminatorMember, inheritedDiscriminator } from "./inherited-discriminator.js";
+import { isInputLocation } from "./input-location.js";
 import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
 import type { SchemaOptions } from "./schema-context.js";
 import type { SchemaRequest } from "./schema-rule.js";
-
-/** Path parts where a default value cannot make a property required (inputs may omit it). */
-const INPUT_PATH_PARTS = ["parameters", "requestBody", "requestBodies"] as const;
 
 export class InvalidPropertyError extends OpenAPITypesafeError {
   constructor(path: string | undefined, key: string, value: unknown) {
@@ -88,11 +86,8 @@ function isOptionalProperty(
   request: SchemaRequest,
 ): boolean {
   const { options } = request.context;
-  const path = request.location.path;
   const isDefaultRequired =
-    facts.hasDefault &&
-    options.defaultNonNullable &&
-    !INPUT_PATH_PARTS.some((part) => path?.includes(part));
+    facts.hasDefault && options.defaultNonNullable && !isInputLocation(request.location.path);
   const isRequired =
     schema.required?.includes(key) ||
     (schema.required === undefined && options.propertiesRequiredByDefault) ||

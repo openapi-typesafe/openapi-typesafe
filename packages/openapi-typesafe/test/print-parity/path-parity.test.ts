@@ -50,15 +50,20 @@ import {
 
 type Build = (options: TransformNodeOptions) => IrType | ts.TypeNode;
 
-function expectSameOutput(build: Build, original: Build, input: ContextInput): void {
-  const expected = runLegacy(original, input, input.path);
+function expectSameOutput(
+  build: Build,
+  original: Build,
+  input: ContextInput,
+  path: string = input.path,
+): void {
+  const expected = runLegacy(original, input, path);
   fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
   fc.pre(!hasRepeatedEnumDeclarations(expected));
   fc.pre(!hasRepeatedOperationKeys(expected));
   fc.pre(!hasRepeatedParametersIndex(expected));
   fc.pre(!hasUnquotedExtractProbe(expected));
   fc.pre(!hasBooleanPathKey(expected));
-  expect(runLegacy(build, input, input.path)).toBe(expected);
+  expect(runLegacy(build, input, path)).toBe(expected);
 }
 
 function property<T>(arbitrary: fc.Arbitrary<T>, check: (value: T, input: ContextInput) => void) {
@@ -95,6 +100,14 @@ function printEnum(make: (value: never) => IrEnumDeclaration | ts.Node, value: u
   }
 }
 
+/**
+ * Operations and path items sit at these pointers in a document. The default of an input property
+ * makes it no required one, and the generator reads the input places by the document's structure
+ * (input-location.test.ts), so these nodes are not typed at a component schema's pointer.
+ */
+const OPERATION_PATH = "#/paths/~1items/get";
+const PATH_ITEM_PATH = "#/paths/~1items";
+
 describe("path transformer parity with the fork base", () => {
   it(
     "transformOperationObject matches the original",
@@ -104,6 +117,7 @@ describe("path transformer parity with the fork base", () => {
           elementsType(transformOperationObject, value),
           elementsType(originalTransformOperationObject, value),
           input,
+          OPERATION_PATH,
         ),
       ),
     TIMEOUT_MS,
@@ -117,6 +131,7 @@ describe("path transformer parity with the fork base", () => {
           injected(injectOperationObject, value),
           injected(originalInjectOperationObject, value),
           input,
+          OPERATION_PATH,
         ),
       ),
     TIMEOUT_MS,
@@ -130,6 +145,7 @@ describe("path transformer parity with the fork base", () => {
           (options) => transformPathItemObject(value as never, options),
           (options) => originalTransformPathItemObject(value as never, options as never),
           input,
+          PATH_ITEM_PATH,
         ),
       ),
     TIMEOUT_MS,

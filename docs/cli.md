@@ -213,6 +213,13 @@ written inline under a request body.
 | a property of an inline response | required | optional |
 | a property of a component (`$ref`), in requests and responses | required | optional |
 
+The place is read from the document's structure: a parameter or a request body of an operation
+or a path item, also under `webhooks`, callbacks and `components` (`parameters`,
+`requestBodies`, `pathItems`). A path or schema that is only named so is no such place: a response
+of `/system-parameters` and a property named `parameters` follow the response row. (The original
+looked for the words `parameters`, `requestBody` and `requestBodies` anywhere in the location; the
+exported transformers still do for a `path` that points nowhere in the document.)
+
 The last row is the common surprise (openapi-typescript issues #2012, #1957, #1903): a component
 used as a request body makes the client send a field the server would fill in. The rule cannot
 tell that a `$ref`'d component is a request body.
