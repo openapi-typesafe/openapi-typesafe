@@ -26,11 +26,11 @@ describe("--path-params-as-types boolean path parameters", () => {
     expect(output).not.toContain("boolean}");
   });
 
-  it("openapiTS keeps the other placeholders in each key", async () => {
+  it("openapiTS keeps a boolean placeholder next to another placeholder as one key", async () => {
     const output = await generate(MIXED);
 
-    expect(output).toContain(`[path: \`/a/\${number}/b/true\`]: {`);
-    expect(output).toContain(`[path: \`/a/\${number}/b/false\`]: {`);
+    expect(output).toContain(`[path: \`/a/\${number}/b/\${boolean}\`]: {`);
+    expect(output).not.toContain("/b/true");
   });
 
   it("openapiTS writes 2ⁿ keys for n boolean parameters", async () => {

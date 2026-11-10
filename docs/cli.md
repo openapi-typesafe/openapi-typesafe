@@ -311,12 +311,13 @@ merge the paths in the document to get one. Without the flag, each path keeps it
 :::
 
 ::: info Boolean path parameters
-`` `${boolean}` `` is the union `"true" | "false"`, and an index signature takes no union of
-literals (TS1337), so the original's `` [path: `/flags/${boolean}`] `` did not compile. Each
-boolean parameter is written as two keys instead, `"/flags/true"` and `"/flags/false"`, with the
-same path item type; other placeholders stay (`` [path: `/a/${number}/b/true`] ``). A path with n
-boolean parameters gets 2ⁿ keys. A key that a path of the document already has is left out: that
-path is the more specific one, and a key written twice does not compile.
+`` `${boolean}` `` is the union `"true" | "false"`. A template whose only placeholders are
+booleans is a union of literals, and an index signature takes none (TS1337), so the original's
+`` [path: `/flags/${boolean}`] `` did not compile. Such a path is written as plain keys instead,
+`"/flags/true"` and `"/flags/false"`, with the same path item type; n boolean parameters give 2ⁿ
+keys. A key that a path of the document already has is left out: that path is the more specific
+one, and a key written twice does not compile. Next to another placeholder the template is a valid
+signature for the same URLs, so it stays (`` [path: `/a/${number}/b/${boolean}`] ``).
 :::
 
 ::: info `$ref`s into a templated path
