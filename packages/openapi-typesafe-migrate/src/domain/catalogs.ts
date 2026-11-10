@@ -19,6 +19,7 @@ import {
   NAMED_CATALOGS_FIELD,
   OVERRIDE_FIELDS,
   PACKAGE_RENAMES,
+  PNPM_SETTINGS_FIELD,
   WORKSPACES_FIELD,
 } from "./package-names.js";
 import { specEntries } from "./tree-entries.js";
@@ -116,7 +117,7 @@ function nestedTexts(node: TreeNode): { key: string; value: string }[] {
  */
 function addOverrideUses(documents: readonly TreeMap[], inUse: CatalogEntries): void {
   const sections = documents.flatMap((document) =>
-    OVERRIDE_FIELDS.flatMap((field) => valuesAt(document, field)),
+    [...OVERRIDE_FIELDS, PNPM_SETTINGS_FIELD].flatMap((field) => valuesAt(document, field)),
   );
   for (const { key, value } of sections.flatMap(nestedTexts)) {
     const catalog = catalogOfSpec(value);
@@ -138,6 +139,7 @@ export function planCatalogs({ manifests, catalogFiles }: CatalogDocuments): Cat
   const inUse = entriesInUse(manifests);
   addOverrideUses([...manifests, ...catalogFiles], inUse);
   const kept = new CatalogEntries();
+  const defined = new CatalogEntries();
   const catalogs = [
     ...catalogFiles.flatMap((file) => catalogMaps(file)),
     ...manifests.flatMap(manifestCatalogMaps),
@@ -146,6 +148,7 @@ export function planCatalogs({ manifests, catalogFiles }: CatalogDocuments): Cat
     const entries = specEntries(map);
     const names = new Set(entries.map((entry) => entry.name));
     for (const { name, spec } of entries) {
+      defined.add(catalog, name);
       const to = PACKAGE_RENAMES.get(name);
       const stays = spec === undefined || inUse.has(catalog, name);
       if (to !== undefined && !names.has(to) && stays) {
@@ -153,5 +156,5 @@ export function planCatalogs({ manifests, catalogFiles }: CatalogDocuments): Cat
       }
     }
   }
-  return { inUse, kept };
+  return { inUse, kept, defined };
 }

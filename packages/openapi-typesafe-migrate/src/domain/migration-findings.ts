@@ -75,10 +75,26 @@ export type ManualStep =
       readonly name: string;
       readonly catalog: string;
     }
+  | {
+      readonly kind: "catalog-entry-outside";
+      readonly field: string;
+      readonly name: string;
+      readonly catalog: string;
+    }
   | { readonly kind: "catalog-entry-in-use"; readonly catalog: string; readonly name: string }
   | { readonly kind: "peer-dependency-renamed"; readonly name: string }
   | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
   | { readonly kind: "override-names-package"; readonly field: string; readonly name: string }
+  /** A pattern of a config (Jest's `moduleNameMapper`) that names an old package. */
+  | {
+      readonly kind: "pattern-names-package";
+      readonly location: string;
+      readonly value: string;
+      readonly name: string;
+      readonly to: string;
+    }
+  /** A package manager setting (not an override) that names an old package. */
+  | { readonly kind: "setting-names-package"; readonly field: string; readonly name: string }
   | { readonly kind: "versioned-command"; readonly location: string }
   | {
       readonly kind: "flags-in-variable";
@@ -96,11 +112,26 @@ export type ManualStep =
     }
   | { readonly kind: "pinned-package"; readonly location: string; readonly name: string }
   | { readonly kind: "old-package-file"; readonly location: string; readonly path: string }
+  | { readonly kind: "old-name-in-command"; readonly location: string; readonly word: string }
   | { readonly kind: "command-string"; readonly line: number; readonly to: string }
   | { readonly kind: "config-unreadable"; readonly position: TextPosition | undefined }
   | { readonly kind: "manifest-not-read" }
+  /** A patch file (patch-package, pnpm, Yarn) of an old package's code. */
+  | { readonly kind: "old-package-patch"; readonly name: string; readonly to: string }
+  /** A Deno config names an import map by a URL or a path outside the project. */
+  | { readonly kind: "import-map-not-editable"; readonly reference: string }
   | { readonly kind: "options-not-inspected"; readonly line: number }
   | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
+  /** A module specifier that is a path into the installed files of an old package. */
+  | {
+      readonly kind: "old-package-import";
+      readonly line: number;
+      readonly specifier: string;
+      readonly name: string;
+      readonly to: string;
+    }
+  /** A target of package.json `imports` that reaches into a renamed package. */
+  | { readonly kind: "deep-target"; readonly location: string; readonly specifier: string }
   | {
       readonly kind: "dynamic-specifier";
       readonly line: number;
@@ -140,7 +171,8 @@ export type TransformKeepReason =
   | "not-a-function"
   | "shared-function"
   | "shared-options"
-  | "unknown-return";
+  | "unknown-return"
+  | "typed-options";
 
 /** A file's new text and what was found in it. Unchanged text means nothing to write. */
 export interface FileMigration {

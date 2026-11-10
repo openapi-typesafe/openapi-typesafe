@@ -35,10 +35,17 @@ export interface CatalogPlan {
   readonly inUse: CatalogEntries;
   /** Entries that keep the old name, with no entry for the new one: a dependency stays. */
   readonly kept: CatalogEntries;
+  /**
+   * The entries of the project's catalogs. A dependency on an entry that is not among them points
+   * at a catalog outside the root (`--root packages/api` of a pnpm workspace): that entry cannot
+   * be renamed, so the dependency keeps its name.
+   */
+  readonly defined: CatalogEntries;
 }
 
-/** The plan for a project whose catalogs were not read: nothing is kept for them. */
+/** The plan for files with no dependencies on catalogs (import maps): nothing is kept. */
 export const NO_CATALOG_PLAN: CatalogPlan = {
   inUse: new CatalogEntries(),
   kept: new CatalogEntries(),
+  defined: new CatalogEntries(),
 };

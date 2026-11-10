@@ -216,6 +216,25 @@ describe("migrateProject and catalogs", () => {
     expect(steps).toEqual(expect.arrayContaining(["name-collision", "catalog-entry-in-use"]));
   });
 
+  it("migrateProject keeps a dependency whose catalog entry is outside the root", async () => {
+    const project = {
+      "package.json": manifestOf({
+        "openapi-fetch": "catalog:",
+        "openapi-typescript": "catalog:legacy",
+        "openapi-react-query": "^0.5.0",
+      }),
+    };
+
+    const { files, steps } = await migrated(project);
+
+    expect(JSON.parse(files.get("package.json") ?? "").dependencies).toEqual({
+      "openapi-fetch": "catalog:",
+      "openapi-typescript": "catalog:legacy",
+      "openapi-typesafe-react-query": "^1.0.0",
+    });
+    expect(steps.filter((kind) => kind === "catalog-entry-outside")).toHaveLength(2);
+  });
+
   it("migrateProject keeps a dependency on a catalog entry the tool does not edit", async () => {
     const project = {
       "package.json": manifestOf({
@@ -360,5 +379,32 @@ describe("migrateProject and undeclared imports", () => {
     const result = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
 
     expect(stepKinds(result.files)).toEqual(["package-not-declared"]);
+  });
+
+  it("migrateProject migrates the import map file that a Deno config names", async () => {
+    const files = {
+      "app/deno.json": '{ "importMap": "../maps/deps.json" }\n',
+      "maps/deps.json":
+        '{ "imports": { "openapi-typescript-helpers": "npm:openapi-typescript-helpers@0.1" } }\n',
+      "app/main.ts": HELPERS_IMPORT,
+    };
+    const dependencies = setUp(files);
+
+    const result = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
+
+    expect(result.files.map((report) => report.path)).toEqual(["app/main.ts", "maps/deps.json"]);
+    expect(result.files[1]?.changes.map((change) => change.kind)).toEqual(["import-renamed"]);
+    expect(stepKinds(result.files)).toEqual([]);
+  });
+
+  it("migrateProject reports an import map that a Deno config names by a URL", async () => {
+    const files = { "deno.json": '{ "importMap": "https://example.com/deps.json" }\n' };
+    const dependencies = setUp(files);
+
+    const result = await migrateProject(dependencies, { version: "1.0.0", isWrite: false });
+
+    expect(result.files[0]?.manualSteps).toEqual([
+      { kind: "import-map-not-editable", reference: "https://example.com/deps.json" },
+    ]);
   });
 });

@@ -1,50 +1,24 @@
 import { migrateCommand } from "./command-migration.js";
-import type { DocumentPath, DocumentString } from "./config-documents.js";
+import { type CommandPathPattern, isCommandPath } from "./command-paths.js";
+import type { DocumentString } from "./config-documents.js";
 import type { Change, FileMigration, ManualStep } from "./migration-findings.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 
 /**
- * Commands in JSON configs: package.json scripts, Nx `project.json` targets and Deno tasks.
- * Only the strings at command paths are migrated, and each is replaced in place, so the rest of
- * the file keeps its formatting.
+ * Commands in JSON configs, at the paths of domain/command-paths.ts. Only the strings at those
+ * paths are migrated, and each is replaced in place, so the rest of the file keeps its formatting.
  */
-
-/** A key path pattern; `*` matches any key or index. */
-export type JsonPathPattern = readonly string[];
-
-const ANY = "*";
-
-/** package.json scripts; each finding names its script (`scripts.gen`). */
-export const PACKAGE_SCRIPT_PATHS: readonly JsonPathPattern[] = [["scripts", ANY]];
-
-/** `nx:run-commands` targets: `command`, `options.command` and `options.commands`. */
-export const NX_COMMAND_PATHS: readonly JsonPathPattern[] = [
-  ["targets", ANY, "command"],
-  ["targets", ANY, "options", "command"],
-  ["targets", ANY, "options", "commands", ANY],
-  ["targets", ANY, "options", "commands", ANY, "command"],
-];
-
-/** Deno tasks: a command string, or an object with a `command`. */
-export const DENO_TASK_PATHS: readonly JsonPathPattern[] = [
-  ["tasks", ANY],
-  ["tasks", ANY, "command"],
-];
-
-const matches = (path: DocumentPath, pattern: JsonPathPattern): boolean =>
-  path.length === pattern.length &&
-  pattern.every((part, index) => part === ANY || part === String(path[index]));
 
 /** Migrate the command strings of a JSON config whose key paths match one of `patterns`. */
 export function migrateJsonCommands(
   text: string,
   strings: readonly DocumentString[],
-  patterns: readonly JsonPathPattern[],
+  patterns: readonly CommandPathPattern[],
 ): FileMigration {
   const changes: Change[] = [];
   const manualSteps: ManualStep[] = [];
   const edits: TextEdit[] = [];
-  for (const found of strings.filter((string) => patterns.some((p) => matches(string.path, p)))) {
+  for (const found of strings.filter((string) => isCommandPath(string.path, patterns))) {
     const migrated = migrateCommand(found.value, found.path.join("."));
     changes.push(...migrated.changes);
     manualSteps.push(...migrated.manualSteps);

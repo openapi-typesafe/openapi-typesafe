@@ -1,31 +1,25 @@
-import type { CatalogPlan } from "../domain/catalog-plan.js";
 import { migrateCommandLines } from "../domain/command-migration.js";
-import { commandStringSteps } from "../domain/command-strings.js";
 import {
-  type DocumentRead,
-  type DocumentString,
-  documentStrings,
-  unreadableConfig,
-} from "../domain/config-documents.js";
-import { type ManifestDeclarations, undeclaredImportSteps } from "../domain/declared-packages.js";
+  type CommandPathPattern,
+  DENO_TASK_PATHS,
+  LINT_STAGED_COMMAND_PATHS,
+  MANIFEST_COMMAND_PATHS,
+  NX_PROJECT_COMMAND_PATHS,
+  NX_WORKSPACE_COMMAND_PATHS,
+  SIMPLE_GIT_HOOKS_COMMAND_PATHS,
+} from "../domain/command-paths.js";
+import { commandStringSteps } from "../domain/command-strings.js";
+import { undeclaredImportSteps } from "../domain/declared-packages.js";
 import { migrateDockerfile } from "../domain/dockerfile-migration.js";
 import { migrateImportMap } from "../domain/import-map-migration.js";
-import {
-  DENO_TASK_PATHS,
-  type JsonPathPattern,
-  migrateJsonCommands,
-  NX_COMMAND_PATHS,
-  PACKAGE_SCRIPT_PATHS,
-} from "../domain/json-command-migration.js";
+import { importMapSteps } from "../domain/import-map-reference.js";
+import { isJestConfig, jestJsonSteps, jestScriptSteps } from "../domain/jest-config.js";
+import { migrateJsonCommands } from "../domain/json-command-migration.js";
 import { migrateMakefile } from "../domain/makefile-migration.js";
 import { migratePackageManifest, unreadManifest } from "../domain/manifest-migration.js";
-import {
-  type Change,
-  type FileMigration,
-  type ManualStep,
-  unchanged,
-} from "../domain/migration-findings.js";
-import { namesOriginalPackage } from "../domain/package-names.js";
+import { type FileMigration, unchanged } from "../domain/migration-findings.js";
+import { oldPackagePatchSteps, patchedOldPackage } from "../domain/patch-files.js";
+import { migratePreCommitHooks } from "../domain/pre-commit-migration.js";
 import {
   importedSpecifiers,
   migrateModuleSpecifiers,
@@ -36,12 +30,24 @@ import {
   PNPM_WORKSPACE_FILE,
   YARNRC_FILE,
 } from "../domain/workspace-catalog-migration.js";
+import { TASKFILE_COMMAND_KEYS } from "../domain/yaml-command-keys.js";
 import {
   migrateDependabotConfig,
   migrateYamlCommands,
-  migrateYamlScripts,
+  migrateYamlPathCommands,
 } from "../domain/yaml-migration.js";
-import type { CallbackRewriter, DocumentReaders, SourceStringScanner } from "./ports.js";
+import {
+  type ConfigStep,
+  chain,
+  type FileKind,
+  jsonConfig,
+  type MigrationContext,
+  stringsStep,
+  whenNamed,
+  withSteps,
+  yamlConfig,
+} from "./config-steps.js";
+import { type NamedImportMaps, NO_NAMED_IMPORT_MAPS } from "./named-import-maps.js";
 import {
   baseName,
   DENO_CONFIG_FILES,
@@ -51,37 +57,26 @@ import {
   HUSKY_FOLDER,
   HUSKY_INTERNALS,
   IMPORT_MAP_FILE,
+  JEST_JSON_CONFIG_FILE,
   JSON5_MANIFEST_FILE,
+  LINT_STAGED_JSON_FILE,
+  LINT_STAGED_YAML_FILES,
   LOCK_FILES,
   MAKEFILE_EXTENSION,
   MAKEFILE_NAMES,
   MANIFEST_FILE,
   NX_PROJECT_FILE,
+  NX_WORKSPACE_FILE,
+  PRE_COMMIT_FILES,
   SHELL_EXTENSIONS,
   SHELL_FILE_NAMES,
+  SIMPLE_GIT_HOOKS_FILES,
+  TASKFILE_NAMES,
   WORKSPACE_FILE,
   YAML_EXTENSIONS,
   YAML_MANIFEST_FILES,
   YARNRC_FILE_NAME,
 } from "./project-file-names.js";
-
-/** What a migration of one kind of file needs besides the text. */
-export interface MigrationContext {
-  readonly version: string;
-  /** What the catalogs keep under the old names, from every manifest and catalog file. */
-  readonly catalogs: CatalogPlan;
-  /** What every manifest of the project declares, for the imports of a source file. */
-  readonly manifests: readonly ManifestDeclarations[];
-  readonly rewriter: CallbackRewriter;
-  readonly scanner: SourceStringScanner;
-  readonly readers: DocumentReaders;
-}
-
-/** One kind of file the migration knows, and how to migrate it. */
-interface FileKind {
-  readonly matches: (path: string) => boolean;
-  readonly migrate: (text: string, path: string, context: MigrationContext) => FileMigration;
-}
 
 const isHuskyHook = (path: string): boolean =>
   (path.startsWith(HUSKY_FOLDER) || path.includes(`/${HUSKY_FOLDER}`)) &&
@@ -89,12 +84,6 @@ const isHuskyHook = (path: string): boolean =>
 
 const isDependabotConfig = (path: string): boolean =>
   [...DEPENDABOT_FILES].some((file) => path === file || path.endsWith(`/${file}`));
-
-/** A migration with more manual steps appended. */
-const withSteps = (migration: FileMigration, steps: readonly ManualStep[]): FileMigration => ({
-  ...migration,
-  manualSteps: [...migration.manualSteps, ...steps],
-});
 
 /** Module specifiers and `transform` callbacks are migrated; command strings are reported. */
 function migrateSource(text: string, path: string, context: MigrationContext): FileMigration {
@@ -104,74 +93,69 @@ function migrateSource(text: string, path: string, context: MigrationContext): F
   );
   const imports = importedSpecifiers(text, strings);
   const undeclared = undeclaredImportSteps(imports, path, context.manifests);
-  return withSteps(migrated, [...commandStringSteps(text, strings), ...undeclared]);
+  const patterns = isJestConfig(baseName(path)) ? jestScriptSteps(text, strings) : [];
+  return withSteps(migrated, [...commandStringSteps(text, strings), ...undeclared, ...patterns]);
 }
 
-/** Two migrations of the same text, one after the other, with their findings joined. */
-function chain(first: FileMigration, next: (text: string) => FileMigration): FileMigration {
-  const second = next(first.text);
-  const changes: Change[] = [...first.changes, ...second.changes];
-  const manualSteps: ManualStep[] = [...first.manualSteps, ...second.manualSteps];
-  return { text: second.text, changes, manualSteps };
-}
-
-/** One migration of a config, given its text and that text read. */
-type ConfigStep = (text: string, read: DocumentRead) => FileMigration;
-
-/**
- * The steps one after the other, each on the text the step before it left. A config that cannot
- * be read is reported once, and no step runs.
- */
-function migrateConfig(
-  text: string,
-  read: (text: string) => DocumentRead,
-  steps: readonly ConfigStep[],
-): FileMigration {
-  const first = read(text);
-  if (first.kind === "unreadable") {
-    return unreadableConfig(text, first.offset);
-  }
-  return steps.reduce(
-    (done, step) =>
-      chain(done, (current) => step(current, current === text ? first : read(current))),
-    unchanged(text),
-  );
-}
-
-/** A step that reads the string values of the config, with their key paths. */
-const stringsStep =
-  (migrate: (text: string, strings: readonly DocumentString[]) => FileMigration): ConfigStep =>
-  (text, read) =>
-    read.kind === "unreadable"
-      ? unreadableConfig(text, read.offset)
-      : migrate(text, documentStrings(read.documents));
-
-const jsonCommandsStep = (patterns: readonly JsonPathPattern[]): ConfigStep =>
+const jsonCommandsStep = (patterns: readonly CommandPathPattern[]): ConfigStep =>
   stringsStep((text, strings) => migrateJsonCommands(text, strings, patterns));
 
-/** A JSON config migrated by `steps`. */
-const jsonConfig =
-  (steps: (context: MigrationContext) => readonly ConfigStep[]): FileKind["migrate"] =>
-  (text, _path, context) =>
-    migrateConfig(text, (current) => context.readers.json.read(current), steps(context));
+/** A Deno import map, in its own file or in a config. */
+const importMapStep =
+  (version: string): ConfigStep =>
+  (text, read) =>
+    migrateImportMap(text, read, version);
 
-/** A YAML config migrated by `steps`, which also get its path. */
-const yamlConfig =
-  (
-    steps: (context: MigrationContext, path: string) => readonly ConfigStep[],
-  ): FileKind["migrate"] =>
-  (text, path, context) =>
-    migrateConfig(text, (current) => context.readers.yaml.read(current), steps(context, path));
+const importMapFile = jsonConfig(({ version }) => [importMapStep(version)]);
+
+/** A YAML config whose commands are at the paths of `patterns`. */
+const yamlPathCommands = (patterns: readonly CommandPathPattern[]): ConfigStep =>
+  stringsStep((text, strings) => migrateYamlPathCommands(text, strings, patterns));
 
 /**
- * A migration that leaves a text naming no original package as it is, without reading it. For
- * the files whose findings all start at an old name: commands and Dependabot names. Any YAML file
- * matches the command kind, and an OpenAPI document of megabytes is read in seconds, for nothing.
+ * Configs that only hold commands, by file name: they come before the generic YAML kind, which
+ * would read them by the common command keys only.
  */
-const whenNamed =
-  (migrate: FileKind["migrate"]): FileKind["migrate"] =>
-  (text, path, context) =>
-    namesOriginalPackage(text) ? migrate(text, path, context) : unchanged(text);
+const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
+  {
+    matches: (path) => baseName(path) === NX_PROJECT_FILE,
+    migrate: jsonConfig(() => [jsonCommandsStep(NX_PROJECT_COMMAND_PATHS)]),
+  },
+  {
+    matches: (path) => baseName(path) === NX_WORKSPACE_FILE,
+    migrate: jsonConfig(() => [jsonCommandsStep(NX_WORKSPACE_COMMAND_PATHS)]),
+  },
+  {
+    matches: (path) => baseName(path) === LINT_STAGED_JSON_FILE,
+    migrate: jsonConfig(() => [jsonCommandsStep(LINT_STAGED_COMMAND_PATHS)]),
+  },
+  {
+    matches: (path) => LINT_STAGED_YAML_FILES.has(baseName(path)),
+    migrate: whenNamed(yamlConfig(() => [yamlPathCommands(LINT_STAGED_COMMAND_PATHS)])),
+  },
+  {
+    matches: (path) => SIMPLE_GIT_HOOKS_FILES.has(baseName(path)),
+    migrate: jsonConfig(() => [jsonCommandsStep(SIMPLE_GIT_HOOKS_COMMAND_PATHS)]),
+  },
+  {
+    matches: (path) => TASKFILE_NAMES.has(baseName(path)),
+    migrate: whenNamed(
+      yamlConfig((_context, path) => [
+        stringsStep((text, strings) =>
+          migrateYamlCommands(text, path, strings, TASKFILE_COMMAND_KEYS),
+        ),
+      ]),
+    ),
+  },
+  {
+    matches: (path) => PRE_COMMIT_FILES.has(baseName(path)),
+    migrate: whenNamed(
+      yamlConfig((_context, path) => [
+        stringsStep((text, strings) => migratePreCommitHooks(text, path, strings)),
+      ]),
+    ),
+  },
+];
 
 /** The kinds in order; the first that matches a path migrates it. */
 const FILE_KINDS: readonly FileKind[] = [
@@ -179,14 +163,14 @@ const FILE_KINDS: readonly FileKind[] = [
     matches: (path) => baseName(path) === MANIFEST_FILE,
     migrate: jsonConfig(({ version, catalogs }) => [
       (text, read) => migratePackageManifest(text, read, { version, catalogs }),
-      jsonCommandsStep(PACKAGE_SCRIPT_PATHS),
+      jsonCommandsStep(MANIFEST_COMMAND_PATHS),
     ]),
   },
   {
     matches: (path) => YAML_MANIFEST_FILES.has(baseName(path)),
     migrate: yamlConfig(({ version, catalogs }) => [
       (text, read) => migratePackageManifest(text, read, { version, catalogs }),
-      stringsStep(migrateYamlScripts),
+      yamlPathCommands(MANIFEST_COMMAND_PATHS),
     ]),
   },
   {
@@ -207,23 +191,29 @@ const FILE_KINDS: readonly FileKind[] = [
     ]),
   },
   {
+    matches: (path) => baseName(path) === JEST_JSON_CONFIG_FILE,
+    migrate: jsonConfig(() => [(text, read) => withSteps(unchanged(text), jestJsonSteps(read))]),
+  },
+  {
+    matches: (path) => patchedOldPackage(baseName(path)) !== undefined,
+    migrate: (text, path) => withSteps(unchanged(text), oldPackagePatchSteps(baseName(path))),
+  },
+  {
     matches: (path) => SOURCE_EXTENSIONS.has(extensionOf(path)),
     migrate: migrateSource,
   },
-  {
-    matches: (path) => baseName(path) === NX_PROJECT_FILE,
-    migrate: jsonConfig(() => [jsonCommandsStep(NX_COMMAND_PATHS)]),
-  },
+  ...COMMAND_CONFIG_KINDS,
   {
     matches: (path) => DENO_CONFIG_FILES.has(baseName(path)),
-    migrate: jsonConfig(({ version }) => [
-      (text, read) => migrateImportMap(text, read, version),
+    migrate: jsonConfig(({ version }, path) => [
+      importMapStep(version),
+      (text, read) => withSteps(unchanged(text), importMapSteps(path, read)),
       jsonCommandsStep(DENO_TASK_PATHS),
     ]),
   },
   {
     matches: (path) => baseName(path) === IMPORT_MAP_FILE,
-    migrate: jsonConfig(({ version }) => [(text, read) => migrateImportMap(text, read, version)]),
+    migrate: importMapFile,
   },
   {
     matches: isDependabotConfig,
@@ -259,10 +249,20 @@ const FILE_KINDS: readonly FileKind[] = [
   },
 ];
 
-/** The migration for a file, or undefined when the migration does not read that kind of file. */
-export function fileMigrationFor(path: string): FileKind["migrate"] | undefined {
+/**
+ * The migration for a file, or undefined when the migration does not read that kind of file.
+ * `namedImportMaps` are the files that a Deno config names as its import map (`"importMap":
+ * "./deps.json"`): they are import maps whatever their name.
+ */
+export function fileMigrationFor(
+  path: string,
+  namedImportMaps: NamedImportMaps = NO_NAMED_IMPORT_MAPS,
+): FileKind["migrate"] | undefined {
   if (LOCK_FILES.has(baseName(path))) {
     return undefined;
+  }
+  if (namedImportMaps.has(path)) {
+    return importMapFile;
   }
   return FILE_KINDS.find((kind) => kind.matches(path))?.migrate;
 }

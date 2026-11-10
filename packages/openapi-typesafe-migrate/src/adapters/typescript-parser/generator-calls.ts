@@ -9,8 +9,15 @@ import type { FileBindings } from "./file-bindings.js";
  */
 
 export type GeneratorOptions =
-  /** An object literal that only this call uses: it may be rewritten. */
-  | { readonly kind: "own"; readonly options: ts.ObjectLiteralExpression }
+  /**
+   * An object literal that only this call uses: it may be rewritten. `annotations` are the types
+   * it is declared with: the type of its `const`, and `satisfies` or `as` around it.
+   */
+  | {
+      readonly kind: "own";
+      readonly options: ts.ObjectLiteralExpression;
+      readonly annotations: readonly ts.TypeNode[];
+    }
   /** An object literal in a `const` that other code uses too: it is only reported. */
   | { readonly kind: "shared"; readonly options: ts.ObjectLiteralExpression }
   /** An expression that is not an object literal of this file. */
@@ -36,40 +43,58 @@ function isGenerator(callee: ts.Expression, bindings: FileBindings): boolean {
   );
 }
 
-/** The expression without parentheses, `as` and `satisfies`, which do not change the value. */
-function unwrapped(expression: ts.Expression): ts.Expression {
-  if (
-    ts.isParenthesizedExpression(expression) ||
-    ts.isAsExpression(expression) ||
-    ts.isSatisfiesExpression(expression)
-  ) {
-    return unwrapped(expression.expression);
+/**
+ * The expression without parentheses, `as` and `satisfies`, which do not change the value, and
+ * the types of the `as` and `satisfies` around it.
+ */
+function unwrapped(
+  expression: ts.Expression,
+  types: ts.TypeNode[] = [],
+): { value: ts.Expression; types: ts.TypeNode[] } {
+  if (ts.isParenthesizedExpression(expression)) {
+    return unwrapped(expression.expression, types);
   }
-  return expression;
+  if (ts.isAsExpression(expression) || ts.isSatisfiesExpression(expression)) {
+    return unwrapped(expression.expression, [...types, expression.type]);
+  }
+  return { value: expression, types };
 }
 
 const isExported = (declaration: ts.Node): boolean =>
   (ts.getCombinedModifierFlags(declaration as ts.Declaration) & ts.ModifierFlags.Export) !== 0;
 
 /** The options object a `const` holds, owned by this call when the call is its only use. */
-function constantOptions(name: ts.Identifier, bindings: FileBindings): GeneratorOptions {
+function constantOptions(
+  name: ts.Identifier,
+  bindings: FileBindings,
+  outerTypes: readonly ts.TypeNode[],
+): GeneratorOptions {
   const binding = bindings.bindingOf(name);
-  const declaration = bindings.declarationOf(name);
-  const value = binding?.kind === "constant" ? unwrapped(binding.initializer) : undefined;
-  if (value === undefined || !ts.isObjectLiteralExpression(value)) {
+  const declaration = bindings.declarationOf(name) as ts.Node;
+  const found = binding?.kind === "constant" ? unwrapped(binding.initializer) : undefined;
+  if (found === undefined || !ts.isObjectLiteralExpression(found.value)) {
     return { kind: "unknown", expression: name };
   }
-  const isOwn = bindings.usesOf(declaration as ts.Node).length === 1;
-  return { kind: isOwn && !isExported(declaration as ts.Node) ? "own" : "shared", options: value };
+  const isOwn = bindings.usesOf(declaration).length === 1 && !isExported(declaration);
+  if (!isOwn) {
+    return { kind: "shared", options: found.value };
+  }
+  const declared = (declaration as ts.VariableDeclaration).type;
+  const annotations = [
+    ...outerTypes,
+    ...found.types,
+    ...(declared === undefined ? [] : [declared]),
+  ];
+  return { kind: "own", options: found.value, annotations };
 }
 
 function optionsOf(argument: ts.Expression, bindings: FileBindings): GeneratorOptions {
-  const value = unwrapped(argument);
+  const { value, types } = unwrapped(argument);
   if (ts.isObjectLiteralExpression(value)) {
-    return { kind: "own", options: value };
+    return { kind: "own", options: value, annotations: types };
   }
   return ts.isIdentifier(value)
-    ? constantOptions(value, bindings)
+    ? constantOptions(value, bindings, types)
     : { kind: "unknown", expression: argument };
 }
 

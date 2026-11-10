@@ -64,6 +64,56 @@ describe("migrateModuleSpecifiers", () => {
     ]);
   });
 
+  it("migrateModuleSpecifiers keeps the bundler query of a renamed specifier", () => {
+    const text = [
+      'import u from "openapi-fetch?url";',
+      'import r from "openapi-fetch/x.js?raw";',
+    ].join("\n");
+    const strings = [stringIn(text, "openapi-fetch?url"), stringIn(text, "openapi-fetch/x.js?raw")];
+
+    const migrated = migrateModuleSpecifiers(text, strings, VERSION);
+
+    expect(migrated.text).toBe(text.replaceAll("openapi-fetch", "openapi-typesafe-fetch"));
+    expect(migrated.manualSteps).toEqual([
+      { kind: "deep-import", line: 2, specifier: "openapi-typesafe-fetch/x.js?raw" },
+    ]);
+  });
+
+  it("migrateModuleSpecifiers reports an import from the node_modules of an old package", () => {
+    const text = [
+      'import k from "../node_modules/openapi-fetch/dist/index.js";',
+      'const label = "node_modules/openapi-fetch/x.js";',
+      'import l from "../node_modules/left-pad/x.js";',
+      'import h from "./node_modules/openapi-typescript-helpers/x.js";',
+    ].join("\n");
+    const strings = [
+      stringIn(text, "../node_modules/openapi-fetch/dist/index.js"),
+      stringIn(text, "node_modules/openapi-fetch/x.js", false),
+      stringIn(text, "../node_modules/left-pad/x.js"),
+      stringIn(text, "./node_modules/openapi-typescript-helpers/x.js"),
+    ];
+
+    const migrated = migrateModuleSpecifiers(text, strings, VERSION);
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "old-package-import",
+        line: 1,
+        specifier: "../node_modules/openapi-fetch/dist/index.js",
+        name: "openapi-fetch",
+        to: "openapi-typesafe-fetch",
+      },
+      {
+        kind: "old-package-import",
+        line: 4,
+        specifier: "./node_modules/openapi-typescript-helpers/x.js",
+        name: "openapi-typescript-helpers",
+        to: "openapi-typesafe-helpers",
+      },
+    ]);
+  });
+
   it("migrateModuleSpecifiers reports a package name outside a module specifier and keeps it", () => {
     const text = 'const versions = {\n  "openapi-typescript": "7.13.0",\n};';
 

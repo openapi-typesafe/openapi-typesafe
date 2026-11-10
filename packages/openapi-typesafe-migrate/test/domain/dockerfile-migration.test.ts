@@ -4,6 +4,27 @@ import { migrateDockerfile } from "../../src/domain/dockerfile-migration.js";
 const lines = (...parts: string[]): string => `${parts.join("\n")}\n`;
 
 describe("migrateDockerfile", () => {
+  it("migrateDockerfile skips a here-document body and migrates a RUN here-document script", () => {
+    const text = lines(
+      "FROM node",
+      "RUN cat <<'X' > /note",
+      "Don't edit: openapi-typescript -it",
+      "X",
+      "RUN <<EOF",
+      "npx openapi-typescript a.yaml -it",
+      "EOF",
+      "RUN npx openapi-typescript b.yaml -it",
+    );
+
+    const migrated = migrateDockerfile(text, "Dockerfile");
+
+    expect(migrated.text).toBe(
+      text
+        .replace("npx openapi-typescript a.yaml -it", "npx openapi-typesafe a.yaml --immutable")
+        .replace("npx openapi-typescript b.yaml -it", "npx openapi-typesafe b.yaml --immutable"),
+    );
+  });
+
   it("migrateDockerfile migrates exec-form arrays word by word and shell form as shell", () => {
     const text = lines(
       "FROM node",

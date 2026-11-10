@@ -572,15 +572,24 @@ describe("TypescriptCallbackRewriter", () => {
     expect(migration.text).toContain('transform() { return "B"; }');
   });
 
-  it("rewrite reports a shorthand transform as not a function", () => {
+  it("rewrite rewrites a shorthand transform that names a function of the file", () => {
     const text = lines(
       ...HEADER,
       "const transform = () => undefined;",
       "openapiTS(a, { transform });",
     );
 
+    const migration = rewriter.rewrite(text, "gen.ts");
+
+    expect(migration.text).toContain("openapiTS(a, { irCallbacks: true, transform });");
+    expect(migration.manualSteps).toEqual([]);
+  });
+
+  it("rewrite reports a shorthand transform that names no function of the file", () => {
+    const text = lines(...HEADER, "openapiTS(a, { transform });");
+
     expect(rewriter.rewrite(text, "gen.ts").manualSteps).toEqual([
-      { kind: "transform-not-rewritten", line: 4, reason: "not-a-function" },
+      { kind: "transform-not-rewritten", line: 3, reason: "not-a-function" },
     ]);
   });
 
@@ -597,5 +606,132 @@ describe("TypescriptCallbackRewriter", () => {
         "ts.factory.createUnionTypeNode([(ts.factory.createTypeReferenceNode('A'))])",
       ),
     ).toBe('"A"');
+  });
+});
+
+describe("TypescriptCallbackRewriter and the options type", () => {
+  const IMPORTS = 'import ts from "typescript";';
+  const TRANSFORM_LINES = [
+    "  transform() {",
+    '    return ts.factory.createTypeReferenceNode("Date");',
+    "  },",
+  ];
+  const REWRITTEN_LINES = ["  irCallbacks: true,", "  transform() {", '    return "Date";', "  },"];
+
+  it("rewrite retargets the type of the options const and its import", () => {
+    const text = lines(
+      IMPORTS,
+      'import openapiTS, { type OpenAPITSOptions } from "openapi-typesafe";',
+      "const options: OpenAPITSOptions = {",
+      ...TRANSFORM_LINES,
+      "};",
+      "await openapiTS(schema, options);",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").text).toBe(
+      lines(
+        'import openapiTS, { type OpenAPITSIrOptions } from "openapi-typesafe";',
+        "const options: OpenAPITSIrOptions = {",
+        ...REWRITTEN_LINES,
+        "};",
+        "await openapiTS(schema, options);",
+      ),
+    );
+  });
+
+  it("rewrite retargets satisfies and keeps an import that other code still uses", () => {
+    const text = lines(
+      IMPORTS,
+      'import openapiTS, { type OpenAPITSOptions } from "openapi-typesafe";',
+      "export type Saved = OpenAPITSOptions;",
+      "await openapiTS(schema, {",
+      ...TRANSFORM_LINES,
+      "} satisfies OpenAPITSOptions);",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").text).toBe(
+      lines(
+        'import openapiTS, { type OpenAPITSOptions, type OpenAPITSIrOptions } from "openapi-typesafe";',
+        "export type Saved = OpenAPITSOptions;",
+        "await openapiTS(schema, {",
+        ...REWRITTEN_LINES,
+        "} satisfies OpenAPITSIrOptions);",
+      ),
+    );
+  });
+
+  it("rewrite retargets the type of a transform const and an aliased type import", () => {
+    const text = lines(
+      IMPORTS,
+      'import type { OpenAPITSOptions as Options } from "openapi-typesafe";',
+      'import openapiTS from "openapi-typesafe";',
+      'const transform: Options["transform"] = () => ts.factory.createTypeReferenceNode("Date");',
+      "await openapiTS(schema, { transform });",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").text).toBe(
+      lines(
+        'import type { OpenAPITSIrOptions as Options } from "openapi-typesafe";',
+        'import openapiTS from "openapi-typesafe";',
+        'const transform: Options["transform"] = () => "Date";',
+        "await openapiTS(schema, { irCallbacks: true, transform });",
+      ),
+    );
+  });
+
+  it("rewrite adds a type import to an import type declaration and uses an import there is", () => {
+    const added = lines(
+      IMPORTS,
+      'import type { OpenAPITSOptions } from "openapi-typesafe";',
+      'import openapiTS from "openapi-typesafe";',
+      "export type Saved = OpenAPITSOptions;",
+      "await openapiTS(schema, {",
+      ...TRANSFORM_LINES,
+      "} as OpenAPITSOptions);",
+    );
+    const existing = lines(
+      IMPORTS,
+      'import openapiTS, { type OpenAPITSOptions, type OpenAPITSIrOptions as Ir } from "openapi-typesafe";',
+      "export type Saved = [OpenAPITSOptions, Ir];",
+      "await openapiTS(schema, {",
+      ...TRANSFORM_LINES,
+      "} satisfies OpenAPITSOptions);",
+    );
+
+    expect(rewriter.rewrite(added, "gen.ts").text).toContain(
+      'import type { OpenAPITSOptions, OpenAPITSIrOptions } from "openapi-typesafe";',
+    );
+    expect(rewriter.rewrite(added, "gen.ts").text).toContain("} as OpenAPITSIrOptions);");
+    expect(rewriter.rewrite(existing, "gen.ts").text).toContain("} satisfies Ir);");
+  });
+
+  it("rewrite retargets the type of a namespace import", () => {
+    const text = lines(
+      IMPORTS,
+      'import * as gen from "openapi-typesafe";',
+      "await gen.default(schema, {",
+      ...TRANSFORM_LINES,
+      "} satisfies gen.OpenAPITSOptions);",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").text).toContain("} satisfies gen.OpenAPITSIrOptions);");
+  });
+
+  it("rewrite keeps a transform whose options type is built from OpenAPITSOptions", () => {
+    const text = lines(
+      IMPORTS,
+      'import openapiTS, { type OpenAPITSOptions } from "openapi-typesafe";',
+      "const options: Partial<OpenAPITSOptions> = {",
+      ...TRANSFORM_LINES,
+      "};",
+      "await openapiTS(schema, options);",
+    );
+
+    const migration = rewriter.rewrite(text, "gen.ts");
+
+    expect(migration.text).toBe(text);
+    expect(migration.manualSteps).toEqual([
+      { kind: "transform-not-rewritten", line: 4, reason: "typed-options" },
+    ]);
   });
 });

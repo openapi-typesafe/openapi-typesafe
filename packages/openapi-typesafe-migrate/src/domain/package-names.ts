@@ -66,7 +66,10 @@ export const NAMED_CATALOGS_FIELD = "catalogs";
 export const WORKSPACES_FIELD = "workspaces";
 
 /** Fields that can name a package without installing it; they are reported, not rewritten. */
-export const OVERRIDE_FIELDS = ["overrides", "resolutions", "pnpm"] as const;
+export const OVERRIDE_FIELDS = ["overrides", "resolutions"] as const;
+
+/** The pnpm settings of package.json; `pnpm.overrides` is one of them. */
+export const PNPM_SETTINGS_FIELD = "pnpm";
 
 /** An original package that another package still needs as a peer dependency. */
 export interface OldPeer {
@@ -85,6 +88,8 @@ export const OLD_PEER_DEPENDENTS: ReadonlyMap<string, OldPeer> = new Map([
 ]);
 
 const PATH_SEPARATOR = "/";
+/** Bundlers read a query after a specifier (`?url`, `?raw`) as how to load the module. */
+const QUERY_START = "?";
 
 /** A module specifier with the package renamed, and whether it reaches into the package. */
 export interface RenamedSpecifier {
@@ -94,15 +99,31 @@ export interface RenamedSpecifier {
 
 /**
  * The new name of a whole package name, or of a name and a subpath (`openapi-fetch/x`, and the
- * `openapi-fetch/` prefix of an import map); undefined for other specifiers.
+ * `openapi-fetch/` prefix of an import map), with any query of a bundler kept as written
+ * (`openapi-fetch?url`, `openapi-fetch/x.js?raw`); undefined for other specifiers.
  */
 export function renamedSpecifier(value: string): RenamedSpecifier | undefined {
-  const slash = value.indexOf(PATH_SEPARATOR);
-  const name = slash === -1 ? value : value.slice(0, slash);
+  const ends = [value.indexOf(PATH_SEPARATOR), value.indexOf(QUERY_START)].filter(
+    (at) => at !== -1,
+  );
+  const name = value.slice(0, ends.length === 0 ? value.length : Math.min(...ends));
   const renamed = PACKAGE_RENAMES.get(name);
   if (renamed === undefined) {
     return undefined;
   }
-  const subpath = value.slice(name.length);
-  return { to: `${renamed}${subpath}`, isDeep: subpath !== "" && subpath !== PATH_SEPARATOR };
+  const rest = value.slice(name.length);
+  const subpath = rest.split(QUERY_START, 1)[0] ?? rest;
+  return { to: `${renamed}${rest}`, isDeep: subpath !== "" && subpath !== PATH_SEPARATOR };
+}
+
+const NODE_MODULES_FOLDER = "node_modules/";
+
+/**
+ * The old package whose installed files a path points into (`../node_modules/openapi-fetch/x.js`,
+ * `node_modules/openapi-typescript/bin/cli.js`), or undefined.
+ */
+export function oldPackageInNodeModules(path: string): string | undefined {
+  return [...PACKAGE_RENAMES.keys()].find((name) =>
+    path.includes(`${NODE_MODULES_FOLDER}${name}${PATH_SEPARATOR}`),
+  );
 }

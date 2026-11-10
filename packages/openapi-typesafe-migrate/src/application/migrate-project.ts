@@ -9,7 +9,9 @@ import {
 import { importMapNames } from "../domain/import-map-migration.js";
 import type { Change, ManualStep } from "../domain/migration-findings.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
-import { fileMigrationFor, type MigrationContext } from "./file-migrations.js";
+import type { MigrationContext } from "./config-steps.js";
+import { fileMigrationFor } from "./file-migrations.js";
+import { type NamedImportMaps, namedImportMaps, withNamedImportMaps } from "./named-import-maps.js";
 import { type PlanSource, planSourceOf } from "./plan-sources.js";
 import type {
   CallbackRewriter,
@@ -87,6 +89,8 @@ interface ProjectTarget {
   readonly version: string;
   readonly catalogs: CatalogPlan;
   readonly manifests: readonly ManifestDeclarations[];
+  /** The files that Deno configs name as their import maps. */
+  readonly importMaps: NamedImportMaps;
 }
 
 async function planFile(
@@ -94,7 +98,7 @@ async function planFile(
   dependencies: MigrateProjectDependencies,
   target: ProjectTarget,
 ): Promise<FilePlan> {
-  const migrate = fileMigrationFor(path);
+  const migrate = fileMigrationFor(path, target.importMaps);
   if (migrate === undefined) {
     return { kind: "not-migrated" };
   }
@@ -103,7 +107,8 @@ async function planFile(
     return read;
   }
   const { rewriter, scanner, readers } = dependencies;
-  const context: MigrationContext = { ...target, rewriter, scanner, readers };
+  const { version, catalogs, manifests } = target;
+  const context: MigrationContext = { version, catalogs, manifests, rewriter, scanner, readers };
   const migration = migrate(read.text, path, context);
   const isChanged = migration.text !== read.text;
   const { changes, manualSteps } = migration;
@@ -165,8 +170,9 @@ async function planProjectTarget(
 ): Promise<ProjectTarget> {
   const documents: Record<"manifest" | "catalogs", TreeMap[]> = { manifest: [], catalogs: [] };
   const manifests: ManifestDeclarations[] = [];
+  const importMaps = await namedImportMaps(paths, dependencies.files, dependencies.readers);
   for (const path of paths) {
-    const source = planSourceOf(path);
+    const source = planSourceOf(path, importMaps);
     if (source === undefined) {
       continue;
     }
@@ -183,7 +189,7 @@ async function planProjectTarget(
     manifests: documents.manifest,
     catalogFiles: documents.catalogs,
   });
-  return { version, catalogs, manifests };
+  return { version, catalogs, manifests: withNamedImportMaps(manifests, importMaps), importMaps };
 }
 
 /**

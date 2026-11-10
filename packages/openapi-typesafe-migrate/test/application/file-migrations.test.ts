@@ -45,6 +45,14 @@ describe("fileMigrationFor", () => {
     "tools/deno.jsonc",
     ".github/dependabot.yml",
     "package.yaml",
+    "nx.json",
+    ".lintstagedrc",
+    ".lintstagedrc.json",
+    ".lintstagedrc.yml",
+    ".simple-git-hooks.json",
+    "Taskfile.dist.yaml",
+    ".pre-commit-config.yaml",
+    "docs/guide.mdx",
   ])("fileMigrationFor has a migration for %s", (path) => {
     expect(fileMigrationFor(path)).toBeTypeOf("function");
   });
@@ -128,6 +136,61 @@ describe("fileMigrationFor", () => {
     );
     expect(run("package.yaml", "scripts:\n  g: openapi-typescript a\n")).toBe(
       "scripts:\n  g: openapi-typesafe a\n",
+    );
+  });
+
+  it("fileMigrationFor reports a patch file of an old package and keeps it", () => {
+    const text = "diff --git a/node_modules/openapi-fetch/dist/index.js\n";
+    const path = "patches/openapi-fetch+0.13.0.patch";
+
+    const migration = fileMigrationFor(path)?.(text, path, context);
+
+    expect(migration).toEqual({
+      text,
+      changes: [],
+      manualSteps: [
+        { kind: "old-package-patch", name: "openapi-fetch", to: "openapi-typesafe-fetch" },
+      ],
+    });
+    expect(fileMigrationFor("patches/left-pad+1.0.0.patch")).toBeUndefined();
+  });
+
+  it("fileMigrationFor reports the Jest patterns of jest.config files and no others", () => {
+    const script = 'module.exports = { moduleNameMapper: { "^openapi-fetch$": "m" } };\n';
+    const json = '{ "moduleNameMapper": { "^openapi-fetch$": "m" } }\n';
+    // The strings of a config are values, not module specifiers.
+    const valueScanner = new QuotedStringScanner({ isModuleSpecifier: false });
+    const kinds = (path: string, text: string) =>
+      fileMigrationFor(path)?.(text, path, { ...context, scanner: valueScanner }).manualSteps.map(
+        (step) => step.kind,
+      );
+
+    expect(kinds("jest.config.cjs", script)).toEqual(["pattern-names-package"]);
+    expect(kinds("jest.config.json", json)).toEqual(["pattern-names-package"]);
+    expect(kinds("vite.config.cjs", script)).toEqual([]);
+  });
+
+  it("fileMigrationFor reads each command config by the keys of its tool", () => {
+    const run = (path: string, text: string): string | undefined =>
+      fileMigrationFor(path)?.(text, path, context).text;
+    const yamlHooks = "'*.yaml': openapi-typescript a\n";
+    const jsonHooks = '{"pre-commit":"openapi-typescript a"}';
+
+    expect(run(".lintstagedrc", yamlHooks)).toBe("'*.yaml': openapi-typesafe a\n");
+    expect(run(".lintstagedrc.yaml", yamlHooks)).toBe("'*.yaml': openapi-typesafe a\n");
+    expect(run(".lintstagedrc.json", jsonHooks)).toBe('{"pre-commit":"openapi-typesafe a"}');
+    expect(run("simple-git-hooks.json", jsonHooks)).toBe('{"pre-commit":"openapi-typesafe a"}');
+    expect(run("nx.json", '{"targetDefaults":{"g":{"command":"openapi-typescript a"}}}')).toBe(
+      '{"targetDefaults":{"g":{"command":"openapi-typesafe a"}}}',
+    );
+    expect(run("taskfile.yml", "tasks:\n  g:\n    cmd: openapi-typescript a\n")).toBe(
+      "tasks:\n  g:\n    cmd: openapi-typesafe a\n",
+    );
+    expect(run("Taskfile.dist.yml", "tasks:\n  g:\n    cmds: [openapi-typescript a]\n")).toBe(
+      "tasks:\n  g:\n    cmds: [openapi-typesafe a]\n",
+    );
+    expect(run(".pre-commit-config.yml", "- entry: openapi-typescript a\n")).toBe(
+      "- entry: openapi-typesafe a\n",
     );
   });
 

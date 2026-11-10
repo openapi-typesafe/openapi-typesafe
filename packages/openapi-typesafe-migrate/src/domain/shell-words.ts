@@ -1,92 +1,25 @@
+import { type HeredocBody, heredocAt, type PendingHeredoc, readBodies } from "./here-documents.js";
+import {
+  COMMAND_SEPARATORS,
+  isLineContinuation,
+  readWord,
+  type ShellCommand,
+  type ShellWord,
+  WORD_BREAKS,
+  wordPart,
+} from "./shell-word-parts.js";
+
+export type { ShellCommand, ShellWord } from "./shell-word-parts.js";
+
+const COMMENT = "#";
+const LINE_BREAK = "\n";
+
 /**
  * Splits shell text (a package.json script, a line of a shell script, Makefile or CI step) into
  * simple commands, each a list of words with their offsets. It follows the POSIX shell rules that
  * decide where a word and a command end: quotes, backslash escapes, line continuations, comments
  * and the control operators. It does not expand anything, so it never runs or guesses a value.
  */
-
-/** One word of a command. `start` and `end` are offsets of the word as written, quotes included. */
-export interface ShellWord {
-  readonly start: number;
-  readonly end: number;
-  /** The word after quote removal: `"a b"` is `a b`. */
-  readonly value: string;
-  /** The word as written: `"a b"` is `"a b"`. */
-  readonly raw: string;
-}
-
-/** A simple command: the words between two control operators. */
-export type ShellCommand = readonly ShellWord[];
-
-/** Characters that end a command: `;`, `&`, `|`, subshells and command substitution. */
-const COMMAND_SEPARATORS: ReadonlySet<string> = new Set([";", "&", "|", "(", ")", "`", "\n"]);
-/** Characters that end a word without ending the command: blanks and redirections. */
-const WORD_BREAKS: ReadonlySet<string> = new Set([" ", "\t", "\r", "<", ">"]);
-const BACKSLASH = "\\";
-const COMMENT = "#";
-/** Inside double quotes a backslash escapes only these characters (POSIX 2.2.3). */
-const DOUBLE_QUOTE_ESCAPES: ReadonlySet<string> = new Set(["$", "`", '"', BACKSLASH, "\n"]);
-
-/** A quoted part of a word: where it ends (after the closing quote) and its value. */
-interface QuotedPart {
-  readonly end: number;
-  readonly value: string;
-}
-
-/** A single-quoted part starting at `start`: everything up to the next `'` is literal. */
-function singleQuoted(text: string, start: number): QuotedPart {
-  const close = text.indexOf("'", start + 1);
-  const end = close === -1 ? text.length : close + 1;
-  return { end, value: text.slice(start + 1, close === -1 ? text.length : close) };
-}
-
-/** A double-quoted part starting at `start`, with its backslash escapes resolved. */
-function doubleQuoted(text: string, start: number): QuotedPart {
-  let value = "";
-  let index = start + 1;
-  while (index < text.length && text[index] !== '"') {
-    const next = text[index + 1] ?? "";
-    const isEscape = text[index] === BACKSLASH && DOUBLE_QUOTE_ESCAPES.has(next);
-    value += isEscape ? (next === "\n" ? "" : next) : text[index];
-    index += isEscape ? 2 : 1;
-  }
-  return { end: Math.min(index + 1, text.length), value };
-}
-
-const isLineContinuation = (text: string, index: number): boolean =>
-  text[index] === BACKSLASH && (text[index + 1] === "\n" || text.startsWith("\r\n", index + 1));
-
-/** The part of a word that starts at `index`: a quoted string, an escape or one character. */
-function wordPart(text: string, index: number): QuotedPart {
-  const char = text[index] as string;
-  if (char === "'") {
-    return singleQuoted(text, index);
-  }
-  if (char === '"') {
-    return doubleQuoted(text, index);
-  }
-  if (char === BACKSLASH && index + 1 < text.length) {
-    return { end: index + 2, value: text[index + 1] as string };
-  }
-  return { end: index + 1, value: char };
-}
-
-const endsWord = (text: string, index: number): boolean => {
-  const char = text[index] as string;
-  return WORD_BREAKS.has(char) || COMMAND_SEPARATORS.has(char) || isLineContinuation(text, index);
-};
-
-/** The word that starts at `start` (not a blank, separator or comment). */
-function readWord(text: string, start: number): ShellWord {
-  let value = "";
-  let index = start;
-  while (index < text.length && !endsWord(text, index)) {
-    const part = wordPart(text, index);
-    value += part.value;
-    index = part.end;
-  }
-  return { start, end: index, value, raw: text.slice(start, index) };
-}
 
 /** Where the blank, continuation or comment at `index` ends, or `index` if there is none. */
 function skipTrivia(text: string, index: number): number {
@@ -104,14 +37,36 @@ function skipTrivia(text: string, index: number): number {
   return index;
 }
 
-/** The commands of `text`, in order, without nested ones. */
-function topLevelCommands(text: string): ShellWord[][] {
+/** The commands of a text without nested ones, and the bodies of its here-documents. */
+interface TopLevel {
+  readonly commands: ShellWord[][];
+  readonly heredocs: HeredocBody[];
+}
+
+/**
+ * The commands of `text`, in order, without nested ones. The body of a here-document is input
+ * data, not commands: a `'` in it (`Don't edit`) opened a quote to the end of the text, and
+ * every command after it was lost.
+ */
+function topLevelCommands(text: string, indent: number): TopLevel {
   const commands: ShellWord[][] = [[]];
+  const heredocs: HeredocBody[] = [];
+  let pending: PendingHeredoc[] = [];
   let index = 0;
   while (index < text.length) {
     const afterTrivia = skipTrivia(text, index);
-    if (afterTrivia !== index) {
+    const heredoc = heredocAt(text, index, { command: commands.length - 1, indent });
+    if (heredoc !== undefined) {
+      pending.push(...(heredoc.pending === undefined ? [] : [heredoc.pending]));
+      index = heredoc.end;
+    } else if (afterTrivia !== index) {
       index = afterTrivia;
+    } else if (text[index] === LINE_BREAK && pending.length > 0) {
+      const read = readBodies(text, index + 1, pending);
+      heredocs.push(...read.bodies);
+      pending = [];
+      commands.push([]);
+      index = read.end;
     } else if (COMMAND_SEPARATORS.has(text[index] as string)) {
       commands.push([]);
       index++;
@@ -121,7 +76,7 @@ function topLevelCommands(text: string): ShellWord[][] {
       index = word.end;
     }
   }
-  return commands.filter((words) => words.length > 0);
+  return { commands, heredocs };
 }
 
 /**
@@ -198,32 +153,60 @@ function nestedCommandText(word: ShellWord): string | undefined {
     : undefined;
 }
 
+/** Shells that run the script a here-document gives them, and Docker's `RUN <<EOF`. */
+const SCRIPT_READERS: ReadonlySet<string> = new Set([
+  "sh",
+  "bash",
+  "dash",
+  "ash",
+  "zsh",
+  "ksh",
+  "RUN",
+]);
+const PATH_SEPARATOR = "/";
+
+/**
+ * Whether a command runs the here-document it reads as a script: a shell or `RUN` with options
+ * only (`bash -e <<EOF`, `RUN --mount=… <<EOF`). Any other command reads it as data (`cat`).
+ */
+function readsScript(command: ShellCommand): boolean {
+  const [program, ...rest] = command;
+  const name = program?.value.split(PATH_SEPARATOR).at(-1) ?? "";
+  return SCRIPT_READERS.has(name) && rest.every((word) => word.value.startsWith("-"));
+}
+
 /** Moves the offsets of words found in a part of a text to offsets in the whole text. */
 const shifted = (words: readonly ShellWord[], offset: number): ShellWord[] =>
   words.map((word) => ({ ...word, start: word.start + offset, end: word.end + offset }));
 
 /** The commands of `text`, which starts at `offset` of a larger text, by offsets in that one. */
-export function shellCommandsAt(text: string, offset: number): ShellCommand[] {
-  return shellCommands(text).map((words) => shifted(words, offset));
+export function shellCommandsAt(text: string, offset: number, indent = 0): ShellCommand[] {
+  return shellCommands(text, indent).map((words) => shifted(words, offset));
 }
 
 /**
  * The commands of `text`, in order of their first word. A quoted word that holds a command line
  * is read as commands too, so `sh -c "openapi-typescript a.yaml"` and `concurrently "…"` count.
+ * `indent` is the number of spaces at the start of each line that the shell does not see, such as
+ * the indentation of a YAML block scalar: a here-document delimiter line may have them.
  */
-export function shellCommands(text: string): ShellCommand[] {
+export function shellCommands(text: string, indent = 0): ShellCommand[] {
+  const { commands: topLevel, heredocs } = topLevelCommands(text, indent);
   const commands: ShellCommand[] = [];
-  for (const command of topLevelCommands(text).map(simpleCommand)) {
+  for (const [index, words] of topLevel.entries()) {
+    const command = simpleCommand(words);
     if (command.length > 0) {
       commands.push(command);
     }
     for (const word of command) {
       const inner = nestedCommandText(word);
       if (inner !== undefined) {
-        const nested = shellCommands(inner).map((words) => shifted(words, word.start + 1));
+        const nested = shellCommands(inner).map((found) => shifted(found, word.start + 1));
         commands.push(...nested);
       }
     }
+    const scripts = heredocs.filter((body) => body.command === index && readsScript(command));
+    commands.push(...scripts.flatMap((body) => shellCommandsAt(body.text, body.start, indent)));
   }
   return commands;
 }

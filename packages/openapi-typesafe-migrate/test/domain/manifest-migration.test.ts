@@ -109,8 +109,51 @@ describe("migratePackageManifest", () => {
 
     expect(migrated.manualSteps).toEqual([
       { kind: "override-names-package", field: "resolutions", name: "openapi-react-query" },
-      { kind: "override-names-package", field: "pnpm", name: "openapi-typescript-helpers" },
-      { kind: "override-names-package", field: "pnpm", name: "openapi-fetch" },
+      {
+        kind: "override-names-package",
+        field: "pnpm.overrides",
+        name: "openapi-typescript-helpers",
+      },
+      { kind: "override-names-package", field: "pnpm.overrides", name: "openapi-fetch" },
+    ]);
+  });
+
+  it("migratePackageManifest reports the pnpm settings and override values that name one", () => {
+    const pnpm = {
+      packageExtensions: { "openapi-fetch@*": { dependencies: { x: "1" } } },
+      onlyBuiltDependencies: ["openapi-typescript"],
+      peerDependencyRules: { ignoreMissing: ["left-pad"] },
+    };
+    const overrides = { x: "npm:openapi-react-query@0.3.0" };
+    const text = manifest({ pnpm, overrides });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "override-names-package", field: "overrides", name: "openapi-react-query" },
+      { kind: "setting-names-package", field: "pnpm.packageExtensions", name: "openapi-fetch" },
+      {
+        kind: "setting-names-package",
+        field: "pnpm.onlyBuiltDependencies",
+        name: "openapi-typescript",
+      },
+    ]);
+  });
+
+  it("migratePackageManifest reports the Jest patterns of the jest field", () => {
+    const text = manifest({ jest: { moduleNameMapper: { "^openapi-fetch$": "<rootDir>/m.ts" } } });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "pattern-names-package",
+        location: "jest.moduleNameMapper",
+        value: "^openapi-fetch$",
+        name: "openapi-fetch",
+        to: "openapi-typesafe-fetch",
+      },
     ]);
   });
 
@@ -384,6 +427,45 @@ describe("migratePackageManifest", () => {
     });
     expect(migrated.manualSteps).toEqual([
       { kind: "spec-kept", name: "my-fetch", spec: "npm:openapi-typesafe-fetch@latest" },
+    ]);
+  });
+
+  it("migratePackageManifest renames the subpath import targets of an original package", () => {
+    const text = manifest({
+      imports: {
+        "#client": "openapi-fetch",
+        "#schema": { node: ["openapi-typescript-helpers/sub", "./local.js"], default: null },
+        "#other": "left-pad",
+      },
+    });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(JSON.parse(migrated.text).imports).toEqual({
+      "#client": "openapi-typesafe-fetch",
+      "#schema": { node: ["openapi-typesafe-helpers/sub", "./local.js"], default: null },
+      "#other": "left-pad",
+    });
+    expect(migrated.changes).toEqual([
+      {
+        kind: "package-name-renamed",
+        location: "imports.#client",
+        from: "openapi-fetch",
+        to: "openapi-typesafe-fetch",
+      },
+      {
+        kind: "package-name-renamed",
+        location: "imports.#schema.node.0",
+        from: "openapi-typescript-helpers/sub",
+        to: "openapi-typesafe-helpers/sub",
+      },
+    ]);
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "deep-target",
+        location: "imports.#schema.node.0",
+        specifier: "openapi-typesafe-helpers/sub",
+      },
     ]);
   });
 });

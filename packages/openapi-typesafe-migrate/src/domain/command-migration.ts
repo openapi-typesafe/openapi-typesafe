@@ -1,6 +1,6 @@
-import { NPM_SPECIFIER_PREFIX } from "./command-launchers.js";
 import { commandRoles, type PackageWord } from "./command-roles.js";
 import { type Change, lineLocator, type ManualStep } from "./migration-findings.js";
+import { packageReference, unmigratedWordFindings } from "./old-package-words.js";
 import {
   FLAG_RENAMES,
   GENERATOR_COMMAND,
@@ -45,15 +45,6 @@ function renameAtEnd(word: ShellWord, name: string, to: string): TextEdit | unde
     return undefined;
   }
   return { start: word.start + at, end: word.start + at + name.length, text: to };
-}
-
-/** A package name with an optional `npm:` prefix and `@version`. */
-function packageReference(value: string): { name: string; isPinned: boolean } {
-  const bare = value.startsWith(NPM_SPECIFIER_PREFIX)
-    ? value.slice(NPM_SPECIFIER_PREFIX.length)
-    : value;
-  const at = bare.indexOf("@", 1);
-  return { name: at === -1 ? bare : bare.slice(0, at), isPinned: at !== -1 };
 }
 
 /** A word of an install command or a `--package` option that names an original package. */
@@ -227,6 +218,13 @@ function commandFindings(
   variables: FileVariables,
 ): Finding[] {
   const words = withoutRecipePrefix(command);
+  const found = knownFindings(words, locate, variables);
+  const handled = new Set(found.map((finding) => finding.offset));
+  return [...found, ...unmigratedWordFindings(words, handled, locate)];
+}
+
+/** The findings of the packages, the program and its flags in the roles the tool knows. */
+function knownFindings(words: ShellCommand, locate: Locate, variables: FileVariables): Finding[] {
   const roles = commandRoles(words);
   const findings = roles.packages.flatMap((found) => packageFindings(found, locate));
   const program = roles.program === undefined ? undefined : (words[roles.program] as ShellWord);

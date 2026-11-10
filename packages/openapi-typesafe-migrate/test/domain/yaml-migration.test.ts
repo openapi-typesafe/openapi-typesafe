@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
+import {
+  LINT_STAGED_COMMAND_PATHS,
+  MANIFEST_COMMAND_PATHS,
+} from "../../src/domain/command-paths.js";
 import { type DocumentString, documentStrings } from "../../src/domain/config-documents.js";
+import { TASKFILE_COMMAND_KEYS } from "../../src/domain/yaml-command-keys.js";
 import {
   migrateDependabotConfig,
   migrateYamlCommands,
-  migrateYamlScripts,
+  migrateYamlPathCommands,
 } from "../../src/domain/yaml-migration.js";
 
 // The migrations take the strings that the YAML adapter reads; the tests read them with it.
@@ -99,6 +104,28 @@ describe("migrateYamlCommands", () => {
     );
   });
 
+  it("migrateYamlCommands skips a here-document body of a run block", () => {
+    const text = lines(
+      "jobs:",
+      "  gen:",
+      "    steps:",
+      "      - run: |",
+      "          cat > NOTES <<'NOTE'",
+      "          Don't edit: openapi-typescript -it",
+      "          NOTE",
+      "          npx openapi-typescript api.yaml -it",
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(
+      text.replace(
+        "npx openapi-typescript api.yaml -it",
+        "npx openapi-typesafe api.yaml --immutable",
+      ),
+    );
+  });
+
   it("migrateYamlCommands reads a folded scalar as one command and keeps its line breaks", () => {
     const text = lines("script: >", "  openapi-typescript a", "  -it");
 
@@ -177,8 +204,8 @@ describe("migrateYamlCommands", () => {
   });
 });
 
-describe("migrateYamlScripts", () => {
-  it("migrateYamlScripts migrates the scripts of package.yaml by script name", () => {
+describe("migrateYamlPathCommands", () => {
+  it("migrateYamlPathCommands migrates the scripts of package.yaml by script name", () => {
     const text = lines(
       "dependencies:",
       "  openapi-fetch: ^0.13.0",
@@ -186,13 +213,62 @@ describe("migrateYamlScripts", () => {
       "  gen: openapi-typescript a -it",
     );
 
-    const migrated = migrateYamlScripts(text, stringsOf(text));
+    const migrated = migrateYamlPathCommands(text, stringsOf(text), MANIFEST_COMMAND_PATHS);
 
     expect(migrated.text).toBe(
       text.replace("openapi-typescript a -it", "openapi-typesafe a --immutable"),
     );
     expect(migrated.changes[0]).toEqual({ kind: "command-renamed", location: "scripts.gen" });
     expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migrateYamlPathCommands migrates the commands of a lint-staged config by glob", () => {
+    const text = lines(
+      "'*.yaml':",
+      "  - openapi-typescript api.yaml -it",
+      "  - prettier --write",
+      "api.json: openapi-typescript api.json -it",
+    );
+
+    const migrated = migrateYamlPathCommands(text, stringsOf(text), LINT_STAGED_COMMAND_PATHS);
+
+    expect(migrated.text).toBe(
+      text.replaceAll(/openapi-typescript (\S+) -it/g, "openapi-typesafe $1 --immutable"),
+    );
+    expect(
+      migrated.changes.map((change) => change.kind === "command-renamed" && change.location),
+    ).toEqual(["*.yaml.0", false, "api.json", false]);
+  });
+});
+
+describe("migrateYamlCommands with the keys of a file kind", () => {
+  it("migrateYamlCommands migrates Taskfile cmds, cmd, sh and status", () => {
+    const text = lines(
+      "vars:",
+      "  V: { sh: openapi-typescript --version }",
+      "tasks:",
+      "  gen:",
+      "    cmds:",
+      "      - openapi-typescript a.yaml -it",
+      "      - cmd: openapi-typescript b.yaml -it",
+      "    status:",
+      "      - openapi-typescript a.yaml --check",
+      "    desc: openapi-typescript a.yaml",
+    );
+
+    const migrated = migrateYamlCommands(
+      text,
+      "Taskfile.yml",
+      stringsOf(text),
+      TASKFILE_COMMAND_KEYS,
+    );
+
+    expect(migrated.text).toBe(
+      text
+        .replaceAll("openapi-typescript --version", "openapi-typesafe --version")
+        .replaceAll(/- (cmd: )?openapi-typescript/g, "- $1openapi-typesafe")
+        .replaceAll(" -it", " --immutable"),
+    );
   });
 });
 

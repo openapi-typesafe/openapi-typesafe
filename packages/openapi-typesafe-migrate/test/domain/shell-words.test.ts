@@ -95,3 +95,61 @@ describe("shellCommands", () => {
     ]);
   });
 });
+
+describe("shellCommands and here-documents", () => {
+  it("shellCommands skips the body of a here-document, whose quotes are data", () => {
+    const text = "cat > n <<'NOTE'\nDon't edit\nNOTE\nnpx gen a";
+
+    expect(values(text)).toEqual([
+      ["cat", "n"],
+      ["npx", "gen", "a"],
+    ]);
+  });
+
+  it("shellCommands ends a <<- body at a delimiter line indented with tabs", () => {
+    const text = "cat <<-EOF\n\tit's\n\tEOF\nnext";
+
+    expect(values(text)).toEqual([["cat"], ["next"]]);
+  });
+
+  it("shellCommands reads the bodies of two here-documents of one line in order", () => {
+    const text = 'a <<A 3<<"B" b\nx\'\nA\ny"\nB\nnext\r\n';
+
+    expect(values(text)).toEqual([["a", "3", "b"], ["next"]]);
+  });
+
+  it("shellCommands takes a delimiter line with a carriage return", () => {
+    expect(values("cat <<E\r\nit's\r\nE\r\nnext")).toEqual([["cat"], ["next"]]);
+  });
+
+  it("shellCommands reads a body without its delimiter line to the end", () => {
+    expect(values("cat <<E\nit's\nnot a command")).toEqual([["cat"]]);
+  });
+
+  it("shellCommands reads the commands of a here-document a shell runs", () => {
+    const text = "bash -e <<'EOF'\nnpx gen a\nEOF\nRUN --mount=x <<EOF\nnpx gen b\nEOF";
+
+    expect(values(text)).toEqual([
+      ["bash", "-e"],
+      ["npx", "gen", "a"],
+      ["RUN", "--mount=x"],
+      ["npx", "gen", "b"],
+    ]);
+  });
+
+  it("shellCommands reads a here-document as data when a shell runs a script file", () => {
+    expect(values("bash gen.sh <<EOF\nnpx gen\nEOF")).toEqual([["bash", "gen.sh"]]);
+  });
+
+  it("shellCommands keeps the offsets of the commands in a here-document", () => {
+    const text = "sh <<EOF\nnpx gen\nEOF";
+    const word = shellCommands(text)[1]?.[1];
+
+    expect(text.slice(word?.start, word?.end)).toBe("gen");
+  });
+
+  it("shellCommands reads a here-string and an empty delimiter as words", () => {
+    expect(values("cat <<<'it''s' x\nnext")).toEqual([["cat", "its", "x"], ["next"]]);
+    expect(values("cat << \nnext")).toEqual([["cat"], ["next"]]);
+  });
+});

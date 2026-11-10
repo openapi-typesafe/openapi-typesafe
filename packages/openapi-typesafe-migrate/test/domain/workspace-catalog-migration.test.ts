@@ -97,6 +97,57 @@ describe("migrateWorkspaceCatalogs", () => {
     ]);
   });
 
+  it("migrateWorkspaceCatalogs reports every pnpm setting that names an original package", () => {
+    const text = [
+      "packages: [openapi-fetch]",
+      "packageExtensions:",
+      "  openapi-fetch:",
+      "    dependencies: { x: '1' }",
+      "allowedDeprecatedVersions:",
+      "  openapi-typescript: '7'",
+      "onlyBuiltDependencies: [openapi-react-query, esbuild]",
+      "overrides:",
+      "  x: npm:openapi-typescript-helpers@0.0.15",
+      "nodeLinker: hoisted",
+      "",
+    ].join("\n");
+
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, PNPM_WORKSPACE_FILE);
+
+    expect(migrated.manualSteps).toEqual([
+      { kind: "setting-names-package", field: "packageExtensions", name: "openapi-fetch" },
+      {
+        kind: "setting-names-package",
+        field: "allowedDeprecatedVersions",
+        name: "openapi-typescript",
+      },
+      {
+        kind: "setting-names-package",
+        field: "onlyBuiltDependencies",
+        name: "openapi-react-query",
+      },
+      { kind: "override-names-package", field: "overrides", name: "openapi-typescript-helpers" },
+    ]);
+  });
+
+  it("migrateWorkspaceCatalogs reports the Yarn settings that name an original package", () => {
+    const text = [
+      "nodeLinker: node-modules",
+      "packageExtensions:",
+      '  "openapi-react-query@*":',
+      "    peerDependencies: { '@tanstack/react-query': '*' }",
+      "catalog:",
+      "  left-pad: 1",
+      "",
+    ].join("\n");
+
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, YARNRC_FILE);
+
+    expect(migrated.manualSteps).toEqual([
+      { kind: "setting-names-package", field: "packageExtensions", name: "openapi-react-query" },
+    ]);
+  });
+
   it("migrateWorkspaceCatalogs hides URL credentials in the findings, not in the file", () => {
     const text = "catalog:\n  openapi-fetch: https://u:SECRET@npm.acme/x.tgz\n";
 
@@ -256,9 +307,7 @@ describe("migrateWorkspaceCatalogs", () => {
   it("migrateWorkspaceCatalogs quotes a new value that plain YAML would read otherwise", () => {
     const text = "catalog:\n  openapi-fetch: ^0.13.0\ncatalogs:\n  x: { openapi-typescript: 7 }\n";
 
-    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, {
-      reportedSections: new Set(),
-    });
+    const migrated = migrateWorkspaceCatalogs(text, reader.read(text), TARGET, YARNRC_FILE);
 
     expect(migrated.text).toBe(
       "catalog:\n  openapi-typesafe-fetch: ^1.0.0\ncatalogs:\n  x: { openapi-typesafe: ^1.0.0 }\n",
