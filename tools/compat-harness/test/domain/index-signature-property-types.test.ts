@@ -73,6 +73,24 @@ describe("index signature property types", () => {
     expect(indexLine(text)).toBe("[key: string]: string[] | (string | number)[];");
   });
 
+  it("withIndexPropertyTypes adds a property type to an index object over several lines", () => {
+    const text = [
+      "    totals: {",
+      "        count?: number;",
+      "    } & {",
+      "        [key: string]: {",
+      "            [key: string]: string;",
+      "        };",
+      "    };",
+    ].join("\n");
+
+    expect(rewrite(text).split("\n").slice(3, 6)).toEqual([
+      "        [key: string]: {",
+      "            [key: string]: string;",
+      "        } | number;",
+    ]);
+  });
+
   it("withIndexPropertyTypes keeps an unknown index type, JSDoc lines and readonly members", () => {
     const members = ["/**", " * @description Flags.", " */", "readonly a?: boolean;"];
     const index = golden(members, "unknown").replace("[key: string]", "readonly [key: string]");
