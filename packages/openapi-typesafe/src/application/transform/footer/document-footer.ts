@@ -32,14 +32,16 @@ export interface FooterSink {
 }
 
 /**
- * The `--dedupe-enums` key of the original: the values in default sort order, each paired with
- * the metadata at its sorted position (not the value's own metadata), as the original does.
+ * The `--dedupe-enums` key: the values in default sort order, each with the metadata at its sorted
+ * position (not the value's own metadata), as the original pairs them. The original joined
+ * `name:description` texts with `,`, and a member name stood in for its value, so enums with
+ * other values (`"1"` and `1`, `A` and `1` both named `Active`, `["a", "b"]` and `["a:,b"]`)
+ * shared one key and one declaration. As JSON, an equal key means the same values and metadata;
+ * enums the original kept apart still are.
  */
 function dedupeKey(request: EnumDeclarationRequest): string {
-  return [...request.values]
-    .sort(compareAsStrings)
-    .map((value, index) => metadataKey(String(value), request.metadata[index]))
-    .join(",");
+  const values = [...request.values].sort(compareAsStrings);
+  return JSON.stringify(values.map((value, index) => memberKey(value, request.metadata[index])));
 }
 
 /** `Array.prototype.sort` without a comparator: compares the values as strings. */
@@ -52,8 +54,9 @@ function compareAsStrings(left: string | number, right: string | number): number
   return leftText < rightText ? -1 : 1;
 }
 
-function metadataKey(value: string, metadata: EnumMemberMetadata | undefined): string {
-  return `${metadata?.name ?? value}:${metadata?.description || ""}`;
+/** One member: the value (JSON keeps `"1"` and `1` apart), its name and its description. */
+function memberKey(value: string | number, metadata: EnumMemberMetadata | undefined) {
+  return [value, metadata?.name ?? null, metadata?.description || null];
 }
 
 /** Separates a repeated `--enum-values` array name from its number, as root type aliases do. */

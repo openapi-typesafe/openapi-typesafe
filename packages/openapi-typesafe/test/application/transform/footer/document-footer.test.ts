@@ -58,6 +58,57 @@ describe("RunFooter", () => {
     expect(sink.declarations).toHaveLength(1);
   });
 
+  const named = (name: string) => ({ name, description: undefined });
+  const described = (description: string) => ({ name: undefined, description });
+
+  it.each([
+    ["a string and a number", { values: ["1"] }, { values: [1] }],
+    [
+      "values with the same member names",
+      { values: ["A"], metadata: [named("Active")] },
+      { values: [1], metadata: [named("Active")] },
+    ],
+    [
+      "values with the separators of the original key",
+      { values: ["a", "b"] },
+      { values: ["a:,b"] },
+    ],
+    [
+      "a value and a member name",
+      { values: ["Active"] },
+      { values: ["A"], metadata: [named("Active")] },
+    ],
+    [
+      "other member names",
+      { values: ["a"], metadata: [named("X")] },
+      { values: ["a"], metadata: [named("Y")] },
+    ],
+    [
+      "other descriptions",
+      { values: ["a"], metadata: [described("x")] },
+      { values: ["a"], metadata: [described("y")] },
+    ],
+  ])("addEnum with --dedupe-enums keeps enums apart with %s", (_case, first, second) => {
+    const sink = new InMemorySink();
+    const footer = new RunFooter(sink, true);
+
+    const firstName = footer.addEnum({ ...STATUS, ...first });
+    const secondName = footer.addEnum({ ...STATUS, name: "other", ...second });
+
+    expect(secondName).not.toBe(firstName);
+    expect(sink.declarations).toHaveLength(2);
+  });
+
+  it("addEnum with --dedupe-enums treats an empty description as none", () => {
+    const sink = new InMemorySink();
+    const footer = new RunFooter(sink, true);
+
+    footer.addEnum({ ...STATUS, metadata: [described("")] });
+    const name = footer.addEnum({ ...STATUS, name: "other" });
+
+    expect(name).toBe("Status");
+  });
+
   it("addEnum without --dedupe-enums adds every enum with other members", () => {
     const sink = new InMemorySink();
     const footer = new RunFooter(sink, false);
