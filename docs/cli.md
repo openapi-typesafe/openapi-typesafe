@@ -304,6 +304,14 @@ the intersection. `` paths[`/user/${string}`] `` is then the intersection of bot
 merge the paths in the document to get one. Without the flag, each path keeps its own key.
 :::
 
+::: info `$ref`s into a templated path
+A `$ref` into a path, such as `#/paths/~1pets~1%7Bid%7D/get/responses/200`, is typed as an index
+of `paths`. When the template has a `${number}` or `${boolean}` placeholder, the URL `/pets/{id}`
+does not match it, so the index is the template: `` paths[`/pets/${number}`]["get"] ``. The
+original wrote `paths["/pets/{id}"]`, which does not compile (TS2339). With only `${string}`
+placeholders the URL matches the template, and the index stays the URL.
+:::
+
 _Thanks, [@Powell-v2](https://github.com/Powell-v2)!_
 
 ### arrayLength

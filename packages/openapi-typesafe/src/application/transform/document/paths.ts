@@ -98,7 +98,7 @@ function splitTemplateParts(url: string, matches: readonly PathParameterMatch[])
  * its parameter's type, the way the original replaces them unless the `path-param-type-names` fix
  * is on (see `replacedTemplateParts`). Null when the URL has no complete `{…}` placeholder.
  */
-function pathTemplateParts(
+export function pathTemplateParts(
   url: string,
   pathItem: PathItemObject,
   context: TransformContext,
@@ -122,7 +122,7 @@ function pathTemplateParts(
  * `${` in the URL could end the literal or open a placeholder, and add code to the generated file
  * (intentional fix). So the text parts are escaped.
  */
-function templateText(parts: readonly PathKeyPart[]): string {
+export function templateText(parts: readonly PathKeyPart[]): string {
   const text = parts
     .map((part) =>
       part.kind === "text" ? escapeTemplateText(part.text) : placeholderText(part.type),
