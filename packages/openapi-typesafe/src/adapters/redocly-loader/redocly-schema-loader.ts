@@ -20,6 +20,7 @@ import { removeBundledMappingCopies, schemaKeysOf } from "./bundled-mapping-copi
 import { repairBundledRefs } from "./bundled-ref-repair.js";
 import { loadedDocuments, localFilesRead } from "./loaded-documents.js";
 import { findMalformedRefs, malformedRefsError } from "./malformed-refs.js";
+import { pointMappingNamesAtSchemas } from "./mapping-schema-names.js";
 import {
   type ComponentRenaming,
   componentKeysOf,
@@ -165,6 +166,7 @@ class RedoclySchemaLoader implements SchemaLoader {
     const document = await parseSchema(request.source, { absoluteRef, resolver });
     logger.debug("Parsed schema", "redoc", now() - parseStartedAt);
     assertOpenAPI3(document.parsed);
+    pointMappingNamesAtSchemas(document.parsed);
     const bundled = await this.#lintAndBundle(document, resolver, request.shouldLint);
     const isRootAFile = request.source instanceof URL && request.source.protocol === "file:";
     const localFiles = await localFilesRead(document, resolver, isRootAFile);

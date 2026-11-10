@@ -406,6 +406,11 @@ Episode:
 Add a mapping entry for the value the property allows (`mapping: { episode:
 "#/components/schemas/Episode" }`).
 
+A `mapping` value is a schema name (`cat: Cat`) or a URI reference (`cat:
+"#/components/schemas/Cat"`). A value that is a key of `components.schemas` is read as that
+schema's name, as OpenAPI 3.1.1 recommends for a value that could be either; write a relative file
+reference that matches a schema name as `./Cat`. Any other value is a URI reference.
+
 A member is a schema that the discriminator's `oneOf`, `anyOf` or `mapping` names, or one that
 `allOf`s the owner, also through other schemas (`Lion: { allOf: [Cat] }`, `Cat: { allOf: [Pet] }`).
 Below a schema with its own discriminator of the property, the schemas are that one's members.
