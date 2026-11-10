@@ -138,7 +138,9 @@ export function schemaArbitrary(): fc.Arbitrary<unknown> {
         deprecated: fc.boolean(),
         readOnly: fc.boolean(),
         writeOnly: fc.boolean(),
-        const: fc.oneof(text, fc.integer(), fc.constant(null)),
+        // No `const: null`: the original typed it `unknown`, and it is `null` on purpose now
+        // (test/api/const-null.test.ts).
+        const: fc.oneof(text, fc.integer()),
         oneOf: fc.array(tie("schema"), { maxLength: 2 }),
       },
       { requiredKeys: ["type"] },
