@@ -636,3 +636,22 @@ export function mergesDifferentInputEnums(value: unknown, input: ContextInput): 
   const { flags } = input;
   return flags.enum && flags.dedupeEnums && mergesDifferentEnums(enumShapesOf(value));
 }
+
+/** The fixture pointers whose object is deprecated, as `"$ref":"…"` text. */
+const DEPRECATED_REFS = Object.entries(DOCUMENTS)
+  .filter(([, node]) => (node as { deprecated?: unknown }).deprecated === true)
+  .map(([ref]) => JSON.stringify({ $ref: ref }).slice(1, -1));
+
+/**
+ * Whether the original's `ApiPaths` would list an operation that `--exclude-deprecated` drops
+ * (itself deprecated, or a `$ref` to a deprecated fixture): it read every operation, so the enum
+ * named URLs the `paths` type no longer has. The new generator leaves them out
+ * (test/api/exclude-deprecated-references.test.ts).
+ */
+export function listsExcludedOperations(value: unknown, input: ContextInput): boolean {
+  const { flags } = input;
+  const text = JSON.stringify((value as { paths?: unknown } | null)?.paths ?? {});
+  const hasDeprecated =
+    text.includes('"deprecated":true') || DEPRECATED_REFS.some((ref) => text.includes(ref));
+  return flags.excludeDeprecated && flags.makePathsEnum && hasDeprecated;
+}

@@ -1042,6 +1042,10 @@ export enum Values { // [!code ++]
   `enum` gives just the enum.
 - `x-enum-varnames` and `x-enum-descriptions` keep their positions: the entry for `null` is
   skipped.
+- OpenAPI 3.0 `nullable: true` next to an `enum` that does not list `null` allows no `null`: other
+  keywords keep their meaning (OpenAPI 3.0.3), so `--enum` gives just the enum, with or without the
+  fix. Without `--enum` the union keeps the original's `| null`; list `null` in the `enum` to allow
+  it in both.
 - An enum of only `null` stays `null`.
 - It needs `--enum` and changes nothing without it; naming it without it prints the warning `FIX_NEEDS_OPTION` (`--fix
   all` does not).

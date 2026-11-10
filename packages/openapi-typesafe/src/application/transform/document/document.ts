@@ -9,13 +9,14 @@ import type {
 } from "../../../domain/ir/nodes.js";
 import type { ComponentsObject } from "../../../domain/openapi/components-object.js";
 import type { DocumentObject } from "../../../domain/openapi/document-object.js";
-import type { PathsObject } from "../../../domain/openapi/path-item-object.js";
+import type { OperationEntry, PathsObject } from "../../../domain/openapi/path-item-object.js";
 import { READ_WRITE_MARKER_TYPES } from "../helper-types.js";
 import type { TransformContext, TransformOptions } from "../transform-context.js";
 import { componentsType } from "./components.js";
 import { type DeclaredTypeLookup, declaredTypeLookup } from "./declared-types.js";
 import { defsRootType } from "./defs-root.js";
 import { keptDeprecatedComponents } from "./kept-deprecated.js";
+import { isIncludedOperation } from "./path-item.js";
 import { pathMembers, pathsObjectType } from "./paths.js";
 import { apiPathsEnumDeclaration } from "./paths-enum.js";
 import { webhooksType } from "./webhooks.js";
@@ -210,7 +211,8 @@ export function documentClosing(
     declarations.push(emptyAlias(OPERATIONS_NAME));
   }
   if (context.options.makePathsEnum && document.paths) {
-    declarations.push(apiPathsEnumDeclaration(document.paths));
+    const isIncluded = (operation: OperationEntry) => isIncludedOperation(operation, context);
+    declarations.push(apiPathsEnumDeclaration(document.paths, isIncluded));
   }
   return declarations;
 }

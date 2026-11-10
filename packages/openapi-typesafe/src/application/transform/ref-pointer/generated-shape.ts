@@ -115,12 +115,25 @@ function isOptionalProperty(node: JsonObject, key: string, options: SchemaOption
   return !isRequired;
 }
 
-function objectMember(node: JsonObject, key: string, options: SchemaOptions): GeneratedMember {
+/**
+ * Whether `--exclude-deprecated` leaves the property out: its object, or the one its `$ref`
+ * names, is deprecated (`objectType`). The key is then not in the generated type at all.
+ */
+export function isExcludedProperty(
+  property: unknown,
+  options: SchemaOptions,
+  refs: RefResolver,
+): boolean {
+  const resolved = followRefs(property, refs);
+  return options.excludeDeprecated && isJsonObject(resolved) && Boolean(resolved.deprecated);
+}
+
+function objectMember(node: JsonObject, key: string, input: MemberInput): GeneratedMember {
+  const { options } = input;
   const properties = isJsonObject(node.properties) ? node.properties : {};
-  if (Object.hasOwn(properties, key)) {
+  if (Object.hasOwn(properties, key) && !isExcludedProperty(properties[key], options, input.refs)) {
     const property = properties[key];
-    const isExcluded = options.excludeDeprecated && isJsonObject(property) && property.deprecated;
-    return isExcluded || isJsonObject(node.discriminator)
+    return isJsonObject(node.discriminator)
       ? OPAQUE
       : { kind: "property", node: property, isOptional: isOptionalProperty(node, key, options) };
   }
@@ -232,7 +245,7 @@ function memberAt(schema: unknown, key: string, input: MemberInput): GeneratedMe
     return composedMember(node, key, { ...input, depth: input.depth + 1 });
   }
   if (isObjectShape(node)) {
-    return objectMember(node, key, input.options);
+    return objectMember(node, key, input);
   }
   if (isArrayShape(node)) {
     return INDEX_RE.test(key) || isBuiltInMember(key, []) ? OPAQUE : MISSING;

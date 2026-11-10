@@ -5,6 +5,7 @@ import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import {
   followRefs,
   isArrayShape,
+  isExcludedProperty,
   isJsonObject,
   isObjectShape,
   type Presence,
@@ -68,9 +69,13 @@ function indexEntries(walk: TypedWalk, key: IrKeyword, keyword: string, refs: Re
   };
 }
 
+/** A property `--exclude-deprecated` left out has no member to index: it is typed in place. */
 function nameStep(walk: TypedWalk, name: string, isLast: boolean, input: TypedWalkInput) {
   const owner = followRefs(walk.node, input.refs);
   const properties = isJsonObject(owner) && isJsonObject(owner.properties) ? owner.properties : {};
+  if (isExcludedProperty(properties[name], input.options, input.refs)) {
+    return null;
+  }
   const type =
     walk.presence === "present"
       ? indexKeyword(walk.type, name, isLast)

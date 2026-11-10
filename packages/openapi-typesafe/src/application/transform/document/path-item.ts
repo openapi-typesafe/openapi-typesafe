@@ -29,7 +29,7 @@ export function operationKeyOf(operationId: string): string {
 }
 
 /** Whether the method has an operation, not removed by `--exclude-deprecated`. */
-function isIncluded(
+export function isIncludedOperation(
   operation: OperationEntry | undefined,
   context: TransformContext,
 ): operation is OperationEntry {
@@ -94,7 +94,7 @@ function methodMember(
   context: TransformContext,
 ): IrPropertySignature {
   const operation = pathItem[method];
-  if (!isIncluded(operation, context)) {
+  if (!isIncludedOperation(operation, context)) {
     const isReadonly = context.options.immutable;
     return irProperty(toPropertyName(method), irKeyword("never"), { isOptional: true, isReadonly });
   }
@@ -113,7 +113,7 @@ function additionalOperationsMember(
 ): IrPropertySignature | null {
   const entries = documentEntries(pathItem.additionalOperations ?? {}, context.options);
   const members = entries
-    .filter(([, operation]) => isIncluded(operation, context))
+    .filter(([, operation]) => isIncludedOperation(operation, context))
     .map(([method, operation]) => {
       const path = appendPointer(location.path, [ADDITIONAL_OPERATIONS_KEY, method]);
       return operationMember({ name: method, operation, path }, pathItem, location, context);

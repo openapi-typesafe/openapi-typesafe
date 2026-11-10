@@ -3,6 +3,7 @@ import type { OperationObject } from "../../../domain/openapi/operation-object.j
 import {
   ADDITIONAL_OPERATIONS_KEY,
   HTTP_METHODS,
+  type OperationEntry,
   type PathItemMethod,
   type PathsObject,
   QUERY_METHOD,
@@ -72,12 +73,19 @@ function pathItemEntries(pathItem: object): [string, unknown][] {
   });
 }
 
-function pathOperations(paths: PathsObject): PathOperation[] {
+/** Which operations get a member; the generator leaves out those `--exclude-deprecated` drops. */
+export type OperationFilter = (operation: OperationEntry) => boolean;
+
+const INCLUDES_EVERY_OPERATION: OperationFilter = () => true;
+
+function pathOperations(paths: PathsObject, isIncluded: OperationFilter): PathOperation[] {
   return Object.entries(paths).flatMap(([url, pathItem]) =>
-    pathItemEntries(pathItem).map(([method, operation]) => {
-      const operationId = (operation as OperationObject).operationId || undefined;
-      return { url, method, operationId };
-    }),
+    pathItemEntries(pathItem)
+      .filter(([, operation]) => isIncluded(operation as OperationEntry))
+      .map(([method, operation]) => {
+        const operationId = (operation as OperationObject).operationId || undefined;
+        return { url, method, operationId };
+      }),
   );
 }
 
@@ -108,8 +116,11 @@ function uniqueNames(operations: readonly PathOperation[]): string[] {
  * One enum member per operation: the URL as the value, the operation ID (or a key built from the
  * method and URL) as the name. Paths are in document order; `--alphabetize` does not apply.
  */
-export function apiPathsEnum(paths: PathsObject): ApiPathsEnum {
-  const operations = pathOperations(paths);
+export function apiPathsEnum(
+  paths: PathsObject,
+  isIncluded: OperationFilter = INCLUDES_EVERY_OPERATION,
+): ApiPathsEnum {
+  const operations = pathOperations(paths, isIncluded);
   const names = uniqueNames(operations);
   return {
     values: operations.map((operation) => operation.url),
@@ -121,7 +132,10 @@ export function apiPathsEnum(paths: PathsObject): ApiPathsEnum {
  * The `ApiPaths` enum declaration. Its own naming state is equivalent to the run's: the name is a
  * valid identifier, and member names only reset the state, never read it.
  */
-export function apiPathsEnumDeclaration(paths: PathsObject): IrEnumDeclaration {
+export function apiPathsEnumDeclaration(
+  paths: PathsObject,
+  isIncluded: OperationFilter = INCLUDES_EVERY_OPERATION,
+): IrEnumDeclaration {
   const naming = new EnumNaming();
-  return enumDeclaration(naming.enumName(API_PATHS_NAME), apiPathsEnum(paths), naming);
+  return enumDeclaration(naming.enumName(API_PATHS_NAME), apiPathsEnum(paths, isIncluded), naming);
 }
