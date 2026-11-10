@@ -99,8 +99,91 @@ describe("index signature property types", () => {
     expect(indexLine(rewrite(golden(members, "string")))).toBe("[key: string]: string | boolean;");
   });
 
-  it("OBJECT_WITH_INDEX_SIGNATURE leaves an object with a multi-line member unchanged", () => {
-    const text = golden(["a?: {", "    b: string;", "};"], "string");
+  it("withIndexPropertyTypes adds the type of a member over several lines as it is", () => {
+    const nested = ["a?: {", "    /** @description it's a | b */", "    b: string;", "};"];
+
+    const text = rewrite(golden(nested, "string"));
+
+    expect(text.split("\n").slice(-6)).toEqual([
+      "    } & {",
+      "        [key: string]: string | {",
+      "            /** @description it's a | b */",
+      "            b: string;",
+      "        };",
+      "    };",
+    ]);
+  });
+
+  it("withIndexPropertyTypes skips JSDoc over several lines before a member", () => {
+    const members = ["/**", " * @description one", " *     two", " */", "empty?: boolean;"];
+
+    expect(indexLine(rewrite(golden(members, "string")))).toBe("[key: string]: string | boolean;");
+  });
+
+  it("withIndexPropertyTypes rewrites a nested member first and brackets its intersection", () => {
+    const nested = ["a?: {", "    on?: boolean;", "} & {", "    [key: string]: string;", "};"];
+
+    const lines = rewrite(golden(nested, "string")).split("\n");
+
+    expect(
+      lines.filter((line) => line.includes("[key: string]")).map((line) => line.trim()),
+    ).toEqual([
+      "[key: string]: string | boolean;",
+      "[key: string]: string | ({",
+      "[key: string]: string | boolean;",
+    ]);
+    expect(lines.slice(-3)).toEqual([
+      "            [key: string]: string | boolean;",
+      "        });",
+      "    };",
+    ]);
+  });
+
+  it("withIndexPropertyTypes brackets an index intersection over several lines it widens", () => {
+    const index = [
+      "{",
+      "            a?: string;",
+      "        } & {",
+      "            [key: string]: unknown;",
+      "        }",
+    ];
+
+    const lines = rewrite(golden(["on?: boolean;"], index.join("\n"))).split("\n");
+
+    expect(lines.slice(-7)).toEqual([
+      "    } & {",
+      "        [key: string]: ({",
+      "            a?: string;",
+      "        } & {",
+      "            [key: string]: unknown;",
+      "        }) | boolean;",
+      "    };",
+    ]);
+  });
+
+  it("OBJECT_WITH_INDEX_SIGNATURE takes an object that starts with a bare brace", () => {
+    const text = golden(["on?: boolean;"], "string").replace("headers?: {", "{");
+
+    expect(indexLine(rewrite(text))).toBe("[key: string]: string | boolean;");
+  });
+
+  it("withIndexPropertyTypes reads past an apostrophe in JSDoc to bracket an intersection", () => {
+    const nested = [
+      "a?: {",
+      "    /** it's on */",
+      "    on?: boolean;",
+      "} & {",
+      "    x: number;",
+      "};",
+    ];
+
+    const text = rewrite(golden(nested, "string"));
+
+    expect(indexLine(text)).toBe("[key: string]: string | ({");
+  });
+
+  it("withIndexPropertyTypes keeps an intersection index type that holds every property", () => {
+    const text = golden(["a?: A & B;"], "A & B");
 
     expect(rewrite(text)).toBe(text);
   });
