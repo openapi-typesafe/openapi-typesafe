@@ -12,8 +12,13 @@ import type { OpenAPITypesafeError } from "../../src/domain/errors.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
 import { documentWith } from "./defensive-helpers.js";
 
-/** Short enough for a fast test, long enough for a local answer on a busy CI machine. */
+/** The time limit of the tests that wait for it: short, so that they stay fast. */
 const TEST_TIMEOUT_MS = 500;
+/**
+ * The time limit of every other test: long enough for a busy CI machine to fetch, decode and parse
+ * a 4 MiB document, which can take more than TEST_TIMEOUT_MS on a Windows runner.
+ */
+const LOAD_TIMEOUT_MS = 10_000;
 
 const PERSON = JSON.stringify({ type: "object", properties: { name: { type: "string" } } });
 const UNSUPPORTED_KEY = JSON.stringify({ type: "object", properties: { valueOf: { type: "string" } } });
@@ -162,18 +167,20 @@ afterAll(async () => {
   await new Promise((resolve) => server.close(resolve));
 });
 
-async function loadDocument(
-  source: unknown,
-  remoteDocumentLimits: RemoteDocumentLimits = DEFAULT_REMOTE_DOCUMENT_LIMITS,
-  redoc?: Awaited<ReturnType<typeof defaultRedoclyConfig>>,
-  logger = new RecordingLogger(),
-) {
+interface LoadOptions {
+  readonly limits?: RemoteDocumentLimits;
+  readonly redoc?: Awaited<ReturnType<typeof defaultRedoclyConfig>>;
+  readonly logger?: RecordingLogger;
+  readonly timeoutMs?: number;
+}
+
+async function loadDocument(source: unknown, options: LoadOptions = {}) {
   const loader = createRedoclySchemaLoader({
-    redoc: redoc ?? (await defaultRedoclyConfig()),
-    logger,
+    redoc: options.redoc ?? (await defaultRedoclyConfig()),
+    logger: options.logger ?? new RecordingLogger(),
     now: () => 0,
-    remoteRefTimeoutMs: TEST_TIMEOUT_MS,
-    remoteDocumentLimits,
+    remoteRefTimeoutMs: options.timeoutMs ?? LOAD_TIMEOUT_MS,
+    remoteDocumentLimits: options.limits ?? DEFAULT_REMOTE_DOCUMENT_LIMITS,
   });
   const loaded = await loader.load({
     source: source as never,
@@ -184,13 +191,9 @@ async function loadDocument(
   return loaded.document;
 }
 
-async function loadFailure(
-  source: unknown,
-  limits?: RemoteDocumentLimits,
-  redoc?: Awaited<ReturnType<typeof defaultRedoclyConfig>>,
-): Promise<OpenAPITypesafeError> {
+async function loadFailure(source: unknown, options: LoadOptions = {}): Promise<OpenAPITypesafeError> {
   try {
-    await loadDocument(source, limits, redoc);
+    await loadDocument(source, options);
   } catch (error) {
     return error as OpenAPITypesafeError;
   }
@@ -234,7 +237,7 @@ describe("remote $ref", () => {
   ])("a remote $ref that %s fails with SCHEMA_INVALID within the time limit", async (_name, path) => {
     const startedAt = performance.now();
 
-    const error = await loadFailure(withRemoteRef(path));
+    const error = await loadFailure(withRemoteRef(path), { timeoutMs: TEST_TIMEOUT_MS });
 
     expect(error.code).toBe("SCHEMA_INVALID");
     expect(error.message).toMatch(/^Can't resolve \$ref: .* at #\/components\/schemas\/Person$/);
@@ -242,14 +245,14 @@ describe("remote $ref", () => {
   });
 
   it("a remote source that never answers fails with SCHEMA_LOAD_FAILED and names the limit", async () => {
-    const error = await loadFailure(new URL(`${baseURL}/hang.json`));
+    const error = await loadFailure(new URL(`${baseURL}/hang.json`), { timeoutMs: TEST_TIMEOUT_MS });
 
     expect(error).toMatchObject({ code: "SCHEMA_LOAD_FAILED" });
     expect(error.message).toBe(`Timed out after ${TEST_TIMEOUT_MS} ms loading ${baseURL}/hang.json`);
   });
 
   it("a remote source that sends its body one byte at a time fails within the time limit", async () => {
-    const error = await loadFailure(new URL(`${baseURL}/drip.json`));
+    const error = await loadFailure(new URL(`${baseURL}/drip.json`), { timeoutMs: TEST_TIMEOUT_MS });
 
     expect(error).toMatchObject({ code: "SCHEMA_LOAD_FAILED" });
     expect(error.message).toBe(`Timed out after ${TEST_TIMEOUT_MS} ms loading ${baseURL}/drip.json`);
@@ -302,7 +305,7 @@ describe("remote $ref fan-out", () => {
   it("a fan-out of remote documents stops at the document limit with SCHEMA_REF_FORBIDDEN", async () => {
     fanRequests.total = 0;
 
-    const error = await loadFailure(withRemoteRef("/fan/root.json"), limits);
+    const error = await loadFailure(withRemoteRef("/fan/root.json"), { limits });
 
     expect(error).toMatchObject({
       code: "SCHEMA_REF_FORBIDDEN",
@@ -315,7 +318,7 @@ describe("remote $ref fan-out", () => {
   it("remote documents are fetched at most a few at a time", async () => {
     fanRequests.maxInFlight = 0;
 
-    await loadFailure(withRemoteRef("/fan/root.json"), limits);
+    await loadFailure(withRemoteRef("/fan/root.json"), { limits });
 
     expect(fanRequests.maxInFlight).toBeGreaterThan(1);
     expect(fanRequests.maxInFlight).toBeLessThanOrEqual(limits.maxParallelFetches);
@@ -331,7 +334,7 @@ describe("remote documents that are too large once decoded (RC4 S4)", () => {
   };
 
   it("a gzip bomb behind a remote $ref stops at the document limit", async () => {
-    const error = await loadFailure(withRemoteRef("/bomb.json"), limits);
+    const error = await loadFailure(withRemoteRef("/bomb.json"), { limits });
 
     expect(error).toMatchObject({
       code: "SCHEMA_REF_FORBIDDEN",
@@ -340,7 +343,7 @@ describe("remote documents that are too large once decoded (RC4 S4)", () => {
   });
 
   it("a gzip bomb as the remote root document stops at the document limit", async () => {
-    const error = await loadFailure(new URL(`${baseURL}/bomb.json`), limits);
+    const error = await loadFailure(new URL(`${baseURL}/bomb.json`), { limits });
 
     expect(error).toMatchObject({ code: "SCHEMA_REF_FORBIDDEN", details: { reason: "remote-document-too-large" } });
   });
@@ -351,7 +354,7 @@ describe("remote documents that are too large once decoded (RC4 S4)", () => {
       B: { $ref: `${baseURL}/bomb-2.json` },
     });
 
-    const error = await loadFailure(both, { ...limits, maxDocumentBytes: 5 * MEBIBYTE });
+    const error = await loadFailure(both, { limits: { ...limits, maxDocumentBytes: 5 * MEBIBYTE } });
 
     expect(error).toMatchObject({
       code: "SCHEMA_REF_FORBIDDEN",
@@ -363,7 +366,7 @@ describe("remote documents that are too large once decoded (RC4 S4)", () => {
     const redoc = await defaultRedoclyConfig();
     (redoc.resolve.http as { customFetch?: unknown }).customFetch = fetch;
 
-    const error = await loadFailure(withRemoteRef("/bomb.json"), limits, redoc);
+    const error = await loadFailure(withRemoteRef("/bomb.json"), { limits, redoc });
 
     expect(error).toMatchObject({ code: "SCHEMA_REF_FORBIDDEN", details: { reason: "remote-document-too-large" } });
   });
@@ -379,7 +382,7 @@ describe("remote documents that parse into too many nodes", () => {
   const limits: RemoteDocumentLimits = { ...DEFAULT_REMOTE_DOCUMENT_LIMITS, maxNodes: DENSE_NODES };
 
   it("a dense remote document stops at the node limit while it is parsed", async () => {
-    const error = await loadFailure(withRemoteRef("/dense.json"), limits);
+    const error = await loadFailure(withRemoteRef("/dense.json"), { limits });
 
     expect(error).toMatchObject({
       code: "SCHEMA_REF_FORBIDDEN",
@@ -389,7 +392,7 @@ describe("remote documents that parse into too many nodes", () => {
   });
 
   it("a dense remote root document stops at the node limit", async () => {
-    const error = await loadFailure(new URL(`${baseURL}/dense.yaml`), limits);
+    const error = await loadFailure(new URL(`${baseURL}/dense.yaml`), { limits });
 
     expect(error).toMatchObject({
       code: "SCHEMA_REF_FORBIDDEN",
@@ -399,10 +402,9 @@ describe("remote documents that parse into too many nodes", () => {
 
   it("remote documents within the node limit load, and one that is kept as text is not counted", async () => {
     const bundled = await loadDocument(withRemoteRef("/dense.json"), {
-      ...limits,
-      maxNodes: DENSE_NODES * 2,
+      limits: { ...limits, maxNodes: DENSE_NODES * 2 },
     });
-    const asText = await loadDocument(withRemoteRef("/dense.txt"), limits);
+    const asText = await loadDocument(withRemoteRef("/dense.txt"), { limits });
 
     expect(bundled.components?.schemas?.Person).toBeDefined();
     expect(asText.components?.schemas?.Person).toBeDefined();
@@ -464,7 +466,7 @@ describe("credentials in remote URLs", () => {
       B: { $ref: `${baseURL}/other/versioned?token=URL-SECRET` },
     });
 
-    const bundled = await loadDocument(document, undefined, undefined, logger);
+    const bundled = await loadDocument(document, { logger });
 
     expect(Object.keys(bundled.components?.schemas ?? {})).toEqual(["A", "B", "versioned", "versioned-2"]);
     expect(logger.messages("warn").join("\n")).not.toContain("URL-SECRET");
