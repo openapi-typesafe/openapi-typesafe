@@ -307,7 +307,7 @@ export default function createClient(clientOptions) {
       }
     }
 
-    return readResult(response, parseAs);
+    return readResult(response, parseAs, request.method);
   }
 
   return {
@@ -515,26 +515,28 @@ function parseJSON(raw, response) {
 }
 
 /**
- * Whether the headers say the body is empty: a `Content-Length` of 0 without chunked transfer.
- * A 204 and an answer to HEAD have an empty body anyway.
+ * Whether the response has no body: an answer to HEAD (RFC 9110 §9.3.2) or a `Content-Length` of
+ * 0 without chunked transfer. An answer to HEAD keeps the `Content-Length` that GET would send, so
+ * the method is read, not the length. A 204 needs no check: a `Response` with it has no body.
  */
-function hasDeclaredEmptyBody(response) {
-  return (
+function hasEmptyBody(response, method) {
+  const isDeclaredEmpty =
     response.headers.get("Content-Length") === "0" &&
-    !response.headers.get("Transfer-Encoding")?.includes("chunked")
-  );
+    !response.headers.get("Transfer-Encoding")?.includes("chunked");
+  return method === "HEAD" || isDeclaredEmpty;
 }
 
 /**
- * The `data` or `error` of a response. An empty body is no data for JSON and no error, but each
- * other `parseAs` reads the body with its method, also an empty one: `""`, an empty Blob or
- * ArrayBuffer, or `response.body`, as their types say.
+ * The `data` or `error` of a response. A response without a body has no error and, for JSON, no
+ * data; each other `parseAs` reads the body with its method, also an empty one: `""`, an empty
+ * Blob or ArrayBuffer, or `response.body`, as their types say.
  */
-async function readResult(response, parseAs) {
+async function readResult(response, parseAs, method) {
+  const isEmpty = hasEmptyBody(response, method);
   if (!response.ok) {
-    return { error: await readErrorBody(response), response };
+    return { error: isEmpty ? undefined : await readErrorBody(response), response };
   }
-  if (parseAs === "json" && hasDeclaredEmptyBody(response)) {
+  if (parseAs === "json" && isEmpty) {
     return { data: undefined, response };
   }
   return { data: await readSuccessBody(response, parseAs), response };
