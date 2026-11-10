@@ -103,6 +103,21 @@ describe("INTENTIONAL_DIFFERENCES", () => {
     expect(appliedIds).toEqual(["root-type-name-leading-digit"]);
   });
 
+  it("an index signature next to properties of other types gets their types", () => {
+    const golden = [
+      "        headers?: {",
+      "            empty?: boolean;",
+      "        } & {",
+      "            [key: string]: string[];",
+      "        };",
+    ].join("\n");
+
+    const { text, appliedIds } = applyIntentionalDifferences(golden, INTENTIONAL_DIFFERENCES);
+
+    expect(text.split("\n")[3]).toBe("            [key: string]: string[] | boolean;");
+    expect(appliedIds).toEqual(["index-signature-property-types"]);
+  });
+
   it("the empty enum member gets a quoted name", () => {
     const golden = 'export enum A {\n     = "",\n    b = "b"\n}\nexport enum B {\n     = ""\n}';
 

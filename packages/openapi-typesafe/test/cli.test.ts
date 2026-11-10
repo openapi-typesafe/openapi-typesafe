@@ -9,8 +9,13 @@ const root = new URL("../", import.meta.url);
 const cwd = os.platform() === "win32" ? fileURLToPath(root) : root; // execa bug: fileURLToPath required on Windows
 const cmd = "./bin/cli.js";
 const TIMEOUT = 90_000;
+/**
+ * Every test spawns the CLI, which loads Redocly and TypeScript before its first output: well
+ * under a second here, but more than vitest's default 5 s on a busy macOS Intel CI runner.
+ */
+const SPAWN_TIMEOUT_MS = 30_000;
 
-describe("CLI", () => {
+describe("CLI", { timeout: SPAWN_TIMEOUT_MS }, () => {
   const tests: TestCase<string[]>[] = [
     [
       "snapshot > GitHub API",
