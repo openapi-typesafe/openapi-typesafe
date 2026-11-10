@@ -21,6 +21,10 @@ export interface IntentionalDifference {
   readonly candidate: string | ((match: string, group: string) => string);
 }
 
+import {
+  OBJECT_WITH_INDEX_SIGNATURE,
+  withIndexPropertyTypes,
+} from "./index-signature-property-types.ts";
 import { FIXED_READ_WRITE_TYPES, FORK_BASE_READ_WRITE_TYPES } from "./read-write-marker-texts.ts";
 
 const UPSTREAM = "openapi-ts/openapi-typescript";
@@ -102,6 +106,15 @@ export const INTENTIONAL_DIFFERENCES: readonly IntentionalDifference[] = [
       "`--root-types-no-schema-prefix`: a schema name that starts with a digit keeps its prefix",
     golden: /^export type (\d[^\s=<]*) = (?=components\['schemas'\])/gm,
     candidate: "export type Schema$1 = ",
+  },
+  {
+    id: "index-signature-property-types",
+    issues: [`${LEGACY_BUGS} item 20`],
+    description:
+      "An index signature next to properties of other types admits them: `{ a?: boolean } & " +
+      "{ [key: string]: string[] }` becomes `string[] | boolean`",
+    golden: OBJECT_WITH_INDEX_SIGNATURE,
+    candidate: (match) => withIndexPropertyTypes(match),
   },
 ];
 
