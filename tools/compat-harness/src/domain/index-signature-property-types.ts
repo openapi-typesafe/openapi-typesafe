@@ -4,14 +4,18 @@
  * leaves the intersection no value; the candidate adds such property types to `T` (legacy bug 20).
  *
  * The pattern takes an object whose members are one line each (JSDoc lines allowed) and the index
- * signature right after it. Group 1 is the indent of the object's first line.
+ * signature right after it, whose type is one line or an object over several lines. Group 1 is the
+ * indent of the object's first line.
  */
 export const OBJECT_WITH_INDEX_SIGNATURE =
-  /^( +)\S[^\n]*\{\n(?:\1 {4}(?:\S| \*)[^\n]*\n)+\1\} & \{\n\1 {4}(?:readonly )?\[key: string\]: [^\n]+;$/gm;
+  /^( +)\S[^\n]*\{\n(?:\1 {4}(?:\S| \*)[^\n]*\n)+\1\} & \{\n\1 {4}(?:readonly )?\[key: string\]: (?:[^\n]+;|\{\n(?:\1 {8}[^\n]*\n)+\1 {4}\};)$/gm;
 
 const PROPERTY_LINE =
   /^(?:readonly )?(?:"(?:[^"\\]|\\.)*"|[\p{ID_Start}_$][\p{ID_Continue}$]*)\??: (.+);$/u;
-const INDEX_LINE = /^((?:readonly )?\[key: string\]: )(.+);$/;
+/** Where the index signature starts in a match: the object's members end right before it. */
+const INDEX_START = "} & {\n";
+/** The index signature: its indent, its key part and its type (which may span lines). */
+const INDEX_MEMBER = /^( *)((?:readonly )?\[key: string\]: )([\s\S]+);$/;
 const UNION_SEPARATOR = " | ";
 const UNKNOWN_TYPE = "unknown";
 
@@ -124,14 +128,17 @@ function widenedIndexType(indexType: string, types: readonly string[]): string {
 
 /** Rewrite one match of OBJECT_WITH_INDEX_SIGNATURE as the candidate writes it. */
 export function withIndexPropertyTypes(match: string): string {
-  const lines = match.split("\n");
-  const indexLine = lines.at(-1) ?? "";
-  const [, prefix = "", indexType = ""] = INDEX_LINE.exec(indexLine.trim()) ?? [];
-  const types = propertyTypes(lines.slice(1, -2));
+  const indexAt = match.lastIndexOf(INDEX_START) + INDEX_START.length;
+  const [, indent = "", prefix = "", indexType = ""] =
+    INDEX_MEMBER.exec(match.slice(indexAt)) ?? [];
+  // The members are the lines between the object's first line and the indent of `} & {`.
+  const memberLines = match
+    .slice(0, indexAt - INDEX_START.length)
+    .split("\n")
+    .slice(1, -1);
+  const types = propertyTypes(memberLines);
   if (types === null || prefix === "") {
     return match;
   }
-  const indent = indexLine.slice(0, indexLine.length - indexLine.trimStart().length);
-  const widened = `${indent}${prefix}${widenedIndexType(indexType, types)};`;
-  return [...lines.slice(0, -1), widened].join("\n");
+  return `${match.slice(0, indexAt)}${indent}${prefix}${widenedIndexType(indexType, types)};`;
 }

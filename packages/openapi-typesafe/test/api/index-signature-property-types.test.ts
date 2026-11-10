@@ -52,6 +52,26 @@ describe("index signatures next to properties", () => {
     expect(typeErrorsOf(`${output}\n${usage}`)).toEqual([]);
   });
 
+  it("openapiTS adds each property type member once, as one flat union", async () => {
+    const nullable = { type: ["integer", "null"] };
+    const output = await generate({
+      Order: {
+        ...ORDER,
+        properties: { total: nullable, count: nullable, one: { type: "integer", enum: [1] } },
+      },
+    });
+
+    expect(output).toContain("[key: string]: string | number | null;");
+  });
+
+  it("openapiTS prints an index signature without added property types as before", async () => {
+    const output = await generate({
+      Bag: { type: "object", additionalProperties: { type: ["null"], nullable: true } },
+    });
+
+    expect(output).toContain("[key: string]: null | null;");
+  });
+
   it("openapiTS keeps an index signature that admits every property", async () => {
     const output = await generate({
       Labels: { ...ORDER, properties: { name: { type: "string" } }, required: [] },

@@ -9,14 +9,13 @@ import type { IrMember, IrPropertySignature, IrType } from "../../../domain/ir/n
 import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { NO_DECLARED_TYPES } from "../document/declared-types.js";
-import { assignabilityProof } from "../document/type-assignability.js";
 import { documentEntries } from "../document-entries.js";
 import { schemaRefType } from "../ref-pointer/pointer-type.js";
 import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import { type AccessFlags, propertyAccessFlags } from "./access-flags.js";
+import { withPropertyTypes } from "./index-signature-type.js";
 import { discriminatorMember, inheritedDiscriminator } from "./inherited-discriminator.js";
 import { isInputLocation } from "./input-location.js";
 import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
@@ -264,20 +263,6 @@ function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRe
     schema.required === undefined && request.context.options.propertiesRequiredByDefault;
   const required = isAllRequired ? undefined : [...(schema.required ?? []), name];
   return propertyMembers({ ...schema, required } as SchemaObject, request);
-}
-
-/**
- * The index signature type with the property types it does not admit. TypeScript checks an index
- * signature against every key of a value, declared ones too, so `{ total: number } & { [key:
- * string]: string }` admits no value with `total` (with a required `total`, none at all). The
- * signature takes those property types too, as `unevaluated-properties` does. A property type
- * proven assignable adds nothing, so output that admitted its values stays; one the proof cannot
- * decide (a `$ref`) is added. `$defs` is a keyword, not data, so it is not read.
- */
-function withPropertyTypes(indexType: IrType, propertyTypes: readonly IrType[]): IrType {
-  const relate = assignabilityProof(NO_DECLARED_TYPES);
-  const others = propertyTypes.filter((type) => relate(type, indexType) !== "assignable");
-  return unionOf([indexType, ...others]);
 }
 
 /**
