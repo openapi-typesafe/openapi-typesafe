@@ -118,20 +118,27 @@ export function templateText(parts: readonly PathKeyPart[]): string {
 
 const BOOLEAN_TEXTS = ["true", "false"] as const;
 
+const isBooleanPlaceholder = (part: PathKeyPart): boolean =>
+  part.kind === "placeholder" && part.type === "boolean";
+
 /**
- * The keys of the parts with each `${boolean}` written as `true` and as `false`. `${boolean}` is
- * the union `"true" | "false"`, and an index signature takes no union of literals (TS1337), so
- * the original's `` [path: `/flags/${boolean}`] `` did not compile. A path with n boolean
- * parameters gets 2ⁿ keys, all with the same path item type; a key left without placeholders is
- * a plain URL (`/flags/true`).
+ * The keys of a template whose only placeholders are `${boolean}`, with each written as `true`
+ * and as `false`. Such a template is a union of literals, and an index signature takes none
+ * (TS1337), so the original's `` [path: `/flags/${boolean}`] `` did not compile. A path with n
+ * boolean parameters gets 2ⁿ plain URLs (`/flags/true`), all with the same path item type. Next to
+ * another placeholder the template is a pattern, a valid signature that admits the same URLs, so
+ * those parts stay one key.
  */
 export function booleanExpandedKeys(parts: readonly PathKeyPart[]): PathKeyPart[][] {
+  const isBooleanOnly = parts.every((part) => part.kind === "text" || isBooleanPlaceholder(part));
+  if (!isBooleanOnly) {
+    return [[...parts]];
+  }
   return parts.reduce<PathKeyPart[][]>(
     (keys, part) => {
-      const choices: readonly PathKeyPart[] =
-        part.kind === "placeholder" && part.type === "boolean"
-          ? BOOLEAN_TEXTS.map((text) => ({ kind: "text", text }))
-          : [part];
+      const choices: readonly PathKeyPart[] = isBooleanPlaceholder(part)
+        ? BOOLEAN_TEXTS.map((text) => ({ kind: "text", text }))
+        : [part];
       return keys.flatMap((key) => choices.map((choice) => [...key, choice]));
     },
     [[]],
