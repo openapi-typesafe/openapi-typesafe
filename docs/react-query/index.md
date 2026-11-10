@@ -136,6 +136,21 @@ const MyComponent = () => {
 You can find more information about `createFetchClient` on the [openapi-typesafe-fetch documentation](../fetch/index.md).
 :::
 
+## Query keys and server rendering
+
+A query key names the request: the method, the path, the init of the call, and the `baseUrl` of
+the fetch client, so two clients with different base URLs never share a cache entry. When the
+server and the browser reach one API by different URLs (an internal URL on the server, `/api` in
+the browser), the browser would not find the data the server rendered. Give both a key scope, a
+name for the API that the keys hold in place of the base URL:
+
+```ts
+const $api = createClient(fetchClient, { keyScope: "blog" });
+```
+
+A key scope also tells apart clients of one base URL that fetch different data, such as one per
+tenant: the client's own `headers` are not part of a key, since they often hold a token.
+
 ## Errors
 
 When a request fails, the hooks throw the error body that the schema declares for the status, and

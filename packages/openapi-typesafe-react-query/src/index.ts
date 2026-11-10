@@ -105,9 +105,9 @@ type InitArguments<Init, Rest extends unknown[]> =
 
 /**
  * The key of a query: the method, the path and the request. Its init is the init of the call with
- * the headers as a plain object and the client's `baseUrl` when the init has none, so two
- * requests never share a key; it is left out when there is neither. Read a query's key from
- * `queryOptions(...).queryKey` rather than writing it out.
+ * the headers and the body as plain values, and the client's `keyScope`, or its `baseUrl` when the
+ * init has none, so two requests never share a key; it is left out when nothing is left. Read a
+ * query's key from `queryOptions(...).queryKey` rather than writing it out.
  */
 export type QueryKey<
   Paths extends {},
@@ -152,10 +152,13 @@ type QueryResult<Data, Error, Options> =
     : UseQueryResult<Data, Error>;
 
 /**
- * The `initialData` of the options, kept in the type `queryOptions` returns, so TanStack Query's
- * `useQuery` takes the result as options with defined initial data.
+ * A defined `initialData` of the options, in the type `queryOptions` returns, so TanStack Query's
+ * `useQuery` takes the result as options with defined initial data. It is typed as the query data,
+ * as TanStack's `DefinedInitialDataOptions` types it: the type of a literal such as `[{ id: 1 }]`
+ * lacks the optional properties of the data, and TanStack's overload rejected it.
  */
-type InitialDataOf<Options> = Pick<Options, Extract<keyof Options, "initialData">>;
+type InitialDataOf<Options, Data> =
+  HasDefinedInitialData<Options> extends true ? { initialData: Data | (() => Data) } : unknown;
 
 export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
   Method extends HttpMethod,
@@ -191,7 +194,7 @@ export type QueryOptionsFunction<Paths extends {}, Media extends MediaType> = <
       QueryData<Response["data"]>,
       QueryError<Response["error"]>
     > &
-    InitialDataOf<Options> & {
+    InitialDataOf<Options, QueryData<Response["data"]>> & {
       queryFn: Exclude<
         UseQueryOptions<
           QueryData<Response["data"]>,
@@ -459,6 +462,17 @@ function pageInit(init: unknown, { pageParamName, pageParam }: PageRequest) {
   return { ...rest, params: { ...params, query: { ...params?.query, ...page } } };
 }
 
+/** Options of `createClient`. */
+export interface CreateClientOptions {
+  /**
+   * The name of the API in every query key, in place of the fetch client's `baseUrl`. Give the
+   * same name where the server and the browser reach one API by different URLs, so the browser
+   * reads the data the server rendered with; give different names to clients of one base URL that
+   * fetch different data, such as one per tenant header.
+   */
+  keyScope?: string;
+}
+
 /**
  * Hooks and query options for a fetch client. A `QueryClient` other than the one from the React
  * context is passed to each hook as its last argument; `createClient` does not take one.
@@ -466,7 +480,9 @@ function pageInit(init: unknown, { pageParamName, pageParam }: PageRequest) {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherited, kept until 1.1 (ADR-036)
 export default function createClient<Paths extends {}, Media extends MediaType = MediaType>(
   client: FetchClient<Paths, Media>,
+  { keyScope }: CreateClientOptions = {},
 ): OpenapiQueryClient<Paths, Media> {
+  const keyClient = { baseUrl: client.baseUrl, keyScope };
   /**
    * Send one request of a query: the call's own init, with a signal that TanStack Query can abort.
    * The key only names the cache entry, as for `useInfiniteQuery`: a function in the init (a
@@ -495,7 +511,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   };
 
   const queryOptions: QueryOptionsFunction<Paths, Media> = (method, path, ...[init, options]) => {
-    const keyInit = queryKeyInit(init, client.baseUrl);
+    const keyInit = queryKeyInit(init, keyClient);
     return {
       queryKey: (keyInit === undefined
         ? ([method, path] as const)
@@ -513,7 +529,9 @@ export default function createClient<Paths extends {}, Media extends MediaType =
         (await fetchPage(method, path, init, signal)) ?? null,
       // Without options, `Options` is its constraint, which has no `initialData` to keep.
       ...(options as typeof options & {}),
-    };
+      // The declared type types a defined `initialData` as the query data, a conditional type of
+      // the generic options that TypeScript cannot relate to the object; it is the same object.
+    } as never;
   };
 
   return {

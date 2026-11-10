@@ -40,6 +40,18 @@ function clientRecording(urls: string[], answer = (): Response => Response.json(
   return createClient(fetchClient);
 }
 
+/** A client of `baseUrl` with a key scope, whose fetch records the URLs and answers `[{ id }]`. */
+function scopedClient(baseUrl: string, keyScope: string, urls: string[], id = 1) {
+  const fetchClient = createFetchClient<Paths>({
+    baseUrl,
+    fetch: async (request) => {
+      urls.push(request.url);
+      return Response.json([{ id }]);
+    },
+  });
+  return createClient(fetchClient, { keyScope });
+}
+
 function createQueryClient(): QueryClient {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
@@ -169,6 +181,32 @@ describe("server rendering", () => {
     expect(data).toEqual([{ id: 2 }]);
   });
 
+  it("clients of one base URL with different key scopes have their own keys", async () => {
+    const urls: string[] = [];
+    const tenantA = scopedClient(BASE_URL, "tenant-a", urls, 1);
+    const tenantB = scopedClient(BASE_URL, "tenant-b", urls, 2);
+    const queryClient = createQueryClient();
+
+    await queryClient.fetchQuery(tenantA.queryOptions("get", "/items"));
+    const data = await queryClient.fetchQuery(tenantB.queryOptions("get", "/items"));
+
+    expect(data).toEqual([{ id: 2 }]);
+    expect(tenantB.queryOptions("get", "/items").queryKey).toEqual([
+      "get",
+      "/items",
+      { keyScope: "tenant-b" },
+    ]);
+  });
+
+  it("an invalid header pair fails the query instead of the render", async () => {
+    const client = clientRecording([]);
+    const queryClient = createQueryClient();
+
+    const options = client.queryOptions("get", "/items", { headers: [["X-Tenant", "a\nb"]] });
+
+    await expect(queryClient.fetchQuery(options)).rejects.toThrow(TypeError);
+  });
+
   it("each query sends its own init: a fetch of the call is not taken from the key", async () => {
     const queryClient = createQueryClient();
     const client = createClient(createFetchClient<Paths>({ baseUrl: BASE_URL }));
@@ -224,5 +262,30 @@ describe("server rendering", () => {
     expect(html).toBe("<p>1</p>");
     expect(serverUrls).toHaveLength(1);
     expect(renderUrls).toHaveLength(0);
+  });
+
+  it("a query the server fetched from another base URL renders when the key scopes match", async () => {
+    const serverUrls: string[] = [];
+    const serverClient = createQueryClient();
+    const server = scopedClient("http://api.internal:8080", "api", serverUrls);
+    await serverClient.prefetchQuery(server.queryOptions("get", "/items"));
+    const state = dehydrate(serverClient);
+    const browserUrls: string[] = [];
+    const browser = scopedClient("https://example.com/api", "api", browserUrls, 2);
+    function Items() {
+      const { data } = useQuery(browser.queryOptions("get", "/items"));
+      return <p>{data?.map((item) => item.id).join(",")}</p>;
+    }
+
+    const html = renderToString(
+      <QueryClientProvider client={createQueryClient()}>
+        <HydrationBoundary state={state}>
+          <Items />
+        </HydrationBoundary>
+      </QueryClientProvider>,
+    );
+
+    expect(html).toBe("<p>1</p>");
+    expect(browserUrls).toHaveLength(0);
   });
 });
