@@ -46,8 +46,10 @@ import { FormData, fetch, Request } from "undici";
 const client = createClient<paths>({ baseUrl: "https://myapi.dev/v1/", fetch, Request, FormData });
 ```
 
-A body is told by its type tag (`Symbol.toStringTag`), not by `instanceof`, so a FormData, a Blob or
-a `ReadableStream` of another realm (an iframe) or implementation is sent as it is.
+A body is told by its type tag (`Symbol.toStringTag`) or as an instance of the platform's global
+class, so a FormData, a Blob or a `ReadableStream` of another realm (an iframe) or implementation
+is sent as it is, and so are the FormData, Blob and URLSearchParams of React Native and the Blob
+of jsdom 20, which have no type tag or no `arrayBuffer`.
 
 ### TRACE
 
@@ -98,7 +100,10 @@ response (`4xx`, `5xx`) whose body is not JSON gives the text as `error` instead
 An empty body (a 204, an answer to HEAD, a `Content-Length` of 0) is `undefined` data with the
 default `parseAs: "json"` and an `undefined` error. Another `parseAs` reads it with its method, as
 its type says: `""` for `"text"`, an empty `Blob` or `ArrayBuffer`, and `response.body` for
-`"stream"` (`null` for a 204).
+`"stream"` (`null` for a 204 and an answer to HEAD). A HEAD operation that declares content for a
+response keeps that type for `data`, which is `undefined` all the same: a response to HEAD has no
+body, so declare HEAD responses without content. The type is kept so that wrappers that name an
+operation's response type (`FetchResponse<paths[P]["head"], …>`) stay assignable.
 
 ### Headers
 
@@ -115,6 +120,8 @@ as a `simple` path parameter but not percent-encoded:
 | `new Date(0)` | `1970-01-01T00:00:00.000Z` (ISO 8601, UTC) |
 | `["a", "b"]` | `a,b` |
 | `{ role: "admin", page: 2 }` | `role,admin,page,2` |
+| `{ "a b": "c" }` | `a b,c` (names are not percent-encoded either) |
+| `{ filter: { role: "admin" } }`, `["a", { b: 1 }]` | an error: a nested object or array has no standard encoding |
 | `[]`, `{}` | no header |
 | `null` | removes the header set in `headers` |
 
@@ -176,8 +183,8 @@ openapi-typesafe-fetch ships the common serialization methods out-of-the-box:
 
 | Option          |       Type        | Description                                                                                                                                                    |
 | :-------------- | :---------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`; each one left out takes its default. |
-| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`; each one left out takes its default. |
+| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`; each one left out takes the client's value, else its default. |
+| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`; each one left out takes the client's value, else its default. |
 | `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding of values (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`. |
 
 ```ts
