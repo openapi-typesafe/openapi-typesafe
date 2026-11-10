@@ -41,6 +41,7 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
         response.writeHead(200, { "content-type": "application/json" }).end(documentWithRef("./person.json")),
       "/to-other-host.json": () => response.writeHead(302, { location: `${otherHostURL}/person.json` }).end(),
       "/to-same-host.json": () => response.writeHead(301, { location: "/person.json" }).end(),
+      "/moved-root.json": () => response.writeHead(302, { location: `${otherHostURL}/root.json` }).end(),
       "/loop.json": () => response.writeHead(302, { location: "/loop.json" }).end(),
       "/drive-letter.json": () =>
         response.writeHead(200, { "content-type": "application/json" }).end(documentWithRef("C:/secrets/person.json")),
@@ -281,6 +282,12 @@ describe("remote $ref hosts (R2)", () => {
 
     expect(bundled.components?.schemas?.person).toEqual(JSON.parse(PERSON));
     expect(error.details).toMatchObject({ ref: `${otherHostURL}/person.json` });
+  });
+
+  it("a remote root document that redirects to a host that is not listed is loaded", async () => {
+    const bundled = await load(new URL(`${baseURL}/moved-root.json`), { remoteHosts: ["127.0.0.1"] });
+
+    expect(bundled.components?.schemas?.person).toEqual(JSON.parse(PERSON));
   });
 
   it("the refusal is reported when the Redocly config does not check unresolved refs", async () => {

@@ -543,7 +543,8 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
 - In `redocly.yaml`, an API can set its own limits as `local-ref-root` and `remote-ref-hosts`
   under `x-openapi-ts`; they replace the flags for that API (see
   [Multiple schemas](/cli#multiple-schemas)).
-- The document you pass to the generator is never limited, only what it refers to.
+- The document you pass to the generator is never limited, only what it refers to; its own
+  redirects are followed to any host.
 - A remote document may refer only to other `http(s)` URLs. A `$ref` in it that names a local file
   (`file:///…`, or `C:/…`, which a URL base turns into a drive-letter path) is always refused.
 

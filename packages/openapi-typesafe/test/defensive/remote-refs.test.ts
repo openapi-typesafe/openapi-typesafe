@@ -109,6 +109,8 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
       "/dense.json": () => response.writeHead(200, { "content-type": "application/json" }).end(DENSE),
       "/dense.yaml": () => response.writeHead(200, { "content-type": "text/plain" }).end(DENSE),
       "/dense.txt": () => response.writeHead(200, { "content-type": "text/plain" }).end(DENSE),
+      "/schemas/person": () => response.writeHead(200, { "content-type": "text/plain" }).end(PERSON),
+      "/text/person.yaml": () => response.writeHead(200, { "content-type": "text/plain" }).end(PERSON),
     }),
   );
   if (request.url?.startsWith("/fan/")) {
@@ -119,11 +121,22 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
     closeOnce(request, response);
     return;
   }
+  if (request.url?.startsWith("/other/versioned?")) {
+    response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ type: "integer" }));
+    return;
+  }
+  if (request.url?.startsWith("/versioned?")) {
+    const version = new URL(request.url, "http://localhost").searchParams.get("v");
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ type: "string", description: version }));
+    return;
+  }
   if (request.url === "/reset.json") {
     reset(request);
     return;
   }
-  const route = routes.get(request.url ?? "");
+  // The query is for the tests of secrets in URLs; the route is the path.
+  const route = routes.get((request.url ?? "").split("?")[0] ?? "");
   // The explicit check is the guard CodeQL expects before calling a handler chosen by a request.
   if (typeof route !== "function") {
     response.writeHead(404).end("Not Found");
@@ -153,10 +166,11 @@ async function loadDocument(
   source: unknown,
   remoteDocumentLimits: RemoteDocumentLimits = DEFAULT_REMOTE_DOCUMENT_LIMITS,
   redoc?: Awaited<ReturnType<typeof defaultRedoclyConfig>>,
+  logger = new RecordingLogger(),
 ) {
   const loader = createRedoclySchemaLoader({
     redoc: redoc ?? (await defaultRedoclyConfig()),
-    logger: new RecordingLogger(),
+    logger,
     now: () => 0,
     remoteRefTimeoutMs: TEST_TIMEOUT_MS,
     remoteDocumentLimits,
@@ -193,6 +207,15 @@ describe("remote $ref", () => {
       Person: { $ref: "#/components/schemas/person" },
       person: JSON.parse(PERSON),
     });
+  });
+
+  it.each([
+    ["a path without an extension", "/schemas/person"],
+    ["a query after the extension", "/text/person.yaml?v=1"],
+  ])("a remote $ref to %s served as text/plain is parsed as a document", async (_name, path) => {
+    const bundled = await loadDocument(withRemoteRef(path));
+
+    expect(bundled.components?.schemas?.person).toEqual(JSON.parse(PERSON));
   });
 
   it("a remote $ref whose scheme is written in uppercase is bundled as a URL", async () => {
@@ -404,6 +427,48 @@ describe("credentials in remote URLs", () => {
     expect(error.code).toBe("SCHEMA_LOAD_FAILED");
     expect(JSON.stringify({ message: error.message, details: error.details })).not.toContain("URL-SECRET");
     expect(inspect(error)).not.toContain("URL-SECRET");
+  });
+
+  it("a $ref to a whole document with a query is bundled under the name without the query", async () => {
+    const bundled = await loadDocument(withRemoteRef("/person.json?token=URL-SECRET"));
+
+    expect(bundled.components?.schemas).toEqual({
+      Person: { $ref: "#/components/schemas/person" },
+      person: JSON.parse(PERSON),
+    });
+  });
+
+  it("documents that differ only in the query get one name each, without the query", async () => {
+    const document = documentWith({
+      A: { $ref: `${baseURL}/versioned?v=1&token=URL-SECRET` },
+      B: { $ref: `${baseURL}/versioned?v=2&token=URL-SECRET` },
+      C: { $ref: `${baseURL}/person.json?token=URL.SECRET` },
+    });
+
+    const bundled = await loadDocument(document);
+
+    expect(bundled.components?.schemas).toEqual({
+      A: { $ref: "#/components/schemas/versioned" },
+      B: { $ref: "#/components/schemas/versioned-2" },
+      C: { $ref: "#/components/schemas/person" },
+      versioned: { type: "string", description: "1" },
+      "versioned-2": { type: "string", description: "2" },
+      person: JSON.parse(PERSON),
+    });
+  });
+
+  it("the bundle's problems name the components by their names without the query", async () => {
+    const logger = new RecordingLogger();
+    const document = documentWith({
+      A: { $ref: `${baseURL}/versioned?token=URL-SECRET` },
+      B: { $ref: `${baseURL}/other/versioned?token=URL-SECRET` },
+    });
+
+    const bundled = await loadDocument(document, undefined, undefined, logger);
+
+    expect(Object.keys(bundled.components?.schemas ?? {})).toEqual(["A", "B", "versioned", "versioned-2"]);
+    expect(logger.messages("warn").join("\n")).not.toContain("URL-SECRET");
+    expect(logger.messages("warn")).toContainEqual(expect.stringContaining("Renamed versioned to versioned-2"));
   });
 
   it("a source string that starts like a URL but does not parse fails with SCHEMA_SOURCE_INVALID", async () => {

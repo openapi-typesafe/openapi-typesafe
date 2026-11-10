@@ -52,4 +52,16 @@ describe("isParsedSource", () => {
     expect(isParsedSource(source("a.txt", "", "text/plain"), false)).toBe(false);
     expect(isParsedSource(source("a.txt", ""), false)).toBe(false);
   });
+
+  it("isParsedSource reads the extension of a URL's path, without the query and fragment", () => {
+    expect(isParsedSource(source("a.yaml?token=x", "", "text/plain"), false)).toBe(true);
+    expect(isParsedSource(source("a.md?v=1.yaml", "", "text/plain"), false)).toBe(false);
+    expect(isParsedSource(source("v1.2/a.md", "", "text/plain"), false)).toBe(false);
+  });
+
+  it("isParsedSource parses a URL whose path has no extension, but not such a local file", () => {
+    expect(isParsedSource(source("schemas/pet", "", "text/plain"), false)).toBe(true);
+    expect(isParsedSource(source("v1.2/pet?x=a.md", "", "text/plain"), false)).toBe(true);
+    expect(isParsedSource(new Source("/work/schemas/pet", ""), false)).toBe(false);
+  });
 });

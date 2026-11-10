@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
-import { redactUnparsedUrl } from "../domain/url-secrets.js";
+import { redactUnparsedUrl, redactUrlSecrets } from "../domain/url-secrets.js";
 import type { CliArguments } from "./cli-arguments.js";
 import type { CliDependencies, GeneratedTypes } from "./cli-dependencies.js";
 import { cliError } from "./cli-errors.js";
@@ -208,9 +208,11 @@ export function parseLocationUrl(location: string, base: URL): URL | undefined {
   return resolveLocationUrl(location, base);
 }
 
+/** The line for a written file. It goes to the job log, so a source URL shows no secrets. */
 function printDone(run: CliRun, output: OutputFile): void {
   const { style, now } = run.deps;
-  const target = style.green(`${output.source} → ${style.bold(output.output)}`);
+  const source = redactUrlSecrets(output.source);
+  const target = style.green(`${source} → ${style.bold(output.output)}`);
   const duration = style.dim(`[${formatDuration(now() - run.startedAt)}]`);
   run.deps.console.info(`🚀 ${target} ${duration}`);
 }

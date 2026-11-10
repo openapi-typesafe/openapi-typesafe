@@ -115,6 +115,11 @@ export interface RedirectPolicy {
   readonly headers: readonly ConfiguredHeader[];
   /** `--remote-ref-hosts`; undefined allows every host. */
   readonly hosts: readonly string[] | undefined;
+  /**
+   * The URL of the root document, if it is remote. The developer chose it, so neither it nor its
+   * redirects are limited to the hosts (ADR-017): a spec URL that redirects to a CDN loads.
+   */
+  readonly rootUrl: string | undefined;
 }
 
 /**
@@ -130,12 +135,13 @@ export function fetchWithCheckedRedirects(
   policy: RedirectPolicy,
 ): RemoteFetch {
   return async (input, init = {}) => {
+    const hosts = input === policy.rootUrl ? undefined : policy.hosts;
     let url = new URL(input);
     for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-      if (hop > 0 && policy.hosts !== undefined && !isHostAllowed(url, policy.hosts)) {
+      if (hop > 0 && hosts !== undefined && !isHostAllowed(url, hosts)) {
         throw refForbiddenError(url.href, {
           reason: "host-not-allowed",
-          allowedHosts: [...policy.hosts],
+          allowedHosts: [...hosts],
         });
       }
       const headers = await headersFor(url, policy.headers);
@@ -190,6 +196,8 @@ export interface RemoteFetchOptions {
   /** Time limit of one fetch and its body, unless the Redocly config has its own `customFetch`. */
   readonly timeoutMs: number;
   readonly access: RefAccess;
+  /** The root document's URL, whose redirects are not limited to the hosts. */
+  readonly rootUrl: string | undefined;
   readonly maxParallelFetches: number;
   readonly bodyLimits: RemoteBodyLimits;
 }
@@ -216,6 +224,7 @@ export function resolveConfigWithAccess(
   const checked = fetchWithCheckedRedirects(base, {
     headers: resolve.http.headers,
     hosts: options.access.remoteHosts,
+    rootUrl: options.rootUrl,
   });
   // The limit is outside the redirects, so all hops of one document share one slot.
   const customFetch = fetchWithConcurrencyLimit(checked, options.maxParallelFetches);

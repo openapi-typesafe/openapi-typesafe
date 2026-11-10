@@ -1,5 +1,5 @@
 import { childPointer, ROOT_POINTER } from "../../domain/openapi/json-pointer.js";
-import { findRefHolders } from "./ref-holders.js";
+import { findMappings, findRefHolders } from "./ref-holders.js";
 
 /**
  * Redocly 1.x bundles every discriminator `mapping` value as if it were an external `$ref`: it
@@ -49,28 +49,6 @@ function copiesIn(schemas: Schemas, keysBefore: ReadonlySet<string>): Map<string
   return copies;
 }
 
-/** Every `discriminator.mapping` object of the document; the walk has its own stack. */
-function mappingsOf(document: unknown): Record<string, unknown>[] {
-  const mappings: Record<string, unknown>[] = [];
-  const visited = new WeakSet<object>();
-  const pending: unknown[] = [document];
-  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
-    if (!isContainer(next) || visited.has(next)) {
-      continue;
-    }
-    visited.add(next);
-    const mapping = isContainer(next.discriminator) ? next.discriminator.mapping : undefined;
-    if (isContainer(mapping)) {
-      mappings.push(mapping);
-    }
-    // One push per child: spreading an array of millions of children overflows the stack.
-    for (const child of Object.values(next)) {
-      pending.push(child);
-    }
-  }
-  return mappings;
-}
-
 /** Remove the bundle's copies of the document's own schemas, in place. */
 export function removeBundledMappingCopies(
   bundled: unknown,
@@ -81,7 +59,7 @@ export function removeBundledMappingCopies(
   if (copies.size === 0) {
     return;
   }
-  for (const mapping of mappingsOf(bundled)) {
+  for (const mapping of findMappings(bundled)) {
     for (const [name, value] of Object.entries(mapping)) {
       const original = typeof value === "string" ? copies.get(value) : undefined;
       if (original !== undefined) {

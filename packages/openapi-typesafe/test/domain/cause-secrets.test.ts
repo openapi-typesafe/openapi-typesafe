@@ -57,6 +57,44 @@ describe("redactCauseSecrets", () => {
     expect(inspect(redacted)).not.toContain(SECRET);
   });
 
+  it("redactCauseSecrets hides URL secrets in nested objects, arrays and errors", () => {
+    const source = { absoluteRef: URL_WITH_SECRETS, lines: [URL_WITH_SECRETS] };
+    const originalError = Object.assign(new SyntaxError(`bad YAML in "${URL_WITH_SECRETS}"`), {
+      mark: { name: URL_WITH_SECRETS, line: 3 },
+    });
+    const cause = Object.assign(new Error("parse failed"), { source, originalError });
+
+    const redacted = redactCauseSecrets(cause) as typeof cause;
+
+    expect(redacted.source.absoluteRef).toBe("http://***@127.0.0.1:1/spec.yaml?***");
+    expect(redacted.source.lines).toEqual(["http://***@127.0.0.1:1/spec.yaml?***"]);
+    expect(redacted.originalError).toBeInstanceOf(SyntaxError);
+    expect(redacted.originalError.mark).toEqual({
+      name: "http://***@127.0.0.1:1/spec.yaml?***",
+      line: 3,
+    });
+    expect(inspect(redacted, { depth: null })).not.toContain(SECRET);
+  });
+
+  it("redactCauseSecrets keeps nested values without secrets as the same objects", () => {
+    const details = { list: ["a", 1], bytes: new Uint8Array([1]) };
+    const cause = Object.assign(new Error("failed"), { details });
+
+    expect(redactCauseSecrets(cause)).toBe(cause);
+  });
+
+  it("redactCauseSecrets drops values nested deeper than it walks", () => {
+    let deep: Record<string, unknown> = { url: URL_WITH_SECRETS };
+    for (let level = 0; level < 20; level += 1) {
+      deep = { next: deep };
+    }
+
+    const redacted = redactCauseSecrets(deep);
+
+    expect(inspect(redacted, { depth: null })).not.toContain(SECRET);
+    expect(inspect(redacted, { depth: null })).toContain("next: undefined");
+  });
+
   it("a typed error never carries a URL secret in its cause", () => {
     const error = new OpenAPITypesafeError({
       code: "SCHEMA_LOAD_FAILED",

@@ -42,6 +42,15 @@ describe("renderReport", () => {
     expect(renderReport(migration([]))).toBe(`${NOTHING_FOUND}\n`);
   });
 
+  it("renderReport shows the control characters of a file name as escapes", () => {
+    const forged = { ...REPORTS[1], path: "a\u001b[2K\n::error::forged.ts" } as FileReport;
+
+    const report = renderReport(migration([forged]));
+
+    expect(report).toContain("  a\\u001b[2K\\n::error::forged.ts: ");
+    expect(report.split("\n").some((line) => line.startsWith("::error"))).toBe(false);
+  });
+
   it("renderReport lists changes, manual steps and next steps of a dry run", () => {
     expect(renderReport(migration(REPORTS))).toMatchSnapshot();
   });
