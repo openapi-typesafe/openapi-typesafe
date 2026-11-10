@@ -7,7 +7,7 @@ import {
 } from "./config-documents.js";
 import { lineLocator, type ManualStep } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
-import type { SourceString } from "./source-migration.js";
+import { namesRenamedModule, type SourceString } from "./source-migration.js";
 
 /**
  * Jest names packages inside patterns: `moduleNameMapper: { "^openapi-fetch$": … }`,
@@ -42,9 +42,14 @@ function hasWholeName(value: string, name: string): boolean {
 export const oldPackagesInPattern = (value: string): string[] =>
   [...PACKAGE_RENAMES.keys()].filter((name) => hasWholeName(value, name));
 
-const patternSteps = (value: string, location: string): ManualStep[] =>
-  // A string that is just the name is reported as a string that names the package already.
-  PACKAGE_RENAMES.has(value)
+/**
+ * The steps for the old packages a pattern names. `isNameReported` is true where a string that is
+ * a module name is reported already: the source migration reports such a string of a script
+ * (`"openapi-fetch"`, `"openapi-fetch/$1"`) as a string that names the package. Nothing reports a
+ * JSON value, so there it is a step too.
+ */
+const patternSteps = (value: string, location: string, isNameReported: boolean): ManualStep[] =>
+  isNameReported && namesRenamedModule(value)
     ? []
     : oldPackagesInPattern(value).map((name) => ({
         kind: "pattern-names-package",
@@ -59,7 +64,7 @@ export function jestScriptSteps(text: string, strings: readonly SourceString[]):
   const lineOf = lineLocator(text);
   return strings
     .filter((string) => !string.isModuleSpecifier)
-    .flatMap((string) => patternSteps(string.value, `line ${lineOf(string.start)}`));
+    .flatMap((string) => patternSteps(string.value, `line ${lineOf(string.start)}`, true));
 }
 
 /** The keys and string values of `node` with the key path they are at. */
@@ -82,7 +87,7 @@ function textsAt(node: TreeNode, path: DocumentPath): { value: string; path: Doc
 /** The steps for a Jest config in JSON: `node` at `path` (`["jest"]` in package.json). */
 export const jestConfigSteps = (node: TreeNode, path: DocumentPath): ManualStep[] =>
   textsAt(node, path).flatMap(({ value, path: at }) =>
-    patternSteps(value, at.join(FIELD_SEPARATOR)),
+    patternSteps(value, at.join(FIELD_SEPARATOR), false),
   );
 
 /** The steps for `jest.config.json`, read as `read`. */

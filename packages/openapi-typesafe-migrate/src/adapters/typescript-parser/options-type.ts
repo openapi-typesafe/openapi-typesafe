@@ -1,6 +1,6 @@
 import ts from "@typescript/typescript6";
 import type { TextEdit } from "../../domain/text-edits.js";
-import type { FileBindings } from "./file-bindings.js";
+import { type FileBindings, GENERATOR_MODULES } from "./file-bindings.js";
 
 /**
  * The options type of a rewritten `transform`. `OpenAPITSOptions` types the TypeScript-node
@@ -13,29 +13,91 @@ const TS_NODE_OPTIONS = "OpenAPITSOptions";
 const IR_OPTIONS = "OpenAPITSIrOptions";
 const TYPE_MODIFIER = "type ";
 
+/** `import("openapi-typescript").OpenAPITSOptions`: its `OpenAPITSOptions`, or undefined. */
+function importTypeName(node: ts.ImportTypeNode): ts.Identifier | undefined {
+  const { argument, qualifier } = node;
+  const isGeneratorModule =
+    ts.isLiteralTypeNode(argument) &&
+    ts.isStringLiteral(argument.literal) &&
+    GENERATOR_MODULES.has(argument.literal.text);
+  const isOptions =
+    !node.isTypeOf &&
+    qualifier !== undefined &&
+    ts.isIdentifier(qualifier) &&
+    qualifier.text === TS_NODE_OPTIONS;
+  return isGeneratorModule && isOptions ? qualifier : undefined;
+}
+
+/** The name a type reference or an `extends` names (`A`, `ns.A`), or undefined. */
+function referencedName(node: ts.Node): ts.Node | undefined {
+  if (ts.isTypeReferenceNode(node)) {
+    return node.typeName;
+  }
+  return ts.isExpressionWithTypeArguments(node) ? node.expression : undefined;
+}
+
+/** The two parts of `ns.A`: a qualified type name, or the expression of an `extends`. */
+function qualifiedParts(name: ts.Node): { left: ts.Node; right: ts.Node } | undefined {
+  if (ts.isQualifiedName(name)) {
+    return { left: name.left, right: name.right };
+  }
+  return ts.isPropertyAccessExpression(name)
+    ? { left: name.expression, right: name.name }
+    : undefined;
+}
+
 /**
- * The identifier of `OpenAPITSOptions` that a type reference names, by any local name of its
- * import or as `ns.OpenAPITSOptions` of a namespace import, or undefined.
+ * The identifier of `OpenAPITSOptions` that a type reference or an `extends` names, by any local
+ * name of its import, as `ns.OpenAPITSOptions` of a namespace import or as an import type, or
+ * undefined.
  */
 function optionsTypeName(node: ts.Node, bindings: FileBindings): ts.Identifier | undefined {
-  if (!ts.isTypeReferenceNode(node)) {
-    return undefined;
+  if (ts.isImportTypeNode(node)) {
+    return importTypeName(node);
   }
-  const name = node.typeName;
-  if (ts.isIdentifier(name)) {
+  const name = referencedName(node);
+  if (name !== undefined && ts.isIdentifier(name)) {
     const binding = bindings.bindingOf(name);
     return binding?.kind === "helper-import" && binding.name === TS_NODE_OPTIONS ? name : undefined;
   }
-  const isGeneratorModule =
-    ts.isIdentifier(name.left) && bindings.bindingOf(name.left)?.kind === "generator-module";
-  return isGeneratorModule && name.right.text === TS_NODE_OPTIONS ? name.right : undefined;
+  const parts = name === undefined ? undefined : qualifiedParts(name);
+  if (parts === undefined || !ts.isIdentifier(parts.left) || !ts.isIdentifier(parts.right)) {
+    return undefined;
+  }
+  const isGeneratorModule = bindings.bindingOf(parts.left)?.kind === "generator-module";
+  return isGeneratorModule && parts.right.text === TS_NODE_OPTIONS ? parts.right : undefined;
 }
 
-/** Whether a type names `OpenAPITSOptions` anywhere in it (`Partial<OpenAPITSOptions>`). */
-function mentionsOptionsType(node: ts.Node, bindings: FileBindings): boolean {
+/**
+ * The declaration of a type of this file that a type reference or an `extends` names: an alias,
+ * an interface or a JSDoc `@typedef`, or undefined.
+ */
+function localTypeOf(node: ts.Node, bindings: FileBindings): ts.Node | undefined {
+  const name = referencedName(node);
+  const binding =
+    name !== undefined && ts.isIdentifier(name) ? bindings.bindingOf(name) : undefined;
+  return binding?.kind === "local-type" ? binding.declaration : undefined;
+}
+
+/**
+ * Whether a type names `OpenAPITSOptions` anywhere in it (`Partial<OpenAPITSOptions>`), also
+ * through a type of this file (`type Opts = OpenAPITSOptions`), which the rewrite does not change.
+ */
+function mentionsOptionsType(
+  node: ts.Node,
+  bindings: FileBindings,
+  seen: Set<ts.Node> = new Set(),
+): boolean {
+  const local = localTypeOf(node, bindings);
+  const isNewLocal = local !== undefined && !seen.has(local);
+  if (isNewLocal) {
+    seen.add(local);
+  }
+  const mentions = (child: ts.Node) => mentionsOptionsType(child, bindings, seen) || undefined;
   return (
+    (isNewLocal && mentionsOptionsType(local, bindings, seen)) ||
     optionsTypeName(node, bindings) !== undefined ||
-    (ts.forEachChild(node, (child) => mentionsOptionsType(child, bindings) || undefined) ?? false)
+    (ts.forEachChild(node, mentions) ?? false)
   );
 }
 
@@ -80,14 +142,18 @@ function importedIrOptions(bindings: FileBindings): string | undefined {
 
 /**
  * The edits for the references of one import of `OpenAPITSOptions`. When the rewritten options
- * are its only uses, the import names `OpenAPITSIrOptions` instead; else it is imported too.
+ * are its only uses, the import names `OpenAPITSIrOptions` instead; else it is imported too. A
+ * JavaScript file imports it with a JSDoc `@import` and names it in JSDoc comments, whose uses
+ * TypeScript's API does not all list, so there it is always imported too.
  */
 function importEdits(
   specifier: ts.ImportSpecifier,
   references: readonly ts.Identifier[],
   bindings: FileBindings,
 ): TextEdit[] {
-  const isOnlyUse = bindings.usesOf(specifier).every((use) => references.includes(use));
+  const isJavaScript = (specifier.flags & ts.NodeFlags.JavaScriptFile) !== 0;
+  const isOnlyUse =
+    !isJavaScript && bindings.usesOf(specifier).every((use) => references.includes(use));
   if (isOnlyUse && specifier.propertyName !== undefined) {
     return [renamed(specifier.propertyName as ts.Identifier, IR_OPTIONS)];
   }

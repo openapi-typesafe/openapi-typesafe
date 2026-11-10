@@ -107,9 +107,17 @@ function irCallbacksOption(text: string, transformStart: number): string {
   return /^\s*$/.test(before) ? `${option}\n${before}` : `${option} `;
 }
 
+/**
+ * Why the options keep their `transform`, or undefined. A spread (`...base`) may bring callbacks
+ * that need TypeScript nodes, `irCallbacks`, or a type of `OpenAPITSOptions` that the IR return
+ * does not fit, and the tool cannot see them.
+ */
 function keepReason(options: ts.ObjectLiteralExpression): TransformKeepReason | undefined {
   const hasOther = LEGACY_ONLY_CALLBACKS.some((name) => propertyNamed(options, name) !== undefined);
-  return hasOther ? "other-callbacks" : undefined;
+  if (hasOther) {
+    return "other-callbacks";
+  }
+  return options.properties.some(ts.isSpreadAssignment) ? "spread-options" : undefined;
 }
 
 function legacyCallbackSteps(options: ts.ObjectLiteralExpression, text: string): ManualStep[] {

@@ -35,9 +35,10 @@ const isEnvironmentValue = (value: DocumentString): boolean =>
  */
 function environmentVariables(text: string, strings: readonly DocumentString[]): FileVariables {
   return shellVariables(
-    strings
-      .filter(isEnvironmentValue)
-      .map((value) => ({ name: String(value.path.at(-1)), value: shellText(text, value) })),
+    strings.filter(isEnvironmentValue).map((value) => ({
+      name: String(value.path.at(-1)),
+      value: value.isEscaped ? value.value : shellText(text, value),
+    })),
   );
 }
 
@@ -124,6 +125,26 @@ function execFormCommands(text: string, items: readonly DocumentString[]): Shell
   return commands;
 }
 
+/**
+ * The findings of a value with an escape (`"echo \"Don't\" && …"`), read as the value the shell
+ * gets: its text as written would read `\"` as a quote and `'` as the start of a quoted word.
+ * The offsets of the value are not those of the text, so a changed value replaces the whole
+ * scalar, quoted as it was, and every finding names the line where the scalar starts.
+ */
+function escapedValueFindings(
+  value: DocumentString,
+  encode: (value: string) => string,
+  locate: Locate,
+  variables?: FileVariables,
+): ShellTextFindings {
+  const commands = shellCommands(value.value);
+  const found = commandWordFindings(commands, () => locate(value.start), variables);
+  const migrated = applyTextEdits(value.value, found.edits);
+  const isChanged = migrated !== value.value;
+  const edits = isChanged ? [{ start: value.start, end: value.end, text: encode(migrated) }] : [];
+  return { ...found, edits };
+}
+
 /** The findings of one value read as shell text, with offsets into the whole text. */
 function valueFindings(
   text: string,
@@ -131,6 +152,9 @@ function valueFindings(
   locate: Locate,
   variables?: FileVariables,
 ): ShellTextFindings {
+  if (value.isEscaped && value.encode !== undefined) {
+    return escapedValueFindings(value, value.encode, locate, variables);
+  }
   const { start } = value.content;
   const shell = shellText(text, value);
   const commands = shellCommands(shell, blockIndent(shell));

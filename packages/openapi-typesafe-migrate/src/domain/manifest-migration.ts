@@ -34,7 +34,7 @@ import {
   reportSettingSections,
   type SettingsFile,
 } from "./settings-sections.js";
-import { migrateSubpathImports } from "./subpath-imports.js";
+import { migrateBrowserField, migrateSubpathImports } from "./specifier-maps.js";
 import { applyTextEdits } from "./text-edits.js";
 import { itemEntries, keyEntries, specEntries } from "./tree-entries.js";
 
@@ -132,6 +132,7 @@ function migrateManifestMap(manifest: TreeMap, target: RenameTarget, findings: F
   migrateNameLists(manifest, findings);
   migrateCatalogs(manifest, target, findings);
   migrateSubpathImports(manifest, findings);
+  migrateBrowserField(manifest, findings);
   reportSettings(manifest, findings);
   for (const jest of valuesAt(manifest, JEST_FIELD)) {
     findings.manualSteps.push(...jestConfigSteps(jest, [JEST_FIELD]));
@@ -142,8 +143,8 @@ function migrateManifestMap(manifest: TreeMap, target: RenameTarget, findings: F
 /**
  * Migrate the package names of a manifest (`read` is `text` parsed): rename the original packages
  * in the dependency fields (with `version` as the new version), in the fields that name
- * dependencies, in bun's catalogs and in the targets of subpath imports, and report overrides that
- * name the original packages.
+ * dependencies, in bun's catalogs, in the targets of subpath imports and in the `browser` field,
+ * and report overrides that name the original packages.
  */
 export function migratePackageManifest(
   text: string,

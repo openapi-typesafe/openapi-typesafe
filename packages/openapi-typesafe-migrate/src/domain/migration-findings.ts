@@ -81,6 +81,13 @@ export type ManualStep =
       readonly name: string;
       readonly catalog: string;
     }
+  /** A dependency on a catalog entry that no catalog of the workspace has. */
+  | {
+      readonly kind: "catalog-entry-missing";
+      readonly field: string;
+      readonly name: string;
+      readonly catalog: string;
+    }
   | { readonly kind: "catalog-entry-in-use"; readonly catalog: string; readonly name: string }
   | { readonly kind: "peer-dependency-renamed"; readonly name: string }
   | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
@@ -130,8 +137,15 @@ export type ManualStep =
       readonly name: string;
       readonly to: string;
     }
-  /** A target of package.json `imports` that reaches into a renamed package. */
+  /** A specifier of a config (`imports`, `browser`) that reaches into a renamed package. */
   | { readonly kind: "deep-target"; readonly location: string; readonly specifier: string }
+  /** A config path into the installed files of an old package, which the new one does not have. */
+  | {
+      readonly kind: "old-package-path";
+      readonly location: string;
+      readonly path: string;
+      readonly to: string;
+    }
   | {
       readonly kind: "dynamic-specifier";
       readonly line: number;
@@ -172,7 +186,8 @@ export type TransformKeepReason =
   | "shared-function"
   | "shared-options"
   | "unknown-return"
-  | "typed-options";
+  | "typed-options"
+  | "spread-options";
 
 /** A file's new text and what was found in it. Unchanged text means nothing to write. */
 export interface FileMigration {

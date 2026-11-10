@@ -11,12 +11,21 @@ export type CommandPathPattern = readonly string[];
 
 const ANY = "*";
 
-/** `nx:run-commands` targets under `prefix`: `command`, `options.command`, `options.commands`. */
+/** The `command` and `commands` of `nx:run-commands` options under `prefix`. */
+const nxOptionPaths = (prefix: CommandPathPattern): CommandPathPattern[] => [
+  [...prefix, "command"],
+  [...prefix, "commands", ANY],
+  [...prefix, "commands", ANY, "command"],
+];
+
+/**
+ * `nx:run-commands` targets under `prefix`: `command`, the commands of `options`, and those of
+ * each of its `configurations`, which replace the options they name (`nx run app:gen:ci`).
+ */
 const nxTargetPaths = (prefix: CommandPathPattern): CommandPathPattern[] => [
   [...prefix, ANY, "command"],
-  [...prefix, ANY, "options", "command"],
-  [...prefix, ANY, "options", "commands", ANY],
-  [...prefix, ANY, "options", "commands", ANY, "command"],
+  ...nxOptionPaths([...prefix, ANY, "options"]),
+  ...nxOptionPaths([...prefix, ANY, "configurations", ANY]),
 ];
 
 /** lint-staged: each glob runs a command or a list of them. */

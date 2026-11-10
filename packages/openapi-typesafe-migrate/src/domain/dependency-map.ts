@@ -92,7 +92,7 @@ function migrateSpec(spec: string, version: string): { spec: string; isReported:
 }
 
 /** A rename of one key or name, where it is, and the other names of that place. */
-interface Rename {
+export interface Rename {
   readonly from: string;
   readonly to: string;
   readonly field: string;
@@ -104,7 +104,7 @@ interface Rename {
  * would give a map the same key twice, and one entry would be lost without a word (finding
  * M10), so the old entry is left and reported.
  */
-function isFree({ from, to, field, names }: Rename, findings: Findings): boolean {
+export function isFree({ from, to, field, names }: Rename, findings: Findings): boolean {
   if (names.has(to)) {
     findings.manualSteps.push({ kind: "name-collision", field, from, to });
     return false;
@@ -179,7 +179,8 @@ function catalogHold(entry: SpecEntry, spec: SpecValue, { map, catalogs }: MapCo
   }
   const reference = { field: mapLabel(map), name: entry.name, catalog };
   if (!catalogs.defined.has(catalog, entry.name)) {
-    return { kind: "catalog-entry-outside", ...reference } as const;
+    const kind = catalogs.isWorkspaceRoot ? "catalog-entry-missing" : "catalog-entry-outside";
+    return { kind, ...reference } as const;
   }
   return catalogs.kept.has(catalog, entry.name)
     ? ({ kind: "catalog-reference-kept", ...reference } as const)

@@ -25,6 +25,7 @@ import {
   migrateModuleSpecifiers,
   SOURCE_EXTENSIONS,
 } from "../domain/source-migration.js";
+import { migrateTsconfig } from "../domain/tsconfig-migration.js";
 import {
   migrateWorkspaceCatalogs,
   PNPM_WORKSPACE_FILE,
@@ -68,6 +69,7 @@ import {
   NX_PROJECT_FILE,
   NX_WORKSPACE_FILE,
   PRE_COMMIT_FILES,
+  PROJECT_CONFIG_NAME,
   SHELL_EXTENSIONS,
   SHELL_FILE_NAMES,
   SIMPLE_GIT_HOOKS_FILES,
@@ -214,6 +216,10 @@ const FILE_KINDS: readonly FileKind[] = [
   {
     matches: (path) => baseName(path) === IMPORT_MAP_FILE,
     migrate: importMapFile,
+  },
+  {
+    matches: (path) => PROJECT_CONFIG_NAME.test(baseName(path)),
+    migrate: whenNamed(jsonConfig(() => [migrateTsconfig])),
   },
   {
     matches: isDependabotConfig,

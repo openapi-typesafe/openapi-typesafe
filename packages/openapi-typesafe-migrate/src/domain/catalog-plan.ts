@@ -13,7 +13,8 @@ export function catalogOfSpec(spec: string): string | undefined {
   if (!spec.startsWith(CATALOG_PROTOCOL)) {
     return undefined;
   }
-  return spec.slice(CATALOG_PROTOCOL.length) || DEFAULT_CATALOG;
+  // pnpm trims the name, so `catalog: ` is the default catalog too.
+  return spec.slice(CATALOG_PROTOCOL.length).trim() || DEFAULT_CATALOG;
 }
 
 /** Entries of catalogs, by catalog and package name. */
@@ -41,6 +42,11 @@ export interface CatalogPlan {
    * be renamed, so the dependency keeps its name.
    */
   readonly defined: CatalogEntries;
+  /**
+   * Whether the root is a workspace root: it holds the workspace's catalogs, so there is no
+   * catalog above it, and an entry missing from the project is missing from the workspace.
+   */
+  readonly isWorkspaceRoot: boolean;
 }
 
 /** The plan for files with no dependencies on catalogs (import maps): nothing is kept. */
@@ -48,4 +54,5 @@ export const NO_CATALOG_PLAN: CatalogPlan = {
   inUse: new CatalogEntries(),
   kept: new CatalogEntries(),
   defined: new CatalogEntries(),
+  isWorkspaceRoot: false,
 };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { migrateNpmSpec } from "../../src/domain/npm-alias.js";
+import { isOldPackageNpmSpec, migrateNpmSpec } from "../../src/domain/npm-alias.js";
 
 describe("migrateNpmSpec", () => {
   it.each([
@@ -27,4 +27,15 @@ describe("migrateNpmSpec", () => {
       expect(migrateNpmSpec(spec, "1.0.0")).toBeUndefined();
     },
   );
+});
+
+describe("isOldPackageNpmSpec", () => {
+  it.each([
+    ["npm:openapi-fetch@^0.13.0", true],
+    ["npm:openapi-typescript", true],
+    ["npm:left-pad@1", false],
+    ["openapi-fetch", false],
+  ])("isOldPackageNpmSpec reads %s as %s", (spec, expected) => {
+    expect(isOldPackageNpmSpec(spec)).toBe(expected);
+  });
 });

@@ -5,7 +5,7 @@ import {
   lineLocator,
   type ManualStep,
 } from "./migration-findings.js";
-import { migrateNpmSpec } from "./npm-alias.js";
+import { isOldPackageNpmSpec, migrateNpmSpec } from "./npm-alias.js";
 import {
   oldPackageInNodeModules,
   PACKAGE_RENAMES,
@@ -62,6 +62,13 @@ function renamedValue(value: string, version: string): RenamedValue | undefined 
   const renamed = { to: npm.spec, isDeep: npm.isDeep };
   return npm.isReported ? { ...renamed, keptSpec: hideUrlCredentials(value) } : renamed;
 }
+
+/**
+ * Whether the migration renames a string with this value, or reports it as one that names a
+ * package: an old package name or subpath, or an `npm:` specifier of one.
+ */
+export const namesRenamedModule = (value: string): boolean =>
+  isOldPackageNpmSpec(value) || renamedSpecifier(value) !== undefined;
 
 const TEMPLATE_SUBSTITUTION = "${";
 

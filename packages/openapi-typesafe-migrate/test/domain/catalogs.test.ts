@@ -23,6 +23,8 @@ describe("catalogOfSpec", () => {
   it.each([
     ["catalog:", "default"],
     ["catalog:legacy", "legacy"],
+    ["catalog: ", "default"],
+    ["catalog: legacy ", "legacy"],
     ["^0.13.0", undefined],
     ["workspace:*", undefined],
   ])("catalogOfSpec reads %s as %s", (spec, catalog) => {
@@ -37,7 +39,7 @@ describe("planCatalogs", () => {
     ];
     const catalogFiles = [workspace(["catalog:", "  openapi-fetch: ^0.13.0"])];
 
-    const plan = planCatalogs({ manifests, catalogFiles });
+    const plan = planCatalogs({ manifests, catalogFiles, isWorkspaceRoot: true });
 
     expect(plan.inUse.has("default", "openapi-fetch")).toBe(true);
     expect(plan.kept.has("default", "openapi-fetch")).toBe(true);
@@ -62,7 +64,7 @@ describe("planCatalogs", () => {
       ]),
     ];
 
-    const plan = planCatalogs({ manifests, catalogFiles });
+    const plan = planCatalogs({ manifests, catalogFiles, isWorkspaceRoot: true });
 
     for (const [catalog, name] of [
       ["default", "openapi-fetch"],
@@ -87,7 +89,7 @@ describe("planCatalogs", () => {
       ]),
     ];
 
-    const plan = planCatalogs({ manifests: [], catalogFiles });
+    const plan = planCatalogs({ manifests: [], catalogFiles, isWorkspaceRoot: true });
 
     expect(plan.kept.has("default", "openapi-fetch")).toBe(true);
     expect(plan.kept.has("default", "openapi-typescript")).toBe(true);
@@ -100,7 +102,7 @@ describe("planCatalogs", () => {
       workspace(["catalog:", "  openapi-fetch: *v", "  openapi-typesafe-fetch: ^1.0.0"]),
     ];
 
-    const plan = planCatalogs({ manifests: [], catalogFiles });
+    const plan = planCatalogs({ manifests: [], catalogFiles, isWorkspaceRoot: true });
 
     expect(plan.kept.has("default", "openapi-fetch")).toBe(false);
   });
@@ -113,7 +115,7 @@ describe("planCatalogs", () => {
       }),
     ];
 
-    const plan = planCatalogs({ manifests, catalogFiles: [] });
+    const plan = planCatalogs({ manifests, catalogFiles: [], isWorkspaceRoot: true });
 
     expect(plan.inUse.has("old", "openapi-fetch")).toBe(true);
     expect(plan.kept.has("old", "openapi-fetch")).toBe(true);
@@ -124,7 +126,7 @@ describe("planCatalogs", () => {
     const manifests = [manifest({ dependencies: { "openapi-fetch": "catalog:" } })];
     const catalogFiles = [workspace(["catalog:", "  openapi-fetch: ^0.13.0"])];
 
-    const plan = planCatalogs({ manifests, catalogFiles });
+    const plan = planCatalogs({ manifests, catalogFiles, isWorkspaceRoot: true });
 
     expect(plan.inUse.has("default", "openapi-fetch")).toBe(false);
     expect(plan.kept.has("default", "openapi-fetch")).toBe(false);

@@ -270,6 +270,39 @@ describe("migrateYamlCommands with the keys of a file kind", () => {
         .replaceAll(" -it", " --immutable"),
     );
   });
+
+  it("migrateYamlCommands migrates Taskfile defer and short preconditions, not a task or msg", () => {
+    const text = lines(
+      "tasks:",
+      "  gen:",
+      "    preconditions:",
+      "      - openapi-typescript --check a.yaml -it",
+      "      - { sh: openapi-typescript --check b.yaml -it, msg: run openapi-typescript -it }",
+      "    cmds:",
+      "      - defer: openapi-typescript c.yaml -it",
+      "      - defer: { task: openapi-typescript }",
+    );
+
+    const migrated = migrateYamlCommands(
+      text,
+      "Taskfile.yml",
+      stringsOf(text),
+      TASKFILE_COMMAND_KEYS,
+    );
+
+    expect(migrated.text).toBe(
+      lines(
+        "tasks:",
+        "  gen:",
+        "    preconditions:",
+        "      - openapi-typesafe --check a.yaml --immutable",
+        "      - { sh: openapi-typesafe --check b.yaml --immutable, msg: run openapi-typescript -it }",
+        "    cmds:",
+        "      - defer: openapi-typesafe c.yaml --immutable",
+        "      - defer: { task: openapi-typescript }",
+      ),
+    );
+  });
 });
 
 describe("migrateDependabotConfig", () => {

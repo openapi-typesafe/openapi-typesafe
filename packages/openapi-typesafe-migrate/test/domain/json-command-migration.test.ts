@@ -48,6 +48,30 @@ describe("migrateJsonCommands", () => {
     );
   });
 
+  it("migrateJsonCommands migrates the commands of Nx target configurations", () => {
+    const text = [
+      "{",
+      '  "targets": {',
+      '    "gen": {',
+      '      "configurations": {',
+      '        "ci": { "command": "openapi-typescript a -it", "cwd": "openapi-typescript" },',
+      '        "all": { "commands": ["openapi-typescript b", { "command": "openapi-typescript c" }] }',
+      "      }",
+      "    }",
+      "  }",
+      "}",
+    ].join("\n");
+
+    const migrated = migrateJsonCommands(text, stringsOf(text), NX_PROJECT_COMMAND_PATHS);
+
+    expect(migrated.text).toBe(
+      text
+        .replace('"openapi-typescript a -it"', '"openapi-typesafe a --immutable"')
+        .replace('"openapi-typescript b"', '"openapi-typesafe b"')
+        .replace('"openapi-typescript c"', '"openapi-typesafe c"'),
+    );
+  });
+
   it("migrateJsonCommands migrates Deno tasks, as strings and as objects", () => {
     const text =
       '{\n  // tasks\n  "tasks": {\n    "gen": "deno run -A npm:openapi-typescript a",\n' +
