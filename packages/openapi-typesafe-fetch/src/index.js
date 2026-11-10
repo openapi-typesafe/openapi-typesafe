@@ -309,6 +309,7 @@ export default function createClient(clientOptions) {
   }
 
   return {
+    baseUrl,
     request(method, url, init) {
       return coreFetch(url, { ...init, method: method.toUpperCase() });
     },

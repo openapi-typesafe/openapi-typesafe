@@ -74,4 +74,31 @@ describe("useInfiniteQuery edge cases", () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error).toEqual({ code: SERVER_ERROR });
   });
+
+  it("useInfiniteQuery aborts the request when the init's own signal aborts", async () => {
+    let signal: AbortSignal | undefined;
+    const fetchClient = createFetchClient<Paths>({
+      baseUrl: BASE_URL,
+      fetch: (request) => {
+        signal = request.signal;
+        return new Promise<Response>(() => undefined);
+      },
+    });
+    const own = new AbortController();
+
+    renderHook(
+      () =>
+        createClient(fetchClient).useInfiniteQuery(
+          "get",
+          "/items",
+          { signal: own.signal },
+          PAGE_OPTIONS,
+        ),
+      { wrapper: createWrapper() },
+    );
+    await waitFor(() => expect(signal).toBeDefined());
+    own.abort();
+
+    expect(signal?.aborted).toBe(true);
+  });
 });

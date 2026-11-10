@@ -122,6 +122,84 @@ describe("query keys and cache", () => {
 });
 
 describe("server rendering", () => {
+  it("queries that differ only in a Headers object or header pairs have their own keys", async () => {
+    const tenants: (string | null)[] = [];
+    const fetchClient = createFetchClient<Paths>({
+      baseUrl: BASE_URL,
+      fetch: async (request) => {
+        tenants.push(request.headers.get("x-tenant"));
+        return Response.json([{ id: tenants.length }]);
+      },
+    });
+    const client = createClient(fetchClient);
+    const queryClient = createQueryClient();
+    const tenantA = client.queryOptions("get", "/items", {
+      headers: new Headers({ "X-Tenant": "a" }),
+    });
+    const tenantB = client.queryOptions("get", "/items", { headers: [["X-Tenant", "b"]] });
+
+    await queryClient.fetchQuery(tenantA);
+    await queryClient.fetchQuery(tenantB);
+
+    expect(tenants).toEqual(["a", "b"]);
+    expect(tenantB.queryKey).toEqual([
+      "get",
+      "/items",
+      { headers: { "x-tenant": "b" }, baseUrl: BASE_URL },
+    ]);
+    expect(queryClient.getQueryData(tenantB.queryKey)).toEqual([{ id: 2 }]);
+  });
+
+  it("queries of two clients with different base URLs have their own keys", async () => {
+    const urls: string[] = [];
+    const record = async (request: Request) => {
+      urls.push(request.url);
+      return Response.json([{ id: urls.length }]);
+    };
+    const first = createClient(createFetchClient<Paths>({ baseUrl: BASE_URL, fetch: record }));
+    const second = createClient(
+      createFetchClient<Paths>({ baseUrl: "https://other.example.com", fetch: record }),
+    );
+    const queryClient = createQueryClient();
+
+    await queryClient.fetchQuery(first.queryOptions("get", "/items"));
+    const data = await queryClient.fetchQuery(second.queryOptions("get", "/items"));
+
+    expect(urls).toEqual([`${BASE_URL}/items`, "https://other.example.com/items"]);
+    expect(data).toEqual([{ id: 2 }]);
+  });
+
+  it("each query sends its own init: a fetch of the call is not taken from the key", async () => {
+    const queryClient = createQueryClient();
+    const client = createClient(createFetchClient<Paths>({ baseUrl: BASE_URL }));
+    const answering = (id: number) => async () => Response.json([{ id }]);
+
+    const options = client.queryOptions("get", "/items", { fetch: answering(7) });
+
+    expect(await queryClient.fetchQuery(options)).toEqual([{ id: 7 }]);
+  });
+
+  it("cancelQueries aborts a request whose init has its own signal", async () => {
+    let signal: AbortSignal | undefined;
+    const fetchClient = createFetchClient<Paths>({
+      baseUrl: BASE_URL,
+      fetch: (request) => {
+        signal = request.signal;
+        return new Promise<Response>(() => undefined);
+      },
+    });
+    const queryClient = createQueryClient();
+    const own = new AbortController();
+    const options = createClient(fetchClient).queryOptions("get", "/items", { signal: own.signal });
+    void queryClient.prefetchQuery(options);
+    await expect.poll(() => signal).toBeDefined();
+
+    await queryClient.cancelQueries({ queryKey: options.queryKey });
+
+    expect(signal?.aborted).toBe(true);
+    expect(own.signal.aborted).toBe(false);
+  });
+
   it("a dehydrated query renders on the server without a request", async () => {
     const serverUrls: string[] = [];
     const serverClient = createQueryClient();

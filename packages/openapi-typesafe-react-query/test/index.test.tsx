@@ -245,8 +245,8 @@ describe("client", () => {
 
       expectTypeOf(result.current[3]).toEqualTypeOf<(typeof result.current)[2]>();
 
-      // Generated different queryKey for each query.
-      expect(queryClient.isFetching()).toBe(4);
+      // One key per request: without an init and with an empty one, the request is the same.
+      expect(queryClient.isFetching()).toBe(3);
     });
 
     it("returns query options that can be passed to useQuery", async () => {
@@ -311,7 +311,13 @@ describe("client", () => {
       });
       const client = createClient(fetchClient);
 
-      expect(client.queryOptions("get", "/foo").queryKey.length).toBe(2);
+      expect(client.queryOptions("get", "/foo").queryKey).toEqual(["get", "/foo", { baseUrl }]);
+    });
+
+    it("returns query options without an init and a base URL with a key of method and path", () => {
+      const client = createClient(createFetchClient<minimalGetPaths>());
+
+      expect(client.queryOptions("get", "/foo").queryKey).toEqual(["get", "/foo"]);
     });
   });
 

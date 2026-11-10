@@ -7,9 +7,20 @@ description: Typed useQuery for OpenAPI endpoints
 The `useQuery` method allows you to use the original [useQuery](https://tanstack.com/query/latest/docs/framework/react/guides/queries).
 
 - The result is the same as the original function.
-- The query key is `[method, path, options]`, or `[method, path]` without options, so
-  `[method, path]` matches every variant in `invalidateQueries`. `options` is the whole `init`
-  object, such as `{ params: { path: { id: 1 } } }`: pass that to `setQueryData`, not `params`.
+- The query key is `[method, path, options]`, so `[method, path]` matches every variant in
+  `invalidateQueries`. `options` is the `init` object, such as `{ params: { path: { id: 1 } } }`,
+  with two changes that keep every request in its own cache entry: `headers` given as a `Headers`
+  object or as pairs are written as a plain object of the names and values they send, and the
+  `baseUrl` of the fetch client is added when the init has none. Without an init and a `baseUrl`
+  the key is `[method, path]`. Read the key from `queryOptions(...).queryKey` for `setQueryData`
+  and `getQueryData` rather than writing it out.
+- The request is sent with the `init` of the call. A `fetch`, `middleware` or serializer in it is
+  a function, which a query key cannot hold: two queries that differ only in one of them share
+  a cache entry, so set those on the fetch client, or give the queries different params.
+- The request stops when TanStack Query cancels the query, and also when a `signal` of the init
+  aborts.
+- With an `initialData` that is never `undefined`, `data` is never `undefined` either, as for
+  TanStack Query's own `useQuery`.
 - `data` and `error` are fully typed. `error` is the declared error body, a
   [`ResponseError`](./index.md#errors) when the response failed without one, or the `Error` of
   a request that got no response to read (a network or parse error). Tell them apart with

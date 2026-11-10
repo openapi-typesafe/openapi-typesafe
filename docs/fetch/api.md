@@ -24,6 +24,10 @@ createClient<paths>(options);
 | `requestInitExt`  | `Record<string, unknown>` | (optional) Passed as the second argument to `fetch`, for options of Node.js's fetch (undici) such as `dispatcher`; other platforms ignore it |
 | (Fetch options)   |                 | Any valid fetch option (`headers`, `mode`, `cache`, `signal` …) ([docs](https://developer.mozilla.org/en-US/docs/Web/API/fetch#options) |
 
+The client has the methods of the [fetch options](#fetch-options) (`GET`, `POST`, … and `request`),
+`use` and `eject` for [middleware](#middleware), and `baseUrl`: the `baseUrl` option without its
+trailing slash, or `""` without one. `openapi-typesafe-react-query` puts it into its query keys.
+
 ### Another fetch implementation
 
 `fetch` and `Request` of another Fetch API implementation, such as the `undici` package, are typed

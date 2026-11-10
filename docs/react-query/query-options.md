@@ -152,6 +152,10 @@ $api.queryOptions(method, path, options, queryOptions);
     the `Error` of a request that got no response to read (a network or parse error).
   - The type of `queryKey` is `QueryKeyWithDataTag`, named so that the declarations of a library
     that exports a `queryOptions` result print it by name.
-  - `queryKey` is `[method, path, options]`, or `[method, path]` without options. `options` is
-    the whole object passed as `init` (`{ params: { path: { id: 1 } } }`), not only its `params`.
-  - `queryFn` is set to a fetcher function.
+  - `queryKey` is `[method, path, options]`: `options` is the object passed as `init`
+    (`{ params: { path: { id: 1 } } }`), not only its `params`, with its `headers` as a plain
+    object and the `baseUrl` of the fetch client (see [`useQuery`](./use-query)). Without an
+    init and a `baseUrl` it is `[method, path]`.
+  - `queryFn` is set to a fetcher function that sends the `init` of this call.
+  - An `initialData` that is never `undefined` is kept in the type, so TanStack Query's
+    `useQuery` of the result has defined `data`.

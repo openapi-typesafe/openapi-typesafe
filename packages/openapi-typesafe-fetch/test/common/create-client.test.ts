@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { FetchOptions, HeadersOptions } from "../../src/index.js";
+import createClient, { type FetchOptions, type HeadersOptions } from "../../src/index.js";
 import { createObservedClient } from "../helpers.js";
 import type { paths } from "./schemas/common.js";
 
@@ -28,6 +28,13 @@ describe("createClient options", () => {
     );
     await client.GET("/resources");
     expect(actualURL.href).toBe("https://api.foo.bar/v3/resources");
+  });
+
+  test("baseUrl is readable on the client, without the trailing slash", () => {
+    const client = createClient<paths>({ baseUrl: "https://api.foo.bar/v3/" });
+
+    expect(client.baseUrl).toBe("https://api.foo.bar/v3");
+    expect(createClient<paths>().baseUrl).toBe("");
   });
 
   test("baseUrl per request", async () => {

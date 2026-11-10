@@ -12,6 +12,8 @@ The `useInfiniteQuery` method allows you to use the original [useInfiniteQuery](
   [`queryOptions`](./query-options) with `"infinite"` after it, so `useQuery` and
   `useInfiniteQuery` for the same request do not share a cache entry, and `[method, path]` still
   matches both in `invalidateQueries`. Its type is `InfiniteQueryKey`.
+- The request stops when TanStack Query cancels the query, and also when a `signal` of the init
+  aborts.
 - `data` and `error` are fully typed. `error` is the declared error body, a
   [`ResponseError`](./index.md#errors) when the response failed without one, or the `Error` of
   a request that got no response to read (a network or parse error). Tell them apart with
