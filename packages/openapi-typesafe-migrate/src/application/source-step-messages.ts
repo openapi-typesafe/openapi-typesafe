@@ -80,7 +80,10 @@ export function sourceStepMessage(step: SourceStep): string {
     case "deep-import":
       return `line ${step.line}: "${step.specifier}" ${DEEP_IMPORT_NOTE}`;
     case "old-package-import":
-      return `line ${step.line}: "${step.specifier}" ${OLD_FILE_NOTE} ${step.name}, ${OLD_FILE_FIX_NOTE} ${step.to}`;
+      return (
+        `line ${step.line}: "${step.specifier}" ${OLD_FILE_NOTE} ${step.name}, ` +
+        `${OLD_FILE_FIX_NOTE} ${step.to}`
+      );
     case "dynamic-specifier":
       return `line ${step.line}: \`${step.value}\` ${DYNAMIC_NOTE} ${step.to}`;
     case "string-names-package":

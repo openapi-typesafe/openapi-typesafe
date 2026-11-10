@@ -129,7 +129,10 @@ function packageStepMessage(step: PackageStep): string {
     case "setting-names-package":
       return `"${step.field}" names ${step.name}: ${SETTING_NOTE} ${renamed(step.name)}`;
     case "pattern-names-package":
-      return `${step.location}: "${step.value}" ${PATTERN_NOTE} ${step.name}: ${PATTERN_FIX_NOTE} ${step.to}`;
+      return (
+        `${step.location}: "${step.value}" ${PATTERN_NOTE} ${step.name}: ` +
+        `${PATTERN_FIX_NOTE} ${step.to}`
+      );
     case "deep-target":
       return `${step.location}: "${step.specifier}" ${DEEP_TARGET_NOTE}`;
     case "old-peer-needed":

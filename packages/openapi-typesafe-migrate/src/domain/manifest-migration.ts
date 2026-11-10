@@ -142,7 +142,8 @@ function migrateManifestMap(manifest: TreeMap, target: RenameTarget, findings: F
 /**
  * Migrate the package names of a manifest (`read` is `text` parsed): rename the original packages
  * in the dependency fields (with `version` as the new version), in the fields that name
- * dependencies, in bun's catalogs and in the targets of subpath imports, and report overrides that name the original packages.
+ * dependencies, in bun's catalogs and in the targets of subpath imports, and report overrides that
+ * name the original packages.
  */
 export function migratePackageManifest(
   text: string,
