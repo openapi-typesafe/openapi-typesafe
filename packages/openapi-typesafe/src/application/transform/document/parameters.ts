@@ -16,10 +16,12 @@ import {
   QUERYSTRING_LOCATION,
 } from "../../../domain/openapi/parameter-object.js";
 import { FIX } from "../../../domain/output-fixes.js";
+import { declaredValueTypes } from "../declared-value-types.js";
 import type { SchemaLocation } from "../schema/schema-context.js";
 import { withSchemaComment } from "../schema-comment.js";
 import type { TransformContext } from "../transform-context.js";
 import { isExplodedQueryObject } from "./exploded-query.js";
+import { declaredObjectType, hasIndexSignature, withIndexValues } from "./exploded-query-values.js";
 import { parameterType } from "./parameter.js";
 import {
   type ParameterEntry,
@@ -126,17 +128,50 @@ function isExplodedEntry(entry: ResolvedEntry, context: TransformContext): boole
   );
 }
 
+/** An exploded object parameter with its type, typed in document order. */
+interface ExplodedEntry {
+  readonly entry: ResolvedEntry;
+  readonly type: IrType;
+}
+
 /**
- * An exploded object parameter's part of `query`: its object type. A parameter that may be left
- * out sends none of its keys then, so they are optional: `Partial<…>`.
+ * The object type of an exploded parameter, written out when it is a reference to a type with an
+ * index signature and `query` has other keys, which that signature must then admit. Without
+ * other keys the reference is kept.
  */
-function explodedPart(
-  entry: ResolvedEntry,
-  location: SchemaLocation,
+function explodedObjectType(
+  { entry, type }: ExplodedEntry,
+  hasOtherKeys: boolean,
   context: TransformContext,
 ): IrType {
-  const type = entryType(entry, location, context);
-  return entry.resolved.required ? type : irReference("Partial", [type]);
+  if (!hasOtherKeys) {
+    return type;
+  }
+  const declared = declaredObjectType(entry, context);
+  return declared !== null && hasIndexSignature(declared) ? declared : type;
+}
+
+/**
+ * The exploded object parameters' parts of `query`: their object types, each index signature
+ * widened by the value types of the other keys (see `exploded-query-values.ts`). A parameter that
+ * may be left out sends none of its keys then, so they are optional: `Partial<…>`.
+ */
+function explodedParts(
+  exploded: readonly ExplodedEntry[],
+  members: readonly IrPropertySignature[],
+  context: TransformContext,
+): IrType[] {
+  const hasOtherKeys = members.length > 0 || exploded.length > 1;
+  const types = exploded.map((part) => explodedObjectType(part, hasOtherKeys, context));
+  const others = (index: number) => [
+    ...(members.length > 0 ? [irObject(members)] : []),
+    ...types.filter((_type, other) => other !== index),
+  ];
+  return types.map((type, index) => {
+    const values = others(index).flatMap((other) => declaredValueTypes(other, context.footer));
+    const widened = withIndexValues(type, values);
+    return exploded[index]?.entry.resolved.required ? widened : irReference("Partial", [widened]);
+  });
 }
 
 /** A location's parameters as members, and the object types of its exploded parameters. */
@@ -153,11 +188,11 @@ function locationParts(
   context: TransformContext,
 ): LocationParts {
   const members: IrPropertySignature[] = [];
-  const exploded: IrType[] = [];
+  const exploded: ExplodedEntry[] = [];
   let isOptional = true;
   for (const entry of entries) {
     if (isExplodedEntry(entry, context)) {
-      exploded.push(explodedPart(entry, location, context));
+      exploded.push({ entry, type: entryType(entry, location, context) });
       isOptional &&= !entry.resolved.required;
       continue;
     }
@@ -165,7 +200,7 @@ function locationParts(
     members.push(member);
     isOptional &&= member.isOptional;
   }
-  return { members, exploded, isOptional };
+  return { members, exploded: explodedParts(exploded, members, context), isOptional };
 }
 
 /** The members' object, intersected with the exploded parameters' types; `never` for none. */

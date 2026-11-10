@@ -32,7 +32,8 @@ const SHAPE_RULES: readonly SchemaRule[] = [
   },
   {
     name: "const",
-    matches: (schema) => schema.const !== null && schema.const !== undefined,
+    // `const: null` is the value null (JSON Schema §6.1.3); the original read it as no `const`.
+    matches: (schema) => schema.const !== undefined,
     transform: (schema) => literalType(schema.const),
   },
   enumRule,

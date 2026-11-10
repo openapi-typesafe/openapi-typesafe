@@ -189,6 +189,17 @@ additionalProperties:
   </tbody>
 </table>
 
+::: info Properties next to `additionalProperties`
+TypeScript checks an index signature against every key of a value, declared ones too. So for
+`properties: { total: { type: integer } }` next to `additionalProperties: { type: string }`, the
+original's `{ total: number } & { [key: string]: string }` took no value with `total`. The index
+signature also takes the property types it does not admit: `[key: string]: string | number`. A key
+that no property declares can then hold a `number` too; TypeScript has no type for "the other keys".
+A property type that the index type already admits adds nothing, so `{ name: string }` next to
+`string` stays `[key: string]: string`. A `$ref` property type is always added, because the generator
+does not compare referenced types.
+:::
+
 When it comes to **tuple types**, you’ll also get better results by representing that type in your schema. Here’s the best way to type out an `[x, y]` coordinate tuple:
 
 <table>
@@ -394,6 +405,11 @@ Episode:
 
 Add a mapping entry for the value the property allows (`mapping: { episode:
 "#/components/schemas/Episode" }`).
+
+A `mapping` value is a schema name (`cat: Cat`) or a URI reference (`cat:
+"#/components/schemas/Cat"`). A value that is a key of `components.schemas` is read as that
+schema's name, as OpenAPI 3.1.1 recommends for a value that could be either; write a relative file
+reference that matches a schema name as `./Cat`. Any other value is a URI reference.
 
 A member is a schema that the discriminator's `oneOf`, `anyOf` or `mapping` names, or one that
 `allOf`s the owner, also through other schemas (`Lion: { allOf: [Cat] }`, `Cat: { allOf: [Pet] }`).

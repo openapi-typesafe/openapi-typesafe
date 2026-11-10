@@ -27,12 +27,14 @@ import originalTransformWebhooksObject from "./original/webhooks-object.js";
 import {
   type ContextInput,
   contextInput,
+  hasBooleanPathKey,
   hasDuplicateEnumMembers,
   hasRedeclaredConstArrays,
   hasRepeatedEnumDeclarations,
   hasRepeatedOperationKeys,
   hasRepeatedParametersIndex,
   hasUnquotedExtractProbe,
+  mergesDifferentInputEnums,
   objectOf,
   RUNS,
   resetLegacyEnumState,
@@ -55,11 +57,16 @@ function expectSameOutput(build: Build, original: Build, input: ContextInput): v
   fc.pre(!hasRepeatedOperationKeys(expected));
   fc.pre(!hasRepeatedParametersIndex(expected));
   fc.pre(!hasUnquotedExtractProbe(expected));
+  fc.pre(!hasBooleanPathKey(expected));
   expect(runLegacy(build, input, input.path)).toBe(expected);
 }
 
 function property<T>(arbitrary: fc.Arbitrary<T>, check: (value: T, input: ContextInput) => void) {
-  fc.assert(fc.property(arbitrary, contextInput, check), { numRuns: RUNS });
+  const checkKept = (value: T, input: ContextInput) => {
+    fc.pre(!mergesDifferentInputEnums(value, input));
+    check(value, input);
+  };
+  fc.assert(fc.property(arbitrary, contextInput, checkKept), { numRuns: RUNS });
 }
 
 /** The new and the original transformer; their option types differ (IR and TypeScript). */

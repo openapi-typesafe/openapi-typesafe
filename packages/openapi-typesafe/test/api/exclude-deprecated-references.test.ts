@@ -98,3 +98,64 @@ describe("--exclude-deprecated references", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 });
+
+describe("--exclude-deprecated pointers and ApiPaths", () => {
+  it("openapiTS types a $ref to a dropped property as that property's schema, and compiles", async () => {
+    const holder = {
+      type: "object",
+      properties: { old: { type: "string", deprecated: true }, b: { type: "integer" } },
+    };
+    const schemas = {
+      Holder: holder,
+      Copy: { $ref: "#/components/schemas/Holder/properties/old" },
+      List: { type: "array", items: { $ref: "#/components/schemas/Holder/properties/old" } },
+    };
+
+    const output = await generate(documentWith(schemas));
+
+    expect(output).toContain("Copy: string;");
+    expect(output).toContain("List: string[];");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS types a $ref to a property whose $ref is deprecated in place", async () => {
+    const holder = { type: "object", properties: { old: OLD_REF } };
+    const schemas = { Old: OLD, Holder: holder, Copy: { $ref: "#/components/schemas/Holder/properties/old" } };
+
+    const output = await generate(documentWith(schemas));
+
+    expect(output).toContain('Copy: components["schemas"]["Old"];');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS without --exclude-deprecated indexes a deprecated property as before", async () => {
+    const holder = { type: "object", properties: { old: { type: "string", deprecated: true } } };
+    const document = documentWith({ Holder: holder, Copy: { $ref: "#/components/schemas/Holder/properties/old" } });
+
+    const output = astToString(await openapiTS(document, { silent: true }));
+
+    expect(output).toContain('Copy: components["schemas"]["Holder"]["old"];');
+  });
+
+  it("openapiTS leaves the operations it drops out of ApiPaths", async () => {
+    const ok = { responses: { 200: { description: "ok" } } };
+    const paths = {
+      "/old": { get: { ...ok, deprecated: true, operationId: "getOld" } },
+      "/new": { get: { ...ok, operationId: "getNew" }, post: { $ref: "#/paths/~1old/get" } },
+    };
+
+    const output = astToString(
+      await openapiTS(documentWith({}, paths), { silent: true, excludeDeprecated: true, makePathsEnum: true }),
+    );
+
+    expect(output).toContain('export enum ApiPaths {\n    getNew = "/new"\n}');
+  });
+
+  it("openapiTS without --exclude-deprecated lists every operation in ApiPaths", async () => {
+    const paths = { "/old": { get: { deprecated: true, operationId: "getOld", responses: {} } } };
+
+    const output = astToString(await openapiTS(documentWith({}, paths), { silent: true, makePathsEnum: true }));
+
+    expect(output).toContain('getOld = "/old"');
+  });
+});

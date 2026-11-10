@@ -120,3 +120,111 @@ const old: Query = { GetPosts: { page: 1 } };`;
     expect(typeErrorsOf(code)).toEqual([]);
   });
 });
+
+describe("exploded-query-objects fix with index signatures", () => {
+  const LABELS = { type: "object", additionalProperties: { type: "string" } };
+  const PAGE = { name: "page", in: "query", schema: { type: "integer" } };
+  const labels = (schema: object = LABELS) => ({ name: "labels", in: "query", schema });
+  const QUERY = 'type Query = NonNullable<paths["/posts"]["get"]["parameters"]["query"]>;';
+
+  it("openapiTS widens the index signature by the types of the other query keys", async () => {
+    const output = await fixed([PAGE, labels()]);
+
+    expect(output).toContain("} & Partial<{\n                    [key: string]: string | number | undefined;");
+  });
+
+  it("openapiTS output accepts the other parameters next to the object's keys", async () => {
+    const code = `${await fixed([PAGE, labels()])}
+${QUERY}
+const query: Query = { page: 2, team: "red" };
+// @ts-expect-error a key of the object still takes only the value types of query
+const wrong: Query = { team: true };`;
+
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
+  it("openapiTS keeps an index signature as it is without other query keys", async () => {
+    expect(await fixed([labels()])).toContain("query?: Partial<{\n                    [key: string]: string;");
+  });
+
+  it("openapiTS writes out a referenced schema with an index signature next to other keys", async () => {
+    const schemas = { GetPosts: GET_POSTS, Labels: LABELS };
+    const code = `${await fixed([PAGE, labels({ $ref: "#/components/schemas/Labels" })], { schemas })}
+${QUERY}
+const query: Query = { page: 2, team: "red" };`;
+
+    expect(code).toContain("} & Partial<{\n                    [key: string]: string | number | undefined;");
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
+  it("openapiTS writes out a referenced parameter with an index signature next to other keys", async () => {
+    const parameters = { Labels: labels() };
+    const code = `${await fixed([PAGE, { $ref: "#/components/parameters/Labels" }], { parameters })}
+${QUERY}
+const query: Query = { page: 2, team: "red" };`;
+
+    expect(code).toContain("} & Partial<{\n                    [key: string]: string | number | undefined;");
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
+  it("openapiTS keeps a referenced object without an index signature as a reference", async () => {
+    expect(await fixed([PAGE, posts()])).toContain(`} & ${PARTIAL_POSTS};`);
+  });
+
+  it("openapiTS widens each of two exploded objects by the keys of the other", async () => {
+    const code = `${await fixed([labels(), { name: "filter", in: "query", schema: GET_POSTS }])}
+${QUERY}
+const query: Query = { team: "red", page: 1 };`;
+
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
+  it("openapiTS keeps a referenced object with an index signature as a reference without other keys", async () => {
+    const schemas = { GetPosts: GET_POSTS, Labels: LABELS };
+
+    const output = await fixed([labels({ $ref: "#/components/schemas/Labels" })], { schemas });
+
+    expect(output).toContain(QUERY_OF('Partial<components["schemas"]["Labels"]>'));
+  });
+
+  it("openapiTS writes out a referenced object next to another exploded object only", async () => {
+    const schemas = { GetPosts: GET_POSTS, Labels: LABELS };
+    const exploded = [labels({ $ref: "#/components/schemas/Labels" }), posts()];
+
+    const output = await fixed(exploded, { schemas });
+
+    expect(output).toContain("query?: Partial<{\n                    [key: string]: string | PropertyValues<");
+  });
+
+  it("openapiTS widens the index signature of a composed object", async () => {
+    const composed = { allOf: [{ properties: { tag: { type: "string" } } }, LABELS] };
+    const code = `${await fixed([PAGE, labels(composed)])}
+${QUERY}
+const query: Query = { page: 2, tag: "a", team: "red" };`;
+
+    expect(code).toContain("[key: string]: string | number | undefined;");
+    expect(typeErrorsOf(code)).toEqual([]);
+  });
+
+  it("openapiTS writes out a referenced composed object with an index signature", async () => {
+    const schemas = { GetPosts: GET_POSTS, Labels: { allOf: [{ properties: { tag: { type: "string" } } }, LABELS] } };
+
+    const output = await fixed([PAGE, labels({ $ref: "#/components/schemas/Labels" })], { schemas });
+
+    expect(output).toContain("[key: string]: string | number | undefined;");
+  });
+
+  it("openapiTS widens the index signature of each object of a union", async () => {
+    const union = { oneOf: [LABELS, { type: "object", additionalProperties: { type: "boolean" } }] };
+
+    const output = await fixed([PAGE, labels(union)]);
+
+    expect(output).toContain("[key: string]: boolean | number | undefined;");
+  });
+
+  it("openapiTS leaves an index signature of unknown values as it is", async () => {
+    const output = await fixed([PAGE, labels({ type: "object", additionalProperties: true })]);
+
+    expect(output).toContain("[key: string]: unknown;");
+  });
+});

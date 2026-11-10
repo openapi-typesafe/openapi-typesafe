@@ -1,4 +1,5 @@
-import { childPointer, ROOT_POINTER } from "../../domain/openapi/json-pointer.js";
+import { childPointer } from "../../domain/openapi/json-pointer.js";
+import { type ComponentSchemas, componentSchemasOf, SCHEMAS_POINTER } from "./component-schemas.js";
 import { findMappings, findRefHolders } from "./ref-holders.js";
 
 /**
@@ -11,27 +12,13 @@ import { findMappings, findRefHolders } from "./ref-holders.js";
  * and the mapping values and `$ref`s that name it point at the original.
  */
 
-type Schemas = Record<string, unknown>;
-
-const SCHEMAS_POINTER = childPointer(childPointer(ROOT_POINTER, "components"), "schemas");
-
-function isContainer(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function schemasOf(document: unknown): Schemas | undefined {
-  const components = isContainer(document) ? document.components : undefined;
-  const schemas = isContainer(components) ? components.schemas : undefined;
-  return isContainer(schemas) ? schemas : undefined;
-}
-
 /** The keys of `components.schemas` before bundling: the bundle edits the document in place. */
 export function schemaKeysOf(document: unknown): ReadonlySet<string> {
-  return new Set(Object.keys(schemasOf(document) ?? {}));
+  return new Set(Object.keys(componentSchemasOf(document) ?? {}));
 }
 
 /** Each key the bundle added as a copy, with the pointer of the schema it copies. */
-function copiesIn(schemas: Schemas, keysBefore: ReadonlySet<string>): Map<string, string> {
+function copiesIn(schemas: ComponentSchemas, keysBefore: ReadonlySet<string>): Map<string, string> {
   const originals = new Map<unknown, string>();
   for (const key of keysBefore) {
     if (Object.hasOwn(schemas, key) && !originals.has(schemas[key])) {
@@ -54,7 +41,7 @@ export function removeBundledMappingCopies(
   bundled: unknown,
   keysBefore: ReadonlySet<string>,
 ): void {
-  const schemas = schemasOf(bundled);
+  const schemas = componentSchemasOf(bundled);
   const copies = schemas === undefined ? new Map<string, string>() : copiesIn(schemas, keysBefore);
   if (copies.size === 0) {
     return;

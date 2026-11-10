@@ -27,8 +27,9 @@ default in 2.0. The names are exported as the `OutputFix` type, the `OUTPUT_FIXE
   `query` (upstream [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361)).
 - `nullable-enums`: `--enum` declares an enum that lists `null`, typed `E | null` (upstream
   [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872)).
-- `parameter-content`: a parameter with `content` instead of `schema`, such as a JSON object in a
-  query parameter, is typed by the schema of its media type instead of `string`.
+- `parameter-header-content`: a parameter or a header with `content` instead of `schema`, such as
+  a JSON object in a query parameter, is typed by the schema of its media type, not as `string`
+  or as a map of media types.
 - `path-param-type-names`: a path parameter named `number`, `string` or `boolean` gets its own
   placeholder.
 - `prefix-items`: `prefixItems` tuples follow JSON Schema 2020-12 (upstream [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892)).

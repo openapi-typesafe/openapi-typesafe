@@ -9,6 +9,8 @@ import type { IrMember, IrPropertySignature, IrType } from "../../../domain/ir/n
 import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { NO_DECLARED_TYPES } from "../document/declared-types.js";
+import { assignabilityProof } from "../document/type-assignability.js";
 import { documentEntries } from "../document-entries.js";
 import { schemaRefType } from "../ref-pointer/pointer-type.js";
 import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js";
@@ -16,11 +18,10 @@ import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import { type AccessFlags, propertyAccessFlags } from "./access-flags.js";
 import { discriminatorMember, inheritedDiscriminator } from "./inherited-discriminator.js";
+import { isInputLocation } from "./input-location.js";
+import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
 import type { SchemaOptions } from "./schema-context.js";
 import type { SchemaRequest } from "./schema-rule.js";
-
-/** Path parts where a default value cannot make a property required (inputs may omit it). */
-const INPUT_PATH_PARTS = ["parameters", "requestBody", "requestBodies"] as const;
 
 export class InvalidPropertyError extends OpenAPITypesafeError {
   constructor(path: string | undefined, key: string, value: unknown) {
@@ -85,11 +86,10 @@ function isOptionalProperty(
   request: SchemaRequest,
 ): boolean {
   const { options } = request.context;
-  const path = request.location.path;
   const isDefaultRequired =
     facts.hasDefault &&
     options.defaultNonNullable &&
-    !INPUT_PATH_PARTS.some((part) => path?.includes(part));
+    !isInputLocation(request.location.path, options.fixes);
   const isRequired =
     schema.required?.includes(key) ||
     (schema.required === undefined && options.propertiesRequiredByDefault) ||
@@ -111,6 +111,12 @@ interface CustomResult {
   readonly isOptional: true | null;
 }
 
+/** A `$ref` with siblings that `ref-siblings` types as an `allOf` is typed as a schema. */
+function plainRef({ ref }: PropertyFacts, value: Schema, request: SchemaRequest) {
+  const isAllOf = ref && refWithSiblingsAsAllOf(value as SchemaObject, request.context.options);
+  return isAllOf ? undefined : ref;
+}
+
 function propertyType(
   key: string,
   value: Schema,
@@ -118,8 +124,9 @@ function propertyType(
   request: SchemaRequest,
 ): CustomResult {
   const path = appendPointer(request.location.path, [key]);
-  const type = facts.ref
-    ? schemaRefType(facts.ref, request)
+  const ref = plainRef(facts, value, request);
+  const type = ref
+    ? schemaRefType(ref, request)
     : request.transformNested(value, { ...request.location, path });
   const custom = request.context.callbacks.transform(value, request.location);
   return custom === null
@@ -260,6 +267,20 @@ function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRe
 }
 
 /**
+ * The index signature type with the property types it does not admit. TypeScript checks an index
+ * signature against every key of a value, declared ones too, so `{ total: number } & { [key:
+ * string]: string }` admits no value with `total` (with a required `total`, none at all). The
+ * signature takes those property types too, as `unevaluated-properties` does. A property type
+ * proven assignable adds nothing, so output that admitted its values stays; one the proof cannot
+ * decide (a `$ref`) is added. `$defs` is a keyword, not data, so it is not read.
+ */
+function withPropertyTypes(indexType: IrType, propertyTypes: readonly IrType[]): IrType {
+  const relate = assignabilityProof(NO_DECLARED_TYPES);
+  const others = propertyTypes.filter((type) => relate(type, indexType) !== "assignable");
+  return unionOf([indexType, ...others]);
+}
+
+/**
  * Object keywords: discriminator, `properties`, `$defs`, and an index signature for
  * `additionalProperties` / `patternProperties` (or `--additional-properties`). Null when the schema
  * has none of them.
@@ -270,6 +291,9 @@ export function objectType(schema: SchemaObject, request: SchemaRequest): IrType
     return inherited ? irObject([discriminatorMember(inherited, request)]) : null;
   }
   const members = discriminatorAndPropertyMembers(schema, request);
+  const propertyTypes = members.flatMap((member) =>
+    member.kind === "property" ? [member.type] : [],
+  );
   // As in the original, a null `$defs` throws here (Object.keys) instead of being skipped.
   if (
     "$defs" in schema &&
@@ -282,8 +306,9 @@ export function objectType(schema: SchemaObject, request: SchemaRequest): IrType
   if (valueTypes.length === 0) {
     return members.length > 0 ? irObject(members) : null;
   }
+  const indexType = withPropertyTypes(unionOf(valueTypes), propertyTypes);
   const index = irObject([
-    irStringIndexSignature("key", unionOf(valueTypes), request.context.options.immutable),
+    irStringIndexSignature("key", indexType, request.context.options.immutable),
   ]);
   return intersectionOf([...(members.length > 0 ? [irObject(members)] : []), index]);
 }

@@ -11,6 +11,7 @@ import {
   type ContextInput,
   contextInput,
   createContext,
+  mergesDifferentInputEnums,
   RUNS,
   resetLegacyEnumState,
   TIMEOUT_MS,
@@ -52,6 +53,7 @@ describe("print path parity", () => {
     () => {
       fc.assert(
         fc.property(documentArbitrary, contextInput, injectArbitrary, (value, input, inject) => {
+          fc.pre(!mergesDifferentInputEnums(value, input));
           expect(run(printWithIr, value, input, inject)).toBe(
             run(printNodesWithTypeScript, value, input, inject),
           );

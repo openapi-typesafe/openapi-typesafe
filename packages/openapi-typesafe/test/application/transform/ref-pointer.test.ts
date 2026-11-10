@@ -250,7 +250,8 @@ describe("edge shapes", () => {
 
   it("generatedMember reads an empty additionalProperties, defaults and deprecated properties", () => {
     expect(member("Empty", "x")).toBe("index");
-    expect(member("Defaults", "old", { ...OPTIONS, excludeDeprecated: true })).toBe("opaque");
+    // `--exclude-deprecated` leaves the property out of the generated type: no such key.
+    expect(member("Defaults", "old", { ...OPTIONS, excludeDeprecated: true })).toBe("missing");
     expect(fails("#/components/schemas/Defaults/properties/size/properties/n")).toBe(false);
   });
 

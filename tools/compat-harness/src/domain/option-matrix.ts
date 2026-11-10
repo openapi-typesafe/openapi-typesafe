@@ -129,6 +129,9 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   { flag: "--fix=anyof-oneof-descriptions", with: [[]] },
   // `dedupe-enum-names` does nothing without `--enum --dedupe-enums`, the only matrix set it changes.
   { flag: "--fix=dedupe-enum-names", with: [["--enum", "--dedupe-enums"]] },
+  // `default-input-locations` changes which defaulted properties are required, which no other flag
+  // of the matrix changes.
+  { flag: "--fix=default-input-locations", with: [[]] },
   // `exploded-query-objects` moves keys into `query`: `--immutable` makes them readonly.
   { flag: "--fix=exploded-query-objects", with: [[], ["--immutable"]] },
   // `nullable-enums` does nothing without `--enum`; `--dedupe-enums` shares the enum it declares.
@@ -144,9 +147,9 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   // `ref-pointers` changes the `$ref`s whose original type an index signature admits, which
   // `--additional-properties` adds to every object.
   { flag: "--fix=ref-pointers", with: [[], ["--additional-properties"]] },
-  // `parameter-content` types a parameter by its `content` schema: `--immutable` makes it
-  // readonly.
-  { flag: "--fix=parameter-content", with: [[], ["--immutable"]] },
+  // `parameter-header-content` types a parameter or header by its `content` schema:
+  // `--immutable` makes it readonly.
+  { flag: "--fix=parameter-header-content", with: [[], ["--immutable"]] },
   // `ref-siblings` types a `$ref` with keywords next to it as an `allOf`, so it is checked with
   // the flags that change required keys and `WithRequired`.
   { flag: "--fix=ref-siblings", with: [[], ["--immutable"], ["--properties-required-by-default"]] },

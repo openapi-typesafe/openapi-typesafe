@@ -13,6 +13,7 @@ import {
   type ContextInput,
   contextInput,
   createContext,
+  hasBooleanPathKey,
   hasDuplicateEnumMembers,
   hasRedeclaredConstArrays,
   hasRepeatedEnumDeclarations,
@@ -20,6 +21,8 @@ import {
   hasRepeatedParametersIndex,
   hasRetypedEnumValues,
   hasUnquotedExtractProbe,
+  listsExcludedOperations,
+  mergesDifferentInputEnums,
   OPTION_KEYS,
   RUNS,
   reachesFixedLegacyBug,
@@ -100,7 +103,10 @@ describe("root transformer parity with the fork base", () => {
           fc.pre(!hasRepeatedOperationKeys(original));
           fc.pre(!hasRepeatedParametersIndex(original));
           fc.pre(!hasUnquotedExtractProbe(original));
+          fc.pre(!hasBooleanPathKey(original));
           fc.pre(!reachesFixedLegacyBug(value, input));
+          fc.pre(!mergesDifferentInputEnums(value, input));
+          fc.pre(!listsExcludedOperations(value, input));
           const output = run(transformSchema, value, input, code);
           fc.pre(!hasRetypedEnumValues(output));
           expect(output).toBe(original);

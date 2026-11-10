@@ -21,6 +21,11 @@ export const FIX = {
   ARRAY_LENGTH_TUPLES: "array-length-tuples",
   /** `--dedupe-enums` names a shared enum by all of its schemas, not by the first one. */
   DEDUPE_ENUM_NAMES: "dedupe-enum-names",
+  /**
+   * `--default-non-nullable` finds parameters and request bodies by the document's structure, not
+   * by the words `parameters` and `requestBody` anywhere in a schema's location.
+   */
+  DEFAULT_INPUT_LOCATIONS: "default-input-locations",
   /** `required` next to an `allOf` `$ref` to a discriminator member still gives `WithRequired`. */
   DISCRIMINATOR_MEMBER_REQUIRED: "discriminator-member-required",
   /**
@@ -33,8 +38,8 @@ export const FIX = {
   EXPLODED_QUERY_OBJECTS: "exploded-query-objects",
   /** `--enum` declares an enum that lists `null` without it, and the type adds `| null`. */
   NULLABLE_ENUMS: "nullable-enums",
-  /** A parameter with `content` instead of `schema` is typed by the schema of its media type. */
-  PARAMETER_CONTENT: "parameter-content",
+  /** A parameter or header with `content`, not `schema`, is typed by its media type's schema. */
+  PARAMETER_HEADER_CONTENT: "parameter-header-content",
   /** `--path-params-as-types` gives each `{name}` its placeholder, `{number}` included. */
   PATH_PARAM_TYPE_NAMES: "path-param-type-names",
   /** A `prefixItems` tuple is open unless `items` or `unevaluatedItems` closes it (2020-12). */

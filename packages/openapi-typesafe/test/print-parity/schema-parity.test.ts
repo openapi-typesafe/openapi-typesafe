@@ -14,6 +14,7 @@ import {
   hasRepeatedOperationKeys,
   hasRepeatedParametersIndex,
   hasUnquotedExtractProbe,
+  mergesDifferentInputEnums,
   RUNS,
   runLegacy,
   schemaArbitrary,
@@ -45,6 +46,7 @@ describe("schema transformer parity with the fork base", () => {
     () => {
       fc.assert(
         fc.property(schemaArbitrary(), contextInput, (schema, input) => {
+          fc.pre(!mergesDifferentInputEnums(schema, input));
           const expected = run(originalTransformSchemaObject, schema, input);
           fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
           fc.pre(!hasRepeatedEnumDeclarations(expected));

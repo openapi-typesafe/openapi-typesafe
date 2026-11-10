@@ -23,6 +23,7 @@ import {
   headerArbitrary,
   key,
   mediaTypeArbitrary,
+  mergesDifferentInputEnums,
   objectOf,
   RUNS,
   runLegacy,
@@ -94,6 +95,7 @@ describe("document transformer parity with the fork base", () => {
     () => {
       fc.assert(
         fc.property(mediaTypeArbitrary, contextInput, (value, input) => {
+          fc.pre(!mergesDifferentInputEnums(value, input));
           expectSameOutput(
             (options) => transformMediaTypeObject(value as never, options),
             (options) => originalTransformMediaTypeObject(value as never, options as never),
@@ -112,6 +114,7 @@ describe("document transformer parity with the fork base", () => {
     () => {
       fc.assert(
         fc.property(headerArbitrary, contextInput, (value, input) => {
+          fc.pre(!mergesDifferentInputEnums(value, input));
           expectSameOutput(
             (options) => transformHeaderObject(value as never, options),
             (options) => originalTransformHeaderObject(value as never, options as never),
@@ -130,6 +133,7 @@ describe("document transformer parity with the fork base", () => {
     () => {
       fc.assert(
         fc.property(parameter, contextInput, (value, input) => {
+          fc.pre(!mergesDifferentInputEnums(value, input));
           expectSameOutput(
             (options) => transformParameterObject(value as never, options),
             (options) => originalTransformParameterObject(value as never, options as never),
@@ -149,6 +153,7 @@ describe("document transformer parity with the fork base", () => {
       const path = fc.constantFrom(...TEMPLATE_PATHS);
       fc.assert(
         fc.property(parameters, contextInput, path, (value, input, templatePath) => {
+          fc.pre(!mergesDifferentInputEnums(value, input));
           expectSameOutput(
             parametersType(transformParametersArray, value),
             parametersType(originalTransformParametersArray, value),

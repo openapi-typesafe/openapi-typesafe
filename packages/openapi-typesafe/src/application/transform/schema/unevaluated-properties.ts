@@ -1,13 +1,8 @@
-import {
-  irKeyword,
-  irObject,
-  irReference,
-  irStringIndexSignature,
-} from "../../../domain/ir/constructors.js";
-import type { IrMember, IrType } from "../../../domain/ir/nodes.js";
+import { irObject, irStringIndexSignature } from "../../../domain/ir/constructors.js";
+import type { IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { FIX } from "../../../domain/output-fixes.js";
-import { HELPER_TYPES } from "../helper-types.js";
+import { declaredValueTypes } from "../declared-value-types.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { unionOf } from "../type-combinators.js";
 import type { SchemaRequest } from "./schema-rule.js";
@@ -46,41 +41,6 @@ function isAnySchema(schema: Schema): boolean {
   return schema === true || (typeof schema === "object" && Object.keys(schema).length === 0);
 }
 
-function memberValueTypes(member: IrMember): IrType[] {
-  if (member.kind === "indexSignature") {
-    return [member.type];
-  }
-  return member.isOptional ? [member.type, irKeyword("undefined")] : [member.type];
-}
-
-/**
- * The value types a key of the composed type can have, read from its IR: the members of object
- * types, through unions and intersections. A reference (a `$ref`, `Omit`, `WithRequired`) or a raw
- * type is read with `PropertyValues`. Primitives, literals and arrays declare no keys.
- */
-function declaredValueTypes(type: IrType, request: SchemaRequest): IrType[] {
-  switch (type.kind) {
-    case "object":
-      return type.members.flatMap(memberValueTypes);
-    case "union":
-    case "intersection":
-      return type.types.flatMap((member) => declaredValueTypes(member, request));
-    case "reference":
-    case "indexedAccess":
-    case "raw":
-      request.context.footer.requirePropertyValues();
-      return [irReference(HELPER_TYPES.propertyValues.name, [type])];
-    case "keyword":
-    case "stringLiteral":
-    case "numberLiteral":
-    case "booleanLiteral":
-    case "array":
-    case "tuple":
-    case "readonly":
-      return [];
-  }
-}
-
 /**
  * The index signature object for `unevaluatedProperties`, given the composed type of the other
  * keywords (null when there is none). Null when the fix is off or the keyword does not apply.
@@ -98,7 +58,7 @@ export function unevaluatedPropertiesType(
     ? [UNKNOWN_TYPE]
     : [
         request.transformNested(unevaluated, request.location, true),
-        ...(composed === null ? [] : declaredValueTypes(composed, request)),
+        ...(composed === null ? [] : declaredValueTypes(composed, request.context.footer)),
       ];
   const { immutable } = request.context.options;
   return irObject([irStringIndexSignature("key", unionOf(valueTypes), immutable)]);

@@ -6,6 +6,10 @@ import {
   withEnumsRenamed,
 } from "../application/transform/document/enum-names-given-back.js";
 import { operationKeysWritten } from "../application/transform/document/operation-keys-written.js";
+import {
+  unmatchedTemplateKeys,
+  withTemplatePathRefs,
+} from "../application/transform/document/path-template-refs.js";
 import { renameTakenAliases } from "../application/transform/document/root-type-aliases.js";
 import { RunFooter, type RunFooterNames } from "../application/transform/footer/document-footer.js";
 import { EnumNameClaims } from "../application/transform/footer/enum-name-claims.js";
@@ -144,6 +148,20 @@ function enumValuesChecked(
   return checked.footer;
 }
 
+/** The document with its references into templated paths indexed by their templates. */
+function withTemplateRefs(
+  { body, footer, closing }: TransformedDocument,
+  keys: ReadonlyMap<string, string>,
+): TransformedDocument {
+  return {
+    body: withTemplatePathRefs(body, keys),
+    footer: footer.map((entry) =>
+      isIrDeclaration(entry) ? (withTemplatePathRefs([entry], keys)[0] ?? entry) : entry,
+    ),
+    closing: withTemplatePathRefs(closing, keys),
+  };
+}
+
 /** @internal Root types, the footer, then the closing declarations (Phase 5, step 6). */
 export function transformDocument(schema: OpenAPI3, ctx: RunContext): TransformedDocument {
   const document = schema as DocumentObject;
@@ -160,11 +178,8 @@ export function transformDocument(schema: OpenAPI3, ctx: RunContext): Transforme
   const rawClosing = documentClosing(document, context, rawFooter.some(isOperations));
   const parts = { body: rawBody, footer: rawFooter, closing: rawClosing };
   const { body, footer, closing } = withEnumNamesGivenBack(parts, names);
-  return {
-    body: renameTakenAliases(body, footer.filter(isIrDeclaration), closing),
-    footer,
-    closing,
-  };
+  const named = { body: renameTakenAliases(body, footer.filter(isIrDeclaration), closing), footer };
+  return withTemplateRefs({ ...named, closing }, unmatchedTemplateKeys(document.paths, context));
 }
 
 /**

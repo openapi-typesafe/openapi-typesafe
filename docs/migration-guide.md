@@ -157,6 +157,7 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
 - A repeated `operationId` gave the `operations` interface two members of one name, which did not compile (TS2300). The first operation keeps the ID and each later one gets the lowest free number (`listItems2`, as in `ApiPaths`); the path items refer to it. The `LINT_PROBLEM` warning stays.
 - `--enum` and `--make-paths-enum`: values whose member names come out the same after invalid characters are replaced (`reactions-+1` and `reactions--1` are both `reactions_1`) did not compile. A repeated name gets a number: `reactions_1_2` (a quoted name gets it inside the quotes). Names that did not collide stay the same.
 - `--exclude-deprecated`: a deprecated schema that kept output still references (an array's `items`, a kept operation's response) was left out, so the output named a missing `components["schemas"]` key. It is kept now; a deprecated schema that only dropped parts reference is still left out.
+- `--exclude-deprecated`: a `$ref` to a property it leaves out (`#/components/schemas/A/properties/old`) named a key the type no longer has; it is typed as the property's schema in place now. With `--make-paths-enum`, `ApiPaths` lists only the operations the `paths` type keeps.
 - `--path-params-as-types`: a template key such as `` `/apps/${string}` `` also matches `/apps/regions` and `` `/apps/${string}/restart` ``, and that output did not compile (TS2411, TS2413) when their types do not fit the template's. When a path surely does not fit (a method or a parameter location one has and the other has not, or an operation or response schema that lacks a required property of the template's), `paths` is now an intersection type alias, ``{ … } & { [path: `/apps/${string}`]: … }``, and every path keeps its type. Output that compiled stays the same, `export interface paths` included.
 - A parameter `$ref` to a parameter of another operation or path item (`#/paths/~1a/get/parameters/0`) read `paths["/a"]["get"]["parameters"]["query"]["q"]`. When every parameter of that location is optional, the location is an optional member (`query?:`), and that did not compile (TS2339); it now reads `NonNullable<paths["/a"]["get"]["parameters"]["query"]>["q"]`. A `$ref` to an OpenAPI 3.2 `in: querystring` parameter reads the `query` member it types (`paths["/a"]["get"]["parameters"]["query"]`). A location with a required parameter keeps the type it had.
 - JSON Schema `$defs` (OpenAPI 3.1): a schema's `$defs` member is optional (`$defs?: { … }`), and a `$ref` into it reads `NonNullable<components["schemas"]["Foo"]["$defs"]>["bar"]`. The root `export type $defs` has one member per subschema; before, it was `Record<string, never>` and `#/$defs/<name>` refs were `never`.
@@ -205,6 +206,8 @@ These are off by default, so the output does not change until you turn one on.
   `anyof-oneof-descriptions` lists the descriptions of `anyOf` and `oneOf` members in the JSDoc.
   `dedupe-enum-names` (with `--enum --dedupe-enums`) names a shared enum by a rule that does not
   depend on the document order.
+  `default-input-locations` (with `--default-non-nullable`, on by default) finds parameters and
+  request bodies by the document's structure, not by the word `parameters` in a location.
   `exploded-query-objects` makes the properties of an exploded object query parameter keys of
   `query`, as they are sent.
   `nullable-enums` (with `--enum`) declares an enum that lists `null` and adds `| null` to its type.
@@ -214,8 +217,8 @@ These are off by default, so the output does not change until you turn one on.
   `read-write-refs` makes a property `readonly` when the schema it references is `readOnly`.
   `ref-pointers` gives a `$ref` into another schema's keywords the type it points at also where
   an index signature made the original compile as `unknown`.
-  `parameter-content` types a parameter with `content` (a JSON query parameter) by the schema of
-  its media type, instead of `string`.
+  `parameter-header-content` types a parameter or a header with `content` (a JSON query
+  parameter) by the schema of its media type, instead of `string` or a map of media types.
   `ref-siblings` applies the keywords next to a `$ref` in OpenAPI 3.1 and 3.2 documents
   (`required`, `properties`), instead of dropping them; OpenAPI 3.0 keeps ignoring them.
 

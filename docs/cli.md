@@ -213,6 +213,12 @@ written inline under a request body.
 | a property of an inline response | required | optional |
 | a property of a component (`$ref`), in requests and responses | required | optional |
 
+As in the original, a place counts as a parameter or a request body when its location holds the
+word `parameters`, `requestBody` or `requestBodies` anywhere, so a response of
+`/system-parameters` and a property named `hyperparameters` follow the request row too. The
+[`default-input-locations`](#default-input-locations) fix reads the place from the document's
+structure instead.
+
 The last row is the common surprise (openapi-typescript issues #2012, #1957, #1903): a component
 used as a request body makes the client send a field the server would fill in. The rule cannot
 tell that a `$ref`'d component is a request body.
@@ -302,6 +308,23 @@ generator warns about them (`PATH_TEMPLATES_IDENTICAL`, see [Warnings](#warnings
 signature twice does not compile (TS2374), so each of them is written in an object of its own in
 the intersection. `` paths[`/user/${string}`] `` is then the intersection of both path items;
 merge the paths in the document to get one. Without the flag, each path keeps its own key.
+:::
+
+::: info Boolean path parameters
+`` `${boolean}` `` is the union `"true" | "false"`, and an index signature takes no union of
+literals (TS1337), so the original's `` [path: `/flags/${boolean}`] `` did not compile. Each
+boolean parameter is written as two keys instead, `"/flags/true"` and `"/flags/false"`, with the
+same path item type; other placeholders stay (`` [path: `/a/${number}/b/true`] ``). A path with n
+boolean parameters gets 2ⁿ keys. A key that a path of the document already has is left out: that
+path is the more specific one, and a key written twice does not compile.
+:::
+
+::: info `$ref`s into a templated path
+A `$ref` into a path, such as `#/paths/~1pets~1%7Bid%7D/get/responses/200`, is typed as an index
+of `paths`. When the template has a `${number}` or `${boolean}` placeholder, the URL `/pets/{id}`
+does not match it, so the index is the template: `` paths[`/pets/${number}`]["get"] ``. The
+original wrote `paths["/pets/{id}"]`, which does not compile (TS2339). With only `${string}`
+placeholders the URL matches the template, and the index stays the URL.
 :::
 
 _Thanks, [@Powell-v2](https://github.com/Powell-v2)!_
@@ -465,11 +488,12 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
 | `dedupe-enum-names` | With `--enum --dedupe-enums`, a shared enum is named by a rule that does not depend on the document order, instead of after the first schema in the document; needs both flags | [#1683](https://github.com/openapi-ts/openapi-typescript/issues/1683) | 1.0 |
+| `default-input-locations` | With `--default-non-nullable` (on by default), parameters and request bodies are found by the document's structure, instead of by the words `parameters`, `requestBody` and `requestBodies` anywhere in a schema's location, so a defaulted property of a response of `/system-parameters` or of a schema property named `hyperparameters` is required like any other | none (found in the rc.5 review) | 1.0 |
 | `discriminator-member-required` | `required` next to an `allOf` `$ref` to a discriminator member gives `WithRequired` instead of being dropped | [#2162](https://github.com/openapi-ts/openapi-typescript/issues/2162) | 1.0 |
 | `discriminator-values` | The value a discriminator member gets: a schema that a `mapping` names gets the mapped value only (not also its schema name, which made the property `never`); a schema's own `mapping` is kept when it also inherits a discriminator; a member that declares its value gets no second property; with `--enum` the value is a member of the owner's enum (`PetType.Cat`) | [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200), [#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124), [#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700) | 1.0 |
 | `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
 | `nullable-enums` | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum` | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872) | 1.0 |
-| `parameter-content` | A parameter with `content` instead of `schema` (a JSON object in a query parameter) is typed by the schema of its media type, instead of `string` | none (found in the rc.4 review) | 1.0 |
+| `parameter-header-content` | A parameter or a header with `content` instead of `schema` (a JSON object in a query parameter) is typed by the schema of its media type, instead of `string` or a map of media types | none (found in the rc.4 review) | 1.0 |
 | `path-param-type-names` | With `--path-params-as-types`, a path parameter named `number`, `string` or `boolean` gets its placeholder, instead of the `$` and the `{name}` text the original leaves when it replaces that name inside an earlier placeholder; needs `--path-params-as-types` | none (found in our own tests) | 1.0 |
 | `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
 | `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
@@ -727,6 +751,31 @@ export enum PetState { // [!code ++]
   prints the warning `FIX_NEEDS_OPTION` (`--fix all` does not).
 - An `x-enum-name` extension is not read: no tool of the ecosystem defines it.
 
+#### default-input-locations
+
+`--default-non-nullable` keeps a defaulted property of a parameter or a request body optional.
+Without the fix that place is any location whose text holds `parameters`, `requestBody` or
+`requestBodies`, so the name of a path or a schema decides it:
+
+```ts
+// GET /system-parameters answers { page }, with page: { default: 1 }.
+page?: number; // [!code --]
+page: number; // [!code ++]
+```
+
+With the fix the place is read from the document's structure: a parameter or a request body of
+an operation or a path item, also under `webhooks`, callbacks and `components` (`parameters`,
+`requestBodies`, `pathItems`). A response of `/system-parameters` and a property named
+`parameters` or `hyperparameters` follow the response row of the table under
+[defaultNonNullable](#defaultnonnullable).
+
+- It only makes properties required; none becomes optional. A component schema used as a request
+  body is no request-body place either way, so a property under such a component that the word
+  kept optional becomes required: the client must send it.
+- The exported transformers can be given a `path` that points nowhere in the document; the words
+  still decide there.
+- It changes nothing with `--default-non-nullable=false`.
+
 #### discriminator-member-required
 
 `required` next to an `allOf` `$ref`, where the referenced schema is a discriminator member:
@@ -974,6 +1023,11 @@ query?: Partial<components["schemas"]["GetPosts"]>; // [!code ++]
 ```
 
 - The other query parameters stay keys of their own: `{ sort?: string } & Partial<…>`.
+- An object with an index signature (`additionalProperties`) also takes the value types of the
+  other query keys there: `{ page?: number } & Partial<{ [key: string]: string | number |
+  undefined }>`. TypeScript checks an index signature against every key, so with only `string`
+  no value with `page` was assignable. When the object is a `$ref`, its type is written out in
+  place for this; without other query keys the `$ref` is kept.
 - An optional parameter's properties are all optional (`Partial`): leaving the parameter out sends
   none of them. A required parameter keeps the object as it is, and `query` is required.
 - A schema is an object when its `type` is `object` (also with `null`), when it has object keywords
@@ -1013,6 +1067,10 @@ export enum Values { // [!code ++]
   `enum` gives just the enum.
 - `x-enum-varnames` and `x-enum-descriptions` keep their positions: the entry for `null` is
   skipped.
+- OpenAPI 3.0 `nullable: true` next to an `enum` that does not list `null` allows no `null`: other
+  keywords keep their meaning (OpenAPI 3.0.3), so `--enum` gives just the enum, with or without the
+  fix. Without `--enum` the union keeps the original's `| null`; list `null` in the `enum` to allow
+  it in both.
 - An enum of only `null` stays `null`.
 - It needs `--enum` and changes nothing without it; naming it without it prints the warning `FIX_NEEDS_OPTION` (`--fix
   all` does not).
@@ -1134,18 +1192,22 @@ Where the generated type has an index signature (`--additional-properties`, or t
 `unknown`. Changing it could break code, so it stays without the fix; with `ref-pointers` it gets
 the type above too.
 
-#### parameter-content
+#### parameter-header-content
 
-A parameter is described by `schema` or by `content`, a map with one media type whose schema
-describes the value, for example a JSON object sent in one query parameter. The original read only
-`schema`, so such a parameter was `string`:
+A parameter or a header is described by `schema` or by `content`, a map with one media type whose
+schema describes the value, for example a JSON object sent in one query parameter. The original
+read only `schema`, so such a parameter was `string`, and a header was a map of its media types:
 
 ```ts
 filter?: string; // [!code --]
 filter?: { status?: string; limit?: number }; // [!code ++]
+"X-Rate": { "application/json": { limit: number } }; // [!code --]
+"X-Rate": { limit: number }; // [!code ++]
 ```
 
-- The first media type of `content` is read; a media type without a schema gives `unknown`.
+- The first media type of `content` is read; a media type without a schema, or a header with an
+  empty `content`, gives `unknown`.
+- The fix was named `parameter-content` in rc.4; it now covers headers too and that name is gone.
 - An `in: querystring` parameter (OpenAPI 3.2) is typed this way without the fix (ADR-020).
 - The fix works in OpenAPI 3.0 documents too, where `content` has the same meaning.
 
@@ -1167,7 +1229,8 @@ WithSiblings: { extra: string } & components["schemas"]["Base"]; // [!code ++]
 ```
 
 - The schema is typed as `allOf: [{ $ref }]` next to the same keywords, with every rule for
-  `allOf`: `required` alone gives `WithRequired<Base, "id">`, an `enum` gives its values.
+  `allOf`: `required` alone gives `WithRequired<Base, "id">`, an `enum` gives its values. This
+  holds wherever the schema is: a component, a property, array `items`, a body or a parameter.
 - Keywords that only annotate (`description`, `title`, `examples`, `default`, `deprecated`,
   `readOnly`, `writeOnly`, `format`, `x-…`) change nothing, so such a schema keeps the plain
   reference.

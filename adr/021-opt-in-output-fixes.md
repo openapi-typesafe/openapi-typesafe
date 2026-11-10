@@ -151,7 +151,8 @@ gate still fails on any other change of compiling output.
 
 The two new fixes follow decisions 1 to 7: `ref-siblings` needs no other option and changes only
 OpenAPI 3.1 and 3.2 documents (3.0 says that keywords next to a `$ref` are ignored);
-`parameter-content` applies to every version. The compat harness has an option set for each.
+`parameter-content` (since renamed `parameter-header-content`, see below) applies to every
+version. The compat harness has an option set for each.
 
 | Option | Pros | Cons |
 | --- | --- | --- |
@@ -216,6 +217,43 @@ loader repairs the bundled document, as it repairs the bundled `$ref`s (PB-14):
 
 Normalizing the `mapping` values before bundling does not help: any pointer to such a key has an
 escape, and the bundler names the copy by the escaped segment.
+
+## Amendment (2026-11-10): `parameter-content` covers headers and is renamed
+
+A Header Object has the same `schema` or `content` choice as a Parameter Object (OpenAPI 3.1
+§4.8.21). The original typed a header with `content` as a map of its media types
+(`{ "application/json": { limit: number } }`), a type no header value has. That output compiles
+and code may rely on it, so by decisions 5 and 6 the change needs a fix name, and the fix that
+already types a parameter by its media type's schema is the one users would look for.
+
+1. The fix types a header with `content` and no `schema` by the schema of its first media type,
+   as it types a parameter. A header with no media type is `unknown`.
+2. It is renamed `parameter-header-content`, so the name says what it changes (decision 2). It
+   shipped in rc.4 only, and rc versions are not a contract, so there is no alias: the unknown-fix
+   error lists the new name, and the changeset names the rename.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Extend the fix and rename it (chosen) | One fix for the one OpenAPI rule; the name says both places | rc.4 configs with the old name fail until renamed |
+| Extend it and keep `parameter-content` | No config changes | The name hides that headers change |
+| A second fix `header-content` | Each name changes one place | Two names for one rule; `all` users see no difference |
+
+## Amendment (2026-11-10): `default-input-locations`
+
+With `--default-non-nullable` the original keeps a defaulted property optional where its location
+holds the word `parameters`, `requestBody` or `requestBodies`, so the name of a path or a schema
+decides it (`/system-parameters`, a property named `hyperparameters`). Reading the place from the
+document's structure changes output that compiles in one direction only: such properties become
+required. Under a component schema used as a request body, which no rule can tell from a response
+schema, that makes a client send a field it could leave out (the openai document of the compat
+corpus has one). By decisions 5 and 6 the change is the fix `default-input-locations`, not the
+default.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| An opt-in fix (chosen) | Output of the default run stays the original's; the place rule is named and documented | The name of a path or schema still decides by default |
+| The structural rule by default | Responses are typed the same whatever their path is named | Request-body components named `*parameters*` gain required fields on an update |
+| Keep the words, document them only | No new name | No way to get the structural rule |
 
 ## Review trigger
 

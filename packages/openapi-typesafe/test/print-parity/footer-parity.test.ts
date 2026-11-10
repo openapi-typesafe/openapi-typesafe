@@ -15,6 +15,7 @@ import {
   hasRepeatedOperationKeys,
   hasRepeatedParametersIndex,
   hasUnquotedExtractProbe,
+  mergesDifferentEnums,
   RUNS,
   resetLegacyEnumState,
   TIMEOUT_MS,
@@ -87,12 +88,18 @@ function run(footerOf: (ctx: never) => DocumentFooter, value: FooterInput): stri
   return `${names.join("|")}\n${astToString(ctx.injectFooter)}`;
 }
 
+function mergesDifferentValues(value: FooterInput): boolean {
+  const enums = value.operations.flatMap((step) => (step.kind === "enum" ? [step] : []));
+  return value.isDedupingEnums && mergesDifferentEnums(enums);
+}
+
 describe("footer parity", () => {
   it(
     "the run footer matches the original footer on random operation sequences",
     () => {
       fc.assert(
         fc.property(input, (value) => {
+          fc.pre(!mergesDifferentValues(value));
           const expected = run(originalFooter, value);
           fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
           fc.pre(!hasRepeatedEnumDeclarations(expected));
