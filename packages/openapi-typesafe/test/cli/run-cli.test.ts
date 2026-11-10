@@ -148,6 +148,14 @@ describe("runCli: one schema", () => {
     expect(cli.console.infoLines.at(-1)).toBe("🚀 https://example.com/a.yaml?*** → *a.ts* [5ms]");
   });
 
+  it("runCli prints the names of the line for a written file as one plain line", async () => {
+    const cli = createFakeCli();
+
+    await runCli(["a\u001b[2K.yaml", "-o", "a\n::error::x.ts"], cli.deps);
+
+    expect(cli.console.infoLines.at(-1)).toBe("🚀 a\\u001b[2K.yaml → *a\\n::error::x.ts* [5ms]");
+  });
+
   it("runCli without a schema and with stdin a terminal fails instead of waiting (upstream #1905)", async () => {
     const cli = createFakeCli({ isStdinTerminal: true });
 

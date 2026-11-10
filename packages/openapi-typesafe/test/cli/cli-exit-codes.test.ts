@@ -128,6 +128,16 @@ describe("CLI exit codes", () => {
   );
 
   it(
+    "cli prints a notice that names an unknown flag with an escape sequence as one plain line",
+    async () => {
+      const { stderr } = await runCli(["--ab\u001bc", "--version"]);
+
+      expect(stderr).toBe("Unknown flag --ab\\u001bc is ignored (see --help)");
+    },
+    TIMEOUT,
+  );
+
+  it(
     "cli with lint errors prints each one, then exits with 3 and SCHEMA_INVALID",
     async () => {
       const cwd = fileURLToPath(new URL("../fixtures/redocly-lint-error/", import.meta.url));

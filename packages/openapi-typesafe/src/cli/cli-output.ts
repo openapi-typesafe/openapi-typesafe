@@ -3,6 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
 import { hasUrlScheme } from "../domain/location-text.js";
+import { terminalSafeText } from "../domain/terminal-text.js";
 import { redactUnparsedUrl, redactUrlSecrets } from "../domain/url-secrets.js";
 import type { CliArguments } from "./cli-arguments.js";
 import type { CliDependencies, GeneratedTypes } from "./cli-dependencies.js";
@@ -203,11 +204,14 @@ export function parseLocationUrl(location: string, base: URL): URL | undefined {
   return resolveLocationUrl(location, base);
 }
 
-/** The line for a written file. It goes to the job log, so a source URL shows no secrets. */
+/**
+ * The line for a written file. It goes to the job log, so a source URL shows no secrets, and a
+ * line break or escape sequence in a name cannot start a forged line.
+ */
 function printDone(run: CliRun, output: OutputFile): void {
   const { style, now } = run.deps;
-  const source = redactUrlSecrets(output.source);
-  const target = style.green(`${source} → ${style.bold(output.output)}`);
+  const source = terminalSafeText(redactUrlSecrets(output.source));
+  const target = style.green(`${source} → ${style.bold(terminalSafeText(output.output))}`);
   const duration = style.dim(`[${formatDuration(now() - run.startedAt)}]`);
   run.deps.console.info(`🚀 ${target} ${duration}`);
 }
