@@ -65,6 +65,20 @@ openapi-typescript-helpers 0.1.0 has the `Writable` half of the bug.
    stay equal (`test/api/read-write-marker-types.test.ts`). Output that compiled still compiles: the
    change only adds back keys, and only where a type has `any`.
 
+## Amendment (2026-11-10): objects with an index signature
+
+The hunt after rc.4 found that `Readable` and `Writable` marked no property of an object with an
+index signature (`additionalProperties`). `ReadWriteMarkedKeys` was
+`{ [K in keyof T]-?: ... }[keyof T]`: on such an object `keyof T` is `string`, so the lookup read
+the index signature's value, not each property's, and found no key with a marker alone. A request
+body then required the `readOnly` `id`, and a response kept the `writeOnly` password.
+
+1. `ReadWriteMarkedKeys` is `keyof { [K in keyof T as ...]: never }`. A key remapping keeps each
+   known property next to the index signature, and the condition reads that property's own type.
+2. The helper text of `--read-write-markers` output changes the same way, and the frozen helper
+   copy of the parity tests with it. Output that compiled still compiles: the change only finds
+   marked keys that were missed.
+
 ## Review trigger
 
 A new report of a type changed by `Readable` / `Writable` without markers, or work on #2726.

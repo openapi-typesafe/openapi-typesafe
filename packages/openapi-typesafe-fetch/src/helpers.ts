@@ -388,16 +388,19 @@ type ReadWriteLeaf = ReadWritePrimitive | ((...args: never) => unknown);
  * `any` key is not marked either (`0 extends 1 & T[K]` is true only for `any`): a check on `any`
  * takes both branches, so `Readable` dropped the key and `Writable` typed it `undefined`. The
  * checks are not distributive (their check types are not type parameters), so `never` is seen.
+ * The keys are read by remapping, not as `{ ... }[keyof T]`: with an index signature (from
+ * `additionalProperties`) `keyof T` is `string`, which indexes the signature only, so no property
+ * was marked and `Writable` made a readOnly property a required `never`.
  */
-type ReadWriteMarkedKeys<T, Marker> = {
-  [K in keyof T]-?: 0 extends 1 & T[K]
+type ReadWriteMarkedKeys<T, Marker> = keyof {
+  [K in keyof T as 0 extends 1 & T[K]
     ? never
     : NonNullable<T[K]> extends never
       ? never
       : NonNullable<T[K]> extends Marker
         ? K
-        : never;
-}[keyof T];
+        : never]: never;
+};
 
 /**
  * Resolve an array or a tuple element by element. An array uses `T[number]`, not `infer E`: for an

@@ -93,3 +93,37 @@ list the generator types elsewhere (a `$ref` operation or path item) or does not
 keeps the original type. This lives in `document/referenced-parameter.ts`, next to the parameter
 types, not in the schema pointer walk: the target is a parameter object, whose generated shape is
 the `parameters` member, not a schema type.
+
+## Amendment (2026-11-10): headers, parameters, markers and pointers through a `$ref`
+
+The hunt after rc.4 found pointers whose original type does not compile and that the walk did
+not model. The rule stays: only a type that surely fails changes, and the walk writes the type
+the generator gives the target.
+
+1. **`content` of a header or parameter.** Without a `schema`, a header is a map of its media
+   types, or with the `parameter-header-content` fix the type of its first media type; a
+   parameter is `string` without the fix (ADR-021, 2026-11-10). Neither has a `content` or
+   `schema` member. The `content` segment is skipped in the media type form; in the first media
+   type form the next segment must name that media type and adds nothing. Where the type is
+   `string`, where `content` sits next to a `schema` (the schema wins), and at the end of a
+   pointer in the first media type form, the target is typed in place. The original index of the
+   media type form fails unless a media type is named `content`; then it keeps its type.
+2. **`--read-write-markers`.** Every member counted as opaque, so no pointer was ever corrected.
+   Now only a property that is only `readOnly` or only `writeOnly` is special: its type is
+   `$Read<T>` or `$Write<T>`, which has no other member, so the original fails through it and the
+   walk types the target in place. A pointer to that property keeps `$Read<T>`.
+3. **Where a property is.** The walk carries the JSON Pointer of each node, also through a
+   `$ref`, so a property with a `default` is required or optional by its own location, as the
+   object type rules decide (`isInputLocation`), not by the location of the pointer.
+4. **`--exclude-deprecated` operations.** A path item types a deprecated operation `never`; a
+   pointer into it is typed in place.
+5. **A pointer through a `$ref`.** `resolveDocumentRef` read a pointer as written and warned
+   `REF_NOT_FOUND` when it passed through a `$ref` (`Wrap/properties/o/properties/v`, where `o`
+   is a `$ref`), so every rule that looks up a target by pointer (deprecated, `readOnly`,
+   discriminators) missed it. A key a node does not have is now read from the node's `$ref`
+   target, with the same cycle check; a key the node has is read from it, so a pointer to a 3.1
+   sibling of a `$ref` stays as written. The local workaround in the deprecated scan is removed.
+
+`generated-shape.ts` grew past the file limit, so the node and pointer basics moved to
+`located-node.ts` and the property rules (optional, excluded, marked, presence) to
+`property-shape.ts`. The Consequences above apply to both files.

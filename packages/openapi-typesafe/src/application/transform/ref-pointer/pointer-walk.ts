@@ -1,6 +1,15 @@
-import { parseRefPointer } from "../../../domain/openapi/json-pointer.js";
-import type { RefResolver } from "../schema/schema-context.js";
-import { followRefs, isJsonObject } from "./generated-shape.js";
+import { placeOf } from "../../../domain/openapi/document-places.js";
+import { parseRefPointer, ROOT_POINTER } from "../../../domain/openapi/json-pointer.js";
+import { QUERYSTRING_LOCATION } from "../../../domain/openapi/parameter-object.js";
+import { FIX } from "../../../domain/output-fixes.js";
+import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
+import {
+  childLocation,
+  followLocated,
+  followRefs,
+  isJsonObject,
+  type LocatedNode,
+} from "./located-node.js";
 
 /** The parts of a `$ref` pointer that both the original and the new types walk. */
 
@@ -27,13 +36,18 @@ export function refPointerOf(ref: string): RefPointer | null {
   return rootSegment === undefined ? null : { rootSegment, segments };
 }
 
-/** The document node at the end of the leading segments, `$ref`s followed. */
-export function leadingNode(pointer: RefPointer, refs: RefResolver): unknown {
-  let node = refs.resolve(`#/${pointer.rootSegment}`);
+/** The document node at the end of the leading segments, `$ref`s followed, with its location. */
+export function leadingLocated(pointer: RefPointer, refs: RefResolver): LocatedNode {
+  let located: LocatedNode = {
+    node: refs.resolve(`#/${pointer.rootSegment}`),
+    location: childLocation(ROOT_POINTER, pointer.rootSegment),
+  };
   for (const segment of pointer.segments.slice(0, leadingSegmentsOf(pointer))) {
-    node = isJsonObject(node) ? followRefs(node[segment], refs) : undefined;
+    const { node, location } = located;
+    const child = isJsonObject(node) ? node[segment] : undefined;
+    located = followLocated({ node: child, location: childLocation(location, segment) }, refs);
   }
-  return node;
+  return located;
 }
 
 /** The node at the whole pointer, without following a `$ref` at its end. */
@@ -63,6 +77,47 @@ export function isTypedAsSchema(pointer: RefPointer, index: number): boolean {
 }
 
 /**
+ * How the generated type of a header or component parameter holds its `content` (header.ts,
+ * parameter.ts): one member per media type, the type of the first media type, `string` (a
+ * parameter without the `parameter-header-content` fix), or not at all (a `schema` wins).
+ */
+export type ContentForm = "media-type-members" | "first-media-type" | "string" | "schema";
+
+/**
+ * The form of the `content` at `index` when it belongs to a header or a component parameter; null
+ * for any other segment. An `in: querystring` parameter is typed by its `content` even next to a
+ * `schema`.
+ */
+export function headerParameterContentForm(
+  pointer: RefPointer,
+  index: number,
+  owner: unknown,
+  options: SchemaOptions,
+): ContentForm | null {
+  const isHeader = pointer.segments[index - 2] === "headers";
+  const isComponentParameter =
+    pointer.rootSegment === "components" && index === 2 && pointer.segments[0] === "parameters";
+  const isOwnContent = pointer.segments[index] === "content" && (isHeader || isComponentParameter);
+  if (!isOwnContent || !isJsonObject(owner)) {
+    return null;
+  }
+  const isFixed = options.fixes.has(FIX.PARAMETER_HEADER_CONTENT);
+  if (isHeader) {
+    if (owner.schema) {
+      return "schema";
+    }
+    return isFixed ? "first-media-type" : "media-type-members";
+  }
+  if (owner.in === QUERYSTRING_LOCATION) {
+    return "first-media-type";
+  }
+  if (owner.schema !== undefined) {
+    return "schema";
+  }
+  return isFixed ? "first-media-type" : "string";
+}
+
+/**
  * Whether the segment at `index` is an operation's or path item's `parameters` list, indexed by
  * position next. The generated type groups parameters by `in` (`query`, `path`), so it has no
  * member `0`.
@@ -84,6 +139,25 @@ export function isOptionalHeader(pointer: RefPointer, index: number, headers: un
   }
   const header = headers[pointer.segments[index] as string];
   return isJsonObject(header) && header.$ref === undefined && header.required !== true;
+}
+
+/**
+ * Whether the segment at `index` names an operation that `--exclude-deprecated` leaves out: the
+ * path item types it `never`, which has no member to index (`isIncludedOperation`).
+ */
+export function isExcludedOperation(
+  pointer: RefPointer,
+  index: number,
+  pathItem: unknown,
+  input: { readonly options: SchemaOptions; readonly refs: RefResolver },
+): boolean {
+  const segments = [pointer.rootSegment, ...pointer.segments.slice(0, index + 1)];
+  if (!input.options.excludeDeprecated || placeOf(segments) !== "operation") {
+    return false;
+  }
+  const segment = pointer.segments[index] as string;
+  const operation = isJsonObject(pathItem) ? followRefs(pathItem[segment], input.refs) : undefined;
+  return isJsonObject(operation) && Boolean(operation.deprecated);
 }
 
 /** A `requestBody` the operation does not mark `required` is an optional member. */

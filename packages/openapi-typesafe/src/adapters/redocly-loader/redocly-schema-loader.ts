@@ -3,6 +3,7 @@ import {
   type BaseResolver,
   bundle,
   type Document,
+  type LocationObject,
   lintDocument,
   type NormalizedProblem,
   type Config as RedoclyConfig,
@@ -14,6 +15,7 @@ import type {
   SchemaLoadRequest,
 } from "../../application/ports/schema-loader.js";
 import { withStackOverflowReportedAsync } from "../../application/stack-overflow.js";
+import { redactUrlSecrets } from "../../domain/url-secrets.js";
 import { WARNING_CODES, warningText } from "../../domain/warnings.js";
 import type { OpenAPI3 } from "../../types.js";
 import { removeBundledMappingCopies, schemaKeysOf } from "./bundled-mapping-copies.js";
@@ -210,7 +212,7 @@ class RedoclySchemaLoader implements SchemaLoader {
       config: this.#options.redoc.styleguide,
       externalRefResolver: resolver,
     });
-    this.#report(problems);
+    this.#report(problems, document.source.absoluteRef);
     this.#options.logger.debug("Linted schema", "lint", this.#options.now() - startedAt);
   }
 
@@ -230,7 +232,7 @@ class RedoclySchemaLoader implements SchemaLoader {
     const documentRefs = resolver.getFiles();
     const renaming = renameQueryNamedComponents(bundled.bundle.parsed, componentKeys, documentRefs);
     // The problems name the components the bundle made, so they are shown by their new names.
-    this.#report(bundled.problems, renaming);
+    this.#report(bundled.problems, document.source.absoluteRef, renaming);
     this.#options.logger.debug("Bundled schema", "bundle", this.#options.now() - startedAt);
     return bundled.bundle.parsed;
   }
@@ -240,17 +242,17 @@ class RedoclySchemaLoader implements SchemaLoader {
    * config's `.redocly.lint-ignore.yaml` lists is left out, as `redocly lint` leaves it out
    * (upstream #2189).
    */
-  #report(problems: readonly NormalizedProblem[], renaming = UNRENAMED): void {
+  #report(problems: readonly NormalizedProblem[], rootRef: string, renaming = UNRENAMED): void {
     const errorMessages: string[] = [];
     for (const problem of problems) {
       if (problem.ignored === true) {
         this.#options.logger.debug(
-          `Ignored by the lint ignore file: ${problemMessage(problem, renaming)}`,
+          `Ignored by the lint ignore file: ${problemMessage(problem, renaming, rootRef)}`,
           "lint",
         );
         continue;
       }
-      const message = problemMessage(problem, renaming);
+      const message = problemMessage(problem, renaming, rootRef);
       if (problem.severity === "error") {
         errorMessages.push(message);
         this.#options.logger.error(message);
@@ -272,10 +274,27 @@ function lintWarningText(message: string, ruleId: string): string {
 /** Problems found before the bundle named any component. */
 const UNRENAMED: ComponentRenaming = { pointer: (pointer) => pointer, text: (text) => text };
 
-function problemMessage(problem: NormalizedProblem, renaming: ComponentRenaming): string {
-  const location = problem.location?.[0]?.pointer;
+/** A problem location that names a JSON Pointer, not a line and column. */
+type PointerLocation = Extract<LocationObject, { pointer: string }>;
+
+/**
+ * Where a problem is: its pointer, and the document when it is not the root (URL secrets left
+ * out).
+ */
+function locationText(location: PointerLocation, renaming: ComponentRenaming, rootRef: string) {
+  const pointer = renaming.pointer(location.pointer);
+  const documentRef = location.source.absoluteRef;
+  return documentRef === rootRef ? pointer : `${pointer} in ${redactUrlSecrets(documentRef)}`;
+}
+
+function problemMessage(
+  problem: NormalizedProblem,
+  renaming: ComponentRenaming,
+  rootRef: string,
+): string {
+  const location = problem.location?.[0];
   const message = renaming.text(problem.message);
-  return location ? `${message} at ${renaming.pointer(location)}` : message;
+  return location?.pointer ? `${message} at ${locationText(location, renaming, rootRef)}` : message;
 }
 
 /** A schema loader with one Redocly config and logger, for one or more loads. */

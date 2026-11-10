@@ -48,6 +48,20 @@ A document whose covered path types the check cannot read (utility types, callba
 the original output, which may not compile. The check can grow to model more types without any
 change to output that compiles.
 
+## Amendment (2026-11-10): `$ref`s into a boolean path
+
+`--path-params-as-types` writes a boolean path as its keys (`"/flags/true"`, `"/flags/false"`),
+without a key that the document's own path or an earlier path takes. A `$ref` into the path was
+indexed by `` `/flags/${boolean}` ``, which reaches every key with that URL, also the document's
+own `/flags/true`, so the `$ref` got both paths' types. The index is now the union of the keys
+the path is written with (`paths["/flags/false"]`). One function (`isUntakenKey` in `paths.ts`)
+decides which keys are written, for the `paths` members and for the index, in the same document
+order.
+
+A path all of whose keys are taken has no member; a `$ref` into it keeps the original index,
+which does not compile. Typing such a target in place needs the ref pointer walk to know the
+written keys; it waits for a document that has it.
+
 ## Review trigger
 
 A corpus document whose upstream output fails with TS2411 or TS2413 and stays failing, where the

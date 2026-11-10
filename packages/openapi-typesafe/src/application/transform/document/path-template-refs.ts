@@ -3,7 +3,9 @@ import type { IrDeclaration } from "../../../domain/ir/nodes.js";
 import type { PathsObject } from "../../../domain/openapi/path-item-object.js";
 import { documentEntries } from "../document-entries.js";
 import type { TransformContext } from "../transform-context.js";
-import { pathTemplateParts, templateText } from "./path-template-key.js";
+import type { PathKeyPart } from "./path-key-overlaps.js";
+import { booleanExpandedKeys, pathTemplateParts, templateText } from "./path-template-key.js";
+import { isUntakenKey, pathKeyOf } from "./paths.js";
 
 /**
  * `--path-params-as-types` and `$ref`s into a templated path. Such a path is an index signature
@@ -15,7 +17,22 @@ import { pathTemplateParts, templateText } from "./path-template-key.js";
 
 const PATHS_TYPE_NAME = "paths";
 
-/** The template of each templated path whose URL does not match it, by URL. */
+/**
+ * The index of a templated path: the union of the keys it is written with. A `${boolean}` key the
+ * document's own path took (`/flags/true` next to `/flags/{enabled}`) is left out, so the index
+ * names only this path's members. Undefined when every key was taken: the path has no member.
+ */
+function templateIndexText(url: string, parts: readonly PathKeyPart[], takenUrls: Set<string>) {
+  const keys = booleanExpandedKeys(parts)
+    .map(pathKeyOf)
+    .filter((key) => isUntakenKey(url, key, takenUrls));
+  const texts = keys.map((key) =>
+    key.kind === "literal" ? JSON.stringify(key.url) : templateText(key.parts),
+  );
+  return texts.length === 0 ? undefined : texts.join(" | ");
+}
+
+/** The index of each templated path whose URL does not match its keys, by URL. */
 export function unmatchedTemplateKeys(
   paths: PathsObject | null | undefined,
   context: TransformContext,
@@ -25,13 +42,19 @@ export function unmatchedTemplateKeys(
   if (!context.options.pathParamsAsTypes || typeof paths !== "object" || paths === null) {
     return keys;
   }
+  // The same walk as `pathMembers`, so a URL is taken by the same path as there.
+  const takenUrls = new Set(Object.keys(paths));
   for (const [url, pathItem] of documentEntries(paths, context.options)) {
     if (!pathItem || typeof pathItem !== "object" || "$ref" in pathItem || !url.includes("{")) {
       continue;
     }
-    const parts = pathTemplateParts(url, pathItem, context) ?? [];
-    if (parts.some((part) => part.kind === "placeholder" && part.type !== "string")) {
-      keys.set(url, templateText(parts));
+    const parts = pathTemplateParts(url, pathItem, context);
+    const index = parts === null ? undefined : templateIndexText(url, parts, takenUrls);
+    const isUnmatched = parts?.some(
+      (part) => part.kind === "placeholder" && part.type !== "string",
+    );
+    if (isUnmatched && index !== undefined) {
+      keys.set(url, index);
     }
   }
   return keys;

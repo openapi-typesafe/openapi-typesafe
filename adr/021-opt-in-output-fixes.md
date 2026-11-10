@@ -255,6 +255,17 @@ default.
 | The structural rule by default | Responses are typed the same whatever their path is named | Request-body components named `*parameters*` gain required fields on an update |
 | Keep the words, document them only | No new name | No way to get the structural rule |
 
+## Amendment (2026-11-10): default fixes of the hunt after rc.4
+
+The test of the rc.4 amendment decides these too: output that compiles and means what the
+document says keeps its form; output whose type contradicts the document changes by default.
+
+| Finding | Before | Default or fix | Why |
+| --- | --- | --- | --- |
+| `--dedupe-enums` paired sorted values with names in document order | Compiled; `[desc, asc]` and `[asc, desc]`, both named `[Desc, Asc]`, shared one enum, so `asc` was `Desc = "desc"` | Default: two enums | The type contradicted the document. Enums the original kept apart stay apart: the key is the original key and each value's own name and description |
+| A `mapping` by schema name in a document a `$ref` loads | Failed with "Can't resolve $ref" | Default: names that document's schema | No working output changes |
+| A `mapping` inside `example`, `default`, `const`, `enum` or an `x-` value | Rewritten to a pointer, also in a `const` type | Default: data stays as written | The type rejected the value the document gives |
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

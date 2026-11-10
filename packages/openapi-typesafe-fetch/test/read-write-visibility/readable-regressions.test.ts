@@ -104,4 +104,16 @@ describe("Readable and Writable with markers", () => {
   it("Readable keeps optional undefined-only properties", () => {
     expectTypeOf<Readable<{ x?: undefined }>>().toEqualTypeOf<{ x?: undefined }>();
   });
+
+  it("marks properties next to an index signature (additionalProperties)", () => {
+    type Body = { id: $Read<number>; pw?: $Write<number> } & {
+      [key: string]: string | $Read<number> | $Write<number>;
+    };
+    // A request body without the readOnly `id`, as the schema allows.
+    const body: Writable<Body> = { pw: 2, note: "s" };
+
+    expectTypeOf(body.id).toEqualTypeOf<undefined>();
+    expectTypeOf<Writable<Body>["pw"]>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<Readable<Body>["id"]>().toEqualTypeOf<number>();
+  });
 });

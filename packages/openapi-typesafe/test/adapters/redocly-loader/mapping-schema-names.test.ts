@@ -53,4 +53,36 @@ describe("pointMappingNamesAtSchemas", () => {
 
     expect(pet.discriminator.mapping).toEqual({ cat: "Cat" });
   });
+
+  it("pointMappingNamesAtSchemas leaves mappings in example, default and const data as written", () => {
+    const data = () => ({ discriminator: { propertyName: "kind", mapping: { cat: "Cat" } } });
+    const schema = { example: data(), default: data(), const: data(), "x-sample": data() };
+    const document = { components: { schemas: { Cat: {}, Holder: schema } } };
+
+    pointMappingNamesAtSchemas(document);
+
+    expect(schema).toEqual({ example: data(), default: data(), const: data(), "x-sample": data() });
+  });
+
+  it("pointMappingNamesAtSchemas leaves a property named discriminator alone", () => {
+    const property = { type: "object", mapping: { cat: "Cat" } };
+    const document = {
+      components: { schemas: { Cat: {}, Box: { properties: { discriminator: property } } } },
+    };
+
+    pointMappingNamesAtSchemas(document);
+
+    expect(property.mapping).toEqual({ cat: "Cat" });
+  });
+
+  it("pointMappingNamesAtSchemas reads a schema property named default", () => {
+    const owner = { oneOf: [], discriminator: { propertyName: "kind", mapping: { cat: "Cat" } } };
+    const document = {
+      components: { schemas: { Cat: {}, Box: { properties: { default: owner } } } },
+    };
+
+    pointMappingNamesAtSchemas(document);
+
+    expect(owner.discriminator.mapping).toEqual({ cat: "#/components/schemas/Cat" });
+  });
 });

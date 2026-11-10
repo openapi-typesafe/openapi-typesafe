@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { printNodes } from "../../../src/application/print/print-nodes.js";
 import { generatedLocationOf } from "../../../src/application/transform/ref-pointer/generated-location.js";
-import {
-  generatedMember,
-  isNullableSchema,
-} from "../../../src/application/transform/ref-pointer/generated-shape.js";
+import { generatedMember } from "../../../src/application/transform/ref-pointer/generated-shape.js";
 import { hasInlineCycle } from "../../../src/application/transform/ref-pointer/inline-cycles.js";
 import { originalIndexFails } from "../../../src/application/transform/ref-pointer/original-index.js";
 import {
@@ -12,6 +9,7 @@ import {
   pointerNode,
   refPointerOf,
 } from "../../../src/application/transform/ref-pointer/pointer-walk.js";
+import { isNullableSchema } from "../../../src/application/transform/ref-pointer/property-shape.js";
 import { typedWalk } from "../../../src/application/transform/ref-pointer/typed-walk.js";
 import type {
   RefResolver,
@@ -126,9 +124,14 @@ function walked(ref: string): string {
 
 const MEDIA = "#/paths/~1items/get/responses/200/content/application~1json";
 
+/** A schema as a located node outside the document. */
+function located(node: unknown) {
+  return { node, location: undefined };
+}
+
 describe("generatedMember", () => {
   const member = (name: string, key: string, options = OPTIONS) =>
-    generatedMember(DOCUMENT.components.schemas[name as "Item"], key, options, REFS).kind;
+    generatedMember(located(DOCUMENT.components.schemas[name as "Item"]), key, options, REFS).kind;
 
   it("generatedMember reads properties, index signatures and missing keys", () => {
     expect(member("Item", "time")).toBe("property");
@@ -145,7 +148,10 @@ describe("generatedMember", () => {
     expect(member("Mixed", "x")).toBe("opaque");
     expect(member("Item", "toString")).toBe("opaque");
     expect(member("List", "0")).toBe("opaque");
-    expect(member("Item", "time", { ...OPTIONS, readWriteMarkers: true })).toBe("opaque");
+  });
+
+  it("generatedMember with --read-write-markers reads a property without a marker", () => {
+    expect(member("Item", "time", { ...OPTIONS, readWriteMarkers: true })).toBe("property");
   });
 
   it("generatedMember misses keys of a nullable object, an array, an allOf and a union", () => {
@@ -160,17 +166,24 @@ describe("generatedMember", () => {
     const open = { ...OPTIONS, additionalProperties: true };
 
     // `unknown & unknown` is `unknown`, and `unknown & T` is `T`.
-    expect(generatedMember(DOCUMENT.components.schemas.Both, "allOf", open, REFS)).toEqual({
-      kind: "index",
-      node: undefined,
-    });
+    expect(generatedMember(located(DOCUMENT.components.schemas.Both), "allOf", open, REFS)).toEqual(
+      {
+        kind: "index",
+        node: undefined,
+        location: undefined,
+      },
+    );
     expect(member("Own", "id", open)).toBe("property");
   });
 
   it("generatedMember misses every key of a schema typed unknown", () => {
-    expect(generatedMember({ "x-inner": ITEM }, "x-inner", OPTIONS, REFS).kind).toBe("missing");
-    expect(generatedMember({ $defs: { A: ITEM } }, "x", OPTIONS, REFS).kind).toBe("opaque");
-    expect(generatedMember({ type: [] }, "x", OPTIONS, REFS).kind).toBe("opaque");
+    expect(generatedMember(located({ "x-inner": ITEM }), "x-inner", OPTIONS, REFS).kind).toBe(
+      "missing",
+    );
+    expect(generatedMember(located({ $defs: { A: ITEM } }), "x", OPTIONS, REFS).kind).toBe(
+      "opaque",
+    );
+    expect(generatedMember(located({ type: [] }), "x", OPTIONS, REFS).kind).toBe("opaque");
   });
 });
 
@@ -246,7 +259,7 @@ describe("typedWalk", () => {
 
 describe("edge shapes", () => {
   const member = (name: string, key: string, options = OPTIONS) =>
-    generatedMember(DOCUMENT.components.schemas[name as "Item"], key, options, REFS).kind;
+    generatedMember(located(DOCUMENT.components.schemas[name as "Item"]), key, options, REFS).kind;
 
   it("generatedMember reads an empty additionalProperties, defaults and deprecated properties", () => {
     expect(member("Empty", "x")).toBe("index");
@@ -288,7 +301,7 @@ describe("edge shapes", () => {
 
 describe("keywords the generated type ignores", () => {
   const member = (name: string, key: string, options = OPTIONS) =>
-    generatedMember(DOCUMENT.components.schemas[name as "Item"], key, options, REFS).kind;
+    generatedMember(located(DOCUMENT.components.schemas[name as "Item"]), key, options, REFS).kind;
 
   it("generatedMember of an object without object keywords reads Record<string, never>", () => {
     expect(member("Blank", "items")).toBe("opaque");

@@ -128,6 +128,58 @@ describe("--exclude-deprecated pointers and ApiPaths", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS types a $ref into a deprecated operation in place, and compiles", async () => {
+    const json = (schema: unknown) => ({ "application/json": { schema } });
+    const responses = { 200: { description: "ok", content: json({ type: "integer" }) } };
+    const headers = { "X-Rate": { required: true, schema: { type: "string" } } };
+    const paths = { "/a": { get: { deprecated: true, responses: { 200: { ...responses[200], headers } } } } };
+    const schemas = {
+      Copy: { $ref: "#/paths/~1a/get/responses/200/content/application~1json/schema" },
+      Header: { $ref: "#/paths/~1a/get/responses/200/headers/X-Rate/schema" },
+      // The original type of a header would compile if the operation were kept.
+      WholeHeader: { $ref: "#/paths/~1a/get/responses/200/headers/X-Rate" },
+    };
+
+    const output = await generate(documentWith(schemas, paths));
+
+    expect(output).toContain("Copy: number;");
+    expect(output).toContain("Header: string;");
+    expect(output).not.toContain('WholeHeader: paths["/a"]["get"]');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS indexes a $ref into a kept operation and through a deprecated header", async () => {
+    const header = { deprecated: true, required: true, schema: { type: "string" } };
+    const responses = { 200: { description: "ok", headers: { "X-Old": header } } };
+    const paths = { "/a": { get: { responses } } };
+    const schemas = {
+      Header: { $ref: "#/paths/~1a/get/responses/200/headers/X-Old/schema" },
+      Response: { $ref: "#/paths/~1a/get/responses/200" },
+    };
+
+    const output = await generate(documentWith(schemas, paths));
+
+    expect(output).toContain('Header: paths["/a"]["get"]["responses"]["200"]["headers"]["X-Old"];');
+    expect(output).toContain('Response: paths["/a"]["get"]["responses"]["200"];');
+  });
+
+  it("openapiTS types a $ref into a deprecated additional operation in place, and compiles", async () => {
+    const responses = { 200: { description: "ok", content: { "application/json": { schema: { type: "string" } } } } };
+    const paths = { "/a": { additionalOperations: { LINK: { deprecated: true, responses } } } };
+    const document = {
+      ...documentWith(
+        { Copy: { $ref: "#/paths/~1a/additionalOperations/LINK/responses/200/content/application~1json/schema" } },
+        paths,
+      ),
+      openapi: "3.2.0",
+    } as OpenAPI3;
+
+    const output = await generate(document);
+
+    expect(output).toContain("Copy: string;");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS without --exclude-deprecated indexes a deprecated property as before", async () => {
     const holder = { type: "object", properties: { old: { type: "string", deprecated: true } } };
     const document = documentWith({ Holder: holder, Copy: { $ref: "#/components/schemas/Holder/properties/old" } });

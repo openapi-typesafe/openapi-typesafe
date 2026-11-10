@@ -349,3 +349,39 @@ describe("schema $refs into a schema whose type its keywords do not change", () 
     expect(typeErrorsOf(output)).toEqual([]);
   });
 });
+
+describe("schema $refs with --read-write-markers", () => {
+  const INNER = { type: "object", properties: { b: { type: "integer" } } };
+  const document = documentWith({
+    Wrap: {
+      type: "object",
+      required: ["r"],
+      properties: { p: INNER, r: { ...INNER, readOnly: true }, both: { ...INNER, readOnly: true, writeOnly: true } },
+    },
+    Plain: { $ref: "#/components/schemas/Wrap/properties/p/properties/b" },
+    ThroughMarked: { $ref: "#/components/schemas/Wrap/properties/r/properties/b" },
+    Marked: { $ref: "#/components/schemas/Wrap/properties/r" },
+    ThroughBoth: { $ref: "#/components/schemas/Wrap/properties/both/properties/b" },
+  });
+
+  it("openapiTS with markers looks through an optional property that has no marker", async () => {
+    const output = await generate(document, { readWriteMarkers: true });
+
+    expect(output).toContain('Plain: NonNullable<components["schemas"]["Wrap"]["p"]>["b"];');
+    expect(output).toContain('ThroughBoth: NonNullable<components["schemas"]["Wrap"]["both"]>["b"];');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS with markers types a pointer through a marked property in place", async () => {
+    const output = await generate(document, { readWriteMarkers: true });
+
+    expect(output).toContain("ThroughMarked: number;");
+    expect(output).toContain('Marked: components["schemas"]["Wrap"]["r"];');
+  });
+
+  it("openapiTS without markers indexes a readOnly property", async () => {
+    const output = await generate(document, { fix: ["ref-pointers"] });
+
+    expect(output).toContain('ThroughMarked: components["schemas"]["Wrap"]["r"]["b"];');
+  });
+});

@@ -31,12 +31,18 @@ export interface PathMember {
   readonly type: IrType;
 }
 
+/** The key of the parts: a plain URL, or a template with placeholders left. */
+export function pathKeyOf(parts: readonly PathKeyPart[]): PathKey {
+  const plainUrl = plainUrlOf(parts);
+  return plainUrl === null ? { kind: "template", parts } : literalKey(plainUrl);
+}
+
 /** The member of one key of a path: a property for a plain URL, else an index signature. */
 function keyMember(url: string, parts: readonly PathKeyPart[], type: IrType, isReadonly: boolean) {
-  const plainUrl = plainUrlOf(parts);
-  if (plainUrl !== null) {
-    const member = irProperty(toPropertyName(plainUrl), type, { isReadonly });
-    return { url, member, key: literalKey(plainUrl), type };
+  const key = pathKeyOf(parts);
+  if (key.kind === "literal") {
+    const member = irProperty(toPropertyName(key.url), type, { isReadonly });
+    return { url, member, key, type };
   }
   const member: IrMember = {
     kind: "indexSignature",
@@ -46,24 +52,27 @@ function keyMember(url: string, parts: readonly PathKeyPart[], type: IrType, isR
     isReadonly,
     comments: [],
   };
-  return { url, member, key: { kind: "template", parts } satisfies PathKey, type };
+  return { url, member, key, type };
 }
 
 /**
- * The members of a path without the URLs that `${boolean}` keys give and that are taken already:
- * by a path of the document, which OpenAPI matches before a template (Paths Object), or by the
- * keys of an earlier path. A property written twice does not compile (TS2300).
+ * Whether a key of the path at `url` is written. A URL that `${boolean}` keys give is not when it
+ * is taken already: by a path of the document, which OpenAPI matches before a template (Paths
+ * Object), or by the keys of an earlier path. A property written twice does not compile (TS2300).
+ * `takenUrls` starts with the document's URLs and gets each expanded URL, in document order.
  */
+export function isUntakenKey(url: string, key: PathKey, takenUrls: Set<string>): boolean {
+  const isExpandedUrl = key.kind === "literal" && key.url !== url;
+  if (!isExpandedUrl) {
+    return true;
+  }
+  const isTaken = takenUrls.has(key.url);
+  takenUrls.add(key.url);
+  return !isTaken;
+}
+
 function withoutTakenUrls(url: string, members: readonly PathMember[], takenUrls: Set<string>) {
-  return members.filter(({ key }) => {
-    const isExpandedUrl = key.kind === "literal" && key.url !== url;
-    if (!isExpandedUrl) {
-      return true;
-    }
-    const isTaken = takenUrls.has(key.url);
-    takenUrls.add(key.url);
-    return !isTaken;
-  });
+  return members.filter(({ key }) => isUntakenKey(url, key, takenUrls));
 }
 
 /** The members of a path: one, or one per key of its `${boolean}` placeholders. */
