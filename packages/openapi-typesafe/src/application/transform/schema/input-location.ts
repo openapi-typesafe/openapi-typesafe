@@ -4,21 +4,42 @@ import {
   HTTP_METHODS,
   QUERY_METHOD,
 } from "../../../domain/openapi/path-item-object.js";
+import { FIX, type OutputFix } from "../../../domain/output-fixes.js";
+
+/** The words that mark an input anywhere in a location, as the original reads them. */
+const ORIGINAL_INPUT_WORDS = ["parameters", "requestBody", "requestBodies"] as const;
 
 /**
  * Whether a schema location describes an input: a parameter or a request body. A client may
  * leave out an input property that has a `default`, so the default makes no such property
- * required. A pointer into the document is read by the document's structure, so a schema or path
- * that is only named `parameters` (`#/components/schemas/Job/properties/parameters`,
- * `/system-parameters`) is no input; the original tested the pointer text for the word.
+ * required. The original tests the location text for a word, so a schema or path that is only
+ * named so (`#/components/schemas/Job/properties/parameters`, `/system-parameters`) counts as an
+ * input too. The `default-input-locations` fix reads a pointer into the document by the
+ * document's structure instead (ADR-021).
  */
-export function isInputLocation(path: string | undefined): boolean {
+export function isInputLocation(path: string | undefined, fixes: ReadonlySet<OutputFix>): boolean {
   if (path === undefined) {
     return false;
   }
+  return fixes.has(FIX.DEFAULT_INPUT_LOCATIONS) ? isStructuralInput(path) : namesInput(path);
+}
+
+function namesInput(path: string): boolean {
+  return ORIGINAL_INPUT_WORDS.some((word) => path.includes(word));
+}
+
+/**
+ * Whether the document's structure makes the pointer an input. A path an exported transformer was
+ * given that is no pointer into the document (`/items/{id}`) has no known structure, so the
+ * original's words still mark an input there.
+ */
+function isStructuralInput(path: string): boolean {
   let place: Place = "root";
   for (const segment of parseRefPointer(path)) {
     place = nextPlace(place, segment);
+    if (place === "outside") {
+      return namesInput(path);
+    }
     if (place === "input" || place === "other") {
       return place === "input";
     }
@@ -28,10 +49,8 @@ export function isInputLocation(path: string | undefined): boolean {
 
 /**
  * The structural places on the way to a schema. `named*` places and `callback` are maps whose
- * next segment is a name (a path, a component name, a callback expression). `outside` is a path
- * an exported transformer was given that is no pointer into the document (`/items/{id}`); its
- * structure is unknown, so the original's words still mark an input there. `input` and `other`
- * end the walk.
+ * next segment is a name (a path, a component name, a callback expression). `outside` (a root key
+ * that is no document key), `input` and `other` end the walk.
  */
 type Place =
   | "root"
@@ -45,13 +64,6 @@ type Place =
   | "operation"
   | "input"
   | "other";
-
-/** The segments the original read as an input anywhere in a path. */
-const ORIGINAL_INPUT_SEGMENTS: ReadonlySet<string> = new Set([
-  "parameters",
-  "requestBody",
-  "requestBodies",
-]);
 
 const OPERATION_KEYS: ReadonlySet<string> = new Set([...HTTP_METHODS, QUERY_METHOD]);
 
@@ -86,9 +98,6 @@ function nextPlace(place: Place, segment: string): Place {
   if (named !== undefined) {
     return named;
   }
-  if (place === "outside") {
-    return ORIGINAL_INPUT_SEGMENTS.has(segment) ? "input" : "outside";
-  }
   if (place === "pathItem" && OPERATION_KEYS.has(segment)) {
     return "operation";
   }
@@ -96,5 +105,5 @@ function nextPlace(place: Place, segment: string): Place {
   if (Object.hasOwn(fields, segment)) {
     return fields[segment] as Place;
   }
-  return place === "root" ? nextPlace("outside", segment) : "other";
+  return place === "root" ? "outside" : "other";
 }

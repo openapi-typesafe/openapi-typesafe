@@ -87,7 +87,9 @@ function isOptionalProperty(
 ): boolean {
   const { options } = request.context;
   const isDefaultRequired =
-    facts.hasDefault && options.defaultNonNullable && !isInputLocation(request.location.path);
+    facts.hasDefault &&
+    options.defaultNonNullable &&
+    !isInputLocation(request.location.path, options.fixes);
   const isRequired =
     schema.required?.includes(key) ||
     (schema.required === undefined && options.propertiesRequiredByDefault) ||

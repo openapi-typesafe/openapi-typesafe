@@ -213,12 +213,11 @@ written inline under a request body.
 | a property of an inline response | required | optional |
 | a property of a component (`$ref`), in requests and responses | required | optional |
 
-The place is read from the document's structure: a parameter or a request body of an operation
-or a path item, also under `webhooks`, callbacks and `components` (`parameters`,
-`requestBodies`, `pathItems`). A path or schema that is only named so is no such place: a response
-of `/system-parameters` and a property named `parameters` follow the response row. (The original
-looked for the words `parameters`, `requestBody` and `requestBodies` anywhere in the location; the
-exported transformers still do for a `path` that points nowhere in the document.)
+As in the original, a place counts as a parameter or a request body when its location holds the
+word `parameters`, `requestBody` or `requestBodies` anywhere, so a response of
+`/system-parameters` and a property named `hyperparameters` follow the request row too. The
+[`default-input-locations`](#default-input-locations) fix reads the place from the document's
+structure instead.
 
 The last row is the common surprise (openapi-typescript issues #2012, #1957, #1903): a component
 used as a request body makes the client send a field the server would fill in. The rule cannot
@@ -489,6 +488,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `anyof-properties` | `anyOf` next to `properties` or `allOf` is intersected with them instead of being one more union member | [#2380](https://github.com/openapi-ts/openapi-typescript/issues/2380) | 1.0 |
 | `array-length-tuples` | `--array-length` tuples have `minItems` to `maxItems` items, nested arrays are not wrapped twice, and `--immutable` makes them `readonly`; needs `--array-length` | [#2048](https://github.com/openapi-ts/openapi-typescript/issues/2048), [#2330](https://github.com/openapi-ts/openapi-typescript/pull/2330), [#2546](https://github.com/openapi-ts/openapi-typescript/pull/2546) | 1.0 |
 | `dedupe-enum-names` | With `--enum --dedupe-enums`, a shared enum is named by a rule that does not depend on the document order, instead of after the first schema in the document; needs both flags | [#1683](https://github.com/openapi-ts/openapi-typescript/issues/1683) | 1.0 |
+| `default-input-locations` | With `--default-non-nullable` (on by default), parameters and request bodies are found by the document's structure, instead of by the words `parameters`, `requestBody` and `requestBodies` anywhere in a schema's location, so a defaulted property of a response of `/system-parameters` or of a schema property named `hyperparameters` is required like any other | none (found in the rc.5 review) | 1.0 |
 | `discriminator-member-required` | `required` next to an `allOf` `$ref` to a discriminator member gives `WithRequired` instead of being dropped | [#2162](https://github.com/openapi-ts/openapi-typescript/issues/2162) | 1.0 |
 | `discriminator-values` | The value a discriminator member gets: a schema that a `mapping` names gets the mapped value only (not also its schema name, which made the property `never`); a schema's own `mapping` is kept when it also inherits a discriminator; a member that declares its value gets no second property; with `--enum` the value is a member of the owner's enum (`PetType.Cat`) | [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200), [#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124), [#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700) | 1.0 |
 | `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
@@ -750,6 +750,31 @@ export enum PetState { // [!code ++]
 - It needs `--enum` and `--dedupe-enums` and changes nothing without them; naming it without them
   prints the warning `FIX_NEEDS_OPTION` (`--fix all` does not).
 - An `x-enum-name` extension is not read: no tool of the ecosystem defines it.
+
+#### default-input-locations
+
+`--default-non-nullable` keeps a defaulted property of a parameter or a request body optional.
+Without the fix that place is any location whose text holds `parameters`, `requestBody` or
+`requestBodies`, so the name of a path or a schema decides it:
+
+```ts
+// GET /system-parameters answers { page }, with page: { default: 1 }.
+page?: number; // [!code --]
+page: number; // [!code ++]
+```
+
+With the fix the place is read from the document's structure: a parameter or a request body of
+an operation or a path item, also under `webhooks`, callbacks and `components` (`parameters`,
+`requestBodies`, `pathItems`). A response of `/system-parameters` and a property named
+`parameters` or `hyperparameters` follow the response row of the table under
+[defaultNonNullable](#defaultnonnullable).
+
+- It only makes properties required; none becomes optional. A component schema used as a request
+  body is no request-body place either way, so a property under such a component that the word
+  kept optional becomes required: the client must send it.
+- The exported transformers can be given a `path` that points nowhere in the document; the words
+  still decide there.
+- It changes nothing with `--default-non-nullable=false`.
 
 #### discriminator-member-required
 

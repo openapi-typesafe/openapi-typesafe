@@ -79,6 +79,7 @@ describe("selectOptionSets", () => {
       "fix=root-type-numbering+root-types+root-types-no-schema-prefix",
       "fix=anyof-oneof-descriptions",
       "fix=dedupe-enum-names+enum+dedupe-enums",
+      "fix=default-input-locations",
       "fix=exploded-query-objects",
       "fix=exploded-query-objects+immutable",
       "fix=nullable-enums+enum",

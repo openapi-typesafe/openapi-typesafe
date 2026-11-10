@@ -206,6 +206,8 @@ These are off by default, so the output does not change until you turn one on.
   `anyof-oneof-descriptions` lists the descriptions of `anyOf` and `oneOf` members in the JSDoc.
   `dedupe-enum-names` (with `--enum --dedupe-enums`) names a shared enum by a rule that does not
   depend on the document order.
+  `default-input-locations` (with `--default-non-nullable`, on by default) finds parameters and
+  request bodies by the document's structure, not by the word `parameters` in a location.
   `exploded-query-objects` makes the properties of an exploded object query parameter keys of
   `query`, as they are sent.
   `nullable-enums` (with `--enum`) declares an enum that lists `null` and adds `| null` to its type.

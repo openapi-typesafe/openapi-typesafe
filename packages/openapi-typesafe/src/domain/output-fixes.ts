@@ -21,6 +21,11 @@ export const FIX = {
   ARRAY_LENGTH_TUPLES: "array-length-tuples",
   /** `--dedupe-enums` names a shared enum by all of its schemas, not by the first one. */
   DEDUPE_ENUM_NAMES: "dedupe-enum-names",
+  /**
+   * `--default-non-nullable` finds parameters and request bodies by the document's structure, not
+   * by the words `parameters` and `requestBody` anywhere in a schema's location.
+   */
+  DEFAULT_INPUT_LOCATIONS: "default-input-locations",
   /** `required` next to an `allOf` `$ref` to a discriminator member still gives `WithRequired`. */
   DISCRIMINATOR_MEMBER_REQUIRED: "discriminator-member-required",
   /**

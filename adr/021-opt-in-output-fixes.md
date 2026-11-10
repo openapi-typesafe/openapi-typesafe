@@ -238,6 +238,23 @@ already types a parameter by its media type's schema is the one users would look
 | Extend it and keep `parameter-content` | No config changes | The name hides that headers change |
 | A second fix `header-content` | Each name changes one place | Two names for one rule; `all` users see no difference |
 
+## Amendment (2026-11-10): `default-input-locations`
+
+With `--default-non-nullable` the original keeps a defaulted property optional where its location
+holds the word `parameters`, `requestBody` or `requestBodies`, so the name of a path or a schema
+decides it (`/system-parameters`, a property named `hyperparameters`). Reading the place from the
+document's structure changes output that compiles in one direction only: such properties become
+required. Under a component schema used as a request body, which no rule can tell from a response
+schema, that makes a client send a field it could leave out (the openai document of the compat
+corpus has one). By decisions 5 and 6 the change is the fix `default-input-locations`, not the
+default.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| An opt-in fix (chosen) | Output of the default run stays the original's; the place rule is named and documented | The name of a path or schema still decides by default |
+| The structural rule by default | Responses are typed the same whatever their path is named | Request-body components named `*parameters*` gain required fields on an update |
+| Keep the words, document them only | No new name | No way to get the structural rule |
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow
