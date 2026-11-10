@@ -16,6 +16,7 @@ import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
 import { type AccessFlags, propertyAccessFlags } from "./access-flags.js";
 import { discriminatorMember, inheritedDiscriminator } from "./inherited-discriminator.js";
+import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
 import type { SchemaOptions } from "./schema-context.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
@@ -111,6 +112,12 @@ interface CustomResult {
   readonly isOptional: true | null;
 }
 
+/** A `$ref` with siblings that `ref-siblings` types as an `allOf` is typed as a schema. */
+function plainRef({ ref }: PropertyFacts, value: Schema, request: SchemaRequest) {
+  const isAllOf = ref && refWithSiblingsAsAllOf(value as SchemaObject, request.context.options);
+  return isAllOf ? undefined : ref;
+}
+
 function propertyType(
   key: string,
   value: Schema,
@@ -118,8 +125,9 @@ function propertyType(
   request: SchemaRequest,
 ): CustomResult {
   const path = appendPointer(request.location.path, [key]);
-  const type = facts.ref
-    ? schemaRefType(facts.ref, request)
+  const ref = plainRef(facts, value, request);
+  const type = ref
+    ? schemaRefType(ref, request)
     : request.transformNested(value, { ...request.location, path });
   const custom = request.context.callbacks.transform(value, request.location);
   return custom === null

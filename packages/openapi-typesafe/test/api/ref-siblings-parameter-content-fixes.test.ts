@@ -35,6 +35,10 @@ function documentOf(version: string): OpenAPI3 {
         WithSiblings: { ...BASE, required: ["extra"], properties: { extra: { type: "string" } } },
         OnlyRequired: { ...BASE, required: ["id"] },
         Described: { ...BASE, description: "A base." },
+        Holder: {
+          type: "object",
+          properties: { owner: { ...BASE, required: ["id"] }, label: { ...BASE, description: "A label." } },
+        },
       },
     },
   } as unknown as OpenAPI3;
@@ -58,6 +62,17 @@ describe("ref-siblings fix", () => {
 
     expect(output).toContain(SIBLINGS);
     expect(output).toContain('OnlyRequired: WithRequired<components["schemas"]["Base"], "id">;');
+  });
+
+  it("openapiTS with the fix reads the siblings of a property's reference too", async () => {
+    const output = await generate("3.1.0", { fix: ["ref-siblings"] });
+
+    expect(output).toContain('owner?: WithRequired<components["schemas"]["Base"], "id">;');
+    expect(output).toContain('label?: components["schemas"]["Base"];');
+  });
+
+  it("openapiTS without the fix keeps a property's plain reference", async () => {
+    expect(await generate("3.1.0")).toContain('owner?: components["schemas"]["Base"];');
   });
 
   it("openapiTS with the fix keeps a reference with only annotations next to it", async () => {

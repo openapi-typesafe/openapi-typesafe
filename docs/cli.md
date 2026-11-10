@@ -1172,7 +1172,8 @@ WithSiblings: { extra: string } & components["schemas"]["Base"]; // [!code ++]
 ```
 
 - The schema is typed as `allOf: [{ $ref }]` next to the same keywords, with every rule for
-  `allOf`: `required` alone gives `WithRequired<Base, "id">`, an `enum` gives its values.
+  `allOf`: `required` alone gives `WithRequired<Base, "id">`, an `enum` gives its values. This
+  holds wherever the schema is: a component, a property, array `items`, a body or a parameter.
 - Keywords that only annotate (`description`, `title`, `examples`, `default`, `deprecated`,
   `readOnly`, `writeOnly`, `format`, `x-…`) change nothing, so such a schema keeps the plain
   reference.
