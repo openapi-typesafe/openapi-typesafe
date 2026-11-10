@@ -33,8 +33,8 @@ export const FIX = {
   EXPLODED_QUERY_OBJECTS: "exploded-query-objects",
   /** `--enum` declares an enum that lists `null` without it, and the type adds `| null`. */
   NULLABLE_ENUMS: "nullable-enums",
-  /** A parameter with `content` instead of `schema` is typed by the schema of its media type. */
-  PARAMETER_CONTENT: "parameter-content",
+  /** A parameter or header with `content`, not `schema`, is typed by its media type's schema. */
+  PARAMETER_HEADER_CONTENT: "parameter-header-content",
   /** `--path-params-as-types` gives each `{name}` its placeholder, `{number}` included. */
   PATH_PARAM_TYPE_NAMES: "path-param-type-names",
   /** A `prefixItems` tuple is open unless `items` or `unevaluatedItems` closes it (2020-12). */

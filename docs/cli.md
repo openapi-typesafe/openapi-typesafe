@@ -493,7 +493,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `discriminator-values` | The value a discriminator member gets: a schema that a `mapping` names gets the mapped value only (not also its schema name, which made the property `never`); a schema's own `mapping` is kept when it also inherits a discriminator; a member that declares its value gets no second property; with `--enum` the value is a member of the owner's enum (`PetType.Cat`) | [#2200](https://github.com/openapi-ts/openapi-typescript/issues/2200), [#2124](https://github.com/openapi-ts/openapi-typescript/issues/2124), [#1700](https://github.com/openapi-ts/openapi-typescript/issues/1700) | 1.0 |
 | `exploded-query-objects` | The properties of an exploded object query parameter (`style: form`, the default) are keys of `query`, as they are sent, instead of one key named after the parameter | [#2361](https://github.com/openapi-ts/openapi-typescript/issues/2361) | 1.0 |
 | `nullable-enums` | With `--enum`, an enum that lists `null` becomes a TypeScript enum of its other values and the type adds `\| null`, instead of staying a union; needs `--enum` | [#1872](https://github.com/openapi-ts/openapi-typescript/issues/1872) | 1.0 |
-| `parameter-content` | A parameter with `content` instead of `schema` (a JSON object in a query parameter) is typed by the schema of its media type, instead of `string` | none (found in the rc.4 review) | 1.0 |
+| `parameter-header-content` | A parameter or a header with `content` instead of `schema` (a JSON object in a query parameter) is typed by the schema of its media type, instead of `string` or a map of media types | none (found in the rc.4 review) | 1.0 |
 | `path-param-type-names` | With `--path-params-as-types`, a path parameter named `number`, `string` or `boolean` gets its placeholder, instead of the `$` and the `{name}` text the original leaves when it replaces that name inside an earlier placeholder; needs `--path-params-as-types` | none (found in our own tests) | 1.0 |
 | `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
 | `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
@@ -1163,18 +1163,22 @@ Where the generated type has an index signature (`--additional-properties`, or t
 `unknown`. Changing it could break code, so it stays without the fix; with `ref-pointers` it gets
 the type above too.
 
-#### parameter-content
+#### parameter-header-content
 
-A parameter is described by `schema` or by `content`, a map with one media type whose schema
-describes the value, for example a JSON object sent in one query parameter. The original read only
-`schema`, so such a parameter was `string`:
+A parameter or a header is described by `schema` or by `content`, a map with one media type whose
+schema describes the value, for example a JSON object sent in one query parameter. The original
+read only `schema`, so such a parameter was `string`, and a header was a map of its media types:
 
 ```ts
 filter?: string; // [!code --]
 filter?: { status?: string; limit?: number }; // [!code ++]
+"X-Rate": { "application/json": { limit: number } }; // [!code --]
+"X-Rate": { limit: number }; // [!code ++]
 ```
 
-- The first media type of `content` is read; a media type without a schema gives `unknown`.
+- The first media type of `content` is read; a media type without a schema, or a header with an
+  empty `content`, gives `unknown`.
+- The fix was named `parameter-content` in rc.4; it now covers headers too and that name is gone.
 - An `in: querystring` parameter (OpenAPI 3.2) is typed this way without the fix (ADR-020).
 - The fix works in OpenAPI 3.0 documents too, where `content` has the same meaning.
 

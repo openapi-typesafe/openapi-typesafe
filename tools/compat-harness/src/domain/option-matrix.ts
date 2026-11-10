@@ -144,9 +144,9 @@ const OPT_IN_FLAGS: readonly { readonly flag: string; readonly with: readonly st
   // `ref-pointers` changes the `$ref`s whose original type an index signature admits, which
   // `--additional-properties` adds to every object.
   { flag: "--fix=ref-pointers", with: [[], ["--additional-properties"]] },
-  // `parameter-content` types a parameter by its `content` schema: `--immutable` makes it
-  // readonly.
-  { flag: "--fix=parameter-content", with: [[], ["--immutable"]] },
+  // `parameter-header-content` types a parameter or header by its `content` schema:
+  // `--immutable` makes it readonly.
+  { flag: "--fix=parameter-header-content", with: [[], ["--immutable"]] },
   // `ref-siblings` types a `$ref` with keywords next to it as an `allOf`, so it is checked with
   // the flags that change required keys and `WithRequired`.
   { flag: "--fix=ref-siblings", with: [[], ["--immutable"], ["--properties-required-by-default"]] },
