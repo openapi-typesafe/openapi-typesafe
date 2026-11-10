@@ -9,11 +9,15 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
 - The result is the same as the original function.
 - The query key is `[method, path, options]`, so `[method, path]` matches every variant in
   `invalidateQueries`. `options` is the `init` object, such as `{ params: { path: { id: 1 } } }`,
-  with two changes that keep every request in its own cache entry: `headers` given as a `Headers`
-  object or as pairs are written as a plain object of the names and values they send, and the
-  `baseUrl` of the fetch client is added when the init has none. Without an init and a `baseUrl`
-  the key is `[method, path]`. Read the key from `queryOptions(...).queryKey` for `setQueryData`
-  and `getQueryData` rather than writing it out.
+  with changes that keep every request in its own cache entry: `headers` given as a `Headers`
+  object or as pairs are written as a plain object of the names and values they send; a body
+  that JSON cannot hold is written by its content (a `URLSearchParams` as its text, a `FormData`
+  as its fields, bytes as numbers) or, for a `Blob` or a `File`, by its type, size and name, so
+  two Blobs that differ only in their bytes share an entry; and the client's
+  [`keyScope`](./index.md#query-keys-and-server-rendering), or else its `baseUrl` when the init
+  has none, is added. When nothing is left, as without an init, the key is `[method, path]`. Read
+  the key from `queryOptions(...).queryKey` for `setQueryData` and `getQueryData` rather than
+  writing it out.
 - The request is sent with the `init` of the call. A `fetch`, `middleware` or serializer in it is
   a function, which a query key cannot hold: two queries that differ only in one of them share
   a cache entry, so set those on the fetch client, or give the queries different params.
@@ -28,7 +32,9 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
 - A successful response without a body (a 204, an empty body, any HEAD response) gives
   `data: null`: TanStack Query does not accept `undefined` query data. `useSuspenseQuery` and
   `queryOptions` do the same, and the types say so: the data of an operation with a 204 is
-  `Body | null`, and `select` gets `null` too. `useInfiniteQuery` pages and `useMutation` data
+  `Body | null`, and `select` gets `null` too. A HEAD operation that declares content for a
+  response keeps that type, as in the fetch client, although its `data` is always `null`:
+  declare HEAD responses without content. `useInfiniteQuery` pages and `useMutation` data
   stay `undefined` for such a response, as in `openapi-react-query`: TanStack Query accepts
   them, and their types include `undefined`.
 - You can pass query options as fourth parameter. Query options in the third parameter (the fetch

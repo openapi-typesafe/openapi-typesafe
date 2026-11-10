@@ -1,47 +1,136 @@
 /**
  * The request part of a query key (ADR-046). TanStack Query hashes a key as JSON: a `Headers`
- * object or a list of header pairs hashed as `{}` or by its order, so two requests with different
- * headers shared one cache entry, and the `queryFn` of that entry sent the headers of the first.
- * Two clients with different base URLs shared entries too. The key's init holds the headers as a
- * plain object and the base URL the request goes to, so the key names what was fetched.
+ * object or a list of header pairs hashed as `{}` or by its order, and so did a FormData, a Blob,
+ * an ArrayBuffer or a URLSearchParams body. Two requests that differed in them shared one cache
+ * entry, and the `queryFn` of that entry sent the request of the first. Two clients with
+ * different base URLs shared entries too. The key's init holds the headers and such a body as
+ * plain values, and the base URL the request goes to or the client's key scope, so the key names
+ * what was fetched.
  */
 
 /** Headers as a plain object, which TanStack Query hashes by its names and values. */
 type HeadersRecord = Readonly<Record<string, unknown>>;
 
+/** What the key takes from the fetch client and the options of `createClient`. */
+export interface KeyClient {
+  /** The fetch client's base URL, `""` without one. */
+  readonly baseUrl: string;
+  /** The name of the API in every key, in place of the base URL. */
+  readonly keyScope?: string | undefined;
+}
+
+/** `[object Name]`: the type tag is between these indexes of `Object.prototype.toString`. */
+const TYPE_TAG_START = "[object ".length;
+const TYPE_TAG_END = -1;
+
 /**
- * The headers of an init as a plain object. A `Headers` object and a list of pairs, which are both
- * iterable, become the names and values the request sends (`Headers` writes the names in
- * lowercase and joins a repeated one); a plain object stays as it is, since its `null` and array
- * values mean more than a string.
+ * Whether a value is of the class `name`: an instance of this realm's global class of that name
+ * (React Native's classes have no type tag), or a value with its type tag (a class of another
+ * realm or of the `undici` package), as the fetch client tells bodies (ADR-030).
  */
-function plainHeaders(headers: object): HeadersRecord {
-  return Symbol.iterator in headers
-    ? Object.fromEntries(new Headers(headers as HeadersInit).entries())
-    : (headers as HeadersRecord);
+function isClass(value: object, name: string): boolean {
+  const type = (globalThis as Record<string, unknown>)[name];
+  return (
+    (typeof type === "function" && value instanceof type) ||
+    Object.prototype.toString.call(value).slice(TYPE_TAG_START, TYPE_TAG_END) === name
+  );
 }
 
 /**
- * The init of a query key: the request init with its headers as a plain object and the base URL
- * of the client when the init has none. The `signal` is left out: TanStack Query gives each
- * request its own. Undefined without an init and a base URL, so such a key is `[method, path]`.
+ * The headers of an init as a plain object. A `Headers` object and a list of pairs, which are both
+ * iterable, become the names and values the request sends: names in lowercase, a repeated one
+ * joined with `, `, as `Headers` writes them. They are read without `Headers`, which threw for an
+ * invalid name or value while the component rendered; the request reports it as a query error. A
+ * plain object stays as it is, since its `null` and array values mean more than a string.
  */
-export function queryKeyInit(init: unknown, clientBaseUrl: string): object | undefined {
-  if (init === undefined && !clientBaseUrl) {
-    return undefined;
+function plainHeaders(headers: object): HeadersRecord {
+  if (!(Symbol.iterator in headers)) {
+    return headers as HeadersRecord;
   }
+  const record: Record<string, string> = {};
+  for (const pair of headers as Iterable<unknown>) {
+    const [name, value] = Array.from(pair as ArrayLike<unknown>);
+    const key = String(name).toLowerCase();
+    record[key] = key in record ? `${record[key]}, ${String(value)}` : String(value);
+  }
+  return record;
+}
+
+/**
+ * A Blob or a File in a key: its type, size, and the name and date of a File. Its bytes cannot be
+ * read while the component renders, so two Blobs of the same type and size share an entry.
+ */
+function blobKey(blob: Blob): object {
+  const { name, lastModified } = blob as Partial<File>;
+  return { type: blob.type, size: blob.size, name, lastModified };
+}
+
+/** The fields of a FormData in a key, in order, with a file as `blobKey`. */
+function formDataKey(form: FormData): unknown[] {
+  // React Native's FormData has no `entries`, so its fields cannot be read.
+  if (typeof form.entries !== "function") {
+    return [];
+  }
+  return Array.from(form.entries(), ([name, value]) => [
+    name,
+    typeof value === "string" ? value : blobKey(value),
+  ]);
+}
+
+/** The bytes of an ArrayBuffer or a typed array, or null for another value. */
+function bodyBytes(body: object): Uint8Array | null {
+  if (ArrayBuffer.isView(body)) {
+    return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+  }
+  return isClass(body, "ArrayBuffer") ? new Uint8Array(body as ArrayBuffer) : null;
+}
+
+/**
+ * A request body as a value TanStack Query hashes by its content. A URLSearchParams is its text,
+ * a FormData its fields, a Blob `blobKey` and bytes their numbers, each under its kind, so it
+ * differs from a JSON body with the same content. Other values stay as they are.
+ */
+function bodyKey(body: unknown): unknown {
+  if (typeof body !== "object" || body === null) {
+    return body;
+  }
+  if (isClass(body, "URLSearchParams")) {
+    return { URLSearchParams: String(body) };
+  }
+  if (isClass(body, "FormData")) {
+    return { FormData: formDataKey(body as FormData) };
+  }
+  if (isClass(body, "Blob") || isClass(body, "File")) {
+    return { Blob: blobKey(body as Blob) };
+  }
+  const bytes = bodyBytes(body);
+  return bytes === null ? body : { bytes: Array.from(bytes) };
+}
+
+/**
+ * The init of a query key: the request init with its headers and body as plain values, and the
+ * client's key scope, or its base URL when the init has none. The `signal` is left out: TanStack
+ * Query gives each request its own. Undefined when nothing is left, so a call without an init and
+ * one with an empty init have the key `[method, path]`.
+ */
+export function queryKeyInit(init: unknown, client: KeyClient): object | undefined {
   const { signal: _signal, ...rest } = (init ?? {}) as {
     signal?: unknown;
     headers?: unknown;
     baseUrl?: unknown;
+    body?: unknown;
   };
   const keyInit: Record<string, unknown> = { ...rest };
-  const { headers } = rest;
-  if (typeof headers === "object" && headers !== null) {
-    keyInit.headers = plainHeaders(headers);
+  if (typeof rest.headers === "object" && rest.headers !== null) {
+    keyInit.headers = plainHeaders(rest.headers);
   }
-  if (!rest.baseUrl && clientBaseUrl) {
-    keyInit.baseUrl = clientBaseUrl;
+  if ("body" in rest) {
+    keyInit.body = bodyKey(rest.body);
   }
-  return keyInit;
+  if (client.keyScope !== undefined) {
+    keyInit.keyScope = client.keyScope;
+  } else if (!rest.baseUrl && client.baseUrl) {
+    keyInit.baseUrl = client.baseUrl;
+  }
+  return Object.keys(keyInit).length === 0 ? undefined : keyInit;
 }

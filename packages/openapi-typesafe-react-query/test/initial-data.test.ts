@@ -5,7 +5,7 @@ import createClient from "../src/index.js";
 
 /** `data` of a query with `initialData`, which TanStack Query types as never `undefined`. */
 
-type Item = { id: number };
+type Item = { id: number; name?: string };
 type Paths = {
   "/items": {
     get: { responses: { 200: { content: { "application/json": Item[] } } } };
@@ -39,6 +39,10 @@ function useTanStackWithOptions() {
   return useQuery($api.queryOptions("get", "/items", {}, { initialData: ITEMS }));
 }
 
+function useTanStackWithLiteral() {
+  return useQuery($api.queryOptions("get", "/items", {}, { initialData: [{ id: 1 }] }));
+}
+
 describe("initialData", () => {
   it("useQuery with a defined initialData value or function has defined data", () => {
     expectTypeOf<ReturnType<typeof useWithValue>["data"]>().toEqualTypeOf<Item[]>();
@@ -57,5 +61,6 @@ describe("initialData", () => {
 
   it("TanStack's useQuery with queryOptions that give initialData has defined data", () => {
     expectTypeOf<ReturnType<typeof useTanStackWithOptions>["data"]>().toEqualTypeOf<Item[]>();
+    expectTypeOf<ReturnType<typeof useTanStackWithLiteral>["data"]>().toEqualTypeOf<Item[]>();
   });
 });
