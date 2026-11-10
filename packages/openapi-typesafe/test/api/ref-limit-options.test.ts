@@ -1,0 +1,71 @@
+import { pathToFileURL } from "node:url";
+import { describe, expect, it } from "vitest";
+import { refAccessOf } from "../../src/api/ref-limit-options.js";
+import openapiTS from "../../src/index.js";
+import type { GeneratorOptions } from "../../src/types.js";
+
+const CWD = pathToFileURL("/work/");
+
+// The options as JavaScript may pass them, without the declared types.
+const optionsOf = (options: Record<string, unknown>) => options as GeneratorOptions;
+
+describe("refAccessOf", () => {
+  it("refAccessOf without limits limits nothing", () => {
+    expect(refAccessOf({}, CWD)).toEqual({});
+  });
+
+  it("refAccessOf resolves a relative localRefRoot against the cwd", () => {
+    expect(refAccessOf({ localRefRoot: "api" }, CWD)).toEqual({ localRoot: pathToFileURL("/work/api") });
+  });
+
+  it("refAccessOf keeps a file: URL localRefRoot and the remoteRefHosts", () => {
+    const localRoot = pathToFileURL("/specs/");
+
+    const access = refAccessOf({ localRefRoot: localRoot, remoteRefHosts: ["a.com", "b.com:8080"] }, CWD);
+
+    expect(access).toEqual({ localRoot, remoteHosts: ["a.com", "b.com:8080"] });
+  });
+
+  it.each([
+    [new URL("https://user:secret@example.com/specs/"), "got a https: URL."],
+    [42, "got a number."],
+    [null, "got null."],
+    [["specs"], "got a list."],
+  ])("refAccessOf with localRefRoot %s fails with OPTION_INVALID", (localRefRoot, got) => {
+    const access = () => refAccessOf(optionsOf({ localRefRoot }), CWD);
+
+    expect(access).toThrow(
+      expect.objectContaining({
+        code: "OPTION_INVALID",
+        message: `The localRefRoot option must be a directory path or a file: URL; ${got}`,
+        details: { option: "localRefRoot" },
+      }),
+    );
+  });
+
+  it.each([
+    ["a.com", "got a string."],
+    [["a.com", 8080], "got a list with a number."],
+    [[new URL("https://a.com")], "got a list with a https: URL."],
+  ])("refAccessOf with remoteRefHosts %s fails with OPTION_INVALID", (remoteRefHosts, got) => {
+    const access = () => refAccessOf(optionsOf({ remoteRefHosts }), CWD);
+
+    expect(access).toThrow(
+      expect.objectContaining({
+        code: "OPTION_INVALID",
+        message: `The remoteRefHosts option must be a list of hosts; ${got}`,
+        details: { option: "remoteRefHosts" },
+      }),
+    );
+  });
+});
+
+describe("openapiTS ref limit options", () => {
+  it("openapiTS with remoteRefHosts that is no list rejects with OPTION_INVALID before loading", async () => {
+    const source = { openapi: "3.1.0", info: { title: "T", version: "1" }, paths: {} };
+
+    const generation = openapiTS(source, optionsOf({ silent: true, remoteRefHosts: "a.com" }));
+
+    await expect(generation).rejects.toMatchObject({ code: "OPTION_INVALID" });
+  });
+});

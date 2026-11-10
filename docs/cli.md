@@ -50,7 +50,7 @@ apis:
 
 :::
 
-Under `x-openapi-ts`, an API can set `output`, every generator flag of the [flags table](#flags) (the boolean flags except `--check`, `--help` and `--version`; `lint: false` is `--no-lint`), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint. A setting of the wrong type (`root-types: "true"`, an `output` that is no text, an `x-openapi-ts` that is no map) and an API without a `root` fail that API with `CLI_CONFIG_INVALID`, which names the API and the key; an unknown name in an API's `fix` fails it with `OPTION_FIX_UNKNOWN`, which names the API. The other APIs are still generated. `content-never` is accepted and has no effect, as on the command line.
+Under `x-openapi-ts`, an API can set `output`, every generator flag of the [flags table](#flags) (the boolean flags except `--check`, `--help` and `--version`; `lint: false` is `--no-lint`), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint. A setting of the wrong type (`root-types: "true"`, an `output` that is no text, an `x-openapi-ts` that is no map) and an API without a `root` fail that API with `CLI_CONFIG_INVALID`, which names the API and the key; an unknown name in an API's `fix` fails it with `OPTION_FIX_UNKNOWN`, which names the API. An error while an API is loaded or generated starts with `API <name>:` too, and keeps its code and exit code. The other APIs are still generated. `content-never` is accepted and has no effect, as on the command line.
 
 ::: tip
 
@@ -156,13 +156,20 @@ The following flags are supported in the CLI:
 
 `--content-never` is accepted for compatibility with openapi-typescript and has no effect.
 
+A flag that takes one value (`--output`, `--redocly`, `--local-ref-root`) or a boolean flag may be
+given more than once: the last one wins. `--fix` and `--remote-ref-hosts` add up instead. A flag
+may also be written as `--flag=value`; a boolean flag takes `=true` or `=false` there
+(`--enum=false`), and any other value fails with `CLI_FLAG_INVALID`. A removed flag fails with
+`CLI_FLAG_REMOVED` in either form (`--redoc=redocly.yaml`).
+
 ## Warnings
 
-A warning does not stop the run: the types are written and the exit code stays `0`. Warnings, errors and [debug lines](./advanced.md#debugging) go to stderr, also when the types go to stdout (without `--output`), so they never mix with the types; openapi-typescript printed no warnings when it wrote to stdout, and its debug lines went to stdout. Every warning (a line that starts with `⚠`) ends with its code, as an error does. A warning from a Redocly lint rule also names the rule, so `redocly.yaml` can change its severity or turn it off; problems listed in a [lint ignore file](#redocly-config) are not printed. A notice about flags, such as `--root-types-keep-casing has no effect without --root-types flag` or `Unknown flag --x is ignored (see --help)`, has no `⚠` and no code.
+A warning does not stop the run: the types are written and the exit code stays `0`. Warnings, errors and [debug lines](./advanced.md#debugging) go to stderr, also when the types go to stdout (without `--output`), so they never mix with the types; openapi-typescript printed no warnings when it wrote to stdout, and its debug lines went to stdout. When the reader of stdout closes it early (`| head`), the rest of the types is dropped and the exit code stays `0`; openapi-typescript crashed with `EPIPE` and exit code `1`. Every warning (a line that starts with `⚠`) ends with its code, as an error does. A warning from a Redocly lint rule also names the rule, so `redocly.yaml` can change its severity or turn it off; problems listed in a [lint ignore file](#redocly-config) are not printed. A notice about flags, such as `--root-types-keep-casing has no effect without --root-types flag` or `Unknown flag --x is ignored (see --help)`, has no `⚠` and no code.
 
 | Code | Meaning |
 | :--- | :------ |
 | `CLI_INPUT_IGNORED` | APIs are listed in `redocly.yaml` and an input is given on the command line; the input is ignored and the APIs are generated. See [Multiple schemas](#multiple-schemas) |
+| `CLI_OUTPUT_IGNORED` | APIs are listed in `redocly.yaml` and `--output` is given; each API is written to its `x-openapi-ts.output`, and the `--output` path is not used. See [Multiple schemas](#multiple-schemas) |
 | `CONFIG_SETTING_UNKNOWN` | An API's `x-openapi-ts` block in `redocly.yaml` has a key that is not an openapi-typesafe setting, for example a misspelled flag; the key is ignored. See [Multiple schemas](#multiple-schemas) |
 | `DISCRIMINATOR_MAPPING_INVALID` | A discriminator `mapping` names a schema that is neither an object schema nor an `allOf`, so the generator cannot add the discriminator property to it. That schema keeps its type |
 | `DISCRIMINATOR_VALUE_NOT_ALLOWED` | A discriminator gives a schema a value that the schema's own discriminator property does not allow, so no value matches. The Discriminator Object requires the value, from `mapping` or the schema name, to be one the property admits; add a `mapping` entry. See [discriminator values](./advanced.md#discriminator-values) |
@@ -184,7 +191,7 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 | :--: | :------ | :---------- |
 | `0` | Success; with `--check`, the output is up to date | |
 | `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
-| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `CLI_OUTPUT_IS_INPUT`, `CLI_OUTPUT_DUPLICATE`, `CLI_OUTPUT_INVALID`, `CLI_LOCATION_INVALID`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_FLAG_INVALID`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `CLI_OUTPUT_IS_INPUT`, `CLI_OUTPUT_DUPLICATE`, `CLI_OUTPUT_INVALID`, `CLI_LOCATION_INVALID`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN`, `OPTION_INVALID` |
 | `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 | `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |

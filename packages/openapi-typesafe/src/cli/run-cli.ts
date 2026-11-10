@@ -112,24 +112,39 @@ async function generate(run: CliRun): Promise<unknown[]> {
     await generateSingleSchema(run, redocly);
     return [];
   }
-  if (run.args.input) {
-    run.deps.logger.warn(
+  warnAboutIgnoredArguments(run);
+  return generateRedoclyApis(run, redocly);
+}
+
+/** With the APIs of a Redocly config, the input and the output of the command line are unused. */
+function warnAboutIgnoredArguments(run: CliRun): void {
+  const { args, deps } = run;
+  if (args.input) {
+    deps.logger.warn(
       warningText(
         "APIs are specified both in Redocly Config and CLI argument. Only using Redocly config.",
         WARNING_CODES.CLI_INPUT_IGNORED,
       ),
     );
   }
-  return generateRedoclyApis(run, redocly);
+  if (args.output) {
+    deps.logger.warn(
+      warningText(
+        `APIs are specified in Redocly Config, so --output ${args.output} is ignored: ` +
+          "each API is written to its x-openapi-ts.output.",
+        WARNING_CODES.CLI_OUTPUT_IGNORED,
+      ),
+    );
+  }
 }
 
 /** Run the command; the failures it returns did not stop the other outputs. */
 async function runCommand(argv: readonly string[], deps: CliDependencies): Promise<unknown[]> {
   const startedAt = deps.now();
-  for (const notice of ineffectiveFlagNotices(argv)) {
+  const args = parseCliArguments(argv);
+  for (const notice of ineffectiveFlagNotices(args.generatorFlags)) {
     deps.console.notice(notice);
   }
-  const args = parseCliArguments(argv);
   for (const flag of args.unknownFlags) {
     deps.console.notice(`Unknown flag ${flag} is ignored (see --help)`);
   }

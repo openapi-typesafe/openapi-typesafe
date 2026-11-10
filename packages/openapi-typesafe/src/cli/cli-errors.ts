@@ -99,8 +99,10 @@ const CLI_ERROR_REPORTS: Readonly<Record<ErrorCode, CliErrorReport>> = {
   ENUM_NAME_EMPTY: { exitCode: EXIT_CODES.SCHEMA },
   CALLBACK_RESULT_UNREADABLE: { exitCode: EXIT_CODES.USAGE },
   OPTION_FIX_UNKNOWN: { exitCode: EXIT_CODES.USAGE },
+  OPTION_INVALID: { exitCode: EXIT_CODES.USAGE },
   TYPESCRIPT_NOT_FOUND: { exitCode: EXIT_CODES.USAGE },
   CLI_FLAG_REMOVED: { exitCode: EXIT_CODES.USAGE },
+  CLI_FLAG_INVALID: { exitCode: EXIT_CODES.USAGE },
   CLI_GLOB_UNSUPPORTED: { exitCode: EXIT_CODES.USAGE },
   CLI_CONFIG_NOT_FOUND: { exitCode: EXIT_CODES.USAGE },
   CLI_CONFIG_INVALID: { exitCode: EXIT_CODES.USAGE },
@@ -127,6 +129,10 @@ export interface CliFailure {
  * else is a bug and prints its stack, so it can be reported.
  */
 export function describeCliFailure(error: unknown): CliFailure {
+  if (error instanceof ApiFailure) {
+    const failure = describeCliFailure(error.cause);
+    return { ...failure, message: `API ${error.apiName}: ${failure.message}` };
+  }
   if (!isOpenAPITypesafeError(error)) {
     const text = error instanceof Error ? (error.stack ?? error.message) : String(error);
     return { exitCode: EXIT_CODES.INTERNAL, message: `Unexpected error: ${text}` };
@@ -134,6 +140,22 @@ export function describeCliFailure(error: unknown): CliFailure {
   const report = CLI_ERROR_REPORTS[error.code];
   const message = report.message?.(error) ?? error.message;
   return { exitCode: report.exitCode, message: `${message} (${error.code})` };
+}
+
+/**
+ * A failure of one API of a Redocly config. The CLI reports its cause with the API named first,
+ * as the config errors of an API are; the cause keeps its code and so its exit code.
+ */
+export class ApiFailure extends Error {
+  override readonly name = "ApiFailure";
+  override readonly cause: unknown;
+  readonly apiName: string;
+
+  constructor(apiName: string, cause: unknown) {
+    super(`API ${apiName} failed`, { cause });
+    this.apiName = apiName;
+    this.cause = cause;
+  }
 }
 
 /** Errors of the CLI itself; its messages are the original CLI's messages. */

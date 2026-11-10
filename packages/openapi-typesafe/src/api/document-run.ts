@@ -1,10 +1,10 @@
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import { sourceEmptyError } from "../adapters/redocly-loader/schema-load-errors.js";
 import type { DeprecationReporter } from "../application/ports/deprecation-reporter.js";
 import type { Logger } from "../application/ports/logger.js";
-import type { RefAccess, SchemaLoader } from "../application/ports/schema-loader.js";
+import type { SchemaLoader } from "../application/ports/schema-loader.js";
 import { withStackOverflowReported } from "../application/stack-overflow.js";
 import {
   ineffectiveFixNotices,
@@ -19,6 +19,7 @@ import { warnDiscriminatorValueConflicts } from "./discriminator-conflict-warnin
 import { findDiscriminators } from "./discriminator-scan.js";
 import { resolveDocumentRef } from "./document-refs.js";
 import { warnIdenticalPathTemplates } from "./path-template-warnings.js";
+import { refAccessOf } from "./ref-limit-options.js";
 import type { RunContext } from "./run-context.js";
 import { warnUnsupportedFeatures } from "./unsupported-feature-warnings.js";
 
@@ -66,19 +67,6 @@ function sourceCwd(options: GeneratorOptions): URL {
   }
   const directory = path.resolve(cwd === undefined ? processCwd() : cwd.toString());
   return pathToFileURL(path.join(directory, path.sep));
-}
-
-/** The `$ref` limits of the options; a relative local root resolves against the cwd. */
-function refAccessOf(options: GeneratorOptions, cwd: URL): RefAccess {
-  const { localRefRoot, remoteRefHosts } = options;
-  const localRoot =
-    typeof localRefRoot === "string"
-      ? pathToFileURL(path.resolve(fileURLToPath(cwd), localRefRoot))
-      : localRefRoot;
-  return {
-    ...(localRoot === undefined ? {} : { localRoot }),
-    ...(remoteRefHosts === undefined ? {} : { remoteHosts: remoteRefHosts }),
-  };
 }
 
 function callbackOptions(options: GeneratorOptions) {

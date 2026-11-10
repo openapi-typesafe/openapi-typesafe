@@ -137,14 +137,64 @@ describe("unknown flags", () => {
 });
 
 describe("ineffectiveFlagNotices", () => {
+  const notices = (argv: string[]) => ineffectiveFlagNotices(parseCliArguments(argv).generatorFlags);
+
   it("ineffectiveFlagNotices names each root-types flag given without --root-types", () => {
-    expect(ineffectiveFlagNotices(["--root-types-no-schema-prefix", "--root-types-keep-casing"])).toEqual([
+    expect(notices(["--root-types-no-schema-prefix", "--rootTypesKeepCasing=true"])).toEqual([
       "--root-types-no-schema-prefix has no effect without --root-types flag",
       "--root-types-keep-casing has no effect without --root-types flag",
     ]);
   });
 
-  it("ineffectiveFlagNotices is empty with --root-types", () => {
-    expect(ineffectiveFlagNotices(["--root-types", "--root-types-keep-casing"])).toEqual([]);
+  it.each([["--root-types"], ["--rootTypes"], ["--root-types=true"]])(
+    "ineffectiveFlagNotices is empty with %s",
+    (flag) => {
+      expect(notices([flag, "--root-types-keep-casing"])).toEqual([]);
+    },
+  );
+
+  it("ineffectiveFlagNotices names the root-types flags when --root-types=false", () => {
+    expect(notices(["--root-types=false", "--root-types-keep-casing"])).toEqual([
+      "--root-types-keep-casing has no effect without --root-types flag",
+    ]);
+  });
+
+  it("ineffectiveFlagNotices is empty when the root-types flags are off", () => {
+    expect(notices(["--root-types-keep-casing=false", "--no-root-types-no-schema-prefix"])).toEqual([]);
+  });
+});
+
+describe("parseCliArguments flags with values", () => {
+  it.each(["--redoc=redocly.yaml", "--immutable-types=true", "--support-array-length=false"])(
+    "parseCliArguments fails with CLI_FLAG_REMOVED for %s",
+    (flag) => {
+      expect(() => parseCliArguments([flag])).toThrow(expect.objectContaining({ code: "CLI_FLAG_REMOVED" }));
+    },
+  );
+
+  it.each(["--enum=1", "--alphabetize=yes", "--rootTypes=on", "--check=", "--no-enum=true"])(
+    "parseCliArguments fails with CLI_FLAG_INVALID for %s",
+    (flag) => {
+      expect(() => parseCliArguments(["schema.yaml", flag])).toThrow(
+        expect.objectContaining({ code: "CLI_FLAG_INVALID" }),
+      );
+    },
+  );
+
+  it("parseCliArguments takes true and false as the values of a boolean flag", () => {
+    const args = parseCliArguments(["--enum=true", "--alphabetize=false", "--check=true"]);
+
+    expect(args.generatorFlags).toEqual({ enum: true, alphabetize: false });
+    expect(args.isCheck).toBe(true);
+  });
+
+  it("parseCliArguments reads an argument after -- as an input, not a flag", () => {
+    expect(parseCliArguments(["--", "--enum=1"]).input).toBe("--enum=1");
+  });
+
+  it("parseCliArguments takes the last value of a flag given twice", () => {
+    const args = parseCliArguments(["-o", "a.ts", "--output", "b.ts", "-c", "x.yaml", "--redocly=y.yaml"]);
+
+    expect([args.output, args.redocly]).toEqual(["b.ts", "y.yaml"]);
   });
 });
