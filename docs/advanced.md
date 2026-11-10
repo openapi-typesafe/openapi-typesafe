@@ -189,6 +189,17 @@ additionalProperties:
   </tbody>
 </table>
 
+::: info Properties next to `additionalProperties`
+TypeScript checks an index signature against every key of a value, declared ones too. So for
+`properties: { total: { type: integer } }` next to `additionalProperties: { type: string }`, the
+original's `{ total: number } & { [key: string]: string }` took no value with `total`. The index
+signature also takes the property types it does not admit: `[key: string]: string | number`. A key
+that no property declares can then hold a `number` too; TypeScript has no type for "the other keys".
+A property type that the index type already admits adds nothing, so `{ name: string }` next to
+`string` stays `[key: string]: string`. A `$ref` property type is always added, because the generator
+does not compare referenced types.
+:::
+
 When it comes to **tuple types**, you’ll also get better results by representing that type in your schema. Here’s the best way to type out an `[x, y]` coordinate tuple:
 
 <table>

@@ -86,6 +86,20 @@ const enumValueText = fc.constantFrom("x", "Line one\nline two", "a */ b", "ün�
 const enumDescriptionText = fc.constantFrom("", "x", "a */ b", "ünïcode");
 export const key = fc.constantFrom(...KEYS);
 
+/** Whether an object has properties and a typed `additionalProperties` or `patternProperties`. */
+function hasTypedIndexNextToProperties(object: {
+  readonly properties?: object;
+  readonly additionalProperties?: unknown;
+  readonly patternProperties?: object;
+}): boolean {
+  const hasKeys = (value: unknown) =>
+    typeof value === "object" && value !== null && Object.keys(value).length > 0;
+  return (
+    hasKeys(object.properties) &&
+    (hasKeys(object.additionalProperties) || hasKeys(object.patternProperties))
+  );
+}
+
 export function schemaArbitrary(): fc.Arbitrary<unknown> {
   const { schema } = fc.letrec((tie) => ({
     schema: fc.oneof(
@@ -163,20 +177,25 @@ export function schemaArbitrary(): fc.Arbitrary<unknown> {
     ),
     // Objects have no `$defs`: the original printed it as a required member (legacy bug 17,
     // upstream #2664), and the fix makes it optional on purpose (test/api/defs-types.test.ts).
-    object: fc.record(
-      {
-        type: fc.constantFrom("object", undefined),
-        properties: fc.dictionary(key, tie("schema"), { maxKeys: 3 }),
-        required: fc.uniqueArray(key, { maxLength: 3 }),
-        additionalProperties: fc.oneof(fc.boolean(), fc.constant({}), tie("schema")),
-        patternProperties: fc.dictionary(fc.constantFrom("^a", "^b"), tie("schema"), {
-          maxKeys: 2,
-        }),
-        nullable: fc.boolean(),
-        description: text,
-      },
-      { requiredKeys: [] },
-    ),
+    // Nor properties next to a typed index signature: its type now takes the property types it
+    // does not admit (test/transform/schema-object/object.test.ts, test/api/index-signature-
+    // property-types.test.ts).
+    object: fc
+      .record(
+        {
+          type: fc.constantFrom("object", undefined),
+          properties: fc.dictionary(key, tie("schema"), { maxKeys: 3 }),
+          required: fc.uniqueArray(key, { maxLength: 3 }),
+          additionalProperties: fc.oneof(fc.boolean(), fc.constant({}), tie("schema")),
+          patternProperties: fc.dictionary(fc.constantFrom("^a", "^b"), tie("schema"), {
+            maxKeys: 2,
+          }),
+          nullable: fc.boolean(),
+          description: text,
+        },
+        { requiredKeys: [] },
+      )
+      .filter((object) => !hasTypedIndexNextToProperties(object)),
     composition: fc.record(
       {
         type: fc.constantFrom("object", "string", undefined),

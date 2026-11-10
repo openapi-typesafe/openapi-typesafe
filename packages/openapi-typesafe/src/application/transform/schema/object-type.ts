@@ -9,6 +9,8 @@ import type { IrMember, IrPropertySignature, IrType } from "../../../domain/ir/n
 import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { NO_DECLARED_TYPES } from "../document/declared-types.js";
+import { assignabilityProof } from "../document/type-assignability.js";
 import { documentEntries } from "../document-entries.js";
 import { schemaRefType } from "../ref-pointer/pointer-type.js";
 import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js";
@@ -268,6 +270,20 @@ function discriminatorAndPropertyMembers(schema: SchemaObject, request: SchemaRe
 }
 
 /**
+ * The index signature type with the property types it does not admit. TypeScript checks an index
+ * signature against every key of a value, declared ones too, so `{ total: number } & { [key:
+ * string]: string }` admits no value with `total` (with a required `total`, none at all). The
+ * signature takes those property types too, as `unevaluated-properties` does. A property type
+ * proven assignable adds nothing, so output that admitted its values stays; one the proof cannot
+ * decide (a `$ref`) is added. `$defs` is a keyword, not data, so it is not read.
+ */
+function withPropertyTypes(indexType: IrType, propertyTypes: readonly IrType[]): IrType {
+  const relate = assignabilityProof(NO_DECLARED_TYPES);
+  const others = propertyTypes.filter((type) => relate(type, indexType) !== "assignable");
+  return unionOf([indexType, ...others]);
+}
+
+/**
  * Object keywords: discriminator, `properties`, `$defs`, and an index signature for
  * `additionalProperties` / `patternProperties` (or `--additional-properties`). Null when the schema
  * has none of them.
@@ -278,6 +294,9 @@ export function objectType(schema: SchemaObject, request: SchemaRequest): IrType
     return inherited ? irObject([discriminatorMember(inherited, request)]) : null;
   }
   const members = discriminatorAndPropertyMembers(schema, request);
+  const propertyTypes = members.flatMap((member) =>
+    member.kind === "property" ? [member.type] : [],
+  );
   // As in the original, a null `$defs` throws here (Object.keys) instead of being skipped.
   if (
     "$defs" in schema &&
@@ -290,8 +309,9 @@ export function objectType(schema: SchemaObject, request: SchemaRequest): IrType
   if (valueTypes.length === 0) {
     return members.length > 0 ? irObject(members) : null;
   }
+  const indexType = withPropertyTypes(unionOf(valueTypes), propertyTypes);
   const index = irObject([
-    irStringIndexSignature("key", unionOf(valueTypes), request.context.options.immutable),
+    irStringIndexSignature("key", indexType, request.context.options.immutable),
   ]);
   return intersectionOf([...(members.length > 0 ? [irObject(members)] : []), index]);
 }

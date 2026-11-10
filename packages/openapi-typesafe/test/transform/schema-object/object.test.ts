@@ -61,12 +61,31 @@ describe("transformSchemaObject > object", () => {
           properties: { property: { type: "boolean" } },
           additionalProperties: { type: "string" },
         },
+        // The original's `[key: string]: string` admitted no value with `property`: TypeScript
+        // checks the index signature against declared keys too, so it takes their types.
         want: `{
     property?: boolean;
 } & {
-    [key: string]: string;
+    [key: string]: string | boolean;
 }`,
         // options: DEFAULT_OPTIONS,
+      },
+    ],
+    [
+      "additionalProperties > properties the index signature admits",
+      {
+        given: {
+          type: "object",
+          properties: { name: { type: "string" }, kind: { type: "string", enum: ["a"] } },
+          additionalProperties: { type: "string" },
+        },
+        want: `{
+    name?: string;
+    /** @enum {string} */
+    kind?: "a";
+} & {
+    [key: string]: string;
+}`,
       },
     ],
     [
