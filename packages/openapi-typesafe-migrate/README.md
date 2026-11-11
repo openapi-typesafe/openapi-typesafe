@@ -48,7 +48,11 @@ openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed
 and the flags after `$(OAT)` (or `$G` for a one-letter name) where it runs; so is an `env` variable
 of a workflow and the flags after `$GEN` or `${{ env.GEN }}`, and a Dockerfile `ARG` or `ENV`
 variable and the flags after `$GEN`, and a justfile variable (`gen := "npx openapi-typescript"`)
-and the flags after `{{gen}}`. A shell variable that a script, a `run` block or a package.json
+and the flags after `{{gen}}`. In a justfile every string and backtick of an expression is read
+as a command line where it is written: in a value that just computes
+(`env_var_or_default("GEN", "npx openapi-typescript")`, an `if`), in a recipe parameter default
+(`types gen="npx openapi-typescript":`) and in an interpolation; such a value and a parameter (the
+command line can set it) may run another program, so the flags after them are reported. A shell variable that a script, a `run` block or a package.json
 script sets itself (`GEN="npx openapi-typescript"`, also after `export`, `local` or `readonly`)
 is renamed where it is set, and the flags after `$GEN` where it runs. The flags change only when every definition of the variable
 in the file sets it to the generator: a variable that another Dockerfile stage, a step `env` or a
