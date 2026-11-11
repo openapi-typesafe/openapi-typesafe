@@ -2,6 +2,59 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.5
+
+### Minor Changes
+
+- [#68](https://github.com/openapi-typesafe/openapi-typesafe/pull/68) [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95) Thanks [@fedorello](https://github.com/fedorello)! - A `FormData`, `Blob`, `File` or `ReadableStream` body from `undici` or another realm (an iframe) is
+  sent as it is: the client told a body by `instanceof`, so it JSON-encoded one of another class as
+  `{}`. `createClient` takes a `FormData` class next to `Request`: a multipart body is built with it,
+  and a FormData body of another class is copied into one of it, since undici's `Request` read the
+  platform's FormData as the text `[object FormData]`. With undici, pass
+  `createClient({ fetch, Request, FormData })` from the package. An instance of the platform's own
+  global class is still sent as it is, so the FormData, Blob and URLSearchParams of React Native and
+  the Blob and File of jsdom 20 (Jest 29), which have no type tag or no `arrayBuffer`, keep working.
+
+- [#67](https://github.com/openapi-typesafe/openapi-typesafe/pull/67) [`fbaded2`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fbaded241385d032d5b28d2c93d5e0a7d6ae292b) Thanks [@fedorello](https://github.com/fedorello)! - The client has a read-only `baseUrl`: the `baseUrl` option without its trailing slash, or `""`.
+
+### Patch Changes
+
+- [#68](https://github.com/openapi-typesafe/openapi-typesafe/pull/68) [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95) Thanks [@fedorello](https://github.com/fedorello)! - An empty success body read with `parseAs: "text"`, `"blob"`, `"arrayBuffer"` or `"stream"` gives
+  `""`, an empty `Blob` or `ArrayBuffer`, or `response.body`, as its type says. A 204, an answer to
+  HEAD or a `Content-Length: 0` gave `undefined`, while the same empty body without a length gave
+  `""`. With the default `parseAs: "json"` an empty body is still `undefined`.
+
+- [#68](https://github.com/openapi-typesafe/openapi-typesafe/pull/68) [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95) Thanks [@fedorello](https://github.com/fedorello)! - `params.header` values are written in the `simple` style, the only style OpenAPI has for headers:
+  a `Date` as ISO 8601 (it was local time), an array as `a,b` (it was `a, b`) and an object as
+  `role,admin` (it was `[object Object]`), not percent-encoded, also in the names. A nested object or
+  array inside one throws, as in the query. An empty array or object sends no header, and `null`
+  still removes one.
+
+- [#68](https://github.com/openapi-typesafe/openapi-typesafe/pull/68) [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95) Thanks [@fedorello](https://github.com/fedorello)! - A form or multipart `Content-Type` with spaces or tabs before its parameters
+  (`application/x-www-form-urlencoded ; charset=utf-8`, RFC 9110 OWS) gives form data or `FormData`
+  again, in the runtime and in the result type of `defaultBodySerializer`; the object was sent as
+  JSON. The JSON check already took them.
+
+- [#68](https://github.com/openapi-typesafe/openapi-typesafe/pull/68) [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95) Thanks [@fedorello](https://github.com/fedorello)! - `style` and `explode` of the `array` and `object` options of `QuerySerializerOptions` are optional,
+  and one left out takes the client's value, else its default (`form` or `deepObject`, exploded): a
+  request's `{ array: { explode: false } }` keeps the client's `style`. `onError` may return an
+  `Error` of another realm (an iframe, `node:vm`); it was rejected as not an error.
+
+- [#68](https://github.com/openapi-typesafe/openapi-typesafe/pull/68) [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95) Thanks [@fedorello](https://github.com/fedorello)! - The query of a request whose path template has a fragment (`/docs#intro`) goes before the
+  fragment, joined with a query the template already has. It was added after the `#`, where it is
+  part of the fragment, so `fetch` never sent it.
+
+- [#75](https://github.com/openapi-typesafe/openapi-typesafe/pull/75) [`a74608e`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a74608ec36b0a938594e0d0fac10c9fb222c1742) Thanks [@fedorello](https://github.com/fedorello)! - `Readable` and `Writable` find the `$Read` and `$Write` properties of an object with an index
+  signature (`additionalProperties`). The keys were read through the index signature, so no
+  property was marked: a request body required the `readOnly` `id`, and a response kept the
+  `writeOnly` password. The helper types that `--read-write-markers` writes are fixed the same way.
+
+- [#68](https://github.com/openapi-typesafe/openapi-typesafe/pull/68) [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95) Thanks [@fedorello](https://github.com/fedorello)! - A response is typed as data or an error by the first digit of its status, as `response.ok` reads
+  it: a declared 205, 208 or 226 types `data` with its body, and a 419, a 3XX (read with
+  `redirect: "manual"`) or a 1XX types `error` with its body.
+  The types classified by two closed lists of statuses, `OkStatus` and `ErrorStatus`, which stay
+  exported. New helper types `SuccessStatusKey` and `ErrorStatusKey` name the statuses of each kind.
+
 ## 1.0.0-rc.4
 
 ### Minor Changes

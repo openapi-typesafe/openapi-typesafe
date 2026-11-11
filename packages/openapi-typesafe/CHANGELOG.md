@@ -2,6 +2,147 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.5
+
+### Patch Changes
+
+- [#70](https://github.com/openapi-typesafe/openapi-typesafe/pull/70) [`d732870`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d732870a9e1d207761c88614a95b778c4f0ebe9d) Thanks [@fedorello](https://github.com/fedorello)! - With several APIs in `redocly.yaml`, an error while an API is loaded or generated starts with
+  `API <name>:`, as its config errors do, so it tells which API failed. The code and the exit code
+  stay the same. Every warning, problem and debug line of an API's generation (a `$ref` it cannot
+  resolve, a lint problem) starts with `API <name>:` too. A notice that a root-types flag has no
+  effect follows the CLI flags together with each API's settings and names the API, and an invalid
+  `--local-ref-root` fails the run once instead of once for each API.
+
+- [#70](https://github.com/openapi-typesafe/openapi-typesafe/pull/70) [`d732870`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d732870a9e1d207761c88614a95b778c4f0ebe9d) Thanks [@fedorello](https://github.com/fedorello)! - Types piped to a reader that stops early (`openapi-typesafe api.yaml | head`) no longer crash the
+  CLI with `EPIPE` and exit code `1`; the rest is dropped and the exit code stays `0`.
+
+- [#70](https://github.com/openapi-typesafe/openapi-typesafe/pull/70) [`d732870`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d732870a9e1d207761c88614a95b778c4f0ebe9d) Thanks [@fedorello](https://github.com/fedorello)! - CLI flags are read by their names:
+  - A removed flag fails with `CLI_FLAG_REMOVED` written with a value too (`--redoc=redocly.yaml`),
+    in camelCase (`--immutableTypes`) and with `--no-` (`--no-immutable-types`).
+  - The boolean alias `-t` (`--export-type`) takes `=true` and `=false` as the flag does; another
+    value fails with `CLI_FLAG_INVALID`.
+  - A boolean flag takes no value, or `=true` or `=false`. Another value (`--enum=1`,
+    `--no-enum=true`) fails with `CLI_FLAG_INVALID` (exit code `2`) instead of turning the flag off.
+  - A flag given more than once takes the last value; `--output` and `--redocly` no longer fail with
+    a list.
+  - The notice that a root-types flag has no effect without `--root-types` follows the parsed flags:
+    `--rootTypes` and `--root-types=true` count, `--root-types=false` does not.
+
+- [#76](https://github.com/openapi-typesafe/openapi-typesafe/pull/76) [`e464bc3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e464bc3c9dcb243a4259307d6b667bde134d8468) Thanks [@fedorello](https://github.com/fedorello)! - A schema argument is a glob pattern, which fails with `CLI_GLOB_UNSUPPORTED`, only when it is a
+  path with a `*` that names no file. A URL with a `*` in its query (`…/openapi?fields=*`) and an
+  existing file whose name has a `*` are read as any other schema.
+
+- [#70](https://github.com/openapi-typesafe/openapi-typesafe/pull/70) [`d732870`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d732870a9e1d207761c88614a95b778c4f0ebe9d) Thanks [@fedorello](https://github.com/fedorello)! - `--output` together with the APIs of `redocly.yaml` warns with `CLI_OUTPUT_IGNORED`: each API is
+  written to its `x-openapi-ts.output`, and the `--output` path was ignored without a word.
+
+- [#76](https://github.com/openapi-typesafe/openapi-typesafe/pull/76) [`e464bc3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e464bc3c9dcb243a4259307d6b667bde134d8468) Thanks [@fedorello](https://github.com/fedorello)! - The line for a written file and the notices about flags show a line break or an escape sequence in
+  a file name, a flag or an API name as an escape (`\n`, `\u001b`), as warnings and errors already
+  do, so a name cannot start a forged line in a CI log.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - `const: null` is typed `null`; it was `unknown`, as if the schema had no `const`.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - `--enum --dedupe-enums` no longer merges enums with other values. Their key joined the member
+  names and descriptions as text, and a member name stood in for its value, so `Flag` (`1`, `0`)
+  became the `Status` enum (`"A"`, `"I"`) when both named their members `Active` and `Inactive`, and
+  `["1", "2"]` and `[1, 2]`, or `["a", "b"]` and `["a:,b"]`, shared one enum. The key also paired
+  the values in sorted order with the names in document order, so `[desc, asc]` and `[asc, desc]`,
+  both named `[Desc, Asc]`, shared one enum and one of them typed `asc` as `Desc = "desc"`. Enums
+  with the same values and member names are still merged.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - The new fix `default-input-locations` finds parameters and request bodies by the document's
+  structure for `--default-non-nullable` (on by default). Without it, as in openapi-typescript, a
+  defaulted property stays optional wherever its location holds the word `parameters` or
+  `requestBody`, such as a response of `/system-parameters` or a property named `hyperparameters`.
+  It changes nothing with `--default-non-nullable=false`, so naming it then prints the warning
+  `FIX_NEEDS_OPTION`, as other fixes that need a flag do (`--fix all` does not).
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - With `--exclude-deprecated`, a `$ref` to a property it leaves out
+  (`#/components/schemas/A/properties/old`) is typed as that property's schema, instead of naming a
+  key the type no longer has. The same holds for a `$ref` into a deprecated operation or response
+  header, and a `$ref` through another `$ref` (`Wrap/properties/o/properties/v`, where `o` is a
+  `$ref`) no longer warns `REF_NOT_FOUND`. With `--make-paths-enum`, `ApiPaths` lists only the
+  operations that `paths` keeps.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - `--fix exploded-query-objects`: an exploded object with `additionalProperties` next to other query
+  parameters no longer makes the whole `query` type unusable. Its index signature also takes the
+  value types of the other query keys (`{ page?: number } & Partial<{ [key: string]: string | number
+| undefined }>`), since TypeScript checks it against `page` too. A `$ref` to such an object is
+  written out in place when other query keys are next to it.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - An index signature from `additionalProperties` or `patternProperties` also takes the types of the
+  properties next to it that it does not admit (`{ total: number } & { [key: string]: string |
+number }`). TypeScript checks the signature against the declared keys too, so the old type took no
+  value with those properties.
+
+- [#76](https://github.com/openapi-typesafe/openapi-typesafe/pull/76) [`e464bc3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e464bc3c9dcb243a4259307d6b667bde134d8468) Thanks [@fedorello](https://github.com/fedorello)! - A YAML parse error of a string source or a stream (stdin in the CLI) names it `the schema string`
+  or `the schema stream`. It named `<cwd>/inline-source`, a file that does not exist.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - A discriminator `mapping` value that names a schema (`cat: Cat`), as OpenAPI allows, is read as
+  `#/components/schemas/Cat`, also in a document a `$ref` loads, where it names that document's
+  schemas. It failed with "Can't resolve $ref"; any other value is still a URI reference. A `mapping`
+  inside `example`, `examples`, `default`, `const`, `enum` or an `x-` value is data and stays as
+  written. A problem in a document other than the root now names that document: its path, or its URL
+  without the query.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - The `parameter-content` fix is now `parameter-header-content` and types a response header with
+  `content` by the schema of its media type too (`"X-Rate": { limit: number }`), not as a map of
+  media types. Configs that name `parameter-content` fail with `OPTION_FIX_UNKNOWN` until renamed.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types` with only `boolean` path parameters in a path compiles:
+  ``[path: `/flags/${boolean}`]`` is no valid index signature (TS1337), so such a path is written as
+  the keys `"/flags/true"` and `"/flags/false"`, with the same path item type (2ⁿ keys for n boolean
+  parameters). A key that the document already has as a path is left out. Next to another parameter
+  (`` `/a/${number}/${boolean}` ``) the signature is valid and stays as it was.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - `--path-params-as-types`: a `$ref` into a path with a `number` or `boolean` path parameter
+  compiles. It was typed as `paths["/pets/{id}"]`, which names no key of
+  ``[path: `/pets/${number}`]`` (TS2339); it is now ``paths[`/pets/${number}`]``. A boolean path
+  is indexed by the keys it is written with (`paths["/flags/true" | "/flags/false"]`), without the
+  one a path of the document takes, so the `$ref` no longer gets that path's type too. With only
+  string parameters the URL matches the template, so that output stays as it was.
+
+- [#75](https://github.com/openapi-typesafe/openapi-typesafe/pull/75) [`a74608e`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a74608ec36b0a938594e0d0fac10c9fb222c1742) Thanks [@fedorello](https://github.com/fedorello)! - `Readable` and `Writable` find the `$Read` and `$Write` properties of an object with an index
+  signature (`additionalProperties`). The keys were read through the index signature, so no
+  property was marked: a request body required the `readOnly` `id`, and a response kept the
+  `writeOnly` password. The helper types that `--read-write-markers` writes are fixed the same way.
+
+- [#70](https://github.com/openapi-typesafe/openapi-typesafe/pull/70) [`d732870`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d732870a9e1d207761c88614a95b778c4f0ebe9d) Thanks [@fedorello](https://github.com/fedorello)! - The `$ref` limits are checked before anything loads:
+  - In the Node API, a `remoteRefHosts` that is no list of strings, or a `localRefRoot` that is no
+    path or `file:` URL, fails with `OPTION_INVALID` and `details.option`. It failed later as an error
+    of the document, such as `hosts.map is not a function`.
+  - `--local-ref-root https://…` fails with `CLI_FLAG_INVALID` (exit code `2`) instead of exit code
+    `3`, and a `local-ref-root` URL of another protocol in `redocly.yaml` with `CLI_CONFIG_INVALID`.
+  - In the Node API, a `localRefRoot` string with a scheme is a URL, as for `--local-ref-root`:
+    `"file:///specs/"` is that directory, not a path below `cwd`, and `"https://…"` fails with
+    `OPTION_INVALID`.
+
+- [#75](https://github.com/openapi-typesafe/openapi-typesafe/pull/75) [`a74608e`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a74608ec36b0a938594e0d0fac10c9fb222c1742) Thanks [@fedorello](https://github.com/fedorello)! - More `$ref`s into a schema compile and get the type they point at:
+  - A `$ref` into the `content` of a header or parameter follows the generated type: the media type
+    member of a header (`components["headers"]["H"]["text/plain"]`), or with the
+    `parameter-header-content` fix the media type's type itself. A parameter typed `string` and
+    `content` next to a `schema` are typed in place. Before, `["content"]["text/plain"]["schema"]`
+    did not compile (TS2339).
+  - With `--read-write-markers`, a `$ref` through an optional property gets `NonNullable` as
+    without the flag; one through a `$Read` or `$Write` property is typed in place.
+  - A `$ref` through a property with a `default` that the output makes optional (in a request body,
+    or under a property named `hyperparameters`) gets `NonNullable`: the property is read as
+    optional or required by where it is, not where the `$ref` is.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - `--fix ref-siblings` also reads the keywords next to the `$ref` of an object property
+  (`owner: { $ref: Base, required: [id] }` is `WithRequired<Base, "id">`); it read them only for
+  components, array items, bodies and parameters.
+
+- [#66](https://github.com/openapi-typesafe/openapi-typesafe/pull/66) [`15344bf`](https://github.com/openapi-typesafe/openapi-typesafe/commit/15344bfb803ff9872a6d3f79b8279fbbbbfd14ea) Thanks [@fedorello](https://github.com/fedorello)! - A remote `$ref` to a document served as `text/plain` loads when its URL has a query after the
+  extension (`pet.yaml?token=…`), no extension at all (`/schemas/pet`) or a dot that names no text
+  format (`/schemas/v1.0`, `/schemas/pet.v2`); before, it was kept as text and failed with
+  `Expected SchemaObject, received string`. A URL whose extension or type names a text format
+  (`.md`, `.markdown`, `.txt`, `.html`, `.htm`, `text/markdown`, `text/html`) stays text, as a
+  Markdown `description` does.
+
+- [#71](https://github.com/openapi-typesafe/openapi-typesafe/pull/71) [`2a03b07`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2a03b072bf201e5e6eeec9ad9744a3f9d513b78a) Thanks [@fedorello](https://github.com/fedorello)! - A webhook that is a `$ref` (often to `components/pathItems`) is typed as the path item it points
+  at, as a `$ref` in `paths` is: `petAdded: components["pathItems"]["PetEvent"]`. Every method of
+  such a webhook was `never`.
+
 ## 1.0.0-rc.4
 
 ### Minor Changes

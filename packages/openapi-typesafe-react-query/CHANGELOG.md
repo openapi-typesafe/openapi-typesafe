@@ -2,6 +2,24 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.5
+
+### Patch Changes
+
+- [#67](https://github.com/openapi-typesafe/openapi-typesafe/pull/67) [`fbaded2`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fbaded241385d032d5b28d2c93d5e0a7d6ae292b) Thanks [@fedorello](https://github.com/fedorello)! - Two requests no longer share a cache entry: the init in a query key has its `headers` as a plain
+  object of the names and values they send (a `Headers` object hashed as `{}` before), a
+  `URLSearchParams`, `FormData`, `Blob` or bytes body by its content (hashed as `{}` before too), and
+  the `baseUrl` of the fetch client, so two clients with different base URLs get their own entries.
+  `createClient(fetchClient, { keyScope })` puts a name for the API in the keys instead of the base
+  URL: give the server and the browser the same one when they reach the API by different URLs, so
+  the browser reads the data the server rendered.
+  Read keys from `queryOptions(...).queryKey`; `[method, path]` still matches every query. Each
+  request is sent with the init of its own call, and stops when the query is cancelled also when the
+  init has its own `signal`. `useQuery` with an `initialData` that is never `undefined` types `data`
+  as defined, as TanStack Query does.
+- Updated dependencies [[`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`fbaded2`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fbaded241385d032d5b28d2c93d5e0a7d6ae292b), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`a74608e`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a74608ec36b0a938594e0d0fac10c9fb222c1742), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95)]:
+  - openapi-typesafe-fetch@1.0.0-rc.5
+
 ## 1.0.0-rc.4
 
 ### Patch Changes
