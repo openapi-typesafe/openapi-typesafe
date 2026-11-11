@@ -1,5 +1,6 @@
-import { type FileVariables, runsGenerator } from "./file-variables.js";
-import { type ShellWord, shellCommands } from "./shell-words.js";
+import { type FileVariables, runsGenerator, type VariableProgramUse } from "./file-variables.js";
+import { shellAssignments } from "./shell-assignments.js";
+import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { type ProgramDefinition, variablePrograms } from "./variable-programs.js";
 
 /** A shell variable as a file sets it: its name and its value, read as shell text. */
@@ -51,5 +52,36 @@ export function shellVariables(definitions: readonly VariableDefinition[]): File
       const value = name === undefined ? undefined : values.get(name);
       return value === undefined ? undefined : { written: word.raw, value };
     },
+  };
+}
+
+/** What two answers for one program word say together: one program, or not only the generator. */
+function combinedUse(
+  left: VariableProgramUse | undefined,
+  right: VariableProgramUse | undefined,
+): VariableProgramUse | undefined {
+  if (left === undefined || right === undefined) {
+    return left ?? right;
+  }
+  return left.program === right.program ? left : { ...left, program: "generator-or-other" };
+}
+
+/**
+ * The variables of a file (a workflow `env`, a Makefile) and those that its shell commands set
+ * themselves (`GEN="npx openapi-typescript"; $GEN a.yaml -it`), read as one: a name both set
+ * runs the generator only when both say so, as for the definitions of one file.
+ */
+export function withShellAssignments(
+  commands: readonly ShellCommand[],
+  file: FileVariables,
+): FileVariables {
+  const definitions = commands.flatMap(shellAssignments);
+  if (definitions.length === 0) {
+    return file;
+  }
+  const own = shellVariables(definitions);
+  return {
+    programAt: (program) => combinedUse(own.programAt(program), file.programAt(program)),
+    referenceAt: (word) => own.referenceAt(word) ?? file.referenceAt(word),
   };
 }

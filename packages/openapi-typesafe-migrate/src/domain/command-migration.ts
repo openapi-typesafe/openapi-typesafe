@@ -8,6 +8,7 @@ import {
   MIGRATED_GENERATOR_COMMAND,
   PACKAGE_RENAMES,
 } from "./package-names.js";
+import { withShellAssignments } from "./shell-variables.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 
@@ -222,8 +223,9 @@ export function commandWordFindings(
   locate: Locate,
   variables: FileVariables = NO_VARIABLES,
 ): ShellTextFindings {
+  const known = withShellAssignments(commands, variables);
   const findings = commands
-    .flatMap((words) => commandFindings(words, locate, variables))
+    .flatMap((words) => commandFindings(words, locate, known))
     .sort((left, right) => left.offset - right.offset);
   return {
     edits: findings.flatMap((finding) => (finding.edit === undefined ? [] : [finding.edit])),
