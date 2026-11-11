@@ -50,6 +50,11 @@ const declaration: ts.EnumDeclaration = tsEnum("Color", ["red"]);
 export const text: string =
   astToString([declaration], { formatOptions: { newLine: ts.NewLineKind.LineFeed } }) +
   astToString(await openapiTS("openapi: 3.1.0", options));
+// Inline options without irCallbacks: the parameters get the node types, not implicit any.
+export const inline = await openapiTS("openapi: 3.1.0", {
+  postTransform: (type) => (ts.isUnionTypeNode(type) ? type : undefined),
+  transformProperty: (property) => (ts.isPropertySignature(property) ? property : undefined),
+});
 `;
 
 const TSCONFIG = {
