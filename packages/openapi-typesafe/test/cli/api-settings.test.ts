@@ -99,7 +99,18 @@ describe("x-openapi-ts settings", () => {
     expect(await runCli([], cli.deps)).toBe(2);
 
     expect(cli.logger.messages("error")).toEqual([
-      "API api: `local-ref-root` in x-openapi-ts must be a directory path or a file: URL (CLI_CONFIG_INVALID)",
+      "API api: `local-ref-root` in x-openapi-ts must be a directory path or a file: URL of a local directory (CLI_CONFIG_INVALID)",
+    ]);
+    expect(cli.generator.calls).toEqual([]);
+  });
+
+  it("runCli with a local-ref-root file: URL that names no local path exits with 2 before generating", async () => {
+    const cli = cliWithApi({ "local-ref-root": "file:///a%2Fb/" });
+
+    expect(await runCli([], cli.deps)).toBe(2);
+
+    expect(cli.logger.messages("error")).toEqual([
+      "API api: `local-ref-root` in x-openapi-ts must be a directory path or a file: URL of a local directory (CLI_CONFIG_INVALID)",
     ]);
     expect(cli.generator.calls).toEqual([]);
   });
@@ -112,7 +123,7 @@ describe("x-openapi-ts settings", () => {
     expect(await runCli([], hosts.deps)).toBe(2);
 
     expect(root.logger.messages("error")).toEqual([
-      "API api: `local-ref-root` in x-openapi-ts must be a directory path or a file: URL (CLI_CONFIG_INVALID)",
+      "API api: `local-ref-root` in x-openapi-ts must be a directory path or a file: URL of a local directory (CLI_CONFIG_INVALID)",
     ]);
     expect(hosts.logger.messages("error")).toEqual([
       "API api: `remote-ref-hosts` in x-openapi-ts must be a host list (CLI_CONFIG_INVALID)",

@@ -1,8 +1,9 @@
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { hasUrlScheme } from "../domain/location-text.js";
 import type { GeneratorOptions } from "../types.js";
 import { processCwd } from "./default-ports.js";
+import { isLocalFileUrl, NO_LOCAL_PATH_KIND } from "./local-file-url.js";
 import { kindOf, optionInvalid } from "./option-errors.js";
 
 /**
@@ -39,20 +40,10 @@ function cwdUrlOf(value: unknown): URL | undefined {
   return value instanceof URL ? value : undefined;
 }
 
-/** A `file:` URL with a host, or with an encoded slash, names no path on this platform. */
-function isLocalPath(url: URL): boolean {
-  try {
-    fileURLToPath(url);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** What the cwd is instead of a directory, for the error. */
 function cwdKindOf(value: unknown, url: URL | undefined): string {
   if (url?.protocol === FILE_PROTOCOL) {
-    return "a file: URL that names no local path";
+    return NO_LOCAL_PATH_KIND;
   }
   return url === undefined && typeof value === "string"
     ? "a string that is no valid URL"
@@ -68,7 +59,7 @@ export function sourceCwdOf(options: GeneratorOptions): URL {
   const isUsable =
     url !== undefined &&
     CWD_PROTOCOLS.has(url.protocol) &&
-    (url.protocol !== FILE_PROTOCOL || isLocalPath(url));
+    (url.protocol !== FILE_PROTOCOL || isLocalFileUrl(url));
   if (!isUsable) {
     throw optionInvalid("cwd", CWD_EXPECTED, cwdKindOf(options.cwd, url));
   }
