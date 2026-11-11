@@ -1,4 +1,4 @@
-import { assertType, describe, test } from "vitest";
+import { assertType, describe, expectTypeOf, test } from "vitest";
 import type {
   ErrorResponse,
   GetResponseContent,
@@ -136,35 +136,8 @@ describe("types", () => {
 
       test("non existent media type", () => {
         type Response = GetResponseContent<MixedResponses, "I/DO NOT EXIST">;
-        assertType<Response>({
-          // @ts-expect-error
-          data: "200 application/json",
-        });
-        assertType<Response>({
-          // @ts-expect-error
-          data: "200 but different string",
-        });
-        assertType<Response>(
-          // @ts-expect-error
-          "200 text/plain",
-        );
-        assertType<Response>(
-          // @ts-expect-error
-          "206 text/plain",
-        );
-        assertType<Response>(
-          // @ts-expect-error
-          "404 text/plain",
-        );
-
-        assertType<Response>({
-          // @ts-expect-error
-          error: "500 application/json",
-        });
-        assertType<Response>(
-          // @ts-expect-error 204 never does not become undefined
-          undefined,
-        );
+        // No response has that media type, so none adds a body (not its whole content map).
+        expectTypeOf<Response>().toBeNever();
       });
     });
 
