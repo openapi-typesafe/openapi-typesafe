@@ -27,8 +27,9 @@ describe("refAccessOf", () => {
   });
 
   it("refAccessOf reads a localRefRoot string with a file: scheme as a URL", () => {
-    expect(refAccessOf({ localRefRoot: "file:///specs/" }, CWD)).toEqual({
-      localRoot: new URL("file:///specs/"),
+    const specs = pathToFileURL("/specs/");
+    expect(refAccessOf({ localRefRoot: specs.href }, CWD)).toEqual({
+      localRoot: specs,
     });
   });
 
