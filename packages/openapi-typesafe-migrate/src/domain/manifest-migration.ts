@@ -30,7 +30,11 @@ import {
   PNPM_SETTINGS_FIELD,
 } from "./package-names.js";
 import { reportSettingSections, type SettingsFile } from "./settings-sections.js";
-import { migrateBrowserField, migrateSubpathImports } from "./specifier-maps.js";
+import {
+  migrateBrowserField,
+  migrateSubpathImports,
+  reportOldPackagePaths,
+} from "./specifier-maps.js";
 import { overriddenOldPackages } from "./successor-aliases.js";
 import { applyTextEdits } from "./text-edits.js";
 import { itemEntries, keyEntries, specEntries } from "./tree-entries.js";
@@ -41,6 +45,9 @@ import { itemEntries, keyEntries, specEntries } from "./tree-entries.js";
  * as written (domain/config-documents.ts). Scripts are commands: file-migrations.ts migrates
  * them with the other command files.
  */
+
+/** TypeScript's `typesVersions`: its paths may point into the installed files of an old package. */
+const TYPES_VERSIONS_FIELD = "typesVersions";
 
 function migrateDependencyFields(manifest: TreeMap, target: RenameTarget, findings: Findings) {
   for (const field of DEPENDENCY_FIELDS) {
@@ -142,6 +149,9 @@ function migrateManifestMap(manifest: TreeMap, target: ManifestTarget, findings:
   migrateCatalogs(manifest, target, findings);
   migrateSubpathImports(manifest, findings);
   migrateBrowserField(manifest, findings);
+  for (const versions of valuesAt(manifest, TYPES_VERSIONS_FIELD)) {
+    reportOldPackagePaths(versions, [TYPES_VERSIONS_FIELD], findings);
+  }
   reportSettings(manifest, findings);
   for (const jest of valuesAt(manifest, JEST_FIELD)) {
     findings.manualSteps.push(...jestConfigSteps(jest, [JEST_FIELD]));

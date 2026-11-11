@@ -49,10 +49,12 @@ export const NX_WORKSPACE_COMMAND_PATHS: readonly CommandPathPattern[] = nxTarge
 
 /**
  * A manifest (package.json, package.yaml): the scripts, the configs of simple-git-hooks and
- * lint-staged, and the Nx targets of the project. Each finding names its place (`scripts.gen`).
+ * lint-staged, the `command` of each wireit script (the script itself is just `wireit`), and the
+ * Nx targets of the project. Each finding names its place (`scripts.gen`).
  */
 export const MANIFEST_COMMAND_PATHS: readonly CommandPathPattern[] = [
   ["scripts", ANY],
+  ["wireit", ANY, "command"],
   ...simpleGitHooksPaths(["simple-git-hooks"]),
   ...lintStagedPaths(["lint-staged"]),
   ...nxTargetPaths(["nx", "targets"]),
