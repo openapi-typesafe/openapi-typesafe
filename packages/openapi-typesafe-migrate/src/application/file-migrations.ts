@@ -9,7 +9,7 @@ import {
   SIMPLE_GIT_HOOKS_COMMAND_PATHS,
 } from "../domain/command-paths.js";
 import { commandStringSteps } from "../domain/command-strings.js";
-import { undeclaredImportSteps } from "../domain/declared-packages.js";
+import { localPackagesFor, undeclaredImportSteps } from "../domain/declared-packages.js";
 import { migrateDockerfile } from "../domain/dockerfile-migration.js";
 import { migrateImportMap } from "../domain/import-map-migration.js";
 import { importMapSteps } from "../domain/import-map-reference.js";
@@ -90,7 +90,8 @@ const isDependabotConfig = (path: string): boolean =>
 /** Module specifiers and `transform` callbacks are migrated; command strings are reported. */
 function migrateSource(text: string, path: string, context: MigrationContext): FileMigration {
   const strings = context.scanner.scan(text, path);
-  const migrated = chain(migrateModuleSpecifiers(text, strings, context.version), (renamed) =>
+  const kept = localPackagesFor(context.manifests, path);
+  const migrated = chain(migrateModuleSpecifiers(text, strings, context.version, kept), (renamed) =>
     context.rewriter.rewrite(renamed, path),
   );
   const imports = importedSpecifiers(text, strings);

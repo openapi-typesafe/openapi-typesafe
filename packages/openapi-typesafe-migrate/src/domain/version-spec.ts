@@ -3,11 +3,17 @@
  * openapi-typesafe version: `^` and `>=` give `^`, `~` gives `~`, an exact version stays exact,
  * and a partial version keeps what it fixes (`7` and `7.x` fix the major: `^`; `0.13` and
  * `0.13.x` fix the minor: `~`). A range of several comparators takes the style of its first one.
- * `catalog:` and `workspace:` stay, because they point elsewhere; anything else (a tag, `*`, an
+ * `catalog:` and `workspace:` stay, because they point elsewhere (a dependency on a local package
+ * keeps its old name too, domain/dependency-map.ts); anything else (a tag, `*`, an
  * upper bound only, a URL, a file or an npm alias) is kept and reported.
  */
 
 const KEPT_PROTOCOLS = ["catalog:", "workspace:"] as const;
+/**
+ * The protocols of specs that point at a package on disk (pnpm, Yarn, npm, bun), not at the npm
+ * registry: such a dependency is a local package that only shares an original package's name.
+ */
+const LOCAL_PROTOCOLS = ["workspace:", "link:", "file:", "portal:"] as const;
 const RANGE_SEPARATOR = "||";
 const HYPHEN = "-";
 const WHITE_SPACE_RE = /\s+/;
@@ -73,6 +79,10 @@ function rangeStyle(spec: string): RangeStyle | undefined {
   }
   return isHyphenRange ? "^" : versionStyle(first[2], first[3], first[4]);
 }
+
+/** True for a spec that points at a package on disk: `workspace:*`, `link:../fork`, `file:…`. */
+export const isLocalPackageSpec = (spec: string): boolean =>
+  LOCAL_PROTOCOLS.some((protocol) => spec.startsWith(protocol));
 
 /** The new spec for a renamed dependency whose old spec was `spec`. */
 export function migrateVersionSpec(spec: string, version: string): SpecDecision {

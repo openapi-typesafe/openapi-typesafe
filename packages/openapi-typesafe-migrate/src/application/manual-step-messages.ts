@@ -21,12 +21,18 @@ const PATCH_NOTE = "check whether the fix is still needed, then make the patch a
 const PATTERN_NOTE = "is a pattern that names";
 const PATTERN_FIX_NOTE = "where it means the package, make it match";
 const SETTING_NOTE = "remove the setting if it no longer applies, or make it name";
+const LOCAL_PACKAGE_NOTE =
+  "points at a local package, not the npm package, so it and the imports of it were kept: if " +
+  "that package is a copy of the original, move it to";
 const DEEP_TARGET_NOTE = "points at a file inside the package; check that it exists";
 const OLD_PATH_NOTE =
   "is a path into node_modules of an old package, which is no longer installed:";
 const OLD_PATH_FIX_NOTE = "point it at the files of";
 
 const renamed = (name: string): string => PACKAGE_RENAMES.get(name) ?? name;
+
+const localPackageMessage = (step: Extract<ManualStep, { kind: "local-package" }>): string =>
+  `${step.field}: ${step.name} "${step.spec}" ${LOCAL_PACKAGE_NOTE} ${renamed(step.name)}`;
 
 function oldPeerMessage(step: Extract<ManualStep, { kind: "old-peer-needed" }>): string {
   const { dependent, peer, range } = step;
@@ -124,6 +130,7 @@ type PackageStep = Extract<
     kind:
       | "peer-dependency-renamed"
       | "spec-kept"
+      | "local-package"
       | "override-names-package"
       | "setting-names-package"
       | "pattern-names-package"
@@ -139,6 +146,8 @@ function packageStepMessage(step: PackageStep): string {
       return `${step.name} is a peer dependency: ${PEER_NOTE}`;
     case "spec-kept":
       return `${step.name} kept the spec "${step.spec}": point it at an openapi-typesafe version`;
+    case "local-package":
+      return localPackageMessage(step);
     case "override-names-package":
       return `"${step.field}" names ${step.name}: update or remove that override`;
     case "setting-names-package":
@@ -181,6 +190,7 @@ export function manualStepMessage(step: ManualStep): string {
       return catalogStepMessage(step);
     case "peer-dependency-renamed":
     case "spec-kept":
+    case "local-package":
     case "override-names-package":
     case "setting-names-package":
     case "pattern-names-package":

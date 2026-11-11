@@ -5,7 +5,7 @@ import { migrateNpmSpec } from "./npm-alias.js";
 import { PACKAGE_RENAMES, renamedSpecifier } from "./package-names.js";
 import type { TextEdit } from "./text-edits.js";
 import { hideUrlCredentials } from "./url-credentials.js";
-import { migrateVersionSpec } from "./version-spec.js";
+import { isLocalPackageSpec, migrateVersionSpec } from "./version-spec.js";
 
 /**
  * Maps of package names: dependency fields and catalogs (`name: spec`), and lists or keys that
@@ -188,6 +188,20 @@ function catalogHold(entry: SpecEntry, spec: SpecValue, { map, catalogs }: MapCo
 }
 
 /**
+ * A dependency on a local package (`workspace:*`, `link:`, `file:`) is that package, which only
+ * shares the original name: under the new name it would point at a package the project lacks.
+ */
+function localPackageHold(entry: SpecEntry, spec: SpecValue, { map }: MapContext) {
+  return map.kind === "dependencies" && isLocalPackageSpec(spec.value)
+    ? ({ kind: "local-package", field: map.field, name: entry.name, spec: spec.value } as const)
+    : undefined;
+}
+
+/** Why an entry keeps its old name, or undefined when it is renamed. */
+const holdOf = (entry: SpecEntry, spec: SpecValue, context: MapContext) =>
+  localPackageHold(entry, spec, context) ?? catalogHold(entry, spec, context);
+
+/**
  * Rename the original packages of a dependency field or catalog, in place, with `version` as
  * the new version, and retarget `npm:` aliases of them. An entry whose value is not a string (a
  * YAML anchor or flow value) is not one the tool understands: it is left and reported.
@@ -204,7 +218,7 @@ export function migrateSpecMap(entries: readonly SpecEntry[], context: MapContex
     if (!isFree({ from: entry.name, to, field, names }, context.findings)) {
       continue;
     }
-    const hold = entry.spec === undefined ? undefined : catalogHold(entry, entry.spec, context);
+    const hold = entry.spec === undefined ? undefined : holdOf(entry, entry.spec, context);
     if (entry.spec === undefined) {
       context.findings.manualSteps.push({ kind: "entry-not-edited", field, name: entry.name });
     } else if (hold !== undefined) {

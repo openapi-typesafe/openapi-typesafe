@@ -1,6 +1,7 @@
-import { mapsAt, type TreeMap, textEntries } from "./config-documents.js";
+import { isScalar, mapsAt, type TreeMap, textEntries } from "./config-documents.js";
 import type { ManualStep } from "./migration-findings.js";
 import { DEPENDENCY_FIELDS, PACKAGE_RENAMES } from "./package-names.js";
+import { isLocalPackageSpec } from "./version-spec.js";
 
 /**
  * What the manifests of a project declare, to tell whether a source file may import a package
@@ -14,6 +15,8 @@ import { DEPENDENCY_FIELDS, PACKAGE_RENAMES } from "./package-names.js";
 export interface ManifestDeclarations {
   readonly path: string;
   readonly names: ReadonlySet<string> | undefined;
+  /** The original names it declares with a spec that points at a local package. */
+  readonly localPackages?: ReadonlySet<string>;
 }
 
 /**
@@ -50,6 +53,30 @@ export function declaredNames(manifest: TreeMap): string[] {
 }
 
 /**
+ * The names that a parsed manifest's dependency fields point at a local package
+ * (`"openapi-fetch": "workspace:*"`): such a dependency keeps its name, so its imports do too.
+ */
+export function localPackageNames(manifest: TreeMap): string[] {
+  return DEPENDENCY_FIELDS.flatMap((field) => mapsAt(manifest, field))
+    .flatMap(textEntries)
+    .flatMap(({ key, value }) =>
+      isScalar(value) && isLocalPackageSpec(value.value) ? [key.value] : [],
+    );
+}
+
+/**
+ * The original packages that a manifest at or above `filePath` declares as local packages. Node
+ * finds such a package before any other of its name, so the imports of the file mean it.
+ */
+export function localPackagesFor(
+  manifests: readonly ManifestDeclarations[],
+  filePath: string,
+): ReadonlySet<string> {
+  const containing = manifests.filter(({ path }) => filePath.startsWith(directoryOf(path)));
+  return new Set(containing.flatMap(({ localPackages }) => [...(localPackages ?? [])]));
+}
+
+/**
  * Whether a manifest at or above `filePath` declares `name`, under its old or its new name. Node
  * looks for a package in the `node_modules` folders of every directory above the file, so a
  * dependency of a workspace root counts for its packages. A file that no manifest contains is not
@@ -68,7 +95,7 @@ function isDeclaredFor(
 }
 
 /** The package that a module specifier names: `pkg` of `pkg/subpath`. */
-const packageOfSpecifier = (specifier: string): string => {
+export const packageOfSpecifier = (specifier: string): string => {
   const slash = specifier.indexOf(PATH_SEPARATOR);
   return slash === -1 ? specifier : specifier.slice(0, slash);
 };

@@ -3,6 +3,7 @@ import { planCatalogs } from "../domain/catalogs.js";
 import { isMap, type TreeMap, valuesAt } from "../domain/config-documents.js";
 import {
   declaredNames,
+  localPackageNames,
   type ManifestDeclarations,
   namesUninstalledPackage,
 } from "../domain/declared-packages.js";
@@ -176,6 +177,20 @@ const DECLARED_NAMES: Readonly<
   Record<PlanSource["role"], ((root: TreeMap) => string[]) | undefined>
 > = { manifest: declaredNames, "import-map": importMapNames, catalogs: undefined };
 
+/** What a manifest or an import map declares; nothing for a file of another role. */
+function declarationsOf(
+  path: string,
+  role: PlanSource["role"],
+  roots: readonly TreeMap[] | undefined,
+): ManifestDeclarations[] {
+  const names = DECLARED_NAMES[role];
+  if (names === undefined) {
+    return [];
+  }
+  const local = role === "manifest" ? (roots ?? []).flatMap(localPackageNames) : [];
+  return [{ path, names: roots && new Set(roots.flatMap(names)), localPackages: new Set(local) }];
+}
+
 /**
  * The catalog plan of the project and what its manifests and import maps declare, from the files
  * of the listing. A file that cannot be read or parsed adds no catalogs, and is reported when it
@@ -200,10 +215,7 @@ async function planProjectTarget(
     if (namesOriginal && source.role !== "import-map") {
       documents[source.role].push(...(roots ?? []));
     }
-    const names = DECLARED_NAMES[source.role];
-    if (names !== undefined) {
-      manifests.push({ path, names: roots && new Set(roots.flatMap(names)) });
-    }
+    manifests.push(...declarationsOf(path, source.role, roots));
   }
   const catalogs = planCatalogs({
     manifests: documents.manifest,

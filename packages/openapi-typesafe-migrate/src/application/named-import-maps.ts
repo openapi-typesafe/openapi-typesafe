@@ -64,9 +64,10 @@ export function withNamedImportMaps(
   const mapNames = new Map(declarations.map(({ path, names }) => [path, names]));
   return declarations
     .filter(({ path }) => !importMaps.has(path))
-    .map(({ path, names }) => {
+    .map((declaration) => {
+      const { path, names } = declaration;
       const maps = [...importMaps].filter(([, configs]) => configs.includes(path));
       const named = maps.flatMap(([map]) => (mapNames.has(map) ? [mapNames.get(map)] : []));
-      return { path, names: joinedNames([names, ...named]) };
+      return { ...declaration, names: joinedNames([names, ...named]) };
     });
 }
