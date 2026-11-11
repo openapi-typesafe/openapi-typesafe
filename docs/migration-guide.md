@@ -169,7 +169,7 @@ Where openapi-typescript’s output did not compile, was unsafe or had wrong typ
   value `"Pet"`, which every member would contradict.
 
 All other output stays the same. The [compatibility report](./compatibility.md) checks this on
-1,820 real-world documents with 28 option sets (50,960 cases): 99.99% of the outputs are the same
+1,820 real-world documents with 28 option sets (50,960 cases): 99.88% of the outputs are the same
 byte for byte and 100% have the same types. Its golden output is the 7.13 code at tag `fork-base`,
 which already has the [open string enums](#open-string-enums) change.
 
