@@ -419,6 +419,50 @@ The rc.5 review found places that named the old packages and were neither migrat
   (`moduleNameMapper`, `transformIgnorePatterns`, in `jest.config.*` and the `jest` field) are
   reported, not changed, because a pattern is not a module specifier.
 
+## Amendment (2026-11-10): the fourth review of the migration tool
+
+The rc.5 hunt found changes that broke a project and places that were skipped without a word.
+
+- **A dependency on a local package keeps its name.** A `workspace:`, `link:`, `file:` or
+  `portal:` spec points at a package of the project, not at npm: a fork named `openapi-fetch` in
+  the workspace. The new name pointed at a package the workspace does not have. Such a dependency
+  and the imports of it in the files of that manifest are kept and reported as `local-package`.
+  Renaming the local package too was rejected: it is the user's code, and only they know whether
+  it is a copy of the original.
+- **A successor alias in place is accepted.** The fix that the report gives for `swr-openapi`
+  (`overrides: { "openapi-fetch": "npm:openapi-typesafe-fetch@…" }`) was itself reported on the
+  next run, so the report never got clean. An override or resolution that points an old name at
+  its successor (`domain/successor-aliases.ts`) is no longer a step, and a peer that it covers
+  needs no alias advice.
+- **An API description is data.** A YAML document with a top-level `openapi`, `swagger` or
+  `asyncapi` key had its example `command` values rewritten, and the change reached the
+  generated JSDoc. Such a file is not migrated. Limiting the command keys to the positions that
+  each CI format uses was considered and not done: it needs a schema per format, and the one
+  file kind that holds such keys as data is now left out.
+- **Shell variables that a shell text sets itself.** `GEN="npx openapi-typescript"` then
+  `$GEN a.yaml -it` in a script, a `run` block or a package.json script was skipped: assignments
+  were passed over, and only Makefiles, Dockerfiles and YAML `env` had variables. The assignments
+  of a shell text (alone, before a command, and the arguments of `export`, `readonly`, `local`,
+  `declare`, `typeset`) are now read as variables (`domain/shell-assignments.ts`), and combined
+  with those of the file by the same rule as before: the flags after a variable change only when
+  every definition runs the generator. A plain or single-string value is read as a command line
+  where it is set, so it is renamed there; a value built of several parts or of expansions is not.
+  The tool does not follow which assignment reaches which command, for the reason given above.
+- **Justfiles have variables.** just interpolates `{{gen}}` before the shell runs a recipe line,
+  so a justfile is read like a Makefile (`domain/justfile-migration.ts`): a string value is a
+  command line, a bare name is a reference, any other expression (`env(…)`, a backtick) is
+  another program.
+- **A step script for another program** (`shell: python`, a CircleCI `shell` next to `command`) is
+  code of that language. It is no longer read as commands, and it is reported as
+  `script-not-shell` when it names an old package. Parsing other languages was rejected.
+- **An exported name stays.** `export { BLOB }` named a constant through an alias symbol, which
+  the use count missed, so the constant was removed and the file broke; an exported `transform`
+  function was rewritten while other modules used its old return type. An export counts as a use,
+  and an exported function is kept and reported as `shared-function`.
+- **Smaller gaps**: the wireit `command` of a manifest is a command path; a `typesVersions` path
+  into the installed files of an old package is reported, as a tsconfig path is; and a closed
+  output pipe (`migrate | head`) ends the run quietly, as in the generator's CLI.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

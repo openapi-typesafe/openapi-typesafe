@@ -33,8 +33,8 @@ Commands are read in `package.json` scripts, shell scripts (`.sh`, `.bash`, `.zs
 `Makefile`, `justfile`, `Dockerfile`, CI and other YAML files, Nx `project.json` targets and
 `nx.json` target defaults (also their `configurations`), `deno.json` tasks, pnpm `package.yaml`
 scripts, Task's `Taskfile.yml` (`cmds`, `cmd`, `sh`, `status`, `defer`, `preconditions`),
-pre-commit hooks (`entry` with its `args`), and the `simple-git-hooks`, `lint-staged` and
-`nx.targets` commands of a manifest, also in `.lintstagedrc*` and `.simple-git-hooks.json`. The
+pre-commit hooks (`entry` with its `args`), and the `simple-git-hooks`, `lint-staged`,
+`nx.targets` and wireit `command` commands of a manifest, also in `.lintstagedrc*` and `.simple-git-hooks.json`. The
 generator is found behind the usual wrappers too (`npx`, `pnpm exec`, `yarn workspace <name>`,
 `dotenvx run`, `nx exec`, `tsx`, `timeout`, `xargs`, …). A here-document is data, except the one a
 shell runs (`bash <<EOF`, `cat <<EOF | sh`). They are read word by word, the way the shell splits
@@ -47,13 +47,18 @@ Dockerfile's exec form (`RUN ["npx",
 openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed where it is set,
 and the flags after `$(OAT)` (or `$G` for a one-letter name) where it runs; so is an `env` variable
 of a workflow and the flags after `$GEN` or `${{ env.GEN }}`, and a Dockerfile `ARG` or `ENV`
-variable and the flags after `$GEN`. The flags change only when every definition of the variable
+variable and the flags after `$GEN`, and a justfile variable (`gen := "npx openapi-typescript"`)
+and the flags after `{{gen}}`. A shell variable that a script, a `run` block or a package.json
+script sets itself (`GEN="npx openapi-typescript"`, also after `export`, `local` or `readonly`)
+is renamed where it is set, and the flags after `$GEN` where it runs. The flags change only when every definition of the variable
 in the file sets it to the generator: a variable that another Dockerfile stage, a step `env` or a
-later Makefile line sets to another program is reported with its old flags. A variable of old
+later Makefile line or shell assignment sets to another program is reported with its old flags. A variable of old
 flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may serve other commands too, so it
 is reported, not changed. YAML files are changed only in command
 keys (`run`, `script`, `command`, `entrypoint`, …) and in the values of `env`, in block and flow
-style, never in other values. An API description (a YAML document with a top-level `openapi`,
+style, never in other values. A CI step whose `shell` is another program (`shell: python`) runs
+code of that language, so its script is not changed, and it is reported when it names an old
+package. An API description (a YAML document with a top-level `openapi`,
 `swagger` or `asyncapi` key) is data, so it is never changed, not even an example `command`; a
 YAML file that names no old package is not even parsed. A config that cannot be parsed and names an old package is reported with the
 line and column, not changed. `Makefile`, `justfile` and `Dockerfile` are read only under the names
@@ -125,6 +130,8 @@ The report lists each of these with the file and line:
   code, so check whether the fix is still needed;
 - a word in a command that names an old package where the tool cannot tell what runs it (an
   argument of a program it does not know, a script name): migrate it by hand;
+- a CI step whose `shell` is another program (`shell: python`) and whose script names an old
+  package: the tool does not read code of other languages, so migrate it by hand;
 - an import map that a Deno config names by a URL or a path outside the folder;
 - a renamed peer dependency: users of your package must switch too;
 - a pnpm `package.json5` that names an old package: the tool does not read JSON5, so rename the
@@ -139,8 +146,8 @@ The report lists each of these with the file and line:
 - deep imports such as `openapi-fetch/dist/...` (also subpath import targets and `browser` keys):
   check that the file exists in the new package;
 - imports from the `node_modules` folder of an old package (`../node_modules/openapi-fetch/x.js`),
-  and such paths in a tsconfig: import from the new package instead, or point the path at its
-  files;
+  and such paths in a tsconfig or in `typesVersions`: import from the new package instead, or
+  point the path at its files;
 - Jest patterns that name an old package (`moduleNameMapper`, `transformIgnorePatterns`): make
   them match the new name where they mean the package;
 - a module name built at run time right after an old package name
