@@ -1,5 +1,6 @@
 import { type DocumentRead, isMap, isScalar, type TreeMap, valuesAt } from "./config-documents.js";
 import type { ManualStep } from "./migration-findings.js";
+import { referencedProjectPath } from "./relative-references.js";
 
 /**
  * A Deno config can keep its import map in another file and name it: `"importMap":
@@ -9,11 +10,6 @@ import type { ManualStep } from "./migration-findings.js";
  */
 
 const IMPORT_MAP_FIELD = "importMap";
-const SEPARATOR = "/";
-const CURRENT_FOLDER = ".";
-const PARENT_FOLDER = "..";
-// A URL scheme (`https:`, `file:`): Deno fetches or reads such a map from where it says.
-const URL_SCHEME = /^[a-z][a-z\d+.-]*:/i;
 
 /** Where the import map that a config names is, for a config at a project-relative path. */
 export type ImportMapLocation =
@@ -27,27 +23,9 @@ function importMapReferences(roots: readonly TreeMap[]): string[] {
     .flatMap((value) => (isScalar(value) ? [value.value] : []));
 }
 
-/** The project-relative path of `reference` from the folder of `configPath`, or undefined. */
-function resolvedPath(configPath: string, reference: string): string | undefined {
-  const parts = configPath.split(SEPARATOR).slice(0, -1);
-  for (const part of reference.split(SEPARATOR)) {
-    if (part === PARENT_FOLDER) {
-      if (parts.pop() === undefined) {
-        return undefined;
-      }
-    } else if (part !== CURRENT_FOLDER && part !== "") {
-      parts.push(part);
-    }
-  }
-  return parts.join(SEPARATOR);
-}
-
 export function importMapLocation(configPath: string, reference: string): ImportMapLocation {
-  const isOutside = URL_SCHEME.test(reference) || reference.startsWith(SEPARATOR);
-  const path = isOutside ? undefined : resolvedPath(configPath, reference);
-  return path === undefined || path === ""
-    ? { kind: "not-editable", reference }
-    : { kind: "in-project", path };
+  const path = referencedProjectPath(configPath, reference);
+  return path === undefined ? { kind: "not-editable", reference } : { kind: "in-project", path };
 }
 
 /** The import maps that the config at `configPath` names, read as `roots`. */

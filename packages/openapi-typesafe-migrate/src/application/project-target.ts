@@ -10,6 +10,7 @@ import {
 import { importMapNames } from "../domain/import-map-migration.js";
 import { namesOriginalPackage, WORKSPACES_FIELD } from "../domain/package-names.js";
 import { type SuccessorAliases, successorAliasedPackages } from "../domain/successor-aliases.js";
+import { type ApiDescriptionParts, apiDescriptionParts } from "./api-description-parts.js";
 import { type NamedImportMaps, namedImportMaps, withNamedImportMaps } from "./named-import-maps.js";
 import { type PlanSource, planSourceOf } from "./plan-sources.js";
 import type { DocumentReaders, ProjectFiles } from "./ports.js";
@@ -38,6 +39,8 @@ export interface ProjectTarget {
   readonly aliases: readonly SuccessorAliases[];
   /** The files that Deno configs name as their import maps. */
   readonly importMaps: NamedImportMaps;
+  /** The files that the API descriptions reach by `$ref`, which are data. */
+  readonly apiDescriptionParts: ApiDescriptionParts;
 }
 
 /**
@@ -145,5 +148,9 @@ export async function planProjectTarget(
     isWorkspaceRoot,
   });
   const declarations = withNamedImportMaps(manifests, importMaps);
-  return { version, catalogs, manifests: declarations, aliases, importMaps };
+  const parts = await apiDescriptionParts(paths, dependencies);
+  return {
+    ...{ version, catalogs, manifests: declarations, aliases, importMaps },
+    apiDescriptionParts: parts,
+  };
 }

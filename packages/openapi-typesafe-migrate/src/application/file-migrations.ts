@@ -1,3 +1,4 @@
+import { isApiDescription } from "../domain/api-descriptions.js";
 import { migrateCommandLines } from "../domain/command-migration.js";
 import {
   type CommandPathPattern,
@@ -35,7 +36,6 @@ import {
 } from "../domain/workspace-catalog-migration.js";
 import { TASKFILE_COMMAND_KEYS } from "../domain/yaml-command-keys.js";
 import {
-  isApiDescription,
   migrateDependabotConfig,
   migrateYamlCommands,
   migrateYamlPathCommands,
@@ -163,11 +163,14 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
   },
 ];
 
-/** The commands of a YAML file; an API description (an OpenAPI document) is data and stays. */
+/**
+ * The commands of a YAML file; an API description (an OpenAPI document) and the files it reaches
+ * by `$ref` are data and stay.
+ */
 const yamlCommandsStep =
-  (path: string): ConfigStep =>
+  (path: string, isPart: boolean): ConfigStep =>
   (text, read) =>
-    read.kind === "read" && isApiDescription(read.documents)
+    isPart || (read.kind === "read" && isApiDescription(read.documents))
       ? unchanged(text)
       : stringsStep((current, strings) => migrateYamlCommands(current, path, strings))(text, read);
 
@@ -250,7 +253,11 @@ const FILE_KINDS: readonly FileKind[] = [
   },
   {
     matches: (path) => YAML_EXTENSIONS.has(extensionOf(path)),
-    migrate: whenNamed(yamlConfig((_context, path) => [yamlCommandsStep(path)])),
+    migrate: whenNamed(
+      yamlConfig((context, path) => [
+        yamlCommandsStep(path, context.apiDescriptionParts.has(path)),
+      ]),
+    ),
   },
   {
     matches: (path) => DOCKERFILE_NAMES.has(baseName(path)),

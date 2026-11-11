@@ -59,7 +59,9 @@ keys (`run`, `script`, `command`, `entrypoint`, …) and in the values of `env`,
 style, never in other values. A CI step whose `shell` is another program (`shell: python`) runs
 code of that language, so its script is not changed, and it is reported when it names an old
 package. An API description (a YAML document with a top-level `openapi`,
-`swagger` or `asyncapi` key) is data, so it is never changed, not even an example `command`; a
+`swagger`, `asyncapi`, `overlay` or `arazzo` key) is data, so it is never changed, not even an
+example `command`, and neither is a YAML file that such a document (YAML or JSON) reaches by
+`$ref`, directly or through other such files (a split layout's `components/schemas/Job.yaml`); a
 YAML file that names no old package is not even parsed. A config that cannot be parsed and names an old package is reported with the
 line and column, not changed. `Makefile`, `justfile` and `Dockerfile` are read only under the names
 make, just and docker look for (also `makefile`, `GNUmakefile`, `Justfile`, `.justfile`,
