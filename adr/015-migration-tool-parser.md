@@ -463,6 +463,48 @@ The rc.5 hunt found changes that broke a project and places that were skipped wi
   into the installed files of an old package is reported, as a tsconfig path is; and a closed
   output pipe (`migrate | head`) ends the run quietly, as in the generator's CLI.
 
+## Amendment (2026-11-11): the fifth review of the migration tool
+
+The rc.6 hunt found output that did not compile and commands that kept the old generator.
+
+- **`irCallbacks: true` keeps its literal type.** The option was added as `true` to options that
+  a later `const` held without a type, so TypeScript widened it to `boolean` and the call no
+  longer matched the overload with IR callbacks. In options that nothing types where they are
+  written it is now `true as const` (JS: `/** @type {const} */ (true)`). The generator also got a
+  last overload with required `GeneratorOptions`, so `Parameters<typeof openapiTS>[1]` types the
+  callbacks of a wrapper. This fixes output that did not compile, so it is on by default (ADR-021).
+- **An import that JSDoc names stays.** The use count walked the syntax children only, so an
+  import that only a JSDoc type named was removed. JSDoc nodes are children too now.
+- **The nearest manifest decides a local package.** A root manifest that lists `openapi-fetch`
+  from npm and a nested one that lists it with `workspace:` gave the nested files the new name.
+  The manifest nearest to a file that lists a name decides, as Node's resolution does.
+- **Split API descriptions and overlays are data.** Only a YAML file with the top-level key was
+  left out, so the `$ref` parts of a split description and Overlay or Arazzo files were rewritten.
+  The `$ref` files that an API description reaches (YAML or JSON, relative paths inside the
+  project) are left out too, and `overlay` and `arazzo` count as API description keys.
+- **The shell of a CI step is the one it runs with.** `defaults.run.shell` of a job or workflow,
+  `env` before a program, a `.exe` suffix, `msys2` and `wsl-bash` were not read, so a step that
+  ran Python was read as shell or the reverse. The nearest `shell` wins, and an own `shell` beats
+  a default of the same map.
+- **Justfile expressions are command lines in their strings.** Every string and backtick of a
+  value, a recipe parameter default and an interpolation is read as a command line where it is
+  written. A computed value or a parameter may run another program, so the flags after it are
+  reported, not changed.
+- **Shell default values are command lines.** `${GEN:-npx openapi-typescript}`, `${GEN:=…}` and
+  `${GEN:+…}` were split at their blanks and never read. A `${…}` expansion is one part of a word,
+  and its word is read as a command line where it is written, so the old name is renamed. The
+  variable may hold another program from outside the text, so the flags after it are reported;
+  `${NAME:=word}` also counts as a definition of `NAME`.
+- **A variable that the tool cannot read is reported.** A program variable with no definition the
+  tool reads (another GitLab `script` item, `$GITHUB_ENV`, a Makefile recipe's `$$GEN`, a bash
+  array, the environment, a Make variable that no line sets) had its old flags kept without a
+  word. Such a variable may run the generator, so its old flags are reported; a variable known to
+  run another program stays silent. Following values across `script` items, steps and recipe
+  lines was rejected for now: each needs its own model of which shell runs what, and a report is
+  correct for all of them. Only the files that name an old package are read, so the report does
+  not reach projects without one. A bash array assignment is one word, and its items are read as
+  a command line, so the old name in it is renamed.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.
