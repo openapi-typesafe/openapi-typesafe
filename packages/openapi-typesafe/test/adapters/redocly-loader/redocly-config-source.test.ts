@@ -137,4 +137,32 @@ describe("createRedoclyConfigSource", () => {
     },
     TIMEOUT,
   );
+
+  it(
+    "forApi gives an API its own rules and the root rules to an API without them",
+    async () => {
+      const rulesDir = path.join(workDir, "rules");
+      fs.mkdirSync(rulesDir, { recursive: true });
+      const config = path.join(rulesDir, "redocly.yaml");
+      fs.writeFileSync(
+        config,
+        [
+          "extends: [minimal]",
+          "rules: { info-contact: warn }",
+          "apis:",
+          "  strict: { root: ./a.yaml, rules: { info-contact: error } }",
+          "  plain: { root: ./a.yaml }",
+        ].join("\n"),
+      );
+      const source = createRedoclyConfigSource(workDir);
+      const loaded = await source.load(config);
+
+      const severityOf = (api: string) =>
+        source.forApi(loaded, api).styleguide.rules.oas3_1["info-contact"];
+
+      expect([severityOf("strict"), severityOf("plain")]).toEqual(["error", "warn"]);
+      expect(source.forApi(loaded, "strict").configFile).toBe(config);
+    },
+    TIMEOUT,
+  );
 });

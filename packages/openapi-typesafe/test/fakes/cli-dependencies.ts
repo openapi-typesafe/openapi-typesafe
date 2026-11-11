@@ -189,6 +189,13 @@ export class InMemoryRedoclyConfigs implements RedoclyConfigSource {
   async createDefault(): Promise<RedoclyConfig> {
     return this.defaultConfig;
   }
+
+  /** The config of each API by name; an API without one is linted with the root config. */
+  readonly apiConfigs = new Map<string, RedoclyConfig>();
+
+  forApi(config: RedoclyConfig, apiName: string): RedoclyConfig {
+    return this.apiConfigs.get(apiName) ?? config;
+  }
 }
 
 /** A Redocly config with only what the CLI reads: the APIs and the config file. */

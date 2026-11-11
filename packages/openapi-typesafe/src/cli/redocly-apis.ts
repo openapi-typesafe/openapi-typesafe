@@ -104,7 +104,8 @@ interface ApiRun {
 }
 
 /**
- * The generator options of one API: its own settings win over the CLI's flags. A flag that has
+ * The generator options of one API: its own settings win over the CLI's flags, and its own lint
+ * rules in `redocly.yaml` over the root's (upstream used the root's only). A flag that has
  * no effect with the merged flags is named for this API, since its settings may turn on the flag
  * that the command line lacks, or set one that has no effect themselves.
  */
@@ -119,7 +120,7 @@ function apiOptions(run: CliRun, apiRun: ApiRun, target: ApiTarget): GeneratorOp
     ...apiRun.refLimits,
     ...apiRefLimitOptions(name, settings, configRoot),
     ...fixOption(apiFixNames(name, settings) ?? run.args.fix),
-    redocly: apiRun.redocly,
+    redocly: run.deps.redoclyConfigs.forApi(apiRun.redocly, name),
   };
 }
 
