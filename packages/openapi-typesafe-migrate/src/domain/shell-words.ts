@@ -1,4 +1,5 @@
 import { type HeredocBody, heredocAt, type PendingHeredoc, readBodies } from "./here-documents.js";
+import { wordExpansions } from "./parameter-expansions.js";
 import { assignmentValueText, shellAssignments } from "./shell-assignments.js";
 import {
   COMMAND_SEPARATORS,
@@ -231,20 +232,29 @@ export function shellCommandsAt(text: string, offset: number, indent = 0): Shell
   return shellCommands(text, indent).map((words) => shifted(words, offset));
 }
 
+/** The words of the parameter expansions of a word (`${GEN:-npx …}`), read as command lines. */
+const expansionCommands = (word: ShellWord): ShellCommand[] =>
+  wordExpansions(word.raw).flatMap((expansion) =>
+    shellCommandsAt(expansion.text, word.start + expansion.start),
+  );
+
 /**
- * The command lines inside the words of a command: a quoted word that holds one, and the value of
- * an assignment (`GEN="npx openapi-typescript"`), which runs where the variable is expanded.
+ * The command lines inside the words of a command: a quoted word that holds one, the value of an
+ * assignment (`GEN="npx openapi-typescript"`), which runs where the variable is expanded, and
+ * the word of a parameter expansion (`${GEN:-npx openapi-typescript}`). A text read as commands
+ * is read once: its own expansions are found in it.
  */
 function innerCommands(command: ShellCommand): ShellCommand[] {
-  const quoted = command.flatMap((word) => {
+  const assignments = new Map(shellAssignments(command).map((found) => [found.word, found]));
+  return command.flatMap((word) => {
     const inner = nestedCommandText(word);
-    return inner === undefined ? [] : shellCommandsAt(inner, word.start + 1);
+    if (inner !== undefined) {
+      return shellCommandsAt(inner, word.start + 1);
+    }
+    const assignment = assignments.get(word);
+    const value = assignment === undefined ? undefined : assignmentValueText(assignment);
+    return value === undefined ? expansionCommands(word) : shellCommandsAt(value.text, value.start);
   });
-  const assigned = shellAssignments(command).flatMap((assignment) => {
-    const value = assignmentValueText(assignment);
-    return value === undefined ? [] : shellCommandsAt(value.text, value.start);
-  });
-  return [...quoted, ...assigned];
 }
 
 /**

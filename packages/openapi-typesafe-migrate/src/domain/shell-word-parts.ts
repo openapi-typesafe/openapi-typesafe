@@ -84,17 +84,66 @@ function arithmeticExpansion(text: string, start: number): QuotedPart | undefine
   return undefined;
 }
 
+/** `${…}`: a parameter expansion (POSIX 2.6.2), one part of a word up to its closing brace. */
+export const PARAMETER_OPEN = "${";
+const PARAMETER_CLOSE = "}";
+
 /**
- * The part of a word that starts at `index`: a quoted string, an escape, an arithmetic expansion
- * or one character.
+ * The end of the parameter expansion at `start`, after the `}` that closes it, or undefined when
+ * none does. A blank inside it does not end the word (`${GEN:-npx openapi-typescript}`), and a
+ * quoted string, an escape or a nested expansion inside it is skipped whole.
+ */
+export function parameterExpansionEnd(text: string, start: number): number | undefined {
+  let depth = 1;
+  for (let index = start + PARAMETER_OPEN.length; index < text.length; ) {
+    if (text.startsWith(PARAMETER_OPEN, index)) {
+      depth += 1;
+      index += PARAMETER_OPEN.length;
+    } else if (text[index] === PARAMETER_CLOSE) {
+      depth -= 1;
+      index += 1;
+      if (depth === 0) {
+        return index;
+      }
+    } else {
+      index = quotedOrEscapedEnd(text, index) ?? index + 1;
+    }
+  }
+  return undefined;
+}
+
+/** The end of a quoted string or an escape at `index`, or undefined for another character. */
+function quotedOrEscapedEnd(text: string, index: number): number | undefined {
+  const char = text[index];
+  if (char === "'") {
+    return singleQuoted(text, index).end;
+  }
+  if (char === '"') {
+    return doubleQuoted(text, index).end;
+  }
+  return char === BACKSLASH ? index + 2 : undefined;
+}
+
+/** The expansion parts of a word that are read whole: `$((…))` and `${…}`, as written. */
+function expansionPart(text: string, index: number): QuotedPart | undefined {
+  if (text.startsWith(ARITHMETIC_OPEN, index)) {
+    return arithmeticExpansion(text, index);
+  }
+  const end = text.startsWith(PARAMETER_OPEN, index)
+    ? parameterExpansionEnd(text, index)
+    : undefined;
+  return end === undefined ? undefined : { end, value: text.slice(index, end) };
+}
+
+/**
+ * The part of a word that starts at `index`: a quoted string, an escape, an arithmetic or a
+ * parameter expansion, or one character.
  */
 export function wordPart(text: string, index: number): QuotedPart {
   const char = text[index] as string;
-  const arithmetic = text.startsWith(ARITHMETIC_OPEN, index)
-    ? arithmeticExpansion(text, index)
-    : undefined;
-  if (arithmetic !== undefined) {
-    return arithmetic;
+  const expansion = expansionPart(text, index);
+  if (expansion !== undefined) {
+    return expansion;
   }
   if (char === "'") {
     return singleQuoted(text, index);

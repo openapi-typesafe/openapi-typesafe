@@ -54,7 +54,10 @@ as a command line where it is written: in a value that just computes
 (`types gen="npx openapi-typescript":`) and in an interpolation; such a value and a parameter (the
 command line can set it) may run another program, so the flags after them are reported. A shell variable that a script, a `run` block or a package.json
 script sets itself (`GEN="npx openapi-typescript"`, also after `export`, `local` or `readonly`)
-is renamed where it is set, and the flags after `$GEN` where it runs. The flags change only when every definition of the variable
+is renamed where it is set, and the flags after `$GEN` where it runs. The word of a default
+(`${GEN:-npx openapi-typescript}`, `${GEN:=…}`, `${GEN:+…}`) is read as a command line where it
+is written, so the old name in it is renamed; the variable may hold another program set outside
+the file, so the flags after such a default are reported. The flags change only when every definition of the variable
 in the file sets it to the generator: a variable that another Dockerfile stage, a step `env` or a
 later Makefile line or shell assignment sets to another program is reported with its old flags. A variable of old
 flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may serve other commands too, so it
