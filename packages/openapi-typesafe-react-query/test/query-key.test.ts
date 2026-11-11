@@ -92,13 +92,15 @@ describe("queryKeyInit bodies", () => {
     vi.stubGlobal("URLSearchParams", NativeSearchParams);
 
     expect(queryKeyInit({ body: new NativeSearchParams() }, NO_BASE_URL)).toEqual({
-      body: { URLSearchParams: "q=cats" },
+      body: "q=cats",
+      bodyType: "URLSearchParams",
     });
   });
 
   it("queryKeyInit writes a URLSearchParams body as its text", () => {
     expect(queryKeyInit({ body: new URLSearchParams({ q: "dogs" }) }, NO_BASE_URL)).toEqual({
-      body: { URLSearchParams: "q=dogs" },
+      body: "q=dogs",
+      bodyType: "URLSearchParams",
     });
   });
 
@@ -108,18 +110,18 @@ describe("queryKeyInit bodies", () => {
     form.append("file", new File(["abc"], "a.txt", { type: "text/plain", lastModified: 5 }));
 
     expect(queryKeyInit({ body: form }, NO_BASE_URL)).toEqual({
-      body: {
-        FormData: [
-          ["q", "dogs"],
-          ["file", { type: "text/plain", size: 3, name: "a.txt", lastModified: 5 }],
-        ],
-      },
+      body: [
+        ["q", "dogs"],
+        ["file", { type: "text/plain", size: 3, name: "a.txt" }],
+      ],
+      bodyType: "FormData",
     });
   });
 
   it("queryKeyInit writes a Blob body by its type and size", () => {
     expect(queryKeyInit({ body: new Blob(["abcd"], { type: "a/b" }) }, NO_BASE_URL)).toEqual({
-      body: { Blob: { type: "a/b", size: 4, name: undefined, lastModified: undefined } },
+      body: { type: "a/b", size: 4, name: undefined },
+      bodyType: "Blob",
     });
   });
 
@@ -127,10 +129,12 @@ describe("queryKeyInit bodies", () => {
     const bytes = new Uint8Array([9, 1, 2, 3]);
 
     expect(queryKeyInit({ body: bytes.buffer }, NO_BASE_URL)).toEqual({
-      body: { bytes: [9, 1, 2, 3] },
+      body: [9, 1, 2, 3],
+      bodyType: "bytes",
     });
     expect(queryKeyInit({ body: bytes.subarray(1, 3) }, NO_BASE_URL)).toEqual({
-      body: { bytes: [1, 2] },
+      body: [1, 2],
+      bodyType: "bytes",
     });
   });
 
@@ -140,6 +144,40 @@ describe("queryKeyInit bodies", () => {
 
     expect(queryKeyInit({ body }, NO_BASE_URL)).toEqual({ body });
     expect(queryKeyInit({ body: "q=dogs" }, NO_BASE_URL)).toEqual({ body: "q=dogs" });
-    expect(queryKeyInit({ body: nativeForm }, NO_BASE_URL)).toEqual({ body: { FormData: [] } });
+    expect(queryKeyInit({ body: nativeForm }, NO_BASE_URL)).toEqual({
+      body: [],
+      bodyType: "FormData",
+    });
+  });
+
+  it("queryKeyInit keys a File by its name and not its date", () => {
+    const first = new File(["abc"], "a.txt", { lastModified: 1 });
+    const second = new File(["xyz"], "a.txt", { lastModified: 2 });
+
+    expect(queryKeyInit({ body: first }, NO_BASE_URL)).toEqual(
+      queryKeyInit({ body: second }, NO_BASE_URL),
+    );
+  });
+
+  it("queryKeyInit keeps bytes apart from a JSON body of the same shape", () => {
+    const bytes = new Uint8Array([104, 105]);
+    const json = { bytes: [104, 105] };
+
+    expect(queryKeyInit({ body: bytes }, NO_BASE_URL)).not.toEqual(
+      queryKeyInit({ body: json }, NO_BASE_URL),
+    );
+    expect(queryKeyInit({ body: [104, 105] }, NO_BASE_URL)).toEqual({ body: [104, 105] });
+  });
+});
+
+describe("queryKeyInit undefined fields", () => {
+  it("queryKeyInit leaves out an init of only undefined fields", () => {
+    expect(queryKeyInit({ headers: undefined, body: undefined }, NO_BASE_URL)).toBeUndefined();
+  });
+
+  it("queryKeyInit leaves out undefined fields next to set ones", () => {
+    expect(queryKeyInit({ headers: undefined, params: { a: 1 } }, NO_BASE_URL)).toEqual({
+      params: { a: 1 },
+    });
   });
 });

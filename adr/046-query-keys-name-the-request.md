@@ -98,6 +98,20 @@ taking the content out of the operation's types broke wrappers that name the res
 HEAD operation (`FetchResponse<paths[P]["head"], …>`, ADR-030). The docs say to declare HEAD
 responses without content.
 
+## Amendment (2026-11-10): the date of a File, the kind of a body, `undefined` fields
+
+1. **The date of a File.** The key held a File's `lastModified`. `FormData.append` with a Blob and
+   `new File` set it to the current time, so a FormData built while the component rendered got a
+   new key on every render: a new request, a new render, and so on without end. A File is now
+   held by its type, size and name only.
+2. **The kind of a body.** A raw body was written under its kind (`{ bytes: [...] }`), the same
+   shape as a JSON body with that member, so the two shared an entry. The key now holds the
+   content as `body` and its kind in `bodyType`, a field that no init has, so a JSON body keeps
+   its key and never matches a raw one.
+3. **`undefined` fields.** An init whose fields are all `undefined` (`headers: token ? {...} :
+   undefined`) sends the same request as none, but its key kept an empty init. Such fields are
+   now left out before the init counts as empty.
+
 ## Review trigger
 
 A report of two queries that share an entry while their requests differ in something a key can
