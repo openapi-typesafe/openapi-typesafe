@@ -188,6 +188,17 @@ describe("index signature property types", () => {
     expect(rewrite(text)).toBe(text);
   });
 
+  it("withIndexPropertyTypes holds a readonly array only by a readonly index array", () => {
+    const members = ["readonly a: readonly string[];", "readonly b: string[];"];
+
+    expect(indexLine(rewrite(golden(members, "readonly (string | null)[]")))).toBe(
+      "[key: string]: readonly (string | null)[];",
+    );
+    expect(indexLine(rewrite(golden(members, "(string | null)[]")))).toBe(
+      "[key: string]: (string | null)[] | readonly string[];",
+    );
+  });
+
   it("OBJECT_WITH_INDEX_SIGNATURE rewrites an inner object of an object it does not match", () => {
     const inner = golden(["empty?: boolean;"], "string[]", "        ");
     const text = ["    outer: {", inner, "    };"].join("\n");
