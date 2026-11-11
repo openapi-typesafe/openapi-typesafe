@@ -10,8 +10,9 @@ bug. This page shows how that is checked and what the last run found. CI runs th
 every night; this page is refreshed from that run for every release candidate and every major or
 minor release, and the GitHub release notes link it.
 
-**Result (2026-11-09):** 50,960 cases, 0 unexpected differences. 99.87% of the outputs are the
-same byte for byte, and 100% have the same types.
+**Result (openapi-typesafe 1.0.0-rc.5, commit `3e5924eb3bbc`, run of 2026-11-10):** 50,960 cases,
+0 unexpected differences. 99.88% of the outputs are the same byte for byte, and 100% have the same
+types.
 
 ## What is compared
 
@@ -40,15 +41,17 @@ For every case the tool generates the types with both generators and compares th
 
 | Result | Cases | What it means |
 | --- | ---: | --- |
-| Same bytes | 49,108 | The output is the same file. |
-| Same types | 62 | `--enum-values` constants: the array of a path item parameter indexes the member that holds it, and names that start with a digit (not valid JavaScript) get a `value` prefix (61); an inherited discriminator property declared twice is written once (1). Every exported type is equal. |
+| Same bytes | 49,068 | The output is the same file. |
+| Same types | 60 | `--enum-values` constants: the array of a path item parameter indexes the member that holds it, and names that start with a digit (not valid JavaScript) get a `value` prefix (59); an inherited discriminator property declared twice is written once (1). Every exported type is equal. |
 | Different | 0 | — |
-| Golden output does not compile | 1,622 | openapi-typescript 7.13 writes TypeScript with errors; ours has no more errors, and 1,515 of these compile without any ([see below](#golden-output-that-does-not-compile)). |
+| Golden output does not compile | 1,659 | openapi-typescript 7.13 writes TypeScript with errors; ours has no more errors, and 1,550 of these compile without any ([see below](#golden-output-that-does-not-compile)). |
+| Golden output merges enums | 5 | The golden file compiles, but TypeScript merges two enums of one name into one (2 cases of one document), or `--dedupe-enums` gives a property the enum of other values, such as the numbers `1 \| 2` for the strings `"1" \| "2"` (3 cases). Ours keeps each enum apart and compiles. |
 | Golden generator fails | 168 | openapi-typescript 7.13 stops with an error on 6 documents (see below). |
 | Candidate fails | 0 | — |
 
-The rates count only cases where the golden output exists and compiles (49,170 cases): byte
-identity **99.87%**, type identity **100%**, and **100%** of the golden types are kept.
+The rates count only cases where the golden output exists, compiles and keeps its enums apart
+(49,128 cases): byte identity **99.88%**, type identity **100%**, and **100%** of the golden types
+are kept.
 
 ### Documents the golden generator cannot load
 
@@ -70,12 +73,13 @@ the same strict settings.
 
 | Cause | Cases | Ours compiles | What ours does |
 | --- | ---: | ---: | --- |
-| A `$ref` into another schema's keywords (22 documents) | 581 | 491 | Writes the type the pointer means ([ref pointers](./cli.md#ref-pointers)). Three Codat documents point into a schema's own `definitions` from inside it, where ours keeps the original type; with `--read-write-markers` the pointers keep it too. |
+| A `$ref` into another schema's keywords (22 documents) | 613 | 525 | Writes the type the pointer means ([ref pointers](./cli.md#ref-pointers)). Three Codat documents point into a schema's own `definitions` from inside it, where ours keeps the original type; with `--read-write-markers` the pointers keep it too. |
 | `--path-params-as-types` | 827 | 817 | A path template such as `` `/apps/${string}` `` also matches another path whose type does not fit; ours writes such templates in an intersection where the error is sure (see the [CLI docs](./cli.md#pathparamsastypes)). |
 | `--make-paths-enum` | 78 | 78 | Paths that map to the same member name get distinct names. |
-| `--enum` (with `--enum-values`, `--dedupe-enums`, `--conditional-enums`) | 109 | 104 | Enum members whose names collide are numbered, and names that start with a digit get a prefix. |
+| `--enum` (with `--enum-values`, `--dedupe-enums`, `--conditional-enums`) | 112 | 105 | Enum members whose names collide are numbered, and names that start with a digit get a prefix. |
 | `--root-types-no-schema-prefix` | 14 | 14 | A schema named like a global type the output uses (`Record`) gets a number. |
 | `--exclude-deprecated` | 12 | 11 | A kept schema points to a deprecated one, which ours keeps. |
+| `--immutable` (Cloudflare) | 2 | 0 | Has the same 4 errors as the golden file: JSON value types that refer to themselves through a readonly array (TS2502). The text differs only by the [index signature change](#intentional-differences); the tool's rewrite of the golden text did not read `readonly` arrays in this run and has been fixed since. |
 | `--root-types-keep-casing` | 1 | 0 | A schema name that is not a valid identifier. |
 
 Where ours still has errors, it has no more than the golden output. In 2 of the 827
@@ -94,10 +98,11 @@ same. The table lists how many cases each change touched.
 | `--enum`: an empty string value gets the member name `""` instead of none | [#2807](https://github.com/openapi-ts/openapi-typescript/issues/2807), [#2812](https://github.com/openapi-ts/openapi-typescript/issues/2812) | 93 |
 | `--enum-values`: `FlattenedDeepRequired` flattens readonly arrays and nullable parents | [#2714](https://github.com/openapi-ts/openapi-typescript/issues/2714), [#2737](https://github.com/openapi-ts/openapi-typescript/pull/2737) | 1,527 |
 | `--enum-values`: the `ReadonlyArray` helper accepts readonly arrays | [#2749](https://github.com/openapi-ts/openapi-typescript/issues/2749) | 1,527 |
-| `--read-write-markers`: `Readable` / `Writable` keep primitives, arrays, tuples and null-only keys | [#2615](https://github.com/openapi-ts/openapi-typescript/issues/2615), [#2620](https://github.com/openapi-ts/openapi-typescript/issues/2620), [#2632](https://github.com/openapi-ts/openapi-typescript/issues/2632), [#2717](https://github.com/openapi-ts/openapi-typescript/issues/2717), [#2765](https://github.com/openapi-ts/openapi-typescript/issues/2765) | 3,628 |
+| `--read-write-markers`: `Readable` / `Writable` keep primitives, arrays, tuples and null-only keys, and find the marked keys next to an index signature | [#2615](https://github.com/openapi-ts/openapi-typescript/issues/2615), [#2620](https://github.com/openapi-ts/openapi-typescript/issues/2620), [#2632](https://github.com/openapi-ts/openapi-typescript/issues/2632), [#2717](https://github.com/openapi-ts/openapi-typescript/issues/2717), [#2765](https://github.com/openapi-ts/openapi-typescript/issues/2765) | 3,628 |
 | `--enum`: a name that starts with a digit gets the `Value` prefix | the golden output does not compile | 12 |
 | `--root-types-keep-casing`: characters that cannot be in an identifier become `_` | the golden output does not compile | 151 |
 | `--root-types-no-schema-prefix`: a schema name that starts with a digit keeps its prefix | the golden output does not compile | 8 |
+| An index signature next to properties of other types also takes their types: `{ a?: boolean } & { [key: string]: string[] }` becomes `string[] \| boolean` | the golden type admits no value with those properties | 336 |
 
 The [migration guide](./migration-guide.md) lists every change from openapi-typescript 7.13,
 including the ones this corpus does not reach.
