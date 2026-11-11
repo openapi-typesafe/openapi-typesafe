@@ -5,6 +5,7 @@ import { FIX } from "../../../domain/output-fixes.js";
 import { declaredValueTypes } from "../declared-value-types.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { unionOf } from "../type-combinators.js";
+import { recordValueAccess } from "./object-type.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
 /**
@@ -57,7 +58,11 @@ export function unevaluatedPropertiesType(
   const valueTypes = isAnySchema(unevaluated)
     ? [UNKNOWN_TYPE]
     : [
-        request.transformNested(unevaluated, request.location, true),
+        request.transformNested(
+          unevaluated,
+          request.location,
+          recordValueAccess(schema, "unevaluatedProperties", request),
+        ),
         ...(composed === null ? [] : declaredValueTypes(composed, request.context.footer)),
       ];
   const { immutable } = request.context.options;

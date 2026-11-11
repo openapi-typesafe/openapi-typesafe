@@ -1189,7 +1189,8 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   else. Next to `properties` it also holds the property types, and next to `patternProperties` the
   pattern types, so such a pointer gets the target's type inline, as does a pointer to a pattern
   (`patternProperties/^x`). With `--exclude-deprecated`, a pointer to a property it leaves out gets
-  the property's type inline, not the index signature's.
+  the property's type inline, not the index signature's. This holds for an owner under `$defs`
+  and for an owner with a `discriminator` too.
 - A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation or
   path item `parameters/0`) gets the target's type written inline; a target that points back at
   itself keeps the original type. The inline type is the one the generator writes for that schema,

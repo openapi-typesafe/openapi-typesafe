@@ -31,6 +31,26 @@ const SCHEMAS = {
   Both: { type: "object", patternProperties: { "^x": ENTRY }, additionalProperties: ENTRY },
   Composed: { allOf: [ENTRY], additionalProperties: ENTRY },
   Chosen: { oneOf: [ENTRY], additionalProperties: ENTRY },
+  Tagged: {
+    type: "object",
+    properties: { kind: { type: "string" }, old: OLD },
+    discriminator: { propertyName: "kind" },
+    additionalProperties: { type: "integer" },
+  },
+  TaggedMap: {
+    type: "object",
+    discriminator: { propertyName: "kind" },
+    additionalProperties: { type: "integer" },
+  },
+  NoDefs: { type: "object", $defs: {} },
+  Defs: {
+    type: "object",
+    $defs: {
+      Inner: { type: "object", properties: { z: { type: "string" } }, additionalProperties: ENTRY },
+      Plain: { type: "object", additionalProperties: ENTRY },
+      Marked: { type: "object", readOnly: true, properties: { z: { type: "string" } } },
+    },
+  },
 };
 const DOCUMENT = { components: { schemas: SCHEMAS } };
 const OPTIONS: SchemaOptions = DEFAULT_TRANSFORM_OPTIONS;
@@ -107,16 +127,34 @@ describe("generatedMember of an index signature", () => {
     expect(member("OpenUses", "other", EXCLUDING)).toMatchObject({ isOtherType: false });
   });
 
-  it("generatedMember reads one pattern as its schema and several as opaque", () => {
+  it("generatedMember reads one pattern as its schema and several as another type", () => {
     expect(member("Pattern", "patternProperties")).toEqual({
       kind: "index",
       node: ENTRY,
       location: "#/components/schemas/Pattern/patternProperties/^x",
       isOtherType: false,
     });
-    expect(member("Patterns", "patternProperties").kind).toBe("opaque");
-    expect(member("Both", "additionalProperties").kind).toBe("opaque");
+    expect(member("Patterns", "patternProperties")).toMatchObject({ isOtherType: true });
+    expect(member("Both", "additionalProperties")).toMatchObject({ isOtherType: true });
     expect(member("OpenPattern", "additionalProperties")).toMatchObject({ node: undefined });
+  });
+
+  it("generatedMember of a discriminator owner reads other keys through the signature", () => {
+    expect(member("Tagged", "additionalProperties")).toMatchObject({ isOtherType: true });
+    expect(member("Tagged", "kind").kind).toBe("opaque");
+    expect(member("TaggedMap", "additionalProperties")).toMatchObject({ isOtherType: false });
+    expect(member("TaggedMap", "kind").kind).toBe("opaque");
+  });
+
+  it("generatedMember reads $defs as its map of definitions", () => {
+    expect(member("Defs", "$defs")).toEqual({
+      kind: "names",
+      names: SCHEMAS.Defs.$defs,
+      location: "#/components/schemas/Defs/$defs",
+    });
+    expect(member("Map", "$defs").kind).not.toBe("names");
+    expect(member("Defs", "other").kind).toBe("missing");
+    expect(member("NoDefs", "$defs").kind).not.toBe("names");
   });
 });
 
@@ -131,6 +169,33 @@ describe("originalIndexFails through an index signature", () => {
     expect(fails("Map/additionalProperties")).toBe(false);
     expect(fails("Pattern/patternProperties")).toBe(false);
     expect(fails("Uses/properties/old")).toBe(false);
+  });
+
+  it("originalIndexFails through a signature of several value schemas is true", () => {
+    expect(fails("Both/additionalProperties")).toBe(true);
+    expect(fails("Both/patternProperties/^x")).toBe(true);
+    expect(fails("Patterns/patternProperties/^x")).toBe(true);
+  });
+
+  it("originalIndexFails through a discriminator owner's signature is true", () => {
+    expect(fails("Tagged/additionalProperties")).toBe(true);
+    expect(fails("Tagged/properties/old", EXCLUDING)).toBe(true);
+    expect(fails("TaggedMap/additionalProperties")).toBe(false);
+  });
+
+  it("originalIndexFails reads the definitions of $defs", () => {
+    expect(fails("Defs/$defs/Inner/additionalProperties")).toBe(true);
+    expect(fails("Defs/$defs/Plain/additionalProperties")).toBe(false);
+    expect(fails("Defs/$defs")).toBe(false);
+    expect(fails("Defs/$defs/Missing/additionalProperties")).toBe(true);
+  });
+
+  it("originalIndexFails past a marked definition is true with --read-write-markers", () => {
+    const markers = { ...OPTIONS, readWriteMarkers: true };
+
+    expect(fails("Defs/$defs/Marked/properties/z", markers)).toBe(true);
+    expect(fails("Defs/$defs/Marked", markers)).toBe(false);
+    expect(fails("Defs/$defs/Marked/properties/z")).toBe(false);
   });
 });
 

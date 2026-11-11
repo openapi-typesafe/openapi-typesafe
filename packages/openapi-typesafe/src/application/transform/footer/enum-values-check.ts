@@ -4,6 +4,7 @@ import { HELPER_TYPES } from "../helper-types.js";
 import { literalType } from "../literal-type.js";
 import { unionOf } from "../type-combinators.js";
 import { type Evaluated, type Evaluation, NEVER } from "./evaluation.js";
+import type { RawKeyTypes } from "./signature-index.js";
 import { TypeEvaluator } from "./type-evaluation.js";
 
 /**
@@ -147,14 +148,17 @@ function ownValuesType(declaration: IrConstArrayDeclaration): IrType {
 
 /**
  * The footer with each `--enum-values` array whose location type does not hold its values typed
- * by its own values, and why each one changed. `declarations` are the document's types.
+ * by its own values, and why each one changed. `declarations` are the document's types;
+ * `keyTypes` are the key types of the raw keys of its templated paths.
  */
 export function checkedEnumValues<T>(
   footer: readonly (T | IrDeclaration)[],
   declarations: readonly IrDeclaration[],
   isDeclaration: (entry: T | IrDeclaration) => entry is IrDeclaration,
+  keyTypes?: RawKeyTypes,
 ): { footer: (T | IrDeclaration)[]; retyped: EnumValuesRetype[] } {
-  const evaluator = new TypeEvaluator([...declarations, ...footer.filter(isDeclaration)]);
+  const types = [...declarations, ...footer.filter(isDeclaration)];
+  const evaluator = new TypeEvaluator(types, keyTypes);
   const retyped: EnumValuesRetype[] = [];
   const checked = footer.map((entry) => {
     if (!isDeclaration(entry) || entry.kind !== "constArray") {

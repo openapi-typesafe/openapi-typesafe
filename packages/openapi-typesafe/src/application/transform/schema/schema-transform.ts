@@ -9,7 +9,12 @@ import { compositionType } from "./composition-type.js";
 import { enumRule } from "./enum-rule.js";
 import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
 import type { SchemaContext, SchemaLocation } from "./schema-context.js";
-import type { SchemaRequest, SchemaRule } from "./schema-rule.js";
+import {
+  AT_LOCATION,
+  type SchemaRequest,
+  type SchemaRule,
+  type ValueAccess,
+} from "./schema-rule.js";
 
 export class InvalidSchemaError extends OpenAPITypesafeError {
   constructor(schema: unknown, path: string | undefined) {
@@ -59,14 +64,14 @@ function checkSchema(schema: unknown, path: string | undefined): CheckedSchema {
 function request(
   location: SchemaLocation,
   context: SchemaContext,
-  isFromAdditionalProperties: boolean,
+  valueAccess: ValueAccess,
 ): SchemaRequest {
   return {
     location,
     context,
-    isFromAdditionalProperties,
-    transformNested: (schema, nestedLocation, isNestedFromAdditionalProperties = false) =>
-      transformSchema(schema, nestedLocation, context, isNestedFromAdditionalProperties),
+    valueAccess,
+    transformNested: (schema, nestedLocation, nestedAccess = AT_LOCATION) =>
+      transformSchema(schema, nestedLocation, context, nestedAccess),
   };
 }
 
@@ -78,13 +83,13 @@ export function transformSchemaShape(
   schema: Schema | null | undefined,
   location: SchemaLocation,
   context: SchemaContext,
-  isFromAdditionalProperties = false,
+  valueAccess: ValueAccess = AT_LOCATION,
 ): IrType {
   const checked = checkSchema(schema, location.path);
   if ("type" in checked) {
     return checked.type;
   }
-  const current = request(location, context, isFromAdditionalProperties);
+  const current = request(location, context, valueAccess);
   const shaped = refWithSiblingsAsAllOf(checked.schema, context.options) ?? checked.schema;
   const rule = SHAPE_RULES.find((candidate) => candidate.matches(shaped));
   return rule ? rule.transform(shaped, current) : compositionType(shaped, current);
@@ -95,8 +100,8 @@ export function transformSchema(
   schema: Schema | null | undefined,
   location: SchemaLocation,
   context: SchemaContext,
-  isFromAdditionalProperties = false,
+  valueAccess: ValueAccess = AT_LOCATION,
 ): IrType {
-  const type = transformSchemaShape(schema, location, context, isFromAdditionalProperties);
+  const type = transformSchemaShape(schema, location, context, valueAccess);
   return context.callbacks.postTransform(type, location) ?? type;
 }
