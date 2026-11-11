@@ -1,6 +1,6 @@
 import { type FileVariables, runsGenerator, type VariableProgramUse } from "./file-variables.js";
 import { type WordExpansion, wholeWordExpansion, wordExpansions } from "./parameter-expansions.js";
-import { shellAssignments } from "./shell-assignments.js";
+import { isArrayAssignment, shellAssignments } from "./shell-assignments.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import {
   type ProgramDefinition,
@@ -119,7 +119,8 @@ export function withShellAssignments(
   commands: readonly ShellCommand[],
   file: FileVariables,
 ): FileVariables {
-  const definitions = [...commands.flatMap(shellAssignments), ...assignedByExpansions(commands)];
+  const assigned = commands.flatMap(shellAssignments).filter((found) => !isArrayAssignment(found));
+  const definitions = [...assigned, ...assignedByExpansions(commands)];
   if (definitions.length === 0) {
     return file;
   }
@@ -158,6 +159,32 @@ function expansionUse(word: ShellWord, variables: FileVariables): VariableProgra
 export function withWordExpansions(variables: FileVariables): FileVariables {
   return {
     programAt: (program) => variables.programAt(program) ?? expansionUse(program, variables),
+    referenceAt: (word) => variables.referenceAt(word),
+  };
+}
+
+/**
+ * A program word that expands one shell variable as a whole: `$GEN`, `${GEN}`, a bash array
+ * `"${GEN[@]}"`, and in a Makefile recipe `$$GEN`.
+ */
+const VARIABLE_NAME = "[A-Za-z_][A-Za-z0-9_]*";
+const VARIABLE_WORD_RE = new RegExp(
+  `^"?\\$\\$?(?:${VARIABLE_NAME}|\\{${VARIABLE_NAME}(?:\\[[^\\]]*\\])?\\})"?$`,
+);
+
+/**
+ * The variables with the program words that expand a variable no definition the tool reads sets:
+ * one set by another `script` item, through `$GITHUB_ENV`, by a recipe line, as an array or
+ * outside the file. It may run the generator, so the old flags after it are reported, not kept
+ * without a word.
+ */
+export function withUnreadVariables(variables: FileVariables): FileVariables {
+  return {
+    programAt: (program) =>
+      variables.programAt(program) ??
+      (VARIABLE_WORD_RE.test(program.raw)
+        ? { written: program.raw, program: "generator-or-other" }
+        : undefined),
     referenceAt: (word) => variables.referenceAt(word),
   };
 }

@@ -157,6 +157,26 @@ export function wordPart(text: string, index: number): QuotedPart {
   return { end: index + 1, value: char };
 }
 
+/** The head of a bash array assignment, `NAME=` or `NAME+=` right before its `(`. */
+const ARRAY_HEAD_RE = /^[A-Za-z_][A-Za-z0-9_]*\+?=$/;
+
+/**
+ * The end of the list of a bash array assignment (`GEN=(npx openapi-typescript)`) at `index`,
+ * after its `)`: bash reads it as part of the assignment word, not as a subshell. Quotes and
+ * escapes in it are skipped whole. Undefined when no `)` closes it.
+ */
+function arrayListEnd(text: string, index: number): number | undefined {
+  let depth = 0;
+  for (let at = index; at < text.length; ) {
+    depth += text[at] === NESTING_OPEN ? 1 : text[at] === NESTING_CLOSE ? -1 : 0;
+    if (depth === 0) {
+      return at + 1;
+    }
+    at = quotedOrEscapedEnd(text, at) ?? at + 1;
+  }
+  return undefined;
+}
+
 const endsWord = (text: string, index: number): boolean => {
   const char = text[index] as string;
   return WORD_BREAKS.has(char) || COMMAND_SEPARATORS.has(char) || isLineContinuation(text, index);
@@ -166,8 +186,15 @@ const endsWord = (text: string, index: number): boolean => {
 export function readWord(text: string, start: number): ShellWord {
   let value = "";
   let index = start;
-  while (index < text.length && !endsWord(text, index)) {
-    const part = wordPart(text, index);
+  while (index < text.length) {
+    const isArrayList =
+      text[index] === NESTING_OPEN && ARRAY_HEAD_RE.test(text.slice(start, index));
+    const list = isArrayList ? arrayListEnd(text, index) : undefined;
+    if (list === undefined && endsWord(text, index)) {
+      break;
+    }
+    const part =
+      list === undefined ? wordPart(text, index) : { end: list, value: text.slice(index, list) };
     value += part.value;
     index = part.end;
   }

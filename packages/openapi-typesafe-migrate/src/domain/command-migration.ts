@@ -8,7 +8,11 @@ import {
   MIGRATED_GENERATOR_COMMAND,
   PACKAGE_RENAMES,
 } from "./package-names.js";
-import { withShellAssignments, withWordExpansions } from "./shell-variables.js";
+import {
+  withShellAssignments,
+  withUnreadVariables,
+  withWordExpansions,
+} from "./shell-variables.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 
@@ -147,8 +151,9 @@ const oldFlagsOf = (findings: readonly Finding[]): string[] =>
   });
 
 /**
- * The findings after a variable that runs the generator in some of its definitions only: one step
- * that names the old flags, since the tool cannot tell which program runs there.
+ * The findings after a variable that may run the generator or another program (some of its
+ * definitions, a default, a value set where the tool does not read): one step that names the old
+ * flags, since the tool cannot tell which program runs there.
  */
 function uncertainFlagSteps(
   program: ShellWord,
@@ -223,7 +228,7 @@ export function commandWordFindings(
   locate: Locate,
   variables: FileVariables = NO_VARIABLES,
 ): ShellTextFindings {
-  const known = withWordExpansions(withShellAssignments(commands, variables));
+  const known = withUnreadVariables(withWordExpansions(withShellAssignments(commands, variables)));
   const findings = commands
     .flatMap((words) => commandFindings(words, locate, known))
     .sort((left, right) => left.offset - right.offset);

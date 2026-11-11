@@ -51,10 +51,21 @@ export function shellAssignments(command: ShellCommand): ShellAssignment[] {
   });
 }
 
+const ARRAY_OPEN = "(";
+const ARRAY_CLOSE = ")";
+
+/**
+ * Whether an assignment sets a bash array (`GEN=(npx openapi-typescript)`). Its items are read
+ * as a command line where they are written, but what an expansion of it runs (`$GEN` is the first
+ * item, `"${GEN[@]}"` all of them) is not read: the commands after it are reported.
+ */
+export const isArrayAssignment = (assignment: ShellAssignment): boolean =>
+  assignment.word.raw.startsWith(ARRAY_OPEN, assignment.name.length + 1);
+
 /**
  * The value of an assignment as written and its offset in the text, when its offsets map one to
- * one onto the text: a plain value, or one quoted string (read as written, as a quoted command
- * line is). Undefined for a value built of several parts.
+ * one onto the text: a plain value, one quoted string (read as written, as a quoted command line
+ * is), or the items of an array. Undefined for a value built of several parts.
  */
 export function assignmentValueText(
   assignment: ShellAssignment,
@@ -63,6 +74,9 @@ export function assignmentValueText(
   const raw = assignment.word.raw.slice(at);
   const start = assignment.word.start + at;
   const quote = raw[0] ?? "";
+  if (isArrayAssignment(assignment)) {
+    return raw.endsWith(ARRAY_CLOSE) ? { text: raw.slice(1, -1), start: start + 1 } : undefined;
+  }
   if (QUOTES.has(quote)) {
     const isOneString =
       raw.length > 1 && raw.endsWith(quote) && wordPart(raw, 0).end === raw.length;

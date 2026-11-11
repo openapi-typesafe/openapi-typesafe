@@ -59,7 +59,11 @@ is renamed where it is set, and the flags after `$GEN` where it runs. The word o
 is written, so the old name in it is renamed; the variable may hold another program set outside
 the file, so the flags after such a default are reported. The flags change only when every definition of the variable
 in the file sets it to the generator: a variable that another Dockerfile stage, a step `env` or a
-later Makefile line or shell assignment sets to another program is reported with its old flags. A variable of old
+later Makefile line or shell assignment sets to another program is reported with its old flags. So is a
+variable that runs a command but that no definition the tool reads sets: one set by another
+`script` item or step (`echo "GEN=…" >> "$GITHUB_ENV"`), a Makefile recipe's `$$GEN`, a bash
+array (`GEN=(npx openapi-typescript)`, whose items are renamed, run as `"${GEN[@]}"`), or one
+set outside the file. A variable of old
 flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may serve other commands too, so it
 is reported, not changed. YAML files are changed only in command
 keys (`run`, `script`, `command`, `entrypoint`, …) and in the values of `env`, in block and flow
