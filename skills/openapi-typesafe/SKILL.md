@@ -117,7 +117,7 @@ such a response).
 | Field | Value |
 | :-- | :-- |
 | `data` | Parsed `2xx` body; `undefined` otherwise |
-| `error` | Parsed `4xx` / `5xx` / `default` body; `undefined` otherwise |
+| `error` | Parsed body of any other status (`1xx`, `3xx`, `4xx`, `5xx`, `default`); `undefined` otherwise |
 | `response` | The original `Response` (`status`, `headers`, `ok`) |
 
 An error response **without a body** has `error: undefined`, and so does any `204` or `HEAD`

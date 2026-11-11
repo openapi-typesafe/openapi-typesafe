@@ -34,8 +34,10 @@ For every case the tool generates the types with both generators and compares th
 2. **Types.** If the bytes differ, each exported type is checked with a strict identity check: two
    types count as equal only if TypeScript sees them as identical, so `readonly` and `any` are
    not ignored.
-3. **Compiles.** If the golden output itself does not compile, both outputs are type-checked with
-   strict settings and the error counts are compared.
+3. **Compiles.** If the bytes differ and the golden output itself does not compile, both outputs
+   are type-checked with strict settings and the error counts are compared. A file with the same
+   bytes counts as the same even when both have errors (such as two Cloudflare `--immutable`
+   cases).
 
 ## Summary
 
@@ -44,13 +46,13 @@ For every case the tool generates the types with both generators and compares th
 | Same bytes | 49,070 | The output is the same file. |
 | Same types | 60 | `--enum-values` constants: the array of a path item parameter indexes the member that holds it, and names that start with a digit (not valid JavaScript) get a `value` prefix (59); an inherited discriminator property declared twice is written once (1). Every exported type is equal. |
 | Different | 0 | — |
-| Golden output does not compile | 1,657 | openapi-typescript 7.13 writes TypeScript with errors; ours has no more errors, and 1,550 of these compile without any ([see below](#golden-output-that-does-not-compile)). |
+| Golden output does not compile | 1,657 | The outputs differ and openapi-typescript 7.13 writes TypeScript with errors; ours has no more errors, and 1,550 of these compile without any ([see below](#golden-output-that-does-not-compile)). |
 | Golden output merges enums | 5 | The golden file compiles, but TypeScript merges two enums of one name into one (2 cases of one document), or `--dedupe-enums` gives a property the enum of other values, such as the numbers `1 \| 2` for the strings `"1" \| "2"` (3 cases). Ours keeps each enum apart and compiles. |
 | Golden generator fails | 168 | openapi-typescript 7.13 stops with an error on 6 documents (see below). |
 | Candidate fails | 0 | — |
 
-The rates count only cases where the golden output exists, compiles and keeps its enums apart
-(49,130 cases): byte identity **99.88%**, type identity **100%**, and **100%** of the golden types
+The rates count only cases where the golden output exists and is either the same file or compiles
+and keeps its enums apart (49,130 cases): byte identity **99.88%**, type identity **100%**, and **100%** of the golden types
 are kept.
 
 ### Documents the golden generator cannot load
