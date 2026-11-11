@@ -21,6 +21,7 @@ import {
   hasRepeatedParametersIndex,
   hasRetypedEnumValues,
   hasUnquotedExtractProbe,
+  indexesTemplatedEnumValues,
   listsExcludedOperations,
   mergesDifferentInputEnums,
   OPTION_KEYS,
@@ -63,13 +64,41 @@ function run(transform: Transform, value: unknown, input: ContextInput, code?: s
 }
 
 /**
- * Counterexamples of earlier runs, checked first on every run. Seed -2008229445: the enum of a path
- * item parameter in a `oneOf` member, whose `--enum-values` type repeats `parameters` inside
- * `Extract`.
+ * Counterexamples of earlier runs, checked first on every run. Seed -238361748: an
+ * `--enum-values` type of a templated path with `--path-params-as-types`. Seed -2008229445: the
+ * enum of a path item parameter in a `oneOf` member, whose `--enum-values` type repeats
+ * `parameters` inside `Extract`.
  */
 const NO_FLAGS = Object.fromEntries(OPTION_KEYS.map((name) => [name, false]));
 
 const EXAMPLES = [
+  [
+    {
+      paths: {
+        "/a/{count}/{flag}/{count}": {
+          post: {
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: { type: "string", enum: [], additionalProperties: true },
+                },
+              },
+            },
+          },
+          trace: { $ref: "#/paths/~1new/get" },
+        },
+      },
+    },
+    {
+      flags: { ...NO_FLAGS, enumValues: true, pathParamsAsTypes: true },
+      callbacks: 0,
+      path: "#/components/schemas/Root",
+      isFromAdditionalProperties: false,
+      hasDiscriminator: false,
+      handledRefs: [],
+    },
+    undefined,
+  ],
   [
     {
       paths: {
@@ -104,6 +133,7 @@ describe("root transformer parity with the fork base", () => {
           fc.pre(!hasRepeatedParametersIndex(original));
           fc.pre(!hasUnquotedExtractProbe(original));
           fc.pre(!hasBooleanPathKey(original));
+          fc.pre(!indexesTemplatedEnumValues(original, input));
           fc.pre(!reachesFixedLegacyBug(value, input));
           fc.pre(!mergesDifferentInputEnums(value, input));
           fc.pre(!listsExcludedOperations(value, input));

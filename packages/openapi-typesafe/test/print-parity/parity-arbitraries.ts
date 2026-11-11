@@ -661,3 +661,16 @@ export function listsExcludedOperations(value: unknown, input: ContextInput): bo
     text.includes('"deprecated":true') || DEPRECATED_REFS.some((ref) => text.includes(ref));
   return flags.excludeDeprecated && flags.makePathsEnum && hasDeprecated;
 }
+
+/** An `--enum-values` type that indexes the wrapped `paths` by a key with a `{name}` template. */
+const TEMPLATED_ENUM_VALUES_INDEX_RE = /FlattenedDeepRequired<paths>\["[^"]*\{[^"]*\}/;
+
+/**
+ * Whether the original's `--enum-values` types index `FlattenedDeepRequired<paths>` by a
+ * `{name}` path while `--path-params-as-types` writes the keys as template literals: that key
+ * does not exist (TS2339). The new generator indexes by the templated key
+ * (test/api/path-template-refs.test.ts).
+ */
+export function indexesTemplatedEnumValues(original: string, input: ContextInput): boolean {
+  return input.flags.pathParamsAsTypes && TEMPLATED_ENUM_VALUES_INDEX_RE.test(original);
+}
