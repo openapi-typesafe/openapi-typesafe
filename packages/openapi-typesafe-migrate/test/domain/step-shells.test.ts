@@ -78,6 +78,117 @@ describe("migrateYamlCommands and step shells", () => {
     }
   });
 
+  it.each([
+    "/usr/bin/env bash -e {0}",
+    "env -u CI LANG=C bash {0}",
+    "env -S bash -e {0}",
+    "env -C /work bash {0}",
+    "msys2 {0}",
+    "wsl-bash {0}",
+    "C:\\msys64\\usr\\bin\\bash.exe {0}",
+  ])("migrateYamlCommands reads the script of the shell %s as commands", (shell) => {
+    const text = workflow(`'${shell}'`, "npx openapi-typescript a.yaml -it");
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toContain("run: npx openapi-typesafe a.yaml --immutable");
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migrateYamlCommands reports a script that env runs with another program", () => {
+    const text = workflow("'/usr/bin/env -C /tmp python3 {0}'", "print('openapi-typescript')");
+
+    expect(migrateYamlCommands(text, "ci.yml", stringsOf(text)).manualSteps).toEqual([
+      { kind: "script-not-shell", location: "ci.yml:5", shell: "/usr/bin/env -C /tmp python3 {0}" },
+    ]);
+  });
+
+  it("migrateYamlCommands reads the default shell of a workflow and of a job", () => {
+    const text = lines(
+      "defaults:",
+      "  run:",
+      "    shell: python",
+      "jobs:",
+      "  a:",
+      "    steps:",
+      "      - run: print('npx openapi-typescript a.yaml -it')",
+      "  b:",
+      "    defaults:",
+      "      run:",
+      "        shell: node {0}",
+      "    steps:",
+      "      - run: console.log('npx openapi-typescript a.yaml -it')",
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "script-not-shell", location: "ci.yml:7", shell: "python" },
+      { kind: "script-not-shell", location: "ci.yml:13", shell: "node {0}" },
+    ]);
+  });
+
+  it("migrateYamlCommands takes the nearest shell: the step, then the job, then the workflow", () => {
+    const text = lines(
+      "defaults:",
+      "  run:",
+      "    shell: python",
+      "jobs:",
+      "  a:",
+      "    defaults:",
+      "      run:",
+      "        shell: bash",
+      "    steps:",
+      "      - run: npx openapi-typescript a.yaml -it",
+      "      - shell: python",
+      "        run: print(1)",
+      "  b:",
+      "    steps:",
+      "      - shell: bash",
+      "        run: npx openapi-typescript b.yaml -it",
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.text).toContain("run: npx openapi-typesafe a.yaml --immutable");
+    expect(migrated.text).toContain("run: npx openapi-typesafe b.yaml --immutable");
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migrateYamlCommands takes the own shell of a map before a default of the same map", () => {
+    const text = lines(
+      "defaults:",
+      "  run:",
+      "    shell: bash",
+      "shell: python",
+      "steps:",
+      "  - run: print('openapi-typescript')",
+    );
+
+    expect(migrateYamlCommands(text, "ci.yml", stringsOf(text)).manualSteps).toEqual([
+      { kind: "script-not-shell", location: "ci.yml:6", shell: "python" },
+    ]);
+  });
+
+  it("migrateYamlCommands reads the shell of a CircleCI job for the commands of its steps", () => {
+    const text = lines(
+      "jobs:",
+      "  build:",
+      "    shell: /usr/bin/python3",
+      "    steps:",
+      "      - run:",
+      "          command: print('npx openapi-typescript a.yaml -it')",
+    );
+
+    const migrated = migrateYamlCommands(text, "config.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "script-not-shell", location: "config.yml:6", shell: "/usr/bin/python3" },
+    ]);
+  });
+
   it("migrateYamlCommands reads the shell of a step for its own run only", () => {
     const text = lines(
       "jobs:",

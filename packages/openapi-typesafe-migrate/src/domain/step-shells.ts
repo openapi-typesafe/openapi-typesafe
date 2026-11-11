@@ -1,44 +1,107 @@
 import type { Locate, ShellTextFindings } from "./command-migration.js";
-import type { DocumentString } from "./config-documents.js";
+import type { DocumentPath, DocumentString } from "./config-documents.js";
 import { namesOriginalPackage } from "./package-names.js";
 
 /**
  * A CI step can name the program that runs its script: GitHub Actions `shell: python` next to
- * `run`, CircleCI `shell` next to `command`. A script for a program other than a shell is code
- * of that language, so the command migration leaves it as it is and reports it when it names an
- * old package.
+ * `run`, or as `defaults.run.shell` of the job or the workflow; CircleCI `shell` next to
+ * `command`, or of the job. A script for a program other than a shell is code of that language,
+ * so the command migration leaves it as it is and reports it when it names an old package.
  */
 
-/** The key of a CI step that names the program its script goes to. */
+/** The key of a CI step or job that names the program its scripts go to. */
 const STEP_SHELL_KEY = "shell";
-/** Shells whose scripts are command lines as the tool reads them: POSIX shells, PowerShell, cmd. */
+/** GitHub Actions' default shell of a job or a workflow: `defaults.run.shell`. */
+const DEFAULT_SHELL_PATH: readonly string[] = ["defaults", "run", STEP_SHELL_KEY];
+/**
+ * Shells whose scripts are command lines as the tool reads them: POSIX shells, PowerShell, cmd,
+ * and the wrappers that run bash on Windows (`msys2 {0}` of setup-msys2, `wsl-bash {0}` of
+ * setup-wsl).
+ */
 const COMMAND_LINE_SHELLS: ReadonlySet<string> = new Set([
   ...["sh", "bash", "dash", "ash", "zsh", "ksh"],
   ...["pwsh", "powershell", "cmd"],
+  ...["msys2", "wsl-bash"],
 ]);
+/** `env` runs the program after its options and assignments (`/usr/bin/env bash -e {0}`). */
+const ENV_PROGRAM = "env";
+/** The options of `env` that take the next word as their value. */
+const ENV_OPTIONS_WITH_VALUE: ReadonlySet<string> = new Set(["-u", "--unset", "-C", "--chdir"]);
+const OPTION_START = "-";
+const ASSIGNMENT = "=";
 const PATH_SEPARATOR_RE = /[/\\]/;
+const WINDOWS_EXECUTABLE_RE = /\.exe$/i;
 const WHITESPACE_RE = /\s+/;
 
 /** The `shell` of the step that a script belongs to, when it is not a shell. */
 export type StepShellOf = (value: DocumentString) => string | undefined;
 
-/** The program of a `shell` value (`python`, `bash -e {0}`, `/usr/bin/perl {0}`). */
-const shellProgram = (shell: string): string =>
-  shell.trim().split(WHITESPACE_RE)[0]?.split(PATH_SEPARATOR_RE).at(-1) ?? "";
+/** The name of a program word: `bash` of `/usr/bin/bash` and of `C:\msys64\bin\bash.exe`. */
+const programName = (word: string): string =>
+  (word.split(PATH_SEPARATOR_RE).at(-1) ?? "").replace(WINDOWS_EXECUTABLE_RE, "");
+
+/** The number of words after `env` before its program: options, their values, assignments. */
+function envPrefixLength(words: readonly string[]): number {
+  let index = 0;
+  while (index < words.length) {
+    const word = words[index] ?? "";
+    if (ENV_OPTIONS_WITH_VALUE.has(word)) {
+      index += 2;
+    } else if (word.startsWith(OPTION_START) || word.includes(ASSIGNMENT)) {
+      index += 1;
+    } else {
+      break;
+    }
+  }
+  return index;
+}
+
+/** The program of a `shell` value (`python`, `bash -e {0}`, `/usr/bin/env bash -e {0}`). */
+function shellProgram(shell: string): string {
+  const words = shell.trim().split(WHITESPACE_RE);
+  const first = programName(words[0] ?? "");
+  if (first !== ENV_PROGRAM) {
+    return first;
+  }
+  const rest = words.slice(1);
+  return programName(rest[envPrefixLength(rest)] ?? "");
+}
+
+/** Whether a document path ends with `keys`. */
+const endsWith = (path: DocumentPath, keys: readonly string[]): boolean =>
+  keys.every((key, index) => path[path.length - keys.length + index] === key);
+
+const isDefaultShell = (value: DocumentString): boolean => endsWith(value.path, DEFAULT_SHELL_PATH);
 
 /**
- * The `shell` of the step that a command value belongs to (a value next to it), when it is a
- * program other than a shell (`shell: python`).
+ * The map whose scripts a `shell` value is for, as a key: the step or job of a `shell` key, the
+ * job or workflow of `defaults.run.shell`.
+ */
+function scopeOf(value: DocumentString): string {
+  const keys = isDefaultShell(value) ? DEFAULT_SHELL_PATH.length : 1;
+  return JSON.stringify(value.path.slice(0, -keys));
+}
+
+/**
+ * The shell that a command value runs with, when it is a program other than a shell
+ * (`shell: python`): the nearest `shell` above the value, of its step, its job, or a default of
+ * the job or the workflow. A step's own `shell` wins over a default of the same map.
  */
 export function stepShells(strings: readonly DocumentString[]): StepShellOf {
-  const stepOf = (path: DocumentString["path"]) => JSON.stringify(path.slice(0, -1));
-  const others = new Map(
-    strings
-      .filter((value) => value.path.at(-1) === STEP_SHELL_KEY)
-      .filter((value) => !COMMAND_LINE_SHELLS.has(shellProgram(value.value)))
-      .map((value) => [stepOf(value.path), value.value]),
-  );
-  return (value) => others.get(stepOf(value.path));
+  const shells = strings.filter((value) => value.path.at(-1) === STEP_SHELL_KEY);
+  const isOwnShell = (value: DocumentString): boolean => !isDefaultShell(value);
+  // Later entries win: the own `shell` of a map goes after a default of the same map.
+  const ordered = [...shells.filter(isDefaultShell), ...shells.filter(isOwnShell)];
+  const byScope = new Map(ordered.map((value) => [scopeOf(value), value.value]));
+  return (value) => {
+    for (let depth = value.path.length - 1; depth >= 0; depth -= 1) {
+      const shell = byScope.get(JSON.stringify(value.path.slice(0, depth)));
+      if (shell !== undefined) {
+        return COMMAND_LINE_SHELLS.has(shellProgram(shell)) ? undefined : shell;
+      }
+    }
+    return undefined;
+  };
 }
 
 /** A script of a step with another program as its shell that names an old package. */
