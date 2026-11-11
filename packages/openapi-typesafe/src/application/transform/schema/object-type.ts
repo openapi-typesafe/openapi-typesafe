@@ -10,9 +10,8 @@ import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { documentEntries } from "../document-entries.js";
-import type { JsonObject } from "../ref-pointer/located-node.js";
 import { schemaRefType } from "../ref-pointer/pointer-type.js";
-import { isWidenedIndex } from "../ref-pointer/property-shape.js";
+import { isWidenedRecordValue } from "../ref-pointer/property-shape.js";
 import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
@@ -208,13 +207,18 @@ function hasObjectKeywords(schema: SchemaObject): boolean {
 }
 
 /**
- * Where an `additionalProperties` value is in the owner's type: `[string]`, unless the index
- * signature surely holds other types too. Next to `allOf` / `anyOf` / `oneOf` the original
- * `[string]` stays: it compiles, and its type is not surely another one.
+ * Where a record value (under `keyword`) is in the owner's type: `[string]`, unless the index
+ * signature surely holds other types too (`isWidenedRecordValue`). Next to `allOf` / `anyOf` /
+ * `oneOf` an `additionalProperties` value keeps the original `[string]`: it compiles, and its
+ * type is not surely another one.
  */
-export function recordValueAccess(schema: SchemaObject, request: SchemaRequest): ValueAccess {
+export function recordValueAccess(
+  schema: SchemaObject,
+  keyword: string,
+  request: SchemaRequest,
+): ValueAccess {
   const { options, refs } = request.context;
-  return isWidenedIndex(schema as JsonObject, options, refs) ? "none" : "string-index";
+  return isWidenedRecordValue(schema, keyword, options, refs) ? "none" : "string-index";
 }
 
 /** Value types of the `[key: string]` index signature, in the original order. */
@@ -226,7 +230,7 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
     additionalProperties === true || (isObject && Object.keys(additionalProperties).length === 0);
   const types: IrType[] = [];
   if (hasExplicit) {
-    const access = recordValueAccess(schema, request);
+    const access = recordValueAccess(schema, "additionalProperties", request);
     types.push(request.transformNested(additionalProperties as Schema, request.location, access));
   }
   if (hasImplicit || (!additionalProperties && request.context.options.additionalProperties)) {

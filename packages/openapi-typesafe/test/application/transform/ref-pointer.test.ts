@@ -355,7 +355,7 @@ describe("generatedLocationOf", () => {
     );
     expect(located("#/components/schemas/Map/additionalProperties")).toEqual({
       path: "#/components/schemas/Map",
-      recordOwner: { node: DOCUMENT.components.schemas.Map },
+      recordOwner: { node: DOCUMENT.components.schemas.Map, keyword: "additionalProperties" },
     });
     expect(located("#/components/schemas/Map").recordOwner).toBeNull();
   });

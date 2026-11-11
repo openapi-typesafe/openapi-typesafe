@@ -111,4 +111,6 @@ check the type the output has.
    document, so a property type the signature admits already counts too, which writes the same
    type differently. Next to `allOf` / `anyOf` / `oneOf` the `[string]` location stays: it compiles
    and is not surely another type. The `unevaluatedProperties` value of the
-   `unevaluated-properties` fix keeps `[string]`.
+   `unevaluated-properties` fix follows the same rule (`isWidenedRecordValue`), and its signature
+   also holds the declared types of `allOf` / `anyOf` / `oneOf` members, so next to those its
+   array is typed by its values too.

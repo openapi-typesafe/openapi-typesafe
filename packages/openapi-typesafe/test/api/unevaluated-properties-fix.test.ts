@@ -164,6 +164,32 @@ describe("unevaluated-properties fix", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS with the fix and enumValues types a widened value's array by its values", async () => {
+    const value = { type: "string", enum: ["a", "b"] };
+    const own = { type: "object", properties: ID, unevaluatedProperties: value };
+    const composed = { allOf: [BASE_REF], unevaluatedProperties: value };
+
+    const output = await fixed({ Own: own, Composed: composed }, { enumValues: true });
+
+    expect(output).toContain('export const ownValues: ReadonlyArray<"a" | "b"> = ["a", "b"];');
+    expect(output).toContain('export const composedValues: ReadonlyArray<"a" | "b"> = ["a", "b"];');
+    expect(typeErrorsOf(`${output}\nconst bad: (typeof ownValues)[number] = 5;`)).not.toEqual([]);
+  });
+
+  it("openapiTS with the fix types the inline copy of a $ref to a widened value by its values", async () => {
+    const value = { type: "string", enum: ["a", "b"] };
+    const composed = { allOf: [BASE_REF], unevaluatedProperties: value };
+    const use = { type: "object", properties: { v: { $ref: "#/components/schemas/Composed/unevaluatedProperties" } } };
+
+    const output = await generate(documentWith({ Use: use, Composed: composed }), {
+      enumValues: true,
+      fix: ["unevaluated-properties", "ref-pointers"],
+    });
+
+    expect(output).toContain('export const composedValues: ReadonlyArray<"a" | "b"> = ["a", "b"];');
+    expect(output).not.toContain('["Composed"][string]>');
+  });
+
   it("openapiTS with the fix and root types renames a schema alias that the helper takes", async () => {
     const output = await fixed(
       { PropertyValues: { allOf: [BASE_REF], unevaluatedProperties: STRING } },

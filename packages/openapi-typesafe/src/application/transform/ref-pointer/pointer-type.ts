@@ -8,7 +8,7 @@ import { hasInlineCycle } from "./inline-cycles.js";
 import { isJsonObject } from "./located-node.js";
 import { originalIndexFails } from "./original-index.js";
 import { leadingSegmentsOf, pointerNode, type RefPointer, refPointerOf } from "./pointer-walk.js";
-import { isWidenedIndex } from "./property-shape.js";
+import { isWidenedRecordValue } from "./property-shape.js";
 import { typedWalk } from "./typed-walk.js";
 
 /**
@@ -56,7 +56,7 @@ function valueAccessOf(owner: RecordOwner | null, request: SchemaRequest): Value
     return AT_LOCATION;
   }
   const { options, refs } = request.context;
-  const isWidened = isJsonObject(owner.node) && isWidenedIndex(owner.node, options, refs);
+  const isWidened = isWidenedRecordValue(owner.node, owner.keyword, options, refs);
   return isWidened ? "none" : "string-index";
 }
 

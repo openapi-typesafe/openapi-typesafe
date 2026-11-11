@@ -22,9 +22,10 @@ import {
  * typed nowhere else, so it keeps its pointer as its location.
  */
 
-/** The object schema whose record value (`additionalProperties`) a node is. */
+/** The object schema whose record value a node is, and the keyword it is under. */
 export interface RecordOwner {
   readonly node: unknown;
+  readonly keyword: string;
 }
 
 export interface GeneratedLocation {
@@ -92,7 +93,7 @@ function schemaStep(node: unknown, segment: string, next: string | undefined): S
   if (!PARENT_LOCATION_KEYWORDS.has(segment)) {
     return null;
   }
-  const recordOwner = RECORD_VALUE_KEYWORDS.has(segment) ? { node } : undefined;
+  const recordOwner = RECORD_VALUE_KEYWORDS.has(segment) ? { node, keyword: segment } : undefined;
   return { path: [], child: value, length: 1, isSchema: true, ...(recordOwner && { recordOwner }) };
 }
 

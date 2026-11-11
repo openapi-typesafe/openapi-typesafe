@@ -94,6 +94,27 @@ export function isIndexedByValue(owner: unknown, options: SchemaOptions, refs: R
   return !isComposed && !isWidenedIndex(owner, options, refs);
 }
 
+const UNEVALUATED_PROPERTIES = "unevaluatedProperties";
+
+/**
+ * Whether the owner's index signature surely holds more than the record value under `keyword`.
+ * The `unevaluated-properties` fix also puts the declared property types of the owner's
+ * `allOf` / `anyOf` / `oneOf` members in its signature, so next to those it is widened too.
+ */
+export function isWidenedRecordValue(
+  owner: unknown,
+  keyword: string,
+  options: SchemaOptions,
+  refs: RefResolver,
+): boolean {
+  if (!isJsonObject(owner)) {
+    return false;
+  }
+  return keyword === UNEVALUATED_PROPERTIES
+    ? !isIndexedByValue(owner, options, refs)
+    : isWidenedIndex(owner, options, refs);
+}
+
 /**
  * Whether `--read-write-markers` wraps the type of a property or `$defs` member: one that is only
  * `readOnly` or only `writeOnly` is `$Read<T>` or `$Write<T>` (object-type.ts).
