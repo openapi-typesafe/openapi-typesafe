@@ -272,3 +272,8 @@ The recheck of the rc.6 fixes found two more cases.
 | Check the members before the path and header serializers (chosen) | One message per location; the public serializers keep their contract | A second walk over the members of an array or object |
 | Pass the message into `encodeValue` and the serializers | One walk | A new parameter through public functions that users call |
 | Catch and rethrow the query error in the path serializer | No new check | Matches on a message text to tell errors apart |
+
+The two checks and messages take the bundle from about 10.95 kB to 11.22 kB (size-limit,
+minified). The budget rises from 11 kB to 11.3 kB; the docs keep "about 11 kB minified". The
+smaller choices are listed above and are worse. Correctness ranks above size
+(CODING_PRINCIPLES §1), as in the amendments above.
