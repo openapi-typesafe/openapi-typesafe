@@ -109,6 +109,27 @@ function fetchWithBodyLimit(fetchImpl: RemoteFetch, bodyLimit: RemoteBodyLimit):
   return async (input, init) => bufferedResponse(await fetchImpl(input, init), input, bodyLimit);
 }
 
+/**
+ * The URL each remote document was read from in the end, when redirects moved it. A relative
+ * `$ref` resolves against the URL the document was retrieved from (RFC 3986, section 5.1.3), so
+ * `/latest` that redirects to `/static/v1/root.yaml` loads `./pet.yaml` from `/static/v1/`.
+ * Redocly reads only the body of the response, so the fetch records the URL here.
+ */
+export class RedirectedUrls {
+  readonly #finalUrls = new Map<string, string>();
+
+  record(requested: string, final: string): void {
+    if (requested !== final) {
+      this.#finalUrls.set(requested, final);
+    }
+  }
+
+  /** The URL the document of `requested` came from; `requested` when it was not redirected. */
+  finalUrlOf(requested: string): string {
+    return this.#finalUrls.get(requested) ?? requested;
+  }
+}
+
 /** What every hop of a remote fetch is checked against. */
 export interface RedirectPolicy {
   /** `resolve.http.headers` of the Redocly config; chosen again for the URL of every hop. */
@@ -120,6 +141,8 @@ export interface RedirectPolicy {
    * redirects are limited to the hosts (ADR-017): a spec URL that redirects to a CDN loads.
    */
   readonly rootUrl: string | undefined;
+  /** Where the final URL of each redirected document is recorded. */
+  readonly redirects: RedirectedUrls;
 }
 
 /**
@@ -148,6 +171,7 @@ export function fetchWithCheckedRedirects(
       const response = await fetchImpl(url.href, { ...init, headers, redirect: "manual" });
       const location = response.headers.get("location");
       if (!REDIRECT_STATUSES.has(response.status) || location === null) {
+        policy.redirects.record(input, url.href);
         return response;
       }
       url = new URL(location, url);
@@ -200,6 +224,7 @@ export interface RemoteFetchOptions {
   readonly rootUrl: string | undefined;
   readonly maxParallelFetches: number;
   readonly bodyLimits: RemoteBodyLimits;
+  readonly redirects: RedirectedUrls;
 }
 
 /**
@@ -225,6 +250,7 @@ export function resolveConfigWithAccess(
     headers: resolve.http.headers,
     hosts: options.access.remoteHosts,
     rootUrl: options.rootUrl,
+    redirects: options.redirects,
   });
   // The limit is outside the redirects, so all hops of one document share one slot.
   const customFetch = fetchWithConcurrencyLimit(checked, options.maxParallelFetches);

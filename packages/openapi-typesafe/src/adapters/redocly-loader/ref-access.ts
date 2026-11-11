@@ -5,7 +5,7 @@ import {
   BaseResolver,
   type Document,
   type Config as RedoclyConfig,
-  type Source,
+  Source,
   YamlParseError,
 } from "@redocly/openapi-core";
 import type { RefAccess } from "../../application/ports/schema-loader.js";
@@ -14,6 +14,7 @@ import { redactUrlSecrets } from "../../domain/url-secrets.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
 import { isHostAllowed } from "./allowed-hosts.js";
 import { pointMappingNamesAtSchemas } from "./mapping-schema-names.js";
+import type { RedirectedUrls } from "./remote-fetch.js";
 import { isParsedSource, RemoteNodeLimit } from "./remote-node-limit.js";
 import { refForbiddenError } from "./schema-load-errors.js";
 
@@ -108,6 +109,8 @@ export interface RefAccessLimits {
   readonly maxRemoteDocuments: number;
   /** Nodes the remote documents of one load may parse into together (threat model T2). */
   readonly maxRemoteNodes: number;
+  /** The final URLs of redirected documents, which their relative `$ref`s resolve against. */
+  readonly redirects: RedirectedUrls;
 }
 
 /**
@@ -207,7 +210,7 @@ export class RefAccessResolver extends BaseResolver {
       throw refusal;
     }
     try {
-      return await super.loadExternalRef(absoluteRef);
+      return this.#atFinalUrl(await super.loadExternalRef(absoluteRef));
     } catch (error) {
       // A refused redirect throws inside the fetch, and Redocly wraps it in a ResolveError.
       const cause = (error as { originalError?: unknown }).originalError;
@@ -216,6 +219,17 @@ export class RefAccessResolver extends BaseResolver {
       }
       throw error;
     }
+  }
+
+  /**
+   * A redirected document is named by the URL it came from, so its relative `$ref`s, its
+   * component names and its problems use that URL. Redocly still finds it by the requested one.
+   */
+  #atFinalUrl(source: Source): Source {
+    const finalUrl = this.#limits.redirects.finalUrlOf(source.absoluteRef);
+    return finalUrl === source.absoluteRef
+      ? source
+      : new Source(finalUrl, source.body, source.mimeType);
   }
 
   #accessRefusal(absoluteRef: string): Promise<OpenAPITypesafeError | undefined> {

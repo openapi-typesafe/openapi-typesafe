@@ -31,7 +31,11 @@ import {
 import { RefAccessResolver } from "./ref-access.js";
 import { checkRefsResolve } from "./ref-resolution-check.js";
 import { REF_CYCLE_MESSAGE } from "./ref-resolution-steps.js";
-import { type RemoteDocumentLimits, resolveConfigWithAccess } from "./remote-fetch.js";
+import {
+  RedirectedUrls,
+  type RemoteDocumentLimits,
+  resolveConfigWithAccess,
+} from "./remote-fetch.js";
 import {
   loadFailedError,
   refCycleError,
@@ -177,17 +181,21 @@ class RedoclySchemaLoader implements SchemaLoader {
 
   #resolver(request: SchemaLoadRequest): RefAccessResolver {
     const { redoc, remoteRefTimeoutMs, remoteDocumentLimits } = this.#options;
+    // One record per load, as the resolver and its cache are.
+    const redirects = new RedirectedUrls();
     const config = resolveConfigWithAccess(redoc.resolve, {
       timeoutMs: remoteRefTimeoutMs,
       access: request.refAccess,
       rootUrl: request.source instanceof URL ? request.source.href : undefined,
       maxParallelFetches: remoteDocumentLimits.maxParallelFetches,
       bodyLimits: remoteDocumentLimits,
+      redirects,
     });
     return new RefAccessResolver(config, {
       access: request.refAccess,
       maxRemoteDocuments: remoteDocumentLimits.maxDocuments,
       maxRemoteNodes: remoteDocumentLimits.maxNodes,
+      redirects,
     });
   }
 

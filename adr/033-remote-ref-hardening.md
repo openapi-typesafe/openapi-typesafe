@@ -308,3 +308,12 @@ documents that failed to load.
    node. A serial that Redocly added only because two queries ended alike (`new-api-2`) is chosen
    again for the new name, and Redocly's warning about that collision is dropped when the new
    names no longer collide.
+2. **The base of a redirected document.** The loader follows redirects itself (decision 3), and
+   Redocly reads only the body of the response, so it kept the requested URL as the document's
+   URL: `/latest`, redirected to `/static/v1/root.yaml`, loaded `./schemas/pet.yaml` from
+   `/schemas/`, a wrong file or a 404. RFC 3986 (section 5.1.3) takes the URL the document was
+   retrieved from as the base. The fetch now records the final URL of each redirected document
+   for its load, and the resolver names the document by it, for the root and for every `$ref`'d
+   document; Redocly still finds the document by the requested URL in its cache. The `$ref`s
+   resolved from it are then checked against the hosts, and get their configured headers, by the
+   URLs they really have.
