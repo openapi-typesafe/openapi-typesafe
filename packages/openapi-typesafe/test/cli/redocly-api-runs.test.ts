@@ -61,7 +61,7 @@ describe("runCli with the APIs of a Redocly config", () => {
 
     expect(exitCode).toBe(2);
     expect(cli.logger.messages("error")).toEqual([
-      "--local-ref-root https://example.com/specs/: a directory path or a file: URL. (CLI_FLAG_INVALID)",
+      "--local-ref-root https://example.com/specs/: a directory path or a file: URL of a local directory. (CLI_FLAG_INVALID)",
     ]);
     expect(cli.generator.calls).toEqual([]);
   });

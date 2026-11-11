@@ -134,6 +134,18 @@ describe("unknown flags", () => {
 
     expect(args.unknownFlags).toEqual([]);
   });
+
+  it("parseCliArguments knows the camelCase spelling of every generator flag", () => {
+    const args = parseCliArguments([
+      "schema.yaml",
+      ...GENERATOR_FLAGS.map((flag) => `--${flag}`),
+      "--localRefRoot",
+      "api",
+    ]);
+
+    expect(args.unknownFlags).toEqual([]);
+    expect(Object.keys(args.generatorFlags)).toEqual([...GENERATOR_FLAGS]);
+  });
 });
 
 describe("ineffectiveFlagNotices", () => {
@@ -255,7 +267,7 @@ describe("parseCliArguments unknown flags before the schema", () => {
   it.each([
     [["--alphabetise", "specs/api.yaml", "-o", "out.ts"], "--alphabetise"],
     [["--no-thing", "specs/api.yaml"], "--no-thing"],
-    [["--fooBar", "specs/api.yaml"], "--foo-bar"],
+    [["--fooBar", "specs/api.yaml"], "--fooBar"],
     [["-x", "specs/api.yaml"], "-x"],
     [["-xt", "specs/api.yaml"], "-x"],
   ])("parseCliArguments with %j keeps the schema and names the unknown flag", (argv, flag) => {
@@ -263,6 +275,26 @@ describe("parseCliArguments unknown flags before the schema", () => {
 
     expect(args.input).toBe("specs/api.yaml");
     expect(args.unknownFlags).toEqual([flag]);
+  });
+
+  it.each(["--Enum", "--ALPHABETIZE", "--root_types", "--enum-Values", "--no-Enum", "--Output"])(
+    "parseCliArguments with %s, a known flag in another spelling, keeps the schema and names the flag as written",
+    (flag) => {
+      const args = parseCliArguments([flag, "specs/api.yaml", "-o", "out.ts"]);
+
+      expect(args).toMatchObject({ input: "specs/api.yaml", output: "out.ts", generatorFlags: {} });
+      expect(args.unknownFlags).toEqual([flag]);
+    },
+  );
+
+  it("parseCliArguments with --enum-Values=true sets no option", () => {
+    const args = parseCliArguments(["--enum-Values=true", "a.yaml"]);
+
+    expect([args.generatorFlags, args.unknownFlags]).toEqual([{}, ["--enum-Values"]]);
+  });
+
+  it("parseCliArguments keeps an unknown flag after -- as the schema", () => {
+    expect(parseCliArguments(["--", "--Enum"]).input).toBe("--Enum");
   });
 
   it("parseCliArguments with a short group of a known and an unknown flag reads the known one", () => {

@@ -21,7 +21,7 @@ export const OUTPUT_SETTING = "output";
 export const FIX_SETTING = "fix";
 
 const LOCAL_REF_ROOT_SETTING = "localRefRoot";
-const LOCAL_ROOT_EXPECTED = "a directory path or a file: URL";
+const LOCAL_ROOT_EXPECTED = "a directory path or a file: URL of a local directory";
 const REMOTE_REF_HOSTS_SETTING = "remoteRefHosts";
 
 /** `--content-never` is accepted and has no effect, as on the command line. */
@@ -132,7 +132,8 @@ export function apiFixNames(
 
 /**
  * `local-ref-root: dir`, relative to the config file; empty means the config file's directory. A
- * value that is no text or a URL of another protocol fails with `CLI_CONFIG_INVALID`.
+ * value that is no text, a URL of another protocol or a `file:` URL that names no local path fails
+ * with `CLI_CONFIG_INVALID`.
  */
 function localRefRootOf(apiName: string, settings: ApiSettings, configRoot: URL): RefLimitOptions {
   if (!hasSetting(settings, LOCAL_REF_ROOT_SETTING)) {

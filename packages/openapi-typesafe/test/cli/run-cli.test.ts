@@ -509,7 +509,19 @@ describe("runCli: $ref limits", () => {
 
     expect(exitCode).toBe(2);
     expect(cli.logger.messages("error")).toEqual([
-      "--local-ref-root https://***@example.com/specs/?***: a directory path or a file: URL. (CLI_FLAG_INVALID)",
+      "--local-ref-root https://***@example.com/specs/?***: a directory path or a file: URL of a local directory. (CLI_FLAG_INVALID)",
+    ]);
+    expect(cli.generator.calls).toEqual([]);
+  });
+
+  it("runCli with a --local-ref-root file: URL that names no local path exits with 2 before generating", async () => {
+    const cli = createFakeCli();
+
+    const exitCode = await runCli(["a.yaml", "--local-ref-root", "file://server/share/%2F/specs/"], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")).toEqual([
+      "--local-ref-root file://server/share/%2F/specs/: a directory path or a file: URL of a local directory. (CLI_FLAG_INVALID)",
     ]);
     expect(cli.generator.calls).toEqual([]);
   });

@@ -27,7 +27,9 @@ afterAll(() => {
 
 /** The typed API without compiler nodes: what every consumer uses. */
 const API_CONSUMER = `
-import openapiTS, { astToString, COMMENT_HEADER, type OpenAPITSIrOptions } from "openapi-typesafe";
+import openapiTS, { astToString, c, COMMENT_HEADER, type OpenAPITSIrOptions } from "openapi-typesafe";
+
+export const isColored: boolean = c.enabled && c.green("x") !== "x";
 
 const options: OpenAPITSIrOptions = {
   irCallbacks: true,
@@ -59,19 +61,46 @@ export const inline = await openapiTS("openapi: 3.1.0", {
 });
 `;
 
-const TSCONFIG = {
-  compilerOptions: {
-    target: "ES2022",
-    module: "NodeNext",
-    moduleResolution: "NodeNext",
-    strict: true,
-    esModuleInterop: true,
-    skipLibCheck: false,
-    noEmit: true,
-    types: ["node"],
-  },
-  files: ["consumer.ts"],
+/** The `c` helper and the API from a CommonJS project, which has no top-level await. */
+const COMMONJS_CONSUMER = `
+import openapiTS, { astToString, c } from "openapi-typesafe";
+
+export const text: Promise<string> = openapiTS("openapi: 3.1.0").then((nodes) => c.green(astToString(nodes)));
+`;
+
+/** How a consumer project is set up: its compiler options and its package.json. */
+interface ConsumerProject {
+  readonly compilerOptions: Readonly<Record<string, unknown>>;
+  readonly packageJson: string;
+}
+
+const ESM_PROJECT: ConsumerProject = {
+  compilerOptions: { module: "NodeNext", moduleResolution: "NodeNext", esModuleInterop: true },
+  packageJson: '{ "type": "module" }\n',
 };
+
+/**
+ * A CommonJS project with node10 resolution and without `esModuleInterop`, the defaults of
+ * `module: commonjs`. A default import of a CommonJS module in the declarations is TS1259 there.
+ */
+const COMMONJS_NODE10_PROJECT: ConsumerProject = {
+  compilerOptions: { module: "CommonJS", moduleResolution: "node" },
+  packageJson: "{}\n",
+};
+
+function tsconfigOf(project: ConsumerProject) {
+  return {
+    compilerOptions: {
+      target: "ES2022",
+      strict: true,
+      skipLibCheck: false,
+      noEmit: true,
+      types: ["node"],
+      ...project.compilerOptions,
+    },
+    files: ["consumer.ts"],
+  };
+}
 
 /** The package directory of a module that this package or the workspace installs. */
 function installedPackage(name: string): string {
@@ -85,7 +114,12 @@ function link(consumer: string, name: string, target: string): void {
 }
 
 /** A consumer project with this package's `dist`, its typed dependencies and one TypeScript. */
-function createConsumer(name: string, typescriptPackage: string, source: string): string {
+function createConsumer(
+  name: string,
+  typescriptPackage: string,
+  source: string,
+  project: ConsumerProject = ESM_PROJECT,
+): string {
   const consumer = path.join(workDir, name);
   const installed = path.join(consumer, "node_modules/openapi-typesafe");
   fs.mkdirSync(installed, { recursive: true });
@@ -95,8 +129,8 @@ function createConsumer(name: string, typescriptPackage: string, source: string)
     link(consumer, dependency, installedPackage(dependency));
   }
   link(consumer, "typescript", installedPackage(typescriptPackage));
-  fs.writeFileSync(path.join(consumer, "package.json"), '{ "type": "module" }\n');
-  fs.writeFileSync(path.join(consumer, "tsconfig.json"), JSON.stringify(TSCONFIG));
+  fs.writeFileSync(path.join(consumer, "package.json"), project.packageJson);
+  fs.writeFileSync(path.join(consumer, "tsconfig.json"), JSON.stringify(tsconfigOf(project)));
   fs.writeFileSync(path.join(consumer, "consumer.ts"), source);
   return consumer;
 }
@@ -123,6 +157,17 @@ describe("published declarations with the consumer's TypeScript", () => {
     "the API without compiler nodes type-checks with %s and skipLibCheck false",
     async (typescriptPackage, version) => {
       const consumer = createConsumer(`api-${version}`, typescriptPackage, API_CONSUMER);
+
+      expect(await typeErrorsOf(consumer)).toEqual([]);
+    },
+    TIMEOUT_MS,
+  );
+
+  // TypeScript 6 deprecates node10 resolution and TypeScript 7 removed it, so 5.4 checks it.
+  it(
+    "the API type-checks with typescript-5.4 in a CommonJS project without esModuleInterop",
+    async () => {
+      const consumer = createConsumer("commonjs-5.4", "typescript-5.4", COMMONJS_CONSUMER, COMMONJS_NODE10_PROJECT);
 
       expect(await typeErrorsOf(consumer)).toEqual([]);
     },
