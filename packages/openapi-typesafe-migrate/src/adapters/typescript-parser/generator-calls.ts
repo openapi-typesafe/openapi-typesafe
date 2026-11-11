@@ -12,12 +12,14 @@ export type GeneratorOptions =
   /**
    * An object literal that only this call uses: it may be rewritten. `annotations` are the types
    * it is declared with: the type of its `const`, and `satisfies` or `as` around it, also as a
-   * JSDoc `@type` or `@satisfies` of a JavaScript file.
+   * JSDoc `@type` or `@satisfies` of a JavaScript file. `isContextuallyTyped` is false for an
+   * object in a `const` with none of these: its `true` values widen to `boolean`.
    */
   | {
       readonly kind: "own";
       readonly options: ts.ObjectLiteralExpression;
       readonly annotations: readonly ts.TypeNode[];
+      readonly isContextuallyTyped: boolean;
     }
   /** An object literal in a `const` that other code uses too: it is only reported. */
   | { readonly kind: "shared"; readonly options: ts.ObjectLiteralExpression }
@@ -93,19 +95,25 @@ function constantOptions(
     return { kind: "shared", options: found.value };
   }
   const declared = (declaration as ts.VariableDeclaration).type;
-  const annotations = [
-    ...outerTypes,
+  // A type around the name in the call (`options as T`) does not type the object.
+  const ownTypes = [
     ...found.types,
     ...(declared === undefined ? [] : [declared]),
     ...jsDocTypes(declaration),
   ];
-  return { kind: "own", options: found.value, annotations };
+  const annotations = [...outerTypes, ...ownTypes];
+  return {
+    kind: "own",
+    options: found.value,
+    annotations,
+    isContextuallyTyped: ownTypes.length > 0,
+  };
 }
 
 function optionsOf(argument: ts.Expression, bindings: FileBindings): GeneratorOptions {
   const { value, types } = unwrapped(argument);
   if (ts.isObjectLiteralExpression(value)) {
-    return { kind: "own", options: value, annotations: types };
+    return { kind: "own", options: value, annotations: types, isContextuallyTyped: true };
   }
   return ts.isIdentifier(value)
     ? constantOptions(value, bindings, types)

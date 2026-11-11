@@ -21,6 +21,7 @@ function migratePackageYaml(text: string, version: string) {
     catalogs: NO_CATALOG_PLAN,
     manifests: [],
     aliases: [],
+    apiDescriptionParts: new Set<string>(),
     rewriter,
     scanner,
     readers,

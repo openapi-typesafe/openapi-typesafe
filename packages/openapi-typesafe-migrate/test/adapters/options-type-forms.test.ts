@@ -126,8 +126,9 @@ describe("TypescriptCallbackRewriter and JSDoc options types", () => {
     const type = '/** @type {import("openapi-typesafe").OpenAPITSOptions} */';
     const text = optionsFile([GENERATOR, type], "const options = {");
 
+    // The object is not typed, so its `true` would widen to `boolean`.
     expect(rewriter.rewrite(text, "gen.ts").text).toContain(
-      `${type}\nconst options = {\n  irCallbacks: true,`,
+      `${type}\nconst options = {\n  irCallbacks: true as const,`,
     );
   });
 

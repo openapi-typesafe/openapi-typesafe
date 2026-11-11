@@ -10,8 +10,8 @@ const OLD_FILE_NOTE =
 const FLAGS_IN_VARIABLE_NOTE =
   "holds old flags of the generator and may serve other commands, so it was kept: rename";
 const NOT_ONLY_GENERATOR_NOTE =
-  "runs openapi-typescript in some of its definitions in this file and another program in " +
-  "others, so the flags after it were kept; where it runs the generator, rename";
+  "may run openapi-typescript or another program (set elsewhere in the file, in another " +
+  "step or outside it), so the flags after it were kept; where it runs the generator, rename";
 const OLD_NAME_IN_COMMAND_NOTE =
   "names an old package where the tool cannot tell what runs it (a script name, an argument of " +
   "a program it does not know), so it was kept: migrate it by hand";

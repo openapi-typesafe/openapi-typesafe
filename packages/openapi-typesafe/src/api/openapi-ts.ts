@@ -85,11 +85,20 @@ export default function openapiTS(
 // The options without `irCallbacks` get their own signature: TypeScript does not pick a member of
 // `GeneratorOptions | undefined` (an optional parameter) by a key that the object leaves out, so
 // inline callbacks had implicit `any` parameters (TS7006). `irCallbacks: true` picks the member
-// here. This signature is last, so `Parameters<typeof openapiTS>` reads it.
+// here.
 /** Convert an OpenAPI schema to IR declarations, with either form of the options. */
 export default function openapiTS(
   source: SchemaSource,
   options?: GeneratorOptions,
+): Promise<IrDeclaration[]>;
+// The same call with the options required. It adds no call that the signature above does not
+// take: it is last because `Parameters<typeof openapiTS>` reads the last signature, and a wrapper
+// typed from it must give inline callbacks their types. TypeScript picks a member of
+// `GeneratorOptions` by a key the object leaves out, but not of `GeneratorOptions | undefined`.
+/** Convert an OpenAPI schema to IR declarations, with either form of the options. */
+export default function openapiTS(
+  source: SchemaSource,
+  options: GeneratorOptions,
 ): Promise<IrDeclaration[]>;
 export default async function openapiTS(
   source: SchemaSource,

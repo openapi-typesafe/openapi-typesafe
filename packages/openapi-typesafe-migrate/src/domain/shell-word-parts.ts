@@ -84,17 +84,66 @@ function arithmeticExpansion(text: string, start: number): QuotedPart | undefine
   return undefined;
 }
 
+/** `${…}`: a parameter expansion (POSIX 2.6.2), one part of a word up to its closing brace. */
+export const PARAMETER_OPEN = "${";
+const PARAMETER_CLOSE = "}";
+
 /**
- * The part of a word that starts at `index`: a quoted string, an escape, an arithmetic expansion
- * or one character.
+ * The end of the parameter expansion at `start`, after the `}` that closes it, or undefined when
+ * none does. A blank inside it does not end the word (`${GEN:-npx openapi-typescript}`), and a
+ * quoted string, an escape or a nested expansion inside it is skipped whole.
+ */
+export function parameterExpansionEnd(text: string, start: number): number | undefined {
+  let depth = 1;
+  for (let index = start + PARAMETER_OPEN.length; index < text.length; ) {
+    if (text.startsWith(PARAMETER_OPEN, index)) {
+      depth += 1;
+      index += PARAMETER_OPEN.length;
+    } else if (text[index] === PARAMETER_CLOSE) {
+      depth -= 1;
+      index += 1;
+      if (depth === 0) {
+        return index;
+      }
+    } else {
+      index = quotedOrEscapedEnd(text, index) ?? index + 1;
+    }
+  }
+  return undefined;
+}
+
+/** The end of a quoted string or an escape at `index`, or undefined for another character. */
+function quotedOrEscapedEnd(text: string, index: number): number | undefined {
+  const char = text[index];
+  if (char === "'") {
+    return singleQuoted(text, index).end;
+  }
+  if (char === '"') {
+    return doubleQuoted(text, index).end;
+  }
+  return char === BACKSLASH ? index + 2 : undefined;
+}
+
+/** The expansion parts of a word that are read whole: `$((…))` and `${…}`, as written. */
+function expansionPart(text: string, index: number): QuotedPart | undefined {
+  if (text.startsWith(ARITHMETIC_OPEN, index)) {
+    return arithmeticExpansion(text, index);
+  }
+  const end = text.startsWith(PARAMETER_OPEN, index)
+    ? parameterExpansionEnd(text, index)
+    : undefined;
+  return end === undefined ? undefined : { end, value: text.slice(index, end) };
+}
+
+/**
+ * The part of a word that starts at `index`: a quoted string, an escape, an arithmetic or a
+ * parameter expansion, or one character.
  */
 export function wordPart(text: string, index: number): QuotedPart {
   const char = text[index] as string;
-  const arithmetic = text.startsWith(ARITHMETIC_OPEN, index)
-    ? arithmeticExpansion(text, index)
-    : undefined;
-  if (arithmetic !== undefined) {
-    return arithmetic;
+  const expansion = expansionPart(text, index);
+  if (expansion !== undefined) {
+    return expansion;
   }
   if (char === "'") {
     return singleQuoted(text, index);
@@ -108,6 +157,26 @@ export function wordPart(text: string, index: number): QuotedPart {
   return { end: index + 1, value: char };
 }
 
+/** The head of a bash array assignment, `NAME=` or `NAME+=` right before its `(`. */
+const ARRAY_HEAD_RE = /^[A-Za-z_][A-Za-z0-9_]*\+?=$/;
+
+/**
+ * The end of the list of a bash array assignment (`GEN=(npx openapi-typescript)`) at `index`,
+ * after its `)`: bash reads it as part of the assignment word, not as a subshell. Quotes and
+ * escapes in it are skipped whole. Undefined when no `)` closes it.
+ */
+function arrayListEnd(text: string, index: number): number | undefined {
+  let depth = 0;
+  for (let at = index; at < text.length; ) {
+    depth += text[at] === NESTING_OPEN ? 1 : text[at] === NESTING_CLOSE ? -1 : 0;
+    if (depth === 0) {
+      return at + 1;
+    }
+    at = quotedOrEscapedEnd(text, at) ?? at + 1;
+  }
+  return undefined;
+}
+
 const endsWord = (text: string, index: number): boolean => {
   const char = text[index] as string;
   return WORD_BREAKS.has(char) || COMMAND_SEPARATORS.has(char) || isLineContinuation(text, index);
@@ -117,8 +186,15 @@ const endsWord = (text: string, index: number): boolean => {
 export function readWord(text: string, start: number): ShellWord {
   let value = "";
   let index = start;
-  while (index < text.length && !endsWord(text, index)) {
-    const part = wordPart(text, index);
+  while (index < text.length) {
+    const isArrayList =
+      text[index] === NESTING_OPEN && ARRAY_HEAD_RE.test(text.slice(start, index));
+    const list = isArrayList ? arrayListEnd(text, index) : undefined;
+    if (list === undefined && endsWord(text, index)) {
+      break;
+    }
+    const part =
+      list === undefined ? wordPart(text, index) : { end: list, value: text.slice(index, list) };
     value += part.value;
     index = part.end;
   }

@@ -184,7 +184,9 @@ function makefileVariables(
   const variables: FileVariables = {
     programAt: (program) => {
       const name = nameAt(program);
-      const found = name === undefined ? undefined : programs.get(name);
+      // A variable that no line of the file sets comes from an included file, the command line
+      // or the environment, so it may run the generator.
+      const found = name === undefined ? undefined : (programs.get(name) ?? "generator-or-other");
       const written = text.slice(program.start, program.end);
       return found === undefined ? undefined : { written, program: found };
     },

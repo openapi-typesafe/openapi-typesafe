@@ -14,6 +14,7 @@ import {
 } from "../domain/migration-findings.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
 import type { SuccessorAliases } from "../domain/successor-aliases.js";
+import type { ApiDescriptionParts } from "./api-description-parts.js";
 import type { CallbackRewriter, DocumentReaders, SourceStringScanner } from "./ports.js";
 
 /**
@@ -30,6 +31,8 @@ export interface MigrationContext {
   readonly manifests: readonly ManifestDeclarations[];
   /** The files whose overrides alias original packages to their successors. */
   readonly aliases: readonly SuccessorAliases[];
+  /** The files that the API descriptions reach by `$ref`: data, not commands. */
+  readonly apiDescriptionParts: ApiDescriptionParts;
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
   readonly readers: DocumentReaders;
