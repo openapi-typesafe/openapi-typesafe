@@ -7,7 +7,7 @@
  * plain values, and the base URL the request goes to or the client's key scope, so the key names
  * what was fetched.
  */
-import { bodyKey } from "./body-key.js";
+import { bodyKey, isPlainRecord } from "./body-key.js";
 
 /** Headers as a plain object, which TanStack Query hashes by its names and values. */
 type HeadersRecord = Readonly<Record<string, unknown>>;
@@ -41,19 +41,46 @@ function plainHeaders(headers: object): HeadersRecord {
 }
 
 /**
- * The init fields that are not `undefined`. A field set to `undefined` (`headers: token ? … :
- * undefined`) sends the same request as none, so it must not make the init count as not empty.
+ * The members of an object that are not `undefined`, or undefined when none is. A member set to
+ * `undefined` (`headers: token ? … : undefined`, `query: { cursor: undefined }`) sends the same
+ * request as none, and TanStack Query's hash leaves it out too, so a record of only such members
+ * sends nothing and must not count as one. `null`, `[]` and `{}` members stay: `null` removes a
+ * header, and a query serializer of the client may send them.
  */
-function definedFields(fields: object): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
+function definedMembers(record: object): Record<string, unknown> | undefined {
+  const members = Object.entries(record).filter(([, value]) => value !== undefined);
+  return members.length === 0 ? undefined : Object.fromEntries(members);
 }
 
 /**
- * The init of a query key: the request init with its headers as plain values, its body as
- * `bodyKey`, and the client's key scope, or its base URL when the init has none. The `signal` is
- * left out: TanStack Query gives each request its own. Undefined when nothing is left, so a call
- * without an init and one with an empty init, or one of only `undefined` fields, have the key
- * `[method, path]`.
+ * The `params` of an init without the records that send nothing: `{}`, `{ query: {} }` and
+ * `{ query: { cursor: undefined } }` send the request of no `params`, since the fetch client reads
+ * a missing record as an empty one. Undefined when no record is left.
+ */
+function paramsKey(params: unknown): unknown {
+  if (!isPlainRecord(params)) {
+    return params;
+  }
+  const records = Object.entries(params).map(([location, record]) => [
+    location,
+    isPlainRecord(record) ? definedMembers(record) : record,
+  ]);
+  return definedMembers(Object.fromEntries(records));
+}
+
+/** The headers of an init as `plainHeaders`, or undefined when they set none. */
+function headersKey(headers: unknown): unknown {
+  return typeof headers === "object" && headers !== null
+    ? definedMembers(plainHeaders(headers))
+    : headers;
+}
+
+/**
+ * The init of a query key: the request init with its params and headers without what sends
+ * nothing, its body as `bodyKey`, and the client's key scope, or its base URL when the init has
+ * none. The `signal` is left out: TanStack Query gives each request its own. Undefined when
+ * nothing is left, so a call without an init and one with an init that sends nothing more, such
+ * as `{}` or `{ params: { query: { cursor: undefined } } }`, have the key `[method, path]`.
  */
 export function queryKeyInit(init: unknown, client: KeyClient): object | undefined {
   const { signal: _signal, ...rest } = (init ?? {}) as {
@@ -63,17 +90,16 @@ export function queryKeyInit(init: unknown, client: KeyClient): object | undefin
     baseUrl?: unknown;
     body?: unknown;
   };
-  const keyInit = definedFields({
+  const keyInit: Record<string, unknown> = {
     ...rest,
+    params: paramsKey(rest.params),
+    headers: headersKey(rest.headers),
     ...(rest.body === undefined ? {} : bodyKey(rest.body)),
-  });
-  if (typeof rest.headers === "object" && rest.headers !== null) {
-    keyInit.headers = plainHeaders(rest.headers);
-  }
+  };
   if (client.keyScope !== undefined) {
     keyInit.keyScope = client.keyScope;
   } else if (!rest.baseUrl && client.baseUrl) {
     keyInit.baseUrl = client.baseUrl;
   }
-  return Object.keys(keyInit).length === 0 ? undefined : keyInit;
+  return definedMembers(keyInit);
 }

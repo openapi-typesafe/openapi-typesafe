@@ -56,4 +56,17 @@ describe("query keys of requests", () => {
 
     expect(data).toEqual({ label: "result for dog.jpg" });
   });
+
+  it("queryOptions with only undefined params and headers shares the key of no init", () => {
+    const $api = matchClient();
+    const plain = $api.queryOptions("get", "/items").queryKey;
+
+    expect($api.queryOptions("get", "/items", { params: {} }).queryKey).toEqual(plain);
+    expect(
+      $api.queryOptions("get", "/items", { params: { query: { cursor: undefined } } }).queryKey,
+    ).toEqual(plain);
+    expect(
+      $api.queryOptions("get", "/items", { headers: { "X-Tenant": undefined } }).queryKey,
+    ).toEqual(plain);
+  });
 });

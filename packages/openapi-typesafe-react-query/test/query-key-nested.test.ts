@@ -60,3 +60,37 @@ describe("queryKeyInit values JSON cannot hold inside a body", () => {
     expect(queryKeyInit({ body: { at } }, NO_BASE_URL)).toEqual({ body: { at } });
   });
 });
+
+describe("queryKeyInit params and headers that send nothing", () => {
+  it("queryKeyInit with only undefined parameters gives the key of no init", () => {
+    expect(queryKeyInit({ params: { query: { cursor: undefined } } }, NO_BASE_URL)).toBeUndefined();
+    expect(queryKeyInit({ params: { query: undefined } }, NO_BASE_URL)).toBeUndefined();
+  });
+
+  it("queryKeyInit with empty params records gives the key of no init", () => {
+    expect(queryKeyInit({ params: {} }, NO_BASE_URL)).toBeUndefined();
+    expect(queryKeyInit({ params: { query: {}, header: {} } }, NO_BASE_URL)).toBeUndefined();
+  });
+
+  it("queryKeyInit with only undefined headers gives the key of no init", () => {
+    expect(queryKeyInit({ headers: { "X-Tenant": undefined } }, NO_BASE_URL)).toBeUndefined();
+    expect(queryKeyInit({ headers: new Headers() }, NO_BASE_URL)).toBeUndefined();
+  });
+
+  it("queryKeyInit leaves out undefined parameters next to set ones", () => {
+    const init = { params: { path: { id: 1 }, query: { cursor: undefined, limit: 5 } } };
+
+    expect(queryKeyInit(init, NO_BASE_URL)).toEqual({
+      params: { path: { id: 1 }, query: { limit: 5 } },
+    });
+  });
+
+  it("queryKeyInit keeps null, empty array and empty object parameter values", () => {
+    const params = { query: { tag: null, ids: [], filter: {} }, header: { "X-A": null } };
+
+    expect(queryKeyInit({ params, headers: { "X-B": null } }, NO_BASE_URL)).toEqual({
+      params,
+      headers: { "X-B": null },
+    });
+  });
+});
