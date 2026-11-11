@@ -9,6 +9,7 @@ import {
 } from "../domain/declared-packages.js";
 import { importMapNames } from "../domain/import-map-migration.js";
 import { namesOriginalPackage, WORKSPACES_FIELD } from "../domain/package-names.js";
+import { type SuccessorAliases, successorAliasedPackages } from "../domain/successor-aliases.js";
 import { type NamedImportMaps, namedImportMaps, withNamedImportMaps } from "./named-import-maps.js";
 import { type PlanSource, planSourceOf } from "./plan-sources.js";
 import type { DocumentReaders, ProjectFiles } from "./ports.js";
@@ -33,6 +34,8 @@ export interface ProjectTarget {
   readonly version: string;
   readonly catalogs: CatalogPlan;
   readonly manifests: readonly ManifestDeclarations[];
+  /** The manifests and workspace files whose overrides alias original packages. */
+  readonly aliases: readonly SuccessorAliases[];
   /** The files that Deno configs name as their import maps. */
   readonly importMaps: NamedImportMaps;
 }
@@ -102,6 +105,12 @@ function declarationsOf(
   return [{ path, names: roots && new Set(roots.flatMap(names)), localPackages: new Set(local) }];
 }
 
+/** The successor aliases in the overrides of a manifest or a workspace file. */
+function aliasesOf(path: string, roots: readonly TreeMap[] | undefined): SuccessorAliases[] {
+  const names = (roots ?? []).flatMap(successorAliasedPackages);
+  return names.length === 0 ? [] : [{ path, names: new Set(names) }];
+}
+
 /**
  * The catalog plan of the project and what its manifests and import maps declare, from the files
  * of the listing. A file that cannot be read or parsed adds no catalogs, and is reported when it
@@ -114,6 +123,7 @@ export async function planProjectTarget(
 ): Promise<ProjectTarget> {
   const documents: Record<"manifest" | "catalogs", TreeMap[]> = { manifest: [], catalogs: [] };
   const manifests: ManifestDeclarations[] = [];
+  const aliases: SuccessorAliases[] = [];
   let isWorkspaceRoot = false;
   const importMaps = await namedImportMaps(paths, dependencies.files, dependencies.readers);
   for (const path of paths) {
@@ -127,11 +137,13 @@ export async function planProjectTarget(
       documents[source.role].push(...(roots ?? []));
     }
     manifests.push(...declarationsOf(path, source.role, roots));
+    aliases.push(...aliasesOf(path, roots));
   }
   const catalogs = planCatalogs({
     manifests: documents.manifest,
     catalogFiles: documents.catalogs,
     isWorkspaceRoot,
   });
-  return { version, catalogs, manifests: withNamedImportMaps(manifests, importMaps), importMaps };
+  const declarations = withNamedImportMaps(manifests, importMaps);
+  return { version, catalogs, manifests: declarations, aliases, importMaps };
 }

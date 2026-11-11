@@ -25,6 +25,7 @@ import {
   migrateModuleSpecifiers,
   SOURCE_EXTENSIONS,
 } from "../domain/source-migration.js";
+import { aliasedPackagesFor } from "../domain/successor-aliases.js";
 import { migrateTsconfig } from "../domain/tsconfig-migration.js";
 import {
   migrateWorkspaceCatalogs,
@@ -160,19 +161,26 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
   },
 ];
 
+/** What the manifest at `path` is migrated with. */
+const manifestTarget = ({ version, catalogs, aliases }: MigrationContext, path: string) => ({
+  version,
+  catalogs,
+  aliased: aliasedPackagesFor(aliases, path),
+});
+
 /** The kinds in order; the first that matches a path migrates it. */
 const FILE_KINDS: readonly FileKind[] = [
   {
     matches: (path) => baseName(path) === MANIFEST_FILE,
-    migrate: jsonConfig(({ version, catalogs }) => [
-      (text, read) => migratePackageManifest(text, read, { version, catalogs }),
+    migrate: jsonConfig((context, path) => [
+      (text, read) => migratePackageManifest(text, read, manifestTarget(context, path)),
       jsonCommandsStep(MANIFEST_COMMAND_PATHS),
     ]),
   },
   {
     matches: (path) => YAML_MANIFEST_FILES.has(baseName(path)),
-    migrate: yamlConfig(({ version, catalogs }) => [
-      (text, read) => migratePackageManifest(text, read, { version, catalogs }),
+    migrate: yamlConfig((context, path) => [
+      (text, read) => migratePackageManifest(text, read, manifestTarget(context, path)),
       yamlPathCommands(MANIFEST_COMMAND_PATHS),
     ]),
   },

@@ -23,6 +23,7 @@ function migratePackageManifest(text: string, version: string) {
     version,
     catalogs: NO_CATALOG_PLAN,
     manifests: [],
+    aliases: [],
     rewriter,
     scanner,
     readers,

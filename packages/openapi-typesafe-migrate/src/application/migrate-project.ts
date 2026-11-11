@@ -84,8 +84,11 @@ async function planFile(
     return read;
   }
   const { rewriter, scanner, readers } = dependencies;
-  const { version, catalogs, manifests } = target;
-  const context: MigrationContext = { version, catalogs, manifests, rewriter, scanner, readers };
+  const { version, catalogs, manifests, aliases } = target;
+  const context: MigrationContext = {
+    ...{ version, catalogs, manifests, aliases },
+    ...{ rewriter, scanner, readers },
+  };
   const migration = migrate(read.text, path, context);
   const isChanged = migration.text !== read.text;
   const { changes, manualSteps } = migration;

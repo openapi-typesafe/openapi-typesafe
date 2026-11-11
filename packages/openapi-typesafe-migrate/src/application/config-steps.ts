@@ -13,6 +13,7 @@ import {
   unchanged,
 } from "../domain/migration-findings.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
+import type { SuccessorAliases } from "../domain/successor-aliases.js";
 import type { CallbackRewriter, DocumentReaders, SourceStringScanner } from "./ports.js";
 
 /**
@@ -27,6 +28,8 @@ export interface MigrationContext {
   readonly catalogs: CatalogPlan;
   /** What every manifest of the project declares, for the imports of a source file. */
   readonly manifests: readonly ManifestDeclarations[];
+  /** The files whose overrides alias original packages to their successors. */
+  readonly aliases: readonly SuccessorAliases[];
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
   readonly readers: DocumentReaders;

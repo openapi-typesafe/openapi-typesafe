@@ -45,6 +45,10 @@ export function namesUninstalledPackage(text: string): boolean {
 
 const directoryOf = (path: string): string => path.slice(0, path.lastIndexOf(PATH_SEPARATOR) + 1);
 
+/** Whether the file at `path` is in the folder of `filePath` or in a folder above it. */
+export const isAtOrAbove = (path: string, filePath: string): boolean =>
+  filePath.startsWith(directoryOf(path));
+
 /** The names that the dependency fields of a parsed manifest hold. */
 export function declaredNames(manifest: TreeMap): string[] {
   return DEPENDENCY_FIELDS.flatMap((field) => mapsAt(manifest, field))
@@ -72,7 +76,7 @@ export function localPackagesFor(
   manifests: readonly ManifestDeclarations[],
   filePath: string,
 ): ReadonlySet<string> {
-  const containing = manifests.filter(({ path }) => filePath.startsWith(directoryOf(path)));
+  const containing = manifests.filter(({ path }) => isAtOrAbove(path, filePath));
   return new Set(containing.flatMap(({ localPackages }) => [...(localPackages ?? [])]));
 }
 
@@ -88,7 +92,7 @@ function isDeclaredFor(
   name: string,
 ): boolean {
   const original = ORIGINAL_NAMES.get(name);
-  const containing = manifests.filter(({ path }) => filePath.startsWith(directoryOf(path)));
+  const containing = manifests.filter(({ path }) => isAtOrAbove(path, filePath));
   const declares = ({ names }: ManifestDeclarations): boolean =>
     names === undefined || names.has(name) || (original !== undefined && names.has(original));
   return containing.length === 0 || containing.some(declares);

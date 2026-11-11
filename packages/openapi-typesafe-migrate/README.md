@@ -112,7 +112,8 @@ The report lists each of these with the file and line:
 - a version spec it cannot replace (`latest`, a URL, a file, an npm alias), and `overrides` /
   `resolutions` and every other package manager setting (`packageExtensions`,
   `allowedDeprecatedVersions`, …, in `package.json`, `pnpm-workspace.yaml` or `.yarnrc.yml`,
-  patches included) that names an old package;
+  patches included) that names an old package, except an override that aliases it to its
+  successor (`"openapi-fetch": "npm:openapi-typesafe-fetch@^1.0.0"`), which is the migration done;
 - a dependency under an old name on a local package (`workspace:*`, `link:`, `file:`, `portal:`),
   such as a fork in the workspace: it and the imports of it keep the old name, because the new
   name would point at a package the project does not have;
@@ -151,9 +152,9 @@ The report lists each of these with the file and line:
 - strings that equal an old package name outside a module specifier (an object key, a label, a
   bundler option such as `external: ["openapi-fetch"]`): they are kept, because only you know
   whether they mean the package. Comments are not changed or reported;
-- `swr-openapi` in your dependencies: it takes its client type from `openapi-fetch` (a peer
-  dependency), so alias `openapi-fetch` to `openapi-typesafe-fetch` with `overrides` or
-  `resolutions` (see
+- `swr-openapi` in your dependencies, until the alias is in place: it takes its client type from
+  `openapi-fetch` (a peer dependency), so alias `openapi-fetch` to `openapi-typesafe-fetch` with
+  `overrides` or `resolutions` (see
   [Libraries built on openapi-fetch](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/fetch/index.md#libraries-built-on-openapi-fetch));
 - `transform` callbacks it cannot rewrite (also when their options use a type built from
   `OpenAPITSOptions`, such as `Partial<OpenAPITSOptions>`), and `postTransform` /
