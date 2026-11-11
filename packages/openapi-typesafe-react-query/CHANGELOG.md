@@ -2,6 +2,14 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.6
+
+### Patch Changes
+
+- [#89](https://github.com/openapi-typesafe/openapi-typesafe/pull/89) [`ebb5b46`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ebb5b46684bc20b78727d295924189c02d2287ce) Thanks [@fedorello](https://github.com/fedorello)! - Keep one query key for a `FormData` or `File` body built while the component renders (the file's date in the key made a new request on every render), name a raw body's kind in `bodyType` so it never shares a key with a JSON body of the same shape, and leave out init fields set to `undefined`, so `{ headers: undefined }` has the same key as no init.
+- Updated dependencies [[`dfb0fe3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/dfb0fe3c61a75d2b8ca512577f4b699049171a64)]:
+  - openapi-typesafe-fetch@1.0.0-rc.6
+
 ## 1.0.0-rc.5
 
 ### Patch Changes
