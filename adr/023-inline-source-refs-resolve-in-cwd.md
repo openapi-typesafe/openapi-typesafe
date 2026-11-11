@@ -37,3 +37,14 @@ docs (`docs/node.md`, `docs/cli.md`) say so. The generated types do not change.
 ## Review trigger
 
 A report from a user whose working setup broke because of this change.
+
+## Amendment (2026-11-10): `cwd` is checked like `localRefRoot`
+
+A string `cwd` with a scheme (`"file:///app/specs/"`) was resolved as a relative path
+(`<process.cwd()>/file:/app/specs/`), a `cwd` of another type (`5`) became `<process.cwd()>/5`,
+and an `http:` `cwd` with a relative `localRefRoot` threw a plain `TypeError`. `cwd` now follows the
+rule of `localRefRoot`: a string is a URL when it starts with `file:`, `http:` or `https:` or with a
+scheme and `//`, else a path; a buffer is a path. A `file:`, `http:` or `https:` URL is accepted
+(an `http:` `cwd` resolves the inline source's `$ref`s on that server); anything else, and a `file:`
+URL that names no local path, fails with `OPTION_INVALID` before anything loads. A relative
+`localRefRoot` needs a `file:` `cwd` to resolve against and fails with `OPTION_INVALID` otherwise.

@@ -116,6 +116,7 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
       "/dense.txt": () => response.writeHead(200, { "content-type": "text/plain" }).end(DENSE),
       "/schemas/person": () => response.writeHead(200, { "content-type": "text/plain" }).end(PERSON),
       "/text/person.yaml": () => response.writeHead(200, { "content-type": "text/plain" }).end(PERSON),
+      ...Object.fromEntries(Object.entries(REDIRECT_ROUTES).map(([route, send]) => [route, () => send(response)])),
     }),
   );
   if (request.url?.startsWith("/fan/")) {
@@ -149,6 +150,26 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
   }
   route();
 }
+
+/** A JSON answer of the redirect routes. */
+const json = (body: unknown) => (response: ServerResponse) =>
+  response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(body));
+const redirect = (location: string) => (response: ServerResponse) => response.writeHead(302, { location }).end();
+
+/**
+ * A spec URL that redirects to a versioned file, and a `$ref` that redirects to a moved file. Each
+ * has a relative `$ref`; a file at the old place answers too, so a wrong base loads other types.
+ */
+const REDIRECT_ROUTES: Record<string, (response: ServerResponse) => void> = {
+  "/latest": redirect("/static/v1/root.json"),
+  "/static/v1/root.json": json(documentWith({ Pet: { $ref: "./schemas/pet.json" } })),
+  "/static/v1/schemas/pet.json": json({ type: "object", properties: { v1only: { type: "string" } } }),
+  "/schemas/pet.json": json({ type: "object", properties: { wrong: { type: "string" } } }),
+  "/moved/tag.json": redirect("/static/v1/schemas/tag.json"),
+  "/static/v1/schemas/tag.json": json({ $ref: "./tag-name.json" }),
+  "/static/v1/schemas/tag-name.json": json({ type: "string", description: "v1" }),
+  "/moved/tag-name.json": json({ type: "integer" }),
+};
 
 let server: Server;
 let baseURL: string;
@@ -457,6 +478,40 @@ describe("credentials in remote URLs", () => {
       "versioned-2": { type: "string", description: "2" },
       person: JSON.parse(PERSON),
     });
+  });
+
+  it("a relative $ref of a redirected root loads from the URL the root came from", async () => {
+    const bundled = await loadDocument(new URL(`${baseURL}/latest`));
+
+    expect(bundled.components?.schemas).toEqual({
+      Pet: { $ref: "#/components/schemas/pet" },
+      pet: { type: "object", properties: { v1only: { type: "string" } } },
+    });
+  });
+
+  it("a relative $ref of a redirected $ref document loads from the URL that document came from", async () => {
+    const bundled = await loadDocument(documentWith({ Tag: { $ref: `${baseURL}/moved/tag.json` } }));
+
+    expect(Object.values(bundled.components?.schemas ?? {})).toContainEqual({ type: "string", description: "v1" });
+    expect(JSON.stringify(bundled)).not.toContain("integer");
+  });
+
+  it("documents whose queries end in the same text after a slash are named after their own paths", async () => {
+    const logger = new RecordingLogger();
+    const document = documentWith({
+      A: { $ref: `${baseURL}/person.json?ref=feature/new-api` },
+      B: { $ref: `${baseURL}/other/versioned?ref=feature/new-api` },
+    });
+
+    const bundled = await loadDocument(document, { logger });
+
+    expect(bundled.components?.schemas).toEqual({
+      A: { $ref: "#/components/schemas/person" },
+      B: { $ref: "#/components/schemas/versioned" },
+      person: JSON.parse(PERSON),
+      versioned: { type: "integer" },
+    });
+    expect(logger.messages("warn")).toEqual([]);
   });
 
   it("the bundle's problems name the components by their names without the query", async () => {

@@ -187,12 +187,15 @@ export function ensureOutputIsOwn(
   }
 }
 
-/** `CLI_OUTPUT_DUPLICATE` for `output`, which is also the output of the `others` (named). */
+/**
+ * `CLI_OUTPUT_DUPLICATE` for `output`, which is also the output of the `others` (named). Only
+ * APIs share outputs, and the CLI names the API before the message (`ApiFailure`).
+ */
 export function duplicateOutputError(output: NamedOutput, others: readonly string[]): Error {
   return cliError(
     "CLI_OUTPUT_DUPLICATE",
-    `The output ${output.output} of API ${output.source} is also the output of ` +
-      `${others.join(", ")}: they would overwrite each other. Give each API its own output file.`,
+    `The output ${output.output} is also the output of ${others.join(", ")}: they would ` +
+      "overwrite each other. Give each API its own output file.",
   );
 }
 
@@ -216,13 +219,24 @@ function printDone(run: CliRun, output: OutputFile): void {
   run.deps.console.info(`🚀 ${target} ${duration}`);
 }
 
+const CRLF = /\r\n/g;
+const LF = "\n";
+
 /**
- * With `--check`, fail with `OUTPUT_STALE` when the file differs from `contents` and leave it
- * alone otherwise. Without it, write the file and print where it went.
+ * The text with LF line ends. Git with `core.autocrlf` checks a committed file out with CRLF on
+ * Windows, so `--check` compares lines, not line ends.
+ */
+function withLfLineEnds(text: string): string {
+  return text.replace(CRLF, LF);
+}
+
+/**
+ * With `--check`, fail with `OUTPUT_STALE` when the file differs from `contents` (line ends
+ * aside) and leave it alone otherwise. Without it, write the file and print where it went.
  */
 export function emitOutput(run: CliRun, output: OutputFile, contents: string): void {
   if (run.args.isCheck) {
-    if (run.deps.files.readText(output.file) !== contents) {
+    if (withLfLineEnds(run.deps.files.readText(output.file)) !== withLfLineEnds(contents)) {
       // The original message, then the file: with several APIs it tells which one is stale.
       throw cliError(
         "OUTPUT_STALE",

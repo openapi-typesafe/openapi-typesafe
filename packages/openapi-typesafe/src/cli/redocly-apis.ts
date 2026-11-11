@@ -104,7 +104,8 @@ interface ApiRun {
 }
 
 /**
- * The generator options of one API: its own settings win over the CLI's flags. A flag that has
+ * The generator options of one API: its own settings win over the CLI's flags, and its own lint
+ * rules in `redocly.yaml` over the root's (upstream used the root's only). A flag that has
  * no effect with the merged flags is named for this API, since its settings may turn on the flag
  * that the command line lacks, or set one that has no effect themselves.
  */
@@ -119,7 +120,7 @@ function apiOptions(run: CliRun, apiRun: ApiRun, target: ApiTarget): GeneratorOp
     ...apiRun.refLimits,
     ...apiRefLimitOptions(name, settings, configRoot),
     ...fixOption(apiFixNames(name, settings) ?? run.args.fix),
-    redocly: apiRun.redocly,
+    redocly: run.deps.redoclyConfigs.forApi(apiRun.redocly, name),
   };
 }
 
@@ -146,9 +147,12 @@ async function generateApi(run: CliRun, apiRun: ApiRun, target: ApiTarget): Prom
     run.deps.logger.warn(warning);
   }
   const output = apiOutputOf(target.name, target.settings);
-  const outputFile = outputFileOf(run, { source: target.name, output }, target.configRoot);
-  ensureOutputIsNotSchema(run, outputFile, files.schemas);
-  ensureOutputIsOwn(run, outputFile, otherOutputs(files, target.name));
+  const outputFile = failingAsApi(target.name, () => {
+    const file = outputFileOf(run, { source: target.name, output }, target.configRoot);
+    ensureOutputIsNotSchema(run, file, files.schemas);
+    ensureOutputIsOwn(run, file, otherOutputs(files, target.name));
+    return file;
+  });
   const source = resolveLocationUrl(target.root, target.configRoot);
   const options = apiOptions(run, apiRun, target);
   try {
@@ -156,6 +160,18 @@ async function generateApi(run: CliRun, apiRun: ApiRun, target: ApiTarget): Prom
     return { name: target.name, outputFile, types };
   } catch (error) {
     throw new ApiFailure(target.name, error);
+  }
+}
+
+/**
+ * The result of a step of one API, whose failure is reported with the API's name. Errors of an
+ * API's settings name the API in their own message and are not wrapped.
+ */
+function failingAsApi<T>(apiName: string, step: () => T): T {
+  try {
+    return step();
+  } catch (error) {
+    throw new ApiFailure(apiName, error);
   }
 }
 

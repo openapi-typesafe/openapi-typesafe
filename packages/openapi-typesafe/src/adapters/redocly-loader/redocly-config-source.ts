@@ -1,6 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createConfig, findConfig, IGNORE_FILE, loadConfig } from "@redocly/openapi-core";
+import {
+  createConfig,
+  findConfig,
+  getMergedConfig,
+  IGNORE_FILE,
+  loadConfig,
+} from "@redocly/openapi-core";
 import type {
   RedoclyConfig,
   RedoclyConfigSource,
@@ -69,6 +75,10 @@ class RedoclyConfigFiles implements RedoclyConfigSource {
         { extends: ["minimal"] },
       );
     return loadedConfig(create, undefined);
+  }
+
+  forApi(config: RedoclyConfig, apiName: string): RedoclyConfig {
+    return getMergedConfig(config, apiName);
   }
 }
 

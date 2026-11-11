@@ -17,4 +17,9 @@ export interface RedoclyConfigSource {
    * when the ignore file of the working directory is bad.
    */
   createDefault(): Promise<RedoclyConfig>;
+  /**
+   * The config one API of `config` is linted with: the API's own `rules` (and other lint
+   * settings) under `apis.<name>` in place of the root's, as `redocly lint <name>` reads them.
+   */
+  forApi(config: RedoclyConfig, apiName: string): RedoclyConfig;
 }

@@ -1,9 +1,9 @@
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { RefAccess } from "../application/ports/schema-loader.js";
-import { ERROR_CODES, OpenAPITypesafeError } from "../domain/errors.js";
 import { hasUrlScheme } from "../domain/location-text.js";
 import type { GeneratorOptions } from "../types.js";
+import { kindOf, optionInvalid } from "./option-errors.js";
 
 /**
  * The `$ref` limits of the options (threat model R1, R2, ADR-017), checked before anything loads.
@@ -13,36 +13,29 @@ import type { GeneratorOptions } from "../types.js";
 
 const FILE_PROTOCOL = "file:";
 
-/** What a value is, for the error; a URL is named by its protocol only, as it may hold secrets. */
-function kindOf(value: unknown): string {
-  if (value instanceof URL) {
-    return `a ${value.protocol} URL`;
-  }
-  if (Array.isArray(value)) {
-    return "a list";
-  }
-  return value === null ? "null" : `a ${typeof value}`;
-}
-
-function optionInvalid(option: string, expected: string, got: string): OpenAPITypesafeError {
-  return new OpenAPITypesafeError({
-    code: ERROR_CODES.OPTION_INVALID,
-    message: `The ${option} option must be ${expected}; got ${got}.`,
-    details: { option },
-  });
-}
-
 const LOCAL_ROOT_EXPECTED = "a directory path or a file: URL";
+const RELATIVE_ROOT_EXPECTED = "an absolute path or a file: URL when cwd is no file: URL";
 
 /**
  * A string as the CLI reads `--local-ref-root`: a URL when it has a scheme (`file:///specs/`),
- * else a path that resolves against the cwd. Undefined when it does not parse as a URL.
+ * else a path that resolves against the cwd. Undefined when it does not parse as a URL. A
+ * relative path needs a local cwd: with an `http:` cwd it names no local directory.
  */
 function localRootUrlOf(value: string, cwd: URL): URL | undefined {
-  if (!hasUrlScheme(value)) {
-    return pathToFileURL(path.resolve(fileURLToPath(cwd), value));
+  if (hasUrlScheme(value)) {
+    return URL.parse(value, cwd.href) ?? undefined;
   }
-  return URL.parse(value, cwd.href) ?? undefined;
+  if (path.isAbsolute(value)) {
+    return pathToFileURL(value);
+  }
+  if (cwd.protocol !== FILE_PROTOCOL) {
+    throw optionInvalid(
+      "localRefRoot",
+      RELATIVE_ROOT_EXPECTED,
+      `a relative path, and cwd is ${kindOf(cwd)}`,
+    );
+  }
+  return pathToFileURL(path.resolve(fileURLToPath(cwd), value));
 }
 
 /** The local root as a `file:` URL; the option is set, so it is not undefined. */

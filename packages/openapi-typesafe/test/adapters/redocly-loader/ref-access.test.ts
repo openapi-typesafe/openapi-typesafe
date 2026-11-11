@@ -8,6 +8,7 @@ import { isInsideDirectory } from "../../../src/adapters/redocly-loader/ref-acce
 import {
   fetchWithCheckedRedirects,
   MAX_REDIRECTS,
+  RedirectedUrls,
   type RedirectPolicy,
   type RemoteFetch,
 } from "../../../src/adapters/redocly-loader/remote-fetch.js";
@@ -29,6 +30,7 @@ const POLICY: RedirectPolicy = {
   headers: [apiKey("a.example/**")],
   hosts: ["a.example", "b.example"],
   rootUrl: undefined,
+  redirects: new RedirectedUrls(),
 };
 
 const redirectTo = (location: string) => () =>
@@ -150,6 +152,26 @@ describe("fetchWithCheckedRedirects", () => {
 
     expect(response.status).toBe(200);
     expect(requests).toHaveLength(2);
+  });
+
+  it("fetchWithCheckedRedirects records the URL a redirected document came from", async () => {
+    const { fetchImpl } = tableFetch({
+      "https://a.example/latest": redirectTo("/static/v1/root.yaml"),
+      "https://a.example/static/v1/root.yaml": () => Response.json({}),
+      "https://a.example/plain.yaml": () => Response.json({}),
+    });
+    const redirects = new RedirectedUrls();
+    const checked = fetchWithCheckedRedirects(fetchImpl, { ...POLICY, redirects });
+
+    await checked("https://a.example/latest");
+    await checked("https://a.example/plain.yaml");
+
+    expect(redirects.finalUrlOf("https://a.example/latest")).toBe(
+      "https://a.example/static/v1/root.yaml",
+    );
+    expect(redirects.finalUrlOf("https://a.example/plain.yaml")).toBe(
+      "https://a.example/plain.yaml",
+    );
   });
 
   it("fetchWithCheckedRedirects returns a redirect without a location as it is", async () => {

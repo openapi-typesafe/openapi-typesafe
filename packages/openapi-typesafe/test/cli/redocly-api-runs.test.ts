@@ -24,6 +24,21 @@ describe("runCli with the APIs of a Redocly config", () => {
     expect(cli.generator.calls.map((call) => call.apiName)).toEqual(["a", "b"]);
   });
 
+  it("runCli generates each API with the Redocly config of that API", async () => {
+    const cli = cliWithApis({
+      strict: { root: "a.yaml", "x-openapi-ts": { output: "a.ts" } },
+      plain: { root: "b.yaml", "x-openapi-ts": { output: "b.ts" } },
+    });
+    const strictConfig = fakeRedoclyConfig({}, CONFIG_PATH);
+    cli.redoclyConfigs.apiConfigs.set("strict", strictConfig);
+
+    expect(await runCli([], cli.deps)).toBe(0);
+
+    const configs = cli.generator.calls.map((call) => call.options.redocly);
+    expect(configs[0]).toBe(strictConfig);
+    expect(configs[1]).toBe(cli.redoclyConfigs.configs.get(CONFIG_PATH));
+  });
+
   it("runCli passes the reference limits of the command line to every API", async () => {
     const cli = cliWithApis({
       a: { root: "a.yaml", "x-openapi-ts": { output: "a.ts" } },

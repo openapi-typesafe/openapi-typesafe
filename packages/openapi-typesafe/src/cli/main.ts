@@ -27,9 +27,10 @@ function readVersion(): string {
   return packageJson.version;
 }
 
+/** The style of the CLI's own lines, which go to stdout. */
 function terminalStyle(): TextStyle {
   const palette = colors.create();
-  palette.enabled = terminalSupportsColor();
+  palette.enabled = terminalSupportsColor("stdout");
   return {
     bold: (text) => palette.bold(text),
     green: (text) => palette.green(text),

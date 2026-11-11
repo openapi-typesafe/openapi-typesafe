@@ -15,7 +15,7 @@ import { type ResolveRefOptions, resolveDocumentRef, walkDocument } from "./docu
 
 // The exported `c` is the shared ansi-colors instance, switched off at import when the terminal has
 // no colors, as the original did. The generator's own logger uses a separate instance.
-if (!terminalSupportsColor()) {
+if (!terminalSupportsColor("stdout")) {
   colors.enabled = false;
 }
 

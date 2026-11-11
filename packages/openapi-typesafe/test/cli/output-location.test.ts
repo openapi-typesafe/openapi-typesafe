@@ -90,7 +90,7 @@ describe("runCli: an output that is a directory", () => {
 
     expect(exitCode).toBe(2);
     expect(cli.logger.messages("error")).toEqual([
-      "The output ./gen/ is a directory. Name the file to write the types to in it. (CLI_OUTPUT_INVALID)",
+      "API dir: The output ./gen/ is a directory. Name the file to write the types to in it. (CLI_OUTPUT_INVALID)",
     ]);
     expect([...cli.files.files.keys()]).toEqual([fakePath("/work/api/good.ts")]);
   });

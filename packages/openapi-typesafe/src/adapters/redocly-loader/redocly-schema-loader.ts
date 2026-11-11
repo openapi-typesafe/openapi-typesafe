@@ -31,7 +31,11 @@ import {
 import { RefAccessResolver } from "./ref-access.js";
 import { checkRefsResolve } from "./ref-resolution-check.js";
 import { REF_CYCLE_MESSAGE } from "./ref-resolution-steps.js";
-import { type RemoteDocumentLimits, resolveConfigWithAccess } from "./remote-fetch.js";
+import {
+  RedirectedUrls,
+  type RemoteDocumentLimits,
+  resolveConfigWithAccess,
+} from "./remote-fetch.js";
 import {
   loadFailedError,
   refCycleError,
@@ -177,17 +181,21 @@ class RedoclySchemaLoader implements SchemaLoader {
 
   #resolver(request: SchemaLoadRequest): RefAccessResolver {
     const { redoc, remoteRefTimeoutMs, remoteDocumentLimits } = this.#options;
+    // One record per load, as the resolver and its cache are.
+    const redirects = new RedirectedUrls();
     const config = resolveConfigWithAccess(redoc.resolve, {
       timeoutMs: remoteRefTimeoutMs,
       access: request.refAccess,
       rootUrl: request.source instanceof URL ? request.source.href : undefined,
       maxParallelFetches: remoteDocumentLimits.maxParallelFetches,
       bodyLimits: remoteDocumentLimits,
+      redirects,
     });
     return new RefAccessResolver(config, {
       access: request.refAccess,
       maxRemoteDocuments: remoteDocumentLimits.maxDocuments,
       maxRemoteNodes: remoteDocumentLimits.maxNodes,
+      redirects,
     });
   }
 
@@ -229,8 +237,8 @@ class RedoclySchemaLoader implements SchemaLoader {
     });
     removeBundledMappingCopies(bundled.bundle.parsed, schemaKeys);
     repairBundledRefs(bundled.bundle.parsed);
-    const documentRefs = resolver.getFiles();
-    const renaming = renameQueryNamedComponents(bundled.bundle.parsed, componentKeys, documentRefs);
+    const documents = await loadedDocuments(document, resolver);
+    const renaming = renameQueryNamedComponents(bundled.bundle.parsed, componentKeys, documents);
     // The problems name the components the bundle made, so they are shown by their new names.
     this.#report(bundled.problems, document.source.absoluteRef, renaming);
     this.#options.logger.debug("Bundled schema", "bundle", this.#options.now() - startedAt);
@@ -240,11 +248,13 @@ class RedoclySchemaLoader implements SchemaLoader {
   /**
    * Report every problem; then throw if any of them is an error. A problem that the Redocly
    * config's `.redocly.lint-ignore.yaml` lists is left out, as `redocly lint` leaves it out
-   * (upstream #2189).
+   * (upstream #2189). A name collision that the renamed components no longer have is dropped.
    */
   #report(problems: readonly NormalizedProblem[], rootRef: string, renaming = UNRENAMED): void {
     const errorMessages: string[] = [];
-    for (const problem of problems) {
+    for (const problem of problems.filter(
+      (found) => !renaming.isResolvedCollision(found.message),
+    )) {
       if (problem.ignored === true) {
         this.#options.logger.debug(
           `Ignored by the lint ignore file: ${problemMessage(problem, renaming, rootRef)}`,
@@ -272,7 +282,11 @@ function lintWarningText(message: string, ruleId: string): string {
 }
 
 /** Problems found before the bundle named any component. */
-const UNRENAMED: ComponentRenaming = { pointer: (pointer) => pointer, text: (text) => text };
+const UNRENAMED: ComponentRenaming = {
+  pointer: (pointer) => pointer,
+  text: (text) => text,
+  isResolvedCollision: () => false,
+};
 
 /** A problem location that names a JSON Pointer, not a line and column. */
 type PointerLocation = Extract<LocationObject, { pointer: string }>;

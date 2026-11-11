@@ -1,10 +1,11 @@
 import { performance } from "node:perf_hooks";
 import { createConfig, type Config as RedoclyConfig } from "@redocly/openapi-core";
-import supportsColor from "supports-color";
+import supportsColor, { type ColorInfo } from "supports-color";
 import { createNodeDeprecationReporter } from "../adapters/node-deprecations/node-deprecations.js";
 import type { RemoteDocumentLimits } from "../adapters/redocly-loader/remote-fetch.js";
 import {
   createTerminalLogger,
+  type TerminalLoggerOptions,
   type TerminalSink,
 } from "../adapters/terminal-logger/terminal-logger.js";
 import type { DeprecationReporter } from "../application/ports/deprecation-reporter.js";
@@ -15,10 +16,24 @@ import type { Logger } from "../application/ports/logger.js";
  * composition root are where the process environment is read.
  */
 
-/** Colors when the terminal supports them, as the original decided. */
-export function terminalSupportsColor(): boolean {
-  const stdout = supportsColor.stdout;
-  return Boolean(stdout) && stdout !== false && stdout.hasBasic !== false;
+/** The output streams of the process, which can each be a terminal or redirected. */
+export type TerminalStream = "stdout" | "stderr";
+
+/** The color support of each stream, as `supports-color` detects it. */
+export type StreamColorSupport = Readonly<Record<TerminalStream, ColorInfo>>;
+
+/**
+ * Whether `stream` shows colors. Each stream is asked for itself: with stdout on a terminal and
+ * stderr redirected to a log, the log gets no escape sequences.
+ */
+export function streamSupportsColor(stream: TerminalStream, support: StreamColorSupport): boolean {
+  const info = support[stream];
+  return info !== false && info.hasBasic;
+}
+
+/** Colors when the terminal of `stream` supports them, as the original decided. */
+export function terminalSupportsColor(stream: TerminalStream): boolean {
+  return streamSupportsColor(stream, supportsColor);
 }
 
 /**
@@ -34,14 +49,22 @@ const STDERR_SINK: TerminalSink = {
   error: (line) => console.error(line),
 };
 
-/** The terminal logger with `DEBUG` from the environment, writing to stderr. */
-export function defaultLogger(silent: boolean): Logger {
-  return createTerminalLogger({
+/** The options of the default logger: it writes to stderr, so the colors follow stderr. */
+export function defaultLoggerOptions(
+  silent: boolean,
+  support: StreamColorSupport,
+): TerminalLoggerOptions {
+  return {
     silent,
     debugFilter: process.env.DEBUG,
-    useColors: terminalSupportsColor(),
+    useColors: streamSupportsColor("stderr", support),
     sink: STDERR_SINK,
-  });
+  };
+}
+
+/** The terminal logger with `DEBUG` from the environment, writing to stderr. */
+export function defaultLogger(silent: boolean): Logger {
+  return createTerminalLogger(defaultLoggerOptions(silent, supportsColor));
 }
 
 /** Deprecations as Node.js `DeprecationWarning`s, each code once per process. */

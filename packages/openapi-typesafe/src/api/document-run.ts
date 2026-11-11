@@ -1,5 +1,3 @@
-import path from "node:path";
-import { pathToFileURL } from "node:url";
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import { sourceEmptyError } from "../adapters/redocly-loader/schema-load-errors.js";
 import type { DeprecationReporter } from "../application/ports/deprecation-reporter.js";
@@ -14,7 +12,7 @@ import {
 } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { GeneratorOptions, OpenAPI3, SchemaSource } from "../types.js";
-import { processCwd } from "./default-ports.js";
+import { sourceCwdOf } from "./cwd-option.js";
 import { warnDiscriminatorValueConflicts } from "./discriminator-conflict-warnings.js";
 import { findDiscriminators } from "./discriminator-scan.js";
 import { resolveDocumentRef } from "./document-refs.js";
@@ -55,19 +53,6 @@ type ContextFlags = Omit<
   | "deprecations"
   | "fix"
 >;
-
-/**
- * The directory that relative `$ref`s of an inline source resolve against, as a URL that ends in
- * a slash. A path is resolved and encoded (`#`, `%`, spaces); a URL without the slash gets one.
- */
-function sourceCwd(options: GeneratorOptions): URL {
-  const { cwd } = options;
-  if (cwd instanceof URL) {
-    return cwd.pathname.endsWith("/") ? cwd : new URL(`${cwd.pathname}/`, cwd);
-  }
-  const directory = path.resolve(cwd === undefined ? processCwd() : cwd.toString());
-  return pathToFileURL(path.join(directory, path.sep));
-}
 
 function callbackOptions(options: GeneratorOptions) {
   return {
@@ -146,7 +131,7 @@ export async function createDocumentRun(
   const { logger } = ports;
   const fix = outputFixesOf(options, logger);
   const silent = options.silent ?? false;
-  const cwd = sourceCwd(options);
+  const cwd = sourceCwdOf(options);
   const { document: schema, localFiles } = await ports.loader.load({
     source,
     cwd,
