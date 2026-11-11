@@ -7,6 +7,7 @@
  * plain values, and the base URL the request goes to or the client's key scope, so the key names
  * what was fetched.
  */
+import { bodyKey, isPlainRecord } from "./body-key.js";
 
 /** Headers as a plain object, which TanStack Query hashes by its names and values. */
 type HeadersRecord = Readonly<Record<string, unknown>>;
@@ -17,23 +18,6 @@ export interface KeyClient {
   readonly baseUrl: string;
   /** The name of the API in every key, in place of the base URL. */
   readonly keyScope?: string | undefined;
-}
-
-/** `[object Name]`: the type tag is between these indexes of `Object.prototype.toString`. */
-const TYPE_TAG_START = "[object ".length;
-const TYPE_TAG_END = -1;
-
-/**
- * Whether a value is of the class `name`: an instance of this realm's global class of that name
- * (React Native's classes have no type tag), or a value with its type tag (a class of another
- * realm or of the `undici` package), as the fetch client tells bodies (ADR-030).
- */
-function isClass(value: object, name: string): boolean {
-  const type = (globalThis as Record<string, unknown>)[name];
-  return (
-    (typeof type === "function" && value instanceof type) ||
-    Object.prototype.toString.call(value).slice(TYPE_TAG_START, TYPE_TAG_END) === name
-  );
 }
 
 /**
@@ -57,98 +41,65 @@ function plainHeaders(headers: object): HeadersRecord {
 }
 
 /**
- * A Blob or a File in a key: its type, size, and the name of a File. Its bytes cannot be read while
- * the component renders, so two Blobs of the same type and size share an entry. The date of a File
- * is left out: `FormData.append` and `new File` set it to the current time, so a body built while
- * rendering got a new key, and a new request, on every render.
+ * The members of an object that are not `undefined`, or undefined when none is. A member set to
+ * `undefined` (`headers: token ? … : undefined`, `query: { cursor: undefined }`) sends the same
+ * request as none, and TanStack Query's hash leaves it out too, so a record of only such members
+ * sends nothing and must not count as one. `null`, `[]` and `{}` members stay: `null` removes a
+ * header, and a query serializer of the client may send them.
  */
-function blobKey(blob: Blob): object {
-  const { name } = blob as Partial<File>;
-  return { type: blob.type, size: blob.size, name };
+function definedMembers(record: object): Record<string, unknown> | undefined {
+  const members = Object.entries(record).filter(([, value]) => value !== undefined);
+  return members.length === 0 ? undefined : Object.fromEntries(members);
 }
 
-/** The fields of a FormData in a key, in order, with a file as `blobKey`. */
-function formDataKey(form: FormData): unknown[] {
-  // React Native's FormData has no `entries`, so its fields cannot be read.
-  if (typeof form.entries !== "function") {
-    return [];
+/**
+ * The `params` of an init without the records that send nothing: `{}`, `{ query: {} }` and
+ * `{ query: { cursor: undefined } }` send the request of no `params`, since the fetch client reads
+ * a missing record as an empty one. Undefined when no record is left.
+ */
+function paramsKey(params: unknown): unknown {
+  if (!isPlainRecord(params)) {
+    return params;
   }
-  return Array.from(form.entries(), ([name, value]) => [
-    name,
-    typeof value === "string" ? value : blobKey(value),
+  const records = Object.entries(params).map(([location, record]) => [
+    location,
+    isPlainRecord(record) ? definedMembers(record) : record,
   ]);
+  return definedMembers(Object.fromEntries(records));
 }
 
-/** The bytes of an ArrayBuffer or a typed array, or null for another value. */
-function bodyBytes(body: object): Uint8Array | null {
-  if (ArrayBuffer.isView(body)) {
-    return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
-  }
-  return isClass(body, "ArrayBuffer") ? new Uint8Array(body as ArrayBuffer) : null;
-}
-
-/** A body that JSON cannot hold, as a value TanStack Query hashes, and the name of its kind. */
-interface RawBodyKey {
-  readonly body: unknown;
-  readonly bodyType: "URLSearchParams" | "FormData" | "Blob" | "bytes";
+/** The headers of an init as `plainHeaders`, or undefined when they set none. */
+function headersKey(headers: unknown): unknown {
+  return typeof headers === "object" && headers !== null
+    ? definedMembers(plainHeaders(headers))
+    : headers;
 }
 
 /**
- * A body that JSON cannot hold by its content: a URLSearchParams as its text, a FormData as its
- * fields, a Blob as `blobKey` and bytes as their numbers. Undefined for any other body.
- */
-function rawBodyKey(body: unknown): RawBodyKey | undefined {
-  if (typeof body !== "object" || body === null) {
-    return undefined;
-  }
-  if (isClass(body, "URLSearchParams")) {
-    return { body: String(body), bodyType: "URLSearchParams" };
-  }
-  if (isClass(body, "FormData")) {
-    return { body: formDataKey(body as FormData), bodyType: "FormData" };
-  }
-  if (isClass(body, "Blob") || isClass(body, "File")) {
-    return { body: blobKey(body as Blob), bodyType: "Blob" };
-  }
-  const bytes = bodyBytes(body);
-  return bytes === null ? undefined : { body: Array.from(bytes), bodyType: "bytes" };
-}
-
-/**
- * The init fields that are not `undefined`. A field set to `undefined` (`headers: token ? … :
- * undefined`) sends the same request as none, so it must not make the init count as not empty.
- */
-function definedFields(fields: object): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
-}
-
-/**
- * The init of a query key: the request init with its headers and body as plain values, and the
- * client's key scope, or its base URL when the init has none. The `signal` is left out: TanStack
- * Query gives each request its own. A body that JSON cannot hold also names its kind in
- * `bodyType`, a field no init has, so it never shares a key with a JSON body of the same content.
- * Undefined when nothing is left, so a call without an init and one with an empty init, or one
- * of only `undefined` fields, have the key `[method, path]`.
+ * The init of a query key: the request init with its params and headers without what sends
+ * nothing, its body as `bodyKey`, and the client's key scope, or its base URL when the init has
+ * none. The `signal` is left out: TanStack Query gives each request its own. Undefined when
+ * nothing is left, so a call without an init and one with an init that sends nothing more, such
+ * as `{}` or `{ params: { query: { cursor: undefined } } }`, have the key `[method, path]`.
  */
 export function queryKeyInit(init: unknown, client: KeyClient): object | undefined {
   const { signal: _signal, ...rest } = (init ?? {}) as {
     signal?: unknown;
+    params?: unknown;
     headers?: unknown;
     baseUrl?: unknown;
     body?: unknown;
   };
-  const keyInit = definedFields(rest);
-  if (typeof rest.headers === "object" && rest.headers !== null) {
-    keyInit.headers = plainHeaders(rest.headers);
-  }
-  const rawBody = rawBodyKey(rest.body);
-  if (rawBody !== undefined) {
-    Object.assign(keyInit, rawBody);
-  }
+  const keyInit: Record<string, unknown> = {
+    ...rest,
+    params: paramsKey(rest.params),
+    headers: headersKey(rest.headers),
+    ...(rest.body === undefined ? {} : bodyKey(rest.body)),
+  };
   if (client.keyScope !== undefined) {
     keyInit.keyScope = client.keyScope;
   } else if (!rest.baseUrl && client.baseUrl) {
     keyInit.baseUrl = client.baseUrl;
   }
-  return Object.keys(keyInit).length === 0 ? undefined : keyInit;
+  return definedMembers(keyInit);
 }

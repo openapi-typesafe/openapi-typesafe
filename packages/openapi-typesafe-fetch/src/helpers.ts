@@ -266,6 +266,12 @@ export type SuccessResponse<
   Media extends MediaType = MediaType,
 > = T extends unknown ? GetResponseContent<T, Media, SuccessStatus<T>> : never;
 
+/**
+ * The bodies of the responses `ResponseCode` in the media types `Media`. A response with a
+ * `content` map but no media type in `Media` adds nothing: it gave its whole map, so the error of
+ * `ErrorResponseJSON` for a `text/html` 500 was `{ "text/html": string }`, a body no response has.
+ * A response without `content` keeps its `content` type (`undefined` for `content?: never`).
+ */
 export type GetResponseContent<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
@@ -275,9 +281,7 @@ export type GetResponseContent<
   ? {
       // biome-ignore lint/suspicious/noExplicitAny: unknown rejects interface content types
       [K in ResponseCode]: T[K]["content"] extends Record<string, any>
-        ? FilterKeys<T[K]["content"], Media> extends never
-          ? T[K]["content"]
-          : FilterKeys<T[K]["content"], Media>
+        ? FilterKeys<T[K]["content"], Media>
         : K extends keyof T
           ? T[K]["content"]
           : never;
