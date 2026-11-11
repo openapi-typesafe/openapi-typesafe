@@ -53,8 +53,9 @@ later Makefile line sets to another program is reported with its old flags. A va
 flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may serve other commands too, so it
 is reported, not changed. YAML files are changed only in command
 keys (`run`, `script`, `command`, `entrypoint`, …) and in the values of `env`, in block and flow
-style, never in other values such as an OpenAPI `description`; a YAML file that names no old package
-is not even parsed. A config that cannot be parsed and names an old package is reported with the
+style, never in other values. An API description (a YAML document with a top-level `openapi`,
+`swagger` or `asyncapi` key) is data, so it is never changed, not even an example `command`; a
+YAML file that names no old package is not even parsed. A config that cannot be parsed and names an old package is reported with the
 line and column, not changed. `Makefile`, `justfile` and `Dockerfile` are read only under the names
 make, just and docker look for (also `makefile`, `GNUmakefile`, `Justfile`, `.justfile`,
 `Containerfile` and `*.mk`), so `Dockerfile.dev` is not changed.

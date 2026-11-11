@@ -6,7 +6,13 @@ import {
   type ShellTextFindings,
 } from "./command-migration.js";
 import { type CommandPathPattern, isCommandPath } from "./command-paths.js";
-import { type DocumentString, ownerKey } from "./config-documents.js";
+import {
+  type DocumentString,
+  isMap,
+  ownerKey,
+  type TreeNode,
+  textEntries,
+} from "./config-documents.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import { shellVariables } from "./shell-variables.js";
@@ -18,6 +24,19 @@ import { YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
  * YAML files are migrated only where they hold commands or package names, so the text of other
  * values (an OpenAPI `description`, a label) stays as written even when it names a package.
  */
+
+/** Top-level keys of an API description: OpenAPI 3, Swagger 2 and AsyncAPI documents. */
+const API_DESCRIPTION_KEYS: ReadonlySet<string> = new Set(["openapi", "swagger", "asyncapi"]);
+
+/**
+ * True for an API description, whose values are data (an example `command`, a `default`), not
+ * commands that anything runs: such a file is not migrated, however its keys are named.
+ */
+export const isApiDescription = (documents: readonly TreeNode[]): boolean =>
+  documents.some(
+    (root) =>
+      isMap(root) && textEntries(root).some(({ key }) => API_DESCRIPTION_KEYS.has(key.value)),
+  );
 
 /**
  * Keys whose map holds environment variables (GitHub Actions, Drone and Woodpecker `env`). A

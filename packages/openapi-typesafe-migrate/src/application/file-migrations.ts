@@ -34,6 +34,7 @@ import {
 } from "../domain/workspace-catalog-migration.js";
 import { TASKFILE_COMMAND_KEYS } from "../domain/yaml-command-keys.js";
 import {
+  isApiDescription,
   migrateDependabotConfig,
   migrateYamlCommands,
   migrateYamlPathCommands,
@@ -161,6 +162,14 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
   },
 ];
 
+/** The commands of a YAML file; an API description (an OpenAPI document) is data and stays. */
+const yamlCommandsStep =
+  (path: string): ConfigStep =>
+  (text, read) =>
+    read.kind === "read" && isApiDescription(read.documents)
+      ? unchanged(text)
+      : stringsStep((current, strings) => migrateYamlCommands(current, path, strings))(text, read);
+
 /** What the manifest at `path` is migrated with. */
 const manifestTarget = ({ version, catalogs, aliases }: MigrationContext, path: string) => ({
   version,
@@ -240,11 +249,7 @@ const FILE_KINDS: readonly FileKind[] = [
   },
   {
     matches: (path) => YAML_EXTENSIONS.has(extensionOf(path)),
-    migrate: whenNamed(
-      yamlConfig((_context, path) => [
-        stringsStep((text, strings) => migrateYamlCommands(text, path, strings)),
-      ]),
-    ),
+    migrate: whenNamed(yamlConfig((_context, path) => [yamlCommandsStep(path)])),
   },
   {
     matches: (path) => DOCKERFILE_NAMES.has(baseName(path)),
