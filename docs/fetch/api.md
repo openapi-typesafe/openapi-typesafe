@@ -554,6 +554,14 @@ like the rest of the API.
 | `ClientPathsWithMethod<Client, Method>`, `MethodResponse<Client, Method, Path>` | Types: the paths of a client that have a method, and the `data` type of one call. |
 | The helper types (`PathsWithMethod`, `FilterKeys`, `SuccessResponse`, …) | Declared by the client in its `openapi-typesafe-fetch/helpers` entry; import them from `openapi-typesafe-helpers`, which re-exports them. The main entry does not export them, as openapi-fetch's does not. The names of both packages are one declaration, so they mix, also in generic code. Types inferred from the client name them through `openapi-typesafe-fetch/helpers`, so a library built with `declaration: true` under pnpm or Yarn PnP gets declarations that name a package it depends on. A library under Yarn PnP that depends only on `openapi-typesafe-helpers` and exports an inferred type that prints a helper type gets `import("openapi-typesafe-fetch/helpers")`, which its users cannot resolve (TS2307): add `openapi-typesafe-fetch` to its dependencies, or annotate the type. |
 
+`SuccessResponse<Responses, Media>` and `ErrorResponse<Responses, Media>` give the bodies of the
+success or error responses in the media types `Media` (any media type by default).
+`SuccessResponseJSON<Operation>` and `ErrorResponseJSON<Operation>` take the JSON media types
+(`${string}/json`), and so does a client made with `` createClient<paths, `${string}/json`>() ``
+for its `data` and `error`. A response without one of those media types adds no body: with a
+`text/html` 500 and an `application/json` 404, the error is the 404 body only, and a success that
+is only `text/plain` is `never` (with `parseAs: "text"` the data is a `string`, as for any client).
+
 `defaultBodySerializer` returns by the body type:
 
 - A raw body (`FormData`, `Blob`, `URLSearchParams`, `ArrayBuffer`, a typed array) is returned as it is.

@@ -202,6 +202,28 @@ client returns every response that is not `ok` as `error`. `ErrorStatusKey<T>` n
 3XX, 4XX and 5XX keys, the `1XX` and `3XX` ranges, and `default`, so the types follow
 `response.ok` as the success key does.
 
+## Amendment (2026-11-11): a response without the asked media type adds no body
+
+`GetResponseContent` took the whole `content` map of a response with no media type in `Media`.
+With the default `Media` (every media type) that only happens for an empty map, but
+`SuccessResponseJSON`, `ErrorResponseJSON` and `` createClient<paths, `${string}/json`>() `` ask
+for JSON: a `text/html` 500 typed the error as `{ "text/html": string }`, a value no response has,
+and since 3XX statuses are errors (above), a `text/plain` redirect did too. Upstream
+(openapi-typescript-helpers) has the same fallback.
+
+Such a response now adds `never`, so it drops out of the union: `data` of a success that is only
+`text/plain` is `never` in a JSON client, and `parseAs` still types it (`parseAs: "text"` gives
+`string`, as `ParseAsResponse` does not read the body type for it). A response without `content`
+keeps its type (`undefined` for `content?: never`). This is a 1.x type change of a helper type
+under ADR-034: the old type was a shape the client never returns, so code that compiled against it
+read a property that is always missing.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| `never` (chosen) | The union has only bodies the server can send | A text-only success in a JSON client is `never` without `parseAs` |
+| `unknown` | Says "some body" | `unknown` absorbs the union, so every JSON body type is lost |
+| Keep the content map | Upstream parity | A type no response has |
+
 ## Review trigger
 
 The 2.0 planning (items 32 to 35); a TypeScript release that infers return types through a dependent
