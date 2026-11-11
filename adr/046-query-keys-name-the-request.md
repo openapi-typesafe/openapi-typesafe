@@ -112,6 +112,35 @@ responses without content.
    undefined`) sends the same request as none, but its key kept an empty init. Such fields are
    now left out before the init counts as empty.
 
+## Amendment (2026-11-11): values inside a body, records that send nothing
+
+1. **Values inside a body.** Only a raw body as a whole was held by its content. A multipart body
+   written as an object (`{ image: file }`, which the fetch client turns into FormData) held its
+   File as `{}`, so every file had one key and a second file showed the result of the first.
+   The body is now written member by member, through objects and arrays, with every
+   URLSearchParams, FormData, Blob and bytes value by its content, as for a raw body. `bodyType`
+   names the kinds out of band: a string for a raw body, or for an object or array body an
+   object of the kinds by member name or index, only where there are such values. A JSON body has
+   no `bodyType`, so it never matches a body that holds such a value written as the same JSON. An
+   empty object or array in a body stays: a JSON `{}` is a body, unlike none.
+2. **Records that send nothing.** Only top-level `undefined` fields were left out, so
+   `{ params: { query: { cursor: undefined } } }`, `{ params: {} }` and
+   `{ headers: { "X-Tenant": undefined } }` sent the request of no init under another key. In
+   `params`, its records (`query`, `path`, `header`, `cookie`) and `headers`, members set to
+   `undefined` are now left out, and a record or `headers` left empty goes too. This merges no
+   requests that differ: TanStack Query's hash already left out `undefined` members, and the fetch
+   client reads a missing `params`, record or `headers` as an empty one. A `null`, `[]` or `{}`
+   parameter or header value stays: `null` removes a header the client sets, and a
+   `querySerializer` of the fetch client, which the key cannot see, may send them. With the
+   default serializer such a query value sends nothing, so it costs one more request, while
+   leaving it out could show one request's data for another.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Kinds out of band in `bodyType`, by place (chosen) | No JSON body matches; a raw body's key is unchanged | `bodyType` has two shapes |
+| A tag inside the body at each raw value | One shape | A JSON body with the tag's members matches |
+| Leave out `null` and `[]` query values too | Exact for the default serializer | A custom serializer's different requests share an entry |
+
 ## Review trigger
 
 A report of two queries that share an entry while their requests differ in something a key can
