@@ -420,7 +420,7 @@ describe("runCli with the APIs of a Redocly config", () => {
 
     expect(exitCode).toBe(1);
     expect(cli.logger.messages("error")).toEqual([
-      "Generated types are not up-to-date! stale.ts differs from its schema. (OUTPUT_STALE)",
+      "API stale: Generated types are not up-to-date! stale.ts differs from its schema. (OUTPUT_STALE)",
     ]);
   });
 

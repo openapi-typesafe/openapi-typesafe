@@ -187,12 +187,15 @@ export function ensureOutputIsOwn(
   }
 }
 
-/** `CLI_OUTPUT_DUPLICATE` for `output`, which is also the output of the `others` (named). */
+/**
+ * `CLI_OUTPUT_DUPLICATE` for `output`, which is also the output of the `others` (named). Only
+ * APIs share outputs, and the CLI names the API before the message (`ApiFailure`).
+ */
 export function duplicateOutputError(output: NamedOutput, others: readonly string[]): Error {
   return cliError(
     "CLI_OUTPUT_DUPLICATE",
-    `The output ${output.output} of API ${output.source} is also the output of ` +
-      `${others.join(", ")}: they would overwrite each other. Give each API its own output file.`,
+    `The output ${output.output} is also the output of ${others.join(", ")}: they would ` +
+      "overwrite each other. Give each API its own output file.",
   );
 }
 

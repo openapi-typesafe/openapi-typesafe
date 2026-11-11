@@ -85,7 +85,7 @@ describe("runCli: a Redocly API output that is a schema", () => {
 
     expect(exitCode).toBe(2);
     expect(cli.logger.messages("error")).toEqual([
-      "The output same.yaml is the schema same.yaml of API same: writing the types would overwrite " +
+      "API same: The output same.yaml is the schema same.yaml of API same: writing the types would overwrite " +
         "it. Choose another output file. (CLI_OUTPUT_IS_INPUT)",
     ]);
     expect(cli.files.files.has(fakePath("/work/api/same.yaml"))).toBe(false);
@@ -137,9 +137,9 @@ describe("runCli: Redocly APIs with the same output", () => {
 
     expect(exitCode).toBe(2);
     expect(cli.logger.messages("error")).toEqual([
-      "The output types.ts of API first is also the output of API second: they would overwrite " +
+      "API first: The output types.ts is also the output of API second: they would overwrite " +
         "each other. Give each API its own output file. (CLI_OUTPUT_DUPLICATE)",
-      "The output ./out/../types.ts of API second is also the output of API first: they would " +
+      "API second: The output ./out/../types.ts is also the output of API first: they would " +
         "overwrite each other. Give each API its own output file. (CLI_OUTPUT_DUPLICATE)",
     ]);
     expect(cli.files.files.has(fakePath("/work/api/types.ts"))).toBe(false);
@@ -236,7 +236,7 @@ describe("runCli: an output that is a file the run reads besides the root (G11)"
 
     expect(exitCode).toBe(2);
     expect(cli.logger.messages("error")).toEqual([
-      `The output models.yaml is the schema ${["api", "models.yaml"].join(sep)} that API reader reads: writing ` +
+      `API writer: The output models.yaml is the schema ${["api", "models.yaml"].join(sep)} that API reader reads: writing ` +
         "the types would overwrite it. Choose another output file. (CLI_OUTPUT_IS_INPUT)",
     ]);
     expect(cli.files.files.get(fakePath("/work/api/models.yaml"))).toBe("M: { type: string }");

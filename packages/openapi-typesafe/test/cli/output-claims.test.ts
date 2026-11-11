@@ -40,9 +40,9 @@ describe("runCli: API outputs that only the file system knows are one file", () 
 
       expect(exitCode).toBe(2);
       expect(cli.logger.messages("error")).toEqual([
-        `The output ${first} of API a is also the output of API b: they would overwrite each ` +
+        `API a: The output ${first} is also the output of API b: they would overwrite each ` +
           "other. Give each API its own output file. (CLI_OUTPUT_DUPLICATE)",
-        `The output ${second} of API b is also the output of API a: they would overwrite each ` +
+        `API b: The output ${second} is also the output of API a: they would overwrite each ` +
           "other. Give each API its own output file. (CLI_OUTPUT_DUPLICATE)",
       ]);
       expect([...cli.files.files.keys()]).toEqual([fakePath("/work/api/own.ts")]);

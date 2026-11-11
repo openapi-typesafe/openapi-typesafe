@@ -146,9 +146,12 @@ async function generateApi(run: CliRun, apiRun: ApiRun, target: ApiTarget): Prom
     run.deps.logger.warn(warning);
   }
   const output = apiOutputOf(target.name, target.settings);
-  const outputFile = outputFileOf(run, { source: target.name, output }, target.configRoot);
-  ensureOutputIsNotSchema(run, outputFile, files.schemas);
-  ensureOutputIsOwn(run, outputFile, otherOutputs(files, target.name));
+  const outputFile = failingAsApi(target.name, () => {
+    const file = outputFileOf(run, { source: target.name, output }, target.configRoot);
+    ensureOutputIsNotSchema(run, file, files.schemas);
+    ensureOutputIsOwn(run, file, otherOutputs(files, target.name));
+    return file;
+  });
   const source = resolveLocationUrl(target.root, target.configRoot);
   const options = apiOptions(run, apiRun, target);
   try {
@@ -156,6 +159,18 @@ async function generateApi(run: CliRun, apiRun: ApiRun, target: ApiTarget): Prom
     return { name: target.name, outputFile, types };
   } catch (error) {
     throw new ApiFailure(target.name, error);
+  }
+}
+
+/**
+ * The result of a step of one API, whose failure is reported with the API's name. Errors of an
+ * API's settings name the API in their own message and are not wrapped.
+ */
+function failingAsApi<T>(apiName: string, step: () => T): T {
+  try {
+    return step();
+  } catch (error) {
+    throw new ApiFailure(apiName, error);
   }
 }
 

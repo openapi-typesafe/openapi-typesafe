@@ -1,5 +1,6 @@
 import type { ClaimedFile } from "../application/ports/file-system.js";
 import type { GeneratedTypes } from "./cli-dependencies.js";
+import { ApiFailure } from "./cli-errors.js";
 import {
   type CliRun,
   duplicateOutputError,
@@ -84,10 +85,17 @@ function writeClaimed(run: CliRun, { api, claim }: ClaimedApi): unknown[] {
     : failures;
 }
 
+/** The failures with the name of their API, which the CLI prints before each message. */
+function namedFailures(failures: ApiFailures): ApiFailures {
+  return new Map(
+    [...failures].map(([name, list]) => [name, list.map((cause) => new ApiFailure(name, cause))]),
+  );
+}
+
 /**
  * Write (or `--check`) every API unless its output is a file the run read or the file of another
- * API. Returns the failures by API name. Claims are released in reverse order, so a directory
- * one claim created is empty by the time it is removed.
+ * API. Returns the failures by API name, each an `ApiFailure`. Claims are released in reverse
+ * order, so a directory one claim created is empty by the time it is removed.
  */
 export function writeGeneratedApis(
   run: CliRun,
@@ -113,5 +121,5 @@ export function writeGeneratedApis(
   for (const entry of claimed.filter(({ api }) => !shared.has(api.name))) {
     failures.set(entry.api.name, writeClaimed(run, entry));
   }
-  return failures;
+  return namedFailures(failures);
 }
