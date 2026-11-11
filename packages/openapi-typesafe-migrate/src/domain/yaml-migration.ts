@@ -1,7 +1,6 @@
 import {
   type CommandMigration,
   commandWordFindings,
-  type FileVariables,
   type Locate,
   type ShellTextFindings,
 } from "./command-migration.js";
@@ -13,6 +12,7 @@ import {
   type TreeNode,
   textEntries,
 } from "./config-documents.js";
+import type { FileVariables } from "./file-variables.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import { shellVariables } from "./shell-variables.js";

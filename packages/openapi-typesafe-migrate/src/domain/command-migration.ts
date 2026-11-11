@@ -1,4 +1,5 @@
 import { commandRoles, type PackageWord } from "./command-roles.js";
+import { type FileVariables, NO_VARIABLES, withoutRecipePrefix } from "./file-variables.js";
 import { type Change, lineLocator, type ManualStep } from "./migration-findings.js";
 import { packageReference, unmigratedWordFindings } from "./old-package-words.js";
 import {
@@ -9,7 +10,6 @@ import {
 } from "./package-names.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
-import type { VariableProgram } from "./variable-programs.js";
 
 /** One command line or script after the migration. */
 export interface CommandMigration {
@@ -109,50 +109,6 @@ function flagFindings(word: ShellWord, locate: Locate): Finding[] {
 }
 
 /** `@`, `-` and `+` before a Makefile or justfile recipe: silent, ignore errors, always run. */
-const RECIPE_PREFIX_RE = /^[@+-]+(?=.)/;
-
-/**
- * The command with the recipe prefix taken off the value of its first word, so `@npx …` runs
- * `npx`. A shell command never starts with an option, so this changes nothing else.
- */
-function withoutRecipePrefix(words: ShellCommand): ShellCommand {
-  const [first, ...rest] = words;
-  if (first === undefined || !RECIPE_PREFIX_RE.test(first.value)) {
-    return words;
-  }
-  return [{ ...first, value: first.value.replace(RECIPE_PREFIX_RE, "") }, ...rest];
-}
-
-/** A program word that expands one variable the file sets: as written, and what it runs. */
-export interface VariableProgramUse {
-  readonly written: string;
-  readonly program: VariableProgram;
-}
-
-/** A whole word that expands one variable the file sets: as written, and the value it gets. */
-export interface VariableReference {
-  readonly written: string;
-  readonly value: string;
-}
-
-/**
- * The variables of a file as its commands use them. A program word can run the generator through
- * a variable (`$(OAT)` in a Makefile with `OAT := openapi-typescript`): the variable's value is
- * migrated where it is set, the flags after it where it is used. An argument can expand a
- * variable that holds flags (`$(FLAGS)` with `FLAGS := -it`); the variable may serve other
- * commands too, so its old flags are reported, not changed.
- */
-export interface FileVariables {
-  /** What a program word runs through a variable, or undefined when it expands none. */
-  programAt(program: ShellWord): VariableProgramUse | undefined;
-  referenceAt(word: ShellWord): VariableReference | undefined;
-}
-
-const NO_VARIABLES: FileVariables = {
-  programAt: () => undefined,
-  referenceAt: () => undefined,
-};
-
 /** The flags of a variable's value that the generator renamed, each once. */
 function renamedFlags(value: string): string[] {
   const flags = shellCommands(value)
@@ -246,17 +202,6 @@ function knownFindings(words: ShellCommand, locate: Locate, variables: FileVaria
     ...(isUncertain ? uncertainFlagSteps(program, variable.written, flagFound, locate) : flagFound),
   );
   return findings;
-}
-
-/**
- * Whether a command runs the generator by its old name, so a variable set to it holds the
- * generator command.
- */
-export function runsGenerator(command: ShellCommand): boolean {
-  const words = withoutRecipePrefix(command);
-  const { program } = commandRoles(words);
-  const word = program === undefined ? undefined : words[program];
-  return word !== undefined && packageReference(word.value).name === GENERATOR_COMMAND;
 }
 
 /** The findings of a shell text as edits, without applying them. */

@@ -1,4 +1,4 @@
-import { type FileVariables, runsGenerator } from "./command-migration.js";
+import { type FileVariables, runsGenerator } from "./file-variables.js";
 import { type ShellWord, shellCommands } from "./shell-words.js";
 import { type ProgramDefinition, variablePrograms } from "./variable-programs.js";
 
