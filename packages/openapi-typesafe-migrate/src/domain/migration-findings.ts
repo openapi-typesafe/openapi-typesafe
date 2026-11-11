@@ -91,6 +91,13 @@ export type ManualStep =
   | { readonly kind: "catalog-entry-in-use"; readonly catalog: string; readonly name: string }
   | { readonly kind: "peer-dependency-renamed"; readonly name: string }
   | { readonly kind: "spec-kept"; readonly name: string; readonly spec: string }
+  /** A dependency under an original name whose spec points at a local package. */
+  | {
+      readonly kind: "local-package";
+      readonly field: string;
+      readonly name: string;
+      readonly spec: string;
+    }
   | { readonly kind: "override-names-package"; readonly field: string; readonly name: string }
   /** A pattern of a config (Jest's `moduleNameMapper`) that names an old package. */
   | {
@@ -120,6 +127,8 @@ export type ManualStep =
   | { readonly kind: "pinned-package"; readonly location: string; readonly name: string }
   | { readonly kind: "old-package-file"; readonly location: string; readonly path: string }
   | { readonly kind: "old-name-in-command"; readonly location: string; readonly word: string }
+  /** A CI step whose `shell` is a program the tool does not read (`shell: python`). */
+  | { readonly kind: "script-not-shell"; readonly location: string; readonly shell: string }
   | { readonly kind: "command-string"; readonly line: number; readonly to: string }
   | { readonly kind: "config-unreadable"; readonly position: TextPosition | undefined }
   | { readonly kind: "manifest-not-read" }

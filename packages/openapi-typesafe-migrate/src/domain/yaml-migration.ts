@@ -1,16 +1,23 @@
 import {
   type CommandMigration,
   commandWordFindings,
-  type FileVariables,
   type Locate,
   type ShellTextFindings,
 } from "./command-migration.js";
 import { type CommandPathPattern, isCommandPath } from "./command-paths.js";
-import { type DocumentString, ownerKey } from "./config-documents.js";
+import {
+  type DocumentString,
+  isMap,
+  ownerKey,
+  type TreeNode,
+  textEntries,
+} from "./config-documents.js";
+import type { FileVariables } from "./file-variables.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import { shellVariables } from "./shell-variables.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
+import { otherShellFindings, stepShells } from "./step-shells.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 import { YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
 
@@ -18,6 +25,19 @@ import { YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
  * YAML files are migrated only where they hold commands or package names, so the text of other
  * values (an OpenAPI `description`, a label) stays as written even when it names a package.
  */
+
+/** Top-level keys of an API description: OpenAPI 3, Swagger 2 and AsyncAPI documents. */
+const API_DESCRIPTION_KEYS: ReadonlySet<string> = new Set(["openapi", "swagger", "asyncapi"]);
+
+/**
+ * True for an API description, whose values are data (an example `command`, a `default`), not
+ * commands that anything runs: such a file is not migrated, however its keys are named.
+ */
+export const isApiDescription = (documents: readonly TreeNode[]): boolean =>
+  documents.some(
+    (root) =>
+      isMap(root) && textEntries(root).some(({ key }) => API_DESCRIPTION_KEYS.has(key.value)),
+  );
 
 /**
  * Keys whose map holds environment variables (GitHub Actions, Drone and Woodpecker `env`). A
@@ -191,9 +211,10 @@ export function migrateYamlCommands(
   strings: readonly DocumentString[],
   keys: ReadonlySet<string> = YAML_COMMAND_KEYS,
 ): CommandMigration {
-  const values = valuesOf(strings, keys);
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
+  const shellOf = stepShells(strings);
+  const values = valuesOf(strings, keys).filter((value) => shellOf(value) === undefined);
   const commandValues = new Set(values.filter((value) => !isExecFormItem(value)));
   const shellValues = strings.filter(
     (value) => commandValues.has(value) || isEnvironmentValue(value),
@@ -202,6 +223,7 @@ export function migrateYamlCommands(
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(text, value, locate, variables)),
     commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),
+    otherShellFindings(valuesOf(strings, keys), shellOf, locate),
   ]);
 }
 

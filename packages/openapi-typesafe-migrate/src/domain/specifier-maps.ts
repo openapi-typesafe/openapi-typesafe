@@ -1,4 +1,5 @@
 import {
+  type DocumentPath,
   documentStrings,
   isMap,
   type TreeMap,
@@ -7,7 +8,12 @@ import {
   valuesAt,
 } from "./config-documents.js";
 import { type Findings, isFree } from "./dependency-map.js";
-import { type RenamedSpecifier, renamedSpecifier } from "./package-names.js";
+import {
+  oldPackageInNodeModules,
+  PACKAGE_RENAMES,
+  type RenamedSpecifier,
+  renamedSpecifier,
+} from "./package-names.js";
 import { replaceScalar } from "./tree-entries.js";
 
 /**
@@ -114,6 +120,26 @@ export function migrateBrowserField(manifest: TreeMap, findings: Findings): void
     }
     for (const { key, value } of textEntries(browser)) {
       renameSpecifierTargets([value], `${BROWSER_FIELD}${PATH_SEPARATOR}${key.value}`, findings);
+    }
+  }
+}
+
+/**
+ * Report each string under `node` (at `prefix` of its file) that is a path into the installed
+ * files of an old package (`node_modules/openapi-fetch/…`): the new package has its own files
+ * there, so only the user can say where the path should point.
+ */
+export function reportOldPackagePaths(
+  node: TreeNode,
+  prefix: DocumentPath,
+  findings: Findings,
+): void {
+  for (const value of documentStrings([node])) {
+    const name = oldPackageInNodeModules(value.value);
+    const to = name === undefined ? undefined : PACKAGE_RENAMES.get(name);
+    if (name !== undefined && to !== undefined) {
+      const location = [...prefix, ...value.path].join(PATH_SEPARATOR);
+      findings.manualSteps.push({ kind: "old-package-path", location, path: value.value, to });
     }
   }
 }

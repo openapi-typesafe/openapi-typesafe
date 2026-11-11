@@ -5,7 +5,7 @@ export const MAKEFILE_EXTENSION = ".mk";
 export const YAML_EXTENSIONS: ReadonlySet<string> = new Set([".yml", ".yaml"]);
 /** Makefiles, justfiles and Dockerfiles, by the names make, just and docker look for. */
 export const MAKEFILE_NAMES: ReadonlySet<string> = new Set(["Makefile", "makefile", "GNUmakefile"]);
-export const SHELL_FILE_NAMES: ReadonlySet<string> = new Set(["justfile", "Justfile", ".justfile"]);
+export const JUSTFILE_NAMES: ReadonlySet<string> = new Set(["justfile", "Justfile", ".justfile"]);
 export const DOCKERFILE_NAMES: ReadonlySet<string> = new Set(["Dockerfile", "Containerfile"]);
 /** Git hooks that husky runs; `.husky/_/` holds husky's own generated scripts. */
 export const HUSKY_FOLDER = ".husky/";

@@ -1,4 +1,5 @@
 import { type HeredocBody, heredocAt, type PendingHeredoc, readBodies } from "./here-documents.js";
+import { assignmentValueText, shellAssignments } from "./shell-assignments.js";
 import {
   COMMAND_SEPARATORS,
   isLineContinuation,
@@ -231,6 +232,22 @@ export function shellCommandsAt(text: string, offset: number, indent = 0): Shell
 }
 
 /**
+ * The command lines inside the words of a command: a quoted word that holds one, and the value of
+ * an assignment (`GEN="npx openapi-typescript"`), which runs where the variable is expanded.
+ */
+function innerCommands(command: ShellCommand): ShellCommand[] {
+  const quoted = command.flatMap((word) => {
+    const inner = nestedCommandText(word);
+    return inner === undefined ? [] : shellCommandsAt(inner, word.start + 1);
+  });
+  const assigned = shellAssignments(command).flatMap((assignment) => {
+    const value = assignmentValueText(assignment);
+    return value === undefined ? [] : shellCommandsAt(value.text, value.start);
+  });
+  return [...quoted, ...assigned];
+}
+
+/**
  * The commands of `text`, in order of their first word. A quoted word that holds a command line
  * is read as commands too, so `sh -c "openapi-typescript a.yaml"` and `concurrently "…"` count.
  * `indent` is the number of spaces at the start of each line that the shell does not see, such as
@@ -244,13 +261,7 @@ export function shellCommands(text: string, indent = 0): ShellCommand[] {
     if (command.length > 0) {
       commands.push(command);
     }
-    for (const word of command) {
-      const inner = nestedCommandText(word);
-      if (inner !== undefined) {
-        const nested = shellCommands(inner).map((found) => shifted(found, word.start + 1));
-        commands.push(...nested);
-      }
-    }
+    commands.push(...innerCommands(command));
     const scripts = scriptsRunBy(top, index, command);
     commands.push(...scripts.flatMap((body) => shellCommandsAt(body.text, body.start, indent)));
   }

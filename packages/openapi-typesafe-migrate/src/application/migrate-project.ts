@@ -1,18 +1,6 @@
-import type { CatalogPlan } from "../domain/catalog-plan.js";
-import { planCatalogs } from "../domain/catalogs.js";
-import { isMap, type TreeMap, valuesAt } from "../domain/config-documents.js";
-import {
-  declaredNames,
-  type ManifestDeclarations,
-  namesUninstalledPackage,
-} from "../domain/declared-packages.js";
-import { importMapNames } from "../domain/import-map-migration.js";
 import type { Change, ManualStep } from "../domain/migration-findings.js";
-import { namesOriginalPackage, WORKSPACES_FIELD } from "../domain/package-names.js";
 import type { MigrationContext } from "./config-steps.js";
 import { fileMigrationFor } from "./file-migrations.js";
-import { type NamedImportMaps, namedImportMaps, withNamedImportMaps } from "./named-import-maps.js";
-import { type PlanSource, planSourceOf } from "./plan-sources.js";
 import type {
   CallbackRewriter,
   DocumentReaders,
@@ -22,7 +10,7 @@ import type {
   SkippedFile,
   SourceStringScanner,
 } from "./ports.js";
-import { MANIFEST_FILE, WORKSPACE_FILE, YARNRC_FILE_NAME } from "./project-file-names.js";
+import { type ProjectTarget, planProjectTarget } from "./project-target.js";
 
 export interface MigrateProjectDependencies {
   readonly files: ProjectFiles;
@@ -82,18 +70,6 @@ type FilePlan =
   | { readonly kind: "skipped"; readonly reason: FileProblem }
   | { readonly kind: "not-migrated" };
 
-/**
- * What every file of a project is migrated with: the tool's version, the catalog plan and what the
- * manifests declare.
- */
-interface ProjectTarget {
-  readonly version: string;
-  readonly catalogs: CatalogPlan;
-  readonly manifests: readonly ManifestDeclarations[];
-  /** The files that Deno configs name as their import maps. */
-  readonly importMaps: NamedImportMaps;
-}
-
 async function planFile(
   path: string,
   dependencies: MigrateProjectDependencies,
@@ -108,8 +84,11 @@ async function planFile(
     return read;
   }
   const { rewriter, scanner, readers } = dependencies;
-  const { version, catalogs, manifests } = target;
-  const context: MigrationContext = { version, catalogs, manifests, rewriter, scanner, readers };
+  const { version, catalogs, manifests, aliases } = target;
+  const context: MigrationContext = {
+    ...{ version, catalogs, manifests, aliases },
+    ...{ rewriter, scanner, readers },
+  };
   const migration = migrate(read.text, path, context);
   const isChanged = migration.text !== read.text;
   const { changes, manualSteps } = migration;
@@ -123,94 +102,6 @@ async function planFile(
 interface ProjectPlan {
   readonly files: readonly PlannedFile[];
   readonly skipped: readonly SkippedFile[];
-}
-
-/**
- * A manifest, catalog or import map file as the plan reads it: whether it names an original
- * package, and its parsed roots; `roots` is undefined when the file cannot be read or parsed.
- */
-interface PlanRead {
-  readonly namesOriginal: boolean;
-  readonly roots: readonly TreeMap[] | undefined;
-}
-
-async function readForPlan(
-  path: string,
-  source: PlanSource,
-  dependencies: MigrateProjectDependencies,
-): Promise<PlanRead> {
-  const read = await dependencies.files.read(path);
-  if (read.kind !== "read") {
-    return { namesOriginal: false, roots: undefined };
-  }
-  const namesOriginal = namesOriginalPackage(read.text);
-  // A file that names none of the packages adds nothing, so it is not parsed (the same gate as
-  // the migration's own, which keeps large YAML files fast). The root manifest is parsed: its
-  // `workspaces` field tells whether the root is a workspace root.
-  const isNeeded = namesOriginal || namesUninstalledPackage(read.text) || path === MANIFEST_FILE;
-  if (!isNeeded) {
-    return { namesOriginal, roots: [] };
-  }
-  const parsed = source.read?.(read.text, dependencies.readers);
-  const roots = parsed?.kind === "read" ? parsed.documents.filter(isMap) : undefined;
-  return { namesOriginal, roots };
-}
-
-/** The files at a workspace root where pnpm and yarn keep the workspace's catalogs. */
-const ROOT_WORKSPACE_FILES: ReadonlySet<string> = new Set([WORKSPACE_FILE, YARNRC_FILE_NAME]);
-
-/**
- * Whether a file of the root makes it a workspace root: a pnpm or yarn workspace file, or a
- * root manifest with `workspaces` (bun keeps its catalogs there).
- */
-function marksWorkspaceRoot(path: string, roots: readonly TreeMap[] | undefined): boolean {
-  if (ROOT_WORKSPACE_FILES.has(path)) {
-    return true;
-  }
-  const manifests = path === MANIFEST_FILE ? (roots ?? []) : [];
-  return manifests.some((manifest) => valuesAt(manifest, WORKSPACES_FIELD).length > 0);
-}
-
-/** The names that a manifest or an import map declares, by the role of its file. */
-const DECLARED_NAMES: Readonly<
-  Record<PlanSource["role"], ((root: TreeMap) => string[]) | undefined>
-> = { manifest: declaredNames, "import-map": importMapNames, catalogs: undefined };
-
-/**
- * The catalog plan of the project and what its manifests and import maps declare, from the files
- * of the listing. A file that cannot be read or parsed adds no catalogs, and is reported when it
- * is migrated; such a manifest or import map counts as declaring every package.
- */
-async function planProjectTarget(
-  paths: readonly string[],
-  dependencies: MigrateProjectDependencies,
-  version: string,
-): Promise<ProjectTarget> {
-  const documents: Record<"manifest" | "catalogs", TreeMap[]> = { manifest: [], catalogs: [] };
-  const manifests: ManifestDeclarations[] = [];
-  let isWorkspaceRoot = false;
-  const importMaps = await namedImportMaps(paths, dependencies.files, dependencies.readers);
-  for (const path of paths) {
-    const source = planSourceOf(path, importMaps);
-    if (source === undefined) {
-      continue;
-    }
-    const { namesOriginal, roots } = await readForPlan(path, source, dependencies);
-    isWorkspaceRoot ||= marksWorkspaceRoot(path, roots);
-    if (namesOriginal && source.role !== "import-map") {
-      documents[source.role].push(...(roots ?? []));
-    }
-    const names = DECLARED_NAMES[source.role];
-    if (names !== undefined) {
-      manifests.push({ path, names: roots && new Set(roots.flatMap(names)) });
-    }
-  }
-  const catalogs = planCatalogs({
-    manifests: documents.manifest,
-    catalogFiles: documents.catalogs,
-    isWorkspaceRoot,
-  });
-  return { version, catalogs, manifests: withNamedImportMaps(manifests, importMaps), importMaps };
 }
 
 /**

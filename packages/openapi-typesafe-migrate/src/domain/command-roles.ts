@@ -1,4 +1,5 @@
 import { INSTALLERS, LAUNCHERS, type Launcher } from "./command-launchers.js";
+import { ASSIGNMENT_RE } from "./shell-assignments.js";
 import type { ShellCommand, ShellWord } from "./shell-words.js";
 
 /**
@@ -19,7 +20,6 @@ export interface CommandRoles {
   readonly packages: readonly PackageWord[];
 }
 
-const ASSIGNMENT_RE = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const END_OF_OPTIONS = "--";
 
 const isOption = (word: ShellWord): boolean => word.value.startsWith("-") && word.value.length > 1;

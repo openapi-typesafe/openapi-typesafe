@@ -1,9 +1,5 @@
-import {
-  type CommandMigration,
-  commandWordFindings,
-  type FileVariables,
-  runsGenerator,
-} from "./command-migration.js";
+import { type CommandMigration, commandWordFindings } from "./command-migration.js";
+import { type FileVariables, runsGenerator } from "./file-variables.js";
 import { lineLocator } from "./migration-findings.js";
 import { type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits } from "./text-edits.js";

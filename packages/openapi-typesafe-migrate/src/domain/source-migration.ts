@@ -1,4 +1,4 @@
-import type { ImportedSpecifier } from "./declared-packages.js";
+import { type ImportedSpecifier, packageOfSpecifier } from "./declared-packages.js";
 import {
   type Change,
   type FileMigration,
@@ -145,12 +145,14 @@ function unrenamedSteps(found: SourceString, line: number, dynamic: string | und
 /**
  * Rename the original packages where a source file names them as modules. A string that equals a
  * package name anywhere else (an object key, a label, a config value) may mean the package or
- * may not, so it is reported, not changed. Comments are not strings and stay as written.
+ * may not, so it is reported, not changed. Comments are not strings and stay as written. The
+ * `kept` packages stay: the file's manifest points them at a local package of that name.
  */
 export function migrateModuleSpecifiers(
   text: string,
   strings: readonly SourceString[],
   version: string,
+  kept: ReadonlySet<string> = new Set(),
 ): FileMigration {
   const changes: Change[] = [];
   const manualSteps: ManualStep[] = [];
@@ -158,7 +160,8 @@ export function migrateModuleSpecifiers(
   let copiedUpTo = 0;
   const lineOf = lineLocator(text);
   for (const found of distinctStrings(strings)) {
-    const renamed = renamedValue(found.value, version);
+    const isKept = kept.has(packageOfSpecifier(found.value));
+    const renamed = isKept ? undefined : renamedValue(found.value, version);
     const line = lineOf(found.start);
     const dynamic = found.isModuleSpecifier ? dynamicPackage(found.value) : undefined;
     if (renamed === undefined) {

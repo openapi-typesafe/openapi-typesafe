@@ -16,6 +16,7 @@ const STEPS: readonly ManualStep[] = [
   { kind: "catalog-entry-in-use", catalog: "catalogs.legacy", name: "a" },
   { kind: "peer-dependency-renamed", name: "b" },
   { kind: "spec-kept", name: "b", spec: "latest" },
+  { kind: "local-package", field: "dependencies", name: "openapi-fetch", spec: "workspace:*" },
   { kind: "override-names-package", field: "overrides", name: "a" },
   { kind: "setting-names-package", field: "pnpm.packageExtensions", name: "openapi-fetch" },
   {
@@ -27,6 +28,7 @@ const STEPS: readonly ManualStep[] = [
   },
   { kind: "versioned-command", location: "ci.yml:3" },
   { kind: "old-name-in-command", location: "ci.yml:4", word: "openapi-typescript" },
+  { kind: "script-not-shell", location: "ci.yml:9", shell: "python" },
   { kind: "flags-in-variable", location: "Makefile:4", variable: "$(FLAGS)", flags: ["-it"] },
   {
     kind: "variable-not-only-generator",

@@ -1,5 +1,6 @@
 import ts from "@typescript/typescript6";
 import type { FactoryNames } from "./factory-type-text.js";
+import { hasExportModifier } from "./file-bindings.js";
 
 /**
  * The function a `transform` option holds, and what else knows that function: other uses of a
@@ -67,8 +68,9 @@ export function callbackAnnotations(
 }
 
 /**
- * A function named by `transform` is rewritten only when this is its only use: other callers
- * would get type text where they expect nodes.
+ * A function named by `transform` is rewritten only when this is its only use and it is not
+ * exported: other callers, in this file or in the modules that import it, would get type text
+ * where they expect nodes.
  */
 export function isSharedFunction(
   property: ts.ObjectLiteralElementLike,
@@ -76,5 +78,8 @@ export function isSharedFunction(
 ): boolean {
   const name = namedValue(property);
   const declaration = name === undefined ? undefined : names.bindings.declarationOf(name);
-  return declaration !== undefined && names.bindings.usesOf(declaration).length > 1;
+  return (
+    declaration !== undefined &&
+    (names.bindings.usesOf(declaration).length > 1 || hasExportModifier(declaration))
+  );
 }

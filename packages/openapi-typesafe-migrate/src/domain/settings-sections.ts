@@ -3,6 +3,7 @@ import type { Findings } from "./dependency-map.js";
 import { packageReference } from "./old-package-words.js";
 import { overrideTarget } from "./override-targets.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
+import { overriddenOldPackages } from "./successor-aliases.js";
 import { nestedKeys } from "./tree-entries.js";
 
 /**
@@ -46,7 +47,8 @@ export function reportSettingSections(
     }
     const field = `${file.prefix}${key.value}`;
     const isOverride = file.overrideSections.has(key.value);
-    for (const name of oldPackagesNamedBy(value)) {
+    const names = isOverride ? overriddenOldPackages(value) : oldPackagesNamedBy(value);
+    for (const name of names) {
       findings.manualSteps.push(
         isOverride
           ? { kind: "override-names-package", field, name }

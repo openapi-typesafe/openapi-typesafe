@@ -29,12 +29,13 @@ import {
   PACKAGE_RENAMES,
   PNPM_SETTINGS_FIELD,
 } from "./package-names.js";
+import { reportSettingSections, type SettingsFile } from "./settings-sections.js";
 import {
-  oldPackagesNamedBy,
-  reportSettingSections,
-  type SettingsFile,
-} from "./settings-sections.js";
-import { migrateBrowserField, migrateSubpathImports } from "./specifier-maps.js";
+  migrateBrowserField,
+  migrateSubpathImports,
+  reportOldPackagePaths,
+} from "./specifier-maps.js";
+import { overriddenOldPackages } from "./successor-aliases.js";
 import { applyTextEdits } from "./text-edits.js";
 import { itemEntries, keyEntries, specEntries } from "./tree-entries.js";
 
@@ -44,6 +45,9 @@ import { itemEntries, keyEntries, specEntries } from "./tree-entries.js";
  * as written (domain/config-documents.ts). Scripts are commands: file-migrations.ts migrates
  * them with the other command files.
  */
+
+/** TypeScript's `typesVersions`: its paths may point into the installed files of an old package. */
+const TYPES_VERSIONS_FIELD = "typesVersions";
 
 function migrateDependencyFields(manifest: TreeMap, target: RenameTarget, findings: Findings) {
   for (const field of DEPENDENCY_FIELDS) {
@@ -107,7 +111,7 @@ const PNPM_SETTINGS: SettingsFile = {
  */
 function reportSettings(manifest: TreeMap, findings: Findings): void {
   for (const field of OVERRIDE_FIELDS) {
-    for (const name of valuesAt(manifest, field).flatMap(oldPackagesNamedBy)) {
+    for (const name of valuesAt(manifest, field).flatMap(overriddenOldPackages)) {
       findings.manualSteps.push({ kind: "override-names-package", field, name });
     }
   }
@@ -116,28 +120,43 @@ function reportSettings(manifest: TreeMap, findings: Findings): void {
   }
 }
 
-/** A dependency that needs an original package as its peer keeps needing it after the rename. */
-function reportOldPeers(manifest: TreeMap, findings: Findings): void {
+/**
+ * A dependency that needs an original package as its peer keeps needing it after the rename,
+ * unless an override of this manifest or of a workspace above it (`aliased`, from the project
+ * plan) already points the peer at its successor.
+ */
+function reportOldPeers(manifest: TreeMap, aliased: ReadonlySet<string>, findings: Findings) {
   const dependencies = new Set(declaredNames(manifest));
   for (const [dependent, { peer, range }] of OLD_PEER_DEPENDENTS) {
-    if (dependencies.has(dependent)) {
+    if (dependencies.has(dependent) && !aliased.has(peer)) {
       findings.manualSteps.push({ kind: "old-peer-needed", dependent, peer, range });
     }
   }
 }
 
-function migrateManifestMap(manifest: TreeMap, target: RenameTarget, findings: Findings): void {
+/**
+ * What a manifest is migrated with: the rename target, and the original packages that the
+ * overrides of a workspace above it alias to their successors (domain/successor-aliases.ts).
+ */
+export interface ManifestTarget extends RenameTarget {
+  readonly aliased?: ReadonlySet<string>;
+}
+
+function migrateManifestMap(manifest: TreeMap, target: ManifestTarget, findings: Findings): void {
   migrateDependencyFields(manifest, target, findings);
   migrateNameKeys(manifest, findings);
   migrateNameLists(manifest, findings);
   migrateCatalogs(manifest, target, findings);
   migrateSubpathImports(manifest, findings);
   migrateBrowserField(manifest, findings);
+  for (const versions of valuesAt(manifest, TYPES_VERSIONS_FIELD)) {
+    reportOldPackagePaths(versions, [TYPES_VERSIONS_FIELD], findings);
+  }
   reportSettings(manifest, findings);
   for (const jest of valuesAt(manifest, JEST_FIELD)) {
     findings.manualSteps.push(...jestConfigSteps(jest, [JEST_FIELD]));
   }
-  reportOldPeers(manifest, findings);
+  reportOldPeers(manifest, target.aliased ?? new Set(), findings);
 }
 
 /**
@@ -149,7 +168,7 @@ function migrateManifestMap(manifest: TreeMap, target: RenameTarget, findings: F
 export function migratePackageManifest(
   text: string,
   read: DocumentRead,
-  target: RenameTarget,
+  target: ManifestTarget,
 ): FileMigration {
   if (read.kind === "unreadable") {
     return unreadableConfig(text, read.offset);

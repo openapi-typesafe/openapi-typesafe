@@ -11,6 +11,7 @@ const context = {
   version: "1.0.0",
   catalogs: NO_CATALOG_PLAN,
   manifests: [],
+  aliases: [],
   rewriter: new StubCallbackRewriter(),
   scanner: new QuotedStringScanner(),
   readers: { json: createJsonTextReader(), yaml: createYamlTextReader() },

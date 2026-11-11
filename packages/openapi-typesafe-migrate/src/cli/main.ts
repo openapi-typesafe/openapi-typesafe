@@ -12,6 +12,7 @@ import {
   createNodeProjectFiles,
   inspectProjectRoot,
 } from "../adapters/node-project-files/node-project-files.js";
+import { createPipeSafeWriter } from "../adapters/pipe-safe-writer/pipe-safe-writer.js";
 import { createTypescriptCallbackRewriter } from "../adapters/typescript-parser/rewriter.js";
 import { createTypescriptStringScanner } from "../adapters/typescript-parser/source-strings.js";
 import { createYamlTextReader } from "../adapters/yaml-text/yaml-text.js";
@@ -54,8 +55,8 @@ const createGit = (root: string) =>
 const dependencies: CliDependencies = {
   version: readVersion(),
   cwd: process.cwd(),
-  writeStdout: (text) => process.stdout.write(text),
-  writeStderr: (text) => process.stderr.write(text),
+  writeStdout: createPipeSafeWriter(process.stdout),
+  writeStderr: createPipeSafeWriter(process.stderr),
   inspectRoot: inspectProjectRoot,
   createFiles: (root, logger) => createNodeProjectFiles(root, { git: createGit(root), logger }),
   createLogger,

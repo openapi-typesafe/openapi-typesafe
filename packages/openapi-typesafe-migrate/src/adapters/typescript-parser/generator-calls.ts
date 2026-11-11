@@ -1,5 +1,5 @@
 import ts from "@typescript/typescript6";
-import type { FileBindings } from "./file-bindings.js";
+import { type FileBindings, hasExportModifier } from "./file-bindings.js";
 
 /**
  * The `openapiTS(source, options)` calls of a file, and where their options object is: written in
@@ -76,9 +76,6 @@ function unwrapped(
   return { value: expression, types };
 }
 
-const isExported = (declaration: ts.Node): boolean =>
-  (ts.getCombinedModifierFlags(declaration as ts.Declaration) & ts.ModifierFlags.Export) !== 0;
-
 /** The options object a `const` holds, owned by this call when the call is its only use. */
 function constantOptions(
   name: ts.Identifier,
@@ -91,7 +88,7 @@ function constantOptions(
   if (found === undefined || !ts.isObjectLiteralExpression(found.value)) {
     return { kind: "unknown", expression: name };
   }
-  const isOwn = bindings.usesOf(declaration).length === 1 && !isExported(declaration);
+  const isOwn = bindings.usesOf(declaration).length === 1 && !hasExportModifier(declaration);
   if (!isOwn) {
     return { kind: "shared", options: found.value };
   }

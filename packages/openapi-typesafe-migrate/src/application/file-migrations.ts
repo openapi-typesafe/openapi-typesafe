@@ -9,12 +9,13 @@ import {
   SIMPLE_GIT_HOOKS_COMMAND_PATHS,
 } from "../domain/command-paths.js";
 import { commandStringSteps } from "../domain/command-strings.js";
-import { undeclaredImportSteps } from "../domain/declared-packages.js";
+import { localPackagesFor, undeclaredImportSteps } from "../domain/declared-packages.js";
 import { migrateDockerfile } from "../domain/dockerfile-migration.js";
 import { migrateImportMap } from "../domain/import-map-migration.js";
 import { importMapSteps } from "../domain/import-map-reference.js";
 import { isJestConfig, jestJsonSteps, jestScriptSteps } from "../domain/jest-config.js";
 import { migrateJsonCommands } from "../domain/json-command-migration.js";
+import { migrateJustfile } from "../domain/justfile-migration.js";
 import { migrateMakefile } from "../domain/makefile-migration.js";
 import { migratePackageManifest, unreadManifest } from "../domain/manifest-migration.js";
 import { type FileMigration, unchanged } from "../domain/migration-findings.js";
@@ -25,6 +26,7 @@ import {
   migrateModuleSpecifiers,
   SOURCE_EXTENSIONS,
 } from "../domain/source-migration.js";
+import { aliasedPackagesFor } from "../domain/successor-aliases.js";
 import { migrateTsconfig } from "../domain/tsconfig-migration.js";
 import {
   migrateWorkspaceCatalogs,
@@ -33,6 +35,7 @@ import {
 } from "../domain/workspace-catalog-migration.js";
 import { TASKFILE_COMMAND_KEYS } from "../domain/yaml-command-keys.js";
 import {
+  isApiDescription,
   migrateDependabotConfig,
   migrateYamlCommands,
   migrateYamlPathCommands,
@@ -60,6 +63,7 @@ import {
   IMPORT_MAP_FILE,
   JEST_JSON_CONFIG_FILE,
   JSON5_MANIFEST_FILE,
+  JUSTFILE_NAMES,
   LINT_STAGED_JSON_FILE,
   LINT_STAGED_YAML_FILES,
   LOCK_FILES,
@@ -71,7 +75,6 @@ import {
   PRE_COMMIT_FILES,
   PROJECT_CONFIG_NAME,
   SHELL_EXTENSIONS,
-  SHELL_FILE_NAMES,
   SIMPLE_GIT_HOOKS_FILES,
   TASKFILE_NAMES,
   WORKSPACE_FILE,
@@ -90,7 +93,8 @@ const isDependabotConfig = (path: string): boolean =>
 /** Module specifiers and `transform` callbacks are migrated; command strings are reported. */
 function migrateSource(text: string, path: string, context: MigrationContext): FileMigration {
   const strings = context.scanner.scan(text, path);
-  const migrated = chain(migrateModuleSpecifiers(text, strings, context.version), (renamed) =>
+  const kept = localPackagesFor(context.manifests, path);
+  const migrated = chain(migrateModuleSpecifiers(text, strings, context.version, kept), (renamed) =>
     context.rewriter.rewrite(renamed, path),
   );
   const imports = importedSpecifiers(text, strings);
@@ -159,19 +163,34 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
   },
 ];
 
+/** The commands of a YAML file; an API description (an OpenAPI document) is data and stays. */
+const yamlCommandsStep =
+  (path: string): ConfigStep =>
+  (text, read) =>
+    read.kind === "read" && isApiDescription(read.documents)
+      ? unchanged(text)
+      : stringsStep((current, strings) => migrateYamlCommands(current, path, strings))(text, read);
+
+/** What the manifest at `path` is migrated with. */
+const manifestTarget = ({ version, catalogs, aliases }: MigrationContext, path: string) => ({
+  version,
+  catalogs,
+  aliased: aliasedPackagesFor(aliases, path),
+});
+
 /** The kinds in order; the first that matches a path migrates it. */
 const FILE_KINDS: readonly FileKind[] = [
   {
     matches: (path) => baseName(path) === MANIFEST_FILE,
-    migrate: jsonConfig(({ version, catalogs }) => [
-      (text, read) => migratePackageManifest(text, read, { version, catalogs }),
+    migrate: jsonConfig((context, path) => [
+      (text, read) => migratePackageManifest(text, read, manifestTarget(context, path)),
       jsonCommandsStep(MANIFEST_COMMAND_PATHS),
     ]),
   },
   {
     matches: (path) => YAML_MANIFEST_FILES.has(baseName(path)),
-    migrate: yamlConfig(({ version, catalogs }) => [
-      (text, read) => migratePackageManifest(text, read, { version, catalogs }),
+    migrate: yamlConfig((context, path) => [
+      (text, read) => migratePackageManifest(text, read, manifestTarget(context, path)),
       yamlPathCommands(MANIFEST_COMMAND_PATHS),
     ]),
   },
@@ -231,11 +250,7 @@ const FILE_KINDS: readonly FileKind[] = [
   },
   {
     matches: (path) => YAML_EXTENSIONS.has(extensionOf(path)),
-    migrate: whenNamed(
-      yamlConfig((_context, path) => [
-        stringsStep((text, strings) => migrateYamlCommands(text, path, strings)),
-      ]),
-    ),
+    migrate: whenNamed(yamlConfig((_context, path) => [yamlCommandsStep(path)])),
   },
   {
     matches: (path) => DOCKERFILE_NAMES.has(baseName(path)),
@@ -247,10 +262,11 @@ const FILE_KINDS: readonly FileKind[] = [
     migrate: whenNamed((text, path) => migrateMakefile(text, path)),
   },
   {
-    matches: (path) =>
-      SHELL_EXTENSIONS.has(extensionOf(path)) ||
-      SHELL_FILE_NAMES.has(baseName(path)) ||
-      isHuskyHook(path),
+    matches: (path) => JUSTFILE_NAMES.has(baseName(path)),
+    migrate: whenNamed((text, path) => migrateJustfile(text, path)),
+  },
+  {
+    matches: (path) => SHELL_EXTENSIONS.has(extensionOf(path)) || isHuskyHook(path),
     migrate: whenNamed((text, path) => migrateCommandLines(text, path)),
   },
 ];

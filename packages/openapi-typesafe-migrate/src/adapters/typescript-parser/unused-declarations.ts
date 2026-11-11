@@ -1,7 +1,7 @@
 import ts from "@typescript/typescript6";
 import type { TextEdit } from "../../domain/text-edits.js";
 import { type FactoryNames, typeTextOf } from "./factory-type-text.js";
-import type { Binding } from "./file-bindings.js";
+import { type Binding, hasExportModifier } from "./file-bindings.js";
 
 /**
  * After the `transform` returns become type text, the module-level constants that built the old
@@ -23,9 +23,6 @@ interface Range {
   readonly end: number;
 }
 
-const isExported = (node: ts.Node): boolean =>
-  (ts.getCombinedModifierFlags(node as ts.Declaration) & ts.ModifierFlags.Export) !== 0;
-
 function isRemovable(node: ts.Node, binding: Binding, names: FactoryNames): boolean {
   switch (binding.kind) {
     case "typescript-module":
@@ -33,7 +30,7 @@ function isRemovable(node: ts.Node, binding: Binding, names: FactoryNames): bool
     case "helper-import":
       return true;
     case "constant":
-      return !isExported(node) && typeTextOf(binding.initializer, names) !== undefined;
+      return !hasExportModifier(node) && typeTextOf(binding.initializer, names) !== undefined;
     default:
       return false;
   }

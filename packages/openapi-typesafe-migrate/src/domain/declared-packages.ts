@@ -1,6 +1,7 @@
-import { mapsAt, type TreeMap, textEntries } from "./config-documents.js";
+import { isScalar, mapsAt, type TreeMap, textEntries } from "./config-documents.js";
 import type { ManualStep } from "./migration-findings.js";
 import { DEPENDENCY_FIELDS, PACKAGE_RENAMES } from "./package-names.js";
+import { isLocalPackageSpec } from "./version-spec.js";
 
 /**
  * What the manifests of a project declare, to tell whether a source file may import a package
@@ -14,6 +15,8 @@ import { DEPENDENCY_FIELDS, PACKAGE_RENAMES } from "./package-names.js";
 export interface ManifestDeclarations {
   readonly path: string;
   readonly names: ReadonlySet<string> | undefined;
+  /** The original names it declares with a spec that points at a local package. */
+  readonly localPackages?: ReadonlySet<string>;
 }
 
 /**
@@ -42,11 +45,39 @@ export function namesUninstalledPackage(text: string): boolean {
 
 const directoryOf = (path: string): string => path.slice(0, path.lastIndexOf(PATH_SEPARATOR) + 1);
 
+/** Whether the file at `path` is in the folder of `filePath` or in a folder above it. */
+export const isAtOrAbove = (path: string, filePath: string): boolean =>
+  filePath.startsWith(directoryOf(path));
+
 /** The names that the dependency fields of a parsed manifest hold. */
 export function declaredNames(manifest: TreeMap): string[] {
   return DEPENDENCY_FIELDS.flatMap((field) => mapsAt(manifest, field))
     .flatMap(textEntries)
     .map(({ key }) => key.value);
+}
+
+/**
+ * The names that a parsed manifest's dependency fields point at a local package
+ * (`"openapi-fetch": "workspace:*"`): such a dependency keeps its name, so its imports do too.
+ */
+export function localPackageNames(manifest: TreeMap): string[] {
+  return DEPENDENCY_FIELDS.flatMap((field) => mapsAt(manifest, field))
+    .flatMap(textEntries)
+    .flatMap(({ key, value }) =>
+      isScalar(value) && isLocalPackageSpec(value.value) ? [key.value] : [],
+    );
+}
+
+/**
+ * The original packages that a manifest at or above `filePath` declares as local packages. Node
+ * finds such a package before any other of its name, so the imports of the file mean it.
+ */
+export function localPackagesFor(
+  manifests: readonly ManifestDeclarations[],
+  filePath: string,
+): ReadonlySet<string> {
+  const containing = manifests.filter(({ path }) => isAtOrAbove(path, filePath));
+  return new Set(containing.flatMap(({ localPackages }) => [...(localPackages ?? [])]));
 }
 
 /**
@@ -61,14 +92,14 @@ function isDeclaredFor(
   name: string,
 ): boolean {
   const original = ORIGINAL_NAMES.get(name);
-  const containing = manifests.filter(({ path }) => filePath.startsWith(directoryOf(path)));
+  const containing = manifests.filter(({ path }) => isAtOrAbove(path, filePath));
   const declares = ({ names }: ManifestDeclarations): boolean =>
     names === undefined || names.has(name) || (original !== undefined && names.has(original));
   return containing.length === 0 || containing.some(declares);
 }
 
 /** The package that a module specifier names: `pkg` of `pkg/subpath`. */
-const packageOfSpecifier = (specifier: string): string => {
+export const packageOfSpecifier = (specifier: string): string => {
   const slash = specifier.indexOf(PATH_SEPARATOR);
   return slash === -1 ? specifier : specifier.slice(0, slash);
 };

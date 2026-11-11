@@ -2,7 +2,7 @@ import { createRedoclySchemaLoader } from "../adapters/redocly-loader/redocly-sc
 import type { Logger } from "../application/ports/logger.js";
 import { withStackOverflowReported } from "../application/stack-overflow.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
-import type { GeneratorOptions, SchemaSource } from "../types.js";
+import type { GeneratorOptions, OpenAPITSOptions, SchemaSource } from "../types.js";
 import {
   DEFAULT_REMOTE_DOCUMENT_LIMITS,
   defaultDeprecationReporter,
@@ -78,6 +78,19 @@ export async function defaultGeneratorPorts(
  *   - URL: URL to a YAML or JSON file (local or remote)
  *   - Readable: Readable stream of YAML or JSON
  */
+export default function openapiTS(
+  source: SchemaSource,
+  options?: OpenAPITSOptions,
+): Promise<IrDeclaration[]>;
+// The options without `irCallbacks` get their own signature: TypeScript does not pick a member of
+// `GeneratorOptions | undefined` (an optional parameter) by a key that the object leaves out, so
+// inline callbacks had implicit `any` parameters (TS7006). `irCallbacks: true` picks the member
+// here. This signature is last, so `Parameters<typeof openapiTS>` reads it.
+/** Convert an OpenAPI schema to IR declarations, with either form of the options. */
+export default function openapiTS(
+  source: SchemaSource,
+  options?: GeneratorOptions,
+): Promise<IrDeclaration[]>;
 export default async function openapiTS(
   source: SchemaSource,
   options: GeneratorOptions = {},
