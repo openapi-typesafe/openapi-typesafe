@@ -29,6 +29,12 @@ import { removalEdits, unusedDeclarations } from "./unused-declarations.js";
 const TRANSFORM = "transform";
 const LEGACY_ONLY_CALLBACKS = ["postTransform", "transformProperty"] as const;
 const IR_CALLBACKS_OPTION = "irCallbacks";
+/** The value of `irCallbacks` in an object that the call types: the literal `true` stays `true`. */
+const IR_CALLBACKS_TRUE = "true";
+/** In an untyped `const`, `true` widens to `boolean`, which no signature of `openapiTS` takes. */
+const IR_CALLBACKS_TRUE_CONST = "true as const";
+/** The same assertion in a JavaScript file, where `as const` is not syntax. */
+const IR_CALLBACKS_TRUE_CONST_JS = "/** @type {const} */ (true)";
 
 interface CallFindings {
   readonly edits: TextEdit[];
@@ -96,14 +102,23 @@ function transformEdits(
   return edits;
 }
 
+/** The value of the added `irCallbacks`, which must keep the type `true` (TS2769 otherwise). */
+function irCallbacksValue(options: OwnOptions): string {
+  if (options.isContextuallyTyped) {
+    return IR_CALLBACKS_TRUE;
+  }
+  const isJavaScript = (options.options.flags & ts.NodeFlags.JavaScriptFile) !== 0;
+  return isJavaScript ? IR_CALLBACKS_TRUE_CONST_JS : IR_CALLBACKS_TRUE_CONST;
+}
+
 /**
- * The `irCallbacks: true` option, placed before `transform`: on its own line with the same
+ * The `irCallbacks` option, placed before `transform`: on its own line with the same
  * indentation when `transform` starts a line, else on the same line.
  */
-function irCallbacksOption(text: string, transformStart: number): string {
+function irCallbacksOption(text: string, transformStart: number, value: string): string {
   const lineStart = text.lastIndexOf("\n", transformStart - 1) + 1;
   const before = text.slice(lineStart, transformStart);
-  const option = `${IR_CALLBACKS_OPTION}: true,`;
+  const option = `${IR_CALLBACKS_OPTION}: ${value},`;
   return /^\s*$/.test(before) ? `${option}\n${before}` : `${option} `;
 }
 
@@ -164,7 +179,10 @@ function migrateOptions(options: OwnOptions, text: string, names: FactoryNames):
     findings.manualSteps.push({ kind: "transform-not-rewritten", line, reason: result });
     return findings;
   }
-  findings.edits.push({ start, end: start, text: irCallbacksOption(text, start) }, ...result.edits);
+  // Before the JSDoc of `transform`, which documents (and in JavaScript types) `transform`.
+  const at = transform.getStart(undefined, true);
+  const option = irCallbacksOption(text, at, irCallbacksValue(options));
+  findings.edits.push({ start: at, end: at, text: option }, ...result.edits);
   findings.typeReferences.push(...result.typeReferences);
   findings.changes.push({ kind: "transform-rewritten", line });
   return findings;
