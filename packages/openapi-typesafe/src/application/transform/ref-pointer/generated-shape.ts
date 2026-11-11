@@ -1,5 +1,6 @@
 import { isRawBinarySchema } from "../../../domain/openapi/binary-content.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
+import { type IndexSignatureMember, indexMember } from "./index-signature-member.js";
 import {
   childLocation,
   followLocated,
@@ -8,7 +9,6 @@ import {
   type LocatedNode,
 } from "./located-node.js";
 import {
-  hasKeptProperties,
   isExcludedProperty,
   isMarkedProperty,
   isNullableSchema,
@@ -30,20 +30,17 @@ export type GeneratedMember =
       /** `$Read<T>` or `$Write<T>` (`isMarkedProperty`): no member but the marker's own. */
       readonly isMarked: boolean;
     }
+  | IndexSignatureMember
   /**
-   * An index signature; `node` is undefined when its value type is `unknown`. `isOtherType`: the
-   * type read is not the type of the node the key names (`indexMember`).
+   * `$defs`, a map of names. The original indexes it through `NonNullable` (`indexKeyword`), so it
+   * is present, and each definition is a member of it.
    */
-  | {
-      readonly kind: "index";
-      readonly node: unknown;
-      readonly location: string | undefined;
-      readonly isOtherType: boolean;
-    }
+  | { readonly kind: "names"; readonly names: JsonObject; readonly location: string | undefined }
   | { readonly kind: "missing" }
   | { readonly kind: "opaque" };
 
 const OPAQUE_KEYS = ["not", "enum", "const", "$ref"] as const;
+const DEFS_KEYWORD = "$defs";
 /** How deep `allOf`/`anyOf`/`oneOf` members are read; deeper shapes count as opaque. */
 const MAX_DEPTH = 8;
 const INDEX_RE = /^\d+$/;
@@ -100,53 +97,6 @@ function isBuiltInMember(key: string, prototype: object): boolean {
   return key in prototype;
 }
 
-/** `additionalProperties: true` or `{}` (also as a pattern's schema): a value of `unknown`. */
-function isUnknownValue(value: unknown): boolean {
-  return value === true || (isJsonObject(value) && Object.keys(value).length === 0);
-}
-
-/** The value schemas of an index signature none of whose values is `unknown`, located. */
-function typedIndexValues(owner: LocatedNode & { node: JsonObject }): LocatedNode[] {
-  const { additionalProperties: values, patternProperties: patterns } = owner.node;
-  const located: LocatedNode[] = [];
-  if (isJsonObject(values)) {
-    located.push({ node: values, location: childLocation(owner.location, "additionalProperties") });
-  }
-  for (const [pattern, node] of isJsonObject(patterns) ? Object.entries(patterns) : []) {
-    located.push({ node, location: childLocation(owner.location, "patternProperties", pattern) });
-  }
-  return located;
-}
-
-/**
- * The index signature of an object schema, or null without one. Its type is the union of its
- * value schemas' types (`unknown` if one is `unknown`); a union of several counts as opaque. It
- * also holds the kept property types (`withPropertyTypes`), and a key that names a property
- * `--exclude-deprecated` left out reads it instead of that property: both are `isOtherType`.
- */
-function indexMember(
-  owner: LocatedNode & { node: JsonObject },
-  isExcludedKey: boolean,
-  input: MemberInput,
-): GeneratedMember | null {
-  const { additionalProperties: values, patternProperties: patterns } = owner.node;
-  const patternValues = isJsonObject(patterns) ? Object.values(patterns) : [];
-  const isUnknown =
-    isUnknownValue(values) ||
-    patternValues.some(isUnknownValue) ||
-    (!values && input.options.additionalProperties);
-  if (isUnknown) {
-    return { kind: "index", node: undefined, location: undefined, isOtherType: isExcludedKey };
-  }
-  const typed = typedIndexValues(owner);
-  const [only] = typed;
-  if (only === undefined || typed.length > 1) {
-    return only === undefined ? null : OPAQUE;
-  }
-  const isOtherType = isExcludedKey || hasKeptProperties(owner.node, input.options, input.refs);
-  return { kind: "index", ...only, isOtherType };
-}
-
 function objectMember(
   owner: LocatedNode & { node: JsonObject },
   key: string,
@@ -166,15 +116,25 @@ function objectMember(
     const isMarked = isMarkedProperty(properties[key], options, input.refs);
     return { kind: "property", node: properties[key], location, isOptional, isMarked };
   }
-  // `unevaluatedProperties` adds an index signature with its fix, so it counts as opaque too.
-  const isUnknownShape =
-    isJsonObject(node.discriminator) || node.unevaluatedProperties !== undefined;
-  if (isBuiltInMember(key, {}) || key === "$defs" || isUnknownShape) {
+  // The discriminator scan may add the discriminator's property, and `unevaluatedProperties`
+  // adds an index signature with its fix: both count as opaque. Other keys of a discriminator
+  // owner read its type as without the discriminator.
+  const isUnknownShape = isDiscriminatorKey(node, key) || node.unevaluatedProperties !== undefined;
+  if (isBuiltInMember(key, {}) || isUnknownShape) {
     return OPAQUE;
+  }
+  const defs = node[DEFS_KEYWORD];
+  if (key === DEFS_KEYWORD && isJsonObject(defs) && Object.keys(defs).length > 0) {
+    return { kind: "names", names: defs, location: childLocation(owner.location, DEFS_KEYWORD) };
   }
   return hasObjectKeywords(node)
     ? (indexMember(owner, isExcludedKey, input) ?? MISSING)
     : emptyObjectMember(node, options);
+}
+
+function isDiscriminatorKey(node: JsonObject, key: string): boolean {
+  const { discriminator } = node;
+  return isJsonObject(discriminator) && discriminator.propertyName === key;
 }
 
 function membersOf(node: JsonObject, keyword: string): readonly unknown[] {

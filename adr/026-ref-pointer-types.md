@@ -154,3 +154,25 @@ and a pointer one segment deeper did not compile, also with the fix. A `$ref` to
    `oneOf` next to it (a member may add a signature or an inherited discriminator). Elsewhere the
    walk stops and the target is typed in place (point 3 above), as is a pattern, which has no
    index of its own.
+
+## Amendment (2026-11-11): owners the shape model left opaque
+
+The pointer rule of the amendment above held only for owners `generatedMember` modelled. Three
+shapes were opaque, and `originalIndexFails` counts opaque as compiling, so their original pointer
+stayed, read through a signature of another type or not compiling (TS2339):
+
+1. **Several value schemas** (`additionalProperties` next to a pattern, or two patterns). The
+   signature is their union, which is no one value schema's type: the member is `isOtherType`, as
+   next to kept properties. This is the same document-level rule; where every value schema has
+   one type the corrected type is that type written inline.
+2. **A `discriminator` owner.** The discriminator scan may add or change the discriminator's own
+   property, so that key and the owner's properties stay opaque. Any other key (its
+   `additionalProperties`, a property `--exclude-deprecated` left out) reads the index signature
+   as without the discriminator.
+3. **`$defs`.** It is a member of its own (`defsMember`), and the original reads it through
+   `NonNullable` (`indexKeyword`): a `names` member whose definitions are present, so the walk
+   reads on into them (`Inner/additionalProperties`). A name the map does not have fails, as does
+   a `$Read<T>` / `$Write<T>` definition with more segments after it.
+
+`generatedMember` grew past the file limit, so the index signature member moved to
+`index-signature-member.ts`; the Consequences above apply to it too.
