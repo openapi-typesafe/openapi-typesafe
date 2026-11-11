@@ -612,10 +612,7 @@ function headerParamValue(value) {
   if (value === null || typeof value !== "object" || isDate(value)) {
     return valueText(value);
   }
-  // The query error names `querySerializer()`, which does not apply to headers.
-  if (Object.values(value).some((member) => isNestedValue(member))) {
-    throw new Error(`${NESTED_VALUE_ERROR} in header parameters.`);
-  }
+  checkFlatMembers(value, HEADER_NESTED_VALUE_ERROR);
   const serialize = Array.isArray(value) ? serializeArrayParam : serializeObjectParam;
   return serialize("", value, HEADER_PARAM_STYLE) || undefined;
 }
@@ -632,9 +629,29 @@ function serializeHeaderParams(header) {
 /** The start of the error for a nested object or array in a parameter. */
 const NESTED_VALUE_ERROR = "Deeply-nested arrays/objects aren’t supported";
 
+/** A header has no serializer option, so its error names no hook. */
+const HEADER_NESTED_VALUE_ERROR = `${NESTED_VALUE_ERROR} in header parameters.`;
+
+const PATH_HOOK_HINT = "Provide your own `pathSerializer()` to handle these.";
+const PATH_NESTED_VALUE_ERROR = `${NESTED_VALUE_ERROR} in path parameters. ${PATH_HOOK_HINT}`;
+
+const QUERY_HOOK_HINT = "Provide your own `querySerializer()` to handle these.";
+const QUERY_NESTED_VALUE_ERROR = `${NESTED_VALUE_ERROR}. ${QUERY_HOOK_HINT}`;
+
 /** Whether a value is an object or an array a parameter cannot hold as a member. */
 function isNestedValue(value) {
   return Boolean(value) && typeof value === "object" && !isDate(value);
+}
+
+/**
+ * Throw `message` when an array or object parameter has a nested member. Headers and path
+ * parameters check first: the check in `encodeValue` names `querySerializer()`, the hook of the
+ * query only.
+ */
+function checkFlatMembers(value, message) {
+  if (Object.values(value).some((member) => isNestedValue(member))) {
+    throw new Error(message);
+  }
 }
 
 /**
@@ -644,9 +661,7 @@ function isNestedValue(value) {
  */
 function encodeValue(value, allowReserved) {
   if (isNestedValue(value)) {
-    throw new Error(
-      `${NESTED_VALUE_ERROR}. Provide your own \`querySerializer()\` to handle these.`,
-    );
+    throw new Error(QUERY_NESTED_VALUE_ERROR);
   }
   const text = valueText(value);
   return allowReserved === true ? text : encodeURIComponent(text);
@@ -831,16 +846,25 @@ export function createQuerySerializer(options) {
 /**
  * The request's query options over the client's. `array` and `object` merge by key, since each of
  * `style` and `explode` may be left out: `{ array: { explode: false } }` dropped the client's
- * `pipeDelimited` style (ADR-041).
+ * `pipeDelimited` style (ADR-041). An option set to `undefined` counts as left out.
  */
 function mergeQueryOptions(clientOptions, requestOptions) {
   const base = typeof clientOptions === "function" ? {} : (clientOptions ?? {});
   return {
     ...base,
-    ...requestOptions,
-    array: { ...base.array, ...requestOptions.array },
-    object: { ...base.object, ...requestOptions.object },
+    ...definedOptions(requestOptions),
+    array: { ...base.array, ...definedOptions(requestOptions.array) },
+    object: { ...base.object, ...definedOptions(requestOptions.object) },
   };
+}
+
+/**
+ * The options that are not `undefined`. A wrapper that forwards its own optional option passes
+ * `{ explode: undefined }`, which compiles, and a spread of it replaced the client's value.
+ */
+function definedOptions(options) {
+  const entries = Object.entries(options ?? {}).filter(([, value]) => value !== undefined);
+  return Object.fromEntries(entries);
 }
 
 /**
@@ -872,22 +896,28 @@ export function defaultPathSerializer(pathname, pathParams) {
     if (!pathParams || pathParams[name] === undefined || pathParams[name] === null) {
       continue;
     }
-    const value = pathParams[name];
-    let serialized;
-    if (Array.isArray(value)) {
-      serialized = serializeArrayParam(name, value, { style, explode });
-    } else if (typeof value === "object" && !isDate(value)) {
-      serialized = serializeObjectParam(name, value, { style, explode });
-    } else if (style === "matrix") {
-      serialized = `;${serializePrimitiveParam(name, value)}`;
-    } else {
-      serialized = style === "label" ? `.${encodeValue(value)}` : encodeValue(value);
-    }
+    const serialized = serializePathParam(name, pathParams[name], { style, explode });
     // A function: a string replacement reads `$'`, `$&` and the like, which object keys keep.
     nextURL = nextURL.replace(match, () => serialized);
   }
   checkSerializedPath(pathname, nextURL);
   return nextURL;
+}
+
+/** One path parameter value in its `style`; a nested member fails with the path's message. */
+function serializePathParam(name, value, options) {
+  if (Array.isArray(value)) {
+    checkFlatMembers(value, PATH_NESTED_VALUE_ERROR);
+    return serializeArrayParam(name, value, options);
+  }
+  if (typeof value === "object" && !isDate(value)) {
+    checkFlatMembers(value, PATH_NESTED_VALUE_ERROR);
+    return serializeObjectParam(name, value, options);
+  }
+  if (options.style === "matrix") {
+    return `;${serializePrimitiveParam(name, value)}`;
+  }
+  return options.style === "label" ? `.${encodeValue(value)}` : encodeValue(value);
 }
 
 /**
