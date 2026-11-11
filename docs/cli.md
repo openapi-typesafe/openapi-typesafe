@@ -324,8 +324,10 @@ signature for the same URLs, so it stays (`` [path: `/a/${number}/b/${boolean}`]
 A `$ref` into a path, such as `#/paths/~1pets~1%7Bid%7D/get/responses/200`, is typed as an index
 of `paths`. When the template has a `${number}` or `${boolean}` placeholder, the URL `/pets/{id}`
 does not match it, so the index is the template: `` paths[`/pets/${number}`]["get"] ``. The
-original wrote `paths["/pets/{id}"]`, which does not compile (TS2339). With only `${string}`
-placeholders the URL matches the template, and the index stays the URL.
+original wrote `paths["/pets/{id}"]`, which does not compile (TS2339). The type of an
+`--enum-values` array in such a path is indexed the same way
+(`` FlattenedDeepRequired<paths>[`/pets/${number}`] ``). With only `${string}` placeholders the URL
+matches the template, and the index stays the URL.
 :::
 
 _Thanks, [@Powell-v2](https://github.com/Powell-v2)!_
@@ -1173,6 +1175,11 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
 - The `schema` of a media type, header or component parameter is left out, `items` is indexed by
   `[number]`, `additionalProperties` by `[string]`, and an optional or nullable value is wrapped in
   `NonNullable` before it is indexed.
+- `[string]` is the `additionalProperties` type only where the index signature holds nothing
+  else. Next to `properties` it also holds the property types, and next to `patternProperties` the
+  pattern types, so such a pointer gets the target's type inline, as does a pointer to a pattern
+  (`patternProperties/^x`). With `--exclude-deprecated`, a pointer to a property it leaves out gets
+  the property's type inline, not the index signature's.
 - A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation or
   path item `parameters/0`) gets the target's type written inline; a target that points back at
   itself keeps the original type. The inline type is the one the generator writes for that schema,

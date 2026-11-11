@@ -2,6 +2,7 @@ import { irRaw } from "../../../domain/ir/constructors.js";
 import type { IrDeclaration } from "../../../domain/ir/nodes.js";
 import type { PathsObject } from "../../../domain/openapi/path-item-object.js";
 import { documentEntries } from "../document-entries.js";
+import { HELPER_TYPES } from "../helper-types.js";
 import type { TransformContext } from "../transform-context.js";
 import type { PathKeyPart } from "./path-key-overlaps.js";
 import { booleanExpandedKeys, pathTemplateParts, templateText } from "./path-template-key.js";
@@ -11,7 +12,8 @@ import { isUntakenKey, pathKeyOf } from "./paths.js";
  * `--path-params-as-types` and `$ref`s into a templated path. Such a path is an index signature
  * of `paths` (`` [path: `/pets/${number}`] ``), so `paths["/pets/{id}"]`, the type of a `$ref`
  * to it, names no key: `{id}` is no number (TS2339). The reference indexes `paths` by the
- * template instead, which reaches the signature. With only `${string}` placeholders the URL
+ * template instead, which reaches the signature; so does the type of an `--enum-values` array,
+ * which indexes `FlattenedDeepRequired<paths>`. With only `${string}` placeholders the URL
  * itself matches the template and the output compiles, so it stays as it is.
  */
 
@@ -64,16 +66,35 @@ function isNode(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null;
 }
 
+function isBarePathsReference(node: unknown): boolean {
+  const reference = node as Readonly<Record<string, unknown>> | undefined;
+  return (
+    reference?.kind === "reference" &&
+    reference.name === PATHS_TYPE_NAME &&
+    (reference.typeArguments as readonly unknown[] | undefined)?.length === 0
+  );
+}
+
+/**
+ * The `paths` root as a `$ref` or an `--enum-values` array indexes it: `paths`, or
+ * `FlattenedDeepRequired<paths>` (`rootType`), whose mapped keys are those of `paths`.
+ */
+function isPathsRoot(node: unknown): boolean {
+  const reference = node as Readonly<Record<string, unknown>> | undefined;
+  const typeArguments = reference?.typeArguments as readonly unknown[] | undefined;
+  const isDeepRoot =
+    reference?.kind === "reference" &&
+    reference.name === HELPER_TYPES.flattenedDeepRequired.name &&
+    typeArguments?.length === 1 &&
+    isBarePathsReference(typeArguments[0]);
+  return isDeepRoot || isBarePathsReference(node);
+}
+
 /** `paths["<url>"]`: an index of the `paths` root by a string literal. */
 function pathsIndexUrl(node: Readonly<Record<string, unknown>>): string | undefined {
-  const object = node.object as Readonly<Record<string, unknown>> | undefined;
   const index = node.index as Readonly<Record<string, unknown>> | undefined;
   const isPathsIndex =
-    node.kind === "indexedAccess" &&
-    object?.kind === "reference" &&
-    object.name === PATHS_TYPE_NAME &&
-    (object.typeArguments as readonly unknown[] | undefined)?.length === 0 &&
-    index?.kind === "stringLiteral";
+    node.kind === "indexedAccess" && isPathsRoot(node.object) && index?.kind === "stringLiteral";
   return isPathsIndex ? (index.value as string) : undefined;
 }
 

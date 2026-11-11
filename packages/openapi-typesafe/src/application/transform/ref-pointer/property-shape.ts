@@ -59,6 +59,15 @@ export function isExcludedProperty(
 }
 
 /**
+ * Whether the generated type keeps one of the schema's properties. The index signature next to
+ * them then holds their types too (`withPropertyTypes`), so it is not its value schema's type.
+ */
+export function hasKeptProperties(node: JsonObject, options: SchemaOptions, refs: RefResolver) {
+  const properties = isJsonObject(node.properties) ? node.properties : {};
+  return Object.values(properties).some((value) => !isExcludedProperty(value, options, refs));
+}
+
+/**
  * Whether `--read-write-markers` wraps the type of a property or `$defs` member: one that is only
  * `readOnly` or only `writeOnly` is `$Read<T>` or `$Write<T>` (object-type.ts).
  */

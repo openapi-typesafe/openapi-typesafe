@@ -18,8 +18,10 @@ import {
 /**
  * Whether the type the original wrote for a `$ref` (`refType`: every segment indexed by name,
  * `properties` skipped) surely fails to compile. It walks the document as TypeScript walks the
- * generated types and answers true only where TypeScript reports an error for sure; where the
- * answer depends on a shape it does not model, it answers false, so that output stays as it was.
+ * generated types and answers true only where TypeScript reports an error for sure, or where the
+ * type compiles but is read through an index signature that is not the target's type alone
+ * (`isOtherType`); where the answer depends on a shape it does not model, it answers false, so
+ * that output stays as it was.
  */
 
 type Step = "fails" | "compiles" | "continue";
@@ -42,7 +44,8 @@ function schemaStep(walk: OriginalWalk, segment: string, isLast: boolean, input:
     return { step: "continue" as Step, walk };
   }
   const member = generatedMember(walk, segment, input.options, input.refs);
-  if (member.kind === "missing") {
+  // Such an index signature compiles, but its type is not the target's alone.
+  if (member.kind === "missing" || (member.kind === "index" && member.isOtherType)) {
     return { step: "fails" as Step, walk };
   }
   if (member.kind === "opaque") {
