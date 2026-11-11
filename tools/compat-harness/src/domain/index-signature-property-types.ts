@@ -117,13 +117,23 @@ function literalKeyword(type: string): string | null {
   return type === "true" || type === "false" ? "boolean" : null;
 }
 
-/** The element type of `T[]` or `(A | B)[]`, or null for no array type. */
-function arrayElement(type: string): string | null {
+const READONLY_PREFIX = "readonly ";
+
+/** An array type: its element type and whether it is a `readonly` array. */
+interface ArrayType {
+  readonly element: string;
+  readonly isReadonly: boolean;
+}
+
+/** The array type of `T[]`, `(A | B)[]` or `readonly T[]`, or null for no array type. */
+function arrayTypeOf(type: string): ArrayType | null {
   if (!type.endsWith("[]")) {
     return null;
   }
-  const element = type.slice(0, -2);
-  return element.startsWith("(") && element.endsWith(")") ? element.slice(1, -1) : element;
+  const isReadonly = type.startsWith(READONLY_PREFIX);
+  const element = type.slice(isReadonly ? READONLY_PREFIX.length : 0, -2);
+  const isBracketed = element.startsWith("(") && element.endsWith(")");
+  return { element: isBracketed ? element.slice(1, -1) : element, isReadonly };
 }
 
 /**
@@ -135,16 +145,18 @@ function isHeld(member: string, indexMembers: readonly string[]): boolean {
   if (indexMembers.includes(member) || (keyword !== null && indexMembers.includes(keyword))) {
     return true;
   }
-  const element = arrayElement(member);
-  if (element === null) {
+  const array = arrayTypeOf(member);
+  if (array === null) {
     return false;
   }
+  // A readonly array is assignable to readonly arrays only; a mutable one to both.
   return indexMembers.some((indexMember) => {
-    const indexElement = arrayElement(indexMember);
-    const elementMembers = indexElement === null ? null : unionMembers(indexElement);
-    return (
-      elementMembers !== null && unionMembers(element).every((part) => isHeld(part, elementMembers))
-    );
+    const indexArray = arrayTypeOf(indexMember);
+    if (indexArray === null || (array.isReadonly && !indexArray.isReadonly)) {
+      return false;
+    }
+    const elementMembers = unionMembers(indexArray.element);
+    return unionMembers(array.element).every((part) => isHeld(part, elementMembers));
   });
 }
 
