@@ -1,5 +1,53 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.6
+
+### Patch Changes
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - An OpenAPI, Swagger or AsyncAPI document in YAML is no longer changed: an example value under a
+  `command` or `script` key that mentions the generator stays as written.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - `openapi-typesafe-migrate | head` (or any reader that closes the pipe early) no longer crashes with
+  an `EPIPE` stack trace and exit code 1: the rest of the report is dropped and the run ends as it
+  would have.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - A constant or an import that an `export { … }` list names is no longer removed with the old
+  `transform` returns, so the file still compiles.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - An exported function that `transform` names is no longer rewritten: other modules may call it
+  and expect TypeScript nodes. It is kept and reported as a manual step, like options that other
+  code uses.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - A justfile variable that holds the generator (`gen := "npx openapi-typescript"`) now has its old
+  flags renamed where it runs: `{{gen}} api.yaml -it` kept `-it`. A variable of old flags that the
+  generator gets (`{{flags}}`) is reported.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - A dependency under an old name on a local package (`workspace:*`, `link:`, `file:`, `portal:`),
+  such as a fork named `openapi-fetch` in the workspace, is no longer renamed: the new name pointed
+  at a package the workspace does not have, and the install failed. The dependency and the imports
+  of it keep their name, and the report lists it as a manual step.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - A CI step whose `shell` is another program (`shell: python` in GitHub Actions, or a CircleCI
+  `shell` next to `command`) runs code of that language, not commands. Its script is now left as it
+  is and reported when it names an old package; it was skipped without a word.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - A shell variable that holds the generator is migrated now. A script, a CI `run` block or a
+  `package.json` script that sets `GEN="npx openapi-typescript"` (also after `export`, `local` or
+  `readonly`) and then runs `$GEN api.yaml -it` was left as it was, and nothing was reported, so
+  the build went on downloading the old generator. The value is renamed where it is set and the
+  flags after `$GEN` where it runs, and a variable of old flags that the generator gets is reported.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - Once `openapi-fetch` is aliased to `openapi-typesafe-fetch` in the overrides (as the docs ask for
+  swr-openapi), the report no longer says to update that override or to add the alias again, so a
+  second run is clean. The alias counts in the `package.json` itself and in a workspace above it.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - A path in the `typesVersions` of `package.json` into the installed files of an old package
+  (`node_modules/openapi-fetch/dist/index.d.ts`) is reported, as such paths in a tsconfig are: the
+  new package has its own files there.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - The `command` of a wireit script in `package.json` is migrated like the other scripts. It was
+  neither changed nor reported.
+
 ## 1.0.0-rc.5
 
 ### Patch Changes

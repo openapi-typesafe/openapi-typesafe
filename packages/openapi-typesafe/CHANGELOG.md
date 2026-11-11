@@ -2,6 +2,79 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.6
+
+### Patch Changes
+
+- [#91](https://github.com/openapi-typesafe/openapi-typesafe/pull/91) [`b3fcff5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b3fcff541be5f8ddd0bbea19b95a60df26fda92e) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` to the `additionalProperties` of an object that also has `properties`
+  (`#/components/schemas/Stats/additionalProperties`) is typed as that schema again. Since the index
+  signature also takes the property types, `Stats["additionalProperties"]` read
+  `number | { count?: number }`, which accepted `5`, and a `$ref` one level deeper
+  (`.../additionalProperties/properties/count`) did not compile, also with `--fix ref-pointers`.
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - With several APIs in `redocly.yaml`, an error about an output file (`OUTPUT_STALE`,
+  `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED`, `CLI_OUTPUT_INVALID`, `CLI_OUTPUT_IS_INPUT`,
+  `CLI_OUTPUT_DUPLICATE`) starts with `API <name>:`, as the other errors of an API do.
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - `--check` compares lines, not line ends: an output that Git checked out with CRLF line ends
+  (`core.autocrlf` on Windows) is no longer reported as stale (`OUTPUT_STALE`).
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - A path with a colon in its name, such as `-o out:v2.ts` or the schema `spec:v2.yaml`, is read as a
+  file path. Any text before a colon was taken as a URL scheme, so the output failed with
+  `CLI_OUTPUT_INVALID`. A location is a URL when it starts with `http:`, `https:` or `file:`, or with
+  a scheme and `//`.
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - Warnings and errors on stderr get colors only when stderr is a terminal. A log file that stderr
+  was redirected to got color escape sequences whenever stdout was a terminal.
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - The Node API's `cwd` option is read like `localRefRoot`: a string such as `"file:///app/specs/"` is
+  a URL, where it was read as a relative path. A `cwd` of another type (a number), a URL of another
+  scheme, or a relative `localRefRoot` with an `http:` `cwd` rejects with `OPTION_INVALID` instead of
+  resolving a wrong directory or throwing a plain `TypeError`.
+
+- [#91](https://github.com/openapi-typesafe/openapi-typesafe/pull/91) [`b3fcff5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b3fcff541be5f8ddd0bbea19b95a60df26fda92e) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values` with `--path-params-as-types`: the arrays of a path with a `number` or `boolean`
+  path parameter compile. Their type indexed `FlattenedDeepRequired<paths>["/items/{id}"]`, a key
+  the type does not have (TS2339); it is now indexed by the path's template
+  (``FlattenedDeepRequired<paths>[`/items/${number}`]``), as a `$ref` into that path already was.
+
+- [#91](https://github.com/openapi-typesafe/openapi-typesafe/pull/91) [`b3fcff5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b3fcff541be5f8ddd0bbea19b95a60df26fda92e) Thanks [@fedorello](https://github.com/fedorello)! - With `--exclude-deprecated`, a `$ref` to a property it leaves out is typed as that property's
+  schema also when the object has `additionalProperties`. It was read through the index signature,
+  so a `type: string` property was typed as the `additionalProperties` type (`number`), without an
+  error.
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - A second schema argument fails with the new error `CLI_INPUT_EXTRA` (exit code 2). Only the first
+  one was generated, so an unquoted glob that the shell expanded (`g/*.yaml`) generated one schema and
+  passed.
+
+- [#93](https://github.com/openapi-typesafe/openapi-typesafe/pull/93) [`25f631d`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25f631d8dabed24e18a859b08e8395496e145118) Thanks [@fedorello](https://github.com/fedorello)! - Inline `postTransform` and `transformProperty` callbacks in `openapiTS(source, { … })` without
+  `irCallbacks` get their parameter types again (`ts.TypeNode`, `ts.PropertySignature`) instead of
+  an implicit `any` that `strict` rejects (TS7006), as with openapi-typescript 7.
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - The `--no-` form of a flag that takes a value (`--no-output`, `--no-redocly`, `--no-fix`,
+  `--no-local-ref-root`, `--no-remote-ref-hosts`) fails with `CLI_FLAG_INVALID`. It used the text
+  `false` as the value: `--no-output` wrote the types to a file named `false`.
+
+- [#91](https://github.com/openapi-typesafe/openapi-typesafe/pull/91) [`b3fcff5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b3fcff541be5f8ddd0bbea19b95a60df26fda92e) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` to one pattern of `patternProperties`
+  (`#/components/schemas/Labels/patternProperties/^label_`) compiles without `--fix`: it is typed as
+  that pattern's schema instead of `components["schemas"]["Labels"]["patternProperties"]["^label_"]`
+  (TS2339).
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - With several APIs in `redocly.yaml`, each API is linted with its own `rules` (and other lint
+  settings) from `apis.<name>`, as `redocly lint <name>` lints it. Every API was linted with the
+  root rules only.
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - Remote `$ref` documents whose queries end in the same text after a `/` (a branch such as
+  `?ref=feature/new-api`) are each named after their own file. The pet document was named after the
+  owner document (`components["schemas"]["owner"]`), and the owner one `owner-2`.
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - Relative `$ref`s of a remote document that redirects resolve from the URL it was redirected to.
+  A spec URL `https://host/latest` that redirects to `/static/v1/root.yaml` loaded `./pet.yaml` from
+  `https://host/pet.yaml`, which gave the types of another file or failed with a 404.
+
+- [#92](https://github.com/openapi-typesafe/openapi-typesafe/pull/92) [`cf9c4db`](https://github.com/openapi-typesafe/openapi-typesafe/commit/cf9c4db102193818022a30b46d6476bef2f98a93) Thanks [@fedorello](https://github.com/fedorello)! - An unknown flag before the schema no longer takes the schema path as its value:
+  `--alphabetise api.yaml -o out.ts` prints the notice for the flag and generates `api.yaml`, where it
+  read stdin instead. A schema path that looks like a number (`1.10`, `0x10`) is read as written.
+
 ## 1.0.0-rc.5
 
 ### Patch Changes

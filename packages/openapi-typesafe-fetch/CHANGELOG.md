@@ -2,6 +2,12 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.6
+
+### Patch Changes
+
+- [#87](https://github.com/openapi-typesafe/openapi-typesafe/pull/87) [`dfb0fe3`](https://github.com/openapi-typesafe/openapi-typesafe/commit/dfb0fe3c61a75d2b8ca512577f4b699049171a64) Thanks [@fedorello](https://github.com/fedorello)! - Leave out `null` and `undefined` items and members of arrays and objects in every parameter style, also in the path and headers (`ids=1,null`, `filter=owner,undefined` and `x-p: a,,b,1` were sent before), and default `explode` to `true` for the `form` query style only, as OpenAPI does, so `{ array: { style: "pipeDelimited" } }` sends `id=3|4|5`. A nested value in a header parameter now fails with an error that names header parameters, not `querySerializer()`.
+
 ## 1.0.0-rc.5
 
 ### Minor Changes
