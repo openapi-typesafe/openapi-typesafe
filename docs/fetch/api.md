@@ -183,9 +183,9 @@ openapi-typesafe-fetch ships the common serialization methods out-of-the-box:
 
 | Option          |       Type        | Description                                                                                                                                                    |
 | :-------------- | :---------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`; each one left out takes the client's value, else its default. `explode` defaults to `true` for `form` only, as in OpenAPI, so `{ style: "pipeDelimited" }` sends `id=3\|4\|5`. |
-| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`; each one left out takes the client's value, else its default. |
-| `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding of values (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`. |
+| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`; each one left out takes the client's value, else its default (`undefined` counts as left out). `explode` defaults to `true` for `form` only, as in OpenAPI, so `{ style: "pipeDelimited" }` sends `id=3\|4\|5`. |
+| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`; each one left out takes the client's value, else its default (`undefined` counts as left out). |
+| `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding of values (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`; on a request, left out or `undefined` takes the client's value. |
 
 ```ts
 const client = createClient<paths>({

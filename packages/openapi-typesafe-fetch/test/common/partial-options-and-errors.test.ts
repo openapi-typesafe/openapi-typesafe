@@ -1,6 +1,9 @@
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
-import createClient, { createQuerySerializer } from "../../src/index.js";
+import createClient, {
+  createQuerySerializer,
+  type QuerySerializerOptions,
+} from "../../src/index.js";
 
 /**
  * `QuerySerializerOptions` asked for both `style` and `explode`, though each has a default, and
@@ -37,6 +40,78 @@ describe("query serializer options with one of style and explode", () => {
     const serialize = createQuerySerializer({ object: { style: undefined, explode: undefined } });
 
     expect(serialize({ filter: { role: "admin" } })).toBe("filter[role]=admin");
+  });
+});
+
+type QueryPaths = {
+  "/items": {
+    get: {
+      parameters: { query?: Record<string, unknown> };
+      responses: { 200: { content: { "application/json": string } } };
+    };
+  };
+};
+
+/** A client with the given query options; `send` returns the query string it sent. */
+function queryClient(querySerializer: QuerySerializerOptions) {
+  const searches: string[] = [];
+  const client = createClient<QueryPaths>({
+    baseUrl: "https://api.example.com",
+    querySerializer,
+    fetch: async (request) => {
+      searches.push(new URL(request.url).search);
+      return Response.json("ok");
+    },
+  });
+  const send = async (query: Record<string, unknown>, options: QuerySerializerOptions) => {
+    await client.GET("/items", { params: { query }, querySerializer: options });
+    return searches.at(-1);
+  };
+  return send;
+}
+
+describe("request query options set to undefined", () => {
+  it("an undefined array style and explode take the client's", async () => {
+    const send = queryClient({ array: { style: "pipeDelimited", explode: true } });
+
+    const search = await send({ ids: [1, 2] }, { array: { style: undefined, explode: undefined } });
+
+    expect(search).toBe("?ids=1&ids=2");
+  });
+
+  it("an undefined array explode keeps the client's explode", async () => {
+    const send = queryClient({ array: { style: "pipeDelimited", explode: true } });
+
+    const search = await send({ ids: [1, 2] }, { array: { explode: undefined } });
+
+    expect(search).toBe("?ids=1&ids=2");
+  });
+
+  it("an undefined object style and explode take the client's", async () => {
+    const send = queryClient({ object: { style: "form", explode: false } });
+
+    const search = await send(
+      { f: { a: 1 } },
+      { object: { style: undefined, explode: undefined } },
+    );
+
+    expect(search).toBe("?f=a,1");
+  });
+
+  it("an undefined allowReserved takes the client's", async () => {
+    const send = queryClient({ allowReserved: true });
+
+    const search = await send({ path: "a/b" }, { allowReserved: undefined });
+
+    expect(search).toBe("?path=a/b");
+  });
+
+  it("a defined request option still wins over the client's", async () => {
+    const send = queryClient({ array: { style: "pipeDelimited", explode: true } });
+
+    const search = await send({ ids: [1, 2] }, { array: { style: undefined, explode: false } });
+
+    expect(search).toBe("?ids=1|2");
   });
 });
 

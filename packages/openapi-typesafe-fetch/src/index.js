@@ -846,16 +846,25 @@ export function createQuerySerializer(options) {
 /**
  * The request's query options over the client's. `array` and `object` merge by key, since each of
  * `style` and `explode` may be left out: `{ array: { explode: false } }` dropped the client's
- * `pipeDelimited` style (ADR-041).
+ * `pipeDelimited` style (ADR-041). An option set to `undefined` counts as left out.
  */
 function mergeQueryOptions(clientOptions, requestOptions) {
   const base = typeof clientOptions === "function" ? {} : (clientOptions ?? {});
   return {
     ...base,
-    ...requestOptions,
-    array: { ...base.array, ...requestOptions.array },
-    object: { ...base.object, ...requestOptions.object },
+    ...definedOptions(requestOptions),
+    array: { ...base.array, ...definedOptions(requestOptions.array) },
+    object: { ...base.object, ...definedOptions(requestOptions.object) },
   };
+}
+
+/**
+ * The options that are not `undefined`. A wrapper that forwards its own optional option passes
+ * `{ explode: undefined }`, which compiles, and a spread of it replaced the client's value.
+ */
+function definedOptions(options) {
+  const entries = Object.entries(options ?? {}).filter(([, value]) => value !== undefined);
+  return Object.fromEntries(entries);
 }
 
 /**
