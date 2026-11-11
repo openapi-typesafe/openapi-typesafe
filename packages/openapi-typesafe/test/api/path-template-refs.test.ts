@@ -115,3 +115,32 @@ describe("--path-params-as-types references into a boolean path", () => {
     expect(output).toContain('A: paths["/x/true/false" | "/x/false/false"]["get"]');
   });
 });
+
+describe("--path-params-as-types with --enum-values", () => {
+  const sort = { name: "sort", in: "query", schema: { type: "string", enum: ["asc", "desc"] } };
+  const operation = (type: string, name: string) => ({
+    get: {
+      parameters: [{ name, in: "path", required: true, schema: { type } }, sort],
+      responses: { 200: { description: "ok" } },
+    },
+  });
+  const document = {
+    openapi: "3.1.0",
+    info: { title: "t", version: "1" },
+    paths: {
+      "/items/{id}": operation("integer", "id"),
+      "/flags/{on}": operation("boolean", "on"),
+      "/names/{name}": operation("string", "name"),
+    },
+  } as unknown as OpenAPI3;
+  const options = { silent: true, pathParamsAsTypes: true, enumValues: true };
+
+  it("openapiTS indexes the values arrays of a templated path by its template, and compiles", async () => {
+    const output = astToString(await openapiTS(document, options));
+
+    expect(output).toContain(`ReadonlyArray<FlattenedDeepRequired<paths>[\`/items/\${number}\`]["get"]`);
+    expect(output).toContain('ReadonlyArray<FlattenedDeepRequired<paths>["/flags/true" | "/flags/false"]');
+    expect(output).toContain('ReadonlyArray<FlattenedDeepRequired<paths>["/names/{name}"]');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});

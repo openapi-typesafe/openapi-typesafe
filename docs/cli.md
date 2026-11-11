@@ -324,8 +324,10 @@ signature for the same URLs, so it stays (`` [path: `/a/${number}/b/${boolean}`]
 A `$ref` into a path, such as `#/paths/~1pets~1%7Bid%7D/get/responses/200`, is typed as an index
 of `paths`. When the template has a `${number}` or `${boolean}` placeholder, the URL `/pets/{id}`
 does not match it, so the index is the template: `` paths[`/pets/${number}`]["get"] ``. The
-original wrote `paths["/pets/{id}"]`, which does not compile (TS2339). With only `${string}`
-placeholders the URL matches the template, and the index stays the URL.
+original wrote `paths["/pets/{id}"]`, which does not compile (TS2339). The type of an
+`--enum-values` array in such a path is indexed the same way
+(`` FlattenedDeepRequired<paths>[`/pets/${number}`] ``). With only `${string}` placeholders the URL
+matches the template, and the index stays the URL.
 :::
 
 _Thanks, [@Powell-v2](https://github.com/Powell-v2)!_
