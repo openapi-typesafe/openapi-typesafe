@@ -187,3 +187,31 @@ atoms of its members; an intersection spreads over unions and keeps the atoms bo
 where a tag keeps the other side. The type is a valid parameter type when it reduces to at least
 one atom and to no bare tag; a name, an indexed access or type text in it leaves the decision to
 TypeScript, as before.
+
+## Amendment (2026-11-10): arguments as written, locations, `--check` and per-stream colors
+
+1. **A flag that takes a value has no `--no-` form.** yargs-parser reads `--no-output` as
+   `output: false`, which the CLI used as the text `false` (a file named `false`, a local root
+   `<cwd>/false`). The `--no-` form of `--output`, `--redocly`, `--fix`, `--local-ref-root`,
+   `--remote-ref-hosts` and their aliases fails with `CLI_FLAG_INVALID`, as a boolean flag with
+   another value does. Reading it as "unset" was rejected: the flag is unset when it is left out,
+   and `--no-redocly` meaning "no config" would be a new feature.
+2. **One schema argument.** A second positional argument fails with the new `CLI_INPUT_EXTRA`
+   (exit code 2): an unquoted glob that the shell expanded generated its first file and passed,
+   and `CLI_GLOB_UNSUPPORTED` never saw the `*`. A notice was rejected: the run would still
+   generate only one of the schemas the user named.
+3. **An unknown flag takes no value.** yargs-parser gives an undeclared flag the next argument,
+   so `--alphabetise api.yaml` read stdin. Unknown flags, as written, are declared boolean before
+   parsing; `--flag=value` still parses, and the notice names the flag as before. Positional
+   arguments are not coerced to numbers (`1.10`, `0x10`).
+4. **What a URL is.** A location is a URL when it starts with a scheme the generator reads
+   (`http:`, `https:`, `file:`), or with any scheme and `//`. Any other text before a colon is part
+   of a file name (`-o out:v2.ts`), as the docs promised ("a path is never read as a URL").
+5. **`--check` compares lines.** Both texts are compared with LF line ends, so an output that Git
+   checked out with CRLF (`core.autocrlf`) is up to date when its lines are.
+6. **Colors per stream.** The logger writes to stderr and decides its colors by stderr; the CLI's
+   own lines, and the exported `c`, follow stdout.
+7. **An API's output errors name the API.** With several APIs, every failure of an API's output
+   (`CLI_OUTPUT_*`, `OUTPUT_*`) is an `ApiFailure`, so the line starts with `API <name>:`, and
+   `CLI_OUTPUT_DUPLICATE` no longer names the API a second time inside the message.
+
