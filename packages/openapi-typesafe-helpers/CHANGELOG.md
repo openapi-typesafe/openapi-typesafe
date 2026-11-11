@@ -2,6 +2,13 @@
 
 This package is a fork of `openapi-typescript-helpers`. The entries above `0.1.0` are releases of openapi-typesafe-helpers; `0.1.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript-helpers` versions.
 
+## 1.0.0-rc.5
+
+### Patch Changes
+
+- Updated dependencies [[`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`fbaded2`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fbaded241385d032d5b28d2c93d5e0a7d6ae292b), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95), [`a74608e`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a74608ec36b0a938594e0d0fac10c9fb222c1742), [`0f0792b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0f0792b8efa4f5139653cd285455f7d6165ddb95)]:
+  - openapi-typesafe-fetch@1.0.0-rc.5
+
 ## 1.0.0-rc.4
 
 ### Patch Changes
