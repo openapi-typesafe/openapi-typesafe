@@ -15,6 +15,8 @@ const NOT_ONLY_GENERATOR_NOTE =
 const OLD_NAME_IN_COMMAND_NOTE =
   "names an old package where the tool cannot tell what runs it (a script name, an argument of " +
   "a program it does not know), so it was kept: migrate it by hand";
+const SCRIPT_NOT_SHELL_NOTE =
+  "so the tool does not read it as commands: migrate the old package names in it by hand";
 const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; change it to";
 
 function pinnedPackageMessage(step: Extract<ManualStep, { kind: "pinned-package" }>): string {
@@ -50,6 +52,7 @@ type CommandStep = Extract<
       | "pinned-package"
       | "old-package-file"
       | "old-name-in-command"
+      | "script-not-shell"
       | "command-string";
   }
 >;
@@ -61,6 +64,7 @@ const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "pinned-package",
   "old-package-file",
   "old-name-in-command",
+  "script-not-shell",
   "command-string",
 ]);
 
@@ -81,6 +85,8 @@ export function commandStepMessage(step: CommandStep): string {
       return `${step.location}: ${step.path} ${OLD_FILE_NOTE}`;
     case "old-name-in-command":
       return `${step.location}: "${step.word}" ${OLD_NAME_IN_COMMAND_NOTE}`;
+    case "script-not-shell":
+      return `${step.location}: the step runs with shell: ${step.shell}, ${SCRIPT_NOT_SHELL_NOTE}`;
     case "command-string":
       return `line ${step.line}: ${COMMAND_STRING_NOTE} "${step.to}"`;
     default:

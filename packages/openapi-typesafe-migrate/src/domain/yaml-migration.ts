@@ -17,6 +17,7 @@ import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import { shellVariables } from "./shell-variables.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
+import { otherShellFindings, stepShells } from "./step-shells.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 import { YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
 
@@ -210,9 +211,10 @@ export function migrateYamlCommands(
   strings: readonly DocumentString[],
   keys: ReadonlySet<string> = YAML_COMMAND_KEYS,
 ): CommandMigration {
-  const values = valuesOf(strings, keys);
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
+  const shellOf = stepShells(strings);
+  const values = valuesOf(strings, keys).filter((value) => shellOf(value) === undefined);
   const commandValues = new Set(values.filter((value) => !isExecFormItem(value)));
   const shellValues = strings.filter(
     (value) => commandValues.has(value) || isEnvironmentValue(value),
@@ -221,6 +223,7 @@ export function migrateYamlCommands(
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(text, value, locate, variables)),
     commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),
+    otherShellFindings(valuesOf(strings, keys), shellOf, locate),
   ]);
 }
 
