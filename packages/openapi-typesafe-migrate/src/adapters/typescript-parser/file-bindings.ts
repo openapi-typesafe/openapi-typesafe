@@ -190,6 +190,11 @@ function addJSDocBinding(declaration: ts.Node, into: BindingMap): void {
   }
 }
 
+/**
+ * The uses of each binding, JSDoc included: `@param {ts.TypeNode}` types a JavaScript file, and
+ * `{@link ts.factory}` refers to the import. `getChildren` lists the JSDoc blocks of a node,
+ * which `forEachChild` skips.
+ */
 function indexUses(file: ts.SourceFile, bindings: FileBindings): Map<ts.Node, ts.Identifier[]> {
   const uses = new Map<ts.Node, ts.Identifier[]>();
   const visit = (node: ts.Node): void => {
@@ -197,7 +202,9 @@ function indexUses(file: ts.SourceFile, bindings: FileBindings): Map<ts.Node, ts
     if (declaration !== undefined && !isDeclaredName(node as ts.Identifier, declaration)) {
       uses.set(declaration, [...(uses.get(declaration) ?? []), node as ts.Identifier]);
     }
-    ts.forEachChild(node, visit);
+    for (const child of node.getChildren(file)) {
+      visit(child);
+    }
   };
   visit(file);
   return uses;
