@@ -183,7 +183,7 @@ openapi-typesafe-fetch ships the common serialization methods out-of-the-box:
 
 | Option          |       Type        | Description                                                                                                                                                    |
 | :-------------- | :---------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`; each one left out takes the client's value, else its default. |
+| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`; each one left out takes the client's value, else its default. `explode` defaults to `true` for `form` only, as in OpenAPI, so `{ style: "pipeDelimited" }` sends `id=3\|4\|5`. |
 | `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`; each one left out takes the client's value, else its default. |
 | `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding of values (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`. |
 
@@ -206,7 +206,7 @@ A `Date` value is sent as ISO 8601 in UTC (`2026-11-08T12:30:00.000Z`, from `toI
 its own, in an array or in an object, and in path parameters too; an invalid `Date` throws a
 `RangeError`. A parameter that serializes to nothing (`null`, `undefined`, an empty array or an
 empty object) is left out together with its `&`, and so are the `null` and `undefined` items and
-members of exploded arrays and objects.
+members of arrays and objects in every style, in the query, the path and headers.
 
 Parameter names and object keys are encoded too, so a key from your data (`{ "a&b": 1 }`) cannot
 add a parameter or a path segment. In parameter names, `[`, `]`, `$`, `:`, `@` and `,` stay as

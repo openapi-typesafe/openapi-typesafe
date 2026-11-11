@@ -612,6 +612,10 @@ function headerParamValue(value) {
   if (value === null || typeof value !== "object" || isDate(value)) {
     return valueText(value);
   }
+  // The query error names `querySerializer()`, which does not apply to headers.
+  if (Object.values(value).some((member) => isNestedValue(member))) {
+    throw new Error(`${NESTED_VALUE_ERROR} in header parameters.`);
+  }
   const serialize = Array.isArray(value) ? serializeArrayParam : serializeObjectParam;
   return serialize("", value, HEADER_PARAM_STYLE) || undefined;
 }
@@ -625,15 +629,23 @@ function serializeHeaderParams(header) {
   return Object.fromEntries(entries);
 }
 
+/** The start of the error for a nested object or array in a parameter. */
+const NESTED_VALUE_ERROR = "Deeply-nested arrays/objects aren’t supported";
+
+/** Whether a value is an object or an array a parameter cannot hold as a member. */
+function isNestedValue(value) {
+  return Boolean(value) && typeof value === "object" && !isDate(value);
+}
+
 /**
  * One parameter value (or object key), percent-encoded unless `allowReserved`. A nested object or
  * array has no standard encoding: as an array item or an object value it was sent as
  * `[object Object]` (ADR-041).
  */
 function encodeValue(value, allowReserved) {
-  if (value && typeof value === "object" && !isDate(value)) {
+  if (isNestedValue(value)) {
     throw new Error(
-      "Deeply-nested arrays/objects aren’t supported. Provide your own `querySerializer()` to handle these.",
+      `${NESTED_VALUE_ERROR}. Provide your own \`querySerializer()\` to handle these.`,
     );
   }
   const text = valueText(value);
@@ -661,14 +673,21 @@ function joinExploded(values, style) {
 /**
  * A non-exploded object: names and values in one comma-separated list. A name is part of the
  * value, so `allowReserved` keeps it as it is too: a header name with a space was sent as `a%20b`.
+ * A `null` or `undefined` member is left out, as in the exploded styles: it was sent as the text
+ * `undefined`, or as an empty value in a header. Only such members give `""`.
  */
 function serializeUnexplodedObject(name, value, options) {
   const values = [];
   for (const k in value) {
-    values.push(
-      encodeValue(k, options.allowReserved),
-      encodeValue(value[k], options.allowReserved),
-    );
+    if (value[k] != null) {
+      values.push(
+        encodeValue(k, options.allowReserved),
+        encodeValue(value[k], options.allowReserved),
+      );
+    }
+  }
+  if (!values.length) {
+    return "";
   }
   const final = values.join(",");
   switch (options.style) {
@@ -710,10 +729,17 @@ export function serializeObjectParam(name, value, options) {
   return values.length ? joinExploded(values, options.style) : "";
 }
 
-/** A non-exploded array; the item separator depends on the style. */
+/**
+ * A non-exploded array; the item separator depends on the style. `null` and `undefined` items are
+ * left out, as in the exploded styles, and only such items give `""`.
+ */
 function serializeUnexplodedArray(name, value, options) {
   const joiner = { form: ",", spaceDelimited: "%20", pipeDelimited: "|" }[options.style] || ",";
-  const final = value.map((v) => encodeValue(v, options.allowReserved)).join(joiner);
+  const items = value.filter((v) => v != null);
+  if (!items.length) {
+    return "";
+  }
+  const final = items.map((v) => encodeValue(v, options.allowReserved)).join(joiner);
   switch (options.style) {
     case "simple": {
       return final;
@@ -732,8 +758,8 @@ function serializeUnexplodedArray(name, value, options) {
 }
 
 /**
- * Serialize array param (shallow only). An empty array gives `""`, and so does an exploded
- * `form` array of only `null` and `undefined` items (ADR-041).
+ * Serialize array param (shallow only). An empty array gives `""`, and so does one of only `null`
+ * and `undefined` items, which every style leaves out (ADR-041).
  * @type {import("./index.js").serializeArrayParam}
  */
 export function serializeArrayParam(name, value, options) {
@@ -745,13 +771,25 @@ export function serializeArrayParam(name, value, options) {
   }
   const values = [];
   for (const v of value) {
+    if (v == null) {
+      continue;
+    }
     if (options.style === "simple" || options.style === "label") {
       values.push(encodeValue(v, options.allowReserved));
-    } else if (v != null) {
+    } else {
       values.push(serializePrimitiveParam(name, v, options));
     }
   }
   return values.length ? joinExploded(values, options.style) : "";
+}
+
+/**
+ * The `style` and `explode` of query arrays or objects. `explode` left out follows OpenAPI: `true`
+ * for `form` only, so a `pipeDelimited` array is `a|b`, not `a&a`. `deepObject` is always exploded.
+ */
+function queryStyle(options, defaultStyle, allowReserved) {
+  const style = options?.style ?? defaultStyle;
+  return { style, explode: options?.explode ?? style === "form", allowReserved };
 }
 
 /**
@@ -761,18 +799,11 @@ export function serializeArrayParam(name, value, options) {
 function serializeQueryParam(name, value, options) {
   const allowReserved = options?.allowReserved || false;
   if (Array.isArray(value)) {
-    return serializeArrayParam(name, value, {
-      style: options?.array?.style ?? "form",
-      explode: options?.array?.explode ?? true,
-      allowReserved,
-    });
+    return serializeArrayParam(name, value, queryStyle(options?.array, "form", allowReserved));
   }
   if (value && typeof value === "object" && !isDate(value)) {
-    return serializeObjectParam(name, value, {
-      style: options?.object?.style ?? "deepObject",
-      explode: options?.object?.explode ?? true,
-      allowReserved,
-    });
+    const style = queryStyle(options?.object, "deepObject", allowReserved);
+    return serializeObjectParam(name, value, style);
   }
   return serializePrimitiveParam(name, value, options);
 }
