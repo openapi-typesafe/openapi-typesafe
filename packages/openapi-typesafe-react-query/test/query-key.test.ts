@@ -43,11 +43,9 @@ describe("queryKeyInit", () => {
   });
 
   it("queryKeyInit leaves out the signal and gives no init without an init and a base URL", () => {
-    expect(queryKeyInit({ signal: new AbortController().signal, params: {} }, NO_BASE_URL)).toEqual(
-      {
-        params: {},
-      },
-    );
+    expect(
+      queryKeyInit({ signal: new AbortController().signal, params: { a: 1 } }, NO_BASE_URL),
+    ).toEqual({ params: { a: 1 } });
     expect(queryKeyInit(undefined, NO_BASE_URL)).toBeUndefined();
     expect(queryKeyInit({}, NO_BASE_URL)).toBeUndefined();
     expect(queryKeyInit({ signal: new AbortController().signal }, NO_BASE_URL)).toBeUndefined();

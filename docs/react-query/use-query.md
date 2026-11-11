@@ -10,12 +10,19 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
 - The query key is `[method, path, options]`, so `[method, path]` matches every variant in
   `invalidateQueries`. `options` is the `init` object, such as `{ params: { path: { id: 1 } } }`,
   with changes that keep every request in its own cache entry: `headers` given as a `Headers`
-  object or as pairs are written as a plain object of the names and values they send; a body
+  object or as pairs are written as a plain object of the names and values they send; a value
   that JSON cannot hold is written by its content (a `URLSearchParams` as its text, a `FormData`
   as its fields, bytes as numbers) or, for a `Blob` or a `File`, by its type, size and name, so
-  two Blobs that differ only in their bytes share an entry, with its kind in `bodyType` beside it
-  (`"URLSearchParams"`, `"FormData"`, `"Blob"` or `"bytes"`); fields set to `undefined` are left
-  out; and the client's
+  two Blobs that differ only in their bytes share an entry. This holds for the whole body and for
+  such a value anywhere inside an object or array body, as in a multipart body written as
+  `{ image: file }`. The kinds go in `bodyType` beside the body: `"URLSearchParams"`,
+  `"FormData"`, `"Blob"` or `"bytes"` for the whole body, or an object of them by member name or
+  index (`{ image: "Blob" }`), so such a body never shares a key with a JSON body of the same
+  shape. Fields, parameters and headers set to `undefined` are left out, and so are `params`,
+  its `query`, `path`, `header` and `cookie` records and `headers` that this leaves empty, since
+  they send nothing: `{ params: { query: { cursor: undefined } } }` has the key of no init.
+  A `null`, `[]` or `{}` parameter or header value stays, and so does an empty JSON body. The
+  client's
   [`keyScope`](./index.md#query-keys-and-server-rendering), or else its `baseUrl` when the init
   has none, is added. When nothing is left, as without an init, the key is `[method, path]`. Read
   the key from `queryOptions(...).queryKey` for `setQueryData` and `getQueryData` rather than
