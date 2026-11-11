@@ -69,6 +69,40 @@ describe("openapiTS signature", () => {
   );
 
   it(
+    "openapiTS options typed from Parameters type the inline callbacks of a wrapper",
+    () => {
+      const errors = consumerErrors(
+        [
+          "type Options = Parameters<typeof openapiTS>[1];",
+          "const gen = async (options: Options) => openapiTS('x', options);",
+          "await gen({ postTransform: (type) => { const node: ts.TypeNode = type; return node; } });",
+          "await gen({ transformProperty: (property) => { const node: ts.PropertySignature = property; return node; } });",
+          "await gen({ irCallbacks: true, postTransform: (type) => { const ir: IrType = type; return ir; } });",
+        ].join("\n"),
+      );
+
+      expect(errors).toEqual([]);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    "openapiTS with options that may be undefined accepts either form",
+    () => {
+      const errors = consumerErrors(
+        [
+          "declare const maybe: GeneratorOptions | undefined;",
+          "await openapiTS('x', maybe);",
+          "await openapiTS('x', undefined);",
+        ].join("\n"),
+      );
+
+      expect(errors).toEqual([]);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
     "openapiTS with irCallbacks true does not take a callback on TypeScript nodes",
     () => {
       const errors = consumerErrors(
