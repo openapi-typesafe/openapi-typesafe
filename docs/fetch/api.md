@@ -437,6 +437,9 @@ openapi-typesafe-fetch supports path serialization as [outlined in the 3.1 spec]
 | `/users/{;id}`    | matrix               | `/users/;id=5`     | `/users/;id=3,4,5`       | `/users/;id=role,admin,firstName,Alex`               |
 | `/users/{;id*}`   | matrix (exploded)    | `/users/;id=5`     | `/users/;id=3;id=4;id=5` | `/users/;role=admin;firstName=Alex`                  |
 
+A nested object or array in a path parameter (`[[1]]`, `{ a: { b: 1 } }`) has no standard encoding
+and throws an error that names `pathSerializer()`: write one to send such values.
+
 ## Middleware
 
 Middleware is an object with `onRequest()`, `onResponse()` and `onError()` callbacks that can observe and modify requests, responses and errors.
