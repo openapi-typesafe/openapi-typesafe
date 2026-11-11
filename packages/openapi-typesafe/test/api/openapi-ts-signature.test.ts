@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -21,6 +22,11 @@ const COMPILER_OPTIONS: ts.CompilerOptions = {
   types: ["node"],
 };
 
+/** Whether a compiler file name is the consumer file: TypeScript writes `/` on Windows too. */
+function isConsumerFile(file: string): boolean {
+  return resolve(file) === CONSUMER_FILE;
+}
+
 /** The type errors of a consumer file that imports `openapiTS` and the option types. */
 function consumerErrors(body: string): string[] {
   const source = [
@@ -31,9 +37,9 @@ function consumerErrors(body: string): string[] {
   const host = ts.createCompilerHost(COMPILER_OPTIONS);
   const getSourceFile = host.getSourceFile.bind(host);
   const fileExists = host.fileExists.bind(host);
-  host.fileExists = (file) => file === CONSUMER_FILE || fileExists(file);
+  host.fileExists = (file) => isConsumerFile(file) || fileExists(file);
   host.getSourceFile = (file, languageVersion) =>
-    file === CONSUMER_FILE
+    isConsumerFile(file)
       ? ts.createSourceFile(file, source, languageVersion, true)
       : getSourceFile(file, languageVersion);
   const program = ts.createProgram([CONSUMER_FILE], COMPILER_OPTIONS, host);
