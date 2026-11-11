@@ -284,10 +284,14 @@ describe("remote $ref hosts (R2)", () => {
     expect(error.details).toMatchObject({ ref: `${otherHostURL}/person.json` });
   });
 
-  it("a remote root document that redirects to a host that is not listed is loaded", async () => {
-    const bundled = await load(new URL(`${baseURL}/moved-root.json`), { remoteHosts: ["127.0.0.1"] });
+  it("a remote root document that redirects to a host that is not listed is loaded; its $refs are limited", async () => {
+    const source = new URL(`${baseURL}/moved-root.json`);
+    const bundled = await load(source, { remoteHosts: ["127.0.0.1", new URL(otherHostURL).host] });
+    const error = await loadFailure(source, { remoteHosts: ["127.0.0.1"] });
 
     expect(bundled.components?.schemas?.person).toEqual(JSON.parse(PERSON));
+    // Its relative `$ref` resolves from the URL it came from, on the host that is not listed.
+    expect(error.details).toMatchObject({ ref: `${otherHostURL}/person.json` });
   });
 
   it("the refusal is reported when the Redocly config does not check unresolved refs", async () => {
