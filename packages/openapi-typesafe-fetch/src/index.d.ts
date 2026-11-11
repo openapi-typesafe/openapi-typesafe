@@ -96,7 +96,7 @@ export type QuerySerializerOptions = {
   array?: {
     /** default: "form" */
     style?: "form" | "spaceDelimited" | "pipeDelimited";
-    /** default: true */
+    /** default: true for "form", false for the other styles (OpenAPI) */
     explode?: boolean;
   };
   /**

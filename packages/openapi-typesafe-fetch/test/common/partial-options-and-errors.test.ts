@@ -9,10 +9,10 @@ import createClient, { createQuerySerializer } from "../../src/index.js";
  */
 
 describe("query serializer options with one of style and explode", () => {
-  it("an array style alone keeps explode true", () => {
+  it("an array style alone takes the explode of that style", () => {
     const serialize = createQuerySerializer({ array: { style: "pipeDelimited" } });
 
-    expect(serialize({ ids: [1, 2] })).toBe("ids=1&ids=2");
+    expect(serialize({ ids: [1, 2] })).toBe("ids=1|2");
   });
 
   it("an array explode alone keeps the form style", () => {

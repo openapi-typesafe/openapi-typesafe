@@ -5,7 +5,7 @@ description: A type-safe fetch client for OpenAPI, with typed paths, parameters,
 
 # openapi-typesafe-fetch
 
-openapi-typesafe-fetch is a type-safe fetch client that pulls in your OpenAPI schema. It weighs about **10.7 kB** minified (4 kB gzipped), has virtually zero runtime, and works with React, Vue, Svelte, or vanilla JS. It is a drop-in successor to [openapi-fetch](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch) 0.17: in most projects you change only the import. The [migration guide](/migration-guide) lists the few differences.
+openapi-typesafe-fetch is a type-safe fetch client that pulls in your OpenAPI schema. It weighs about **11 kB** minified (4 kB gzipped), has virtually zero runtime, and works with React, Vue, Svelte, or vanilla JS. It is a drop-in successor to [openapi-fetch](https://github.com/openapi-ts/openapi-typescript/tree/main/packages/openapi-fetch) 0.17: in most projects you change only the import. The [migration guide](/migration-guide) lists the few differences.
 
 The syntax is inspired by popular libraries like react-query or Apollo client, but without all the bells and whistles and in a small package.
 
@@ -46,7 +46,7 @@ Notice there are no generics, and no manual typing. Your endpoint’s request an
 - No manual typing of your API
 - Eliminates `any` types that hide bugs
 - Also eliminates `as` type overrides that can also hide bugs
-- All of this in a **10.7 kB** (minified) client package
+- All of this in a **11 kB** (minified) client package
 
 ## Setup
 
@@ -180,7 +180,7 @@ const { data, error, response } = await client.GET("/url");
 | Object     | Response                                                                                                                    |
 | :--------- | :-------------------------------------------------------------------------------------------------------------------------- |
 | `data`     | `2xx` response if OK; otherwise `undefined`                                                                                 |
-| `error`    | `5xx`, `4xx`, or `default` response if not OK; otherwise `undefined`                                                        |
+| `error`    | `1xx`, `3xx`, `4xx`, `5xx`, or `default` response if not OK; otherwise `undefined`                                          |
 | `response` | [The original Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) which contains `status`, `headers`, etc. |
 
 `default` describes every status the operation does not declare. So when an operation declares no

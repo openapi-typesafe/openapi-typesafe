@@ -24,7 +24,7 @@ const client = createClient<paths>({ baseUrl: "https://myapi.dev/v1/" });
 
 const {
   data, // only present if 2XX response
-  error, // only present if 4XX or 5XX response
+  error, // only present if not a 2XX response
 } = await client.GET("/blogposts/{post_id}", {
   params: {
     path: { post_id: "123" },

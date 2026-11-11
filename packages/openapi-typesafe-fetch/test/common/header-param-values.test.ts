@@ -80,6 +80,13 @@ describe("header parameter values", () => {
     await expect(sentHeaders({ "X-List": ["a", { b: 1 }] })).rejects.toThrow("Deeply-nested");
   });
 
+  it("a nested value error names header parameters, not querySerializer", async () => {
+    const sent = sentHeaders({ "X-List": [["a"]] });
+
+    await expect(sent).rejects.toThrow("header parameters");
+    await expect(sent).rejects.not.toThrow("querySerializer");
+  });
+
   it("an empty array or object sends no header", async () => {
     const headers = await sentHeaders({ "X-Filter": {}, "X-Tags": [] });
 

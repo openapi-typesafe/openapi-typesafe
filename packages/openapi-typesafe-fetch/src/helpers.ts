@@ -301,7 +301,7 @@ export type SuccessResponseJSON<PathMethod extends Record<string | number, any>>
   `${string}/json`
 >;
 
-/** Return first JSON-like 5XX or 4XX response from a path + HTTP method */
+/** Return JSON-like 1XX, 3XX, 4XX, 5XX and `default` responses from a path + HTTP method */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type ErrorResponseJSON<PathMethod extends Record<string | number, any>> = ErrorResponse<
   ResponseObjectMap<PathMethod>,
