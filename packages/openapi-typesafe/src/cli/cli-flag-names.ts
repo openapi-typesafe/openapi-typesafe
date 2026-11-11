@@ -88,11 +88,12 @@ export const VALUE_FLAG_NAMES: ReadonlySet<string> = new Set([
   ...aliasesOf(CAMEL_CASE_STRING_FLAGS).map((alias) => `${SHORT_PREFIX}${alias}`),
 ]);
 
-/** The long flags this CLI reads, as `canonicalFlagName` gives them. */
+/**
+ * The long flags this CLI reads, in the spellings yargs-parser is told about (kebab-case and
+ * camelCase), with `--`.
+ */
 export const KNOWN_LONG_FLAG_NAMES: ReadonlySet<string> = new Set(
-  [...KNOWN_FLAGS]
-    .filter((flag) => flag.length > 1)
-    .map((flag) => `${LONG_PREFIX}${kebabCase(flag)}`),
+  [...KNOWN_FLAGS].filter((flag) => flag.length > 1).map((flag) => `${LONG_PREFIX}${flag}`),
 );
 
 /** The short flags this CLI reads, without the `-`. */

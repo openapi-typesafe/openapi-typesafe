@@ -1,3 +1,4 @@
+import type * as AnsiColors from "ansi-colors";
 import colors from "ansi-colors";
 import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
 import type { DebugGroup } from "../application/ports/logger.js";
@@ -20,10 +21,19 @@ if (!terminalSupportsColor("stdout")) {
 }
 
 /**
+ * The type of the ansi-colors instance, named through a namespace import: the declarations then
+ * need no default import of a CommonJS module, which TypeScript refuses without `esModuleInterop`
+ * (TS1259 with `module: commonjs`). `typeof AnsiColors` itself would not do: in an ES module the
+ * namespace of a CommonJS module also has a `default` member, which the instance has not.
+ * `create()` returns an instance, so its return type is exactly the instance's type.
+ */
+type AnsiColorsInstance = ReturnType<typeof AnsiColors.create>;
+
+/**
  * The shared ansi-colors instance.
  * @deprecated Kept for 1.x; removed in 2.0 (ADR-004, decision 9). Use a color library directly.
  */
-export const c = colors;
+export const c: AnsiColorsInstance = colors;
 
 /**
  * The discriminator property of a schema at `path`, typed as its discriminator value. Returns IR

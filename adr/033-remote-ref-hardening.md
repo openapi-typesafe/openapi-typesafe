@@ -317,3 +317,14 @@ documents that failed to load.
    document; Redocly still finds the document by the requested URL in its cache. The `$ref`s
    resolved from it are then checked against the hosts, and get their configured headers, by the
    URLs they really have.
+
+## Amendment (2026-11-11): a redirected document keeps the requested URL as its name
+
+Amendment 2 above named a redirected document by its final URL. Redocly looks up the lint ignore
+file by the name of a problem's document, and `redocly lint --generate-ignore-file` writes the
+requested URL (Redocly's own resolver names a document by the URL it asked for), so the ignored
+problems of `/dup`, redirected to `/deep/dup.yaml`, came back and failed the run. The document now
+keeps the requested URL as its name, for the root and for every `$ref`'d document, and only the
+base of its relative `$ref`s is the final URL: the resolver resolves a `$ref` against the final
+URL of its document (`resolveExternalRef`). Its problems name the requested URL, as in
+`redocly lint`. ADR-043 (amendment of 2026-11-11) records it with the other CLI decisions.

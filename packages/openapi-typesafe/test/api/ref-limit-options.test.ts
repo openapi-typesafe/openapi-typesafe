@@ -27,8 +27,9 @@ describe("refAccessOf", () => {
   });
 
   it("refAccessOf reads a localRefRoot string with a file: scheme as a URL", () => {
-    expect(refAccessOf({ localRefRoot: "file:///specs/" }, CWD)).toEqual({
-      localRoot: new URL("file:///specs/"),
+    const specs = pathToFileURL("/specs/");
+    expect(refAccessOf({ localRefRoot: specs.href }, CWD)).toEqual({
+      localRoot: specs,
     });
   });
 
@@ -42,6 +43,8 @@ describe("refAccessOf", () => {
     [new URL("https://user:secret@example.com/specs/"), "got a https: URL."],
     ["https://user:secret@example.com/specs/", "got a https: URL."],
     ["http://[::1/specs", "got a string that is no valid URL."],
+    ["file://server/share/%2F/specs/", "got a file: URL that names no local path."],
+    [new URL("file:///a%2Fb/"), "got a file: URL that names no local path."],
     [42, "got a number."],
     [null, "got null."],
     [["specs"], "got a list."],
@@ -96,6 +99,14 @@ describe("refAccessOf", () => {
 });
 
 describe("openapiTS ref limit options", () => {
+  it("openapiTS with a localRefRoot that names no local path rejects with OPTION_INVALID before loading", async () => {
+    const source = { openapi: "3.1.0", info: { title: "T", version: "1" }, paths: {} };
+
+    const generation = openapiTS(source, { silent: true, localRefRoot: "file:///a%2Fb/" });
+
+    await expect(generation).rejects.toMatchObject({ code: "OPTION_INVALID", details: { option: "localRefRoot" } });
+  });
+
   it("openapiTS with remoteRefHosts that is no list rejects with OPTION_INVALID before loading", async () => {
     const source = { openapi: "3.1.0", info: { title: "T", version: "1" }, paths: {} };
 

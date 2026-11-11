@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
+import { isLocalFileUrl } from "../api/local-file-url.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
 import { hasUrlScheme } from "../domain/location-text.js";
 import { terminalSafeText } from "../domain/terminal-text.js";
@@ -82,23 +83,13 @@ function outputUrlOf(run: CliRun, output: string, base: URL): URL {
       "is not a local file. Write the types to a file path or a file: URL.",
     );
   }
-  if (!isLocalFile(file)) {
+  if (!isLocalFileUrl(file)) {
     throw invalidOutput(output, "names no file on this computer. Use a file path instead.");
   }
   if (namesDirectory(output, file) || run.deps.files.isDirectory(file)) {
     throw invalidOutput(output, "is a directory. Name the file to write the types to in it.");
   }
   return file;
-}
-
-/** A `file:` URL with a host, or with an encoded slash, names no path on this platform. */
-function isLocalFile(file: URL): boolean {
-  try {
-    fileURLToPath(file);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -117,11 +108,14 @@ export interface NamedFile {
   readonly location: URL;
 }
 
-/** The `files` that are the local file `output`, also through a link or in another letter case. */
+/**
+ * The `files` that are the local file `output`, also through a link or in another letter case. A
+ * location that names no local file (a remote schema, `file://host/a.yaml`) is none of them; it
+ * fails where it is read or written, for its own schema or API alone.
+ */
 function filesAtOutput(run: CliRun, output: OutputFile, files: readonly NamedFile[]): NamedFile[] {
   return files.filter(
-    ({ location }) =>
-      location.protocol === FILE_PROTOCOL && run.deps.files.isSameFile(location, output.file),
+    ({ location }) => isLocalFileUrl(location) && run.deps.files.isSameFile(location, output.file),
   );
 }
 

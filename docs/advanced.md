@@ -548,9 +548,10 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
 - `--local-ref-root` (`localRefRoot` in the Node API): local `$ref` files must be in this
   directory or below it. A relative path is relative to the working directory; the flag without a
   value means the working directory. Links are followed before the check, so a link inside the directory that
-  points outside it is refused too. The root is a path or a `file:` URL; a URL of another protocol
-  fails with `CLI_FLAG_INVALID` (`CLI_CONFIG_INVALID` in `redocly.yaml`, `OPTION_INVALID` in the
-  Node API), as does a `remoteRefHosts` that is no list of strings.
+  points outside it is refused too. The root is a path or a `file:` URL; a URL of another protocol,
+  or a `file:` URL that names no local path (`file://host/specs/`), fails with `CLI_FLAG_INVALID`
+  (`CLI_CONFIG_INVALID` in `redocly.yaml`, `OPTION_INVALID` in the Node API) before anything
+  loads, as does a `remoteRefHosts` that is no list of strings.
 - `--remote-ref-hosts` (`remoteRefHosts`): remote `$ref` documents must come from these hosts,
   written as `name` (any port) or `name:port`. Hosts are compared as URLs write them, so case,
   a trailing dot, Unicode names, IPv6 with or without brackets (`::1`, `[::1]:8080`) and a
