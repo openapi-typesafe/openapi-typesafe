@@ -355,8 +355,9 @@ describe("generatedLocationOf", () => {
     );
     expect(located("#/components/schemas/Map/additionalProperties")).toEqual({
       path: "#/components/schemas/Map",
-      isFromAdditionalProperties: true,
+      recordOwner: { node: DOCUMENT.components.schemas.Map },
     });
+    expect(located("#/components/schemas/Map").recordOwner).toBeNull();
   });
 
   it("generatedLocationOf names parameters and leaves out a container's schema", () => {

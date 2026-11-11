@@ -2,12 +2,13 @@ import { irReference } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import { FIX } from "../../../domain/output-fixes.js";
 import { InvalidRefError, refType } from "../ref-type.js";
-import type { SchemaRequest } from "../schema/schema-rule.js";
-import { generatedLocationOf } from "./generated-location.js";
+import { AT_LOCATION, type SchemaRequest, type ValueAccess } from "../schema/schema-rule.js";
+import { generatedLocationOf, type RecordOwner } from "./generated-location.js";
 import { hasInlineCycle } from "./inline-cycles.js";
 import { isJsonObject } from "./located-node.js";
 import { originalIndexFails } from "./original-index.js";
 import { leadingSegmentsOf, pointerNode, type RefPointer, refPointerOf } from "./pointer-walk.js";
+import { isWidenedIndex } from "./property-shape.js";
 import { typedWalk } from "./typed-walk.js";
 
 /**
@@ -45,8 +46,18 @@ function targetType(
   return request.transformNested(
     target as never,
     { path: location.path, schema: target },
-    location.isFromAdditionalProperties,
+    valueAccessOf(location.recordOwner, request),
   );
+}
+
+/** How a target's type is read at its location, as `objectType` passes it down. */
+function valueAccessOf(owner: RecordOwner | null, request: SchemaRequest): ValueAccess {
+  if (owner === null) {
+    return AT_LOCATION;
+  }
+  const { options, refs } = request.context;
+  const isWidened = isJsonObject(owner.node) && isWidenedIndex(owner.node, options, refs);
+  return isWidened ? "none" : "string-index";
 }
 
 function correctedType(

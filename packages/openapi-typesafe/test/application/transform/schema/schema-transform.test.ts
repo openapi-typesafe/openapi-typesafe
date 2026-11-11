@@ -166,6 +166,18 @@ describe("transformSchema", () => {
     );
   });
 
+  it("transformSchema with --enum-values types a record value next to properties by its values", () => {
+    const stats = {
+      type: "object",
+      properties: { total: { type: "integer" } },
+      additionalProperties: { type: "string", enum: ["x", "y"] },
+    };
+
+    const { footer } = transform(stats, { options: { enumValues: true } });
+
+    expect(print(footer.enumValues[0]?.type as IrType)).toBe('"x" | "y"');
+  });
+
   it("transformSchema with additionalProperties: true on a string enum keeps other strings", () => {
     const { text } = transform({ type: "string", enum: ["a"], additionalProperties: true });
 

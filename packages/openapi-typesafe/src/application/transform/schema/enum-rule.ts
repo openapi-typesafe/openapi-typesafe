@@ -235,16 +235,26 @@ function enumValuesPointer(path: string | undefined): { ref: string; extract: st
   return { ref: appendPointer(ROOT_POINTER, kept), extract };
 }
 
-function addEnumValues(schema: SchemaObject, request: SchemaRequest): void {
+/** The item type of an `--enum-values` array: its schema's place in the generated types. */
+function enumValuesType(values: readonly (string | number)[], request: SchemaRequest): IrType {
+  if (request.valueAccess === "none") {
+    // No place has this schema's type alone; the location check keeps this type.
+    return unionOf(values.map(literalType));
+  }
   const { ref, extract } = enumValuesPointer(request.location.path);
   const valuesType = refType(ref, { isDeep: true, extractProperties: extract });
+  // A record value (`additionalProperties`) is reached by indexing with `string`.
+  return request.valueAccess === "string-index"
+    ? irIndexedAccess(valuesType, irReference("string"))
+    : valuesType;
+}
+
+function addEnumValues(schema: SchemaObject, request: SchemaRequest): void {
+  const values = (schema.enum ?? []) as (string | number)[];
   request.context.footer.addEnumValues({
     name: `${nameFromPath(request.location.path)}Values`,
-    // A record value (`additionalProperties`) is reached by indexing with `string`.
-    type: request.isFromAdditionalProperties
-      ? irIndexedAccess(valuesType, irReference("string"))
-      : valuesType,
-    values: (schema.enum ?? []) as (string | number)[],
+    type: enumValuesType(values, request),
+    values,
   });
 }
 

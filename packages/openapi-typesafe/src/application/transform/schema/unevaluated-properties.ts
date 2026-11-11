@@ -57,7 +57,7 @@ export function unevaluatedPropertiesType(
   const valueTypes = isAnySchema(unevaluated)
     ? [UNKNOWN_TYPE]
     : [
-        request.transformNested(unevaluated, request.location, true),
+        request.transformNested(unevaluated, request.location, "string-index"),
         ...(composed === null ? [] : declaredValueTypes(composed, request.context.footer)),
       ];
   const { immutable } = request.context.options;

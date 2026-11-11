@@ -10,7 +10,9 @@ import { toPropertyName } from "../../../domain/ir/property-name.js";
 import { appendPointer } from "../../../domain/openapi/json-pointer.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { documentEntries } from "../document-entries.js";
+import type { JsonObject } from "../ref-pointer/located-node.js";
 import { schemaRefType } from "../ref-pointer/pointer-type.js";
+import { isWidenedIndex } from "../ref-pointer/property-shape.js";
 import { schemaCommentOptionsOf, withSchemaComment } from "../schema-comment.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
@@ -20,7 +22,7 @@ import { discriminatorMember, inheritedDiscriminator } from "./inherited-discrim
 import { isInputLocation } from "./input-location.js";
 import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
 import type { SchemaOptions } from "./schema-context.js";
-import type { SchemaRequest } from "./schema-rule.js";
+import type { SchemaRequest, ValueAccess } from "./schema-rule.js";
 
 export class InvalidPropertyError extends OpenAPITypesafeError {
   constructor(path: string | undefined, key: string, value: unknown) {
@@ -205,6 +207,16 @@ function hasObjectKeywords(schema: SchemaObject): boolean {
   );
 }
 
+/**
+ * Where an `additionalProperties` value is in the owner's type: `[string]`, unless the index
+ * signature surely holds other types too. Next to `allOf` / `anyOf` / `oneOf` the original
+ * `[string]` stays: it compiles, and its type is not surely another one.
+ */
+export function recordValueAccess(schema: SchemaObject, request: SchemaRequest): ValueAccess {
+  const { options, refs } = request.context;
+  return isWidenedIndex(schema as JsonObject, options, refs) ? "none" : "string-index";
+}
+
 /** Value types of the `[key: string]` index signature, in the original order. */
 function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[] {
   const { additionalProperties } = schema;
@@ -214,7 +226,8 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
     additionalProperties === true || (isObject && Object.keys(additionalProperties).length === 0);
   const types: IrType[] = [];
   if (hasExplicit) {
-    types.push(request.transformNested(additionalProperties as Schema, request.location, true));
+    const access = recordValueAccess(schema, request);
+    types.push(request.transformNested(additionalProperties as Schema, request.location, access));
   }
   if (hasImplicit || (!additionalProperties && request.context.options.additionalProperties)) {
     types.push(UNKNOWN_TYPE);

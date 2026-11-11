@@ -24,8 +24,8 @@ import {
   startsInSchema,
 } from "./pointer-walk.js";
 import {
-  hasKeptProperties,
   isExcludedProperty,
+  isIndexedByValue,
   isMarkedProperty,
   type Presence,
   propertyPresence,
@@ -135,8 +135,6 @@ function defsStep(walk: TypedWalk, owner: LocatedNode, isLast: boolean): TypedWa
   };
 }
 
-const COMPOSITION_KEYWORDS = ["allOf", "anyOf", "oneOf"] as const;
-
 const SHAPED_KEYWORDS: ReadonlySet<string> = new Set([
   "properties",
   "items",
@@ -155,21 +153,6 @@ function hasKeywordMember(owner: unknown, segment: string): boolean {
   return segment === "items" ? isArrayShape(owner) : isObjectShape(owner);
 }
 
-/**
- * Whether `[string]` of the owner's type is its `additionalProperties` type. Not where the index
- * signature also holds pattern or property types (`withPropertyTypes`), nor next to `allOf` /
- * `anyOf` / `oneOf`, whose members may add an index signature or an inherited discriminator.
- */
-function isIndexedByValue(owner: unknown, input: TypedWalkInput): boolean {
-  if (!isJsonObject(owner)) {
-    return true;
-  }
-  const patterns = owner.patternProperties;
-  const hasPatterns = isJsonObject(patterns) && Object.keys(patterns).length > 0;
-  const isComposed = COMPOSITION_KEYWORDS.some((keyword) => keyword in owner);
-  return !hasPatterns && !isComposed && !hasKeptProperties(owner, input.options, input.refs);
-}
-
 function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: TypedWalkInput) {
   const owner = followLocated(walk, input.refs);
   if (!hasKeywordMember(owner.node, segment)) {
@@ -182,7 +165,7 @@ function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: T
       return indexEntries(walk, "number", "items", input.refs);
     case "additionalProperties":
       // Otherwise the walk stops, and the target is typed in place.
-      return isIndexedByValue(owner.node, input)
+      return isIndexedByValue(owner.node, input.options, input.refs)
         ? indexEntries(walk, "string", "additionalProperties", input.refs)
         : null;
     case DEFS_KEYWORD:

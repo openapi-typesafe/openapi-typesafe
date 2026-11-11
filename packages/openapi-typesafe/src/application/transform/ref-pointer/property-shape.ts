@@ -67,6 +67,33 @@ export function hasKeptProperties(node: JsonObject, options: SchemaOptions, refs
   return Object.values(properties).some((value) => !isExcludedProperty(value, options, refs));
 }
 
+const COMPOSITION_KEYWORDS = ["allOf", "anyOf", "oneOf"] as const;
+
+/**
+ * Whether the owner's index signature surely holds more than its `additionalProperties` type: the
+ * types of the properties it keeps (`withPropertyTypes`) or of its `patternProperties`. It reads
+ * the document, not the types, so a property type the signature admits already counts too
+ * (ADR-026, 2026-11-10, point 2).
+ */
+export function isWidenedIndex(owner: JsonObject, options: SchemaOptions, refs: RefResolver) {
+  const patterns = owner.patternProperties;
+  const hasPatterns = isJsonObject(patterns) && Object.keys(patterns).length > 0;
+  return hasPatterns || hasKeptProperties(owner, options, refs);
+}
+
+/**
+ * Whether `[string]` of the owner's type is its `additionalProperties` type alone: its index
+ * signature holds nothing else, and no `allOf` / `anyOf` / `oneOf` is next to it, whose members
+ * may add an index signature or an inherited discriminator.
+ */
+export function isIndexedByValue(owner: unknown, options: SchemaOptions, refs: RefResolver) {
+  if (!isJsonObject(owner)) {
+    return true;
+  }
+  const isComposed = COMPOSITION_KEYWORDS.some((keyword) => keyword in owner);
+  return !isComposed && !isWidenedIndex(owner, options, refs);
+}
+
 /**
  * Whether `--read-write-markers` wraps the type of a property or `$defs` member: one that is only
  * `readOnly` or only `writeOnly` is `$Read<T>` or `$Write<T>` (object-type.ts).

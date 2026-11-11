@@ -22,17 +22,22 @@ import {
  * typed nowhere else, so it keeps its pointer as its location.
  */
 
+/** The object schema whose record value (`additionalProperties`) a node is. */
+export interface RecordOwner {
+  readonly node: unknown;
+}
+
 export interface GeneratedLocation {
   readonly path: string;
-  /** The node is an `additionalProperties` value, as `transformNested` is told. */
-  readonly isFromAdditionalProperties: boolean;
+  /** The owner when the node is a record value, which decides how its type is read. */
+  readonly recordOwner: RecordOwner | null;
 }
 
 interface LocationWalk {
   readonly path: readonly string[];
   readonly node: unknown;
   readonly isSchema: boolean;
-  readonly isFromAdditionalProperties: boolean;
+  readonly recordOwner: RecordOwner | null;
 }
 
 /** One step: the segments it adds to the path, the node it moves to, the segments it reads. */
@@ -41,7 +46,7 @@ interface Step {
   readonly child: unknown;
   readonly length: 1 | 2;
   readonly isSchema: boolean;
-  readonly isFromAdditionalProperties?: boolean;
+  readonly recordOwner?: RecordOwner;
 }
 
 /** Keywords followed by a name or position whose schema is typed at the parent's location. */
@@ -87,14 +92,8 @@ function schemaStep(node: unknown, segment: string, next: string | undefined): S
   if (!PARENT_LOCATION_KEYWORDS.has(segment)) {
     return null;
   }
-  const isRecordValue = RECORD_VALUE_KEYWORDS.has(segment);
-  return {
-    path: [],
-    child: value,
-    length: 1,
-    isSchema: true,
-    isFromAdditionalProperties: isRecordValue,
-  };
+  const recordOwner = RECORD_VALUE_KEYWORDS.has(segment) ? { node } : undefined;
+  return { path: [], child: value, length: 1, isSchema: true, ...(recordOwner && { recordOwner }) };
 }
 
 /** A path item's own parameters sit under one more `parameters` segment (`pathItemType`). */
@@ -176,7 +175,7 @@ function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): Locati
     path: [root],
     node: refs.resolve(`#/${root}`),
     isSchema: false,
-    isFromAdditionalProperties: false,
+    recordOwner: null,
   };
   for (let index = 0; index < pointer.segments.length; ) {
     const step = stepAt(walk, pointer, index);
@@ -188,7 +187,7 @@ function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): Locati
       path: [...walk.path, ...step.path],
       node: step.child,
       isSchema: step.isSchema,
-      isFromAdditionalProperties: step.isFromAdditionalProperties === true,
+      recordOwner: step.recordOwner ?? null,
     };
     const inner = refOf(walk.node);
     const target = inner !== null && index < pointer.segments.length;
@@ -206,6 +205,6 @@ export function generatedLocationOf(ref: string, refs: RefResolver): GeneratedLo
   const walk = walkTo(ref, refs, []);
   return {
     path: walk === null ? ref : appendPointer(ROOT_POINTER, walk.path),
-    isFromAdditionalProperties: walk?.isFromAdditionalProperties ?? false,
+    recordOwner: walk?.recordOwner ?? null,
   };
 }

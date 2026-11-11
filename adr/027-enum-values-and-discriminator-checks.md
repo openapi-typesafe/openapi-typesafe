@@ -102,3 +102,13 @@ check the type the output has.
    raw template keys the generator writes come from the document's paths (`templateKeyTypes`), and
    the match is the checker's own (`isAssignableToTemplate`). A signature or raw key of a type the
    generator does not write for a path is opaque, so it never counts as an error.
+3. **A record value whose index signature holds other types.** Since rc.5 the index signature next
+   to `properties` also holds their types (`withPropertyTypes`), and next to `patternProperties`
+   it always held the patterns' types, so `Stats[string]` of an `additionalProperties` enum read
+   `"x" | "y" | number`: the location admits the values, the check kept it, and the array accepted
+   `5`. Where the signature surely holds more than the value (`isWidenedIndex`, the same rule the
+   `$ref` pointer walk uses, ADR-026), the array is typed by its own values; the rule reads the
+   document, so a property type the signature admits already counts too, which writes the same
+   type differently. Next to `allOf` / `anyOf` / `oneOf` the `[string]` location stays: it compiles
+   and is not surely another type. The `unevaluatedProperties` value of the
+   `unevaluated-properties` fix keeps `[string]`.

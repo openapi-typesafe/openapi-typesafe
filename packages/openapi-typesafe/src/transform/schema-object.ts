@@ -1,10 +1,16 @@
 import { createTransformContext, schemaLocation } from "../api/transform-context.js";
+import type { ValueAccess } from "../application/transform/schema/schema-rule.js";
 import {
   transformSchema,
   transformSchemaShape,
 } from "../application/transform/schema/schema-transform.js";
 import type { IrType } from "../domain/ir/nodes.js";
 import type { ReferenceObject, SchemaObject, TransformNodeOptions } from "../types.js";
+
+/** The original flag: an `additionalProperties` value is read by indexing with `string`. */
+function valueAccessOf(fromAdditionalProperties: boolean): ValueAccess {
+  return fromAdditionalProperties ? "string-index" : "location";
+}
 
 /**
  * Transform SchemaObject nodes (4.8.24)
@@ -21,7 +27,7 @@ export default function transformSchemaObject(
 ): IrType {
   const context = createTransformContext(options.ctx);
   const location = schemaLocation(options);
-  return transformSchema(schemaObject, location, context, fromAdditionalProperties);
+  return transformSchema(schemaObject, location, context, valueAccessOf(fromAdditionalProperties));
 }
 
 /** Transform SchemaObjects without the `postTransform` callback at the top level. */
@@ -32,5 +38,10 @@ export function transformSchemaObjectWithComposition(
 ): IrType {
   const context = createTransformContext(options.ctx);
   const location = schemaLocation(options);
-  return transformSchemaShape(schemaObject, location, context, fromAdditionalProperties);
+  return transformSchemaShape(
+    schemaObject,
+    location,
+    context,
+    valueAccessOf(fromAdditionalProperties),
+  );
 }
