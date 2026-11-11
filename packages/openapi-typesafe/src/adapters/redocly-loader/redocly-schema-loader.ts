@@ -229,8 +229,8 @@ class RedoclySchemaLoader implements SchemaLoader {
     });
     removeBundledMappingCopies(bundled.bundle.parsed, schemaKeys);
     repairBundledRefs(bundled.bundle.parsed);
-    const documentRefs = resolver.getFiles();
-    const renaming = renameQueryNamedComponents(bundled.bundle.parsed, componentKeys, documentRefs);
+    const documents = await loadedDocuments(document, resolver);
+    const renaming = renameQueryNamedComponents(bundled.bundle.parsed, componentKeys, documents);
     // The problems name the components the bundle made, so they are shown by their new names.
     this.#report(bundled.problems, document.source.absoluteRef, renaming);
     this.#options.logger.debug("Bundled schema", "bundle", this.#options.now() - startedAt);
@@ -240,11 +240,13 @@ class RedoclySchemaLoader implements SchemaLoader {
   /**
    * Report every problem; then throw if any of them is an error. A problem that the Redocly
    * config's `.redocly.lint-ignore.yaml` lists is left out, as `redocly lint` leaves it out
-   * (upstream #2189).
+   * (upstream #2189). A name collision that the renamed components no longer have is dropped.
    */
   #report(problems: readonly NormalizedProblem[], rootRef: string, renaming = UNRENAMED): void {
     const errorMessages: string[] = [];
-    for (const problem of problems) {
+    for (const problem of problems.filter(
+      (found) => !renaming.isResolvedCollision(found.message),
+    )) {
       if (problem.ignored === true) {
         this.#options.logger.debug(
           `Ignored by the lint ignore file: ${problemMessage(problem, renaming, rootRef)}`,
@@ -272,7 +274,11 @@ function lintWarningText(message: string, ruleId: string): string {
 }
 
 /** Problems found before the bundle named any component. */
-const UNRENAMED: ComponentRenaming = { pointer: (pointer) => pointer, text: (text) => text };
+const UNRENAMED: ComponentRenaming = {
+  pointer: (pointer) => pointer,
+  text: (text) => text,
+  isResolvedCollision: () => false,
+};
 
 /** A problem location that names a JSON Pointer, not a line and column. */
 type PointerLocation = Extract<LocationObject, { pointer: string }>;

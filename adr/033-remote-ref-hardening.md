@@ -297,3 +297,14 @@ documents that failed to load.
    root is never limited (ADR-017, decision 2): a spec URL that redirects to a CDN failed with
    `SCHEMA_REF_FORBIDDEN`. The fetch now knows the root's URL and checks only the redirects of the
    other documents.
+
+## Amendment (2026-11-10): the document of a renamed component, and redirected bases
+
+1. **The document of a renamed component.** The rename found a component's document by its name:
+   the text behind the last `/` of the URL. A query with a `/` (`pet.json?ref=feature/new-api`,
+   GitHub's contents API) gives every document of that branch the name `new-api`, so the map of
+   names kept one document, and the pet schema became `owner`. The bundle keeps the parsed nodes
+   of each document as its components, so the loader now finds each component's document by its
+   node. A serial that Redocly added only because two queries ended alike (`new-api-2`) is chosen
+   again for the new name, and Redocly's warning about that collision is dropped when the new
+   names no longer collide.

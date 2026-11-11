@@ -459,6 +459,24 @@ describe("credentials in remote URLs", () => {
     });
   });
 
+  it("documents whose queries end in the same text after a slash are named after their own paths", async () => {
+    const logger = new RecordingLogger();
+    const document = documentWith({
+      A: { $ref: `${baseURL}/person.json?ref=feature/new-api` },
+      B: { $ref: `${baseURL}/other/versioned?ref=feature/new-api` },
+    });
+
+    const bundled = await loadDocument(document, { logger });
+
+    expect(bundled.components?.schemas).toEqual({
+      A: { $ref: "#/components/schemas/person" },
+      B: { $ref: "#/components/schemas/versioned" },
+      person: JSON.parse(PERSON),
+      versioned: { type: "integer" },
+    });
+    expect(logger.messages("warn")).toEqual([]);
+  });
+
   it("the bundle's problems name the components by their names without the query", async () => {
     const logger = new RecordingLogger();
     const document = documentWith({
