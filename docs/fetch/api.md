@@ -122,7 +122,7 @@ as a `simple` path parameter but not percent-encoded:
 | `{ role: "admin", page: 2 }` | `role,admin,page,2` |
 | `{ "a b": "c" }` | `a b,c` (names are not percent-encoded either) |
 | `{ filter: { role: "admin" } }`, `["a", { b: 1 }]` | an error: a nested object or array has no standard encoding |
-| `[]`, `{}` | no header |
+| `[]`, `{}` | no value: the header set in `headers`, if any, is kept |
 | `null` | removes the header set in `headers` |
 
 An exploded object header (`role=admin,page=2`) needs a string value: the client does not know the

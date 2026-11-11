@@ -110,7 +110,9 @@ const created = await client.POST("/pets", {
 ## 4. Handle the result
 
 Every call resolves to `{ data, error, response }`. It does not throw for HTTP errors. It rejects
-only when `fetch` itself fails (network error, CORS, abort) or a middleware throws.
+when `fetch` itself fails (network error, CORS, abort), when a middleware throws, and when a
+success body is not JSON (a proxy's HTML page gives a `SyntaxError`; set `parseAs: "text"` for
+such a response).
 
 | Field | Value |
 | :-- | :-- |
@@ -130,15 +132,16 @@ async function loadPet(petId: number) {
     // `error` is the typed error body, or undefined when the server sent none.
     throw new ApiError(response.status, error);
   }
-  return data; // typed as the 2xx body
+  return data; // the 2xx body, or undefined for an empty body (`response` does not narrow it)
 }
 ```
 
-- Narrow on `error` or `response.ok` before you read `data`; `data` and `error` are a
-  discriminated union.
+- Narrow on `error` before you read `data`: `data` and `error` are a discriminated union, and
+  `response` is not part of it, so `response.ok` does not narrow `data`.
 - Branch on `response.status` for status-specific handling; the `error` type is the union of all
   error bodies of the operation.
-- A body that is not JSON comes back as text in `error`.
+- An error body that is not JSON comes back as text in `error`; a success body that is not JSON
+  rejects (see above).
 - Network failures and aborts reject: wrap the call in `try` / `catch` where you need to handle
   them, or turn them into a value with `onError` middleware (section 5).
 

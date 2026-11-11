@@ -98,7 +98,9 @@ The better fix is to move the callbacks to [IR callbacks](/node#ir-callbacks), w
 The package's declarations type-check with TypeScript 7 and `skipLibCheck: false`. The types of
 the compiler-node forms (`ts.Node`, `ts.TypeNode` and the others in the `transform`,
 `postTransform` and `transformProperty` options, `astToString` and the `ts*` helpers) are read
-from the `typescript` package you have installed. With TypeScript 5 or 6 they are its own node
+from the `typescript` package you have installed, so with `skipLibCheck: false` the project
+needs one: a `tsc` or `tsgo` (`@typescript/native-preview`) run without a `typescript` package
+also reports `Cannot find module 'typescript'`. With TypeScript 5 or 6 they are its own node
 types. TypeScript 7 has no node types, so there they are `any`: a callback that builds nodes with
 `@typescript/typescript6` compiles, and the IR callbacks (`irCallbacks: true`) keep their full
 types.
