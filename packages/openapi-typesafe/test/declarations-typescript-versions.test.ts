@@ -19,9 +19,11 @@ const require = createRequire(import.meta.url);
 const TIMEOUT_MS = 60_000;
 const workDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "openapi-typesafe-dts-")));
 
+// The folder holds a compiled project per TypeScript version; on a loaded machine removing it took
+// longer than the default hook limit of 10 s.
 afterAll(() => {
   fs.rmSync(workDir, { recursive: true, force: true });
-});
+}, TIMEOUT_MS);
 
 /** The typed API without compiler nodes: what every consumer uses. */
 const API_CONSUMER = `
