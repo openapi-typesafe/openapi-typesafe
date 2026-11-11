@@ -1173,6 +1173,11 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
 - The `schema` of a media type, header or component parameter is left out, `items` is indexed by
   `[number]`, `additionalProperties` by `[string]`, and an optional or nullable value is wrapped in
   `NonNullable` before it is indexed.
+- `[string]` is the `additionalProperties` type only where the index signature holds nothing
+  else. Next to `properties` it also holds the property types, and next to `patternProperties` the
+  pattern types, so such a pointer gets the target's type inline, as does a pointer to a pattern
+  (`patternProperties/^x`). With `--exclude-deprecated`, a pointer to a property it leaves out gets
+  the property's type inline, not the index signature's.
 - A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation or
   path item `parameters/0`) gets the target's type written inline; a target that points back at
   itself keeps the original type. The inline type is the one the generator writes for that schema,

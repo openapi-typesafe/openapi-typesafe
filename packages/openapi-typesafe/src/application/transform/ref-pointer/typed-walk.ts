@@ -24,6 +24,7 @@ import {
   startsInSchema,
 } from "./pointer-walk.js";
 import {
+  hasKeptProperties,
   isExcludedProperty,
   isMarkedProperty,
   type Presence,
@@ -34,9 +35,10 @@ import {
 /**
  * The type of a `$ref` pointer as the generated types have it: the `schema` of a media type,
  * header or component parameter is its type, `items` is indexed by `number`,
- * `additionalProperties` by `string`, and a value that may be `undefined` or `null` is wrapped in
- * `NonNullable` before it is indexed. The walk stops at a segment with no type of its own
- * (`allOf/0`, `definitions/A`, operation `parameters/0`): the caller types the target itself.
+ * `additionalProperties` by `string` where the index signature is its type alone, and a value
+ * that may be `undefined` or `null` is wrapped in `NonNullable` before it is indexed. The walk
+ * stops at a segment with no type of its own (`allOf/0`, `definitions/A`, operation
+ * `parameters/0`): the caller types the target itself.
  */
 
 const DEFS_KEYWORD = "$defs";
@@ -133,6 +135,8 @@ function defsStep(walk: TypedWalk, owner: LocatedNode, isLast: boolean): TypedWa
   };
 }
 
+const COMPOSITION_KEYWORDS = ["allOf", "anyOf", "oneOf"] as const;
+
 const SHAPED_KEYWORDS: ReadonlySet<string> = new Set([
   "properties",
   "items",
@@ -151,6 +155,21 @@ function hasKeywordMember(owner: unknown, segment: string): boolean {
   return segment === "items" ? isArrayShape(owner) : isObjectShape(owner);
 }
 
+/**
+ * Whether `[string]` of the owner's type is its `additionalProperties` type. Not where the index
+ * signature also holds pattern or property types (`withPropertyTypes`), nor next to `allOf` /
+ * `anyOf` / `oneOf`, whose members may add an index signature or an inherited discriminator.
+ */
+function isIndexedByValue(owner: unknown, input: TypedWalkInput): boolean {
+  if (!isJsonObject(owner)) {
+    return true;
+  }
+  const patterns = owner.patternProperties;
+  const hasPatterns = isJsonObject(patterns) && Object.keys(patterns).length > 0;
+  const isComposed = COMPOSITION_KEYWORDS.some((keyword) => keyword in owner);
+  return !hasPatterns && !isComposed && !hasKeptProperties(owner, input.options, input.refs);
+}
+
 function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: TypedWalkInput) {
   const owner = followLocated(walk, input.refs);
   if (!hasKeywordMember(owner.node, segment)) {
@@ -162,7 +181,10 @@ function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: T
     case "items":
       return indexEntries(walk, "number", "items", input.refs);
     case "additionalProperties":
-      return indexEntries(walk, "string", "additionalProperties", input.refs);
+      // Otherwise the walk stops, and the target is typed in place.
+      return isIndexedByValue(owner.node, input)
+        ? indexEntries(walk, "string", "additionalProperties", input.refs)
+        : null;
     case DEFS_KEYWORD:
       return defsStep(walk, owner, isLast);
     default:

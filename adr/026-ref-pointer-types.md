@@ -127,3 +127,30 @@ the generator gives the target.
 `generated-shape.ts` grew past the file limit, so the node and pointer basics moved to
 `located-node.ts` and the property rules (optional, excluded, marked, presence) to
 `property-shape.ts`. The Consequences above apply to both files.
+
+## Amendment (2026-11-10): pointers read through an index signature
+
+rc.5 made an index signature hold the types of the properties next to it
+(`withPropertyTypes`). The walk still read `[string]` as the `additionalProperties` type, so a
+`$ref` to `Stats/additionalProperties` next to `properties` kept `Stats["additionalProperties"]`,
+which now reads `number | { count?: number }`: it compiles, but admits values the target does not,
+and a pointer one segment deeper did not compile, also with the fix. A `$ref` to a property that
+`--exclude-deprecated` leaves out was read through the index signature in the same way, and a
+`$ref` to `patternProperties/<pattern>` counted as opaque, so its failing original stayed.
+
+1. **What the index signature holds.** `generatedMember` gives the signature's value as the one
+   value schema it has (`additionalProperties` or a single pattern); several value schemas make a
+   union it does not model, so they stay opaque, and an `unknown` value makes the signature
+   `unknown`. The member is `isOtherType` where the type read is not the type of the node the key
+   names: next to a property the generated type keeps, or for the key of a left-out property.
+2. **The original through such a member is corrected by default.** It compiles, but it is not the
+   target's type, which ADR-021 counts as wrong output, not as output to keep. The walk reads the
+   document, not the types, so it cannot run the assignability proof that leaves a signature as it
+   was when every property type fits: there the corrected type is the same type written inline.
+   The same holds for a left-out property whose type is the signature's. This is the cost of not
+   running the type proof in the walk; the compat harness shows how often it is paid.
+3. **The corrected type.** `[string]` stands for `additionalProperties` only where the signature
+   holds nothing else: no kept property, no `patternProperties`, and no `allOf` / `anyOf` /
+   `oneOf` next to it (a member may add a signature or an inherited discriminator). Elsewhere the
+   walk stops and the target is typed in place (point 3 above), as is a pattern, which has no
+   index of its own.

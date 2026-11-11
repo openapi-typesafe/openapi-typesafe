@@ -142,7 +142,6 @@ describe("generatedMember", () => {
   });
 
   it("generatedMember counts shapes it does not model as opaque", () => {
-    expect(member("Pattern", "x")).toBe("opaque");
     expect(member("Tagged", "kind")).toBe("opaque");
     expect(member("Enum", "x")).toBe("opaque");
     expect(member("Mixed", "x")).toBe("opaque");
@@ -171,6 +170,7 @@ describe("generatedMember", () => {
         kind: "index",
         node: undefined,
         location: undefined,
+        isOtherType: false,
       },
     );
     expect(member("Own", "id", open)).toBe("property");
