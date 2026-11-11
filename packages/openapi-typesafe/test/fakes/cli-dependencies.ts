@@ -213,6 +213,8 @@ export class FakeGenerator {
   readonly calls: GenerateCall[] = [];
   readonly failures = new Map<string, unknown>();
   readonly readFiles = new Map<string, readonly URL[]>();
+  /** Generated text by source, in place of `types of <source>`. */
+  readonly contents = new Map<string, string>();
   /** The most generations that ran at the same time. */
   mostAtOnce = 0;
   #running = 0;
@@ -239,7 +241,8 @@ export class FakeGenerator {
     if (this.failures.has(name)) {
       throw this.failures.get(name);
     }
-    return { contents: `types of ${name}`, localFiles: this.readFiles.get(name) ?? [] };
+    const contents = this.contents.get(name) ?? `types of ${name}`;
+    return { contents, localFiles: this.readFiles.get(name) ?? [] };
   }
 }
 

@@ -203,6 +203,8 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 
 For `SCHEMA_INVALID`, every lint or bundle error is printed first, then a summary line.
 
+`--check` compares lines, not line ends: an output that Git checked out with CRLF line ends (`core.autocrlf` on Windows) is up to date when its lines match the generated types. openapi-typescript reported it as stale.
+
 With several APIs in `redocly.yaml`, every API is generated (or checked, with `--check`) even when another one fails. Each failure prints its own line, and the exit code is the one of the first failing API, in the order of the config.
 
 ### defaultNonNullable

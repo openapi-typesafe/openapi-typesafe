@@ -219,13 +219,24 @@ function printDone(run: CliRun, output: OutputFile): void {
   run.deps.console.info(`🚀 ${target} ${duration}`);
 }
 
+const CRLF = /\r\n/g;
+const LF = "\n";
+
 /**
- * With `--check`, fail with `OUTPUT_STALE` when the file differs from `contents` and leave it
- * alone otherwise. Without it, write the file and print where it went.
+ * The text with LF line ends. Git with `core.autocrlf` checks a committed file out with CRLF on
+ * Windows, so `--check` compares lines, not line ends.
+ */
+function withLfLineEnds(text: string): string {
+  return text.replace(CRLF, LF);
+}
+
+/**
+ * With `--check`, fail with `OUTPUT_STALE` when the file differs from `contents` (line ends
+ * aside) and leave it alone otherwise. Without it, write the file and print where it went.
  */
 export function emitOutput(run: CliRun, output: OutputFile, contents: string): void {
   if (run.args.isCheck) {
-    if (run.deps.files.readText(output.file) !== contents) {
+    if (withLfLineEnds(run.deps.files.readText(output.file)) !== withLfLineEnds(contents)) {
       // The original message, then the file: with several APIs it tells which one is stale.
       throw cliError(
         "OUTPUT_STALE",

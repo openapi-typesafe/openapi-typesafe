@@ -236,6 +236,36 @@ describe("runCli --check", () => {
     expect(cli.stdout).toEqual([]);
   });
 
+  it("runCli --check with a file checked out with CRLF line ends exits with 0", async () => {
+    const cli = createFakeCli();
+    cli.generator.contents.set(fakeUrl("/work/a.yaml"), "line 1\nline 2\n");
+    cli.files.files.set(fakePath("/work/types.ts"), "line 1\r\nline 2\r\n");
+
+    const exitCode = await runCli(["a.yaml", "-o", "types.ts", "--check"], cli.deps);
+
+    expect(exitCode).toBe(0);
+  });
+
+  it("runCli --check with CRLF line ends and other lines exits with 1", async () => {
+    const cli = createFakeCli();
+    cli.generator.contents.set(fakeUrl("/work/a.yaml"), "line 1\r\nline 2\n");
+    cli.files.files.set(fakePath("/work/types.ts"), "line 1\r\nline 3\r\n");
+
+    const exitCode = await runCli(["a.yaml", "-o", "types.ts", "--check"], cli.deps);
+
+    expect(exitCode).toBe(1);
+  });
+
+  it("runCli --check with generated CRLF line ends and an LF file exits with 0", async () => {
+    const cli = createFakeCli();
+    cli.generator.contents.set(fakeUrl("/work/a.yaml"), "line 1\r\nline 2\n");
+    cli.files.files.set(fakePath("/work/types.ts"), "line 1\nline 2\n");
+
+    const exitCode = await runCli(["a.yaml", "-o", "types.ts", "--check"], cli.deps);
+
+    expect(exitCode).toBe(0);
+  });
+
   it("runCli --check with a missing file exits with 4", async () => {
     const cli = createFakeCli();
 
