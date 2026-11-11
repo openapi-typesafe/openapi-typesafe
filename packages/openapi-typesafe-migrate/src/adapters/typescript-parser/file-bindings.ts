@@ -42,6 +42,10 @@ export interface FileBindings {
   readonly hasGenerator: boolean;
 }
 
+/** True for a declaration with an `export` modifier (`export const`, `export function`). */
+export const hasExportModifier = (declaration: ts.Node): boolean =>
+  (ts.getCombinedModifierFlags(declaration as ts.Declaration) & ts.ModifierFlags.Export) !== 0;
+
 /** The generator after the specifier rename, and before it, for files the rename skipped. */
 export const GENERATOR_MODULES: ReadonlySet<string> = new Set([
   "openapi-typesafe",
@@ -147,12 +151,19 @@ function createChecker(file: ts.SourceFile): ts.TypeChecker {
   return ts.createProgram({ rootNames: [file.fileName], options, host }).getTypeChecker();
 }
 
-/** The symbol of an identifier; `{ DATE }` refers to the variable, not to the new property. */
+/**
+ * The symbol of an identifier; `{ DATE }` refers to the variable, not to the new property, and
+ * `export { DATE }` to the variable, not to the export alias, so an export counts as a use.
+ */
 function symbolOf(checker: ts.TypeChecker, identifier: ts.Identifier): ts.Symbol | undefined {
   const parent = identifier.parent;
-  return ts.isShorthandPropertyAssignment(parent) && parent.name === identifier
-    ? checker.getShorthandAssignmentValueSymbol(parent)
-    : checker.getSymbolAtLocation(identifier);
+  if (ts.isShorthandPropertyAssignment(parent) && parent.name === identifier) {
+    return checker.getShorthandAssignmentValueSymbol(parent);
+  }
+  if (ts.isExportSpecifier(parent)) {
+    return checker.getExportSpecifierLocalTargetSymbol(parent);
+  }
+  return checker.getSymbolAtLocation(identifier);
 }
 
 /** True for the name that a declaration of this file declares, and for names in imports. */
