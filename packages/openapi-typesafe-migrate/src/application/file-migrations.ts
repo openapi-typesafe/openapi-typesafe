@@ -15,6 +15,7 @@ import { migrateImportMap } from "../domain/import-map-migration.js";
 import { importMapSteps } from "../domain/import-map-reference.js";
 import { isJestConfig, jestJsonSteps, jestScriptSteps } from "../domain/jest-config.js";
 import { migrateJsonCommands } from "../domain/json-command-migration.js";
+import { migrateJustfile } from "../domain/justfile-migration.js";
 import { migrateMakefile } from "../domain/makefile-migration.js";
 import { migratePackageManifest, unreadManifest } from "../domain/manifest-migration.js";
 import { type FileMigration, unchanged } from "../domain/migration-findings.js";
@@ -62,6 +63,7 @@ import {
   IMPORT_MAP_FILE,
   JEST_JSON_CONFIG_FILE,
   JSON5_MANIFEST_FILE,
+  JUSTFILE_NAMES,
   LINT_STAGED_JSON_FILE,
   LINT_STAGED_YAML_FILES,
   LOCK_FILES,
@@ -73,7 +75,6 @@ import {
   PRE_COMMIT_FILES,
   PROJECT_CONFIG_NAME,
   SHELL_EXTENSIONS,
-  SHELL_FILE_NAMES,
   SIMPLE_GIT_HOOKS_FILES,
   TASKFILE_NAMES,
   WORKSPACE_FILE,
@@ -261,10 +262,11 @@ const FILE_KINDS: readonly FileKind[] = [
     migrate: whenNamed((text, path) => migrateMakefile(text, path)),
   },
   {
-    matches: (path) =>
-      SHELL_EXTENSIONS.has(extensionOf(path)) ||
-      SHELL_FILE_NAMES.has(baseName(path)) ||
-      isHuskyHook(path),
+    matches: (path) => JUSTFILE_NAMES.has(baseName(path)),
+    migrate: whenNamed((text, path) => migrateJustfile(text, path)),
+  },
+  {
+    matches: (path) => SHELL_EXTENSIONS.has(extensionOf(path)) || isHuskyHook(path),
     migrate: whenNamed((text, path) => migrateCommandLines(text, path)),
   },
 ];
