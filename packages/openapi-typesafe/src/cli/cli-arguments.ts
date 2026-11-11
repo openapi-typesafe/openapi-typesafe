@@ -8,7 +8,6 @@ import {
   GENERATOR_FLAGS,
   type GeneratorFlag,
   type GeneratorFlags,
-  KNOWN_FLAGS,
   STRING_FLAGS,
 } from "./cli-flag-names.js";
 import { MULTIPLE_SCHEMAS_DOCS_URL } from "./docs-links.js";
@@ -17,7 +16,8 @@ import {
   rejectInvalidBooleans,
   rejectNegatedValueFlags,
   rejectRemovedFlags,
-  unknownFlagNames,
+  unknownFlagsOf,
+  withoutUnknownLongFlags,
   writtenFlags,
 } from "./written-flags.js";
 
@@ -107,27 +107,6 @@ function refLimitsOf(parsed: parser.Arguments): CliRefLimits {
 }
 
 /**
- * Flags that no code reads. The original CLI ignored them silently, so a typo such as
- * `--alphabetise` gave other output with no hint; they still do not fail the run.
- */
-function unknownFlagsOf(parsed: parser.Arguments, argv: readonly string[]): string[] {
-  const names = Object.keys(parsed)
-    .filter((key) => key !== "_" && key !== "--" && !KNOWN_FLAGS.has(key))
-    .map((key) => writtenFlagName(key, argv));
-  return [...new Set(names)];
-}
-
-/** The flag as the user wrote it: yargs-parser reads `--no-x` as `x: false`. */
-function writtenFlagName(key: string, argv: readonly string[]): string {
-  if (key.length === 1) {
-    return `-${key}`;
-  }
-  const negated = `--no-${kebabCase(key)}`;
-  const isNegated = argv.some((arg) => arg === negated || arg.startsWith(`${negated}=`));
-  return isNegated ? negated : `--${kebabCase(key)}`;
-}
-
-/**
  * The one schema argument. More than one fails with `CLI_INPUT_EXTRA`: the original CLI read the
  * first and dropped the rest, so a glob the shell expanded (`g/*.yaml`) generated one schema.
  */
@@ -151,11 +130,12 @@ function inputOf(positionals: readonly (string | number)[]): string | undefined 
  */
 export function parseCliArguments(argv: readonly string[]): CliArguments {
   const flags = writtenFlags(argv);
+  const unknown = unknownFlagsOf(flags);
   rejectRemovedFlags(flags);
   rejectInvalidBooleans(flags);
   rejectNegatedValueFlags(flags);
-  const parsed = parser([...argv], {
-    boolean: [...BOOLEAN_FLAGS, ...unknownFlagNames(flags)],
+  const parsed = parser(withoutUnknownLongFlags(argv), {
+    boolean: [...BOOLEAN_FLAGS, ...unknown.shortLetters],
     string: STRING_FLAGS,
     alias: ALIASES,
     // A schema path is a file name: `1.10` is not the number 1.1.
@@ -171,6 +151,6 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
     generatorFlags: generatorFlagsOf(parsed),
     refLimits: refLimitsOf(parsed),
     fix: fixNamesOf(parsed.fix),
-    unknownFlags: unknownFlagsOf(parsed, argv),
+    unknownFlags: unknown.asWritten,
   };
 }

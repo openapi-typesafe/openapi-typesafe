@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { inspect } from "node:util";
 import { gzipSync } from "node:zlib";
+import { createConfig } from "@redocly/openapi-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/redocly-schema-loader.js";
 import type { RemoteDocumentLimits } from "../../src/adapters/redocly-loader/remote-fetch.js";
@@ -169,6 +170,8 @@ const REDIRECT_ROUTES: Record<string, (response: ServerResponse) => void> = {
   "/static/v1/schemas/tag.json": json({ $ref: "./tag-name.json" }),
   "/static/v1/schemas/tag-name.json": json({ type: "string", description: "v1" }),
   "/moved/tag-name.json": json({ type: "integer" }),
+  "/moved/limited.json": redirect("/static/v1/schemas/limited.json"),
+  "/static/v1/schemas/limited.json": json({ type: "string", minLength: "two" }),
 };
 
 let server: Server;
@@ -494,6 +497,26 @@ describe("credentials in remote URLs", () => {
 
     expect(Object.values(bundled.components?.schemas ?? {})).toContainEqual({ type: "string", description: "v1" });
     expect(JSON.stringify(bundled)).not.toContain("integer");
+  });
+
+  it("a lint ignore entry keyed by the requested URL of a redirected root still applies", async () => {
+    const redoc = await createConfig({ rules: { "info-contact": "error" } });
+    redoc.styleguide.ignore[`${baseURL}/latest`] = { "info-contact": new Set(["#/info/contact"]) };
+
+    const bundled = await loadDocument(new URL(`${baseURL}/latest`), { redoc });
+
+    expect(Object.keys(bundled.components?.schemas ?? {})).toEqual(["Pet", "pet"]);
+  });
+
+  it("a lint ignore entry keyed by the requested URL of a redirected $ref document still applies", async () => {
+    const redoc = await createConfig({ rules: { struct: "error" } });
+    redoc.styleguide.ignore[`${baseURL}/moved/limited.json`] = { struct: new Set(["#/minLength"]) };
+
+    const bundled = await loadDocument(documentWith({ Limited: { $ref: `${baseURL}/moved/limited.json` } }), {
+      redoc,
+    });
+
+    expect(Object.values(bundled.components?.schemas ?? {})).toContainEqual({ type: "string", minLength: "two" });
   });
 
   it("documents whose queries end in the same text after a slash are named after their own paths", async () => {

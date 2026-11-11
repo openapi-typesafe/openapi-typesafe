@@ -183,9 +183,9 @@ openapi-typesafe-fetch ships the common serialization methods out-of-the-box:
 
 | Option          |       Type        | Description                                                                                                                                                    |
 | :-------------- | :---------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`; each one left out takes the client's value, else its default. `explode` defaults to `true` for `form` only, as in OpenAPI, so `{ style: "pipeDelimited" }` sends `id=3\|4\|5`. |
-| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`; each one left out takes the client's value, else its default. |
-| `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding of values (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`. |
+| `array`         | SerializerOptions | Set `style` and `explode` for arrays ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "form", explode: true }`; each one left out takes the client's value, else its default (`undefined` counts as left out). `explode` defaults to `true` for `form` only, as in OpenAPI, so `{ style: "pipeDelimited" }` sends `id=3\|4\|5`. |
+| `object`        | SerializerOptions | Set `style` and `explode` for objects ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `{ style: "deepObject", explode: true }`; each one left out takes the client's value, else its default (`undefined` counts as left out). |
+| `allowReserved` |     `boolean`     | Set to `true` to skip URL encoding of values (may break the request) ([docs](https://swagger.io/docs/specification/serialization/#query-parameters)). Default: `false`; on a request, left out or `undefined` takes the client's value. |
 
 ```ts
 const client = createClient<paths>({
@@ -437,6 +437,9 @@ openapi-typesafe-fetch supports path serialization as [outlined in the 3.1 spec]
 | `/users/{;id}`    | matrix               | `/users/;id=5`     | `/users/;id=3,4,5`       | `/users/;id=role,admin,firstName,Alex`               |
 | `/users/{;id*}`   | matrix (exploded)    | `/users/;id=5`     | `/users/;id=3;id=4;id=5` | `/users/;role=admin;firstName=Alex`                  |
 
+A nested object or array in a path parameter (`[[1]]`, `{ a: { b: 1 } }`) has no standard encoding
+and throws an error that names `pathSerializer()`: write one to send such values.
+
 ## Middleware
 
 Middleware is an object with `onRequest()`, `onResponse()` and `onError()` callbacks that can observe and modify requests, responses and errors.
@@ -550,6 +553,14 @@ like the rest of the API.
 | `randomID()` | Returns a new ID, unique within the process: the `id` that middleware callbacks get. The name is openapi-fetch's; the ID comes from a counter, not from `Math.random()`. |
 | `ClientPathsWithMethod<Client, Method>`, `MethodResponse<Client, Method, Path>` | Types: the paths of a client that have a method, and the `data` type of one call. |
 | The helper types (`PathsWithMethod`, `FilterKeys`, `SuccessResponse`, …) | Declared by the client in its `openapi-typesafe-fetch/helpers` entry; import them from `openapi-typesafe-helpers`, which re-exports them. The main entry does not export them, as openapi-fetch's does not. The names of both packages are one declaration, so they mix, also in generic code. Types inferred from the client name them through `openapi-typesafe-fetch/helpers`, so a library built with `declaration: true` under pnpm or Yarn PnP gets declarations that name a package it depends on. A library under Yarn PnP that depends only on `openapi-typesafe-helpers` and exports an inferred type that prints a helper type gets `import("openapi-typesafe-fetch/helpers")`, which its users cannot resolve (TS2307): add `openapi-typesafe-fetch` to its dependencies, or annotate the type. |
+
+`SuccessResponse<Responses, Media>` and `ErrorResponse<Responses, Media>` give the bodies of the
+success or error responses in the media types `Media` (any media type by default).
+`SuccessResponseJSON<Operation>` and `ErrorResponseJSON<Operation>` take the JSON media types
+(`${string}/json`), and so does a client made with `` createClient<paths, `${string}/json`>() ``
+for its `data` and `error`. A response without one of those media types adds no body: with a
+`text/html` 500 and an `application/json` 404, the error is the 404 body only, and a success that
+is only `text/plain` is `never` (with `parseAs: "text"` the data is a `string`, as for any client).
 
 `defaultBodySerializer` returns by the body type:
 

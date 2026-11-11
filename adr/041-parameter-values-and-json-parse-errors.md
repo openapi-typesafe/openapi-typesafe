@@ -251,3 +251,29 @@ With the platform body classes of ADR-030 the bundle grows from 10,524 to 10,742
 (size-limit, minified; about 4.2 kB gzipped). The budget rises from 10.6 kB to 10.8 kB, and the
 docs state about 10.7 kB minified and 4 kB gzipped. Correctness ranks above size
 (CODING_PRINCIPLES §1), as in the amendments above.
+
+## Amendment (2026-11-11): the nested value error names the hook, and `undefined` options
+
+The recheck of the rc.6 fixes found two more cases.
+
+1. A nested object or array in a path parameter failed with the query message, which tells the
+   user to write a `querySerializer()`; the path's hook is `pathSerializer()`. Each location now
+   has its own message on the shared start `NESTED_VALUE_ERROR`: the query names
+   `querySerializer()`, the path `pathSerializer()`, and a header names no hook, since headers
+   have none. The path and headers check an array or object for nested members before they
+   serialize it, so the check inside the shared serializers stays the query's.
+2. A request's query option set to `undefined` (`{ array: { explode: opts.explode } }` from a
+   wrapper) replaced the client's value, since a spread copies `undefined`. An option that is
+   `undefined` now counts as left out, at the top level (`allowReserved`) and in `array` and
+   `object`, as the docs say.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Check the members before the path and header serializers (chosen) | One message per location; the public serializers keep their contract | A second walk over the members of an array or object |
+| Pass the message into `encodeValue` and the serializers | One walk | A new parameter through public functions that users call |
+| Catch and rethrow the query error in the path serializer | No new check | Matches on a message text to tell errors apart |
+
+The two checks and messages take the bundle from about 10.95 kB to 11.22 kB (size-limit,
+minified). The budget rises from 11 kB to 11.3 kB; the docs keep "about 11 kB minified". The
+smaller choices are listed above and are worse. Correctness ranks above size
+(CODING_PRINCIPLES §1), as in the amendments above.

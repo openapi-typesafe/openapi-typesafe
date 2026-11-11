@@ -44,13 +44,13 @@
   "size-limit": [
     {
       "path": "packages/openapi-typesafe-fetch/dist/index.mjs",
-      "limit": "11 kB",
+      "limit": "11.3 kB",
       "brotli": false
     },
     {
       "path": "packages/openapi-typesafe-react-query/dist/index.mjs",
       "ignore": ["@tanstack/react-query", "openapi-typesafe-fetch", "react"],
-      "limit": "3.4 kB",
+      "limit": "3.9 kB",
       "brotli": false
     }
   ]

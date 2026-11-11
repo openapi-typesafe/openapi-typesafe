@@ -3,6 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { RefAccess } from "../application/ports/schema-loader.js";
 import { hasUrlScheme } from "../domain/location-text.js";
 import type { GeneratorOptions } from "../types.js";
+import { isLocalFileUrl, NO_LOCAL_PATH_KIND } from "./local-file-url.js";
 import { kindOf, optionInvalid } from "./option-errors.js";
 
 /**
@@ -38,14 +39,24 @@ function localRootUrlOf(value: string, cwd: URL): URL | undefined {
   return pathToFileURL(path.resolve(fileURLToPath(cwd), value));
 }
 
-/** The local root as a `file:` URL; the option is set, so it is not undefined. */
+/** What the local root is instead of a local directory, for the error. */
+function localRootKindOf(root: unknown): string {
+  if (root === undefined) {
+    return "a string that is no valid URL";
+  }
+  return root instanceof URL && root.protocol === FILE_PROTOCOL ? NO_LOCAL_PATH_KIND : kindOf(root);
+}
+
+/**
+ * The local root as a `file:` URL that names a local path; the option is set, so it is not
+ * undefined. A `file:` URL with a host failed only once a local `$ref` was loaded.
+ */
 function localRootOf(value: unknown, cwd: URL): URL {
   const root = typeof value === "string" ? localRootUrlOf(value, cwd) : value;
-  if (root instanceof URL && root.protocol === FILE_PROTOCOL) {
+  if (root instanceof URL && isLocalFileUrl(root)) {
     return root;
   }
-  const got = root === undefined ? "a string that is no valid URL" : kindOf(root);
-  throw optionInvalid("localRefRoot", LOCAL_ROOT_EXPECTED, got);
+  throw optionInvalid("localRefRoot", LOCAL_ROOT_EXPECTED, localRootKindOf(root));
 }
 
 function remoteHostsOf(value: unknown): readonly string[] {

@@ -5,7 +5,7 @@ import {
   BaseResolver,
   type Document,
   type Config as RedoclyConfig,
-  Source,
+  type Source,
   YamlParseError,
 } from "@redocly/openapi-core";
 import type { RefAccess } from "../../application/ports/schema-loader.js";
@@ -143,10 +143,15 @@ export class RefAccessResolver extends BaseResolver {
    * `https://` as URLs: it read `HTTP://host/x.yaml` as a file path, and its "not found" message
    * showed the user info and the query of the URL, which no longer looked like one. The scheme
    * is written in lowercase first, so the `$ref` loads as the URL it is, within the same limits.
+   *
+   * A redirected document keeps the URL it was requested by as its name, as in `redocly lint`,
+   * whose lint ignore file lists its problems by that URL. Its relative `$ref`s resolve against
+   * the URL it came from in the end (RFC 3986, section 5.1.3).
    */
   override resolveExternalRef(base: string | null, ref: string): string {
     const normalized = ref.replace(REMOTE_SCHEME_RE, (scheme) => scheme.toLowerCase());
-    return super.resolveExternalRef(base, normalized);
+    const retrievedFrom = base === null ? null : this.#limits.redirects.finalUrlOf(base);
+    return super.resolveExternalRef(retrievedFrom, normalized);
   }
 
   override resolveDocument(
@@ -210,7 +215,7 @@ export class RefAccessResolver extends BaseResolver {
       throw refusal;
     }
     try {
-      return this.#atFinalUrl(await super.loadExternalRef(absoluteRef));
+      return await super.loadExternalRef(absoluteRef);
     } catch (error) {
       // A refused redirect throws inside the fetch, and Redocly wraps it in a ResolveError.
       const cause = (error as { originalError?: unknown }).originalError;
@@ -219,17 +224,6 @@ export class RefAccessResolver extends BaseResolver {
       }
       throw error;
     }
-  }
-
-  /**
-   * A redirected document is named by the URL it came from, so its relative `$ref`s, its
-   * component names and its problems use that URL. Redocly still finds it by the requested one.
-   */
-  #atFinalUrl(source: Source): Source {
-    const finalUrl = this.#limits.redirects.finalUrlOf(source.absoluteRef);
-    return finalUrl === source.absoluteRef
-      ? source
-      : new Source(finalUrl, source.body, source.mimeType);
   }
 
   #accessRefusal(absoluteRef: string): Promise<OpenAPITypesafeError | undefined> {

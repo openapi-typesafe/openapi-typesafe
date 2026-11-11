@@ -133,6 +133,43 @@ describe("runCli: an output that is no local file", () => {
     ]);
   });
 
+  it("runCli with -o and a schema file: URL that names no local path leaves the schema to the generator", async () => {
+    const cli = createFakeCli();
+    const schema = "file://server/share/%2F/a.yaml";
+
+    const exitCode = await runCli([schema, "-o", "out.ts"], cli.deps);
+
+    expect(exitCode).toBe(0);
+    expect(cli.generator.calls.map(({ source }) => String(source))).toEqual([schema]);
+  });
+
+  it("runCli with an x-openapi-ts.output that names no local path fails that API only", async () => {
+    const cli = cliWithApis({
+      typo: { root: "typo.yaml", "x-openapi-ts": { output: "file://server/share/%2F/typo.ts" } },
+      good: { root: "good.yaml", "x-openapi-ts": { output: "good.ts" } },
+    });
+
+    const exitCode = await runCli([], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")).toEqual([
+      "API typo: The output file://server/share/%2F/typo.ts names no file on this computer. Use a file path " +
+        "instead. (CLI_OUTPUT_INVALID)",
+    ]);
+    expect([...cli.files.files.keys()]).toEqual([fakePath("/work/api/good.ts")]);
+  });
+
+  it("runCli with a root that names no local path generates the other APIs", async () => {
+    const cli = cliWithApis({
+      typo: { root: "file://server/share/%2F/typo.yaml", "x-openapi-ts": { output: "typo.ts" } },
+      good: { root: "good.yaml", "x-openapi-ts": { output: "good.ts" } },
+    });
+
+    await runCli([], cli.deps);
+
+    expect(cli.files.files.has(fakePath("/work/api/good.ts"))).toBe(true);
+  });
+
   it("runCli with a non-file x-openapi-ts.output fails that API only", async () => {
     const cli = cliWithApis({
       remote: { root: "remote.yaml", "x-openapi-ts": { output: "https://example.invalid/out.ts" } },

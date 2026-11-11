@@ -109,23 +109,69 @@ export function rejectNegatedValueFlags(flags: readonly WrittenFlag[]): void {
   }
 }
 
-/** The bare names of the unknown flags in a written long flag or a group of short flags. */
-function unknownNamesOf({ name }: WrittenFlag): string[] {
-  if (name.startsWith(LONG_PREFIX)) {
-    return KNOWN_LONG_FLAG_NAMES.has(canonicalFlagName(name))
-      ? []
-      : [name.slice(LONG_PREFIX.length)];
-  }
+/**
+ * Whether a long flag is one this CLI reads, in a spelling yargs-parser reads as that flag: the
+ * kebab-case or camelCase name, with or without `--no-`. Any other spelling is unknown
+ * (`--Enum`, `--root_types`, `--enum-Values`), as the help text names no such flag.
+ */
+function isKnownLongFlag(name: string): boolean {
+  const bare = name.startsWith(NEGATION_PREFIX)
+    ? name.slice(NEGATION_PREFIX.length)
+    : name.slice(LONG_PREFIX.length);
+  return KNOWN_LONG_FLAG_NAMES.has(`${LONG_PREFIX}${bare}`);
+}
+
+function isUnknownLongFlag(name: string): boolean {
+  return name.startsWith(LONG_PREFIX) && !isKnownLongFlag(name);
+}
+
+/** The unknown letters of a group of short flags (`-xt` has the unknown `x`). */
+function unknownLettersOf(name: string): string[] {
   return [...name.slice(SHORT_PREFIX.length)].filter(
     (letter) => LETTER.test(letter) && !KNOWN_SHORT_FLAGS.has(letter),
   );
 }
 
+/** The unknown flags of the written flags. */
+export interface UnknownFlags {
+  /** Each unknown flag once, as written (`--Enum`, `-x`), for the notice. */
+  readonly asWritten: readonly string[];
+  /**
+   * The unknown letters of short groups, to declare as boolean: yargs-parser gives an undeclared
+   * flag the next argument as its value, so `-x api.yaml` took the schema path and read stdin.
+   */
+  readonly shortLetters: readonly string[];
+}
+
+export function unknownFlagsOf(flags: readonly WrittenFlag[]): UnknownFlags {
+  const asWritten = new Set<string>();
+  const shortLetters = new Set<string>();
+  for (const { name } of flags) {
+    if (name.startsWith(LONG_PREFIX)) {
+      if (isUnknownLongFlag(name)) {
+        asWritten.add(name);
+      }
+      continue;
+    }
+    for (const letter of unknownLettersOf(name)) {
+      asWritten.add(`${SHORT_PREFIX}${letter}`);
+      shortLetters.add(letter);
+    }
+  }
+  return { asWritten: [...asWritten], shortLetters: [...shortLetters] };
+}
+
 /**
- * The unknown flags, to declare as boolean: yargs-parser gives an undeclared flag the next
- * argument as its value, so `--alphabetise api.yaml` took the schema path and read stdin. An
- * unknown flag is ignored, so it takes a value only as `--flag=value`.
+ * The arguments without the unknown long flags before `--`, which the CLI ignores. yargs-parser
+ * gives an undeclared flag the next argument (`--Enum api.yaml` read stdin), and it turns a
+ * declared `--enum-Values` into `--enumValues` too, which set the option. Removed, an unknown
+ * flag takes no value and changes nothing; `--flag=value` goes with its value.
  */
-export function unknownFlagNames(flags: readonly WrittenFlag[]): string[] {
-  return [...new Set(flags.flatMap(unknownNamesOf))];
+export function withoutUnknownLongFlags(argv: readonly string[]): string[] {
+  const end = argv.indexOf(OPTIONS_END);
+  const flagCount = end === -1 ? argv.length : end;
+  return argv.filter((arg, index) => {
+    const name = arg.split(VALUE_SEPARATOR, 1)[0] ?? arg;
+    return index >= flagCount || !isUnknownLongFlag(name);
+  });
 }

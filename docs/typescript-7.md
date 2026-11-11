@@ -105,8 +105,8 @@ types. TypeScript 7 has no node types, so there they are `any`: a callback that 
 `@typescript/typescript6` compiles, and the IR callbacks (`irCallbacks: true`) keep their full
 types.
 
-Four errors remain with `skipLibCheck: false`, on every TypeScript version, and come from the
-schema loader, `@redocly/openapi-core` 1.34. Its declarations import `json-schema-to-ts` and
+Four errors remain with `skipLibCheck: false`, on every TypeScript version and module setting
+(also `module: commonjs` without `esModuleInterop`), and come from the schema loader, `@redocly/openapi-core` 1.34. Its declarations import `json-schema-to-ts` and
 `js-yaml`, whose types it does not install:
 
 ```txt
