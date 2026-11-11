@@ -50,7 +50,7 @@ apis:
 
 :::
 
-Under `x-openapi-ts`, an API can set `output`, every generator flag of the [flags table](#flags) (the boolean flags except `--check`, `--help` and `--version`; `lint: false` is `--no-lint`), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint. A setting of the wrong type (`root-types: "true"`, an `output` that is no text, an `x-openapi-ts` that is no map) and an API without a `root` fail that API with `CLI_CONFIG_INVALID`, which names the API and the key; an unknown name in an API's `fix` fails it with `OPTION_FIX_UNKNOWN`, which names the API. An error while an API is loaded or generated starts with `API <name>:` too, and keeps its code and exit code; so does every warning, problem and debug line of its generation. A notice about flags follows the CLI flags together with the API's settings and names the API (`API a: --root-types-keep-casing has no effect without --root-types flag`). An invalid `--local-ref-root` fails the run once, before any API. The other APIs are still generated. `content-never` is accepted and has no effect, as on the command line.
+Under `x-openapi-ts`, an API can set `output`, every generator flag of the [flags table](#flags) (the boolean flags except `--check`, `--help` and `--version`; `lint: false` is `--no-lint`), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint. A setting of the wrong type (`root-types: "true"`, an `output` that is no text, an `x-openapi-ts` that is no map) and an API without a `root` fail that API with `CLI_CONFIG_INVALID`, which names the API and the key; an unknown name in an API's `fix` fails it with `OPTION_FIX_UNKNOWN`, which names the API. An error while an API is loaded, generated, written or checked (an output error such as `OUTPUT_STALE` or `CLI_OUTPUT_DUPLICATE` too) starts with `API <name>:` too, and keeps its code and exit code; so does every warning, problem and debug line of its generation. A notice about flags follows the CLI flags together with the API's settings and names the API (`API a: --root-types-keep-casing has no effect without --root-types flag`). An invalid `--local-ref-root` fails the run once, before any API. The other APIs are still generated. `content-never` is accepted and has no effect, as on the command line.
 
 ::: tip
 
@@ -66,7 +66,7 @@ npx openapi-typesafe
 
 ::: warning
 
-Globs are not supported (openapi-typescript 7 removed them): a schema path with a `*` fails with `CLI_GLOB_UNSUPPORTED`. A URL (`…/openapi?fields=*`) and an existing file whose name has a `*` are read as they are. List the schemas under `apis` in `redocly.yaml` instead, which also gives each schema its own output location and settings.
+Globs are not supported (openapi-typescript 7 removed them): a schema path with a `*` fails with `CLI_GLOB_UNSUPPORTED`. The CLI takes one schema argument, so a glob that the shell expands into several paths (an unquoted `g/*.yaml`) fails with `CLI_INPUT_EXTRA`; openapi-typescript generated the first one and passed. A URL (`…/openapi?fields=*`) and an existing file whose name has a `*` are read as they are. List the schemas under `apis` in `redocly.yaml` instead, which also gives each schema its own output location and settings.
 
 :::
 
@@ -159,8 +159,13 @@ The following flags are supported in the CLI:
 A flag that takes one value (`--output`, `--redocly`, `--local-ref-root`) or a boolean flag may be
 given more than once: the last one wins. `--fix` and `--remote-ref-hosts` add up instead. A flag
 may also be written as `--flag=value`; a boolean flag takes `=true` or `=false` there
-(`--enum=false`), and any other value fails with `CLI_FLAG_INVALID`. A removed flag fails with
-`CLI_FLAG_REMOVED` in either form (`--redoc=redocly.yaml`).
+(`--enum=false`), and any other value fails with `CLI_FLAG_INVALID`. A flag that takes a value has
+no `--no-` form: `--no-output`, `--no-fix` and the like fail with `CLI_FLAG_INVALID` (openapi-typescript
+used the text `false` as the value, so `--no-output` wrote a file named `false`). A removed flag fails with
+`CLI_FLAG_REMOVED` in either form (`--redoc=redocly.yaml`). An unknown flag gets a notice and takes no
+value, unless it is written as `--flag=value`: `--alphabetise api.yaml` reads `api.yaml` as the schema
+(openapi-typescript took the path as the value of the unknown flag and read stdin). The schema argument
+is read as written, also when it looks like a number (`1.10`, `0x10`).
 
 ## Warnings
 
@@ -191,7 +196,7 @@ The CLI exits with a code that tells what went wrong. On failure it prints one l
 | :--: | :------ | :---------- |
 | `0` | Success; with `--check`, the output is up to date | |
 | `1` | `--check`: the output differs from the generated types | `OUTPUT_STALE` |
-| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_FLAG_INVALID`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `CLI_OUTPUT_IS_INPUT`, `CLI_OUTPUT_DUPLICATE`, `CLI_OUTPUT_INVALID`, `CLI_LOCATION_INVALID`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN`, `OPTION_INVALID` |
+| `2` | A flag, the Redocly config or the environment is wrong | `CLI_FLAG_REMOVED`, `CLI_FLAG_INVALID`, `CLI_GLOB_UNSUPPORTED`, `CLI_CONFIG_NOT_FOUND`, `CLI_CONFIG_INVALID`, `CLI_CONFIG_OUTPUT_MISSING`, `CLI_CHECK_OUTPUT_MISSING`, `CLI_INPUT_MISSING`, `CLI_INPUT_EXTRA`, `CLI_OUTPUT_IS_INPUT`, `CLI_OUTPUT_DUPLICATE`, `CLI_OUTPUT_INVALID`, `CLI_LOCATION_INVALID`, `TYPESCRIPT_NOT_FOUND`, `CALLBACK_RESULT_UNREADABLE`, `OPTION_FIX_UNKNOWN`, `OPTION_INVALID` |
 | `3` | The OpenAPI document cannot be read, is invalid, or cannot be converted | `SCHEMA_SOURCE_EMPTY`, `SCHEMA_SOURCE_INVALID`, `SCHEMA_LOAD_FAILED`, `SCHEMA_PARSE_FAILED`, `SCHEMA_VERSION_UNSUPPORTED`, `SCHEMA_INVALID`, `SCHEMA_REF_INVALID`, `SCHEMA_REF_FORBIDDEN`, `SCHEMA_OBJECT_INVALID`, `SCHEMA_PROPERTY_INVALID`, `SCHEMA_TOO_DEEP`, `SCHEMA_KEY_UNSUPPORTED`, `ENUM_NAME_EMPTY` |
 | `4` | An output file cannot be read (`--check`) or written | `OUTPUT_READ_FAILED`, `OUTPUT_WRITE_FAILED` |
 | `70` | An unexpected error, which is a bug: the CLI prints the stack trace. Please report it | |

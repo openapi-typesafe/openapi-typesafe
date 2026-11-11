@@ -211,3 +211,67 @@ describe("parseCliArguments flags with values", () => {
     expect([args.output, args.redocly]).toEqual(["b.ts", "y.yaml"]);
   });
 });
+
+describe("parseCliArguments negated value flags", () => {
+  it.each([
+    "--no-output",
+    "--no-o",
+    "--no-redocly",
+    "--no-c",
+    "--no-fix",
+    "--no-local-ref-root",
+    "--no-remoteRefHosts",
+  ])("parseCliArguments with %s fails with CLI_FLAG_INVALID", (flag) => {
+    expect(() => parseCliArguments(["schema.yaml", flag])).toThrow(
+      expect.objectContaining({ code: "CLI_FLAG_INVALID", message: expect.stringContaining(flag) }),
+    );
+  });
+
+  it("parseCliArguments with a negated boolean flag and its alias keeps working", () => {
+    expect(parseCliArguments(["--no-export-type"]).generatorFlags).toEqual({ exportType: false });
+  });
+});
+
+describe("parseCliArguments schema arguments", () => {
+  it("parseCliArguments with two schema arguments fails with CLI_INPUT_EXTRA naming both", () => {
+    expect(() => parseCliArguments(["g/a.yaml", "g/b.yaml", "-o", "out.ts"])).toThrow(
+      expect.objectContaining({
+        code: "CLI_INPUT_EXTRA",
+        message: expect.stringContaining("2 were given: g/a.yaml g/b.yaml"),
+      }),
+    );
+  });
+
+  it("parseCliArguments with one schema argument after -- reads it", () => {
+    expect(parseCliArguments(["-o", "out.ts", "--", "a.yaml"]).input).toBe("a.yaml");
+  });
+
+  it.each(["1.10", "0x10", "1e3", "007"])("parseCliArguments keeps the schema argument %s as written", (input) => {
+    expect(parseCliArguments([input]).input).toBe(input);
+  });
+});
+
+describe("parseCliArguments unknown flags before the schema", () => {
+  it.each([
+    [["--alphabetise", "specs/api.yaml", "-o", "out.ts"], "--alphabetise"],
+    [["--no-thing", "specs/api.yaml"], "--no-thing"],
+    [["--fooBar", "specs/api.yaml"], "--foo-bar"],
+    [["-x", "specs/api.yaml"], "-x"],
+    [["-xt", "specs/api.yaml"], "-x"],
+  ])("parseCliArguments with %j keeps the schema and names the unknown flag", (argv, flag) => {
+    const args = parseCliArguments(argv);
+
+    expect(args.input).toBe("specs/api.yaml");
+    expect(args.unknownFlags).toEqual([flag]);
+  });
+
+  it("parseCliArguments with a short group of a known and an unknown flag reads the known one", () => {
+    expect(parseCliArguments(["-xt", "a.yaml"]).generatorFlags).toEqual({ exportType: true });
+  });
+
+  it("parseCliArguments with an unknown flag and = keeps the value out of the input", () => {
+    const args = parseCliArguments(["--bogus=api.yaml", "b.yaml"]);
+
+    expect([args.input, args.unknownFlags]).toEqual(["b.yaml", ["--bogus"]]);
+  });
+});
