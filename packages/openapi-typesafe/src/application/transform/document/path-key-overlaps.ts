@@ -43,7 +43,7 @@ function withPart(shapes: readonly TemplateShape[], part: PathKeyPart): Template
  * The key types TypeScript makes of a key: a literal is one text; a template is one shape, or a
  * union of shapes when `${boolean}` is in it (`` `/a/${boolean}` `` is `"/a/true" | "/a/false"`).
  */
-function shapesOf(key: PathKey): readonly TemplateShape[] {
+export function keyShapesOf(key: PathKey): readonly TemplateShape[] {
   if (key.kind === "literal") {
     return [{ texts: [key.url], types: [] }];
   }
@@ -77,7 +77,7 @@ const EVERY_COVER_REJECTED: CoverRejection = () => true;
  * checks anything against it; a repeated one is still reported (TS2374, see `repeatedTemplates`).
  */
 function checkedShapes(key: PathKey): readonly TemplateShape[] {
-  const shapes = shapesOf(key);
+  const shapes = keyShapesOf(key);
   return key.kind === "literal" ? shapes : shapes.filter((shape) => shape.types.length > 0);
 }
 
@@ -90,7 +90,7 @@ interface CheckedKey {
 }
 
 function checkedKeyOf(key: PathKey): CheckedKey {
-  const template = key.kind === "template" ? JSON.stringify(shapesOf(key)) : null;
+  const template = key.kind === "template" ? JSON.stringify(keyShapesOf(key)) : null;
   return { key, shapes: checkedShapes(key), template };
 }
 

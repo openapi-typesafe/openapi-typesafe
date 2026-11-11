@@ -9,6 +9,7 @@ import {
   propertyKey,
   unionType,
 } from "./evaluation.js";
+import type { RawKeyTypes } from "./signature-index.js";
 import { indexType } from "./type-indexing.js";
 import { extracted, markerObject, omitted } from "./type-rules.js";
 
@@ -26,11 +27,16 @@ const DEEP_HELPER = "FlattenedDeepRequired";
 /** How many members distributing an intersection may give; more is opaque. */
 const MAX_DISTRIBUTED = 64;
 
+/** Without templated paths no raw key has known key types. */
+const NO_RAW_KEY_TYPES: RawKeyTypes = new Map();
+
 export class TypeEvaluator {
   private readonly declared = new Map<string, IrType>();
   private expansions = 0;
+  readonly keyTypes: RawKeyTypes;
 
-  constructor(declarations: readonly IrDeclaration[]) {
+  constructor(declarations: readonly IrDeclaration[], keyTypes = NO_RAW_KEY_TYPES) {
+    this.keyTypes = keyTypes;
     for (const declaration of declarations) {
       if (declaration.kind === "interface") {
         this.declared.set(declaration.name, { kind: "object", members: declaration.members });

@@ -83,3 +83,22 @@ as upstream writes it, and where it compiles it must not change (ADR-021).
   never retyped (safe: they stay as they are).
 - The parity property tests skip outputs with a retyped array (`hasRetypedEnumValues`), the same
   way as the other default fixes of output that did not compile.
+
+## Amendment (2026-11-11): index signatures by key type
+
+With `--path-params-as-types` a templated path is an index signature of `paths`
+(`` [path: `/orders/${number}`] ``). The evaluator read any key that names no property through the
+first index signature of the object, so `FlattenedDeepRequired<paths>["/orders/{id}"]` read
+`/users/${number}` when that path came first, and an enum of `/orders/{id}` counted as excluded:
+a false `ENUM_VALUES_EXCLUDED` warning, and an array typed by its values, depending on the order
+of the paths. The check also ran before the location was rewritten to the template, so it did not
+check the type the output has.
+
+1. **The check reads the output.** The `paths["<url>"]` references are indexed by their template
+   before the check, so it evaluates exactly the location the array is written with.
+2. **A key reads the signatures TypeScript picks** (`findApplicableIndexInfo`): a literal key its
+   property; otherwise every signature whose key type admits the key, intersected; a `string`
+   signature only where no other one applies; `T[A | B]` is `T[A] | T[B]`. The key types of the
+   raw template keys the generator writes come from the document's paths (`templateKeyTypes`), and
+   the match is the checker's own (`isAssignableToTemplate`). A signature or raw key of a type the
+   generator does not write for a path is opaque, so it never counts as an error.

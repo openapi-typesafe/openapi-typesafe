@@ -1,4 +1,5 @@
 import type { IrMember, IrType } from "../../../domain/ir/nodes.js";
+import type { TemplateShape } from "../document/template-key-match.js";
 import {
   type Evaluated,
   type Evaluation,
@@ -7,9 +8,9 @@ import {
   MISSING,
   NEVER,
   OPAQUE,
-  propertyKey,
   unionType,
 } from "./evaluation.js";
+import { memberRead, type RawKeyTypes } from "./signature-index.js";
 import { declaredFirst, isNeverIntersection, type TypeExpansion } from "./type-rules.js";
 
 /**
@@ -21,6 +22,8 @@ import { declaredFirst, isNeverIntersection, type TypeExpansion } from "./type-r
 export interface IndexedTypes extends TypeExpansion {
   expand(value: Evaluated): Evaluation;
   index(value: Evaluated, index: IrType): Evaluation;
+  /** The key types of the raw keys of templated paths (`signature-index.ts`). */
+  readonly keyTypes: RawKeyTypes;
 }
 
 /** `value[index]` for a string literal, `string` or `number` index. */
@@ -55,18 +58,42 @@ function memberType(
   members: readonly IrMember[],
   index: IrType,
 ): Evaluation {
+  const keys = keyShapesOf(types, index);
+  if (keys === UNKNOWN_KEY) {
+    return OPAQUE;
+  }
+  if (keys === null) {
+    // `string` or `number`: the generator writes only `[key: string]`, which both read.
+    const signature = members.find((member) => member.kind === "indexSignature");
+    return signature === undefined ? OPAQUE : flattened(types, owner, signature.type);
+  }
+  // `T[A | B]` is `T[A] | T[B]`; a key that reads several signatures reads their intersection.
+  const found = keys.map((key): Evaluation => {
+    const read = memberRead(members, key, types.keyTypes);
+    return read.kind === "types" ? flattened(types, owner, intersectionType(read.types)) : read;
+  });
+  const failed = found.find((member) => member.kind !== "type");
+  if (failed !== undefined) {
+    return found.find((member) => member.kind === "missing") ?? failed;
+  }
+  return { ...owner, type: unionType((found as Evaluated[]).map((member) => member.type)) };
+}
+
+const UNKNOWN_KEY = "unknown";
+
+/**
+ * The key types of an index: one text for a literal, the key types of the raw key the generator
+ * writes for a templated path, null for `string` and `number`, and `unknown` for another raw key.
+ */
+function keyShapesOf(
+  types: IndexedTypes,
+  index: IrType,
+): readonly TemplateShape[] | null | typeof UNKNOWN_KEY {
   const key = indexKey(index);
-  const property = members.find(
-    (member) => member.kind === "property" && key !== null && propertyKey(member.name) === key,
-  );
-  if (property !== undefined) {
-    return flattened(types, owner, property.type);
+  if (key !== null) {
+    return [{ texts: [key], types: [] }];
   }
-  const signature = members.find((member) => member.kind === "indexSignature");
-  if (signature !== undefined) {
-    return flattened(types, owner, signature.type);
-  }
-  return key === null || isObjectBuiltIn(key) ? OPAQUE : MISSING;
+  return index.kind === "raw" ? (types.keyTypes.get(index.text) ?? UNKNOWN_KEY) : null;
 }
 
 function partsIndex(
@@ -138,10 +165,6 @@ function indexKey(index: IrType): string | null {
 function isNumberIndex(index: IrType): boolean {
   const key = indexKey(index);
   return (index.kind === "keyword" && index.keyword === "number") || /^\d+$/.test(key ?? "");
-}
-
-function isObjectBuiltIn(key: string): boolean {
-  return key in {};
 }
 
 /** A key of a primitive or an array: a built-in member is opaque, any other key is missing. */
