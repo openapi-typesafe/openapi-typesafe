@@ -215,3 +215,37 @@ TypeScript, as before.
    (`CLI_OUTPUT_*`, `OUTPUT_*`) is an `ApiFailure`, so the line starts with `API <name>:`, and
    `CLI_OUTPUT_DUPLICATE` no longer names the API a second time inside the message.
 
+
+## Amendment (2026-11-11): redirected names, `file:` URLs, flag spellings and the `c` type
+
+1. **A redirected document keeps its requested URL as its name.** The lint ignore file lists
+   problems by the URL `redocly lint` requested, so naming the document by its final URL dropped
+   its entries. Only the base of its relative `$ref`s is the final URL (RFC 3986, section
+   5.1.3); ADR-033 is amended. Accepting both URLs as keys was rejected: Redocly never writes the
+   final one, and two names for one document would also show two names in its problems.
+2. **A `file:` URL that names no local path is checked once.** `file://specs/a.yaml` (a host,
+   where `file:specs/a.yaml` was meant) and `file:///a%2Fb` name no path, and Node.js throws on
+   every file operation with them. One check (`isLocalFileUrl`) serves the `cwd` and
+   `localRefRoot` options, `--local-ref-root`, `local-ref-root` in `redocly.yaml` and the output
+   guard. A local root that names no path fails before loading (`OPTION_INVALID`,
+   `CLI_FLAG_INVALID`, `CLI_CONFIG_INVALID`), as `cwd` does. The output guard compares only
+   locations that are local files: a schema or `root` with such a URL is no file an output can
+   be, and fails where it is read (`SCHEMA_LOAD_FAILED`, as in the Node API), for its API alone;
+   such an output fails with `CLI_OUTPUT_INVALID`, also for its API alone. Failing the schema
+   with a CLI code was rejected: the Node API reports the same source as `SCHEMA_LOAD_FAILED`.
+3. **A long flag is known only in the spellings yargs-parser is told about.** Those are the
+   kebab-case and camelCase names, with or without `--no-`. Kebab-casing the written name first
+   made `--Enum`, `--root_types` and `--enum-Values` known, so they took the schema as a value,
+   and the notice named another flag. Declaring such a flag boolean is not enough: yargs-parser
+   also turns `--enum-Values` into `enumValues`, which set the option. Unknown long flags are
+   therefore removed from the arguments before parsing (with their `=value`), and the notice
+   names each unknown flag as written. Unknown letters of a short group are still declared
+   boolean, since a group can hold known letters too.
+4. **The exported `c` is typed by a namespace import.** Its declaration was
+   `import colors from 'ansi-colors'`, a default import of a CommonJS module, which is TS1259
+   with `module: commonjs` and no `esModuleInterop` (a fifth error beyond the documented four).
+   The type is now the return type of `create()` from a namespace import, which is the instance
+   type in every module setting. The namespace type itself was rejected: in an ES module the
+   namespace of a CommonJS module has a `default` member that the instance has not. The
+   declaration test checks such a project with TypeScript 5.4; TypeScript 6 deprecates and 7
+   removes its node10 resolution.
