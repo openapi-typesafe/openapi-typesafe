@@ -57,12 +57,14 @@ function plainHeaders(headers: object): HeadersRecord {
 }
 
 /**
- * A Blob or a File in a key: its type, size, and the name and date of a File. Its bytes cannot be
- * read while the component renders, so two Blobs of the same type and size share an entry.
+ * A Blob or a File in a key: its type, size, and the name of a File. Its bytes cannot be read while
+ * the component renders, so two Blobs of the same type and size share an entry. The date of a File
+ * is left out: `FormData.append` and `new File` set it to the current time, so a body built while
+ * rendering got a new key, and a new request, on every render.
  */
 function blobKey(blob: Blob): object {
-  const { name, lastModified } = blob as Partial<File>;
-  return { type: blob.type, size: blob.size, name, lastModified };
+  const { name } = blob as Partial<File>;
+  return { type: blob.type, size: blob.size, name };
 }
 
 /** The fields of a FormData in a key, in order, with a file as `blobKey`. */
@@ -85,33 +87,48 @@ function bodyBytes(body: object): Uint8Array | null {
   return isClass(body, "ArrayBuffer") ? new Uint8Array(body as ArrayBuffer) : null;
 }
 
+/** A body that JSON cannot hold, as a value TanStack Query hashes, and the name of its kind. */
+interface RawBodyKey {
+  readonly body: unknown;
+  readonly bodyType: "URLSearchParams" | "FormData" | "Blob" | "bytes";
+}
+
 /**
- * A request body as a value TanStack Query hashes by its content. A URLSearchParams is its text,
- * a FormData its fields, a Blob `blobKey` and bytes their numbers, each under its kind, so it
- * differs from a JSON body with the same content. Other values stay as they are.
+ * A body that JSON cannot hold by its content: a URLSearchParams as its text, a FormData as its
+ * fields, a Blob as `blobKey` and bytes as their numbers. Undefined for any other body.
  */
-function bodyKey(body: unknown): unknown {
+function rawBodyKey(body: unknown): RawBodyKey | undefined {
   if (typeof body !== "object" || body === null) {
-    return body;
+    return undefined;
   }
   if (isClass(body, "URLSearchParams")) {
-    return { URLSearchParams: String(body) };
+    return { body: String(body), bodyType: "URLSearchParams" };
   }
   if (isClass(body, "FormData")) {
-    return { FormData: formDataKey(body as FormData) };
+    return { body: formDataKey(body as FormData), bodyType: "FormData" };
   }
   if (isClass(body, "Blob") || isClass(body, "File")) {
-    return { Blob: blobKey(body as Blob) };
+    return { body: blobKey(body as Blob), bodyType: "Blob" };
   }
   const bytes = bodyBytes(body);
-  return bytes === null ? body : { bytes: Array.from(bytes) };
+  return bytes === null ? undefined : { body: Array.from(bytes), bodyType: "bytes" };
+}
+
+/**
+ * The init fields that are not `undefined`. A field set to `undefined` (`headers: token ? … :
+ * undefined`) sends the same request as none, so it must not make the init count as not empty.
+ */
+function definedFields(fields: object): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
 }
 
 /**
  * The init of a query key: the request init with its headers and body as plain values, and the
  * client's key scope, or its base URL when the init has none. The `signal` is left out: TanStack
- * Query gives each request its own. Undefined when nothing is left, so a call without an init and
- * one with an empty init have the key `[method, path]`.
+ * Query gives each request its own. A body that JSON cannot hold also names its kind in
+ * `bodyType`, a field no init has, so it never shares a key with a JSON body of the same content.
+ * Undefined when nothing is left, so a call without an init and one with an empty init, or one
+ * of only `undefined` fields, have the key `[method, path]`.
  */
 export function queryKeyInit(init: unknown, client: KeyClient): object | undefined {
   const { signal: _signal, ...rest } = (init ?? {}) as {
@@ -120,12 +137,13 @@ export function queryKeyInit(init: unknown, client: KeyClient): object | undefin
     baseUrl?: unknown;
     body?: unknown;
   };
-  const keyInit: Record<string, unknown> = { ...rest };
+  const keyInit = definedFields(rest);
   if (typeof rest.headers === "object" && rest.headers !== null) {
     keyInit.headers = plainHeaders(rest.headers);
   }
-  if ("body" in rest) {
-    keyInit.body = bodyKey(rest.body);
+  const rawBody = rawBodyKey(rest.body);
+  if (rawBody !== undefined) {
+    Object.assign(keyInit, rawBody);
   }
   if (client.keyScope !== undefined) {
     keyInit.keyScope = client.keyScope;

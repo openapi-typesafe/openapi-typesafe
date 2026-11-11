@@ -13,7 +13,9 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   object or as pairs are written as a plain object of the names and values they send; a body
   that JSON cannot hold is written by its content (a `URLSearchParams` as its text, a `FormData`
   as its fields, bytes as numbers) or, for a `Blob` or a `File`, by its type, size and name, so
-  two Blobs that differ only in their bytes share an entry; and the client's
+  two Blobs that differ only in their bytes share an entry, with its kind in `bodyType` beside it
+  (`"URLSearchParams"`, `"FormData"`, `"Blob"` or `"bytes"`); fields set to `undefined` are left
+  out; and the client's
   [`keyScope`](./index.md#query-keys-and-server-rendering), or else its `baseUrl` when the init
   has none, is added. When nothing is left, as without an init, the key is `[method, path]`. Read
   the key from `queryOptions(...).queryKey` for `setQueryData` and `getQueryData` rather than
