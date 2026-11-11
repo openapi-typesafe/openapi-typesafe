@@ -1,6 +1,6 @@
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import { generatedMember } from "./generated-shape.js";
-import { childLocation, followLocated, isJsonObject } from "./located-node.js";
+import { childLocation, followLocated, isJsonObject, type JsonObject } from "./located-node.js";
 import {
   type ContentForm,
   headerParameterContentForm,
@@ -14,6 +14,7 @@ import {
   type RefPointer,
   startsInSchema,
 } from "./pointer-walk.js";
+import { isMarkedProperty } from "./property-shape.js";
 
 /**
  * Whether the type the original wrote for a `$ref` (`refType`: every segment indexed by name,
@@ -31,6 +32,8 @@ interface OriginalWalk {
   /** The node's JSON Pointer (`LocatedNode`). */
   readonly location: string | undefined;
   readonly isSchema: boolean;
+  /** At a `$defs` map: the next segment names a definition. */
+  readonly names?: JsonObject | undefined;
 }
 
 interface WalkInput {
@@ -39,11 +42,40 @@ interface WalkInput {
   readonly refs: RefResolver;
 }
 
+/**
+ * A definition of a `$defs` map. The original reads the map through `NonNullable`, so only a
+ * missing name fails, or a `$Read<T>` / `$Write<T>` definition with more segments after it.
+ */
+function definitionStep(
+  walk: OriginalWalk & { names: JsonObject },
+  segment: string,
+  isLast: boolean,
+  input: WalkInput,
+) {
+  if (!Object.hasOwn(walk.names, segment)) {
+    return { step: "fails" as Step, walk };
+  }
+  const node = walk.names[segment];
+  const isMarked = isMarkedProperty(node, input.options, input.refs);
+  const location = childLocation(walk.location, segment);
+  return {
+    step: (isMarked && !isLast ? "fails" : "continue") as Step,
+    walk: { ...walk, node, location, names: undefined },
+  };
+}
+
 function schemaStep(walk: OriginalWalk, segment: string, isLast: boolean, input: WalkInput) {
+  if (walk.names !== undefined) {
+    return definitionStep({ ...walk, names: walk.names }, segment, isLast, input);
+  }
   if (segment === "properties") {
     return { step: "continue" as Step, walk };
   }
   const member = generatedMember(walk, segment, input.options, input.refs);
+  if (member.kind === "names") {
+    const { names, location } = member;
+    return { step: "continue" as Step, walk: { ...walk, location, names } };
+  }
   // Such an index signature compiles, but its type is not the target's alone.
   if (member.kind === "missing" || (member.kind === "index" && member.isOtherType)) {
     return { step: "fails" as Step, walk };

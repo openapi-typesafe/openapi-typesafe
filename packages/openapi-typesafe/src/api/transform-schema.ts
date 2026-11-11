@@ -7,6 +7,7 @@ import {
 } from "../application/transform/document/enum-names-given-back.js";
 import { operationKeysWritten } from "../application/transform/document/operation-keys-written.js";
 import {
+  templateKeyTypes,
   unmatchedTemplateKeys,
   withTemplatePathRefs,
 } from "../application/transform/document/path-template-refs.js";
@@ -20,6 +21,7 @@ import {
   SharedEnumNameRecorder,
   type SharedEnumNames,
 } from "../application/transform/footer/shared-enum-names.js";
+import type { RawKeyTypes } from "../application/transform/footer/signature-index.js";
 import type { IrDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
 import { schemaDialectOf } from "../domain/openapi/schema-dialect.js";
@@ -130,16 +132,19 @@ function withEnumNamesGivenBack(
 /**
  * With `--enum-values`, arrays whose location type does not hold their values are typed by their
  * values (ADR-027); a location that excludes listed values is a contradiction of the document.
+ * The arrays are checked as they are written, so their locations index templated paths by the
+ * template already (`withTemplateRefs`).
  */
 function enumValuesChecked(
   body: readonly IrDeclaration[],
   footer: FooterEntry[],
   ctx: RunContext,
+  keyTypes: RawKeyTypes,
 ): FooterEntry[] {
   if (!ctx.enumValues) {
     return footer;
   }
-  const checked = checkedEnumValues(footer, body, isIrDeclaration);
+  const checked = checkedEnumValues(footer, body, isIrDeclaration, keyTypes);
   for (const retype of checked.retyped) {
     if (retype.kind === "excluded") {
       ctx.logger?.warn(excludedValuesWarning(retype.name, retype.excluded));
@@ -148,18 +153,14 @@ function enumValuesChecked(
   return checked.footer;
 }
 
-/** The document with its references into templated paths indexed by their templates. */
+/** The footer with its references into templated paths indexed by their templates. */
 function withTemplateRefs(
-  { body, footer, closing }: TransformedDocument,
+  footer: readonly FooterEntry[],
   keys: ReadonlyMap<string, string>,
-): TransformedDocument {
-  return {
-    body: withTemplatePathRefs(body, keys),
-    footer: footer.map((entry) =>
-      isIrDeclaration(entry) ? (withTemplatePathRefs([entry], keys)[0] ?? entry) : entry,
-    ),
-    closing: withTemplatePathRefs(closing, keys),
-  };
+): FooterEntry[] {
+  return footer.map((entry) =>
+    isIrDeclaration(entry) ? (withTemplatePathRefs([entry], keys)[0] ?? entry) : entry,
+  );
 }
 
 /** @internal Root types, the footer, then the closing declarations (Phase 5, step 6). */
@@ -172,14 +173,21 @@ export function transformDocument(schema: OpenAPI3, ctx: RunContext): Transforme
   };
   withRunFooter(document, ctx, names);
   const context = createTransformContext(ctx);
+  const templates = unmatchedTemplateKeys(document.paths, context);
   // documentBody registers the enums in the footer, so the footer is read after it.
-  const rawBody = documentBody(document, context, () => ctx.injectFooter.filter(isIrDeclaration));
-  const rawFooter = enumValuesChecked(rawBody, [...ctx.injectFooter], ctx);
+  const body = documentBody(document, context, () => ctx.injectFooter.filter(isIrDeclaration));
+  const rawBody = withTemplatePathRefs(body, templates);
+  const keyTypes = templateKeyTypes(document.paths, context);
+  const templated = withTemplateRefs(ctx.injectFooter, templates);
+  const rawFooter = enumValuesChecked(rawBody, templated, ctx, keyTypes);
+  // The closing declarations (an empty `operations`, the paths enum) index no path.
   const rawClosing = documentClosing(document, context, rawFooter.some(isOperations));
-  const parts = { body: rawBody, footer: rawFooter, closing: rawClosing };
-  const { body, footer, closing } = withEnumNamesGivenBack(parts, names);
-  const named = { body: renameTakenAliases(body, footer.filter(isIrDeclaration), closing), footer };
-  return withTemplateRefs({ ...named, closing }, unmatchedTemplateKeys(document.paths, context));
+  const parts = withEnumNamesGivenBack(
+    { body: rawBody, footer: rawFooter, closing: rawClosing },
+    names,
+  );
+  const footer = parts.footer.filter(isIrDeclaration);
+  return { ...parts, body: renameTakenAliases(parts.body, footer, parts.closing) };
 }
 
 /**

@@ -86,18 +86,20 @@ const enumValueText = fc.constantFrom("x", "Line one\nline two", "a */ b", "ün�
 const enumDescriptionText = fc.constantFrom("", "x", "a */ b", "ünïcode");
 export const key = fc.constantFrom(...KEYS);
 
-/** Whether an object has properties and a typed `additionalProperties` or `patternProperties`. */
-function hasTypedIndexNextToProperties(object: {
+/**
+ * Whether an object's index signature holds more than one schema's type: properties next to a
+ * typed `additionalProperties` or `patternProperties`, or both of these.
+ */
+function hasWidenedIndexSignature(object: {
   readonly properties?: object;
   readonly additionalProperties?: unknown;
   readonly patternProperties?: object;
 }): boolean {
   const hasKeys = (value: unknown) =>
     typeof value === "object" && value !== null && Object.keys(value).length > 0;
-  return (
-    hasKeys(object.properties) &&
-    (hasKeys(object.additionalProperties) || hasKeys(object.patternProperties))
-  );
+  const hasValue = hasKeys(object.additionalProperties);
+  const hasPatterns = hasKeys(object.patternProperties);
+  return (hasKeys(object.properties) && (hasValue || hasPatterns)) || (hasValue && hasPatterns);
 }
 
 export function schemaArbitrary(): fc.Arbitrary<unknown> {
@@ -181,7 +183,9 @@ export function schemaArbitrary(): fc.Arbitrary<unknown> {
     // upstream #2664), and the fix makes it optional on purpose (test/api/defs-types.test.ts).
     // Nor properties next to a typed index signature: its type now takes the property types it
     // does not admit (test/transform/schema-object/object.test.ts, test/api/index-signature-
-    // property-types.test.ts).
+    // property-types.test.ts). Nor `additionalProperties` next to `patternProperties`: the
+    // `--enum-values` array of such a value is typed by its values, since `[string]` reads the
+    // union (test/api/enum-values-record-values.test.ts).
     object: fc
       .record(
         {
@@ -197,7 +201,7 @@ export function schemaArbitrary(): fc.Arbitrary<unknown> {
         },
         { requiredKeys: [] },
       )
-      .filter((object) => !hasTypedIndexNextToProperties(object)),
+      .filter((object) => !hasWidenedIndexSignature(object)),
     composition: fc.record(
       {
         type: fc.constantFrom("object", "string", undefined),
