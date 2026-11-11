@@ -67,6 +67,35 @@ describe("migrateProject and local packages", () => {
     expect(files["src/deep/a.ts"]).toBe(IMPORT);
   });
 
+  it("migrateProject renames the imports of a package that declares the npm package under a root with a local one", async () => {
+    const project = {
+      "package.json": manifestOf({ "openapi-fetch": "file:./vendor/openapi-fetch" }),
+      "packages/lib/package.json": manifestOf({ "openapi-fetch": "^0.13.0" }),
+      "packages/lib/src/a.ts": IMPORT,
+      "packages/other/package.json": manifestOf({ zod: "^4.0.0" }),
+      "packages/other/src/a.ts": IMPORT,
+    };
+
+    const { files } = await migrated(project);
+
+    expect(files["packages/lib/src/a.ts"]).toBe(
+      'import createClient from "openapi-typesafe-fetch";\n',
+    );
+    expect(files["packages/other/src/a.ts"]).toBe(IMPORT);
+  });
+
+  it("migrateProject keeps the imports of a local package under a root with the npm package", async () => {
+    const project = {
+      "package.json": manifestOf({ "openapi-fetch": "^0.13.0" }),
+      "packages/lib/package.json": manifestOf({ "openapi-fetch": "workspace:*" }),
+      "packages/lib/src/a.ts": IMPORT,
+    };
+
+    const { files } = await migrated(project);
+
+    expect(files["packages/lib/src/a.ts"]).toBe(IMPORT);
+  });
+
   it("migrateProject renames a package whose local spec belongs to another original name", async () => {
     const project = {
       "package.json": manifestOf({

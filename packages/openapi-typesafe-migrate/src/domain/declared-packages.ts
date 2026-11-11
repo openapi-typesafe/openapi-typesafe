@@ -69,15 +69,25 @@ export function localPackageNames(manifest: TreeMap): string[] {
 }
 
 /**
- * The original packages that a manifest at or above `filePath` declares as local packages. Node
- * finds such a package before any other of its name, so the imports of the file mean it.
+ * The original packages that the imports of the file at `filePath` resolve to a local package.
+ * Node looks in the `node_modules` folder of the file's folder first, then in each folder above,
+ * so the nearest manifest that declares a name decides: a local package of a workspace root does
+ * not count for a package that declares the npm package itself. A manifest that could not be
+ * read tells nothing and is passed over.
  */
 export function localPackagesFor(
   manifests: readonly ManifestDeclarations[],
   filePath: string,
 ): ReadonlySet<string> {
-  const containing = manifests.filter(({ path }) => isAtOrAbove(path, filePath));
-  return new Set(containing.flatMap(({ localPackages }) => [...(localPackages ?? [])]));
+  const nearestFirst = manifests
+    .filter(({ path }) => isAtOrAbove(path, filePath))
+    .sort((left, right) => directoryOf(right.path).length - directoryOf(left.path).length);
+  const candidates = new Set(
+    nearestFirst.flatMap(({ localPackages }) => [...(localPackages ?? [])]),
+  );
+  const isLocal = (name: string): boolean =>
+    nearestFirst.find(({ names }) => names?.has(name) === true)?.localPackages?.has(name) === true;
+  return new Set([...candidates].filter(isLocal));
 }
 
 /**
