@@ -80,11 +80,11 @@ export const BOOLEAN_FLAG_NAMES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The flags that take a value, as `canonicalFlagName` gives them: kebab-case, and the short
- * aliases with `--`, since yargs-parser reads `--no-o` as the negation of `-o`.
+ * The flags that take a value, in the spellings yargs-parser reads as them, with `--`: kebab-case,
+ * camelCase, and the short aliases, since yargs-parser reads `--no-o` as the negation of `-o`.
  */
 export const VALUE_FLAG_NAMES: ReadonlySet<string> = new Set([
-  ...CAMEL_CASE_STRING_FLAGS.map((flag) => `${LONG_PREFIX}${kebabCase(flag)}`),
+  ...STRING_FLAGS.map((flag) => `${LONG_PREFIX}${flag}`),
   ...aliasesOf(CAMEL_CASE_STRING_FLAGS).map((alias) => `${SHORT_PREFIX}${alias}`),
 ]);
 

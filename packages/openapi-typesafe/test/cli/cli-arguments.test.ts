@@ -184,6 +184,8 @@ describe("parseCliArguments flags with values", () => {
     "--immutableTypes",
     "--supportArrayLength=true",
     "--no-immutable-types",
+    "--no-immutableTypes",
+    "--no-redoc",
   ])("parseCliArguments fails with CLI_FLAG_REMOVED for %s", (flag) => {
     expect(() => parseCliArguments([flag])).toThrow(expect.objectContaining({ code: "CLI_FLAG_REMOVED" }));
   });
@@ -232,6 +234,7 @@ describe("parseCliArguments negated value flags", () => {
     "--no-c",
     "--no-fix",
     "--no-local-ref-root",
+    "--no-localRefRoot",
     "--no-remoteRefHosts",
   ])("parseCliArguments with %s fails with CLI_FLAG_INVALID", (flag) => {
     expect(() => parseCliArguments(["schema.yaml", flag])).toThrow(
@@ -277,7 +280,21 @@ describe("parseCliArguments unknown flags before the schema", () => {
     expect(args.unknownFlags).toEqual([flag]);
   });
 
-  it.each(["--Enum", "--ALPHABETIZE", "--root_types", "--enum-Values", "--no-Enum", "--Output"])(
+  it.each([
+    "--Enum",
+    "--ALPHABETIZE",
+    "--root_types",
+    "--enum-Values",
+    "--no-Enum",
+    "--Output",
+    "--no-Output",
+    "--no-OUTPUT",
+    "--no-Local_Ref_Root",
+    "--no-O",
+    "--Immutable-Types",
+    "--IMMUTABLE_TYPES",
+    "--no-Redoc",
+  ])(
     "parseCliArguments with %s, a known flag in another spelling, keeps the schema and names the flag as written",
     (flag) => {
       const args = parseCliArguments([flag, "specs/api.yaml", "-o", "out.ts"]);

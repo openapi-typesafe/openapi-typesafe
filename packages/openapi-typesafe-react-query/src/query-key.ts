@@ -7,7 +7,17 @@
  * plain values, and the base URL the request goes to or the client's key scope, so the key names
  * what was fetched.
  */
-import { bodyKey, isPlainRecord } from "./body-key.js";
+import { bodyKey } from "./body-key.js";
+
+/**
+ * Whether a value is an object literal, such as the `params` of an init and its records, which
+ * the fetch client reads by their members.
+ */
+function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  const prototype: unknown =
+    typeof value === "object" && value !== null ? Object.getPrototypeOf(value) : undefined;
+  return prototype === Object.prototype || prototype === null;
+}
 
 /** Headers as a plain object, which TanStack Query hashes by its names and values. */
 type HeadersRecord = Readonly<Record<string, unknown>>;
