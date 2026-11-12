@@ -264,29 +264,7 @@ export type SuccessResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = T extends unknown ? GetResponseContent<T, Media, SuccessStatus<T>> : never;
-
-/**
- * The bodies of the responses `ResponseCode` in the media types `Media`. A response with a
- * `content` map but no media type in `Media` adds nothing: it gave its whole map, so the error of
- * `ErrorResponseJSON` for a `text/html` 500 was `{ "text/html": string }`, a body no response has.
- * A response without `content` keeps its `content` type (`undefined` for `content?: never`).
- */
-export type GetResponseContent<
-  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
-  T extends Record<string | number, any>,
-  Media extends MediaType = MediaType,
-  ResponseCode extends keyof T = keyof T,
-> = ResponseCode extends keyof T
-  ? {
-      // biome-ignore lint/suspicious/noExplicitAny: unknown rejects interface content types
-      [K in ResponseCode]: T[K]["content"] extends Record<string, any>
-        ? FilterKeys<T[K]["content"], Media>
-        : K extends keyof T
-          ? T[K]["content"]
-          : never;
-    }[ResponseCode]
-  : never;
+> = T extends unknown ? ResponseBodies<T, Media, SuccessStatus<T>, never> : never;
 
 /**
  * Return all 1XX, 3XX, 4XX, 5XX and `default` responses from a Response Object Map; for a union
@@ -296,20 +274,94 @@ export type ErrorResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = T extends unknown ? GetResponseContent<T, Media, ErrorStatusKey<T>> : never;
+> = T extends unknown ? ResponseBodies<T, Media, ErrorStatusKey<T>, string> : never;
+
+/**
+ * The bodies of the responses `ResponseCode` as the client returns them (`ResponseBody`): each
+ * success one as `SuccessResponse` gives it, each other one as `ErrorResponse` does.
+ */
+export type GetResponseContent<
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
+  T extends Record<string | number, any>,
+  Media extends MediaType = MediaType,
+  ResponseCode extends keyof T = keyof T,
+> =
+  ResponseCode extends SuccessStatus<T>
+    ? ResponseBodies<T, Media, ResponseCode, never>
+    : ResponseBodies<T, Media, ResponseCode, string>;
+
+/**
+ * The bodies of the responses `ResponseCode`. A response without `content` keeps its `content`
+ * type (`undefined` for `content?: never`). `OtherBody` is the class's body that is not JSON: it
+ * is passed in, not read from the status, so the result for a generic map stays a type that
+ * TypeScript relates to the one of another client (ADR-030).
+ */
+type ResponseBodies<
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
+  T extends Record<string | number, any>,
+  Media,
+  ResponseCode extends keyof T,
+  OtherBody,
+> = ResponseCode extends keyof T
+  ? {
+      // biome-ignore lint/suspicious/noExplicitAny: unknown rejects interface content types
+      [K in ResponseCode]: T[K]["content"] extends Record<string, any>
+        ? ResponseBody<T[K]["content"], Media, OtherBody>
+        : K extends keyof T
+          ? T[K]["content"]
+          : never;
+    }[ResponseCode]
+  : never;
+
+/**
+ * The body of one response with the content map `Content`, as the client returns it. `Media`
+ * picks among its media types, as an `Accept` header does, and each one picked gives its schema.
+ * A response with none of them can still arrive (a proxy's HTML 500), so it gives what the client
+ * makes of its bodies: a JSON body gives its schema, any other body `OtherBody`, a `string` for an
+ * error (the client returns the text) and nothing for a success (the default `parseAs: "json"`
+ * rejects it; another `parseAs` types the data by itself). `Media` is read only in
+ * `keyof Content & Media`, as in `FilterKeys`, so TypeScript still relates the results of two
+ * clients with different `Media` in generic code (ADR-030).
+ */
+type ResponseBody<Content, Media, OtherBody> =
+  | ([keyof Content & Media] extends [never] ? JSONLike<Content> : Content[keyof Content & Media])
+  | ([keyof Content & Media] extends [never]
+      ? false extends { [Key in keyof Content]: IsJSONMediaType<Key> }[keyof Content]
+        ? OtherBody
+        : never
+      : never);
+
+/**
+ * The media types that the client parses as JSON, as a content map writes them: `json` or a
+ * `+json` suffix (RFC 6838), with or without parameters, as the client's `JSON_MEDIA_TYPE_RE`, and
+ * the wildcards for any type and any `application` type, which may hold JSON. Not `x-ndjson` or
+ * `json-seq`, whose bodies are lines of JSON.
+ */
+type JSONMediaType =
+  | `${string}/${"" | `${string}+`}json`
+  | `${string}/${"" | `${string}+`}json${";" | " " | "\t"}${string}`
+  | "*/*"
+  | "application/*";
+
+/** Whether the client parses a body of the media type `Key` as JSON, in any letter case. */
+type IsJSONMediaType<Key> = Key extends string
+  ? Lowercase<Key> extends JSONMediaType
+    ? true
+    : false
+  : false;
 
 /** Return first JSON-like 2XX response from a path + HTTP method */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type SuccessResponseJSON<PathMethod extends Record<string | number, any>> = SuccessResponse<
   ResponseObjectMap<PathMethod>,
-  `${string}/json`
+  JSONMediaType
 >;
 
 /** Return JSON-like 1XX, 3XX, 4XX, 5XX and `default` responses from a path + HTTP method */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type ErrorResponseJSON<PathMethod extends Record<string | number, any>> = ErrorResponse<
   ResponseObjectMap<PathMethod>,
-  `${string}/json`
+  JSONMediaType
 >;
 
 /** Return JSON-like request body from a path + HTTP method */
@@ -338,10 +390,13 @@ export type GetValueWithDefault<Obj, KeyPattern, Default> = Obj extends unknown
  */
 export type MediaType = `${string}/${string}`;
 /**
- * Return any media type containing "json" (works for "application/json",
- * "application/vnd.api+json", "application/vnd.oai.openapi+json")
+ * The values of the JSON media types of a content map, as the client parses them: `json` or a
+ * `+json` suffix, with or without parameters ("application/json", "application/vnd.api+json",
+ * "application/json; charset=utf-8").
  */
-export type JSONLike<T> = FilterKeys<T, `${string}/json`>;
+export type JSONLike<T> = {
+  [Key in keyof T]: IsJSONMediaType<Key> extends true ? T[Key] : never;
+}[keyof T];
 
 /**
  * Filter objects that have required keys
