@@ -10,7 +10,7 @@ bug. This page shows how that is checked and what the last run found. CI runs th
 every night; this page is refreshed from that run for every release candidate and every major or
 minor release, and the GitHub release notes link it.
 
-**Result (openapi-typesafe 1.0.0-rc.7, commit `7b4ba3f783c1`, run of 2026-11-11):** 50,960 cases,
+**Result (openapi-typesafe 1.0.0-rc.8, commit `25523e2b6f75`, run of 2026-11-12):** 50,960 cases,
 0 unexpected differences. 99.88% of the outputs are the same byte for byte, and 100% have the same
 types.
 
