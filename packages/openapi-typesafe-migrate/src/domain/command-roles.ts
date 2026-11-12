@@ -33,6 +33,13 @@ function skipAssignments(words: ShellCommand, start: number): number {
   return index;
 }
 
+/** The Windows file suffixes of a program that npm, pnpm and yarn install (`npx.cmd`). */
+const WINDOWS_PROGRAM_SUFFIX_RE = /\.(?:cmd|exe|ps1)$/i;
+
+/** The name of a word of a launcher or installer: `npx` of `npx.cmd`. */
+const entryWord = (word: ShellWord | undefined): string | undefined =>
+  word?.value.replace(WINDOWS_PROGRAM_SUFFIX_RE, "");
+
 /** The first entry whose words start the command at `index`. */
 function matchingPrefix<T extends { readonly words: readonly string[] }>(
   entries: readonly T[],
@@ -40,7 +47,7 @@ function matchingPrefix<T extends { readonly words: readonly string[] }>(
   index: number,
 ): T | undefined {
   return entries.find((entry) =>
-    entry.words.every((name, offset) => words[index + offset]?.value === name),
+    entry.words.every((name, offset) => entryWord(words[index + offset]) === name),
   );
 }
 
