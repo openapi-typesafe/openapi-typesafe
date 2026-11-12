@@ -543,6 +543,13 @@ language.
   are reported where it is passed (`{{flags}}`). A path that names the `node_modules` folder of an
   old package is reported like a path to a file in it. A launcher or installer written with a
   Windows suffix (`npx.cmd`, `pnpm.exe`, `npm.ps1`) is read as itself.
+- **The objects that options spread are read.** `openapiTS(s, { ...base })` without an own
+  `transform` was not reported, though `base` could hold callbacks. A spread object that the file
+  writes (inline, or a `const` with an object literal, also through other spreads) is read like the
+  options: its legacy callbacks are reported, and a `transform` in it is kept with the reason
+  `in-spread`, since rewriting it would change an object other code may reach and need
+  `irCallbacks` on the options that spread it. Any other spread is reported as
+  `options-spread-not-inspected`.
 
 ## Review trigger
 

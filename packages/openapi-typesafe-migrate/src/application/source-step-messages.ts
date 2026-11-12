@@ -23,10 +23,16 @@ const KEEP_REASONS: Readonly<Record<TransformKeepReason, string>> = {
   "declared-type":
     "its declared type (a `const` type, JSDoc `@type` or `@returns`) names a type the tool " +
     "cannot change to type text",
+  "in-spread":
+    "it is in an object that the options take keys from (`...base`), and the tool rewrites " +
+    "only a transform written in the options",
 };
 const OPTIONS_NOTE =
   "the options of openapiTS() are not an object written in this file: check them for " +
   `transform, postTransform and transformProperty. See ${IR_CALLBACKS_GUIDE}`;
+const SPREAD_NOTE =
+  "the options of openapiTS() take keys from an object the tool cannot read (`...base`): " +
+  `check it for transform, postTransform and transformProperty. See ${IR_CALLBACKS_GUIDE}`;
 const DEEP_IMPORT_NOTE = "imports a file inside the package; check that it exists";
 const OLD_FILE_NOTE = "imports a file from node_modules of";
 const OLD_FILE_FIX_NOTE = "which is no longer installed: import from";
@@ -55,6 +61,7 @@ export type SourceStep = Extract<
   {
     kind:
       | "options-not-inspected"
+      | "options-spread-not-inspected"
       | "deep-import"
       | "old-package-import"
       | "dynamic-specifier"
@@ -67,6 +74,7 @@ export type SourceStep = Extract<
 
 const SOURCE_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "options-not-inspected",
+  "options-spread-not-inspected",
   "deep-import",
   "old-package-import",
   "dynamic-specifier",
@@ -83,6 +91,8 @@ export function sourceStepMessage(step: SourceStep): string {
   switch (step.kind) {
     case "options-not-inspected":
       return `line ${step.line}: ${OPTIONS_NOTE}`;
+    case "options-spread-not-inspected":
+      return `line ${step.line}: ${SPREAD_NOTE}`;
     case "deep-import":
       return `line ${step.line}: "${step.specifier}" ${DEEP_IMPORT_NOTE}`;
     case "old-package-import":

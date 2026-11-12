@@ -198,7 +198,11 @@ The report lists each of these with the file and line:
   `OpenAPITSOptions`, such as `Partial<OpenAPITSOptions>`, or when the type declared for them
   names another type, such as a local alias), and `postTransform` /
   `transformProperty`, also in options that other code shares, and `openapiTS()` calls whose options it cannot see (a
-  parameter, a function call): they keep working with a deprecation warning; see
+  parameter, a function call). Options that take keys from another object (`{ ...base }`) are read
+  through it when the file writes it (`...{ … }` or a `const` with an object), so its callbacks are
+  reported and a `transform` in it is kept; a spread of anything else (an import, a call, a `let`)
+  is reported, since it may bring callbacks the tool cannot see. They keep working with a
+  deprecation warning; see
   [IR callbacks](https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks).
 
 Then install, regenerate your types and commit them once (the file header names openapi-typesafe

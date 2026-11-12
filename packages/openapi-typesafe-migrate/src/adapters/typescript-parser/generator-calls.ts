@@ -65,7 +65,7 @@ function jsDocTypes(node: ts.Node): ts.TypeNode[] {
  * The expression without parentheses, `as` and `satisfies`, which do not change the value, and
  * the types of the `as` and `satisfies` around it.
  */
-function unwrapped(
+export function unwrapped(
   expression: ts.Expression,
   types: ts.TypeNode[] = [],
 ): { value: ts.Expression; types: ts.TypeNode[] } {
