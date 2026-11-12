@@ -131,6 +131,16 @@ function withoutAssignmentHeads(text: string, assignments: readonly Assignment[]
   return parts.join("");
 }
 
+/** A make expansion at the start of a word: a reference or a function call such as `$(or …)`. */
+const COMPUTED_RE = /^\$[({]/;
+
+/**
+ * Whether a word starts with a make expansion that is not a plain reference (`$(or $(GEN),npx
+ * openapi-typescript)`, `$(shell …)`): make computes the program, which may be the generator.
+ */
+const isComputed = (written: string): boolean =>
+  COMPUTED_RE.test(written.trim().replace(RECIPE_PREFIX_RE, ""));
+
 /** The variable that `written` references as a whole, after the recipe prefix, or undefined. */
 function referencedName(written: string): string | undefined {
   const match = VARIABLE_REFERENCE_RE.exec(written.trim().replace(RECIPE_PREFIX_RE, ""));
@@ -183,12 +193,14 @@ function makefileVariables(
   const nameAt = (word: ShellWord) => referencedName(text.slice(word.start, word.end));
   const variables: FileVariables = {
     programAt: (program) => {
+      const written = text.slice(program.start, program.end);
       const name = nameAt(program);
+      if (name === undefined) {
+        return isComputed(written) ? { written, program: "generator-or-other" } : undefined;
+      }
       // A variable that no line of the file sets comes from an included file, the command line
       // or the environment, so it may run the generator.
-      const found = name === undefined ? undefined : (programs.get(name) ?? "generator-or-other");
-      const written = text.slice(program.start, program.end);
-      return found === undefined ? undefined : { written, program: found };
+      return { written, program: programs.get(name) ?? "generator-or-other" };
     },
     referenceAt: (word) => {
       const name = nameAt(word);

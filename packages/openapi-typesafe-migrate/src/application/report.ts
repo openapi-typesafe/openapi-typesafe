@@ -14,8 +14,7 @@ import {
   WRITTEN_NOTE,
   writeFailedMessage,
 } from "./messages.js";
-import type { FileReport, ProjectMigration, WriteOutcome } from "./migrate-project.js";
-import type { SkippedFile } from "./ports.js";
+import type { FileReport, ProjectMigration, SkippedPath, WriteOutcome } from "./migrate-project.js";
 
 function changesSection(reports: readonly FileReport[]): string[] {
   const changed = reports.filter((report) => report.changes.length > 0);
@@ -39,7 +38,7 @@ function manualStepsSection(reports: readonly FileReport[]): string[] {
   return steps.length === 0 ? [] : ["Manual steps:", ...steps, ""];
 }
 
-function skippedSection(skipped: readonly SkippedFile[]): string[] {
+function skippedSection(skipped: readonly SkippedPath[]): string[] {
   if (skipped.length === 0) {
     return [];
   }

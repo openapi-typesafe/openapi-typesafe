@@ -170,3 +170,90 @@ describe("TypescriptCallbackRewriter and options with a spread", () => {
     ]);
   });
 });
+
+describe("TypescriptCallbackRewriter and the objects that options spread", () => {
+  const DATE = 'ts.factory.createTypeReferenceNode("Date")';
+
+  it.each([
+    ["an object written in the spread", [`openapiTS(s, { ...{ transform: () => ${DATE} } });`]],
+    [
+      "a const of the file",
+      [
+        "const base = {",
+        `  transform: () => ${DATE},`,
+        "} satisfies object;",
+        "openapiTS(s, { ...(base) });",
+      ],
+    ],
+    [
+      "a const that spreads another",
+      [
+        `const inner = { transform: () => ${DATE} };`,
+        "const base = { ...inner };",
+        "openapiTS(s, { ...base, alphabetize: true });",
+      ],
+    ],
+  ])("rewrite keeps and reports a transform in %s", (_, body) => {
+    const text = lines(IMPORTS, GENERATOR, ...body);
+    const line = text.split("\n").findIndex((row) => row.includes("transform:")) + 1;
+
+    const migration = rewriter.rewrite(text, "gen.ts");
+
+    expect(migration.text).toBe(text);
+    expect(migration.manualSteps).toEqual([
+      { kind: "transform-not-rewritten", line, reason: "in-spread" },
+    ]);
+  });
+
+  it("rewrite reports the callbacks of an object that options spread twice once", () => {
+    const text = lines(
+      IMPORTS,
+      GENERATOR,
+      "const base = { transformProperty: (p) => p };",
+      "openapiTS(s, { ...base, ...base });",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").manualSteps).toEqual([
+      { kind: "legacy-callback", line: 3, callback: "transformProperty" },
+    ]);
+  });
+
+  it("rewrite reports the legacy callbacks of a spread object of shared options", () => {
+    const text = lines(
+      IMPORTS,
+      GENERATOR,
+      "const base = { postTransform: (t) => t };",
+      "const options = { ...base };",
+      "openapiTS(s, options);",
+      "openapiTS(t, options);",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").manualSteps).toEqual([
+      { kind: "legacy-callback", line: 3, callback: "postTransform" },
+    ]);
+  });
+
+  it.each([
+    ["an import", 'import { base } from "./base";', "base"],
+    ["a call", "", "make()"],
+    ["a let", "let base = {};", "base"],
+  ])("rewrite reports a spread of %s, which it cannot read", (_, declaration, spread) => {
+    const text = lines(IMPORTS, GENERATOR, declaration, `openapiTS(s, {`, `  ...${spread},`, "});");
+
+    expect(rewriter.rewrite(text, "gen.ts").manualSteps).toEqual([
+      { kind: "options-spread-not-inspected", line: 5 },
+    ]);
+  });
+
+  it.each([
+    [
+      "irCallbacks in the spread object",
+      "const base = { irCallbacks: true, transform: () => 'Date' };",
+    ],
+    ["no callbacks in the spread object", "const base = { alphabetize: true };"],
+  ])("rewrite reports nothing for %s", (_, declaration) => {
+    const text = lines(IMPORTS, GENERATOR, declaration, "openapiTS(s, { ...base, ...base });");
+
+    expect(rewriter.rewrite(text, "gen.ts").manualSteps).toEqual([]);
+  });
+});

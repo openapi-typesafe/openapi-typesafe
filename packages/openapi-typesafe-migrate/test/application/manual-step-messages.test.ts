@@ -44,6 +44,7 @@ const STEPS: readonly ManualStep[] = [
   },
   { kind: "command-string", line: 8, to: "npx openapi-typesafe a.yaml" },
   { kind: "options-not-inspected", line: 9 },
+  { kind: "options-spread-not-inspected", line: 9 },
   { kind: "deep-import", line: 2, specifier: "b/x" },
   {
     kind: "old-package-import",
@@ -69,6 +70,7 @@ const STEPS: readonly ManualStep[] = [
   { kind: "transform-not-rewritten", line: 4, reason: "unknown-return" },
   { kind: "transform-not-rewritten", line: 4, reason: "typed-options" },
   { kind: "transform-not-rewritten", line: 4, reason: "spread-options" },
+  { kind: "transform-not-rewritten", line: 4, reason: "in-spread" },
   { kind: "legacy-callback", line: 5, callback: "postTransform" },
   {
     kind: "package-not-declared",

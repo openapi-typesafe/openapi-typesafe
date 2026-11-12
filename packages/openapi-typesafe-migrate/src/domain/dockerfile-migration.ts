@@ -1,6 +1,6 @@
 import { type CommandMigration, commandWordFindings, migrateCommand } from "./command-migration.js";
 import { lineLocator, type ManualStep } from "./migration-findings.js";
-import { shellVariables, type VariableDefinition } from "./shell-variables.js";
+import { shellVariables } from "./shell-variables.js";
 import {
   type ShellCommand,
   type ShellWord,
@@ -175,10 +175,11 @@ function escapedScriptSteps(scripts: readonly ShellWord[], lineOf: (offset: numb
   });
 }
 
-/** A variable that `ARG` or `ENV` sets: its name, and its value as commands at their offsets. */
+/** A variable that `ARG` or `ENV` sets: its name, and its value as written at its offset. */
 interface DockerVariable {
   readonly name: string;
-  readonly commands: readonly ShellCommand[];
+  readonly value: string;
+  readonly start: number;
 }
 
 /** The variable of one `NAME=value` word, its quotes taken off, or undefined. */
@@ -191,32 +192,68 @@ function assignedVariable(word: ShellWord): DockerVariable | undefined {
   const isQuoted = raw.length >= 2 && QUOTES.has(raw[0] as string) && raw.at(-1) === raw[0];
   const value = isQuoted ? raw.slice(1, -1) : raw;
   const start = word.start + at + 1 + (isQuoted ? 1 : 0);
-  return { name: word.raw.slice(0, at), commands: shellCommandsAt(value, start) };
+  return { name: word.raw.slice(0, at), value, start };
+}
+
+/** An `ARG` or `ENV` instruction: where it is in the text, and the variables it sets. */
+interface VariableInstruction {
+  readonly start: number;
+  readonly end: number;
+  readonly variables: readonly DockerVariable[];
 }
 
 /**
- * The variables that `ARG NAME=value` and `ENV NAME=value …` set, and `ENV NAME value`, the
- * legacy form that sets one variable to the rest of the line.
+ * The variables of one instruction: `ARG NAME=value`, `ENV NAME=value …`, and `ENV NAME value`,
+ * the legacy form that sets one variable to the rest of the line.
  */
-function dockerVariables(commands: readonly ShellCommand[]): DockerVariable[] {
-  return commands.flatMap(([instruction, first, ...rest]) => {
+function instructionVariables(text: string, words: readonly ShellWord[]): DockerVariable[] {
+  const [instruction, first, ...rest] = words as [ShellWord, ShellWord, ...ShellWord[]];
+  const last = rest.at(-1);
+  if (instruction.value === LEGACY_ENV_INSTRUCTION && !first.raw.includes(ASSIGNMENT)) {
+    const value = last === undefined ? "" : text.slice(rest[0]?.start, last.end);
+    return [{ name: first.value, value, start: rest[0]?.start ?? first.end }];
+  }
+  return [first, ...rest].flatMap((word) => assignedVariable(word) ?? []);
+}
+
+/** The `ARG` and `ENV` instructions among the shell-form commands of a Dockerfile. */
+function variableInstructions(
+  text: string,
+  commands: readonly ShellCommand[],
+): VariableInstruction[] {
+  return commands.flatMap((words): VariableInstruction[] => {
+    const [instruction, first] = words;
     if (instruction === undefined || first === undefined) {
       return [];
     }
     if (!VARIABLE_INSTRUCTIONS.has(instruction.value)) {
       return [];
     }
-    if (instruction.value === LEGACY_ENV_INSTRUCTION && !first.raw.includes(ASSIGNMENT)) {
-      return [{ name: first.value, commands: [rest] }];
-    }
-    return [first, ...rest].flatMap((word) => assignedVariable(word) ?? []);
+    const end = (words.at(-1) as ShellWord).end;
+    return [{ start: instruction.start, end, variables: instructionVariables(text, words) }];
   });
 }
 
-const definitionOf = ({ name, commands }: DockerVariable): VariableDefinition => ({
-  name,
-  value: commands.flatMap((words) => words.map((word) => word.raw)).join(" "),
-});
+/**
+ * The shell-form commands that are not `ARG` or `ENV` instructions, nor read inside one. Docker,
+ * not a shell, reads those: their values are read once, as the commands that `$NAME` runs, so
+ * no word of them (`ENV GEN=${GEN:-npx openapi-typescript}`) is edited twice.
+ */
+function withoutVariableInstructions(
+  commands: readonly ShellCommand[],
+  instructions: readonly VariableInstruction[],
+): ShellCommand[] {
+  const isInInstruction = (words: ShellCommand): boolean => {
+    const start = words[0]?.start ?? -1;
+    return instructions.some(
+      (instruction) => start >= instruction.start && start < instruction.end,
+    );
+  };
+  return commands.filter((words) => !isInInstruction(words));
+}
+
+const valueCommands = ({ value, start }: DockerVariable): ShellCommand[] =>
+  shellCommandsAt(value, start);
 
 /**
  * Migrate the commands of a Dockerfile: exec-form arrays word by word, everything else as shell
@@ -229,11 +266,13 @@ export function migrateDockerfile(text: string, file: string): CommandMigration 
   const forms = execForms(text);
   const exec = execCommands(forms);
   const shellForm = shellCommands(withoutExecForms(text, forms));
+  const instructions = variableInstructions(text, shellForm);
   // A value that runs the generator is migrated where it is set, its flags where it is used.
-  const definitions = dockerVariables(shellForm);
-  const values = definitions.flatMap((variable) => variable.commands);
-  const commands = [...shellForm, ...values, ...exec.commands];
-  const variables = shellVariables(definitions.map(definitionOf));
+  const definitions = instructions.flatMap((instruction) => instruction.variables);
+  const values = definitions.flatMap(valueCommands);
+  const run = withoutVariableInstructions(shellForm, instructions);
+  const commands = [...run, ...values, ...exec.commands];
+  const variables = shellVariables(definitions);
   const { edits, changes, manualSteps } = commandWordFindings(commands, locate, variables);
   const steps = [...manualSteps, ...escapedScriptSteps(exec.escaped, lineOf)];
   return { text: applyTextEdits(text, edits), changes, manualSteps: steps };

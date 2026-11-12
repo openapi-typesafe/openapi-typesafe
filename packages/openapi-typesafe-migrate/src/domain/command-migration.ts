@@ -1,11 +1,13 @@
 import { commandRoles, type PackageWord } from "./command-roles.js";
 import { type FileVariables, NO_VARIABLES, withoutRecipePrefix } from "./file-variables.js";
+import { type InlineCode, inlineCode } from "./inline-code.js";
 import { type Change, lineLocator, type ManualStep } from "./migration-findings.js";
 import { packageReference, unmigratedWordFindings } from "./old-package-words.js";
 import {
   FLAG_RENAMES,
   GENERATOR_COMMAND,
   MIGRATED_GENERATOR_COMMAND,
+  namesOriginalPackage,
   PACKAGE_RENAMES,
 } from "./package-names.js";
 import {
@@ -185,6 +187,16 @@ function commandFindings(
   return [...found, ...unmigratedWordFindings(words, handled, locate)];
 }
 
+/** Inline code (`python3 -c '…'`) that names an old package: code the tool does not read. */
+function inlineCodeFindings({ code, program }: InlineCode, locate: Locate): Finding[] {
+  if (!namesOriginalPackage(code.value)) {
+    return [];
+  }
+  const location = locate(code.start);
+  const manualStep: ManualStep = { kind: "script-not-shell", location, shell: program.value };
+  return [{ offset: code.start, manualStep }];
+}
+
 /** The findings of the packages, the program and its flags in the roles the tool knows. */
 function knownFindings(words: ShellCommand, locate: Locate, variables: FileVariables): Finding[] {
   const roles = commandRoles(words);
@@ -192,6 +204,10 @@ function knownFindings(words: ShellCommand, locate: Locate, variables: FileVaria
   const program = roles.program === undefined ? undefined : (words[roles.program] as ShellWord);
   if (program === undefined) {
     return findings;
+  }
+  const code = inlineCode(words);
+  if (code !== undefined) {
+    return [...findings, ...inlineCodeFindings(code, locate)];
   }
   const found = programFindings(program, locate(program.start));
   findings.push(...found);

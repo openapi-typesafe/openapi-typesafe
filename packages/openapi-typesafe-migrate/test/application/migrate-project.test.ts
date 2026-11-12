@@ -3,6 +3,7 @@ import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js"
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { migrateProject } from "../../src/application/migrate-project.js";
 import type { SkippedFile } from "../../src/application/ports.js";
+import { CrossingStringScanner } from "../fakes/crossing-string-scanner.js";
 import { type FileProblems, InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
@@ -139,6 +140,28 @@ describe("migrateProject", () => {
       level: "warn",
       event: "file_skipped",
       fields: { path: "src/api.ts", reason: { kind: "not-utf-8" } },
+    });
+  });
+
+  it("migrateProject skips a file that a bug would corrupt, reports it and migrates the others", async () => {
+    const dependencies = { ...setUp(), scanner: new CrossingStringScanner() };
+
+    const migration = await migrateProject(dependencies, { version: "1.0.0", isWrite: true });
+
+    const reason = {
+      kind: "migration-bug",
+      message: "source strings overlap at offsets 0-2 and 1-3",
+    };
+    expect(migration.skipped).toEqual([{ path: "src/api.ts", reason }]);
+    expect(dependencies.files.written).toEqual([
+      "package.json",
+      "pnpm-workspace.yaml",
+      "scripts/gen.sh",
+    ]);
+    expect(dependencies.logger.events).toContainEqual({
+      level: "warn",
+      event: "file_skipped",
+      fields: { path: "src/api.ts", reason },
     });
   });
 

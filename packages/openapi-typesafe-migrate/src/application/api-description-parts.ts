@@ -6,7 +6,7 @@ import {
 import type { DocumentRead, TreeNode } from "../domain/config-documents.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
 import type { DocumentReaders, ProjectFiles } from "./ports.js";
-import { extensionOf, YAML_EXTENSIONS } from "./project-file-names.js";
+import { extensionOf, isCiConfigFile, YAML_EXTENSIONS } from "./project-file-names.js";
 
 /**
  * The files of a split API description: the YAML and JSON files that an API description of the
@@ -28,8 +28,9 @@ interface PartsDependencies {
 
 const isYaml = (path: string): boolean => YAML_EXTENSIONS.has(extensionOf(path));
 
+/** A YAML or JSON file that can be an API description or a part of one; a CI config is neither. */
 const isDescriptionFormat = (path: string): boolean =>
-  isYaml(path) || extensionOf(path) === JSON_EXTENSION;
+  (isYaml(path) || extensionOf(path) === JSON_EXTENSION) && !isCiConfigFile(path);
 
 /** The text of a listed file, or undefined when it cannot be read. */
 async function textOf(path: string, files: ProjectFiles): Promise<string | undefined> {

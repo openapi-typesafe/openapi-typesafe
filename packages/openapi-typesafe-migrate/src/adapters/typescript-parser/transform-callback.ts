@@ -1,4 +1,5 @@
 import ts from "@typescript/typescript6";
+import { declaredType } from "./declared-types.js";
 import type { FactoryNames } from "./factory-type-text.js";
 import { hasExportModifier } from "./file-bindings.js";
 
@@ -53,17 +54,17 @@ export function callbackFunction(
     : undefined;
 }
 
-/** The type a `const` that `transform` names is declared with (`OpenAPITSOptions["transform"]`). */
+/**
+ * The type declared for the function of a `transform` option: the type of the `const` it names
+ * (`OpenAPITSOptions["transform"]`, a function type), or a JSDoc `@type` of an inline option.
+ */
 export function callbackAnnotations(
   property: ts.ObjectLiteralElementLike,
   names: FactoryNames,
 ): ts.TypeNode[] {
   const name = namedValue(property);
   const declaration = name === undefined ? undefined : names.bindings.declarationOf(name);
-  const type =
-    declaration !== undefined && ts.isVariableDeclaration(declaration)
-      ? declaration.type
-      : undefined;
+  const type = declaredType(declaration ?? property);
   return type === undefined ? [] : [type];
 }
 

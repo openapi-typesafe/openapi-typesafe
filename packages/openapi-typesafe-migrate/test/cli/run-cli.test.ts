@@ -4,6 +4,7 @@ import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js"
 import type { Logger, ProjectFiles, ProjectRootState } from "../../src/application/ports.js";
 import { HELP_TEXT } from "../../src/cli/cli-text.js";
 import { type CliDependencies, EXIT_CODES, runCli } from "../../src/cli/run-cli.js";
+import { CrossingStringScanner } from "../fakes/crossing-string-scanner.js";
 import { InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
@@ -110,6 +111,25 @@ describe("runCli", () => {
 
     expect(await runCli(["--write"], dependencies)).toBe(EXIT_CODES.failure);
     expect(output.stdout).toContain("Writing stopped: src/a.ts could not be written (EROFS).");
+  });
+
+  it("runCli fails when a bug left a file as it was, and still writes the others", async () => {
+    const files = new InMemoryProjectFiles({
+      "src/a.ts": 'import "openapi-fetch";\n',
+      "gen.sh": "npx openapi-typescript a.yaml\n",
+    });
+    const { dependencies, output } = setUp(() => files);
+
+    const exitCode = await runCli(["--write"], {
+      ...dependencies,
+      scanner: new CrossingStringScanner(),
+    });
+
+    expect(exitCode).toBe(EXIT_CODES.failure);
+    expect(files.written).toEqual(["gen.sh"]);
+    expect(output.stdout).toContain(
+      "src/a.ts: the tool could not migrate it (source strings overlap at offsets 0-2 and 1-3)",
+    );
   });
 
   it("runCli reports a failure, logs it and still names the log", async () => {

@@ -137,6 +137,8 @@ export type ManualStep =
   /** A Deno config names an import map by a URL or a path outside the project. */
   | { readonly kind: "import-map-not-editable"; readonly reference: string }
   | { readonly kind: "options-not-inspected"; readonly line: number }
+  /** A spread in the options (`...base`) of an object the tool cannot read. */
+  | { readonly kind: "options-spread-not-inspected"; readonly line: number }
   | { readonly kind: "deep-import"; readonly line: number; readonly specifier: string }
   /** A module specifier that is a path into the installed files of an old package. */
   | {
@@ -196,7 +198,9 @@ export type TransformKeepReason =
   | "shared-options"
   | "unknown-return"
   | "typed-options"
-  | "spread-options";
+  | "spread-options"
+  | "declared-type"
+  | "in-spread";
 
 /** A file's new text and what was found in it. Unchanged text means nothing to write. */
 export interface FileMigration {

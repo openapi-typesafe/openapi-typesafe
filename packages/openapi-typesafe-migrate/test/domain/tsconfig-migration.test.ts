@@ -82,6 +82,23 @@ describe("migrateTsconfig", () => {
     ]);
   });
 
+  it.each([
+    [
+      "the folder of an old package",
+      "./node_modules/openapi-fetch",
+      ["./node_modules/openapi-fetch"],
+    ],
+    ["the folder of another package", "./node_modules/openapi-fetch-x", []],
+  ])("migrateTsconfig reads a path to %s", (_, path, reported) => {
+    const text = config({ compilerOptions: { paths: { a: [path] } } });
+
+    const steps = migrateConfig(text, "tsconfig.json").manualSteps;
+
+    expect(steps.map((step) => (step.kind === "old-package-path" ? step.path : step.kind))).toEqual(
+      reported,
+    );
+  });
+
   it("migrateTsconfig keeps a paths key whose new name is there too", () => {
     const paths = { "openapi-fetch": ["./a.ts"], "openapi-typesafe-fetch": ["./b.ts"] };
     const text = config({ compilerOptions: { paths } });
