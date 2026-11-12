@@ -2,6 +2,17 @@
 
 This package is a fork of `openapi-typescript-helpers`. The entries above `0.1.0` are releases of openapi-typesafe-helpers; `0.1.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript-helpers` versions.
 
+## 1.0.0-rc.7
+
+### Patch Changes
+
+- [#96](https://github.com/openapi-typesafe/openapi-typesafe/pull/96) [`171fa71`](https://github.com/openapi-typesafe/openapi-typesafe/commit/171fa71311107e4e26a9ae7a62b431662fb13de5) Thanks [@fedorello](https://github.com/fedorello)! - `SuccessResponseJSON`, `ErrorResponseJSON` and the `data` and `error` of a client made with
+  ``createClient<paths, `${string}/json`>()`` leave out a response that has no JSON media type. It
+  added its whole `content` map, so a `text/html` 500 typed the error as `{ "text/html": string }`,
+  a value the client never returns.
+- Updated dependencies [[`171fa71`](https://github.com/openapi-typesafe/openapi-typesafe/commit/171fa71311107e4e26a9ae7a62b431662fb13de5), [`171fa71`](https://github.com/openapi-typesafe/openapi-typesafe/commit/171fa71311107e4e26a9ae7a62b431662fb13de5), [`171fa71`](https://github.com/openapi-typesafe/openapi-typesafe/commit/171fa71311107e4e26a9ae7a62b431662fb13de5)]:
+  - openapi-typesafe-fetch@1.0.0-rc.7
+
 ## 1.0.0-rc.6
 
 ### Patch Changes

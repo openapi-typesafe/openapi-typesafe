@@ -2,6 +2,24 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.7
+
+### Patch Changes
+
+- [#97](https://github.com/openapi-typesafe/openapi-typesafe/pull/97) [`d2bac1c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d2bac1c48c46b8cc39f516645c2fef1cfe9473db) Thanks [@fedorello](https://github.com/fedorello)! - An init whose `params` or `headers` send nothing now has the query key of no init:
+  `{ params: {} }`, `{ params: { query: { cursor: undefined } } }`, `{ params: { query: filters } }`
+  with `filters` undefined, and `{ headers: { "X-Tenant": undefined } }`. Each had its own key, so
+  `setQueryData`, `getQueryData` and server prefetches of one were not seen by the others, and each
+  fetched again. `null`, `[]` and `{}` parameter values still count, and so does an empty JSON body.
+
+- [#97](https://github.com/openapi-typesafe/openapi-typesafe/pull/97) [`d2bac1c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d2bac1c48c46b8cc39f516645c2fef1cfe9473db) Thanks [@fedorello](https://github.com/fedorello)! - A `File`, `Blob`, bytes, `FormData` or `URLSearchParams` value inside an object or array body,
+  such as a multipart body written as `{ image: file }`, is now part of the query key by its
+  content (a file by its type, size and name). Every file had the same key before, so a query for
+  a second file showed the cached result of the first. The key names the kinds of such values in
+  `bodyType`, by member name or index (`{ image: "Blob" }`).
+- Updated dependencies [[`171fa71`](https://github.com/openapi-typesafe/openapi-typesafe/commit/171fa71311107e4e26a9ae7a62b431662fb13de5), [`171fa71`](https://github.com/openapi-typesafe/openapi-typesafe/commit/171fa71311107e4e26a9ae7a62b431662fb13de5), [`171fa71`](https://github.com/openapi-typesafe/openapi-typesafe/commit/171fa71311107e4e26a9ae7a62b431662fb13de5)]:
+  - openapi-typesafe-fetch@1.0.0-rc.7
+
 ## 1.0.0-rc.6
 
 ### Patch Changes

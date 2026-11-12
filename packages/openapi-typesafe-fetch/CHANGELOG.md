@@ -2,6 +2,23 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.7
+
+### Patch Changes
+
+- [#96](https://github.com/openapi-typesafe/openapi-typesafe/pull/96) [`171fa71`](https://github.com/openapi-typesafe/openapi-typesafe/commit/171fa71311107e4e26a9ae7a62b431662fb13de5) Thanks [@fedorello](https://github.com/fedorello)! - `SuccessResponseJSON`, `ErrorResponseJSON` and the `data` and `error` of a client made with
+  ``createClient<paths, `${string}/json`>()`` leave out a response that has no JSON media type. It
+  added its whole `content` map, so a `text/html` 500 typed the error as `{ "text/html": string }`,
+  a value the client never returns.
+
+- [#96](https://github.com/openapi-typesafe/openapi-typesafe/pull/96) [`171fa71`](https://github.com/openapi-typesafe/openapi-typesafe/commit/171fa71311107e4e26a9ae7a62b431662fb13de5) Thanks [@fedorello](https://github.com/fedorello)! - A nested array or object in a path parameter (`{ id: [[1]] }`) now fails with an error that names
+  `pathSerializer()`, the option that sends such values. It told you to write a `querySerializer()`,
+  which does not apply to the path.
+
+- [#96](https://github.com/openapi-typesafe/openapi-typesafe/pull/96) [`171fa71`](https://github.com/openapi-typesafe/openapi-typesafe/commit/171fa71311107e4e26a9ae7a62b431662fb13de5) Thanks [@fedorello](https://github.com/fedorello)! - A request's `querySerializer` option set to `undefined` (`{ array: { explode: undefined } }`, as a
+  wrapper passes its own optional option on) now takes the client's value, as an option left out
+  does. It replaced the client's value, so the default style was sent.
+
 ## 1.0.0-rc.6
 
 ### Patch Changes
