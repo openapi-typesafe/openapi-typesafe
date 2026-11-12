@@ -10,6 +10,7 @@ import {
   WORD_BREAKS,
   wordPart,
 } from "./shell-word-parts.js";
+import { expressionLiterals } from "./workflow-expressions.js";
 
 export type { ShellCommand, ShellWord } from "./shell-word-parts.js";
 
@@ -232,10 +233,13 @@ export function shellCommandsAt(text: string, offset: number, indent = 0): Shell
   return shellCommands(text, indent).map((words) => shifted(words, offset));
 }
 
-/** The words of the parameter expansions of a word (`${GEN:-npx …}`), read as command lines. */
+/**
+ * The words of the parameter expansions of a word (`${GEN:-npx …}`) and the string literals of
+ * its workflow expressions (`${{ inputs.gen || 'npx …' }}`), read as command lines.
+ */
 const expansionCommands = (word: ShellWord): ShellCommand[] =>
-  wordExpansions(word.raw).flatMap((expansion) =>
-    shellCommandsAt(expansion.text, word.start + expansion.start),
+  [...wordExpansions(word.raw), ...expressionLiterals(word.raw)].flatMap((part) =>
+    shellCommandsAt(part.text, word.start + part.start),
   );
 
 /**

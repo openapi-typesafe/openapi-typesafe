@@ -57,7 +57,14 @@ script sets itself (`GEN="npx openapi-typescript"`, also after `export`, `local`
 is renamed where it is set, and the flags after `$GEN` where it runs. The word of a default
 (`${GEN:-npx openapi-typescript}`, `${GEN:=…}`, `${GEN:+…}`) is read as a command line where it
 is written, so the old name in it is renamed; the variable may hold another program set outside
-the file, so the flags after such a default are reported. The flags change only when every definition of the variable
+the file, so the flags after such a default are reported. The same holds for the string literals
+of a GitHub Actions expression (`${{ inputs.gen || 'npx openapi-typescript' }}`), which the runner
+puts into the script before the shell runs, and for the default of an input
+(`inputs.command.default` of an `action.yml`, `workflow_call` and `workflow_dispatch` inputs):
+the old name in them is renamed, and the flags after an expression are reported, because its value
+comes from the run. A Makefile program that make computes (`$(or $(GEN),npx
+openapi-typescript)`, `$(shell …)`) may run the generator too, so the flags after it are
+reported. The flags change only when every definition of the variable
 in the file sets it to the generator: a variable that another Dockerfile stage, a step `env` or a
 later Makefile line or shell assignment sets to another program is reported with its old flags. So is a
 variable that runs a command but that no definition the tool reads sets: one set by another
@@ -66,8 +73,8 @@ array (`GEN=(npx openapi-typescript)`, whose items are renamed, run as `"${GEN[@
 set outside the file. A variable of old
 flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may serve other commands too, so it
 is reported, not changed. YAML files are changed only in command
-keys (`run`, `script`, `command`, `entrypoint`, …) and in the values of `env`, in block and flow
-style, never in other values. A CI step whose `shell` is another program (`shell: python`) runs
+keys (`run`, `script`, `command`, `entrypoint`, …), in the values of `env` and in input
+defaults, in block and flow style, never in other values. A CI step whose `shell` is another program (`shell: python`) runs
 code of that language, so its script is not changed, and it is reported when it names an old
 package. The nearest `shell` counts: the step's own, then the job's and the workflow's
 `defaults.run.shell` (GitHub Actions), or the job's `shell` (CircleCI). `env` (`/usr/bin/env bash
