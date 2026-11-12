@@ -179,7 +179,9 @@ OpenAPI supports [different ways of serializing objects and arrays](https://swag
 
 ### Object syntax
 
-openapi-typesafe-fetch ships the common serialization methods out-of-the-box:
+openapi-typesafe-fetch ships the common serialization methods out-of-the-box. Each option's type
+accepts `undefined`, so a wrapper can pass its own optional option on
+(`{ array: { explode: options.explode } }`) also with `exactOptionalPropertyTypes`:
 
 | Option          |       Type        | Description                                                                                                                                                    |
 | :-------------- | :---------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -438,7 +440,9 @@ openapi-typesafe-fetch supports path serialization as [outlined in the 3.1 spec]
 | `/users/{;id*}`   | matrix (exploded)    | `/users/;id=5`     | `/users/;id=3;id=4;id=5` | `/users/;role=admin;firstName=Alex`                  |
 
 A nested object or array in a path parameter (`[[1]]`, `{ a: { b: 1 } }`) has no standard encoding
-and throws an error that names `pathSerializer()`: write one to send such values.
+and throws an error that names `pathSerializer()`: write one to send such values. The exported
+`serializeArrayParam` and `serializeObjectParam` name the hook by the `style` they get:
+`pathSerializer()` for `simple`, `label` and `matrix`, `querySerializer()` for the query styles.
 
 ## Middleware
 
@@ -555,12 +559,23 @@ like the rest of the API.
 | The helper types (`PathsWithMethod`, `FilterKeys`, `SuccessResponse`, …) | Declared by the client in its `openapi-typesafe-fetch/helpers` entry; import them from `openapi-typesafe-helpers`, which re-exports them. The main entry does not export them, as openapi-fetch's does not. The names of both packages are one declaration, so they mix, also in generic code. Types inferred from the client name them through `openapi-typesafe-fetch/helpers`, so a library built with `declaration: true` under pnpm or Yarn PnP gets declarations that name a package it depends on. A library under Yarn PnP that depends only on `openapi-typesafe-helpers` and exports an inferred type that prints a helper type gets `import("openapi-typesafe-fetch/helpers")`, which its users cannot resolve (TS2307): add `openapi-typesafe-fetch` to its dependencies, or annotate the type. |
 
 `SuccessResponse<Responses, Media>` and `ErrorResponse<Responses, Media>` give the bodies of the
-success or error responses in the media types `Media` (any media type by default).
-`SuccessResponseJSON<Operation>` and `ErrorResponseJSON<Operation>` take the JSON media types
-(`${string}/json`), and so does a client made with `` createClient<paths, `${string}/json`>() ``
-for its `data` and `error`. A response without one of those media types adds no body: with a
-`text/html` 500 and an `application/json` 404, the error is the 404 body only, and a success that
-is only `text/plain` is `never` (with `parseAs: "text"` the data is a `string`, as for any client).
+success or error responses as the client returns them. `Media` picks among the media types of each
+response, as an `Accept` header does (any media type by default), and each one picked gives its
+schema. `SuccessResponseJSON<Operation>` and `ErrorResponseJSON<Operation>` pick the JSON media
+types: `application/json` and those with a `+json` suffix (`application/problem+json`,
+`application/vnd.api+json`), with or without parameters (`application/json; charset=utf-8`), and
+`*/*` and `application/*`, which may hold JSON. The `data` and `error` of a client made with
+`` createClient<paths, Media>() `` follow the same rule, for example
+`` createClient<paths, `${string}/json`>() ``.
+
+A response with none of the picked media types can still arrive, for example a proxy's HTML 500,
+so it gives what the client makes of its body: a JSON media type gives its schema (a JSON-only
+client therefore types an `application/problem+json` error too), an error body of any other media
+type gives a `string` (the client returns the text), and a success body of any other media type
+gives nothing, since the default `parseAs: "json"` rejects it. With a JSON 200 and a `text/html`
+500, `ErrorResponseJSON` is a `string`, and with a JSON 404 next to it, the 404 body or a `string`.
+`parseAs` types the `data` by itself: with `parseAs: "text"` it is a `string`. A client made with
+`createClient<any>()` types `data` and `error` as `any`.
 
 `defaultBodySerializer` returns by the body type:
 
