@@ -6,6 +6,7 @@ import { declaredValueTypes } from "../declared-value-types.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { unionOf } from "../type-combinators.js";
 import { recordValueAccess } from "./object-type.js";
+import type { SchemaOptions } from "./schema-context.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
 /**
@@ -24,11 +25,12 @@ import type { SchemaRequest } from "./schema-rule.js";
  * Whether `unevaluatedProperties` applies. It types the keys left over at this level, so it
  * does nothing next to `additionalProperties` (which already types them all), and only an object
  * schema has keys. A `type` list is typed one listed type at a time, so its object gets it.
+ * The `$ref` pointer walk reads it too, to know whether the keyword is in the type.
  */
-function unevaluatedSchemaOf(schema: SchemaObject, request: SchemaRequest): Schema | null {
+export function unevaluatedSchemaOf(schema: SchemaObject, options: SchemaOptions): Schema | null {
   const { unevaluatedProperties } = schema;
   if (
-    !request.context.options.fixes.has(FIX.UNEVALUATED_PROPERTIES) ||
+    !options.fixes.has(FIX.UNEVALUATED_PROPERTIES) ||
     unevaluatedProperties === undefined ||
     unevaluatedProperties === false ||
     schema.additionalProperties !== undefined
@@ -38,7 +40,8 @@ function unevaluatedSchemaOf(schema: SchemaObject, request: SchemaRequest): Sche
   return schema.type === undefined || schema.type === "object" ? unevaluatedProperties : null;
 }
 
-function isAnySchema(schema: Schema): boolean {
+/** `true` or `{}`: the index signature is `unknown`, with no declared types next to it. */
+export function isAnySchema(schema: Schema): boolean {
   return schema === true || (typeof schema === "object" && Object.keys(schema).length === 0);
 }
 
@@ -51,7 +54,7 @@ export function unevaluatedPropertiesType(
   composed: IrType | null,
   request: SchemaRequest,
 ): IrType | null {
-  const unevaluated = unevaluatedSchemaOf(schema, request);
+  const unevaluated = unevaluatedSchemaOf(schema, request.context.options);
   if (unevaluated === null) {
     return null;
   }

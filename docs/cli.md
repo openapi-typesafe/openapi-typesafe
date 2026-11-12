@@ -1191,6 +1191,15 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   (`patternProperties/^x`). With `--exclude-deprecated`, a pointer to a property it leaves out gets
   the property's type inline, not the index signature's. This holds for an owner under `$defs`
   and for an owner with a `discriminator` too.
+- The properties of an owner with a `discriminator` are read as in any object
+  (`Pet/properties/owner/properties/name` gets `NonNullable<…["owner"]>["name"]`). Only the
+  discriminator's own property keeps its pointer as written, since the generator may add or change
+  that property.
+- A pointer to `unevaluatedProperties` gets the target's type inline: without the
+  `unevaluated-properties` fix (or next to `additionalProperties`) the keyword is not in the type,
+  so the original reads another member or `never`, and with the fix the index signature also holds
+  the declared property types, as next to `additionalProperties`. Where the fix's signature holds
+  nothing else (an object with only `unevaluatedProperties`), the original is right and stays.
 - A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation or
   path item `parameters/0`) gets the target's type written inline; a target that points back at
   itself keeps the original type. The inline type is the one the generator writes for that schema,
@@ -1333,6 +1342,8 @@ Annotated: { kind?: "annotated" } & components["schemas"]["Resource"] & { // [!c
 - Only an object schema gets it; in a type list such as `[object, "null"]`, the object does and
   `null` stays outside.
 - With `--immutable` the index signature is `readonly`.
+- A `$ref` to `unevaluatedProperties` gets the value type itself, with or without the fix
+  ([ref-pointers](#ref-pointers)).
 
 ### makePathsEnum
 

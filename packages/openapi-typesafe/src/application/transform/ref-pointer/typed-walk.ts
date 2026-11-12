@@ -2,7 +2,6 @@ import { irIndexedAccess, irKeyword, irReference } from "../../../domain/ir/cons
 import type { IrKeyword, IrType } from "../../../domain/ir/nodes.js";
 import { indexBy, indexKeyword, rootType } from "../ref-type.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
-import { isArrayShape, isObjectShape } from "./generated-shape.js";
 import {
   childLocation,
   followLocated,
@@ -31,6 +30,7 @@ import {
   propertyPresence,
   schemaPresence,
 } from "./property-shape.js";
+import { isArrayShape, isObjectShape } from "./schema-shape.js";
 
 /**
  * The type of a `$ref` pointer as the generated types have it: the `schema` of a media type,
