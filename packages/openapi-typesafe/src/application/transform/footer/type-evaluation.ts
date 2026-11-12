@@ -1,4 +1,4 @@
-import type { IrDeclaration, IrType } from "../../../domain/ir/nodes.js";
+import type { IrDeclaration, IrTupleType, IrType } from "../../../domain/ir/nodes.js";
 import {
   absorbed,
   type Evaluated,
@@ -7,6 +7,7 @@ import {
   isNullish,
   OPAQUE,
   propertyKey,
+  tupleAsArray,
   unionType,
 } from "./evaluation.js";
 import type { RawKeyTypes } from "./signature-index.js";
@@ -62,12 +63,19 @@ export class TypeEvaluator {
         return this.indexedAccess(value, type.object, type.index);
       case "reference":
         return this.reference(value, type.name, type.typeArguments);
-      case "raw":
       case "tuple":
+        return this.deepTuple(value, type);
+      case "raw":
         return OPAQUE;
       default:
         return value;
     }
+  }
+
+  /** A tuple inside `FlattenedDeepRequired` is read as the array of its items; else opaque. */
+  private deepTuple(value: Evaluated, tuple: IrTupleType): Evaluation {
+    const array = value.deep ? tupleAsArray(tuple) : null;
+    return array === null ? OPAQUE : { ...value, type: array };
   }
 
   private indexedAccess(value: Evaluated, object: IrType, index: IrType): Evaluation {

@@ -114,3 +114,36 @@ check the type the output has.
    `unevaluated-properties` fix follows the same rule (`isWidenedRecordValue`), and its signature
    also holds the declared types of `allOf` / `anyOf` / `oneOf` members, so next to those its
    array is typed by its values too.
+
+## Amendment (2026-11-12): locations that admit more than the values
+
+The check asked only whether a location admits the array's values, not whether it admits more.
+`FlattenedDeepRequired` reads an array member as its items, so a tuple is the union of its
+elements, and the location leaves the `anyOf` / `oneOf` position out (`enumValuesPointer`, so
+names stay stable), so a union member reads its whole union. Both compiled and accepted the
+siblings' values: `prefixItems: [{ enum: [asc, desc] }, { enum: [name, date] }]` typed `pairValues`
+and `pairValues_2` both by the tuple, so `"date"` was an item of `pairValues`; with the
+`prefix-items` fix the open tuple reads `unknown`, so `5` was too. ADR-021 counts such output as
+wrong, not as output to keep.
+
+1. **A location that surely admits more is typed by the values.** After the values are admitted,
+   the array is typed by its own values (`widened`, no warning) where the location type surely
+   admits another value: a string or number literal it does not list, a boolean, or `unknown`,
+   also as one member of a union (whatever its other members are). A wide type such as `string`
+   or `string & {}` is not sure: the enum's own type may be open (`additionalProperties: true` on
+   a string enum gives `"a" | "b" | (string & {})`), so such a location keeps its type. This is a
+   rule of the check, not of tuples: union members with other values change too, also in the
+   inherited upstream tests (`enumValues with unions`, `nested union types`, `deeply nested
+   unions`), where each member's array read the values of every member.
+2. **Tuples are read inside `FlattenedDeepRequired`.** The evaluator counted every tuple as
+   opaque. Inside the deep helper it now reads a tuple as the array of its items (`tupleAsArray`):
+   the union of its elements, `undefined` for an optional one, and the item type of a rest element
+   (a rest element of another type stays opaque). That is how `Extract<T, readonly unknown[]>[number]`
+   reads it, so a location through a tuple is checked like one through an array. Outside the deep
+   helper a tuple stays opaque.
+3. **Names and locations stay.** A tuple element is still typed at the tuple's location, so its
+   array keeps its name (`pairValues`, `pairValues_2`) and a tuple whose elements admit only the
+   array's values (one enum element, or the same enum in each) keeps its type, byte for byte. A
+   location per element (`prefixItems/0`) would rename the `--enum` declaration and the array of
+   every tuple element, also where the output is right; that is a change of names, not of a wrong
+   type, so it is not made here.

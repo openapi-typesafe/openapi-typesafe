@@ -316,9 +316,11 @@ describe("checkedEnumValues", () => {
       (_entry): _entry is IrDeclaration => true,
     );
 
+    // A union that holds a literal outside the values admits more, whatever its other members are.
     expect(retyped.map((retype) => [retype.kind, retype.name])).toEqual([
       ["untyped", "elements"],
       ["excluded", "boolean"],
+      ["widened", "someRaw"],
     ]);
   });
 

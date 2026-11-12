@@ -23,7 +23,9 @@ export type EnumValuesRetype =
   /** The location's type admits only other values, or none: the document contradicts itself. */
   | { readonly kind: "excluded"; readonly name: string; readonly excluded: readonly unknown[] }
   /** The location could not be typed; nothing to report, the array is right now. */
-  | { readonly kind: "untyped"; readonly name: string };
+  | { readonly kind: "untyped"; readonly name: string }
+  /** The location's type surely admits other values too; the array is right now. */
+  | { readonly kind: "widened"; readonly name: string };
 
 type Admission = "yes" | "no" | "opaque";
 
@@ -96,6 +98,35 @@ function isFiniteType(evaluator: TypeEvaluator, value: Evaluated): boolean {
   return LITERAL_KINDS.has(type.kind) || (type.kind === "keyword" && type.keyword === "never");
 }
 
+/**
+ * Whether a type surely admits a value outside `values`: a literal not listed, a boolean, or
+ * `unknown`, also as one member of a union. A wide type such as `string` or `string & {}`
+ * is not sure: the enum's own type may be open (`withOtherStrings`), so it counts as not wider.
+ */
+function admitsOtherValues(
+  evaluator: TypeEvaluator,
+  value: Evaluated,
+  values: readonly (string | number)[],
+): boolean {
+  const { type } = value;
+  switch (type.kind) {
+    case "stringLiteral":
+    case "numberLiteral":
+      return !values.includes(type.value);
+    case "booleanLiteral":
+      return true;
+    case "keyword":
+      return type.keyword === "unknown";
+    case "union":
+      return type.types.some((part) => {
+        const expanded = evaluator.expand({ ...value, type: part });
+        return expanded.kind === "type" && admitsOtherValues(evaluator, expanded, values);
+      });
+    default:
+      return false;
+  }
+}
+
 function locationType(declaration: IrConstArrayDeclaration): IrType | null {
   const { type } = declaration;
   const isTyped = type.kind === "reference" && type.name === HELPER_TYPES.readonlyArray.name;
@@ -124,7 +155,8 @@ function retypeOf(
   }
   const results = declaration.values.map((value) => admission(evaluator, element, value));
   if (!results.includes("no")) {
-    return null;
+    const isWidened = admitsOtherValues(evaluator, element, declaration.values);
+    return isWidened ? { kind: "widened", name: declaration.name } : null;
   }
   if (!isFiniteType(evaluator, element)) {
     return { kind: "untyped", name: declaration.name };
