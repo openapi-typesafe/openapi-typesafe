@@ -1,3 +1,5 @@
+import { MigrationBugError } from "./migration-bug.js";
+
 /**
  * Edits by offset into the original text. A migration changes only the names, specs and command
  * words it renames, so everything else stays byte for byte: formatting, comments, key order,
@@ -19,9 +21,7 @@ export function applyTextEdits(text: string, edits: readonly TextEdit[]): string
   let copiedUpTo = 0;
   for (const edit of sorted) {
     if (edit.start < copiedUpTo) {
-      throw new Error(
-        `Edits overlap at offset ${edit.start}; the file was not changed (a migration bug).`,
-      );
+      throw new MigrationBugError(`edits overlap at offset ${edit.start}`);
     }
     edited += `${text.slice(copiedUpTo, edit.start)}${edit.text}`;
     copiedUpTo = edit.end;

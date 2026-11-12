@@ -120,8 +120,9 @@ or written; the report lists it under "Skipped". A file is written as a new file
 old one (same mode), so a hard link to a file elsewhere keeps its old text; the log notes it.
 A file whose bytes are not UTF-8 (a Latin-1 source, for example) is not changed, because its
 text cannot be written back without changing other characters; neither is a file that cannot be
-read. The report lists both under "Skipped". Every file is read and migrated before the first one
-is written. If a write fails, the writing stops, the command exits with `1`, and the report names
+read. The report lists both under "Skipped". So does a file that a bug of the tool would corrupt
+(two of its edits overlap): it is left as it was, the other files are still migrated, and the
+command exits with `1`. Every file is read and migrated before the first one is written. If a write fails, the writing stops, the command exits with `1`, and the report names
 the files written before it and the ones that were not.
 The report and the log show a spec with credentials (`git+https://<token>@…`) as
 `git+https://***@…`; the file keeps it as written.
@@ -202,7 +203,8 @@ The default log folder is new for each run and only you can open it (mode 0700).
 that exists gets the new lines appended, and missing parent folders are created.
 
 Exit codes: `0` done, `1` the migration failed (the message and the log say why), a file could not
-be written (the report names what was written), the project folder does not exist or is a file,
+be written (the report names what was written), a bug of the tool left a file as it was (the report
+lists it under "Skipped"), the project folder does not exist or is a file,
 or the log could not be created (nothing is changed then), `2` unknown option or argument.
 
 ## Versioning

@@ -87,7 +87,9 @@ async function migrateRoot(
   const input = { version: dependencies.version, isWrite: request.isWrite };
   const migration = await migrateProject({ files, rewriter, scanner, readers, logger }, input);
   dependencies.writeStdout(renderReport(migration));
-  return migration.write.kind === "failed" ? EXIT_CODES.failure : EXIT_CODES.success;
+  // A file that a bug of the tool left as it was is not migrated: the run did not finish its job.
+  const hasBug = migration.skipped.some((file) => file.reason.kind === "migration-bug");
+  return migration.write.kind === "failed" || hasBug ? EXIT_CODES.failure : EXIT_CODES.success;
 }
 
 async function runMigration(
