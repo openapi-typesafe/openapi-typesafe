@@ -80,7 +80,9 @@ code of that language, so its script is not changed, and it is reported when it 
 package. The nearest `shell` counts: the step's own, then the job's and the workflow's
 `defaults.run.shell` (GitHub Actions), or the job's `shell` and then the `shell` of the
 executor the job names (`executor: py`, CircleCI). `env` (`/usr/bin/env bash
--e {0}`) runs the program after it, and `msys2 {0}` and `wsl-bash {0}` run bash. An API description (a YAML document with a top-level `openapi`,
+-e {0}`) runs the program after it, and `msys2 {0}` and `wsl-bash {0}` run bash. The same holds for a
+justfile recipe whose first line is a shebang for another program (`#!/usr/bin/env python3`), and
+for code given on the command line (`python3 -c '…'`, `node -e "…"`, `ruby -e '…'`). An API description (a YAML document with a top-level `openapi`,
 `swagger`, `asyncapi`, `overlay` or `arazzo` key whose value is a version, such as `openapi: 3.1.0`;
 a CI config such as `.gitlab-ci.yml` or a workflow never is one, so a GitLab job named `openapi`
 is migrated) is data, so it is never changed, not even an
@@ -157,8 +159,9 @@ The report lists each of these with the file and line:
   code, so check whether the fix is still needed;
 - a word in a command that names an old package where the tool cannot tell what runs it (an
   argument of a program it does not know, a script name): migrate it by hand;
-- a CI step whose `shell` is another program (`shell: python`) and whose script names an old
-  package: the tool does not read code of other languages, so migrate it by hand;
+- a CI step whose `shell` is another program (`shell: python`), a justfile recipe with a shebang
+  for one, or inline code (`python3 -c '…'`) that names an old package: the tool does not read
+  code of other languages, so migrate it by hand;
 - an import map that a Deno config names by a URL or a path outside the folder;
 - a renamed peer dependency: users of your package must switch too;
 - a pnpm `package.json5` that names an old package: the tool does not read JSON5, so rename the

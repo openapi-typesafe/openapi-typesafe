@@ -76,6 +76,10 @@ function shellProgram(shell: string): string {
   return programName(rest[envPrefixLength(rest)] ?? "");
 }
 
+/** Whether a `shell` value or a shebang runs a shell whose scripts the tool reads as commands. */
+export const isCommandLineShell = (shell: string): boolean =>
+  COMMAND_LINE_SHELLS.has(shellProgram(shell));
+
 /** Whether a document path ends with `keys`. */
 const endsWith = (path: DocumentPath, keys: readonly string[]): boolean =>
   keys.every((key, index) => path[path.length - keys.length + index] === key);
@@ -140,7 +144,7 @@ export function stepShells(strings: readonly DocumentString[]): StepShellOf {
     for (let depth = value.path.length - 1; depth >= 0; depth -= 1) {
       const shell = byScope.get(JSON.stringify(value.path.slice(0, depth)));
       if (shell !== undefined) {
-        return COMMAND_LINE_SHELLS.has(shellProgram(shell)) ? undefined : shell;
+        return isCommandLineShell(shell) ? undefined : shell;
       }
     }
     return undefined;
