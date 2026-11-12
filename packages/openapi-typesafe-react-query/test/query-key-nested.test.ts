@@ -85,6 +85,12 @@ describe("queryKeyInit params and headers that send nothing", () => {
     });
   });
 
+  it("queryKeyInit keeps a null params record as it is", () => {
+    expect(queryKeyInit({ params: { query: null } }, NO_BASE_URL)).toEqual({
+      params: { query: null },
+    });
+  });
+
   it("queryKeyInit keeps null, empty array and empty object parameter values", () => {
     const params = { query: { tag: null, ids: [], filter: {} }, header: { "X-A": null } };
 

@@ -1,62 +1,81 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
-import type { ErrorResponseJSON, SuccessResponseJSON } from "../../src/helpers.js";
+import { describe, expect, it } from "vitest";
 import createClient from "../../src/index.js";
 
 /**
- * A response with a `content` map but no media type of the ones asked for added its whole map to
- * the union: the error of `ErrorResponseJSON` for a `text/html` 500 was `{ "text/html": string }`,
- * a body no response has. Such a response now adds nothing.
+ * What the client returns for each kind of body, which the response types describe
+ * (`json-media-types.test-d.ts`): it parses a JSON body of any JSON media type, returns any other
+ * error body as text, and rejects a success body that is not JSON under the default `parseAs`.
  */
 
-type Operation = {
-  responses: {
-    200: { headers: {}; content: { "text/plain": string } };
-    302: { headers: {}; content: { "text/plain": string } };
-    404: { headers: {}; content: { "application/json": { message: string } } };
-    500: { headers: {}; content: { "text/html": string } };
+type Problem = { title: string };
+type Pet = { id: string };
+type Response<Content> = { headers: {}; content: Content };
+
+type Paths = {
+  "/report": {
+    get: {
+      responses: {
+        200: Response<{ "application/vnd.api+json": Pet; "text/plain": string }>;
+        400: Response<{ "application/problem+json": Problem }>;
+        500: Response<{ "text/html": string }>;
+      };
+    };
   };
 };
 
-type Paths = { "/report": { get: Operation } };
+const HTML_PAGE = "<h1>Bad gateway</h1>";
 
-function jsonClient(body: string) {
+function clientAnswering(body: string, init: ResponseInit) {
   return createClient<Paths, `${string}/json`>({
     baseUrl: "https://api.example.com",
-    fetch: async () => new Response(body, { headers: { "Content-Type": "text/plain" } }),
+    fetch: async () => new Response(body, init),
   });
 }
 
-describe("JSON helper types for responses without a JSON body", () => {
-  it("ErrorResponseJSON has only the JSON error bodies", () => {
-    expectTypeOf<ErrorResponseJSON<Operation>>().toEqualTypeOf<{ message: string }>();
+function answer(status: number, contentType: string): ResponseInit {
+  return { status, headers: { "Content-Type": contentType } };
+}
+
+describe("bodies of JSON and other media types", () => {
+  it("GET of a problem+json error returns the parsed body", async () => {
+    const client = clientAnswering(
+      '{"title":"Not allowed"}',
+      answer(400, "application/problem+json"),
+    );
+
+    const { error } = await client.GET("/report");
+
+    expect(error).toEqual({ title: "Not allowed" });
   });
 
-  it("SuccessResponseJSON of a text-only success is never", () => {
-    expectTypeOf<SuccessResponseJSON<Operation>>().toBeNever();
+  it("GET of an HTML error returns the text", async () => {
+    const client = clientAnswering(HTML_PAGE, answer(500, "text/html"));
+
+    const { error } = await client.GET("/report");
+
+    expect(error).toBe(HTML_PAGE);
   });
 
-  it("a JSON-only client types the error with the JSON error bodies only", async () => {
-    const { error } = await jsonClient("ok").GET("/report", { parseAs: "text" });
+  it("GET of a vnd.api+json success with parameters returns the parsed body", async () => {
+    const contentType = "application/vnd.api+json; charset=utf-8";
+    const client = clientAnswering('{"id":"1"}', answer(200, contentType));
 
-    expectTypeOf(error).toEqualTypeOf<{ message: string } | undefined>();
+    const { data } = await client.GET("/report");
+
+    expect(data).toEqual({ id: "1" });
   });
 
-  it("a JSON-only client with parseAs text types the data as a string", async () => {
-    const { data } = await jsonClient("ok").GET("/report", { parseAs: "text" });
+  it("GET of a text success rejects under the default parseAs", async () => {
+    const client = clientAnswering("ok", answer(200, "text/plain"));
 
-    expectTypeOf(data).toEqualTypeOf<string | undefined>();
+    await expect(client.GET("/report")).rejects.toThrow(SyntaxError);
+  });
+
+  it("GET of a text success with parseAs text returns the text", async () => {
+    const client = clientAnswering("ok", answer(200, "text/plain"));
+
+    const { data } = await client.GET("/report", { parseAs: "text" });
+
     expect(data).toBe("ok");
-  });
-
-  it("a JSON-only client keeps a JSON success body", () => {
-    type JsonOperation = {
-      responses: {
-        200: { headers: {}; content: { "application/json": { id: number } } };
-        500: { headers: {}; content: { "text/html": string } };
-      };
-    };
-
-    expectTypeOf<SuccessResponseJSON<JsonOperation>>().toEqualTypeOf<{ id: number }>();
-    expectTypeOf<ErrorResponseJSON<JsonOperation>>().toBeNever();
   });
 });

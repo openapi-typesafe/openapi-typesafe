@@ -87,28 +87,36 @@ export type QuerySerializer<T> = (
     : Record<string, unknown>,
 ) => string;
 
-/** @see https://swagger.io/docs/specification/serialization/#query */
+/**
+ * Each option may be `undefined`, which counts as left out, so a wrapper can pass its own optional
+ * option on under `exactOptionalPropertyTypes` (`{ array: { explode: options.explode } }`).
+ * @see https://swagger.io/docs/specification/serialization/#query
+ */
 export type QuerySerializerOptions = {
   /**
    * Set serialization for arrays.
    * @see https://swagger.io/docs/specification/serialization/#query
    */
-  array?: {
-    /** default: "form" */
-    style?: "form" | "spaceDelimited" | "pipeDelimited";
-    /** default: true for "form", false for the other styles (OpenAPI) */
-    explode?: boolean;
-  };
+  array?:
+    | {
+        /** default: "form" */
+        style?: "form" | "spaceDelimited" | "pipeDelimited" | undefined;
+        /** default: true for "form", false for the other styles (OpenAPI) */
+        explode?: boolean | undefined;
+      }
+    | undefined;
   /**
    * Set serialization for objects.
    * @see https://swagger.io/docs/specification/serialization/#query
    */
-  object?: {
-    /** default: "deepObject" */
-    style?: "form" | "deepObject";
-    /** default: true */
-    explode?: boolean;
-  };
+  object?:
+    | {
+        /** default: "deepObject" */
+        style?: "form" | "deepObject" | undefined;
+        /** default: true */
+        explode?: boolean | undefined;
+      }
+    | undefined;
   /**
    * The `allowReserved` keyword specifies whether the reserved characters
    * `:/?#[]@!$&'()*+,;=` in parameter values are allowed to be sent as they
@@ -116,7 +124,7 @@ export type QuerySerializerOptions = {
    * and reserved characters are percent-encoded.
    * @see https://swagger.io/docs/specification/serialization/#query
    */
-  allowReserved?: boolean;
+  allowReserved?: boolean | undefined;
 };
 
 // The result is the fetch body; openapi-fetch types it as `any` (ADR-030).

@@ -119,7 +119,8 @@ export type QueryKey<
 /**
  * The last element of an infinite query's key. `useQuery` and `useInfiniteQuery` cache different
  * data (`TData` and `InfiniteData<TData>`), so the same request must not share one key (upstream
- * #2184, ADR-022). A prefix such as `[method, path]` still matches both. Not exported: it is not
+ * #2184, ADR-022). A prefix such as `[method, path]` still matches both. A `pageParamName` other
+ * than the default follows it (`infiniteQueryKey`). Not exported: it is not
  * needed outside the package, and a named export is public API; `InfiniteQueryKey` types the key.
  */
 const INFINITE_QUERY_KEY_MARKER = "infinite";
@@ -128,7 +129,13 @@ export type InfiniteQueryKey<
   Paths extends {},
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
-> = readonly [...QueryKey<Paths, Method, Path>, typeof INFINITE_QUERY_KEY_MARKER];
+> =
+  | readonly [...QueryKey<Paths, Method, Path>, typeof INFINITE_QUERY_KEY_MARKER]
+  | readonly [
+      ...QueryKey<Paths, Method, Path>,
+      typeof INFINITE_QUERY_KEY_MARKER,
+      { readonly pageParamName: string },
+    ];
 
 /**
  * Whether the options give an `initialData` that is never `undefined`: a value, or a function that
@@ -462,6 +469,20 @@ function pageInit(init: unknown, { pageParamName, pageParam }: PageRequest) {
   return { ...rest, params: { ...params, query: { ...params?.query, ...page } } };
 }
 
+/**
+ * The key of an infinite query: the key of its request, the marker, and the `pageParamName` when
+ * it is not the default one. The name is the query parameter each page is sent with, so queries
+ * that differ only in it send different requests. The default name adds nothing, so the key of a
+ * call without one is the key of a call that names the default.
+ */
+function infiniteQueryKey<Key extends readonly unknown[]>(queryKey: Key, pageParamName: string) {
+  return [
+    ...queryKey,
+    INFINITE_QUERY_KEY_MARKER,
+    ...(pageParamName === DEFAULT_PAGE_PARAM_NAME ? ([] as const) : ([{ pageParamName }] as const)),
+  ] as const;
+}
+
 /** Options of `createClient`. */
 export interface CreateClientOptions {
   /**
@@ -555,7 +576,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
       const { queryKey } = queryOptions(method, path, init);
       return useInfiniteQuery(
         {
-          queryKey: [...queryKey, INFINITE_QUERY_KEY_MARKER] as const,
+          queryKey: infiniteQueryKey(queryKey, pageParamName),
           // An empty page stays `undefined`, as in upstream: TanStack Query rejects only
           // `undefined` query data, and the infinite query data is the `{ pages }` object.
           queryFn: ({ pageParam, signal }) =>

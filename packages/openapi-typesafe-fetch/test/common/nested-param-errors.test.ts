@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import createClient from "../../src/index.js";
+import createClient, { serializeArrayParam, serializeObjectParam } from "../../src/index.js";
 
 /**
  * A nested array or object has no standard encoding in any parameter location. The error names
@@ -70,3 +70,51 @@ describe("nested parameter errors", () => {
     await expect(send({ path: { id: { a: 1 } } })).resolves.toMatchObject({ data: "ok" });
   });
 });
+
+describe("exported serializers with a nested member", () => {
+  const PATH_HINT = "in path parameters. Provide your own `pathSerializer()`";
+  const QUERY_HINT = "aren’t supported. Provide your own `querySerializer()`";
+
+  it("serializeArrayParam in a path style names pathSerializer", () => {
+    for (const style of ["simple", "label", "matrix"] as const) {
+      const serialize = () => serializeArrayParam("id", [[1]], { style, explode: false });
+
+      expect(serialize).toThrow(PATH_HINT);
+    }
+  });
+
+  it("serializeObjectParam in a path style names pathSerializer", () => {
+    const serialize = () =>
+      serializeObjectParam("x", { a: { b: 1 } }, { style: "simple", explode: true });
+
+    expect(serialize).toThrow(PATH_HINT);
+  });
+
+  it("serializeArrayParam in a query style names querySerializer", () => {
+    const serialize = () => serializeArrayParam("id", [[1]], { style: "form", explode: true });
+
+    expect(serialize).toThrow(QUERY_HINT);
+  });
+
+  it("serializeObjectParam in a query style names querySerializer", () => {
+    const serialize = () =>
+      serializeObjectParam("x", { a: { b: 1 } }, { style: "deepObject", explode: true });
+
+    expect(serialize).toThrow(QUERY_HINT);
+  });
+
+  it("a custom pathSerializer built on serializeArrayParam names pathSerializer", async () => {
+    const client = createClient<Paths>({
+      baseUrl: "https://api.example.com",
+      fetch: async () => Response.json("ok"),
+    });
+    const pathSerializer = (path: string, params: Record<string, unknown>) =>
+      path.replace("{id}", serializeArrayParam("id", params.id as unknown[], PATH_STYLE));
+
+    const request = client.GET("/items/{id}", { params: { path: { id: [[1]] } }, pathSerializer });
+
+    await expect(request).rejects.toThrow(PATH_HINT);
+  });
+});
+
+const PATH_STYLE = { style: "simple", explode: false } as const;

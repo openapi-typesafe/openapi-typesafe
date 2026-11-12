@@ -141,6 +141,37 @@ responses without content.
 | A tag inside the body at each raw value | One shape | A JSON body with the tag's members matches |
 | Leave out `null` and `[]` query values too | Exact for the default serializer | A custom serializer's different requests share an entry |
 
+## Amendment (2026-11-12): body objects, React Native FormData, `pageParamName`
+
+1. **Body objects that are not literals.** The key walked only object literals. A multipart body
+   written as a class instance (a form DTO), an `Object.create` object or an object of another
+   realm kept its File as `{}`, while the fetch client sends every own enumerable member of any
+   object (`Object.entries`). The key now walks every object body by its own enumerable members,
+   the members both `JSON.stringify` and the multipart body send. The raw kinds keep their own
+   rule, checked first, and so does an object with a `toJSON` (a Date): JSON sends what `toJSON`
+   returns, so the key keeps the value. Keys of object literals, arrays and raw bodies are
+   unchanged; a class-instance JSON body now hashes by sorted member names, as a literal does.
+   `params` stays limited to object literals: the fetch client reads only their records.
+2. **React Native FormData.** React Native's FormData has `append`, `getAll` and `getParts`, and
+   no `entries`, so every such body had the fields `[]` and one key per path. Its fields are now
+   the parts `getParts` gives, which React Native's network layer sends: plain objects with the
+   `fieldName`, the part `headers`, and the text as `string` or the members of the appended file
+   object (`uri`, `name`, `type`). They are kept as they are rather than turned into
+   `[name, value]` pairs: the pairs would only repeat them, and the bundle stays within its size
+   limit. A FormData with neither method keeps `[]`.
+3. **`pageParamName`.** The infinite key left out `pageParamName`, which names the query
+   parameter of every page, so two queries that differed only in it shared an entry. A name other
+   than the default `"cursor"` now follows the marker: `[method, path, init, "infinite",
+   { pageParamName }]`. The default adds nothing, so the keys of calls without the option, which
+   are most calls, stay as they were, and naming `"cursor"` gives the same key as leaving it out,
+   since it sends the same requests. `InfiniteQueryKey` is the union of the two shapes.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| `{ pageParamName }` after the marker, only for another name (chosen) | Default keys unchanged; a `[..., "infinite"]` prefix matches all | Two key shapes |
+| `pageParamName` in the key's init | One shape | The init would hold a field no request init has |
+| The name always after the marker | One shape | Every infinite key changes |
+
 ## Review trigger
 
 A report of two queries that share an entry while their requests differ in something a key can
