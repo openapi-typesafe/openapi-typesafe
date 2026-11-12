@@ -11,7 +11,9 @@ import {
   type RecipeHeader,
   recipeHeaders,
 } from "./just-recipe-parameters.js";
-import { lineLocator } from "./migration-findings.js";
+import { type ShebangRecipe, shebangRecipes } from "./just-shebang-recipes.js";
+import { lineLocator, type ManualStep } from "./migration-findings.js";
+import { namesOriginalPackage } from "./package-names.js";
 import {
   type ShellCommand,
   type ShellWord,
@@ -33,7 +35,8 @@ import {
  * flags after a variable set to the generator, or to such a variable (`run := gen`), where it is
  * used. A value that just computes (`env_var_or_default("GEN", "npx openapi-typescript")`, an
  * `if`) and a recipe parameter may run another program, so the flags after them are reported.
- * Everything else is shell text.
+ * A recipe with a shebang for another program (`#!/usr/bin/env python3`) is code of that
+ * language: it is reported when it names an old package. Everything else is shell text.
  */
 
 /** An assignment at the start of a line: `gen := …`, also `export gen := …`. */
@@ -139,12 +142,25 @@ function shellText(text: string, spans: readonly { start: number; end: number }[
 const literalCommands = (literals: readonly JustLiteral[]): ShellCommand[] =>
   literals.flatMap((literal) => shellCommandsAt(literal.content, literal.contentStart));
 
-/** The values of the variables, for an argument that expands one (`{{flags}}`). */
-function variableValues(assignments: readonly Assignment[]): Map<string, string> {
+/** The text a parameter default may give its variable: the contents of its literals. */
+const defaultValue = ({ literals }: ParameterDefault): string =>
+  literals.map((literal) => literal.content).join(BLANK);
+
+/**
+ * The values of the variables, for an argument that expands one (`{{flags}}`): each assignment,
+ * and each parameter default (`*flags='-it'`), joined when a name has several.
+ */
+function variableValues(
+  assignments: readonly Assignment[],
+  defaults: readonly ParameterDefault[],
+): Map<string, string> {
   const values = new Map<string, string>();
-  for (const assignment of assignments) {
-    const value = onlyString(assignment)?.content ?? assignment.value;
-    values.set(assignment.name, [values.get(assignment.name), value].join(" ").trim());
+  const named = [
+    ...assignments.map((found) => ({ ...found, value: onlyString(found)?.content ?? found.value })),
+    ...defaults.map((found) => ({ name: found.name, value: defaultValue(found) })),
+  ];
+  for (const { name, value } of named) {
+    values.set(name, [values.get(name), value].join(BLANK).trim());
   }
   return values;
 }
@@ -181,6 +197,16 @@ function justfileVariables(
   };
 }
 
+/** Each recipe that another program runs and that names an old package: code the tool skips. */
+const shebangSteps = (
+  text: string,
+  recipes: readonly ShebangRecipe[],
+  locate: (offset: number) => string,
+): ManualStep[] =>
+  recipes
+    .filter((recipe) => namesOriginalPackage(text.slice(recipe.start, recipe.end)))
+    .map(({ shebang, shell }) => ({ kind: "script-not-shell", location: locate(shebang), shell }));
+
 /** Migrate a justfile; each finding names its `file:line`. */
 export function migrateJustfile(text: string, file: string): CommandMigration {
   const lineOf = lineLocator(text);
@@ -191,8 +217,9 @@ export function migrateJustfile(text: string, file: string): CommandMigration {
     ...assignments.flatMap(assignmentDefinitions),
     ...defaults.flatMap(parameterDefinitions),
   ]);
-  const variables = justfileVariables(text, variableValues(assignments), programs);
-  const shell = shellText(text, [...assignments, ...headers]);
+  const variables = justfileVariables(text, variableValues(assignments, defaults), programs);
+  const scripts = shebangRecipes(text, headers);
+  const shell = shellText(text, [...assignments, ...headers, ...scripts]);
   const commands = [
     ...shellCommands(shell.text),
     ...literalCommands(assignments.flatMap((assignment) => assignment.literals)),
@@ -201,5 +228,6 @@ export function migrateJustfile(text: string, file: string): CommandMigration {
   ];
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const { edits, changes, manualSteps } = commandWordFindings(commands, locate, variables);
-  return { text: applyTextEdits(text, edits), changes, manualSteps };
+  const steps = [...manualSteps, ...shebangSteps(text, scripts, locate)];
+  return { text: applyTextEdits(text, edits), changes, manualSteps: steps };
 }

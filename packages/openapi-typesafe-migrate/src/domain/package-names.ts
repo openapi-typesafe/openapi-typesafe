@@ -120,10 +120,13 @@ const NODE_MODULES_FOLDER = "node_modules/";
 
 /**
  * The old package whose installed files a path points into (`../node_modules/openapi-fetch/x.js`,
- * `node_modules/openapi-typescript/bin/cli.js`), or undefined.
+ * `node_modules/openapi-typescript/bin/cli.js`) or whose folder it names
+ * (`./node_modules/openapi-fetch`), or undefined.
  */
 export function oldPackageInNodeModules(path: string): string | undefined {
-  return [...PACKAGE_RENAMES.keys()].find((name) =>
-    path.includes(`${NODE_MODULES_FOLDER}${name}${PATH_SEPARATOR}`),
+  return [...PACKAGE_RENAMES.keys()].find(
+    (name) =>
+      path.includes(`${NODE_MODULES_FOLDER}${name}${PATH_SEPARATOR}`) ||
+      path.endsWith(`${NODE_MODULES_FOLDER}${name}`),
   );
 }

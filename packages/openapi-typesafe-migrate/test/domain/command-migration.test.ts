@@ -25,6 +25,17 @@ describe("migrateCommand", () => {
     ]);
   });
 
+  it.each([
+    ["npx.cmd openapi-typescript a.yaml -it", "npx.cmd openapi-typesafe a.yaml --immutable"],
+    ["pnpm.EXE exec openapi-typescript a.yaml", "pnpm.EXE exec openapi-typesafe a.yaml"],
+    ["npm.ps1 i -D openapi-fetch", "npm.ps1 i -D openapi-typesafe-fetch"],
+  ])("migrateCommand reads a launcher with a Windows suffix: %s", (text, expected) => {
+    const migrated = migrateCommand(text, "x");
+
+    expect(migrated.text).toBe(expected);
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
   it("migrateCommand reports a file of the old package and an argument it cannot tell", () => {
     const text =
       "node node_modules/openapi-typescript/bin/cli.js && echo openapi-typescript-helpers";

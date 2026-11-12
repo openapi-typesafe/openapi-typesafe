@@ -9,11 +9,20 @@ import {
   unchanged,
 } from "../../domain/migration-findings.js";
 import { applyTextEdits, type TextEdit } from "../../domain/text-edits.js";
+import { callbackTypeEdits } from "./declared-types.js";
 import type { FactoryNames } from "./factory-type-text.js";
-import { createFileBindings } from "./file-bindings.js";
+import { createFileBindings, type FileBindings } from "./file-bindings.js";
 import { type GeneratorCall, type GeneratorOptions, generatorCalls } from "./generator-calls.js";
+import {
+  IR_CALLBACKS_OPTION,
+  LEGACY_ONLY_CALLBACKS,
+  legacyCallbackSteps,
+  propertyNamed,
+  TRANSFORM,
+} from "./option-properties.js";
 import { optionsTypeEdits, optionsTypeReferences } from "./options-type.js";
 import { plainScriptKind } from "./script-regions.js";
+import { spreadSteps } from "./spread-options.js";
 import { callbackAnnotations, callbackFunction, isSharedFunction } from "./transform-callback.js";
 import { returnEdits, returnedExpressions } from "./transform-returns.js";
 import { removalEdits, unusedDeclarations } from "./unused-declarations.js";
@@ -26,9 +35,6 @@ import { removalEdits, unusedDeclarations } from "./unused-declarations.js";
  * other legacy callback is reported, not changed: it still works, with a warning.
  */
 
-const TRANSFORM = "transform";
-const LEGACY_ONLY_CALLBACKS = ["postTransform", "transformProperty"] as const;
-const IR_CALLBACKS_OPTION = "irCallbacks";
 /** The value of `irCallbacks` in an object that the call types: the literal `true` stays `true`. */
 const IR_CALLBACKS_TRUE = "true";
 /** In an untyped `const`, `true` widens to `boolean`, which no signature of `openapiTS` takes. */
@@ -52,18 +58,6 @@ const noFindings = (): CallFindings => ({
   manualSteps: [],
   typeReferences: [],
 });
-
-function propertyNamed(
-  options: ts.ObjectLiteralExpression,
-  name: string,
-): ts.ObjectLiteralElementLike | undefined {
-  return options.properties.find((property) => {
-    const key = property.name;
-    return (
-      key !== undefined && (ts.isIdentifier(key) || ts.isStringLiteral(key)) && key.text === name
-    );
-  });
-}
 
 /**
  * A declared return type names TypeScript nodes (`ts.TypeNode`), which type text does not match,
@@ -91,7 +85,15 @@ function transformEdits(
   if (isSharedFunction(property, names)) {
     return "shared-function";
   }
-  const edits = returnTypeEdits(callback, text);
+  const declared = callbackTypeEdits(
+    callbackAnnotations(property, names),
+    callback,
+    names.bindings,
+  );
+  if (declared === undefined) {
+    return "declared-type";
+  }
+  const edits = [...returnTypeEdits(callback, text), ...declared];
   for (const returned of returnedExpressions(callback.body)) {
     const returnEditList = returnEdits(returned, names);
     if (returnEditList === undefined) {
@@ -135,15 +137,6 @@ function keepReason(options: ts.ObjectLiteralExpression): TransformKeepReason | 
   return options.properties.some(ts.isSpreadAssignment) ? "spread-options" : undefined;
 }
 
-function legacyCallbackSteps(options: ts.ObjectLiteralExpression, text: string): ManualStep[] {
-  return LEGACY_ONLY_CALLBACKS.flatMap((callback) => {
-    const property = propertyNamed(options, callback);
-    return property === undefined
-      ? []
-      : [{ kind: "legacy-callback" as const, line: lineAt(text, property.getStart()), callback }];
-  });
-}
-
 /** The rewrite of `transform` with the options types to retarget, or the reason to keep it. */
 function transformRewrite(
   transform: ts.ObjectLiteralElementLike,
@@ -168,6 +161,7 @@ function migrateOptions(options: OwnOptions, text: string, names: FactoryNames):
   }
   const findings = noFindings();
   findings.manualSteps.push(...legacyCallbackSteps(options.options, text));
+  findings.manualSteps.push(...spreadSteps(options.options, text, names.bindings));
   const transform = propertyNamed(options.options, TRANSFORM);
   if (transform === undefined) {
     return findings;
@@ -189,12 +183,17 @@ function migrateOptions(options: OwnOptions, text: string, names: FactoryNames):
 }
 
 /** Options that other code uses too: the callbacks are reported, never changed. */
-function sharedOptionsFindings(options: ts.ObjectLiteralExpression, text: string): CallFindings {
+function sharedOptionsFindings(
+  options: ts.ObjectLiteralExpression,
+  text: string,
+  bindings: FileBindings,
+): CallFindings {
   const findings = noFindings();
   if (propertyNamed(options, IR_CALLBACKS_OPTION) !== undefined) {
     return findings;
   }
   findings.manualSteps.push(...legacyCallbackSteps(options, text));
+  findings.manualSteps.push(...spreadSteps(options, text, bindings));
   const transform = propertyNamed(options, TRANSFORM);
   if (transform !== undefined) {
     const line = lineAt(text, transform.getStart());
@@ -211,7 +210,7 @@ function callFindings(found: GeneratorCall, text: string, names: FactoryNames): 
     case "own":
       return migrateOptions(options, text, names);
     case "shared":
-      return sharedOptionsFindings(options.options, text);
+      return sharedOptionsFindings(options.options, text, names.bindings);
     case "unknown": {
       const line = lineAt(text, options.expression.getStart());
       return { ...noFindings(), manualSteps: [{ kind: "options-not-inspected", line }] };

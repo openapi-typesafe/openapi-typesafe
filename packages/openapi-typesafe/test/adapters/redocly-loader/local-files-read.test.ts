@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import type { BaseResolver, Document } from "@redocly/openapi-core";
 import { afterAll, describe, expect, it } from "vitest";
@@ -52,6 +53,17 @@ describe("RedoclySchemaLoader: local files read", () => {
       pathToFileURL(path.join(workDir, "api.yaml")).href,
       pathToFileURL(path.join(workDir, "models.yaml")).href,
     ]);
+  });
+
+  it.each([
+    ["a string", (text: string) => text],
+    ["a stream", (text: string) => Readable.from([`${text}\n`])],
+  ])("load of a file: URL as %s lists the file, as for a URL", async (_, sourceOf) => {
+    const root = pathToFileURL(path.join(workDir, "api.yaml"));
+
+    const files = await localFilesOf(sourceOf(root.href));
+
+    expect(files).toEqual([root.href, pathToFileURL(path.join(workDir, "models.yaml")).href]);
   });
 
   it("load of an inline source lists the $ref'd files but not the made-up name of the source", async () => {

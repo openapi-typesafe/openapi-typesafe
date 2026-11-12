@@ -1,4 +1,5 @@
 import { type HeredocBody, heredocAt, type PendingHeredoc, readBodies } from "./here-documents.js";
+import { inlineCode } from "./inline-code.js";
 import { wordExpansions } from "./parameter-expansions.js";
 import { assignmentValueText, shellAssignments } from "./shell-assignments.js";
 import {
@@ -10,6 +11,7 @@ import {
   WORD_BREAKS,
   wordPart,
 } from "./shell-word-parts.js";
+import { expressionLiterals } from "./workflow-expressions.js";
 
 export type { ShellCommand, ShellWord } from "./shell-word-parts.js";
 
@@ -232,22 +234,27 @@ export function shellCommandsAt(text: string, offset: number, indent = 0): Shell
   return shellCommands(text, indent).map((words) => shifted(words, offset));
 }
 
-/** The words of the parameter expansions of a word (`${GEN:-npx …}`), read as command lines. */
+/**
+ * The words of the parameter expansions of a word (`${GEN:-npx …}`) and the string literals of
+ * its workflow expressions (`${{ inputs.gen || 'npx …' }}`), read as command lines.
+ */
 const expansionCommands = (word: ShellWord): ShellCommand[] =>
-  wordExpansions(word.raw).flatMap((expansion) =>
-    shellCommandsAt(expansion.text, word.start + expansion.start),
+  [...wordExpansions(word.raw), ...expressionLiterals(word.raw)].flatMap((part) =>
+    shellCommandsAt(part.text, word.start + part.start),
   );
 
 /**
  * The command lines inside the words of a command: a quoted word that holds one, the value of an
  * assignment (`GEN="npx openapi-typescript"`), which runs where the variable is expanded, and
  * the word of a parameter expansion (`${GEN:-npx openapi-typescript}`). A text read as commands
- * is read once: its own expansions are found in it.
+ * is read once: its own expansions are found in it. The code of `python3 -c '…'` is no command
+ * line.
  */
 function innerCommands(command: ShellCommand): ShellCommand[] {
   const assignments = new Map(shellAssignments(command).map((found) => [found.word, found]));
+  const code = inlineCode(command)?.code;
   return command.flatMap((word) => {
-    const inner = nestedCommandText(word);
+    const inner = word === code ? undefined : nestedCommandText(word);
     if (inner !== undefined) {
       return shellCommandsAt(inner, word.start + 1);
     }

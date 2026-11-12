@@ -1,4 +1,5 @@
 import { type ImportedSpecifier, packageOfSpecifier } from "./declared-packages.js";
+import { MigrationBugError } from "./migration-bug.js";
 import {
   type Change,
   type FileMigration,
@@ -108,9 +109,9 @@ function distinctStrings(strings: readonly SourceString[]): SourceString[] {
       outer = enclosing.at(-1);
     }
     if (outer !== undefined && found.end > outer.end) {
-      throw new Error(
-        `Source strings overlap at offsets ${outer.start}-${outer.end} and ` +
-          `${found.start}-${found.end}; the file was not changed.`,
+      throw new MigrationBugError(
+        `source strings overlap at offsets ${outer.start}-${outer.end} and ` +
+          `${found.start}-${found.end}`,
       );
     }
     enclosing.push(found);

@@ -1,5 +1,6 @@
 import { assertNever } from "../domain/assert-never.js";
 import type { Change } from "../domain/migration-findings.js";
+import type { SkipReason } from "./migrate-project.js";
 import type { FileProblem } from "./ports.js";
 
 /**
@@ -33,10 +34,10 @@ export function changeMessage(change: Change): string {
   }
 }
 
-export const SKIPPED_HEADING = "Skipped (not read, not written):";
+export const SKIPPED_HEADING = "Skipped (not migrated, not written):";
 
-/** Why a file was not read, after its path in the "Skipped" section. */
-export function skippedMessage(reason: FileProblem): string {
+/** Why a file was left as it was, after its path in the "Skipped" section. */
+export function skippedMessage(reason: SkipReason): string {
   switch (reason.kind) {
     case "outside-root":
       return "it leads outside the project folder (a link, or a path in the git index)";
@@ -44,6 +45,11 @@ export function skippedMessage(reason: FileProblem): string {
       return "it is not UTF-8 text, so it was not changed; check it by hand";
     case "io-error":
       return `it could not be read (${reason.code})`;
+    case "migration-bug":
+      return (
+        `the tool could not migrate it (${reason.message}), a bug of the tool: it was not ` +
+        "changed, so migrate it by hand, and please report the bug"
+      );
     default:
       return assertNever(reason);
   }

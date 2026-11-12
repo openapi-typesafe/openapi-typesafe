@@ -178,6 +178,33 @@ describe("migrateDockerfile and variables", () => {
     );
   });
 
+  it("migrateDockerfile renames the default word of an ARG or ENV value once", () => {
+    const text = lines(
+      `ARG A=${braced("A:-npx openapi-typescript")}`,
+      `ENV B="${braced("B:-npx openapi-typescript")}" C=x`,
+      `ENV D ${braced("D:-npx openapi-typescript")}`,
+      `ENV E "npx openapi-typescript"`,
+      `RUN F=${braced("F:-npx openapi-typescript")} && $F a.yaml`,
+    );
+
+    const migrated = migrateDockerfile(text, "Dockerfile");
+
+    expect(migrated.text).toBe(text.replaceAll("npx openapi-typescript", "npx openapi-typesafe"));
+    expect(migrated.changes).toEqual(
+      [1, 2, 3, 4, 5].map((line) => ({ kind: "command-renamed", location: `Dockerfile:${line}` })),
+    );
+  });
+
+  it("migrateDockerfile reports an old name in a legacy ENV value once", () => {
+    const text = lines("ENV PKG openapi-fetch", "RUN npm i $PKG");
+
+    const migrated = migrateDockerfile(text, "Dockerfile");
+
+    expect(migrated.manualSteps).toEqual([
+      { kind: "old-name-in-command", location: "Dockerfile:1", word: "openapi-fetch" },
+    ]);
+  });
+
   it("migrateDockerfile follows an ENV set to the ARG of the same name", () => {
     const text = lines("ARG GEN=openapi-typescript", "ENV GEN=$GEN", "RUN $GEN a.yaml -it");
 

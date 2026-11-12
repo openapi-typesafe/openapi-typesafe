@@ -1,4 +1,5 @@
-import type { Change, ManualStep } from "../domain/migration-findings.js";
+import { MigrationBugError } from "../domain/migration-bug.js";
+import type { Change, FileMigration, ManualStep } from "../domain/migration-findings.js";
 import type { MigrationContext } from "./config-steps.js";
 import { fileMigrationFor } from "./file-migrations.js";
 import type {
@@ -41,13 +42,22 @@ export type WriteOutcome =
       readonly notWritten: readonly string[];
     };
 
+/** Why a file was left as it was: it was not read, or a bug of the tool would corrupt it. */
+export type SkipReason = FileProblem | { readonly kind: "migration-bug"; readonly message: string };
+
+/** A listed file that the migration left as it was, and why. */
+export interface SkippedPath {
+  readonly path: string;
+  readonly reason: SkipReason;
+}
+
 /**
  * What the migration found: the files with changes or manual steps, the paths that were not
  * read, and what was written.
  */
 export interface ProjectMigration {
   readonly files: readonly FileReport[];
-  readonly skipped: readonly SkippedFile[];
+  readonly skipped: readonly SkippedPath[];
   readonly write: WriteOutcome;
 }
 
@@ -67,8 +77,24 @@ interface PlannedFile {
 
 type FilePlan =
   | { readonly kind: "planned"; readonly file: PlannedFile }
-  | { readonly kind: "skipped"; readonly reason: FileProblem }
+  | { readonly kind: "skipped"; readonly reason: SkipReason }
   | { readonly kind: "not-migrated" };
+
+type MigrationAttempt =
+  | { readonly kind: "migrated"; readonly migration: FileMigration }
+  | { readonly kind: "skipped"; readonly reason: SkipReason };
+
+/** The migration of one file, or the bug that stopped it (see MigrationBugError). */
+function attemptMigration(migrate: () => FileMigration): MigrationAttempt {
+  try {
+    return { kind: "migrated", migration: migrate() };
+  } catch (error) {
+    if (error instanceof MigrationBugError) {
+      return { kind: "skipped", reason: { kind: "migration-bug", message: error.message } };
+    }
+    throw error;
+  }
+}
 
 async function planFile(
   path: string,
@@ -89,7 +115,11 @@ async function planFile(
     ...{ version, catalogs, manifests, aliases, apiDescriptionParts },
     ...{ rewriter, scanner, readers },
   };
-  const migration = migrate(read.text, path, context);
+  const attempt = attemptMigration(() => migrate(read.text, path, context));
+  if (attempt.kind === "skipped") {
+    return attempt;
+  }
+  const { migration } = attempt;
   const isChanged = migration.text !== read.text;
   const { changes, manualSteps } = migration;
   if (isChanged || manualSteps.length > 0) {
@@ -101,7 +131,7 @@ async function planFile(
 
 interface ProjectPlan {
   readonly files: readonly PlannedFile[];
-  readonly skipped: readonly SkippedFile[];
+  readonly skipped: readonly SkippedPath[];
 }
 
 /**
@@ -114,7 +144,7 @@ async function planProject(
   version: string,
 ): Promise<ProjectPlan> {
   const files: PlannedFile[] = [];
-  const skipped: SkippedFile[] = [];
+  const skipped: SkippedPath[] = [];
   const target = await planProjectTarget(paths, dependencies, version);
   for (const path of paths) {
     const plan = await planFile(path, dependencies, target);

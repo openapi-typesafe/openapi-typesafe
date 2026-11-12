@@ -50,6 +50,25 @@ describe("fileMigrationFor and API descriptions", () => {
     expect(migration.manualSteps).toEqual([]);
   });
 
+  it.each([
+    ["a GitLab job named openapi", "openapi:\n  stage: build", "ci/jobs.yml"],
+    ["a key with a name, not a version", "swagger: ui", "ci/jobs.yml"],
+    ["an API description at a CI config path", "openapi: 3.1.0", "apps/a/.gitlab-ci.yml"],
+    ["a CI config in a CI folder", "asyncapi: 3.0.0", "apps/a/.github/workflows/a.yml"],
+  ])("fileMigrationFor migrates the commands of %s", (_, head, path) => {
+    const text = `${head}\nscript:\n  - npx openapi-typescript spec.yaml -it\n`;
+
+    expect(migrated(path, text).text).toBe(
+      text.replace("typescript spec.yaml -it", "typesafe spec.yaml --immutable"),
+    );
+  });
+
+  it("fileMigrationFor leaves an API description with a pre-release version", () => {
+    const text = documentWith("openapi: 3.2.0-rc1");
+
+    expect(migrated("api/spec.yaml", text).text).toBe(text);
+  });
+
   it("fileMigrationFor leaves an API description that is the second document of a stream", () => {
     const text = `name: other\n---\n${documentWith("openapi: 3.0.3")}`;
 
@@ -152,6 +171,20 @@ describe("migrateProject and the files of a split API description", () => {
     const files = await migratedProject(project);
 
     expect(files["ci.yaml"]).toContain(MIGRATED_EXAMPLE);
+  });
+
+  it("migrateProject reads a $ref from no CI config and into no CI config", async () => {
+    const project = {
+      ".gitlab-ci.yml": "openapi: 3.1.0\njobs:\n  $ref: ./ci/a.yaml\n",
+      "ci/a.yaml": EXAMPLE,
+      "openapi.yaml": "openapi: 3.1.0\ncomponents:\n  $ref: ./.circleci/config.yml\n",
+      ".circleci/config.yml": EXAMPLE,
+    };
+
+    const files = await migratedProject(project);
+
+    expect(files["ci/a.yaml"]).toContain(MIGRATED_EXAMPLE);
+    expect(files[".circleci/config.yml"]).toContain(MIGRATED_EXAMPLE);
   });
 
   it("migrateProject leaves a part that an indented API key does not make a description", async () => {

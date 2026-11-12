@@ -277,3 +277,17 @@ The two checks and messages take the bundle from about 10.95 kB to 11.22 kB (siz
 minified). The budget rises from 11 kB to 11.3 kB; the docs keep "about 11 kB minified". The
 smaller choices are listed above and are worse. Correctness ranks above size
 (CODING_PRINCIPLES §1), as in the amendments above.
+
+## Amendment (2026-11-12): the serializers name the hook by style, and option types take `undefined`
+
+1. The exported `serializeArrayParam` and `serializeObjectParam` still failed with the query
+   message for a path style, also when a user's `pathSerializer()` calls them. They now check
+   their members themselves, by the `style` they get: `simple`, `label` and `matrix` name
+   `pathSerializer()`, the other styles `querySerializer()`. The path styles are the keys of one
+   map, `PATH_STYLE_JOINERS`, which also joins their exploded parts. The default path serializer
+   no longer checks first; headers still do, since a header has no hook to name. The public
+   signatures are unchanged.
+2. The types of `QuerySerializerOptions` say `| undefined` on every option, so the `undefined`
+   rule above also compiles under `exactOptionalPropertyTypes`.
+
+The bundle stays within the 11.3 kB budget (11.27 kB).

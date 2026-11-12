@@ -505,6 +505,52 @@ The rc.6 hunt found output that did not compile and commands that kept the old g
   not reach projects without one. A bash array assignment is one word, and its items are read as
   a command line, so the old name in it is renamed.
 
+## Amendment (2026-11-12): the sixth review of the migration tool
+
+The rc.7 hunt found a crash, output that did not compile, and files that were read as the wrong
+language.
+
+- **A tool bug skips one file.** A Dockerfile `ARG` default was read twice, so two edits overlapped
+  and the run crashed with nothing written. `ARG` and `ENV` values are read once now. Overlapping
+  edits or source strings are a bug of the tool (`MigrationBugError`), never of the project: the
+  file is skipped and listed under "Skipped (not migrated, not written)", every other file is
+  migrated, and the run exits with 1, so CI does not pass on a partial migration. Stopping the
+  whole run was rejected: one unread file should not block the rest, and the exit code still
+  says that something needs a bug report.
+- **GitHub Actions expressions are read.** The string literals of `${{ … }}` and the `default` of
+  a workflow or action input are read as command lines where they are written, and a word that is
+  a whole expression may run the generator or another program, so its old flags are reported.
+- **A computed Make program is reported as written.** `$(or $(GEN),openapi-typescript)` may run
+  another program, so its flags are reported with the text of the call.
+- **A declared transform type is rewritten or kept.** The type of the `const` that holds a
+  `transform`, a JSDoc `@type` or `@returns` that named a TypeScript node type stayed, so the
+  rewritten file did not compile. A node type in such a declaration (`ts.TypeNode`,
+  `import("typescript").TypeNode`, a named import) becomes `string`, through unions,
+  intersections, parentheses and type literals. Any other type (a local alias, an array) keeps
+  the `transform` with the reason `declared-type`: guessing the meaning of a user's alias could
+  produce code that compiles but means something else.
+- **An API description needs a version.** A GitLab job named `openapi` made `.gitlab-ci.yml` an
+  API description, so its commands were left. A top-level API key counts only with a version as
+  its value (`openapi: 3.1.0`, also with a pre-release), and a CI config (by name or folder) is
+  never an API description or a `$ref` part of one.
+- **Scripts of other languages are not shell.** A CircleCI job takes the `shell` of the executor
+  it names, below its own `shell`. A justfile recipe whose shebang names a program other than a
+  shell, and the code of `python -c`, `node`/`bun -e`/`-p`, `ruby -e` and `perl -e/-E`, are left
+  as they are and reported when they name an old package, like a CI step with `shell: python`.
+  The interpreter is found at any word of a command, since launchers run one. The message says
+  "the script runs with …" for all of them.
+- **Smaller gaps.** A justfile parameter default is a value of its variable, so its old flags
+  are reported where it is passed (`{{flags}}`). A path that names the `node_modules` folder of an
+  old package is reported like a path to a file in it. A launcher or installer written with a
+  Windows suffix (`npx.cmd`, `pnpm.exe`, `npm.ps1`) is read as itself.
+- **The objects that options spread are read.** `openapiTS(s, { ...base })` without an own
+  `transform` was not reported, though `base` could hold callbacks. A spread object that the file
+  writes (inline, or a `const` with an object literal, also through other spreads) is read like the
+  options: its legacy callbacks are reported, and a `transform` in it is kept with the reason
+  `in-spread`, since rewriting it would change an object other code may reach and need
+  `irCallbacks` on the options that spread it. Any other spread is reported as
+  `options-spread-not-inspected`.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

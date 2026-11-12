@@ -7,6 +7,7 @@ import {
   type VariableProgram,
   variablePrograms,
 } from "./variable-programs.js";
+import { isWholeExpression } from "./workflow-expressions.js";
 
 /** A shell variable as a file sets it: its name and its value, read as shell text. */
 export interface VariableDefinition {
@@ -175,14 +176,14 @@ const VARIABLE_WORD_RE = new RegExp(
 /**
  * The variables with the program words that expand a variable no definition the tool reads sets:
  * one set by another `script` item, through `$GITHUB_ENV`, by a recipe line, as an array or
- * outside the file. It may run the generator, so the old flags after it are reported, not kept
- * without a word.
+ * outside the file, and a workflow expression (`${{ inputs.gen }}`), whose value the run gives.
+ * It may run the generator, so the old flags after it are reported, not kept without a word.
  */
 export function withUnreadVariables(variables: FileVariables): FileVariables {
   return {
     programAt: (program) =>
       variables.programAt(program) ??
-      (VARIABLE_WORD_RE.test(program.raw)
+      (VARIABLE_WORD_RE.test(program.raw) || isWholeExpression(program.raw)
         ? { written: program.raw, program: "generator-or-other" }
         : undefined),
     referenceAt: (word) => variables.referenceAt(word),

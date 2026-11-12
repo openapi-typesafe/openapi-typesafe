@@ -146,6 +146,81 @@ describe("migrateJustfile", () => {
     expect(migrated.manualSteps).toEqual([]);
   });
 
+  it("migrateJustfile reports old flags in a parameter default that the generator gets", () => {
+    const text = lines(
+      "b gen='npx openapi-typescript' *flags='-it' out=(\"-\" + 'x' + '--redoc') empty=gen:",
+      "    {{gen}} f.yaml {{flags}}",
+      "    openapi-typescript g.yaml {{out}} {{empty}}",
+    );
+
+    expect(migrateJustfile(text, "justfile").manualSteps).toEqual([
+      {
+        kind: "variable-not-only-generator",
+        location: "justfile:2",
+        variable: "{{gen}}",
+        flags: ["-it"],
+      },
+      {
+        kind: "flags-in-variable",
+        location: "justfile:3",
+        variable: "{{out}}",
+        flags: ["--redoc"],
+      },
+    ]);
+  });
+
+  it("migrateJustfile leaves a recipe that another program runs and reports its old names", () => {
+    const text = lines(
+      "py:",
+      "",
+      "    #!/usr/bin/env python3",
+      "    import subprocess",
+      "",
+      '    subprocess.run(["npx", "openapi-typescript", "{{x}}", "-it"])',
+      "after:",
+      "    npx openapi-typescript a.yaml -it",
+    );
+
+    const migrated = migrateJustfile(text, "justfile");
+
+    expect(migrated.text).toBe(
+      text
+        .replace("a.yaml -it", "a.yaml --immutable")
+        .replace("npx openapi-typescript a.yaml", "npx openapi-typesafe a.yaml"),
+    );
+    expect(migrated.manualSteps).toEqual([
+      { kind: "script-not-shell", location: "justfile:3", shell: "/usr/bin/env python3" },
+    ]);
+  });
+
+  it.each([
+    ["a shell shebang", "    #!/usr/bin/env bash", "    npx openapi-typescript a.yaml -it"],
+    ["no shebang", "    # !python", "    npx openapi-typescript a.yaml -it"],
+    ["a shebang after the first line", "    npx openapi-typescript a.yaml -it", "    #!python"],
+  ])("migrateJustfile reads a recipe with %s as shell text", (_, first, second) => {
+    const text = lines("a:", first, second);
+
+    expect(migrateJustfile(text, "justfile").text).toContain("openapi-typesafe a.yaml --immutable");
+  });
+
+  it("migrateJustfile reads a recipe with Windows line ends up to the next recipe", () => {
+    const text =
+      "py:\r\n    #!python\r\n    print('openapi-fetch')\r\nb:\r\n    openapi-typescript a.yaml\r\n";
+
+    const migrated = migrateJustfile(text, "justfile");
+
+    expect(migrated.text).toContain("    openapi-typesafe a.yaml\r\n");
+    expect(migrated.manualSteps).toEqual([
+      { kind: "script-not-shell", location: "justfile:2", shell: "python" },
+    ]);
+  });
+
+  it("migrateJustfile reports nothing for a recipe of another program without old names", () => {
+    const text = lines("a:", "    #!/usr/bin/env node", "    console.log(1)");
+
+    expect(migrateJustfile(text, "justfile")).toEqual({ text, changes: [], manualSteps: [] });
+  });
+
   it("migrateJustfile migrates a recipe parameter default and reports the flags after it", () => {
     const text = lines(
       'types out *args gen="npx openapi-typescript" +rest=(gen + "x"): build',

@@ -86,7 +86,7 @@ export function commandStepMessage(step: CommandStep): string {
     case "old-name-in-command":
       return `${step.location}: "${step.word}" ${OLD_NAME_IN_COMMAND_NOTE}`;
     case "script-not-shell":
-      return `${step.location}: the step runs with shell: ${step.shell}, ${SCRIPT_NOT_SHELL_NOTE}`;
+      return `${step.location}: the script runs with ${step.shell}, ${SCRIPT_NOT_SHELL_NOTE}`;
     case "command-string":
       return `line ${step.line}: ${COMMAND_STRING_NOTE} "${step.to}"`;
     default:

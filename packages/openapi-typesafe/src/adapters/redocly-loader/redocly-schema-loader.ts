@@ -1,4 +1,3 @@
-import { fileURLToPath } from "node:url";
 import {
   type BaseResolver,
   bundle,
@@ -37,12 +36,19 @@ import {
   resolveConfigWithAccess,
 } from "./remote-fetch.js";
 import {
-  loadFailedError,
   refCycleError,
   schemaInvalidError,
   versionUnsupportedError,
 } from "./schema-load-errors.js";
-import { parseSchema } from "./schema-source.js";
+import {
+  inlineAbsoluteRef,
+  isFileSource,
+  parseSchema,
+  type ResolvedLoadRequest,
+  resolveSchemaSource,
+  rootUrlOf,
+  sourceAbsoluteRef,
+} from "./schema-source.js";
 import { findUnsupportedKeys, unsupportedKeysError } from "./unsupported-keys.js";
 
 /**
@@ -92,35 +98,6 @@ function assertOpenAPI3(document: unknown): void {
   throw versionUnsupportedError(UNSUPPORTED_FORMAT_MESSAGE, parsed);
 }
 
-/**
- * The name an inline source (a string, object, buffer or stream) gets inside the working
- * directory. Redocly resolves relative `$ref`s against the directory of the document, so the
- * document must be named as a file in the working directory, not as the directory itself.
- */
-const INLINE_SOURCE_NAME = "inline-source";
-
-/** The base for relative `$ref`s: the source file or URL itself, else a file in the cwd. */
-function sourceAbsoluteRef(source: unknown, cwd: URL): string {
-  const document = source instanceof URL ? source : new URL(INLINE_SOURCE_NAME, cwd);
-  return document.protocol === "file:" ? sourceFilePath(document) : document.href;
-}
-
-/**
- * The path of a `file:` source. A URL that names no path on this platform (an encoded slash, a
- * host on POSIX, no drive letter on Windows) cannot be read, so it fails as a read would.
- */
-function sourceFilePath(source: URL): string {
-  try {
-    return fileURLToPath(source);
-  } catch (error) {
-    // Node.js reports these as TypeErrors (ERR_INVALID_FILE_URL_PATH, ERR_INVALID_FILE_URL_HOST).
-    if (!(error instanceof TypeError)) {
-      throw error;
-    }
-    throw loadFailedError(source.href, error);
-  }
-}
-
 /** Report the document problems Redocly throws as typed errors; anything else passes through. */
 async function rethrowDocumentError(
   error: unknown,
@@ -148,11 +125,14 @@ class RedoclySchemaLoader implements SchemaLoader {
   }
 
   async load(request: SchemaLoadRequest): Promise<LoadedSchema> {
-    const resolver = this.#resolver(request);
+    // Resolved once, before any step reads the source: URL text is then a URL in every step.
+    const source = await resolveSchemaSource(request.source, inlineAbsoluteRef(request.cwd));
+    const resolved = { ...request, source };
+    const resolver = this.#resolver(resolved);
     // Parsing is guarded too: `JSON.stringify` of a deep object source overflows the stack on
     // Node.js 22 and 24, before linting starts.
     const bundled = await withStackOverflowReportedAsync("load", () =>
-      this.#parseAndBundle(request, resolver),
+      this.#parseAndBundle(resolved, resolver),
     ).catch((error: unknown) => {
       throw resolver.firstRefusal ?? error;
     });
@@ -163,7 +143,10 @@ class RedoclySchemaLoader implements SchemaLoader {
     return bundled;
   }
 
-  async #parseAndBundle(request: SchemaLoadRequest, resolver: BaseResolver): Promise<LoadedSchema> {
+  async #parseAndBundle(
+    request: ResolvedLoadRequest,
+    resolver: BaseResolver,
+  ): Promise<LoadedSchema> {
     const { logger, now } = this.#options;
     const configLoadedAt = now();
     logger.debug("Loaded Redoc config", "redoc", now() - configLoadedAt);
@@ -174,19 +157,19 @@ class RedoclySchemaLoader implements SchemaLoader {
     assertOpenAPI3(document.parsed);
     pointMappingNamesAtSchemas(document.parsed);
     const bundled = await this.#lintAndBundle(document, resolver, request.shouldLint);
-    const isRootAFile = request.source instanceof URL && request.source.protocol === "file:";
+    const isRootAFile = isFileSource(request.source);
     const localFiles = await localFilesRead(document, resolver, isRootAFile);
     return { document: bundled, localFiles };
   }
 
-  #resolver(request: SchemaLoadRequest): RefAccessResolver {
+  #resolver(request: ResolvedLoadRequest): RefAccessResolver {
     const { redoc, remoteRefTimeoutMs, remoteDocumentLimits } = this.#options;
     // One record per load, as the resolver and its cache are.
     const redirects = new RedirectedUrls();
     const config = resolveConfigWithAccess(redoc.resolve, {
       timeoutMs: remoteRefTimeoutMs,
       access: request.refAccess,
-      rootUrl: request.source instanceof URL ? request.source.href : undefined,
+      rootUrl: rootUrlOf(request.source)?.href,
       maxParallelFetches: remoteDocumentLimits.maxParallelFetches,
       bodyLimits: remoteDocumentLimits,
       redirects,

@@ -39,9 +39,9 @@ The Node.js API accepts either a `URL`, `string`, or JSON object as input:
 | `string` | Read dynamic YAML or JSON   | `await openapiTS('openapi: "3.1" … ')`                                                                                           |
 |  `JSON`  | Read dynamic JSON           | `await openapiTS({ openapi: '3.1', … })`                                                                                         |
 
-A string that starts with `file://`, `http://` or `https://` is loaded like a `URL`; any other string, a file path included, is parsed as YAML or JSON. To load a file by its path, pass `pathToFileURL(path)` from `node:url`.
+A string that starts with `file://`, `http://` or `https://` is loaded exactly like that `URL`: it fails the same way (a `file:` URL that names no local path, such as `file://host/a.yaml`, fails with `SCHEMA_LOAD_FAILED`), and its redirects are not limited by `remoteRefHosts`, as the root's are not. Any other string, a file path included, is parsed as YAML or JSON. To load a file by its path, pass `pathToFileURL(path)` from `node:url`.
 
-It also accepts `Readable` streams and `Buffer` types that are resolved and treated as strings (validation, bundling, and type generation can’t really happen without the whole document).
+It also accepts `Readable` streams and `Buffer` types that are resolved and treated as strings (validation, bundling, and type generation can’t really happen without the whole document), so a stream or buffer that holds only a URL is loaded like that URL too.
 
 The Node API returns a `Promise` with the generated declarations as plain IR objects (`IrDeclaration[]`). Each one is a small object with a `kind` (`interface`, `typeAlias`, `enum`, `constArray`, `rawDeclaration`).
 
