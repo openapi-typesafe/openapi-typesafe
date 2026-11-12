@@ -81,14 +81,16 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
 
 - Query key: `[method, path, init]`, where the key's init is the call's init with `headers` and
   `URLSearchParams` / `FormData` / `Blob` / bytes values (the whole body or inside an object body,
-  such as a multipart `{ image: file }`) as plain values, plus the fetch client's `baseUrl` (or
+  such as a multipart `{ image: file }`, also a class instance; React Native FormData via
+  `getParts` parts) as plain values, plus the fetch client's `baseUrl` (or
   `keyScope`). `undefined` fields, params and headers, and the `params` records they leave empty,
   are left out; `[method, path]` when nothing is left (no init, no `baseUrl`).
 - `createClient(fetchClient, { keyScope: "blog" })`: the keys name the API instead of the base
   URL. Use it when server rendering uses another base URL than the browser, so the browser reads
   the server's data, and to tell apart clients of one base URL with different headers (tenants).
-- Infinite query key: the same with `"infinite"` last (type `InfiniteQueryKey`), so it never
-  shares a cache entry with `useQuery`; the `[method, path]` prefix matches both.
+- Infinite query key: the same with `"infinite"` after it (type `InfiniteQueryKey`), so it never
+  shares a cache entry with `useQuery`; the `[method, path]` prefix matches both. A
+  `pageParamName` other than `"cursor"` follows as `{ pageParamName }`.
 - Mutation key: `[method, path]`.
 - Invalidate every query of an endpoint with a prefix key:
   `queryClient.invalidateQueries({ queryKey: ["get", "/pets"] })`.

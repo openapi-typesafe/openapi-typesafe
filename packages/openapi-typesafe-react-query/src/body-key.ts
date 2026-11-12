@@ -39,18 +39,6 @@ function isClass(value: object, name: string): boolean {
 }
 
 /**
- * Whether a value is an object literal, whose members JSON writes. A Date or another class has
- * its own JSON form, which the key keeps.
- */
-export function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
-/**
  * A Blob or a File in a key: its type, size, and the name of a File. Its bytes cannot be read while
  * the component renders, so two Blobs of the same type and size share an entry. The date of a File
  * is left out: `FormData.append` and `new File` set it to the current time, so a body built while
@@ -61,16 +49,28 @@ function blobKey(blob: Blob): object {
   return { type: blob.type, size: blob.size, name };
 }
 
-/** The fields of a FormData in a key, in order, with a file as `blobKey`. */
-function formDataKey(form: FormData): unknown[] {
-  // React Native's FormData has no `entries`, so its fields cannot be read.
-  if (typeof form.entries !== "function") {
-    return [];
+/**
+ * React Native's FormData: `append`, `getAll` and `getParts`, and no `entries`. `getParts` gives
+ * each field as a plain object: its `fieldName`, its `headers`, and its text as `string` or the
+ * members of the appended file object (`uri`, `name`, `type`). Its network layer sends these.
+ */
+interface NativeFormData {
+  readonly getParts?: () => readonly object[];
+}
+
+/**
+ * The fields of a FormData in a key, in order, with a file as `blobKey`. React Native's FormData
+ * has no `entries`; its fields are the parts of `getParts`, as they are what it sends. A FormData
+ * with neither has no fields to read.
+ */
+function formDataKey(form: FormData): readonly unknown[] {
+  if (typeof form.entries === "function") {
+    return Array.from(form.entries(), ([name, value]) => [
+      name,
+      typeof value === "string" ? value : blobKey(value),
+    ]);
   }
-  return Array.from(form.entries(), ([name, value]) => [
-    name,
-    typeof value === "string" ? value : blobKey(value),
-  ]);
+  return (form as NativeFormData).getParts?.() ?? [];
 }
 
 /** The bytes of an ArrayBuffer or a typed array, or null for another value. */
@@ -100,7 +100,8 @@ function rawValueKey(value: object): BodyKey | undefined {
 }
 
 /**
- * The members of an object or an array body, each as `bodyKey`, and their kinds by name or index.
+ * The own enumerable members of an object or an array body, each as `bodyKey`, and their kinds by
+ * name or index.
  * An empty object or array stays: a JSON `{}` or `[]` is a body, unlike none.
  */
 function membersKey(members: object): BodyKey {
@@ -119,12 +120,18 @@ function membersKey(members: object): BodyKey {
 /**
  * A body in a key: a value JSON cannot hold by its content, wherever it is in the body, and the
  * kinds of such values in `bodyType`, a field no init has. A JSON body has no `bodyType`, so it
- * never shares a key with a body that holds such a value written as the same JSON.
+ * never shares a key with a body that holds such a value written as the same JSON. Any other
+ * object, also a class instance or an object of another realm, is walked by its own enumerable
+ * members, which are what `JSON.stringify` and the fetch client's multipart body send. An object
+ * with its own JSON form, such as a Date, stays as it is: `JSON.stringify` and TanStack Query's
+ * hash write what its `toJSON` returns.
  */
 export function bodyKey(body: unknown): BodyKey {
-  if (Array.isArray(body) || isPlainRecord(body)) {
-    return membersKey(body);
+  if (typeof body !== "object" || body === null) {
+    return { body };
   }
-  const raw = typeof body === "object" && body !== null ? rawValueKey(body) : undefined;
-  return raw ?? { body };
+  return (
+    rawValueKey(body) ??
+    (typeof (body as { toJSON?: unknown }).toJSON === "function" ? { body } : membersKey(body))
+  );
 }
