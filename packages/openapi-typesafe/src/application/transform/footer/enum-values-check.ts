@@ -99,8 +99,8 @@ function isFiniteType(evaluator: TypeEvaluator, value: Evaluated): boolean {
 }
 
 /**
- * Whether a type surely admits a value outside `values`: a literal not listed, a boolean, or
- * `unknown`, also as one member of a union. A wide type such as `string` or `string & {}`
+ * Whether a type surely admits a value outside `values`: a literal not listed, `true`, `false`,
+ * `boolean` or `unknown`, also as one member of a union. A wide type such as `string` or `string & {}`
  * is not sure: the enum's own type may be open (`withOtherStrings`), so it counts as not wider.
  */
 function admitsOtherValues(
@@ -116,7 +116,7 @@ function admitsOtherValues(
     case "booleanLiteral":
       return true;
     case "keyword":
-      return type.keyword === "unknown";
+      return type.keyword === "unknown" || type.keyword === "boolean";
     case "union":
       return type.types.some((part) => {
         const expanded = evaluator.expand({ ...value, type: part });

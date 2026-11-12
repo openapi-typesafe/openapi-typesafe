@@ -50,6 +50,7 @@ const SCHEMAS = irObject([
   irProperty(name("Status"), irUnion([text("a"), text("b")])),
   irProperty(name("Text"), irKeyword("string")),
   irProperty(name("Flag"), irUnion([text("a"), irBoolean(true)])),
+  irProperty(name("Toggle"), irUnion([text("a"), irKeyword("boolean")])),
   irProperty(
     name("Other"),
     irUnion([text("a"), irIntersection([irKeyword("string"), irObject([])])]),
@@ -114,17 +115,19 @@ describe("TypeEvaluator of tuples", () => {
 });
 
 describe("checkedEnumValues of a location that admits more", () => {
-  it("checkedEnumValues retypes an array whose location admits other literals or unknown", () => {
+  it("checkedEnumValues retypes an array whose location admits other literals, booleans or unknown", () => {
     const footer = [
       array("pair", schema("Pair"), ["asc", "desc"]),
       array("open", schema("Open"), ["t1", "t2"]),
       array("flag", schema("Flag"), ["a"]),
+      array("toggle", schema("Toggle"), ["a"]),
     ];
 
     expect(retypedOf(footer)).toEqual([
       ["widened", "pair"],
       ["widened", "open"],
       ["widened", "flag"],
+      ["widened", "toggle"],
     ]);
   });
 

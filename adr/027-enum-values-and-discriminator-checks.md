@@ -128,8 +128,8 @@ wrong, not as output to keep.
 
 1. **A location that surely admits more is typed by the values.** After the values are admitted,
    the array is typed by its own values (`widened`, no warning) where the location type surely
-   admits another value: a string or number literal it does not list, a boolean, or `unknown`,
-   also as one member of a union (whatever its other members are). A wide type such as `string`
+   admits another value: a string or number literal it does not list, `true`, `false`, `boolean`
+   or `unknown`, also as one member of a union (whatever its other members are). A wide type such as `string`
    or `string & {}` is not sure: the enum's own type may be open (`additionalProperties: true` on
    a string enum gives `"a" | "b" | (string & {})`), so such a location keeps its type. This is a
    rule of the check, not of tuples: union members with other values change too, also in the
