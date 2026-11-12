@@ -104,6 +104,7 @@ same. The table lists how many cases each change touched.
 | `--root-types-keep-casing`: characters that cannot be in an identifier become `_` | the golden output does not compile | 151 |
 | `--root-types-no-schema-prefix`: a schema name that starts with a digit keeps its prefix | the golden output does not compile | 8 |
 | An index signature next to properties of other types also takes their types: `{ a?: boolean } & { [key: string]: string[] }` becomes `string[] \| boolean` | the golden type admits no value with those properties | 336 |
+| `--enum-values`: an array whose location also admits other values (a `prefixItems` element, an `anyOf` / `oneOf` member next to other values) is typed by its own values | each array also accepts the values of the other elements or members | 42 |
 
 The [migration guide](./migration-guide.md) lists every change from openapi-typescript 7.13,
 including the ones this corpus does not reach.
