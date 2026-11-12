@@ -3,6 +3,7 @@ import {
   applyIntentionalDifferences,
   INTENTIONAL_DIFFERENCES,
   type IntentionalDifference,
+  intentionalDifferences,
 } from "../../src/domain/intentional-differences.ts";
 import {
   FIXED_READ_WRITE_TYPES,
@@ -27,6 +28,21 @@ describe("applyIntentionalDifferences", () => {
 
   it("applyIntentionalDifferences leaves text without a match unchanged and applies nothing", () => {
     expect(applyIntentionalDifferences("b", [UPPER])).toEqual({ text: "b", appliedIds: [] });
+  });
+
+  it("applyIntentionalDifferences applies a text rewrite and names it when it changed the text", () => {
+    const doubled: IntentionalDifference = {
+      id: "doubled",
+      issues: ["owner/repo#2"],
+      description: "b becomes bb",
+      rewrite: (text) => text.replaceAll("b", "bb"),
+    };
+
+    expect(applyIntentionalDifferences("a\nb", [UPPER, doubled])).toEqual({
+      text: "A\nbb",
+      appliedIds: ["upper", "doubled"],
+    });
+    expect(applyIntentionalDifferences("c", [doubled]).appliedIds).toEqual([]);
   });
 
   it("applyIntentionalDifferences can apply the same catalog many times", () => {
@@ -161,5 +177,31 @@ describe("INTENTIONAL_DIFFERENCES", () => {
       `export type $Read<T> = {\n    readonly $read: T;\n};\n${FIXED_READ_WRITE_TYPES}\n`,
     );
     expect(appliedIds).toEqual(["read-write-marker-helpers"]);
+  });
+});
+
+describe("intentionalDifferences", () => {
+  const LOCATION = 'ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Pair"]>';
+
+  it("intentionalDifferences adds the widened enum values rule after the pattern rules", () => {
+    const ids = intentionalDifferences(() => []).map((difference) => difference.id);
+
+    expect(ids).toEqual([
+      ...INTENTIONAL_DIFFERENCES.map((difference) => difference.id),
+      "enum-values-widened-location",
+    ]);
+  });
+
+  it("intentionalDifferences types a widened array by its values with the finder's arrays", () => {
+    const golden = `export const pairValues: ${LOCATION} = ["asc"];`;
+    const typeStart = golden.indexOf(LOCATION);
+    const differences = intentionalDifferences(() => [
+      { typeStart, typeEnd: typeStart + LOCATION.length, values: ['"asc"'] },
+    ]);
+
+    const { text, appliedIds } = applyIntentionalDifferences(golden, differences);
+
+    expect(text).toBe('export const pairValues: ReadonlyArray<"asc"> = ["asc"];');
+    expect(appliedIds).toEqual(["enum-values-widened-location"]);
   });
 });

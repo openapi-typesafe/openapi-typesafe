@@ -3,6 +3,7 @@ import { NodeDirectoryLister } from "../adapters/node-directory-lister.ts";
 import { NodeFileStore } from "../adapters/node-file-store.ts";
 import { TypeScriptIdentityChecker } from "../adapters/typescript-identity-checker.ts";
 import { TypeScriptOutputCompiler } from "../adapters/typescript-output-compiler.ts";
+import { TypeScriptWidenedEnumValuesFinder } from "../adapters/typescript-widened-enum-values-finder.ts";
 import { decodeManifest } from "../application/codecs.ts";
 import { decodeDependentsManifest } from "../application/dependents-codecs.ts";
 import { REPOSITORY_PATHS } from "../application/layout.ts";
@@ -25,7 +26,10 @@ import {
   summarizeDependents,
 } from "../domain/dependent-result.ts";
 import { HarnessError, HarnessErrorCode } from "../domain/errors.ts";
-import { INTENTIONAL_DIFFERENCES } from "../domain/intentional-differences.ts";
+import {
+  type IntentionalDifference,
+  intentionalDifferences,
+} from "../domain/intentional-differences.ts";
 import type { CorpusManifest } from "../domain/manifest.ts";
 import { isOptInRegression, summarizeOptInChecks } from "../domain/opt-in-check.ts";
 import { buildOptInOptionSets, selectOptionSets } from "../domain/option-matrix.ts";
@@ -33,6 +37,11 @@ import { GenerationStatus, isComparisonMismatch } from "../domain/run-result.ts"
 import type { HarnessContainer } from "./container.ts";
 import { HARNESS_DEFAULTS, HarnessCommand, requireOption } from "./settings.ts";
 import { printLine } from "./terminal.ts";
+
+/** Every intentional difference, the ones that read the types of a file with the TypeScript API. */
+function allIntentionalDifferences(): readonly IntentionalDifference[] {
+  return intentionalDifferences(new TypeScriptWidenedEnumValuesFinder().find);
+}
 
 /** Exit code of a command: 0 when everything it checked passed, 1 otherwise. */
 export type ExitCode = 0 | 1;
@@ -118,7 +127,7 @@ async function runCompare(container: HarnessContainer): Promise<ExitCode> {
     {
       cache: container.cache,
       logger: container.logger,
-      intentionalDifferences: INTENTIONAL_DIFFERENCES,
+      intentionalDifferences: allIntentionalDifferences(),
       ...(settings.isTypeCheckEnabled
         ? {
             typeChecker: new TypeScriptIdentityChecker(),
@@ -164,7 +173,7 @@ async function runCheckOptIn(container: HarnessContainer): Promise<ExitCode> {
 
 async function runReport(container: HarnessContainer): Promise<ExitCode> {
   const report = await renderReport(
-    { ...container, intentionalDifferences: INTENTIONAL_DIFFERENCES },
+    { ...container, intentionalDifferences: allIntentionalDifferences() },
     readLabels(container, HarnessCommand.Report),
   );
   const { byteIdentityRate, typeIdentityRate, keptTypeRate } = report.summary;
@@ -204,7 +213,7 @@ async function runDependents(container: HarnessContainer): Promise<ExitCode> {
     timeoutMs,
   );
   const results = await checkDependents(
-    { ...container, intentionalDifferences: INTENTIONAL_DIFFERENCES },
+    { ...container, intentionalDifferences: allIntentionalDifferences() },
     // Step outputs go next to the run log: `<log name without .jsonl>/<project>/<variant>/`.
     { projects, specs, timeoutMs, stepLogDirectory: container.logger.path.replace(/\.jsonl$/, "") },
   );

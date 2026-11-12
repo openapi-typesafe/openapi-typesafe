@@ -4,7 +4,7 @@
  * each rule before comparing, and the report lists every rule with the cases it applied to, so a
  * fix does not hide other drift and stays visible.
  */
-export interface IntentionalDifference {
+interface DifferenceDescription {
   readonly id: string;
   /**
    * Upstream issues the fix closes, as `owner/repo#number`, or the research note that records the
@@ -12,6 +12,10 @@ export interface IntentionalDifference {
    */
   readonly issues: readonly string[];
   readonly description: string;
+}
+
+/** A difference a pattern finds in the text. */
+export interface PatternDifference extends DifferenceDescription {
   /** What the golden output has; global and multiline, matched after normalization. */
   readonly golden: RegExp;
   /**
@@ -21,11 +25,19 @@ export interface IntentionalDifference {
   readonly candidate: string | ((match: string, group: string) => string);
 }
 
+/** A difference only the types of the whole text decide, so it rewrites the text itself. */
+export interface TextDifference extends DifferenceDescription {
+  readonly rewrite: (golden: string) => string;
+}
+
+export type IntentionalDifference = PatternDifference | TextDifference;
+
 import {
   OBJECT_WITH_INDEX_SIGNATURE,
   withIndexPropertyTypes,
 } from "./index-signature-property-types.ts";
 import { FIXED_READ_WRITE_TYPES, FORK_BASE_READ_WRITE_TYPES } from "./read-write-marker-texts.ts";
+import { type WidenedEnumValuesFinder, withOwnValuesTypes } from "./widened-enum-values.ts";
 
 const UPSTREAM = "openapi-ts/openapi-typescript";
 const LEGACY_BUGS = "research/legacy-bugs.md";
@@ -42,7 +54,7 @@ function literalReplacement(text: string): string {
   return text.replaceAll("$", "$$$$");
 }
 
-export const INTENTIONAL_DIFFERENCES: readonly IntentionalDifference[] = [
+export const INTENTIONAL_DIFFERENCES: readonly PatternDifference[] = [
   {
     id: "enum-empty-member-name",
     issues: [`${UPSTREAM}#2807`, `${UPSTREAM}#2812`],
@@ -125,6 +137,36 @@ export interface RewrittenGolden {
   readonly appliedIds: readonly string[];
 }
 
+/**
+ * The pattern differences and the ones that read the types of the text. The latter run last: they
+ * read the golden text as the other rules left it (the fixed `ReadonlyArray` helper).
+ */
+export function intentionalDifferences(
+  findWidenedEnumValues: WidenedEnumValuesFinder,
+): readonly IntentionalDifference[] {
+  return [
+    ...INTENTIONAL_DIFFERENCES,
+    {
+      id: "enum-values-widened-location",
+      issues: [`${LEGACY_BUGS} item 21`],
+      description:
+        "`--enum-values`: an array whose location also admits other values (a `prefixItems` " +
+        "element, an `anyOf` / `oneOf` member next to other values) is typed by its own values",
+      rewrite: (golden) => withOwnValuesTypes(golden, findWidenedEnumValues),
+    },
+  ];
+}
+
+function rewriteWith(text: string, difference: IntentionalDifference): string {
+  if ("rewrite" in difference) {
+    return difference.rewrite(text);
+  }
+  const { golden: pattern, candidate } = difference;
+  return typeof candidate === "string"
+    ? text.replace(pattern, candidate)
+    : text.replace(pattern, (match: string, group: string) => candidate(match, group));
+}
+
 /** Rewrite golden output with each intentional difference that matches it. */
 export function applyIntentionalDifferences(
   golden: string,
@@ -133,11 +175,7 @@ export function applyIntentionalDifferences(
   let text = golden;
   const appliedIds: string[] = [];
   for (const difference of differences) {
-    const { golden: pattern, candidate } = difference;
-    const rewritten =
-      typeof candidate === "string"
-        ? text.replace(pattern, candidate)
-        : text.replace(pattern, (match: string, group: string) => candidate(match, group));
+    const rewritten = rewriteWith(text, difference);
     if (rewritten !== text) {
       appliedIds.push(difference.id);
       text = rewritten;
