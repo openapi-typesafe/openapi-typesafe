@@ -153,9 +153,12 @@ $api.queryOptions(method, path, options, queryOptions);
   - The type of `queryKey` is `QueryKeyWithDataTag`, named so that the declarations of a library
     that exports a `queryOptions` result print it by name.
   - `queryKey` is `[method, path, options]`: `options` is the object passed as `init`
-    (`{ params: { path: { id: 1 } } }`), not only its `params`, with its `headers` as a plain
-    object and the `baseUrl` of the fetch client (see [`useQuery`](./use-query)). Without an
-    init and a `baseUrl` it is `[method, path]`.
+    (`{ params: { path: { id: 1 } } }`), not only its `params`, written so that every request
+    has its own key, with the client's `keyScope`, or else its `baseUrl` when the init has none.
+    So with `keyScope: "blog"` and no init the key is `["get", "/ping", { keyScope: "blog" }]`.
+    It is `[method, path]` only when nothing is left: no init (or one that sends nothing more),
+    no `keyScope` and no `baseUrl`. [`useQuery`](./use-query) lists how headers, bodies and
+    `undefined` values are written.
   - `queryFn` is set to a fetcher function that sends the `init` of this call.
   - An `initialData` that is never `undefined` is kept in the type, so TanStack Query's
     `useQuery` of the result has defined `data`.
