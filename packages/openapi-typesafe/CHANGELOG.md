@@ -2,6 +2,52 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.8
+
+### Patch Changes
+
+- [#108](https://github.com/openapi-typesafe/openapi-typesafe/pull/108) [`25523e2`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25523e2b6f757941069034818317adbd11d4d86a) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` into a property of a schema with a `discriminator`, such as
+  `#/components/schemas/Pet/properties/owner/properties/name` or `Pet/properties/tags/items`, now
+  compiles without `--fix`. It was written as `Pet["owner"]["name"]` or `Pet["tags"]["items"]`, which
+  fails with TS2339; it now gets `NonNullable<Pet["owner"]>["name"]` and
+  `NonNullable<Pet["tags"]>[number]`, as for a schema without a `discriminator`.
+
+- [#108](https://github.com/openapi-typesafe/openapi-typesafe/pull/108) [`25523e2`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25523e2b6f757941069034818317adbd11d4d86a) Thanks [@fedorello](https://github.com/fedorello)! - `--enum`: the elements of a `prefixItems` tuple no longer share one enum name. Before,
+  `prefixItems: [{ enum: [asc, desc] }, { enum: [name, date] }]` declared `export enum Pair` twice,
+  which TypeScript merged into one enum, so each element accepted the values of the other. An element
+  whose values differ from an earlier one's now gets a number (`[Pair, Pair_2]`); elements with the
+  same values still share one enum.
+
+- [#108](https://github.com/openapi-typesafe/openapi-typesafe/pull/108) [`25523e2`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25523e2b6f757941069034818317adbd11d4d86a) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values` arrays of a `prefixItems` element or of an `anyOf` / `oneOf` member are typed by
+  their own values where the place of their schema also admits the values of the other elements or
+  members. Before, `prefixItems: [{ enum: [asc, desc] }, { enum: [name, date] }]` typed both arrays by
+  the whole tuple, so `"date"` was accepted as an item of the first one, and with
+  `--fix=prefix-items` an open tuple accepted any value. The same holds for `oneOf` members that
+  narrow a property their parent also lists (`status: [queued, done]` next to members with `[done]`
+  and `[queued]`), also next to an object property without properties. Arrays whose place admits
+  exactly their values keep their type.
+
+- [#106](https://github.com/openapi-typesafe/openapi-typesafe/pull/106) [`de21136`](https://github.com/openapi-typesafe/openapi-typesafe/commit/de21136e4683aa65b5fd2903f2698fa03c4263bd) Thanks [@fedorello](https://github.com/fedorello)! - A `--no-` flag in another letter case or spelling, such as `--no-Output`, `--no-OUTPUT`,
+  `--no-Local_Ref_Root` or `--no-O`, is now an unknown flag: it gets a notice and changes nothing, as
+  `--no-Enum` does, instead of failing with `CLI_FLAG_INVALID`. A removed flag in another spelling
+  (`--Immutable-Types`) is unknown too; `--immutable-types`, `--immutableTypes` and
+  `--no-immutable-types` still fail with `CLI_FLAG_REMOVED`, and `--no-output` and `--no-localRefRoot`
+  still fail with `CLI_FLAG_INVALID`.
+
+- [#108](https://github.com/openapi-typesafe/openapi-typesafe/pull/108) [`25523e2`](https://github.com/openapi-typesafe/openapi-typesafe/commit/25523e2b6f757941069034818317adbd11d4d86a) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` to `#/components/schemas/<Name>/unevaluatedProperties` now gets the type of that schema.
+  Without `--fix=unevaluated-properties` it was `<Name>["unevaluatedProperties"]`, which fails with
+  TS2339 (or is `never` for an object with no other keywords); with that fix it compiled but read the
+  index signature, which also holds the types of the declared properties, so it accepted values the
+  schema does not allow.
+
+- [#106](https://github.com/openapi-typesafe/openapi-typesafe/pull/106) [`de21136`](https://github.com/openapi-typesafe/openapi-typesafe/commit/de21136e4683aa65b5fd2903f2698fa03c4263bd) Thanks [@fedorello](https://github.com/fedorello)! - A schema given as text that is a URL (a string, a `Buffer`, a stream, or stdin in the CLI) is now
+  loaded exactly like that `URL`. A `file:` URL that names no local path (`file://host/a.yaml`,
+  `file:///a%2Fb.yaml`) fails with `SCHEMA_LOAD_FAILED` instead of a plain `TypeError` (in the CLI,
+  "Unexpected error" with exit code 70). A remote root that redirects to another host loads with
+  `remoteRefHosts: []` or `--remote-ref-hosts ""`, as it does for a `URL`. And
+  `echo file://$PWD/api.yaml | openapi-typesafe -o api.yaml` fails with `CLI_OUTPUT_IS_INPUT`
+  instead of overwriting the schema with the types.
+
 ## 1.0.0-rc.7
 
 ### Patch Changes

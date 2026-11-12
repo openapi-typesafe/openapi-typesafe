@@ -1,5 +1,68 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.8
+
+### Patch Changes
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - When a bug of the tool would corrupt one file, only that file is left as it was: the report lists
+  it under "Skipped" with the reason and asks you to migrate it by hand, the other files are still
+  migrated (and written with `--write`), and the command exits with `1`. Before, such a bug stopped
+  the whole run and nothing was migrated.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - A CircleCI job now takes the `shell` of the executor it names (`executor: py` with
+  `executors.py.shell: /usr/bin/python3`), so the Python code of its steps is no longer rewritten as
+  a command line; a step that names an old package is listed as a manual step. The job's own `shell`
+  still wins.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - A Dockerfile `ARG` or `ENV` whose value has a shell default, such as
+  `ENV GEN=${GEN:-npx openapi-typescript}`, no longer stops the whole migration with "Edits overlap"
+  and exit code 1: the default is renamed once, like any other `ARG` or `ENV` value.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - A GitLab CI job named `openapi`, `swagger`, `asyncapi`, `overlay` or `arazzo` no longer makes the
+  whole `.gitlab-ci.yml` count as an API description, so its commands are migrated again. A YAML file
+  counts as an API description only when such a top-level key holds a version (`openapi: 3.1.0`), and
+  a CI config (`.gitlab-ci.yml`, a GitHub workflow, a CircleCI config, …) never does.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - Old flags in a justfile recipe parameter default (`b *flags='-it':` with `{{gen}} f.yaml
+{{flags}}`) are now reported, like the flags of a `flags := '-it'` variable. Before, the run failed
+  later with `CLI_FLAG_REMOVED`.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile command that make computes, such as `$(or $(GEN),npx openapi-typescript) b.yaml -it`,
+  is now reported with the text you wrote. Before, the report showed a row of underscores instead.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - A path that names the `node_modules` folder of an old package itself (`"paths": { "a":
+["./node_modules/openapi-fetch"] }` in a tsconfig, or an import of `../node_modules/openapi-fetch`)
+  is now reported, like a path to a file inside it.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - Options passed to `openapiTS()` that take keys from another object (`{ ...base }`) are now checked
+  for legacy callbacks. When the file writes that object (`...{ transform }` or `const base = { … }`),
+  its `transform`, `postTransform` and `transformProperty` are listed as manual steps; a spread of an
+  object the tool cannot read (an import, a call) is listed too, so you can check it. Before, such
+  options were not reported at all.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - A justfile recipe whose first line is a shebang for another program (`#!/usr/bin/env python3`), and
+  code given on the command line (`python3 -c '…'`, `node -e "…"`, `ruby -e '…'`), are no longer
+  read as shell commands. When such code names an old package, it is listed as a manual step
+  ("the script runs with python3, …"); before, it was neither changed nor reported, or a command
+  line inside it was rewritten.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - A rewritten `transform` whose type is declared outside the function now compiles: a TypeScript
+  node type in the type of its `const` (`const transform: (s: SchemaObject) => ts.TypeNode`), in a
+  JSDoc `@type` or in a JSDoc `@returns` becomes `string`, like the returns. Before, that type stayed
+  and the file no longer compiled. A declared type the tool cannot map, such as a local alias, keeps
+  the `transform`, which is listed as a manual step.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - A launcher or install command written with its Windows file suffix (`npx.cmd openapi-typescript`,
+  `pnpm.exe exec …`, `npm.ps1 i openapi-fetch`) is now migrated like `npx`, `pnpm` and `npm`.
+  Before, the old name after it was only reported.
+
+- [#107](https://github.com/openapi-typesafe/openapi-typesafe/pull/107) [`173c82c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/173c82c24fb8d59a5e3d4894596391dd48f2608f) Thanks [@fedorello](https://github.com/fedorello)! - The migration renames the old generator in GitHub Actions expressions again, such as
+  `run: ${{ inputs.generator || 'npx openapi-typescript' }} api.yaml` and
+  `npx ${{ inputs.pkg || 'openapi-typescript' }}`, and in input defaults of an `action.yml` or a
+  reusable workflow (`default: npx openapi-typescript`). The value of an expression comes from the
+  run, so old flags after it are listed as a manual step. Before, these places were neither changed
+  nor reported, and npx ran the old package after the migration.
+
 ## 1.0.0-rc.7
 
 ### Patch Changes

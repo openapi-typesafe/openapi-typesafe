@@ -2,6 +2,29 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.8
+
+### Patch Changes
+
+- [#103](https://github.com/openapi-typesafe/openapi-typesafe/pull/103) [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721) Thanks [@fedorello](https://github.com/fedorello)! - `createClient<any>()` types `data` and `error` as `any` again; they were `never`, so
+  `if (error)` made the whole result `never`. `SuccessResponse<any>` and `ErrorResponse<any>` are
+  `any` too.
+
+- [#103](https://github.com/openapi-typesafe/openapi-typesafe/pull/103) [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721) Thanks [@fedorello](https://github.com/fedorello)! - Response types follow what the client returns. `ErrorResponseJSON`, `SuccessResponseJSON` and the
+  `data` and `error` of a client made with ``createClient<paths, `${string}/json`>()`` keep a
+  JSON body of any JSON media type: an `application/problem+json` error, an
+  `application/vnd.api+json` success and `application/json; charset=utf-8` bodies were left out,
+  so the error could be `never` or miss a status. An error that is not JSON, such as the HTML page
+  of a proxy, is typed `string`, the text the client returns, instead of being left out.
+
+- [#103](https://github.com/openapi-typesafe/openapi-typesafe/pull/103) [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721) Thanks [@fedorello](https://github.com/fedorello)! - Every `querySerializer` option accepts `undefined` in its type, so a wrapper that passes its own
+  optional option on (`{ array: { explode: options.explode } }`) compiles with
+  `exactOptionalPropertyTypes`.
+
+- [#103](https://github.com/openapi-typesafe/openapi-typesafe/pull/103) [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721) Thanks [@fedorello](https://github.com/fedorello)! - `serializeArrayParam` and `serializeObjectParam` with a nested value in a path style (`simple`,
+  `label`, `matrix`) name `pathSerializer()` in their error, also inside your own `pathSerializer`,
+  instead of `querySerializer()`.
+
 ## 1.0.0-rc.7
 
 ### Patch Changes
