@@ -1,3 +1,4 @@
+import { irObject, irStringIndexSignature } from "../../../domain/ir/constructors.js";
 import type { IrDeclaration, IrTupleType, IrType } from "../../../domain/ir/nodes.js";
 import {
   absorbed,
@@ -117,6 +118,8 @@ export class TypeEvaluator {
         return argument;
       case "Extract":
         return second === undefined ? OPAQUE : this.extract(argument, second);
+      case "Record":
+        return second === undefined ? OPAQUE : stringRecord(argument, second);
       case "Omit":
         return second === undefined ? OPAQUE : omitted(this, argument, second);
       default:
@@ -178,4 +181,13 @@ export class TypeEvaluator {
   index(value: Evaluated, index: IrType): Evaluation {
     return indexType(this, value, index);
   }
+}
+
+/**
+ * `Record<string, V>` as the object type it is, `{ [key: string]: V }`, so an intersection with it
+ * reads its other parts' properties first. A record of other keys is opaque.
+ */
+function stringRecord(key: Evaluated, value: IrType): Evaluation {
+  const isStringKey = key.type.kind === "keyword" && key.type.keyword === "string";
+  return isStringKey ? { ...key, type: irObject([irStringIndexSignature("key", value)]) } : OPAQUE;
 }

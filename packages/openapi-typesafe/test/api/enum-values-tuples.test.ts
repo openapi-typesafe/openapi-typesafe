@@ -17,6 +17,30 @@ const SCHEMAS = {
     ],
   },
   Open: { type: "array", prefixItems: [{ type: "string", enum: ["t1", "t2"] }] },
+  Run: {
+    type: "object",
+    properties: { status: { type: "string", enum: ["queued", "done"] } },
+    oneOf: [
+      { properties: { status: { type: "string", enum: ["done"] } }, required: ["status"] },
+      { properties: { status: { type: "string", enum: ["queued"] } } },
+    ],
+  },
+  Rule: { type: "object", properties: { params: { type: "object" } } },
+  TagRule: {
+    allOf: [
+      { $ref: "#/components/schemas/Rule" },
+      {
+        properties: {
+          params: {
+            oneOf: [
+              { properties: { op: { type: "string", enum: ["add"] } }, required: ["op"] },
+              { properties: { op: { type: "string", enum: ["set"] } }, required: ["op"] },
+            ],
+          },
+        },
+      },
+    ],
+  },
   Mixed: {
     anyOf: [
       { type: "string", enum: ["a", "b"] },
@@ -67,6 +91,22 @@ describe("--enum-values arrays of union members", () => {
 
     expect(output).toContain('export const mixedAnyOf0Values: ReadonlyArray<"a" | "b"> = ');
     expect(output).toContain("export const mixedAnyOf1Values: ReadonlyArray<1 | 2> = ");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS types each member's array by its values where members narrow a property", async () => {
+    const output = await generate();
+
+    expect(output).toContain('export const runOneOf0StatusValues: ReadonlyArray<"done"> = ');
+    expect(output).toContain('export const runOneOf1StatusValues: ReadonlyArray<"queued"> = ');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS types each member's array by its values next to a property of no keys", async () => {
+    const output = await generate();
+
+    expect(output).toContain('export const tagRuleParamsOneOf0OpValues: ReadonlyArray<"add"> = ');
+    expect(output).toContain('export const tagRuleParamsOneOf1OpValues: ReadonlyArray<"set"> = ');
     expect(typeErrorsOf(output)).toEqual([]);
   });
 });

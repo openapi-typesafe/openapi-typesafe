@@ -100,15 +100,41 @@ function isFiniteType(evaluator: TypeEvaluator, value: Evaluated): boolean {
 
 /**
  * Whether a type surely admits a value outside `values`: a literal not listed, `true`, `false`,
- * `boolean` or `unknown`, also as one member of a union. A wide type such as `string` or `string & {}`
- * is not sure: the enum's own type may be open (`withOtherStrings`), so it counts as not wider.
+ * `boolean` or `unknown`, also as one member of a union. A wide type such as `string` or
+ * `string & {}` is not sure: the enum's own type may be open (`withOtherStrings`), so it counts as
+ * not wider. A union reads as TypeScript reduces it: `"a" | string` is `string`.
  */
 function admitsOtherValues(
   evaluator: TypeEvaluator,
   value: Evaluated,
   values: readonly (string | number)[],
 ): boolean {
-  const { type } = value;
+  const members = evaluator
+    .membersOf(value)
+    .filter((member): member is Evaluated => member.kind === "type");
+  const keywords = new Set(
+    members.flatMap(({ type }) => (type.kind === "keyword" ? [type.keyword] : [])),
+  );
+  return members.some(
+    (member) =>
+      !isAbsorbed(member.type, keywords) && memberAdmitsOtherValues(evaluator, member, values),
+  );
+}
+
+/** Whether a union member is a literal that a keyword member holds (`"a"` next to `string`). */
+function isAbsorbed(type: IrType, keywords: ReadonlySet<string>): boolean {
+  return (
+    (type.kind === "stringLiteral" && keywords.has("string")) ||
+    (type.kind === "numberLiteral" && keywords.has("number"))
+  );
+}
+
+function memberAdmitsOtherValues(
+  evaluator: TypeEvaluator,
+  member: Evaluated,
+  values: readonly (string | number)[],
+): boolean {
+  const { type } = member;
   switch (type.kind) {
     case "stringLiteral":
     case "numberLiteral":
@@ -117,14 +143,30 @@ function admitsOtherValues(
       return true;
     case "keyword":
       return type.keyword === "unknown" || type.keyword === "boolean";
-    case "union":
-      return type.types.some((part) => {
-        const expanded = evaluator.expand({ ...value, type: part });
-        return expanded.kind === "type" && admitsOtherValues(evaluator, expanded, values);
-      });
+    case "intersection":
+      // TypeScript reduces `("a" | "b") & "a"` to `"a"`: the intersection holds the literals of
+      // a part that every part admits.
+      return literalsOf(evaluator, member).some(
+        (literal) => !values.includes(literal) && admission(evaluator, member, literal) === "yes",
+      );
     default:
       return false;
   }
+}
+
+/** The string and number literals that a type or its parts list. */
+function literalsOf(evaluator: TypeEvaluator, value: Evaluated): (string | number)[] {
+  const { type } = value;
+  if (type.kind === "stringLiteral" || type.kind === "numberLiteral") {
+    return [type.value];
+  }
+  if (type.kind !== "union" && type.kind !== "intersection") {
+    return [];
+  }
+  return type.types.flatMap((part) => {
+    const expanded = evaluator.expand({ ...value, type: part });
+    return expanded.kind === "type" ? literalsOf(evaluator, expanded) : [];
+  });
 }
 
 function locationType(declaration: IrConstArrayDeclaration): IrType | null {

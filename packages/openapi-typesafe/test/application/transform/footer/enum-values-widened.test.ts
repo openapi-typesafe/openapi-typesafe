@@ -8,6 +8,7 @@ import {
   irIndexedAccess,
   irIntersection,
   irKeyword,
+  irNumber,
   irObject,
   irOptionalTupleElement,
   irProperty,
@@ -49,8 +50,18 @@ const SCHEMAS = irObject([
   irProperty(name("Optional"), irTuple([irOptionalTupleElement(text("x"))])),
   irProperty(name("Status"), irUnion([text("a"), text("b")])),
   irProperty(name("Text"), irKeyword("string")),
+  irProperty(name("Wide"), irUnion([text("a"), text("b"), irKeyword("string")])),
+  irProperty(name("Count"), irUnion([irNumber(1), irNumber(2), irKeyword("number")])),
   irProperty(name("Flag"), irUnion([text("a"), irBoolean(true)])),
   irProperty(name("Toggle"), irUnion([text("a"), irKeyword("boolean")])),
+  irProperty(
+    name("Narrowed"),
+    irIntersection([irUnion([text("a"), text("b"), text("c")]), text("a")]),
+  ),
+  irProperty(
+    name("Joined"),
+    irIntersection([irUnion([text("a"), text("b"), text("c")]), irUnion([text("a"), text("b")])]),
+  ),
   irProperty(
     name("Other"),
     irUnion([text("a"), irIntersection([irKeyword("string"), irObject([])])]),
@@ -71,7 +82,7 @@ function schema(schemaName: string): IrType {
   return irIndexedAccess(irIndexedAccess(components, key("schemas")), key(schemaName));
 }
 
-function array(arrayName: string, type: IrType, values: string[]): IrDeclaration {
+function array(arrayName: string, type: IrType, values: (string | number)[]): IrDeclaration {
   const typed = irReference("ReadonlyArray", [type]);
   return {
     kind: "constArray",
@@ -121,6 +132,7 @@ describe("checkedEnumValues of a location that admits more", () => {
       array("open", schema("Open"), ["t1", "t2"]),
       array("flag", schema("Flag"), ["a"]),
       array("toggle", schema("Toggle"), ["a"]),
+      array("joined", schema("Joined"), ["a"]),
     ];
 
     expect(retypedOf(footer)).toEqual([
@@ -128,14 +140,18 @@ describe("checkedEnumValues of a location that admits more", () => {
       ["widened", "open"],
       ["widened", "flag"],
       ["widened", "toggle"],
+      ["widened", "joined"],
     ]);
   });
 
-  it("checkedEnumValues keeps a location of exactly the values or of an open type", () => {
+  it("checkedEnumValues keeps a location of exactly the values or of a wide type", () => {
     const footer = [
       array("status", schema("Status"), ["a", "b"]),
       array("text", schema("Text"), ["a"]),
       array("other", schema("Other"), ["a"]),
+      array("narrowed", schema("Narrowed"), ["a"]),
+      array("wide", schema("Wide"), ["a"]),
+      array("count", schema("Count"), [1]),
     ];
 
     expect(retypedOf(footer)).toEqual([]);

@@ -129,12 +129,20 @@ wrong, not as output to keep.
 1. **A location that surely admits more is typed by the values.** After the values are admitted,
    the array is typed by its own values (`widened`, no warning) where the location type surely
    admits another value: a string or number literal it does not list, `true`, `false`, `boolean`
-   or `unknown`, also as one member of a union (whatever its other members are). A wide type such as `string`
-   or `string & {}` is not sure: the enum's own type may be open (`additionalProperties: true` on
-   a string enum gives `"a" | "b" | (string & {})`), so such a location keeps its type. This is a
-   rule of the check, not of tuples: union members with other values change too, also in the
-   inherited upstream tests (`enumValues with unions`, `nested union types`, `deeply nested
-   unions`), where each member's array read the values of every member.
+   or `unknown`, also as one member of a union (whatever its other members are). A wide type such
+   as `string` or `string & {}` is not sure: the enum's own type may be open
+   (`additionalProperties: true` on a string enum gives `"a" | "b" | (string & {})`), so such a
+   location keeps its type. This is a rule of the check, not of tuples: union members with other
+   values change too, also in the inherited upstream tests (`enumValues with unions`, `nested
+   union types`, `deeply nested unions`), where each member's array read the values of every
+   member. The check reads the location as TypeScript reduces it, so the compat harness can
+   check the rule with the TypeScript checker on the golden output
+   (`enum-values-widened-location`): a literal next to its keyword is the keyword
+   (`"a" | string` is `string`, so wide), an intersection holds the literals every part admits
+   (`("a" | "b") & "a"` is `"a"`, as where a parent property and `oneOf` members both list
+   values), and `Record<string, V>` is the object `{ [key: string]: V }`, whose signature gives
+   way to a property another part declares (an object schema with no properties next to a
+   `oneOf`), where the evaluator stopped before.
 2. **Tuples are read inside `FlattenedDeepRequired`.** The evaluator counted every tuple as
    opaque. Inside the deep helper it now reads a tuple as the array of its items (`tupleAsArray`):
    the union of its elements, `undefined` for an optional one, and the item type of a rest element
