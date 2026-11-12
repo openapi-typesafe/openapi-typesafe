@@ -167,16 +167,25 @@ export function ownerEnumMembersType(
   return unionOf(names.map((member) => enumMemberType(name, member as string)));
 }
 
+/** Whether the schema is an element of the tuple its location types (`prefixItems`). */
+function isTupleElement(schema: SchemaObject, request: SchemaRequest): boolean {
+  const tuple = request.location.schema as SchemaObject | undefined;
+  if (typeof tuple !== "object" || tuple === null) {
+    return false;
+  }
+  const elements = tuple.prefixItems ?? (Array.isArray(tuple.items) ? tuple.items : []);
+  return (elements as readonly unknown[]).includes(schema);
+}
+
 function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
   const { options, footer } = request.context;
   // `isTsEnum` admits only strings and numbers, and the fix leaves `null` out of the members.
   const values = tsEnumEntries(schema, options).map(([value]) => value);
+  const declaration = enumRequest(schema, request.location.path, options);
+  const element = isTupleElement(schema, request) ? { isTupleElement: true } : {};
   const type =
     ownerEnumMembersType(schema, values, request) ??
-    withOtherStrings(
-      irReference(footer.addEnum(enumRequest(schema, request.location.path, options))),
-      schema,
-    );
+    withOtherStrings(irReference(footer.addEnum({ ...declaration, ...element })), schema);
   return options.fixes.has(FIX.NULLABLE_ENUMS) && isNullAllowed(schema)
     ? unionOf([type, irKeyword("null")])
     : type;
