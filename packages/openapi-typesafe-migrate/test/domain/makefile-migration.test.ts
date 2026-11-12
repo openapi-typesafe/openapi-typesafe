@@ -141,3 +141,21 @@ describe("migrateMakefile and one-letter variables", () => {
     );
   });
 });
+
+describe("migrateMakefile and computed programs", () => {
+  it("migrateMakefile reports the flags after a make function as written", () => {
+    const program = "$(or $(GEN),npx openapi-typescript)";
+    const text = lines("gen:", `\t@${program} b.yaml -it`, "\tmytool b.yaml -it");
+
+    const migrated = migrateMakefile(text, "Makefile");
+
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "variable-not-only-generator",
+        location: "Makefile:2",
+        variable: `@${program}`,
+        flags: ["-it"],
+      },
+    ]);
+  });
+});
