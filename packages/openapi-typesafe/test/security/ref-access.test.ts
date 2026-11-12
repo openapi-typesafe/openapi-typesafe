@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import { createConfig } from "@redocly/openapi-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -10,12 +11,15 @@ import { createRedoclySchemaLoader } from "../../src/adapters/redocly-loader/red
 import { DEFAULT_REMOTE_DOCUMENT_LIMITS, defaultRedoclyConfig } from "../../src/api/default-ports.js";
 import type { RefAccess } from "../../src/application/ports/schema-loader.js";
 import openapiTS, { astToString, type OpenAPITypesafeError } from "../../src/index.js";
+import type { SchemaSource } from "../../src/types.js";
 import { RecordingLogger } from "../fakes/cli-dependencies.js";
 
 /** The `$ref` limits of threat model R1 (local files) and R2 (remote hosts), ADR-017. */
 
 const PERSON = JSON.stringify({ type: "object", properties: { name: { type: "string" } } });
 const INFO = { title: "Refs", version: "1.0" };
+/** A root document without `$ref`s, so that only its own fetch and redirects are checked. */
+const PLAIN_DOCUMENT = JSON.stringify({ openapi: "3.1.0", info: INFO, paths: {} });
 
 function documentWithRef(ref: string): string {
   return JSON.stringify({
@@ -42,6 +46,8 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
       "/to-other-host.json": () => response.writeHead(302, { location: `${otherHostURL}/person.json` }).end(),
       "/to-same-host.json": () => response.writeHead(301, { location: "/person.json" }).end(),
       "/moved-root.json": () => response.writeHead(302, { location: `${otherHostURL}/root.json` }).end(),
+      "/plain-root.json": () => response.writeHead(200, { "content-type": "application/json" }).end(PLAIN_DOCUMENT),
+      "/moved-plain-root.json": () => response.writeHead(302, { location: `${otherHostURL}/plain-root.json` }).end(),
       "/loop.json": () => response.writeHead(302, { location: "/loop.json" }).end(),
       "/drive-letter.json": () =>
         response.writeHead(200, { "content-type": "application/json" }).end(documentWithRef("C:/secrets/person.json")),
@@ -88,7 +94,7 @@ async function writeRoot(relativePath: string, ref: string): Promise<URL> {
 
 const localRoot = () => pathToFileURL(path.join(workDir, "api"));
 
-async function load(source: URL, refAccess: RefAccess, shouldLint = true) {
+async function load(source: SchemaSource, refAccess: RefAccess, shouldLint = true) {
   const loader = createRedoclySchemaLoader({
     redoc: await defaultRedoclyConfig(),
     logger: new RecordingLogger(),
@@ -292,6 +298,16 @@ describe("remote $ref hosts (R2)", () => {
     expect(bundled.components?.schemas?.person).toEqual(JSON.parse(PERSON));
     // Its relative `$ref` resolves from the URL it came from, on the host that is not listed.
     expect(error.details).toMatchObject({ ref: `${otherHostURL}/person.json` });
+  });
+
+  it.each([
+    ["a URL", (url: string) => new URL(url)],
+    ["URL text", (url: string) => url],
+    ["URL text in a stream", (url: string) => Readable.from([url])],
+  ])("a remote root given as %s that redirects to a host that is not listed is loaded", async (_, sourceOf) => {
+    const bundled = await load(sourceOf(`${baseURL}/moved-plain-root.json`), { remoteHosts: [] });
+
+    expect(bundled).toMatchObject(JSON.parse(PLAIN_DOCUMENT));
   });
 
   it("the refusal is reported when the Redocly config does not check unresolved refs", async () => {

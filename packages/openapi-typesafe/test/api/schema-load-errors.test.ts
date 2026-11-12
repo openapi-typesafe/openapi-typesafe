@@ -79,6 +79,20 @@ describe("schema load errors", () => {
   });
 
   it.each([
+    ["a string", (text: string) => text],
+    ["a buffer", (text: string) => Buffer.from(text)],
+    ["a stream", (text: string) => Readable.from([text])],
+  ])("openapiTS with a file URL that is not a path as %s fails with SCHEMA_LOAD_FAILED", async (_, sourceOf) => {
+    // URL text is loaded as that URL, so it fails as the URL object does, not with a TypeError.
+    const text = "file:///schemas/a%2Fb.yaml";
+
+    const error = await failureOf(sourceOf(text));
+
+    expect(error).toMatchObject({ code: "SCHEMA_LOAD_FAILED", details: { source: text } });
+    expect(error.cause).toMatchObject({ code: "ERR_INVALID_FILE_URL_PATH" });
+  });
+
+  it.each([
     ["json", "{ not json"],
     ["yaml", "openapi: 3.1.0\ninfo: [unclosed"],
   ])("openapiTS with broken %s text fails with SCHEMA_PARSE_FAILED", async (format, text) => {
