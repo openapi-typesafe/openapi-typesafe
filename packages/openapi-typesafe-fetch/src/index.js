@@ -644,14 +644,30 @@ function isNestedValue(value) {
 }
 
 /**
- * Throw `message` when an array or object parameter has a nested member. Headers and path
- * parameters check first: the check in `encodeValue` names `querySerializer()`, the hook of the
- * query only.
+ * Throw `message` when an array or object parameter has a nested member. Headers check first:
+ * they have no hook to name.
  */
 function checkFlatMembers(value, message) {
   if (Object.values(value).some((member) => isNestedValue(member))) {
     throw new Error(message);
   }
+}
+
+/**
+ * The separators of exploded parts in the path styles. A style that is not a key is a query style:
+ * its parts join with `&`, and its hook is `querySerializer()`, not `pathSerializer()`.
+ */
+const PATH_STYLE_JOINERS = { simple: ",", label: ".", matrix: ";" };
+
+/**
+ * Check an array or object parameter by its `style`, so the error names the hook of its location,
+ * also when a custom `pathSerializer()` calls the exported serializers.
+ */
+function checkFlatParam(value, style) {
+  checkFlatMembers(
+    value,
+    PATH_STYLE_JOINERS[style] ? PATH_NESTED_VALUE_ERROR : QUERY_NESTED_VALUE_ERROR,
+  );
 }
 
 /**
@@ -680,7 +696,7 @@ export function serializePrimitiveParam(name, value, options) {
 
 /** Join exploded parts: by `,`, `.` or `;` in a path style (label and matrix also first), else `&`. */
 function joinExploded(values, style) {
-  const joiner = { simple: ",", label: ".", matrix: ";" }[style] || "&";
+  const joiner = PATH_STYLE_JOINERS[style] || "&";
   const final = values.join(joiner);
   return style === "label" || style === "matrix" ? `${joiner}${final}` : final;
 }
@@ -730,6 +746,7 @@ export function serializeObjectParam(name, value, options) {
   if (!value || typeof value !== "object" || !Object.keys(value).length) {
     return "";
   }
+  checkFlatParam(value, options.style);
   if (options.style !== "deepObject" && options.explode === false) {
     return serializeUnexplodedObject(name, value, options);
   }
@@ -781,6 +798,7 @@ export function serializeArrayParam(name, value, options) {
   if (!Array.isArray(value) || !value.length) {
     return "";
   }
+  checkFlatParam(value, options.style);
   if (options.explode === false) {
     return serializeUnexplodedArray(name, value, options);
   }
@@ -904,14 +922,12 @@ export function defaultPathSerializer(pathname, pathParams) {
   return nextURL;
 }
 
-/** One path parameter value in its `style`; a nested member fails with the path's message. */
+/** One path parameter value in its `style`; the serializers check nested members by the style. */
 function serializePathParam(name, value, options) {
   if (Array.isArray(value)) {
-    checkFlatMembers(value, PATH_NESTED_VALUE_ERROR);
     return serializeArrayParam(name, value, options);
   }
   if (typeof value === "object" && !isDate(value)) {
-    checkFlatMembers(value, PATH_NESTED_VALUE_ERROR);
     return serializeObjectParam(name, value, options);
   }
   if (options.style === "matrix") {

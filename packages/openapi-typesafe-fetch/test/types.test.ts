@@ -136,8 +136,11 @@ describe("types", () => {
 
       test("non existent media type", () => {
         type Response = GetResponseContent<MixedResponses, "I/DO NOT EXIST">;
-        // No response has that media type, so none adds a body (not its whole content map).
-        expectTypeOf<Response>().toBeNever();
+        // No response has that media type, so each gives what the client returns for it: a JSON
+        // body its schema, a text error a string, a text success nothing (not its content map).
+        expectTypeOf<Response>().toEqualTypeOf<
+          { data: "200 application/json" } | string | { error: "500 application/json" }
+        >();
       });
     });
 
@@ -242,20 +245,10 @@ describe("types", () => {
         // @ts-expect-error
         data: "200 application/json",
       });
-      assertType<Response>(
-        // @ts-expect-error
-        "200 text/plain",
-      );
-      assertType<Response>(
-        // @ts-expect-error
-        "206 text/plain",
-      );
-      assertType<Response>(
-        // @ts-expect-error
-        "404 text/plain",
-      );
-      assertType<Response>({ error: "500 application/json" });
-      assertType<Response>({ error: "default application/json" });
+      // The text/plain 404 has no application/json body: the client returns its text.
+      expectTypeOf<Response>().toEqualTypeOf<
+        string | { error: "500 application/json" } | { error: "default application/json" }
+      >();
     });
   });
 });

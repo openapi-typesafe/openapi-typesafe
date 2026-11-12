@@ -1,6 +1,16 @@
 // biome-ignore-all lint/suspicious/noExplicitAny: these tests cover the createClient<any> placeholder
 import { describe, expect, expectTypeOf, it } from "vitest";
-import createClient, { type RequestBodyOption } from "../../src/index.js";
+import type {
+  ErrorResponse,
+  ErrorResponseJSON,
+  SuccessResponse,
+  SuccessResponseJSON,
+} from "../../src/helpers.js";
+import createClient, {
+  type Client,
+  type MethodResponse,
+  type RequestBodyOption,
+} from "../../src/index.js";
 
 /**
  * `createClient<any>()` (a placeholder before the schema is generated) knows nothing about an
@@ -34,6 +44,24 @@ describe("createClient<any>", () => {
 
     expect(methods).toEqual(["GET"]);
     expect(data).toEqual({ ok: true });
+  });
+
+  it("GET types the data and the error as any", async () => {
+    const result = await createAnyClient().GET("/users/me");
+
+    expectTypeOf(result.data).toBeAny();
+    expectTypeOf(result.error).toBeAny();
+    if (result.error) {
+      expectTypeOf(result).not.toBeNever();
+    }
+  });
+
+  it("SuccessResponse, ErrorResponse and MethodResponse of any are any", () => {
+    expectTypeOf<SuccessResponse<any>>().toBeAny();
+    expectTypeOf<ErrorResponse<any>>().toBeAny();
+    expectTypeOf<SuccessResponseJSON<any>>().toBeAny();
+    expectTypeOf<ErrorResponseJSON<any>>().toBeAny();
+    expectTypeOf<MethodResponse<Client<any>, "get", "/users/me">>().toBeAny();
   });
 
   it("POST takes an init with or without a body", async () => {
