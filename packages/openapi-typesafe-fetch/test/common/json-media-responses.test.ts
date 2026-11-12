@@ -38,7 +38,10 @@ function answer(status: number, contentType: string): ResponseInit {
 
 describe("bodies of JSON and other media types", () => {
   it("GET of a problem+json error returns the parsed body", async () => {
-    const client = clientAnswering('{"title":"Not allowed"}', answer(400, "application/problem+json"));
+    const client = clientAnswering(
+      '{"title":"Not allowed"}',
+      answer(400, "application/problem+json"),
+    );
 
     const { error } = await client.GET("/report");
 

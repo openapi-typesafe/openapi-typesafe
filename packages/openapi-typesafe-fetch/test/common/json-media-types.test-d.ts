@@ -201,7 +201,7 @@ describe("JSON media types", () => {
     expectTypeOf<SuccessResponseJSON<Operation<Responses>>>().toEqualTypeOf<Pet | Problem>();
   });
 
-  it("a client of ${string}/json falls back to a problem+json error it does not match", () => {
+  it("a client of any /json media type falls back to a problem+json error it does not match", () => {
     type Responses = {
       400: Response<{ "application/problem+json": Problem }>;
       404: Response<{ "application/json": { code: number } }>;

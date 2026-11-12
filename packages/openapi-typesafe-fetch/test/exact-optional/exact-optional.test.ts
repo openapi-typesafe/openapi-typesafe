@@ -35,13 +35,11 @@ function diagnosticsOf(fileName: string): string[] {
 }
 
 describe("exactOptionalPropertyTypes", () => {
-  it(
-    "QuerySerializerOptions with undefined options compiles",
-    { timeout: TYPE_PROGRAM_TIMEOUT_MS },
-    () => {
-      const diagnostics = diagnosticsOf(QUERY_OPTIONS_SOURCE);
+  it("QuerySerializerOptions with undefined options compiles", {
+    timeout: TYPE_PROGRAM_TIMEOUT_MS,
+  }, () => {
+    const diagnostics = diagnosticsOf(QUERY_OPTIONS_SOURCE);
 
-      expect(diagnostics).toEqual([]);
-    },
-  );
+    expect(diagnostics).toEqual([]);
+  });
 });
