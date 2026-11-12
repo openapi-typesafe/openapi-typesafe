@@ -249,3 +249,30 @@ TypeScript, as before.
    namespace of a CommonJS module has a `default` member that the instance has not. The
    declaration test checks such a project with TypeScript 5.4; TypeScript 6 deprecates and 7
    removes its node10 resolution.
+
+## Amendment (2026-11-12): URL text is a URL, flag spellings with `--no-`, redirect duplicates
+
+1. **A source that is URL text is resolved into that URL once, before the load.** A string,
+   `Buffer` or stream (CLI stdin) that holds only text starting with `file://`, `http://` or
+   `https://` was parsed as a URL late, inside the parser, while the root's name, the redirect
+   rule of ADR-017 and the output guard asked whether the source was a `URL` object. So the same
+   URL as text threw a `TypeError` for a `file:` URL that names no local path, failed its
+   redirects with `SCHEMA_REF_FORBIDDEN`, and let `-o` overwrite the schema it read from stdin.
+   The loader now reads a stream or buffer and turns URL text into a `URL` first; every later
+   step sees one resolved source (a URL, document text with its origin, or an object), so text
+   and a `URL` take one code path. Patching each check for text as well was rejected: a fourth
+   check would miss it again.
+2. **A `--no-` flag and a removed flag are matched in the spellings yargs-parser reads.** As in
+   item 3 of the previous amendment, only the kebab-case and camelCase names, with or without
+   `--no-`, name a flag. Kebab-casing the written name made `--no-Output` and `--no-O` a value
+   flag (`CLI_FLAG_INVALID`) and `--Immutable-Types` a removed flag (`CLI_FLAG_REMOVED`), while
+   `--no-Enum` was unknown. They are now unknown flags with a notice. "Either form" of a removed
+   flag in docs/cli.md meant with or without a value; it now says so, and other spellings are
+   unknown, as yargs-parser would not have read them as that flag in openapi-typescript either.
+3. **A document reached through a redirect and through its final URL stays two documents.** When
+   `/latest` redirects to `/pet.yaml` and another `$ref` names `/pet.yaml` itself, the bundle has
+   two equal components (`latest-pet` and `pet`); the types are correct. Merging them by final URL
+   was rejected: the document is named by the URL it was requested by (item 1 of the previous
+   amendment), and here it was requested by two, so a merge must drop one name. Its problems
+   would then name one URL only, and the lint ignore entries `redocly lint` writes for the other
+   would no longer apply; `redocly lint` itself also reads two documents.
