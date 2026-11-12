@@ -2,6 +2,26 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.8
+
+### Patch Changes
+
+- [#104](https://github.com/openapi-typesafe/openapi-typesafe/pull/104) [`9522871`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9522871194184d8a7c9f2f556a40702a5d1ff5f3) Thanks [@fedorello](https://github.com/fedorello)! - A body that is not an object literal, such as an instance of a form class, an object made with
+  `Object.create` or one from another realm, is now part of the query key by the members the fetch
+  client sends, with a `File` in it by its type, size and name. Before, such a multipart body held
+  every file as `{}`, so a query for a second file showed the cached result of the first.
+
+- [#104](https://github.com/openapi-typesafe/openapi-typesafe/pull/104) [`9522871`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9522871194184d8a7c9f2f556a40702a5d1ff5f3) Thanks [@fedorello](https://github.com/fedorello)! - A React Native `FormData` body is now part of the query key by its fields, the parts its
+  `getParts` gives (each field's name and text, or the `uri`, `name` and `type` of a file). React Native's FormData has no
+  `entries`, so before every such body of one path had the same key and showed the same result.
+
+- [#104](https://github.com/openapi-typesafe/openapi-typesafe/pull/104) [`9522871`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9522871194184d8a7c9f2f556a40702a5d1ff5f3) Thanks [@fedorello](https://github.com/fedorello)! - `useInfiniteQuery` with a `pageParamName` other than `"cursor"` now has it in its query key, as
+  `[method, path, init, "infinite", { pageParamName }]`. Two infinite queries that differed only in
+  `pageParamName` send different requests but shared one cache entry, so the second showed the
+  pages of the first. Keys of queries with the default name stay the same.
+- Updated dependencies [[`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721), [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721), [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721), [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721)]:
+  - openapi-typesafe-fetch@1.0.0-rc.8
+
 ## 1.0.0-rc.7
 
 ### Patch Changes

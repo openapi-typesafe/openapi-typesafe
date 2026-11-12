@@ -2,6 +2,23 @@
 
 This package is a fork of `openapi-typescript-helpers`. The entries above `0.1.0` are releases of openapi-typesafe-helpers; `0.1.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript-helpers` versions.
 
+## 1.0.0-rc.8
+
+### Patch Changes
+
+- [#103](https://github.com/openapi-typesafe/openapi-typesafe/pull/103) [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721) Thanks [@fedorello](https://github.com/fedorello)! - `createClient<any>()` types `data` and `error` as `any` again; they were `never`, so
+  `if (error)` made the whole result `never`. `SuccessResponse<any>` and `ErrorResponse<any>` are
+  `any` too.
+
+- [#103](https://github.com/openapi-typesafe/openapi-typesafe/pull/103) [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721) Thanks [@fedorello](https://github.com/fedorello)! - Response types follow what the client returns. `ErrorResponseJSON`, `SuccessResponseJSON` and the
+  `data` and `error` of a client made with ``createClient<paths, `${string}/json`>()`` keep a
+  JSON body of any JSON media type: an `application/problem+json` error, an
+  `application/vnd.api+json` success and `application/json; charset=utf-8` bodies were left out,
+  so the error could be `never` or miss a status. An error that is not JSON, such as the HTML page
+  of a proxy, is typed `string`, the text the client returns, instead of being left out.
+- Updated dependencies [[`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721), [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721), [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721), [`091b864`](https://github.com/openapi-typesafe/openapi-typesafe/commit/091b864cdb6dd9e1ff5810d4d44cebee8a01a721)]:
+  - openapi-typesafe-fetch@1.0.0-rc.8
+
 ## 1.0.0-rc.7
 
 ### Patch Changes
