@@ -306,9 +306,22 @@ which may then not compile.
 
 A URL that two templates match, such as `/user/123/keys` for `` `/user/${string}` `` and
 `` `/user/${string}/keys` ``, gets both types: `paths["/user/123/keys"]` is their intersection.
-TypeScript has no string type that excludes `/`
-([microsoft/TypeScript#41160](https://github.com/microsoft/TypeScript/issues/41160)), so look such a
-path up by its template, `` paths[`/user/${string}/keys`] ``.
+No key of `paths` reads the nested path alone. The template `` `/user/${string}/keys` `` is itself
+a `` `/user/${string}` `` string, so `` paths[`/user/${string}/keys`] `` reads both signatures as
+well and is the same intersection. Where the two path items differ in a member, that member is
+`never` there: if `/user/{id}` has only `delete`, its `get?: never` meets the `get` of
+`/user/{id}/keys`. TypeScript has no string type that excludes `/`
+([microsoft/TypeScript#41160](https://github.com/microsoft/TypeScript/issues/41160)). To read such
+an operation alone, give it an `operationId` and look it up in `operations`, which is not keyed by
+path:
+
+```ts
+import type { operations, paths } from "./my-openapi-3-schema";
+
+// `/user/{id}/keys` has `operationId: listKeys`.
+type Keys = operations["listKeys"]["responses"][200]["content"]["application/json"]; // string[]
+type ByTemplate = paths[`/user/${string}/keys`]["get"]; // never: both signatures apply
+```
 :::
 
 ::: info Paths that differ only in parameter names
@@ -1191,6 +1204,15 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   (`patternProperties/^x`). With `--exclude-deprecated`, a pointer to a property it leaves out gets
   the property's type inline, not the index signature's. This holds for an owner under `$defs`
   and for an owner with a `discriminator` too.
+- The properties of an owner with a `discriminator` are read as in any object
+  (`Pet/properties/owner/properties/name` gets `NonNullable<…["owner"]>["name"]`). Only the
+  discriminator's own property keeps its pointer as written, since the generator may add or change
+  that property.
+- A pointer to `unevaluatedProperties` gets the target's type inline: without the
+  `unevaluated-properties` fix (or next to `additionalProperties`) the keyword is not in the type,
+  so the original reads another member or `never`, and with the fix the index signature also holds
+  the declared property types, as next to `additionalProperties`. Where the fix's signature holds
+  nothing else (an object with only `unevaluatedProperties`), the original is right and stays.
 - A pointer through a keyword with no type of its own (`allOf/0`, `definitions/A`, operation or
   path item `parameters/0`) gets the target's type written inline; a target that points back at
   itself keeps the original type. The inline type is the one the generator writes for that schema,
@@ -1333,6 +1355,8 @@ Annotated: { kind?: "annotated" } & components["schemas"]["Resource"] & { // [!c
 - Only an object schema gets it; in a type list such as `[object, "null"]`, the object does and
   `null` stays outside.
 - With `--immutable` the index signature is `readonly`.
+- A `$ref` to `unevaluatedProperties` gets the value type itself, with or without the fix
+  ([ref-pointers](#ref-pointers)).
 
 ### makePathsEnum
 

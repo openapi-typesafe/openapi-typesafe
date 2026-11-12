@@ -70,6 +70,20 @@ function memberKey(value: string | number, metadata: EnumMemberMetadata | undefi
 const ENUM_VALUES_NUMBER_SEPARATOR = "_";
 
 /** The whole declaration: an equal key means the same enum, member for member. */
+/**
+ * The owner of an enum: its schema location. A property and an inline `allOf` item of one schema
+ * share it and one enum (two enums would make their intersection `never`). The elements of one
+ * tuple are typed at the tuple's location too, but under one name TypeScript merges their
+ * declarations, so each element would admit the values of the others: an element owns its name
+ * with its set of values, and elements of the same values still share one enum.
+ */
+function enumOwner(request: EnumDeclarationRequest): string {
+  if (request.isTupleElement !== true) {
+    return request.name;
+  }
+  return JSON.stringify([request.name, [...request.values].sort(compareAsStrings)]);
+}
+
 function declarationKey(name: string, request: EnumDeclarationRequest): string {
   return JSON.stringify([name, request.values, request.metadata]);
 }
@@ -125,8 +139,8 @@ export class RunFooter implements DocumentFooter {
     if (known !== undefined) {
       return known;
     }
-    // The owner is the schema location: its requests share one enum, with `--dedupe-enums` too.
-    const name = this.names.enums.nameFor(sharedName, request.name);
+    // Requests of one owner share one enum, with `--dedupe-enums` too.
+    const name = this.names.enums.nameFor(sharedName, enumOwner(request));
     // Only a repeated member fails to compile; two empty declarations merge, so they stay.
     const declared = request.values.length > 0 ? declarationKey(name, request) : null;
     if (declared !== null && this.declaredEnums.has(declared)) {

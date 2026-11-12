@@ -5,7 +5,8 @@ import { freeNumberedName } from "../numbered-names.js";
  * names the rest of the output may need.
  *
  * Every enum has an owner: the schema location it is named after, or with `--dedupe-enums` its
- * members. Two owners whose names come out the same (`status` and `Status`) merged into one enum
+ * members (a tuple element: its location and values). Two owners whose names come out the same
+ * (`status` and `Status`, or two `prefixItems` elements of other values) merged into one enum
  * before, so each accepted the values of the other (upstream behavior). Now the first owner keeps
  * the name and each later one gets the next free `Name_2`, `Name_3`, …; requests of one owner (a
  * property and an inline `allOf` item of one schema) still share one enum.

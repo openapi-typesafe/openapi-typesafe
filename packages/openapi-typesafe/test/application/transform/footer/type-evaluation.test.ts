@@ -110,7 +110,8 @@ describe("TypeEvaluator", () => {
     );
     expect(evaluated(irReference("WithRequired", [irReference("Alias"), text("k")]))).toBe('"r"');
     expect(evaluated(irReference("Extract", [status, irKeyword("string")]))).toBe("opaque");
-    expect(evaluated(irReference("Record", [irKeyword("string"), status]))).toBe("opaque");
+    expect(evaluated(irReference("Record", [irKeyword("number"), status]))).toBe("opaque");
+    expect(evaluated(irReference("Record", [irKeyword("string")]))).toBe("opaque");
     expect(evaluated(irReference("FlattenedDeepRequired", [irReference("nothing")]))).toBe(
       "opaque",
     );
@@ -120,6 +121,17 @@ describe("TypeEvaluator", () => {
     expect(evaluated(irTuple([irTupleElement(text("t"))]))).toBe("opaque");
     expect(evaluated(irIndexedAccess(text("s"), key("length")))).toBe("opaque");
     expect(evaluated(irIndexedAccess(irKeyword("never"), key("x")))).toBe("never");
+  });
+
+  it("evaluate reads a string Record as an index signature that declared properties override", () => {
+    const record = irReference("Record", [irKeyword("string"), irKeyword("never")]);
+    const owner = irIntersection([
+      record,
+      irObject([irProperty({ kind: "identifier", text: "op" }, text("add"))]),
+    ]);
+
+    expect(evaluated(irIndexedAccess(record, key("op")))).toBe("never");
+    expect(evaluated(irIndexedAccess(owner, key("op")))).toBe('"add"');
   });
 
   it("evaluate narrows a union with an Extract probe", () => {
@@ -316,9 +328,11 @@ describe("checkedEnumValues", () => {
       (_entry): _entry is IrDeclaration => true,
     );
 
+    // A union that holds a literal outside the values admits more, whatever its other members are.
     expect(retyped.map((retype) => [retype.kind, retype.name])).toEqual([
       ["untyped", "elements"],
       ["excluded", "boolean"],
+      ["widened", "someRaw"],
     ]);
   });
 

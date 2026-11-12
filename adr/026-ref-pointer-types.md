@@ -176,3 +176,30 @@ stayed, read through a signature of another type or not compiling (TS2339):
 
 `generatedMember` grew past the file limit, so the index signature member moved to
 `index-signature-member.ts`; the Consequences above apply to it too.
+
+## Amendment (2026-11-12): discriminator owners and `unevaluatedProperties`
+
+Two owners were still opaque, and `originalIndexFails` counts opaque as compiling, so pointers
+whose original does not compile kept it (TS2339), against point 1:
+
+1. **Properties of a `discriminator` owner.** The amendment of 2026-11-11 left every property of
+   such an owner opaque, so `Pet/properties/owner/properties/name` kept
+   `Pet["owner"]["name"]` (TS2339 through an optional `owner`). A discriminator owner's own type
+   is an object like any other: the scan adds or changes only the discriminator's property (of
+   the owner, or of a mapped member). So only that key is opaque; every other property is read
+   as in an object without a discriminator.
+2. **`unevaluatedProperties`.** Any key of an owner with the keyword was opaque, with or without
+   its fix. The walk now knows whether the type has the keyword (`unevaluatedSchemaOf`, the same
+   test the `unevaluated-properties` fix uses):
+   - With the fix, the type is the other keywords' type intersected with an index signature
+     (`unevaluatedIndexMember`), or the signature alone. A key the other keywords miss reads the
+     signature, which holds the declared property types too (`isWidenedRecordValue`): it is
+     `isOtherType`, as next to `additionalProperties`, so the pointer gets the target's type. A
+     property the other keywords declare is read alone.
+   - Without the fix, or next to `additionalProperties` (where it does not apply), the type does
+     not have the keyword: its key is missing. The original then reads another member or the
+     `never` of `Record<string, never>`, neither the target. `false` stays as it was: the original
+     reads `never` there, which is its type.
+
+`generated-shape.ts` grew past the file limit, so the schema shape tests (`isObjectShape`,
+`isArrayShape`, `hasObjectKeywords`) moved to `schema-shape.ts`; the Consequences apply to it too.

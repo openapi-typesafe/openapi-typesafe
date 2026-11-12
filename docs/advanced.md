@@ -439,6 +439,11 @@ compiles (`ReadonlyArray<"available" | "sold">`):
 - the enum is an `additionalProperties` value next to `properties` or `patternProperties`, or,
   with the `unevaluated-properties` fix, an `unevaluatedProperties` value next to `properties`,
   `allOf`, `anyOf` or `oneOf`: the index signature, which `[string]` reads, holds their types too;
+- the place surely admits other values too: an `anyOf` / `oneOf` member or a `prefixItems`
+  element, whose place is the whole union or tuple (`FlattenedDeepRequired` reads a tuple as the
+  union of its elements), next to siblings with other values, or an open tuple of the
+  `prefix-items` fix, whose rest is `unknown`. A place that admits a wide type such as `string`
+  keeps its type;
 - the schema contradicts itself: an `allOf` of enums with different values, or a discriminator
   value that the property enum does not list. The type there admits fewer values, or none; this
   case also prints a warning that names the array and the values.

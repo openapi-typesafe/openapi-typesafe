@@ -1,6 +1,12 @@
 import { isRawBinarySchema } from "../../../domain/openapi/binary-content.js";
+import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
-import { type IndexSignatureMember, indexMember } from "./index-signature-member.js";
+import { unevaluatedSchemaOf } from "../schema/unevaluated-schema.js";
+import {
+  type IndexSignatureMember,
+  indexMember,
+  unevaluatedIndexMember,
+} from "./index-signature-member.js";
 import {
   childLocation,
   followLocated,
@@ -14,6 +20,7 @@ import {
   isNullableSchema,
   isOptionalProperty,
 } from "./property-shape.js";
+import { hasObjectKeywords, isArrayShape, isComposed, isObjectShape } from "./schema-shape.js";
 
 /**
  * What the generated type of a schema has under a key, read from the schema itself. It answers the
@@ -41,47 +48,12 @@ export type GeneratedMember =
 
 const OPAQUE_KEYS = ["not", "enum", "const", "$ref"] as const;
 const DEFS_KEYWORD = "$defs";
+const UNEVALUATED_PROPERTIES = "unevaluatedProperties";
 /** How deep `allOf`/`anyOf`/`oneOf` members are read; deeper shapes count as opaque. */
 const MAX_DEPTH = 8;
 const INDEX_RE = /^\d+$/;
 const MISSING: GeneratedMember = { kind: "missing" };
 const OPAQUE: GeneratedMember = { kind: "opaque" };
-
-function typeNames(node: JsonObject): readonly unknown[] {
-  return Array.isArray(node.type) ? node.type : [node.type];
-}
-
-/**
- * Whether the generated type is an object. One `type` name decides alone: `type: string` with
- * `properties` or `items` is `string`, as `coreType` matches the `type` before the keywords.
- */
-export function isObjectShape(node: JsonObject): boolean {
-  if (typeof node.type === "string") {
-    return node.type === "object";
-  }
-  return (
-    typeNames(node).includes("object") ||
-    "properties" in node ||
-    "additionalProperties" in node ||
-    "patternProperties" in node
-  );
-}
-
-/** Whether the generated type is an array; one `type` name decides alone (`isObjectShape`). */
-export function isArrayShape(node: JsonObject): boolean {
-  if (typeof node.type === "string") {
-    return node.type === "array";
-  }
-  return typeNames(node).includes("array") || "items" in node;
-}
-
-/** Whether `objectType` writes a type for the schema; the same test as there. */
-function hasObjectKeywords(node: JsonObject): boolean {
-  const hasProperties = isJsonObject(node.properties) && Object.keys(node.properties).length > 0;
-  return (
-    hasProperties || Boolean(node.additionalProperties || node.patternProperties || node.$defs)
-  );
-}
 
 /**
  * A key of an object schema without object keywords. With a `type` it is `Record<string, never>`:
@@ -107,20 +79,18 @@ function objectMember(
   const properties = isJsonObject(node.properties) ? node.properties : {};
   const isExcludedKey =
     Object.hasOwn(properties, key) && isExcludedProperty(properties[key], options, input.refs);
+  // The discriminator scan may add or change the discriminator's own property, so that key is
+  // opaque. Every other property is typed as written, as in an object without a discriminator.
+  if (isDiscriminatorKey(node, key)) {
+    return OPAQUE;
+  }
   if (Object.hasOwn(properties, key) && !isExcludedKey) {
-    if (isJsonObject(node.discriminator)) {
-      return OPAQUE;
-    }
     const location = childLocation(owner.location, "properties", key);
     const isOptional = isOptionalProperty(owner, key, options);
     const isMarked = isMarkedProperty(properties[key], options, input.refs);
     return { kind: "property", node: properties[key], location, isOptional, isMarked };
   }
-  // The discriminator scan may add the discriminator's property, and `unevaluatedProperties`
-  // adds an index signature with its fix: both count as opaque. Other keys of a discriminator
-  // owner read its type as without the discriminator.
-  const isUnknownShape = isDiscriminatorKey(node, key) || node.unevaluatedProperties !== undefined;
-  if (isBuiltInMember(key, {}) || isUnknownShape) {
+  if (isBuiltInMember(key, {})) {
     return OPAQUE;
   }
   const defs = node[DEFS_KEYWORD];
@@ -203,6 +173,47 @@ function intersectionMember(members: readonly GeneratedMember[]): GeneratedMembe
   return typed.length === 1 && only.kind !== "opaque" ? only : OPAQUE;
 }
 
+/**
+ * A key of an owner the `unevaluated-properties` fix types: the type of its other keywords
+ * intersected with an index signature (`unevaluatedPropertiesType`); without other keywords the
+ * signature is the whole type. A key they miss reads the signature; a property they declare is
+ * read alone, as an index signature of one part takes no part in a property another declares.
+ */
+function unevaluatedMember(
+  owner: LocatedNode & { node: JsonObject },
+  key: string,
+  value: unknown,
+  input: MemberInput,
+): GeneratedMember {
+  const { unevaluatedProperties: _unevaluated, ...rest } = owner.node;
+  const properties = isJsonObject(rest.properties) ? rest.properties : {};
+  const isExcludedKey =
+    Object.hasOwn(properties, key) &&
+    isExcludedProperty(properties[key], input.options, input.refs);
+  const index = unevaluatedIndexMember(owner, value, isExcludedKey, input);
+  if (!isComposed(rest) && !hasObjectKeywords(rest)) {
+    return index;
+  }
+  const member = memberAt({ ...owner, node: rest }, key, { ...input, depth: input.depth + 1 });
+  if (member.kind === "missing") {
+    return index;
+  }
+  return member.kind === "property" || member.kind === "names" ? member : OPAQUE;
+}
+
+/**
+ * Whether `key` names an `unevaluatedProperties` schema that the type ignores (no fix, or next to
+ * `additionalProperties`). The original then reads another member, or `never` of
+ * `Record<string, never>`, not the target, so the key counts as missing. `false` is `never`, as
+ * the original reads it, and a property of that name is read as the property.
+ */
+function isIgnoredUnevaluatedKey(node: JsonObject, key: string): boolean {
+  const value = node[UNEVALUATED_PROPERTIES];
+  const properties = isJsonObject(node.properties) ? node.properties : {};
+  const isIgnoredSchema = value !== undefined && value !== false;
+  return key === UNEVALUATED_PROPERTIES && isIgnoredSchema && !Object.hasOwn(properties, key);
+}
+
 interface MemberInput {
   readonly options: SchemaOptions;
   readonly refs: RefResolver;
@@ -220,7 +231,14 @@ function memberAt(schema: LocatedNode, key: string, input: MemberInput): Generat
     // Every key of `T | null` is an error, unless `T` is unknown (then the type is `unknown`).
     return isObjectShape(node) || isArrayShape(node) ? MISSING : OPAQUE;
   }
-  if ("allOf" in node || "anyOf" in node || "oneOf" in node) {
+  const unevaluated = unevaluatedSchemaOf(node as SchemaObject, input.options);
+  if (unevaluated !== null) {
+    return unevaluatedMember(owner, key, unevaluated, input);
+  }
+  if (isIgnoredUnevaluatedKey(node, key)) {
+    return MISSING;
+  }
+  if (isComposed(node)) {
     return composedMember(owner, key, { ...input, depth: input.depth + 1 });
   }
   if (isObjectShape(node)) {

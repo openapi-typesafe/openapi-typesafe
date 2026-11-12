@@ -1240,15 +1240,9 @@ type ReadonlyArray<T> = [
 ] extends [
     readonly unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
-export const pathsAnalyticsDataGetResponses400ContentApplicationJsonAnyOf0MessageValues: ReadonlyArray<Extract<FlattenedDeepRequired<paths>["/analytics/data"]["get"]["responses"]["400"]["content"]["application/json"], {
-    message: unknown;
-}>["message"]> = ["Bad request. (InvalidFilterException)"];
-export const pathsAnalyticsDataGetResponses400ContentApplicationJsonAnyOf1MessageValues: ReadonlyArray<Extract<FlattenedDeepRequired<paths>["/analytics/data"]["get"]["responses"]["400"]["content"]["application/json"], {
-    message: unknown;
-}>["message"]> = ["Bad request. (InvalidDimensionException)"];
-export const pathsAnalyticsDataGetResponses400ContentApplicationJsonAnyOf2MessageValues: ReadonlyArray<Extract<FlattenedDeepRequired<paths>["/analytics/data"]["get"]["responses"]["400"]["content"]["application/json"], {
-    message: unknown;
-}>["message"]> = ["Bad request. (InvalidMetricException)"];`,
+export const pathsAnalyticsDataGetResponses400ContentApplicationJsonAnyOf0MessageValues: ReadonlyArray<"Bad request. (InvalidFilterException)"> = ["Bad request. (InvalidFilterException)"];
+export const pathsAnalyticsDataGetResponses400ContentApplicationJsonAnyOf1MessageValues: ReadonlyArray<"Bad request. (InvalidDimensionException)"> = ["Bad request. (InvalidDimensionException)"];
+export const pathsAnalyticsDataGetResponses400ContentApplicationJsonAnyOf2MessageValues: ReadonlyArray<"Bad request. (InvalidMetricException)"> = ["Bad request. (InvalidMetricException)"];`,
         options: { enumValues: true },
       },
     ],
@@ -1567,12 +1561,8 @@ type ReadonlyArray<T> = [
 ] extends [
     readonly unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
-export const resourceItemsOneOf0TypeValues: ReadonlyArray<Extract<FlattenedDeepRequired<components>["schemas"]["Resource"]["items"], {
-    type: unknown;
-}>["type"]> = ["simple"];
-export const resourceItemsOneOf1TypeValues: ReadonlyArray<Extract<FlattenedDeepRequired<components>["schemas"]["Resource"]["items"], {
-    type: unknown;
-}>["type"]> = ["complex"];
+export const resourceItemsOneOf0TypeValues: ReadonlyArray<"simple"> = ["simple"];
+export const resourceItemsOneOf1TypeValues: ReadonlyArray<"complex"> = ["complex"];
 export const resourceItemsOneOf1NestedCodeValues: ReadonlyArray<Extract<Extract<FlattenedDeepRequired<components>["schemas"]["Resource"]["items"], {
     nested: unknown;
 }>["nested"], {
@@ -1784,19 +1774,9 @@ type ReadonlyArray<T> = [
 ] extends [
     readonly unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
-export const resourceOuterOneOf0KindValues: ReadonlyArray<Extract<FlattenedDeepRequired<components>["schemas"]["Resource"]["outer"], {
-    kind: unknown;
-}>["kind"]> = ["typeA"];
-export const resourceOuterOneOf0InnerOneOf0VariantValues: ReadonlyArray<Extract<Extract<FlattenedDeepRequired<components>["schemas"]["Resource"]["outer"], {
-    inner: unknown;
-}>["inner"], {
-    variant: unknown;
-}>["variant"]> = ["v1"];
-export const resourceOuterOneOf0InnerOneOf1VariantValues: ReadonlyArray<Extract<Extract<FlattenedDeepRequired<components>["schemas"]["Resource"]["outer"], {
-    inner: unknown;
-}>["inner"], {
-    variant: unknown;
-}>["variant"]> = ["v2"];
+export const resourceOuterOneOf0KindValues: ReadonlyArray<"typeA"> = ["typeA"];
+export const resourceOuterOneOf0InnerOneOf0VariantValues: ReadonlyArray<"v1"> = ["v1"];
+export const resourceOuterOneOf0InnerOneOf1VariantValues: ReadonlyArray<"v2"> = ["v2"];
 export const resourceOuterOneOf0InnerOneOf1DeepCodeValues: ReadonlyArray<Extract<Extract<Extract<FlattenedDeepRequired<components>["schemas"]["Resource"]["outer"], {
     inner: unknown;
 }>["inner"], {
@@ -1804,9 +1784,7 @@ export const resourceOuterOneOf0InnerOneOf1DeepCodeValues: ReadonlyArray<Extract
 }>["deep"], {
     code: unknown;
 }>["code"]> = ["x", "y"];
-export const resourceOuterOneOf1KindValues: ReadonlyArray<Extract<FlattenedDeepRequired<components>["schemas"]["Resource"]["outer"], {
-    kind: unknown;
-}>["kind"]> = ["typeB"];
+export const resourceOuterOneOf1KindValues: ReadonlyArray<"typeB"> = ["typeB"];
 export type operations = Record<string, never>;`,
         options: { enumValues: true },
       },

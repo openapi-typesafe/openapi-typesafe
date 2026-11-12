@@ -1,4 +1,4 @@
-import type { IrPropertyName, IrType } from "../../../domain/ir/nodes.js";
+import type { IrPropertyName, IrTupleType, IrType } from "../../../domain/ir/nodes.js";
 
 /** The values the evaluator of the `--enum-values` check works with (ADR-027). */
 
@@ -31,6 +31,27 @@ const NULLISH: ReadonlySet<string> = new Set(["null", "undefined"]);
 
 export function isNullish(type: IrType): boolean {
   return type.kind === "keyword" && NULLISH.has(type.keyword);
+}
+
+const UNDEFINED: IrType = { kind: "keyword", keyword: "undefined" };
+
+/**
+ * A tuple as the array of its items: `T[number]` is the union of its elements, `undefined` for an
+ * optional one, and the item type of a rest element. `FlattenedDeepRequired` reads a tuple member
+ * only through `[number]`, so inside it this is the same type. Null for a rest element whose type
+ * is not an array type.
+ */
+export function tupleAsArray(tuple: IrTupleType): IrType | null {
+  const items: IrType[] = [];
+  for (const element of tuple.elements) {
+    if (element.isRest && element.type.kind !== "array") {
+      return null;
+    }
+    const item =
+      element.isRest && element.type.kind === "array" ? element.type.element : element.type;
+    items.push(item, ...(element.isOptional ? [UNDEFINED] : []));
+  }
+  return { kind: "array", element: unionType(items) };
 }
 
 export function propertyKey(name: IrPropertyName): string {

@@ -95,3 +95,34 @@ describe("--enum declarations of one name", () => {
     );
   });
 });
+
+describe("--enum tuple elements", () => {
+  const enumOf = (values: string[]) => ({ type: "string", enum: values });
+  const tuple = (...elements: string[][]) => ({ type: "array", prefixItems: elements.map(enumOf) });
+
+  it("openapiTS numbers the enum of a prefixItems element with other values", async () => {
+    const output = await generate(documentWith({ Pair: tuple(["asc", "desc"], ["name", "date"]) }));
+
+    expect(output).toContain("Pair: [\n            Pair,\n            Pair_2\n        ];");
+    expect(output).toContain('export enum Pair_2 {\n    name = "name",\n    date = "date"\n}');
+    expect(output.match(/export enum Pair /g)).toHaveLength(1);
+    const misuse = 'const sort: components["schemas"]["Pair"][0] = Pair_2.name;';
+    expect(typeErrorsOf(`${output}\n${misuse}`)).not.toEqual([]);
+  });
+
+  it("openapiTS shares one enum among elements of the same values", async () => {
+    const output = await generate(documentWith({ Same: tuple(["x", "y"], ["y", "x"]) }));
+
+    expect(output).toContain("Same: [\n            Same,\n            Same\n        ];");
+    expect(output.match(/export enum Same/g)).toHaveLength(1);
+  });
+
+  it("openapiTS with prefix-items numbers the enum of an element with other values", async () => {
+    const document = documentWith({ Pair: tuple(["asc"], ["name"]) });
+
+    const output = await generate(document, { enum: true, fix: ["prefix-items"] });
+
+    expect(output).toMatch(/Pair: \[\n\s+Pair\?,\n\s+Pair_2\?,/);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});

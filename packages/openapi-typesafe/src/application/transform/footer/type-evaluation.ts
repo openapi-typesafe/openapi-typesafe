@@ -1,4 +1,5 @@
-import type { IrDeclaration, IrType } from "../../../domain/ir/nodes.js";
+import { irObject, irStringIndexSignature } from "../../../domain/ir/constructors.js";
+import type { IrDeclaration, IrTupleType, IrType } from "../../../domain/ir/nodes.js";
 import {
   absorbed,
   type Evaluated,
@@ -7,6 +8,7 @@ import {
   isNullish,
   OPAQUE,
   propertyKey,
+  tupleAsArray,
   unionType,
 } from "./evaluation.js";
 import type { RawKeyTypes } from "./signature-index.js";
@@ -62,12 +64,19 @@ export class TypeEvaluator {
         return this.indexedAccess(value, type.object, type.index);
       case "reference":
         return this.reference(value, type.name, type.typeArguments);
-      case "raw":
       case "tuple":
+        return this.deepTuple(value, type);
+      case "raw":
         return OPAQUE;
       default:
         return value;
     }
+  }
+
+  /** A tuple inside `FlattenedDeepRequired` is read as the array of its items; else opaque. */
+  private deepTuple(value: Evaluated, tuple: IrTupleType): Evaluation {
+    const array = value.deep ? tupleAsArray(tuple) : null;
+    return array === null ? OPAQUE : { ...value, type: array };
   }
 
   private indexedAccess(value: Evaluated, object: IrType, index: IrType): Evaluation {
@@ -109,6 +118,8 @@ export class TypeEvaluator {
         return argument;
       case "Extract":
         return second === undefined ? OPAQUE : this.extract(argument, second);
+      case "Record":
+        return second === undefined ? OPAQUE : stringRecord(argument, second);
       case "Omit":
         return second === undefined ? OPAQUE : omitted(this, argument, second);
       default:
@@ -170,4 +181,13 @@ export class TypeEvaluator {
   index(value: Evaluated, index: IrType): Evaluation {
     return indexType(this, value, index);
   }
+}
+
+/**
+ * `Record<string, V>` as the object type it is, `{ [key: string]: V }`, so an intersection with it
+ * reads its other parts' properties first. A record of other keys is opaque.
+ */
+function stringRecord(key: Evaluated, value: IrType): Evaluation {
+  const isStringKey = key.type.kind === "keyword" && key.type.keyword === "string";
+  return isStringKey ? { ...key, type: irObject([irStringIndexSignature("key", value)]) } : OPAQUE;
 }

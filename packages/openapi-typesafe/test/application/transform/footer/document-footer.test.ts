@@ -186,6 +186,21 @@ describe("RunFooter", () => {
     expect([first, second]).toEqual(["PetKind", "PetKind"]);
   });
 
+  it("addEnum numbers a tuple element of other values and shares one of the same values", () => {
+    const sink = new InMemorySink();
+    const footer = new RunFooter(sink, false);
+    const element = { ...STATUS, name: "/Pair", isTupleElement: true };
+
+    const names = [
+      footer.addEnum({ ...element, values: ["asc", "desc"] }),
+      footer.addEnum({ ...element, values: ["name"] }),
+      footer.addEnum({ ...element, values: ["desc", "asc"] }),
+    ];
+
+    expect(names).toEqual(["Pair", "Pair_2", "Pair"]);
+    expect(sink.declarations).toHaveLength(2);
+  });
+
   it("addEnum gives way to a name the run's claims reserve", () => {
     const sink = new InMemorySink();
     const names = {

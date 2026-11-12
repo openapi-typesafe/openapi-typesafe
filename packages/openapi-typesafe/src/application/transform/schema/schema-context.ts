@@ -91,6 +91,11 @@ export interface EnumDeclarationRequest {
    * (`discriminator-values`); the schema at `name` declares it where it is typed itself.
    */
   readonly isOwnerReference?: boolean;
+  /**
+   * The schema is a `prefixItems` (or `items` list) element, typed at its tuple's location, so
+   * the elements of one tuple share `name`; elements with other values are other enums.
+   */
+  readonly isTupleElement?: boolean;
 }
 
 export interface EnumValuesRequest {

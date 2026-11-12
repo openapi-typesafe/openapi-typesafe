@@ -1,6 +1,6 @@
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import { childLocation, isJsonObject, type JsonObject, type LocatedNode } from "./located-node.js";
-import { hasKeptProperties } from "./property-shape.js";
+import { hasKeptProperties, isWidenedRecordValue } from "./property-shape.js";
 
 /** The index signature of an object schema as the `$ref` pointer walk reads it (ADR-026). */
 
@@ -67,4 +67,30 @@ export function indexMember(
   const isOtherType =
     isExcludedKey || typed.length > 1 || hasKeptProperties(owner.node, input.options, input.refs);
   return { kind: "index", ...first, isOtherType };
+}
+
+const UNEVALUATED_PROPERTIES = "unevaluatedProperties";
+
+/**
+ * The index signature the `unevaluated-properties` fix adds for `value`. It also holds the
+ * declared property types of the owner and of its `allOf` / `anyOf` / `oneOf` members
+ * (`isWidenedRecordValue`), and a left-out property's key reads it: both are another type.
+ */
+export function unevaluatedIndexMember(
+  owner: LocatedNode & { node: JsonObject },
+  value: unknown,
+  isExcludedKey: boolean,
+  input: IndexInput,
+): IndexSignatureMember {
+  if (isUnknownValue(value)) {
+    return { kind: "index", node: undefined, location: undefined, isOtherType: isExcludedKey };
+  }
+  const { options, refs } = input;
+  const isWidened = isWidenedRecordValue(owner.node, UNEVALUATED_PROPERTIES, options, refs);
+  return {
+    kind: "index",
+    node: value,
+    location: childLocation(owner.location, UNEVALUATED_PROPERTIES),
+    isOtherType: isExcludedKey || isWidened,
+  };
 }
