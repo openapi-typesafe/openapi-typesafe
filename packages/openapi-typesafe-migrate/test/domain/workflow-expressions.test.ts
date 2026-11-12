@@ -59,7 +59,7 @@ describe("workflow expressions", () => {
   });
 
   it("shellCommands reads an expansion in a literal, as the shell gets it", () => {
-    const text = expression("format('${X:-npx openapi-typescript}')");
+    const text = expression(["format('", "$", "{X:-npx openapi-typescript}')"].join(""));
 
     const words = shellCommands(text).map((command) => command.map((word) => word.value));
 
