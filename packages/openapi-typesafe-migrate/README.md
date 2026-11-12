@@ -77,7 +77,8 @@ keys (`run`, `script`, `command`, `entrypoint`, …), in the values of `env` and
 defaults, in block and flow style, never in other values. A CI step whose `shell` is another program (`shell: python`) runs
 code of that language, so its script is not changed, and it is reported when it names an old
 package. The nearest `shell` counts: the step's own, then the job's and the workflow's
-`defaults.run.shell` (GitHub Actions), or the job's `shell` (CircleCI). `env` (`/usr/bin/env bash
+`defaults.run.shell` (GitHub Actions), or the job's `shell` and then the `shell` of the
+executor the job names (`executor: py`, CircleCI). `env` (`/usr/bin/env bash
 -e {0}`) runs the program after it, and `msys2 {0}` and `wsl-bash {0}` run bash. An API description (a YAML document with a top-level `openapi`,
 `swagger`, `asyncapi`, `overlay` or `arazzo` key whose value is a version, such as `openapi: 3.1.0`;
 a CI config such as `.gitlab-ci.yml` or a workflow never is one, so a GitLab job named `openapi`

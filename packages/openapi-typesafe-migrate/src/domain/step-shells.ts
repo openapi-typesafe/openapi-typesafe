@@ -5,8 +5,9 @@ import { namesOriginalPackage } from "./package-names.js";
 /**
  * A CI step can name the program that runs its script: GitHub Actions `shell: python` next to
  * `run`, or as `defaults.run.shell` of the job or the workflow; CircleCI `shell` next to
- * `command`, or of the job. A script for a program other than a shell is code of that language,
- * so the command migration leaves it as it is and reports it when it names an old package.
+ * `command`, of the job, or of the executor the job runs on. A script for a program other than a
+ * shell is code of that language, so the command migration leaves it as it is and reports it
+ * when it names an old package.
  */
 
 /** The key of a CI step or job that names the program its scripts go to. */
@@ -32,6 +33,14 @@ const ASSIGNMENT = "=";
 const PATH_SEPARATOR_RE = /[/\\]/;
 const WINDOWS_EXECUTABLE_RE = /\.exe$/i;
 const WHITESPACE_RE = /\s+/;
+/** CircleCI's top-level map of executors, each of which may name a `shell`. */
+const EXECUTORS_KEY = "executors";
+/** The keys of the path of an executor's shell: `executors`, the executor name, `shell`. */
+const EXECUTOR_SHELL_PATH_LENGTH = 3;
+/** The key of a CircleCI job that names its executor: `executor: py`. */
+const EXECUTOR_KEY = "executor";
+/** The key of the executor name in the map form: `executor: { name: py }`. */
+const EXECUTOR_NAME_KEY = "name";
 
 /** The `shell` of the step that a script belongs to, when it is not a shell. */
 export type StepShellOf = (value: DocumentString) => string | undefined;
@@ -82,17 +91,51 @@ function scopeOf(value: DocumentString): string {
   return JSON.stringify(value.path.slice(0, -keys));
 }
 
+/** The `shell` of each CircleCI executor (`executors.py.shell`), by executor name. */
+function executorShells(shells: readonly DocumentString[]): ReadonlyMap<string, string> {
+  const isExecutorShell = ({ path }: DocumentString): boolean =>
+    path.length === EXECUTOR_SHELL_PATH_LENGTH && path[0] === EXECUTORS_KEY;
+  return new Map(
+    shells.filter(isExecutorShell).map((shell) => [String(shell.path[1]), shell.value]),
+  );
+}
+
+/** The path of the job that a CircleCI `executor` value belongs to, or undefined. */
+function executorJob({ path }: DocumentString): DocumentPath | undefined {
+  if (path.at(-1) === EXECUTOR_KEY) {
+    return path.slice(0, -1);
+  }
+  const isNamed = path.at(-1) === EXECUTOR_NAME_KEY && path.at(-2) === EXECUTOR_KEY;
+  return isNamed ? path.slice(0, -2) : undefined;
+}
+
+/**
+ * The shells that CircleCI jobs take from their executor, by the scope of the job. A job's own
+ * `shell` goes after these and wins.
+ */
+function inheritedShells(strings: readonly DocumentString[], shells: readonly DocumentString[]) {
+  const byExecutor = executorShells(shells);
+  return strings.flatMap((value): [string, string][] => {
+    const job = executorJob(value);
+    const shell = byExecutor.get(value.value);
+    return job === undefined || shell === undefined ? [] : [[JSON.stringify(job), shell]];
+  });
+}
+
 /**
  * The shell that a command value runs with, when it is a program other than a shell
- * (`shell: python`): the nearest `shell` above the value, of its step, its job, or a default of
- * the job or the workflow. A step's own `shell` wins over a default of the same map.
+ * (`shell: python`): the nearest `shell` above the value, of its step, its job, its executor, or
+ * a default of the job or the workflow. A step's own `shell` wins over a default of the same map.
  */
 export function stepShells(strings: readonly DocumentString[]): StepShellOf {
   const shells = strings.filter((value) => value.path.at(-1) === STEP_SHELL_KEY);
   const isOwnShell = (value: DocumentString): boolean => !isDefaultShell(value);
   // Later entries win: the own `shell` of a map goes after a default of the same map.
   const ordered = [...shells.filter(isDefaultShell), ...shells.filter(isOwnShell)];
-  const byScope = new Map(ordered.map((value) => [scopeOf(value), value.value]));
+  const byScope = new Map([
+    ...inheritedShells(strings, shells),
+    ...ordered.map((value): [string, string] => [scopeOf(value), value.value]),
+  ]);
   return (value) => {
     for (let depth = value.path.length - 1; depth >= 0; depth -= 1) {
       const shell = byScope.get(JSON.stringify(value.path.slice(0, depth)));

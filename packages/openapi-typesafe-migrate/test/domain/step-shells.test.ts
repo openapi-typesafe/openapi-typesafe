@@ -203,4 +203,60 @@ describe("migrateYamlCommands and step shells", () => {
       "run: npx openapi-typesafe a.yaml --immutable",
     );
   });
+
+  it.each([
+    ["by name", "executor: py"],
+    ["in a map", "executor:\n      name: py"],
+  ])("migrateYamlCommands reads the shell of a CircleCI executor named %s", (_, executor) => {
+    const text = lines(
+      "executors:",
+      "  py:",
+      "    shell: /usr/bin/python3",
+      "  sh:",
+      "    shell: bash",
+      "jobs:",
+      "  a:",
+      `    ${executor}`,
+      "    steps:",
+      "      - run: print('npx openapi-typescript a.yaml -it')",
+    );
+
+    const migrated = migrateYamlCommands(text, "config.yml", stringsOf(text));
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "script-not-shell",
+        location: `config.yml:${text.split("\n").length - 1}`,
+        shell: "/usr/bin/python3",
+      },
+    ]);
+  });
+
+  it("migrateYamlCommands takes the own shell of a CircleCI job before its executor's, and a job is no executor", () => {
+    const text = lines(
+      "executors:",
+      "  py:",
+      "    shell: python3",
+      "jobs:",
+      "  a:",
+      "    executor: py",
+      "    shell: bash",
+      "    steps:",
+      "      - run: npx openapi-typescript a.yaml -it",
+      "  b:",
+      "    executor: c",
+      "    steps:",
+      "      - run: npx openapi-typescript b.yaml -it",
+      "  c:",
+      "    shell: python3",
+      "    steps:",
+      "      - run: print(1)",
+    );
+
+    const migrated = migrateYamlCommands(text, "config.yml", stringsOf(text));
+
+    expect(migrated.text).toContain("run: npx openapi-typesafe a.yaml --immutable");
+    expect(migrated.text).toContain("run: npx openapi-typesafe b.yaml --immutable");
+  });
 });
