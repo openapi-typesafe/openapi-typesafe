@@ -1,5 +1,52 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.7
+
+### Patch Changes
+
+- [#101](https://github.com/openapi-typesafe/openapi-typesafe/pull/101) [`7b4ba3f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7b4ba3f783c16e506d4c9afbfe6392b1e820b1e4) Thanks [@fedorello](https://github.com/fedorello)! - A CI script now runs with the shell that CI gives it: the step's own `shell`, then the job's and
+  the workflow's `defaults.run.shell` in GitHub Actions, or the job's `shell` in CircleCI. A Python
+  or Node script under such a default is left and reported instead of rewritten as shell, and
+  `shell: /usr/bin/env bash -e {0}`, `shell: msys2 {0}` and `shell: wsl-bash {0}` are read as bash
+  again, so their commands are migrated.
+
+- [#101](https://github.com/openapi-typesafe/openapi-typesafe/pull/101) [`7b4ba3f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7b4ba3f783c16e506d4c9afbfe6392b1e820b1e4) Thanks [@fedorello](https://github.com/fedorello)! - A rewritten `transform` in options of a `const` without a type (`const options = { transform }`)
+  now gets `irCallbacks: true as const` (in JavaScript, `/** @type {const} */ (true)`): a plain
+  `true` became `boolean` there, and the `openapiTS` call stopped compiling (TS2769). The option is
+  also written before the JSDoc of `transform`, which stays with `transform`.
+
+- [#101](https://github.com/openapi-typesafe/openapi-typesafe/pull/101) [`7b4ba3f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7b4ba3f783c16e506d4c9afbfe6392b1e820b1e4) Thanks [@fedorello](https://github.com/fedorello)! - An import that a JSDoc comment still names (`@param {ts.TypeNode} node`, `{@link ts.factory}`) is
+  no longer removed with the rewritten `transform` returns. In a checked JavaScript file the type
+  stopped resolving (TS2503).
+
+- [#101](https://github.com/openapi-typesafe/openapi-typesafe/pull/101) [`7b4ba3f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7b4ba3f783c16e506d4c9afbfe6392b1e820b1e4) Thanks [@fedorello](https://github.com/fedorello)! - A justfile variable set by an expression (`gen := env_var_or_default("GEN", "npx
+openapi-typescript")`, an `if … { … } else { … }`), a recipe parameter default
+  (`types gen="npx openapi-typescript":`) and a string in an interpolation get the new generator
+  name again; they kept the old one without a word, and `npx` then downloaded the old generator.
+  Such a value can also be another program, so the old flags after `{{gen}}` are reported.
+
+- [#101](https://github.com/openapi-typesafe/openapi-typesafe/pull/101) [`7b4ba3f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7b4ba3f783c16e506d4c9afbfe6392b1e820b1e4) Thanks [@fedorello](https://github.com/fedorello)! - A local package under an old name in a workspace root (`"openapi-fetch": "file:./vendor/…"`) no
+  longer keeps the imports of a workspace package that declares the npm package itself. The
+  nearest manifest that declares the name decides, as Node resolves it: that package's dependency
+  and its imports now both get the new name.
+
+- [#101](https://github.com/openapi-typesafe/openapi-typesafe/pull/101) [`7b4ba3f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7b4ba3f783c16e506d4c9afbfe6392b1e820b1e4) Thanks [@fedorello](https://github.com/fedorello)! - The migration now renames the old generator inside a shell default value, such as
+  `${GEN:-npx openapi-typescript}`, `: "${GEN:=npx openapi-typescript}"` or
+  `npx ${PKG:-openapi-typescript}`. Before, these commands kept the old name and npx quietly ran the
+  old package. The variable can still be set to another program outside the file, so the flags after
+  such a default are listed as a manual step instead of being changed.
+
+- [#101](https://github.com/openapi-typesafe/openapi-typesafe/pull/101) [`7b4ba3f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7b4ba3f783c16e506d4c9afbfe6392b1e820b1e4) Thanks [@fedorello](https://github.com/fedorello)! - The files of a split API description (`components/schemas/Job.yaml`, reached by `$ref` from
+  `openapi.yaml` or `openapi.json`) and OpenAPI Overlay and Arazzo documents are data now, like the
+  API description itself: their example `command` and `script` values are no longer rewritten, so
+  the change no longer reaches the generated comments.
+
+- [#101](https://github.com/openapi-typesafe/openapi-typesafe/pull/101) [`7b4ba3f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7b4ba3f783c16e506d4c9afbfe6392b1e820b1e4) Thanks [@fedorello](https://github.com/fedorello)! - The migration now lists the old flags after a variable that runs a command when it cannot see
+  where the variable is set: in another GitLab `script` item, through `$GITHUB_ENV` in an earlier
+  step, as `$$GEN` in a Makefile recipe, as a bash array run with `"${GEN[@]}"`, or outside the
+  file. Before, flags like `-it` after such a variable were kept without a word, and the new
+  generator then stopped with an unknown flag. The items of a bash array are now renamed too.
+
 ## 1.0.0-rc.6
 
 ### Patch Changes

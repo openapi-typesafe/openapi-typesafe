@@ -1,7 +1,7 @@
 ---
-"openapi-typesafe-fetch": patch
-"openapi-typesafe-react-query": patch
+"openapi-typesafe": patch
 ---
 
-The CommonJS declarations say what `require()` returns. For the hooks that is `createClient`,
-with `isResponseError` and `default` (the function itself) as its properties.
+The declarations type-check in a CommonJS project without `esModuleInterop` (`module: commonjs`,
+`moduleResolution: node`, `skipLibCheck: false`). The exported `c` was declared with a default
+import of `ansi-colors`, which TypeScript reported as error TS1259.

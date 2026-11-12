@@ -2,6 +2,64 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.7
+
+### Patch Changes
+
+- [#99](https://github.com/openapi-typesafe/openapi-typesafe/pull/99) [`c7a783f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c7a783f127337dcdd13f1c69d9155f6841c836ed) Thanks [@fedorello](https://github.com/fedorello)! - The declarations type-check in a CommonJS project without `esModuleInterop` (`module: commonjs`,
+  `moduleResolution: node`, `skipLibCheck: false`). The exported `c` was declared with a default
+  import of `ansi-colors`, which TypeScript reported as error TS1259.
+
+- [#100](https://github.com/openapi-typesafe/openapi-typesafe/pull/100) [`f50618b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f50618b6c6ffd6e23495f3183820216ac8709dd0) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values` with `--path-params-as-types`: an enum parameter of a templated path is checked
+  against its own path. With another templated path before it (`/users/{id}` ahead of
+  `/orders/{id}`), the generator read the first path instead, warned `ENUM_VALUES_EXCLUDED` for an
+  enum the document does not contradict, and typed the array by its values; the result depended on
+  the order of the paths. The array is now typed by its path's location
+  (``FlattenedDeepRequired<paths>[`/orders/${number}`]…``) whatever the order, and no warning is
+  given.
+
+- [#100](https://github.com/openapi-typesafe/openapi-typesafe/pull/100) [`f50618b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f50618b6c6ffd6e23495f3183820216ac8709dd0) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values`: the array of an `additionalProperties` enum next to `properties` or
+  `patternProperties` is typed by its own values (`ReadonlyArray<"x" | "y">`). It was typed as
+  `FlattenedDeepRequired<components>["schemas"]["Stats"][string]`, which reads the whole index
+  signature, the property and pattern types included, so `5` was accepted as an item of an enum of
+  strings.
+
+  The same holds for an `unevaluatedProperties` enum with the `unevaluated-properties` fix, also
+  next to `allOf`, `anyOf` or `oneOf`, whose property types that signature holds too.
+
+- [#99](https://github.com/openapi-typesafe/openapi-typesafe/pull/99) [`c7a783f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c7a783f127337dcdd13f1c69d9155f6841c836ed) Thanks [@fedorello](https://github.com/fedorello)! - A `file:` URL that names no local path (`file://specs/a.yaml`, where `file:specs/a.yaml` was meant,
+  or `file:///a%2Fb.yaml`) no longer crashes the CLI with a stack trace and exit code 70. As the
+  schema with `--output`, it fails with `SCHEMA_LOAD_FAILED`, as it does without `--output`. In
+  `redocly.yaml`, such a `root` or `output` fails only its own API, and the other APIs are generated.
+
+- [#99](https://github.com/openapi-typesafe/openapi-typesafe/pull/99) [`c7a783f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c7a783f127337dcdd13f1c69d9155f6841c836ed) Thanks [@fedorello](https://github.com/fedorello)! - A flag written in another case or with `_` (`--Enum`, `--ALPHABETIZE`, `--root_types`,
+  `--enum-Values`, `--Output`) is an unknown flag: it takes no value, changes nothing, and the notice
+  names it as you wrote it. It used to take the schema path as its value and read stdin, and the notice
+  named the known flag (`Unknown flag --enum is ignored`). The kebab-case and camelCase spellings
+  (`--root-types`, `--rootTypes`) work as before.
+
+- [#100](https://github.com/openapi-typesafe/openapi-typesafe/pull/100) [`f50618b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f50618b6c6ffd6e23495f3183820216ac8709dd0) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` through an index signature that holds more than its target's type is typed as the target
+  by default in more places: to the `additionalProperties` of an object under `$defs`
+  (`D/$defs/Inner/additionalProperties`) or of an object with a `discriminator`, to the
+  `additionalProperties` of an object that also has `patternProperties`, to one of several
+  patterns (which did not compile), and with `--exclude-deprecated` to a left-out property of an
+  object with a `discriminator`. These read the whole index signature (`boolean | string` for a
+  `boolean` target), so a wrong value was accepted.
+
+- [#99](https://github.com/openapi-typesafe/openapi-typesafe/pull/99) [`c7a783f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c7a783f127337dcdd13f1c69d9155f6841c836ed) Thanks [@fedorello](https://github.com/fedorello)! - A local `$ref` root that is a `file:` URL naming no local path (`file://host/specs/`) now fails
+  before anything loads: `localRefRoot` with `OPTION_INVALID`, `--local-ref-root` with
+  `CLI_FLAG_INVALID` and `local-ref-root` in `redocly.yaml` with `CLI_CONFIG_INVALID`. It used to pass
+  and fail later with `SCHEMA_INVALID`, and only when the document had a local `$ref`.
+
+- [#99](https://github.com/openapi-typesafe/openapi-typesafe/pull/99) [`c7a783f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c7a783f127337dcdd13f1c69d9155f6841c836ed) Thanks [@fedorello](https://github.com/fedorello)! - The lint ignore file applies again to a remote document that redirects. `.redocly.lint-ignore.yaml`
+  lists its problems by the URL you asked for, as `redocly lint --generate-ignore-file` writes it, and
+  the ignored problems came back and failed the run with `SCHEMA_INVALID` when `/dup` redirected to
+  `/deep/dup.yaml`. Relative `$ref`s still resolve from the URL the document was redirected to.
+
+- [#101](https://github.com/openapi-typesafe/openapi-typesafe/pull/101) [`7b4ba3f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/7b4ba3f783c16e506d4c9afbfe6392b1e820b1e4) Thanks [@fedorello](https://github.com/fedorello)! - A wrapper whose options are typed `Parameters<typeof openapiTS>[1]` gives its inline
+  `postTransform` and `transformProperty` callbacks their parameter types again, as with
+  openapi-typescript 7, instead of an implicit `any` that `strict` rejects (TS7006).
+
 ## 1.0.0-rc.6
 
 ### Patch Changes
