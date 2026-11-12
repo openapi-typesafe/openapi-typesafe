@@ -139,12 +139,25 @@ function shellText(text: string, spans: readonly { start: number; end: number }[
 const literalCommands = (literals: readonly JustLiteral[]): ShellCommand[] =>
   literals.flatMap((literal) => shellCommandsAt(literal.content, literal.contentStart));
 
-/** The values of the variables, for an argument that expands one (`{{flags}}`). */
-function variableValues(assignments: readonly Assignment[]): Map<string, string> {
+/** The text a parameter default may give its variable: the contents of its literals. */
+const defaultValue = ({ literals }: ParameterDefault): string =>
+  literals.map((literal) => literal.content).join(BLANK);
+
+/**
+ * The values of the variables, for an argument that expands one (`{{flags}}`): each assignment,
+ * and each parameter default (`*flags='-it'`), joined when a name has several.
+ */
+function variableValues(
+  assignments: readonly Assignment[],
+  defaults: readonly ParameterDefault[],
+): Map<string, string> {
   const values = new Map<string, string>();
-  for (const assignment of assignments) {
-    const value = onlyString(assignment)?.content ?? assignment.value;
-    values.set(assignment.name, [values.get(assignment.name), value].join(" ").trim());
+  const named = [
+    ...assignments.map((found) => ({ ...found, value: onlyString(found)?.content ?? found.value })),
+    ...defaults.map((found) => ({ name: found.name, value: defaultValue(found) })),
+  ];
+  for (const { name, value } of named) {
+    values.set(name, [values.get(name), value].join(BLANK).trim());
   }
   return values;
 }
@@ -191,7 +204,7 @@ export function migrateJustfile(text: string, file: string): CommandMigration {
     ...assignments.flatMap(assignmentDefinitions),
     ...defaults.flatMap(parameterDefinitions),
   ]);
-  const variables = justfileVariables(text, variableValues(assignments), programs);
+  const variables = justfileVariables(text, variableValues(assignments, defaults), programs);
   const shell = shellText(text, [...assignments, ...headers]);
   const commands = [
     ...shellCommands(shell.text),

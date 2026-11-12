@@ -71,7 +71,8 @@ variable that runs a command but that no definition the tool reads sets: one set
 `script` item or step (`echo "GEN=…" >> "$GITHUB_ENV"`), a Makefile recipe's `$$GEN`, a bash
 array (`GEN=(npx openapi-typescript)`, whose items are renamed, run as `"${GEN[@]}"`), or one
 set outside the file. A variable of old
-flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`) may serve other commands too, so it
+flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`, or a justfile `{{flags}}` with
+`flags := '-it'` or a recipe parameter `*flags='-it'`) may serve other commands too, so it
 is reported, not changed. YAML files are changed only in command
 keys (`run`, `script`, `command`, `entrypoint`, …), in the values of `env` and in input
 defaults, in block and flow style, never in other values. A CI step whose `shell` is another program (`shell: python`) runs

@@ -146,6 +146,29 @@ describe("migrateJustfile", () => {
     expect(migrated.manualSteps).toEqual([]);
   });
 
+  it("migrateJustfile reports old flags in a parameter default that the generator gets", () => {
+    const text = lines(
+      "b gen='npx openapi-typescript' *flags='-it' out=(\"-\" + 'x' + '--redoc') empty=gen:",
+      "    {{gen}} f.yaml {{flags}}",
+      "    openapi-typescript g.yaml {{out}} {{empty}}",
+    );
+
+    expect(migrateJustfile(text, "justfile").manualSteps).toEqual([
+      {
+        kind: "variable-not-only-generator",
+        location: "justfile:2",
+        variable: "{{gen}}",
+        flags: ["-it"],
+      },
+      {
+        kind: "flags-in-variable",
+        location: "justfile:3",
+        variable: "{{out}}",
+        flags: ["--redoc"],
+      },
+    ]);
+  });
+
   it("migrateJustfile migrates a recipe parameter default and reports the flags after it", () => {
     const text = lines(
       'types out *args gen="npx openapi-typescript" +rest=(gen + "x"): build',
