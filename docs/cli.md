@@ -162,12 +162,12 @@ may also be written as `--flag=value`; a boolean flag takes `=true` or `=false` 
 (`--enum=false`), and any other value fails with `CLI_FLAG_INVALID`. A flag that takes a value has
 no `--no-` form: `--no-output`, `--no-fix` and the like fail with `CLI_FLAG_INVALID` (openapi-typescript
 used the text `false` as the value, so `--no-output` wrote a file named `false`). A removed flag fails with
-`CLI_FLAG_REMOVED` in either form (`--redoc=redocly.yaml`). An unknown flag gets a notice that names it
+`CLI_FLAG_REMOVED` with or without a value (`--redoc=redocly.yaml`) and with or without `--no-`. An unknown flag gets a notice that names it
 as written and takes no value, unless it is written as `--flag=value`: `--alphabetise api.yaml` reads
 `api.yaml` as the schema (openapi-typescript took the path as the value of the unknown flag and read
 stdin). A long flag is known in its kebab-case or camelCase spelling (`--root-types`, `--rootTypes`);
 another spelling (`--Enum`, `--ROOT-TYPES`, `--root_types`) is unknown and changes nothing, also as
-`--Enum=true`. The schema argument
+`--Enum=true`, with `--no-` (`--no-Output`), and for a removed flag (`--Immutable-Types`). The schema argument
 is read as written, also when it looks like a number (`1.10`, `0x10`).
 
 ## Warnings

@@ -1,4 +1,4 @@
-import { kebabCase } from "scule";
+import { camelCase } from "scule";
 import { cliError } from "./cli-errors.js";
 import {
   BOOLEAN_FLAG_NAMES,
@@ -50,25 +50,31 @@ export function writtenFlags(argv: readonly string[]): WrittenFlag[] {
     });
 }
 
-/**
- * A long flag as yargs-parser reads it: in kebab-case and without `--no-`, so `--immutableTypes`
- * and `--no-immutable-types` are `--immutable-types`. A short flag stays as written.
- */
-function canonicalFlagName(name: string): string {
-  if (!name.startsWith(LONG_PREFIX)) {
-    return name;
-  }
-  const bare = name.startsWith(NEGATION_PREFIX)
-    ? name.slice(NEGATION_PREFIX.length)
-    : name.slice(LONG_PREFIX.length);
-  return `${LONG_PREFIX}${kebabCase(bare)}`;
+/** A flag without its `--no-`, so `--no-output` is `--output`; any other flag stays as written. */
+function withoutNegation(name: string): string {
+  return name.startsWith(NEGATION_PREFIX)
+    ? `${LONG_PREFIX}${name.slice(NEGATION_PREFIX.length)}`
+    : name;
 }
 
-/** An old flag fails by its name in any spelling, also with a value (`--redoc=redocly.yaml`). */
+/**
+ * The spellings yargs-parser reads as a removed flag: a short flag as written, a long flag in
+ * kebab-case and camelCase (`--immutable-types`, `--immutableTypes`), as for the known flags.
+ */
+function removedFlagSpellings(flag: string): string[] {
+  return flag.startsWith(LONG_PREFIX)
+    ? [flag, `${LONG_PREFIX}${camelCase(flag.slice(LONG_PREFIX.length))}`]
+    : [flag];
+}
+
+/**
+ * An old flag fails by its name, with or without `--no-` and also with a value
+ * (`--redoc=redocly.yaml`). Another spelling (`--Immutable-Types`) is unknown, as for any flag.
+ */
 export function rejectRemovedFlags(flags: readonly WrittenFlag[]): void {
-  const names = new Set(flags.map(({ name }) => canonicalFlagName(name)));
+  const names = new Set(flags.map(({ name }) => withoutNegation(name)));
   for (const [flag, message] of REMOVED_FLAGS) {
-    if (names.has(flag)) {
+    if (removedFlagSpellings(flag).some((spelling) => names.has(spelling))) {
       throw cliError("CLI_FLAG_REMOVED", message);
     }
   }
@@ -96,11 +102,12 @@ export function rejectInvalidBooleans(flags: readonly WrittenFlag[]): void {
 
 /**
  * A flag that takes a value has no `--no-` form: yargs-parser gave it the value false, which the
- * CLI read as the text "false" (`--no-output` wrote a file named `false`).
+ * CLI read as the text "false" (`--no-output` wrote a file named `false`). Only the spellings
+ * yargs-parser reads as the flag count; `--no-Output` is unknown and changes nothing.
  */
 export function rejectNegatedValueFlags(flags: readonly WrittenFlag[]): void {
   for (const { name } of flags) {
-    if (name.startsWith(NEGATION_PREFIX) && VALUE_FLAG_NAMES.has(canonicalFlagName(name))) {
+    if (name.startsWith(NEGATION_PREFIX) && VALUE_FLAG_NAMES.has(withoutNegation(name))) {
       throw cliError(
         "CLI_FLAG_INVALID",
         `${name}: a flag that takes a value has no --no- form. Leave the flag out instead.`,
@@ -115,10 +122,7 @@ export function rejectNegatedValueFlags(flags: readonly WrittenFlag[]): void {
  * (`--Enum`, `--root_types`, `--enum-Values`), as the help text names no such flag.
  */
 function isKnownLongFlag(name: string): boolean {
-  const bare = name.startsWith(NEGATION_PREFIX)
-    ? name.slice(NEGATION_PREFIX.length)
-    : name.slice(LONG_PREFIX.length);
-  return KNOWN_LONG_FLAG_NAMES.has(`${LONG_PREFIX}${bare}`);
+  return KNOWN_LONG_FLAG_NAMES.has(withoutNegation(name));
 }
 
 function isUnknownLongFlag(name: string): boolean {
