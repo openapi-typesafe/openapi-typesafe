@@ -254,27 +254,41 @@ type SuccessStatus<T> = [SuccessStatusKey<T>] extends [never]
   ? Extract<keyof T, "default">
   : SuccessStatusKey<T>;
 
+/** `true` for `any`: a conditional type on `any` takes both branches, so `any` is checked first. */
+type IsAny<T> = 0 extends 1 & T ? true : false;
+
 /**
  * Return all 2XX responses from a Response Object Map, or `default` if it declares no 2XX one. For
  * a union of maps (a call with a union of paths), the union of each map's responses: `keyof` of a
  * union is only the shared statuses, so one map of them lost the body of every path that did not
- * share its statuses, and a `default`-only path typed the data `undefined` (upstream).
+ * share its statuses, and a `default`-only path typed the data `undefined` (upstream). An `any`
+ * map (`createClient<any>()`) gives `any`: no key of `keyof any` is a status, which gave `never`.
  */
 export type SuccessResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = T extends unknown ? ResponseBodies<T, Media, SuccessStatus<T>, never> : never;
+> =
+  IsAny<T> extends true
+    ? T
+    : T extends unknown
+      ? ResponseBodies<T, Media, SuccessStatus<T>, never>
+      : never;
 
 /**
  * Return all 1XX, 3XX, 4XX, 5XX and `default` responses from a Response Object Map; for a union
- * of maps, the union of each map's responses, as `SuccessResponse`.
+ * of maps, the union of each map's responses, as `SuccessResponse`. An `any` map gives `any`.
  */
 export type ErrorResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = T extends unknown ? ResponseBodies<T, Media, ErrorStatusKey<T>, string> : never;
+> =
+  IsAny<T> extends true
+    ? T
+    : T extends unknown
+      ? ResponseBodies<T, Media, ErrorStatusKey<T>, string>
+      : never;
 
 /**
  * The bodies of the responses `ResponseCode` as the client returns them (`ResponseBody`): each
