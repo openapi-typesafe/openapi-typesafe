@@ -1,7 +1,7 @@
 import { isRawBinarySchema } from "../../../domain/openapi/binary-content.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
-import { unevaluatedSchemaOf } from "../schema/unevaluated-properties.js";
+import { unevaluatedSchemaOf } from "../schema/unevaluated-schema.js";
 import {
   type IndexSignatureMember,
   indexMember,

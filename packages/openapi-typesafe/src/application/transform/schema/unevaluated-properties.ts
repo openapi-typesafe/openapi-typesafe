@@ -1,13 +1,12 @@
 import { irObject, irStringIndexSignature } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { FIX } from "../../../domain/output-fixes.js";
 import { declaredValueTypes } from "../declared-value-types.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { unionOf } from "../type-combinators.js";
 import { recordValueAccess } from "./object-type.js";
-import type { SchemaOptions } from "./schema-context.js";
 import type { SchemaRequest } from "./schema-rule.js";
+import { unevaluatedSchemaOf } from "./unevaluated-schema.js";
 
 /**
  * The `unevaluated-properties` fix (ADR-021, roadmap R11; upstream #2839, #2880). Without it
@@ -21,27 +20,8 @@ import type { SchemaRequest } from "./schema-rule.js";
  * closed object type.
  */
 
-/**
- * Whether `unevaluatedProperties` applies. It types the keys left over at this level, so it
- * does nothing next to `additionalProperties` (which already types them all), and only an object
- * schema has keys. A `type` list is typed one listed type at a time, so its object gets it.
- * The `$ref` pointer walk reads it too, to know whether the keyword is in the type.
- */
-export function unevaluatedSchemaOf(schema: SchemaObject, options: SchemaOptions): Schema | null {
-  const { unevaluatedProperties } = schema;
-  if (
-    !options.fixes.has(FIX.UNEVALUATED_PROPERTIES) ||
-    unevaluatedProperties === undefined ||
-    unevaluatedProperties === false ||
-    schema.additionalProperties !== undefined
-  ) {
-    return null;
-  }
-  return schema.type === undefined || schema.type === "object" ? unevaluatedProperties : null;
-}
-
 /** `true` or `{}`: the index signature is `unknown`, with no declared types next to it. */
-export function isAnySchema(schema: Schema): boolean {
+function isAnySchema(schema: Schema): boolean {
   return schema === true || (typeof schema === "object" && Object.keys(schema).length === 0);
 }
 
