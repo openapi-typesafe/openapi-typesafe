@@ -196,7 +196,8 @@ export type TransformKeepReason =
   | "shared-options"
   | "unknown-return"
   | "typed-options"
-  | "spread-options";
+  | "spread-options"
+  | "declared-type";
 
 /** A file's new text and what was found in it. Unchanged text means nothing to write. */
 export interface FileMigration {

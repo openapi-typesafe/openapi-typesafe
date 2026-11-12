@@ -9,6 +9,7 @@ import {
   unchanged,
 } from "../../domain/migration-findings.js";
 import { applyTextEdits, type TextEdit } from "../../domain/text-edits.js";
+import { callbackTypeEdits } from "./declared-types.js";
 import type { FactoryNames } from "./factory-type-text.js";
 import { createFileBindings } from "./file-bindings.js";
 import { type GeneratorCall, type GeneratorOptions, generatorCalls } from "./generator-calls.js";
@@ -91,7 +92,15 @@ function transformEdits(
   if (isSharedFunction(property, names)) {
     return "shared-function";
   }
-  const edits = returnTypeEdits(callback, text);
+  const declared = callbackTypeEdits(
+    callbackAnnotations(property, names),
+    callback,
+    names.bindings,
+  );
+  if (declared === undefined) {
+    return "declared-type";
+  }
+  const edits = [...returnTypeEdits(callback, text), ...declared];
   for (const returned of returnedExpressions(callback.body)) {
     const returnEditList = returnEdits(returned, names);
     if (returnEditList === undefined) {

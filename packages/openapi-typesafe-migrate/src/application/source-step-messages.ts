@@ -20,6 +20,9 @@ const KEEP_REASONS: Readonly<Record<TransformKeepReason, string>> = {
   "spread-options":
     "its options take keys from another object (`...base`), whose callbacks and type the tool " +
     "cannot see",
+  "declared-type":
+    "its declared type (a `const` type, JSDoc `@type` or `@returns`) names a type the tool " +
+    "cannot change to type text",
 };
 const OPTIONS_NOTE =
   "the options of openapiTS() are not an object written in this file: check them for " +
