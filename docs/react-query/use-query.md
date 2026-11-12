@@ -13,9 +13,13 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   object or as pairs are written as a plain object of the names and values they send; a value
   that JSON cannot hold is written by its content (a `URLSearchParams` as its text, a `FormData`
   as its fields, bytes as numbers) or, for a `Blob` or a `File`, by its type, size and name, so
-  two Blobs that differ only in their bytes share an entry. This holds for the whole body and for
-  such a value anywhere inside an object or array body, as in a multipart body written as
-  `{ image: file }`. The kinds go in `bodyType` beside the body: `"URLSearchParams"`,
+  two Blobs that differ only in their bytes share an entry. A React Native `FormData`, which has
+  no `entries`, is written as the parts of its `getParts`, which React Native sends: each with its
+  `fieldName` and its text, or the `uri`, `name` and `type` of a file. This holds for the whole body and for such a value anywhere inside
+  an object or array body, as in a multipart body written as `{ image: file }`. An object body is
+  written by its own enumerable members, as the fetch client sends it, also when it is a class
+  instance or comes from another realm; a `Date` or another object with a `toJSON` stays as it
+  is, for its JSON form. The kinds go in `bodyType` beside the body: `"URLSearchParams"`,
   `"FormData"`, `"Blob"` or `"bytes"` for the whole body, or an object of them by member name or
   index (`{ image: "Blob" }`), so such a body never shares a key with a JSON body of the same
   shape. Fields, parameters and headers set to `undefined` are left out, and so are `params`,
