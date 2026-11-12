@@ -306,9 +306,22 @@ which may then not compile.
 
 A URL that two templates match, such as `/user/123/keys` for `` `/user/${string}` `` and
 `` `/user/${string}/keys` ``, gets both types: `paths["/user/123/keys"]` is their intersection.
-TypeScript has no string type that excludes `/`
-([microsoft/TypeScript#41160](https://github.com/microsoft/TypeScript/issues/41160)), so look such a
-path up by its template, `` paths[`/user/${string}/keys`] ``.
+No key of `paths` reads the nested path alone. The template `` `/user/${string}/keys` `` is itself
+a `` `/user/${string}` `` string, so `` paths[`/user/${string}/keys`] `` reads both signatures as
+well and is the same intersection. Where the two path items differ in a member, that member is
+`never` there: if `/user/{id}` has only `delete`, its `get?: never` meets the `get` of
+`/user/{id}/keys`. TypeScript has no string type that excludes `/`
+([microsoft/TypeScript#41160](https://github.com/microsoft/TypeScript/issues/41160)). To read such
+an operation alone, give it an `operationId` and look it up in `operations`, which is not keyed by
+path:
+
+```ts
+import type { operations, paths } from "./my-openapi-3-schema";
+
+// `/user/{id}/keys` has `operationId: listKeys`.
+type Keys = operations["listKeys"]["responses"][200]["content"]["application/json"]; // string[]
+type ByTemplate = paths[`/user/${string}/keys`]["get"]; // never: both signatures apply
+```
 :::
 
 ::: info Paths that differ only in parameter names
