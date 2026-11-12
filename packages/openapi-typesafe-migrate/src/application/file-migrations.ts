@@ -61,6 +61,7 @@ import {
   HUSKY_FOLDER,
   HUSKY_INTERNALS,
   IMPORT_MAP_FILE,
+  isCiConfigFile,
   JEST_JSON_CONFIG_FILE,
   JSON5_MANIFEST_FILE,
   JUSTFILE_NAMES,
@@ -165,12 +166,12 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
 
 /**
  * The commands of a YAML file; an API description (an OpenAPI document) and the files it reaches
- * by `$ref` are data and stay.
+ * by `$ref` are data and stay. A CI config is never one (project-file-names.ts).
  */
 const yamlCommandsStep =
   (path: string, isPart: boolean): ConfigStep =>
   (text, read) =>
-    isPart || (read.kind === "read" && isApiDescription(read.documents))
+    isPart || (!isCiConfigFile(path) && read.kind === "read" && isApiDescription(read.documents))
       ? unchanged(text)
       : stringsStep((current, strings) => migrateYamlCommands(current, path, strings))(text, read);
 

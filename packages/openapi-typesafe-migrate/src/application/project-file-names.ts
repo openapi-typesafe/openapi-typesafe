@@ -58,6 +58,36 @@ export const PROJECT_CONFIG_NAME = /^[jt]sconfig(\.[^/]+)?\.json$/;
 /** The package manager writes these again on install; their entries are not commands. */
 export const LOCK_FILES: ReadonlySet<string> = new Set(["pnpm-lock.yaml", "yarn.lock", "bun.lock"]);
 
+/**
+ * CI configs by the names and folders their services read: a top-level `openapi:` there is a job
+ * (GitLab names jobs freely), never an API description.
+ */
+const CI_CONFIG_FILES: ReadonlySet<string> = new Set([
+  ".gitlab-ci.yml",
+  ".gitlab-ci.yaml",
+  "bitbucket-pipelines.yml",
+  "azure-pipelines.yml",
+  ".drone.yml",
+  ".woodpecker.yml",
+  ".travis.yml",
+]);
+const CI_CONFIG_FOLDERS: readonly string[] = [
+  ".github/workflows/",
+  ".gitea/workflows/",
+  ".forgejo/workflows/",
+  ".circleci/",
+  ".gitlab/",
+  ".woodpecker/",
+];
+const FOLDER_SEPARATOR = "/";
+
+/** Whether a path is a CI config, also in a nested project (`apps/api/.gitlab-ci.yml`). */
+export function isCiConfigFile(path: string): boolean {
+  const inFolder = (folder: string): boolean =>
+    path.startsWith(folder) || path.includes(`${FOLDER_SEPARATOR}${folder}`);
+  return CI_CONFIG_FILES.has(baseName(path)) || CI_CONFIG_FOLDERS.some(inFolder);
+}
+
 export function baseName(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1);
 }
