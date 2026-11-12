@@ -11,7 +11,9 @@ The `useInfiniteQuery` method allows you to use the original [useInfiniteQuery](
 - The `queryKey` is `[method, path, options, "infinite"]`: the `queryKey` of
   [`queryOptions`](./query-options) with `"infinite"` after it, so `useQuery` and
   `useInfiniteQuery` for the same request do not share a cache entry, and `[method, path]` still
-  matches both in `invalidateQueries`. Its type is `InfiniteQueryKey`.
+  matches both in `invalidateQueries`. Its type is `InfiniteQueryKey`. A `pageParamName` other
+  than `"cursor"` follows the marker as `{ pageParamName }`, since it changes the request of every
+  page: `[method, path, options, "infinite", { pageParamName: "page" }]`.
 - The request stops when TanStack Query cancels the query, and also when a `signal` of the init
   aborts.
 - `data` and `error` are fully typed. `error` is the declared error body, a
