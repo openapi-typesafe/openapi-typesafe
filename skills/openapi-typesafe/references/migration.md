@@ -40,7 +40,9 @@ no `typescript` dependency.
    command and its renamed flags in `package.json` scripts, shell scripts, CI files, Makefiles and
    Dockerfiles. It rewrites a `transform` callback that only returns `ts.factory` types into type
    text with `irCallbacks: true`. It prints every change it could not make safely, with file and
-   line, and the path of a JSON Lines log.
+   line, and the path of a JSON Lines log. Code in another language (`shell: python`, a justfile
+   shebang recipe, `python3 -c '…'`) is listed, not changed. A file it skips because of its own
+   bug is listed under "Skipped", and the run exits with `1`.
 2. Do the manual steps it lists (see below).
 3. Install (`npm install`, `pnpm install`, `yarn`, `bun install`) so the lockfile updates.
 4. Regenerate the types and commit the generated files once. The only change is the header line
