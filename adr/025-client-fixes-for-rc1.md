@@ -224,6 +224,42 @@ read a property that is always missing.
 | `unknown` | Says "some body" | `unknown` absorbs the union, so every JSON body type is lost |
 | Keep the content map | Upstream parity | A type no response has |
 
+## Amendment (2026-11-12): a response body is typed as the client returns it
+
+The amendment above is replaced. The JSON pattern was `${string}/json`, which does not match
+`application/problem+json`, `application/vnd.api+json` or `application/json; charset=utf-8`. The
+client parses all of them as JSON (`JSON_MEDIA_TYPE_RE`), so a problem+json 400 dropped out of
+`error`: with a JSON 404 next to it, the error was the 404 body only and `error.code` compiled for
+a 400 that has no `code`. And a JSON 200 with a `text/html` 500 typed the error `undefined`, while
+the client returns the HTML text as `error`. The rule is now that the types describe what the
+client returns (`GetResponseContent`, `ResponseBody`):
+
+1. `Media` picks among the media types of each response, as an `Accept` header does, by key
+   (`FilterKeys`), and each one picked gives its schema. The default picks every one, as before.
+2. A response with none of them can still arrive, so it gives what the client makes of its body: a
+   JSON media type (`json` or a `+json` suffix, with parameters, in any case, and `*/*` and
+   `application/*`, which may hold JSON) gives its schema; any other media type gives a `string`
+   for an error, which the client returns as text, and nothing for a success, which the default
+   `parseAs: "json"` rejects. `parseAs` keeps typing `data` by itself.
+3. `SuccessResponseJSON`, `ErrorResponseJSON` and `JSONLike` pick every JSON media type of
+   point 2, not only those ending in `/json`. A user's `` `${string}/json` `` is a key filter like
+   any other: a problem+json response that it does not pick gets its schema through point 2.
+4. `SuccessResponse<any>` and `ErrorResponse<any>` are `any`, so `createClient<any>()` types
+   `data` and `error` as `any`, as openapi-fetch and rc.4 did. No key of `keyof any` matched a
+   status pattern, so both were `never` and `if (error)` narrowed the result to `never`.
+
+The body class (`string` for an error, `never` for a success) is passed in by `SuccessResponse`
+and `ErrorResponse`, not read from the status, and `Media` is read only in
+`keyof Content & Media`: written either way, the result of a wrapper generic in the path no longer
+related to a `FetchResponse` with another `Media` (ADR-030). A key map with each media type also
+without its parameters was tried for point 1 and failed the same way.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Pick by key, else what the client returns (chosen) | Types match the runtime; `Media` keeps choosing among JSON media types (`application/ld+json`) | A user filter `` `${string}/json` `` does not pick a problem+json body next to an `application/json` one in the same response |
+| Every JSON body always gives its schema | No fallback needed | `Media` can no longer choose one JSON media type, which the `Accept` use needs |
+| Match `Media` without parameters and by JSON form | A user filter also picks `+json` | Generic wrappers with another `Media` fail with TS2322 |
+
 ## Review trigger
 
 The 2.0 planning (items 32 to 35); a TypeScript release that infers return types through a dependent
