@@ -1,16 +1,17 @@
 import {
+  AZURE_PIPELINES_FILE,
   CI_ENVIRONMENT_FILE,
   COMPOSE_FILE,
   DEFAULT_YAML_FILE,
   GITLAB_CI_FILE,
   type YamlCommandFile,
 } from "../domain/yaml-environments.js";
-import { baseName } from "./project-file-names.js";
+import { baseName, isAzurePipelinesFile, isInFolder } from "./project-file-names.js";
 
 /**
  * The kind of a YAML command file by the names and folders its tool reads, so that the variables
- * it sets (GitLab `variables`, CircleCI and Compose `environment`) are read in that file only:
- * the same keys mean other things in other files.
+ * it sets (GitLab and Azure `variables`, CircleCI and Compose `environment`) are read in that
+ * file only: the same keys mean other things in other files.
  */
 
 const GITLAB_FILES: ReadonlySet<string> = new Set([".gitlab-ci.yml", ".gitlab-ci.yaml"]);
@@ -24,11 +25,6 @@ const CI_ENVIRONMENT_FILES: ReadonlySet<string> = new Set([
 const CI_ENVIRONMENT_FOLDERS: readonly string[] = [".circleci/", ".woodpecker/"];
 /** `compose.yaml`, `docker-compose.yml` and their overrides (`compose.override.yaml`). */
 const COMPOSE_FILE_RE = /^(?:docker-)?compose(?:\.[^/]+)?\.ya?ml$/;
-const FOLDER_SEPARATOR = "/";
-
-/** Whether a path is in a folder of that name, also in a nested project. */
-const isInFolder = (path: string, folder: string): boolean =>
-  path.startsWith(folder) || path.includes(`${FOLDER_SEPARATOR}${folder}`);
 
 /** The YAML command file kind of a path. */
 export function yamlCommandFileFor(path: string): YamlCommandFile {
@@ -39,6 +35,9 @@ export function yamlCommandFileFor(path: string): YamlCommandFile {
   const isCiEnvironment = CI_ENVIRONMENT_FOLDERS.some((folder) => isInFolder(path, folder));
   if (CI_ENVIRONMENT_FILES.has(name) || isCiEnvironment) {
     return CI_ENVIRONMENT_FILE;
+  }
+  if (isAzurePipelinesFile(path)) {
+    return AZURE_PIPELINES_FILE;
   }
   return COMPOSE_FILE_RE.test(name) ? COMPOSE_FILE : DEFAULT_YAML_FILE;
 }

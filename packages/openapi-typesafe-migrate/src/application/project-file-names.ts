@@ -66,7 +66,6 @@ const CI_CONFIG_FILES: ReadonlySet<string> = new Set([
   ".gitlab-ci.yml",
   ".gitlab-ci.yaml",
   "bitbucket-pipelines.yml",
-  "azure-pipelines.yml",
   ".drone.yml",
   ".woodpecker.yml",
   ".travis.yml",
@@ -81,11 +80,28 @@ const CI_CONFIG_FOLDERS: readonly string[] = [
 ];
 const FOLDER_SEPARATOR = "/";
 
+/** Whether a path is in a folder of that name, also in a nested project. */
+export const isInFolder = (path: string, folder: string): boolean =>
+  path.startsWith(folder) || path.includes(`${FOLDER_SEPARATOR}${folder}`);
+
+/**
+ * Azure Pipelines files by the names projects give them: `azure-pipelines.yml`, a named one
+ * (`ci.azure-pipelines.yml`, `azure-pipelines-release.yaml`), and any file in `.azure-pipelines/`
+ * or `.azuredevops/`. Azure reads the file a pipeline names, whatever its name.
+ */
+const AZURE_PIPELINES_FILE_RE = /^(?:[^/]+[.-])?azure-pipelines(?:[.-][^/]+)?\.ya?ml$/;
+const AZURE_PIPELINES_FOLDERS: readonly string[] = [".azure-pipelines/", ".azuredevops/"];
+
+export function isAzurePipelinesFile(path: string): boolean {
+  const isInAzureFolder = AZURE_PIPELINES_FOLDERS.some((folder) => isInFolder(path, folder));
+  return AZURE_PIPELINES_FILE_RE.test(baseName(path)) || isInAzureFolder;
+}
+
 /** Whether a path is a CI config, also in a nested project (`apps/api/.gitlab-ci.yml`). */
 export function isCiConfigFile(path: string): boolean {
-  const inFolder = (folder: string): boolean =>
-    path.startsWith(folder) || path.includes(`${FOLDER_SEPARATOR}${folder}`);
-  return CI_CONFIG_FILES.has(baseName(path)) || CI_CONFIG_FOLDERS.some(inFolder);
+  const inFolder = (folder: string): boolean => isInFolder(path, folder);
+  const isNamed = CI_CONFIG_FILES.has(baseName(path)) || isAzurePipelinesFile(path);
+  return isNamed || CI_CONFIG_FOLDERS.some(inFolder);
 }
 
 export function baseName(path: string): string {

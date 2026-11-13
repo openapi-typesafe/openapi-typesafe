@@ -289,6 +289,7 @@ describe("fileMigrationFor", () => {
   it.each([
     [".gitlab-ci.yml", "variables: { GEN: npx openapi-typescript }\n"],
     ["Taskfile.yml", "vars: { GEN: npx openapi-typescript }\n"],
+    ["ci.azure-pipelines.yml", "variables: [{ name: GEN, value: npx openapi-typescript }]\n"],
   ])("fileMigrationFor reads the variables of %s by its file kind", (path, text) => {
     const migrate = fileMigrationFor(path);
 
