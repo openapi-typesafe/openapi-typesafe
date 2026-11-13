@@ -108,7 +108,9 @@ parameters) gives the parsed body, and any other media type the text, so a `text
 `429`, `true` or `null` stays the string `"429"`, `"true"` or `"null"` (openapi-fetch parsed it).
 A response without a `Content-Type` names no media type: its body is parsed when it is JSON, else
 it is the text. A JSON body that does not parse is the text too. The `error` types assume the
-`Content-Type` that the document declares for the response.
+`Content-Type` that the document declares for the response: a JSON media type gives its schema,
+any other media type a `string` whatever its schema (a `text/plain` error with an `integer` schema
+is a `string`), and `*/*` or `application/*`, which may hold JSON or not, the schema or a `string`.
 
 An empty body (a 204, an answer to HEAD, a `Content-Length` of 0) is `undefined` data with the
 default `parseAs: "json"` and an `undefined` error. Another `parseAs` reads it with its method, as
@@ -573,9 +575,11 @@ like the rest of the API.
 
 `SuccessResponse<Responses, Media>` and `ErrorResponse<Responses, Media>` give the bodies of the
 success or error responses as the client returns them. `Media` picks among the media types of each
-response, as an `Accept` header does (any media type by default), and each one picked gives its
-schema. `SuccessResponseJSON<Operation>` and `ErrorResponseJSON<Operation>` pick the JSON media
-types: `application/json` and those with a `+json` suffix (`application/problem+json`,
+response, as an `Accept` header does (any media type by default). Each success media type picked
+gives its schema. Each error media type picked gives what the client returns for it: the schema
+of a JSON media type, a `string` for any other media type, and the schema or a `string` for `*/*`
+and `application/*`. `SuccessResponseJSON<Operation>` and `ErrorResponseJSON<Operation>` pick the
+JSON media types: `application/json` and those with a `+json` suffix (`application/problem+json`,
 `application/vnd.api+json`), with or without parameters (`application/json; charset=utf-8`), and
 `*/*` and `application/*`, which may hold JSON. The `data` and `error` of a client made with
 `` createClient<paths, Media>() `` follow the same rule, for example

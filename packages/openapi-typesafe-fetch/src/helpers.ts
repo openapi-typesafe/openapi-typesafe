@@ -276,7 +276,7 @@ export type SuccessResponse<
 > = T extends unknown
   ? IsAny<T> extends true
     ? T
-    : ResponseBodies<T, Media, SuccessStatus<T>, never>
+    : SuccessBodies<T, Media, SuccessStatus<T>>
   : never;
 
 /**
@@ -290,12 +290,12 @@ export type ErrorResponse<
 > = T extends unknown
   ? IsAny<T> extends true
     ? T
-    : ResponseBodies<T, Media, ErrorStatusKey<T>, string>
+    : ErrorBodies<T, Media, ErrorStatusKey<T>>
   : never;
 
 /**
- * The bodies of the responses `ResponseCode` as the client returns them (`ResponseBody`): each
- * success one as `SuccessResponse` gives it, each other one as `ErrorResponse` does.
+ * The bodies of the responses `ResponseCode` as the client returns them: each success one as
+ * `SuccessResponse` gives it, each other one as `ErrorResponse` does.
  */
 export type GetResponseContent<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
@@ -304,26 +304,43 @@ export type GetResponseContent<
   ResponseCode extends keyof T = keyof T,
 > =
   ResponseCode extends SuccessStatus<T>
-    ? ResponseBodies<T, Media, ResponseCode, never>
-    : ResponseBodies<T, Media, ResponseCode, string>;
+    ? SuccessBodies<T, Media, ResponseCode>
+    : ErrorBodies<T, Media, ResponseCode>;
 
 /**
- * The bodies of the responses `ResponseCode`. A response without `content` keeps its `content`
- * type (`undefined` for `content?: never`). `OtherBody` is the class's body that is not JSON: it
- * is passed in, not read from the status, so the result for a generic map stays a type that
- * TypeScript relates to the one of another client (ADR-030).
+ * The bodies of the success responses `ResponseCode` (`SuccessBody`). A response without
+ * `content` keeps its `content` type (`undefined` for `content?: never`). Success and error
+ * bodies have an alias each, not one alias with a branch on the class: with such a branch, the
+ * result for a path generic in its name no longer related to the one of a client with another
+ * `Media`, and generic wrappers failed with TS2322 (ADR-030).
  */
-type ResponseBodies<
+type SuccessBodies<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media,
   ResponseCode extends keyof T,
-  OtherBody,
 > = ResponseCode extends keyof T
   ? {
       // biome-ignore lint/suspicious/noExplicitAny: unknown rejects interface content types
       [K in ResponseCode]: T[K]["content"] extends Record<string, any>
-        ? ResponseBody<T[K]["content"], Media, OtherBody>
+        ? SuccessBody<T[K]["content"], Media>
+        : K extends keyof T
+          ? T[K]["content"]
+          : never;
+    }[ResponseCode]
+  : never;
+
+/** The bodies of the error responses `ResponseCode` (`ErrorBody`), as `SuccessBodies`. */
+type ErrorBodies<
+  // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
+  T extends Record<string | number, any>,
+  Media,
+  ResponseCode extends keyof T,
+> = ResponseCode extends keyof T
+  ? {
+      // biome-ignore lint/suspicious/noExplicitAny: unknown rejects interface content types
+      [K in ResponseCode]: T[K]["content"] extends Record<string, any>
+        ? ErrorBody<T[K]["content"], Media>
         : K extends keyof T
           ? T[K]["content"]
           : never;
@@ -331,34 +348,73 @@ type ResponseBodies<
   : never;
 
 /**
- * The body of one response with the content map `Content`, as the client returns it. `Media`
- * picks among its media types, as an `Accept` header does, and each one picked gives its schema.
- * A response with none of them can still arrive (a proxy's HTML 500), so it gives what the client
- * makes of its bodies: a JSON body gives its schema, any other body `OtherBody`, a `string` for an
- * error (the client returns the text) and nothing for a success (the default `parseAs: "json"`
- * rejects it; another `parseAs` types the data by itself). `Media` is read only in
- * `keyof Content & Media`, as in `FilterKeys`, so TypeScript still relates the results of two
- * clients with different `Media` in generic code (ADR-030).
+ * The data of one success response with the content map `Content`. `Media` picks among its media
+ * types, as an `Accept` header does, and each one picked gives its schema. A response with none
+ * of them can still arrive, so then its JSON media types give their schemas, and any other gives
+ * nothing: the default `parseAs: "json"` rejects it, and another `parseAs` types the data by
+ * itself. `Media` is read only in `keyof Content & Media`, as in `FilterKeys`, so TypeScript
+ * still relates the results of two clients with different `Media` in generic code (ADR-030).
  */
-type ResponseBody<Content, Media, OtherBody> =
-  | ([keyof Content & Media] extends [never] ? JSONLike<Content> : Content[keyof Content & Media])
+type SuccessBody<Content, Media> = [keyof Content & Media] extends [never]
+  ? JSONLike<Content>
+  : Content[keyof Content & Media];
+
+/**
+ * The error of one response with the content map `Content`, as the client returns it (ADR-041):
+ * the schema of each JSON media type, the text (a `string`) for any other media type, and either
+ * for a media type that may hold JSON or not (`JSONErrorMediaTypes`, `TextErrorMediaTypes`).
+ * `Media` picks as for `SuccessBody`; a response with none of the picked media types (a proxy's
+ * HTML 500) can still arrive, so then each of its media types counts. The media types are picked
+ * by key, not mapped to their bodies first: indexing a mapped type by `Media` made the error of
+ * a generic wrapper unrelated to a client's with another `Media`, as above.
+ */
+type ErrorBody<Content, Media> =
   | ([keyof Content & Media] extends [never]
-      ? false extends { [Key in keyof Content]: IsJSONMediaType<Key> }[keyof Content]
-        ? OtherBody
-        : never
-      : never);
+      ? Content[JSONErrorMediaTypes<Content>]
+      : Content[keyof Content & Media & JSONErrorMediaTypes<Content>])
+  | ([keyof Content & Media] extends [never]
+      ? TextOf<TextErrorMediaTypes<Content>>
+      : TextOf<keyof Content & Media & TextErrorMediaTypes<Content>>);
+
+/** A `string` when there is a media type in `Keys` whose body the client returns as text. */
+type TextOf<Keys> = [Keys] extends [never] ? never : string;
+
+/**
+ * The media types of `Content` whose error body can be parsed JSON: the JSON ones and the media
+ * ranges that may hold JSON (`IsJSONMediaType`). A content map with an index signature (a key
+ * type wider than one media type) gives its schema anyway: indexing it by any key, even `never`,
+ * gives the schema, and as no key is JSON for sure, `TextErrorMediaTypes` adds the `string`.
+ */
+type JSONErrorMediaTypes<Content> = {
+  [Key in keyof Content]: IsJSONMediaType<Key> extends true ? Key : never;
+}[keyof Content];
+
+/** The media types of `Content` whose error body can be text: all but the JSON ones. */
+type TextErrorMediaTypes<Content> = {
+  [Key in keyof Content]: IsJSONMediaPattern<Key> extends true ? never : Key;
+}[keyof Content];
+
+/** Whether the client parses every body of the media type `Key` as JSON, in any letter case. */
+type IsJSONMediaPattern<Key> = Key extends string
+  ? Lowercase<Key> extends JSONMediaPattern
+    ? true
+    : false
+  : false;
 
 /**
  * The media types that the client parses as JSON, as a content map writes them: `json` or a
- * `+json` suffix (RFC 6838), with or without parameters, as the client's `JSON_MEDIA_TYPE_RE`, and
- * the wildcards for any type and any `application` type, which may hold JSON. Not `x-ndjson` or
- * `json-seq`, whose bodies are lines of JSON.
+ * `+json` suffix (RFC 6838), with or without parameters, as the client's `JSON_MEDIA_TYPE_RE`.
+ * Not `x-ndjson` or `json-seq`, whose bodies are lines of JSON.
  */
-type JSONMediaType =
+type JSONMediaPattern =
   | `${string}/${"" | `${string}+`}json`
-  | `${string}/${"" | `${string}+`}json${";" | " " | "\t"}${string}`
-  | "*/*"
-  | "application/*";
+  | `${string}/${"" | `${string}+`}json${";" | " " | "\t"}${string}`;
+
+/** The media ranges that may hold JSON: the wildcards for any type and any `application` type. */
+type JSONMediaRange = "*/*" | "application/*";
+
+/** The media types that may hold JSON, in lower case. */
+type JSONMediaType = JSONMediaPattern | JSONMediaRange;
 
 /** Whether the client parses a body of the media type `Key` as JSON, in any letter case. */
 type IsJSONMediaType<Key> = Key extends string

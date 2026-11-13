@@ -185,10 +185,10 @@ describe("JSON media types", () => {
     expectTypeOf<SuccessResponse<Responses>>().toEqualTypeOf<"text" | "xml" | Pet>();
   });
 
-  it("ErrorResponse of a body that is not JSON is its schema only when Media picks it", () => {
+  it("ErrorResponse of a body that is not JSON is a string, also when Media picks it", () => {
     type Responses = { 400: Response<{ "application/xml": { code: number } }> };
 
-    expectTypeOf<ErrorResponse<Responses>>().toEqualTypeOf<{ code: number }>();
+    expectTypeOf<ErrorResponse<Responses>>().toEqualTypeOf<string>();
     expectTypeOf<ErrorResponse<Responses, "application/json">>().toEqualTypeOf<string>();
   });
 

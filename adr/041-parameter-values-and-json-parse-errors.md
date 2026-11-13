@@ -332,3 +332,36 @@ A success body is unchanged: `parseAs` decides, whatever the `Content-Type` (ope
 
 The `"Content-Type"` name is now one constant, which keeps the bundle within the 11.3 kB budget
 (11.296 kB).
+
+## Amendment (2026-11-13): the error type follows the media type too
+
+The amendment above changed the runtime only. The error types still gave the declared schema of
+every media type that `Media` picks, so with the default `Media` a `text/plain` error with an
+`integer` or `boolean` schema was typed `number` or `boolean`, while the client returns the text:
+`error === false` compiled and was never true. The rule is now the runtime's, for each declared
+error media type (`ErrorBody` in `helpers.ts`):
+
+1. A JSON media type (the pattern of `JSON_MEDIA_TYPE_RE`, in any case): the schema.
+2. A media range that may hold JSON (`*/*`, `application/*`, the ranges the JSON helpers already
+   count as JSON), or a content map with an index signature (`Record<string, …>`): the schema or
+   a `string`.
+3. Any other media type: a `string`, whatever its schema.
+
+One type-level JSON rule serves the JSON helpers and the error types (`JSONMediaPattern`,
+`JSONMediaRange`, `IsJSONMediaType`). `text/*` stays a text media type, as for `SuccessResponseJSON`, although a
+`text/json` body would parse. Success `data` is unchanged: the default `parseAs: "json"` parses
+any body, so a picked media type keeps its schema.
+
+Success and error bodies now have an alias each. A branch on the body class inside one alias, or
+error bodies mapped first and then indexed by `Media`, made the result of a wrapper generic in the
+path unrelated to a `FetchResponse` with another `Media` (TS2322, ADR-030). The error type picks
+media types by key instead (`Content[keyof Content & Media & JSONErrorMediaTypes<Content>]`, plus
+`string` when a picked media type may be text), which relates as before.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Error type by media type (chosen) | Types and runtime agree | A schema of a non-JSON error is not used |
+| Parse non-JSON error bodies again | Schemas stay meaningful | Brings back the falsy `0` and `null` errors |
+| Type every non-JSON error body as `unknown` | No wrong type | Loses the `string` that HTML and text errors are |
+
+Types only; the bundle is unchanged.
