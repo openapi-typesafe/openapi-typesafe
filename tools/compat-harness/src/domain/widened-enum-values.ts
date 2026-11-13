@@ -15,7 +15,8 @@ export interface WidenedEnumValuesArray {
 
 /**
  * Finds the arrays of a generated file whose location type admits all of their values and surely
- * admits another one too: a string or number literal not listed, `true`, `false` or `unknown`.
+ * admits another one too: a string or number literal not listed, `true`, `false`, `unknown`, or
+ * an object, an array or a tuple.
  */
 export type WidenedEnumValuesFinder = (text: string) => readonly WidenedEnumValuesArray[];
 

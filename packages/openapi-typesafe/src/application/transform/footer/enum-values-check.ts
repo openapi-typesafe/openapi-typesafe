@@ -100,9 +100,10 @@ function isFiniteType(evaluator: TypeEvaluator, value: Evaluated): boolean {
 
 /**
  * Whether a type surely admits a value outside `values`: a literal not listed, `true`, `false`,
- * `boolean` or `unknown`, also as one member of a union. A wide type such as `string` or
- * `string & {}` is not sure: the enum's own type may be open (`withOtherStrings`), so it counts as
- * not wider. A union reads as TypeScript reduces it: `"a" | string` is `string`.
+ * `boolean`, `unknown`, an object, an array or a tuple, also as one member of a union. A wide
+ * type such as `string` or `string & {}` is not sure: the enum's own type may be open
+ * (`withOtherStrings`), so it counts as not wider. A union reads as TypeScript reduces it:
+ * `"a" | string` is `string`.
  */
 function admitsOtherValues(
   evaluator: TypeEvaluator,
@@ -143,6 +144,11 @@ function memberAdmitsOtherValues(
       return true;
     case "keyword":
       return type.keyword === "unknown" || type.keyword === "boolean";
+    case "object":
+    case "array":
+      // An object or an array admits values of its own kind, and the listed values are strings
+      // and numbers. The evaluator reads a tuple as an array and `readonly T` as `T` (`expand`).
+      return true;
     case "intersection":
       // TypeScript reduces `("a" | "b") & "a"` to `"a"`: the intersection holds the literals of
       // a part that every part admits.

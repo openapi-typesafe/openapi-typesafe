@@ -266,6 +266,27 @@ document says keeps its form; output whose type contradicts the document changes
 | A `mapping` by schema name in a document a `$ref` loads | Failed with "Can't resolve $ref" | Default: names that document's schema | No working output changes |
 | A `mapping` inside `example`, `default`, `const`, `enum` or an `x-` value | Rewritten to a pointer, also in a `const` type | Default: data stays as written | The type rejected the value the document gives |
 
+## Amendment (2026-11-12): tuple element enums and numbers next to component names
+
+Two follow-ups of the enum names of the rc.4 amendment, both defaults by its test:
+
+1. **Tuple elements wherever the tuple is.** The elements of a `prefixItems` tuple share the
+   tuple's location, so with `--enum` their enums asked for one name and TypeScript merged the
+   declarations: each element accepted the other elements' values. rc.8 numbered the elements
+   (`Pair`, `Pair_2`) only where the tuple is a whole component schema, because it compared the
+   element with the location's root schema. An element is now found by the schema that transforms
+   it (`SchemaRequest.parent`), so a tuple in a property, an `items`, a union member, a parameter
+   or a body is numbered the same way, with `--dedupe-enums` too. Only direct elements count: an
+   enum in an element's `allOf`, and a property next to an inline `allOf` item, still share one
+   enum. A `$ref` to an element (`…/prefixItems/1`) is typed with that element's enum.
+2. **A number skips a component name.** Point 1 of the rc.4 amendment gives a name to the first
+   location that asks for it and the next free number to a later one. A number could take the name
+   of a component schema that comes later (`Pair_2` for a tuple element, before the component
+   `Pair_2`), so the component's enum became `Pair_2_2`. A component's name comes from its schema
+   name, so the names that component schemas give their enums are known before any schema is
+   transformed (`componentEnumNames`), and a number skips them. Which location keeps an
+   unnumbered name is unchanged: the first one that asks.
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

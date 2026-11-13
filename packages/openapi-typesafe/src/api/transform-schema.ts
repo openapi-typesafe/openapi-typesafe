@@ -12,6 +12,7 @@ import {
   withTemplatePathRefs,
 } from "../application/transform/document/path-template-refs.js";
 import { renameTakenAliases } from "../application/transform/document/root-type-aliases.js";
+import { componentEnumNames } from "../application/transform/footer/component-enum-names.js";
 import { RunFooter, type RunFooterNames } from "../application/transform/footer/document-footer.js";
 import { EnumNameClaims } from "../application/transform/footer/enum-name-claims.js";
 import { checkedEnumValues } from "../application/transform/footer/enum-values-check.js";
@@ -168,7 +169,7 @@ export function transformDocument(schema: OpenAPI3, ctx: RunContext): Transforme
   const document = schema as DocumentObject;
   ctx.schemaDialect = schemaDialectOf(document.openapi);
   const names: RunFooterNames = {
-    enums: new EnumNameClaims(NAMES_THE_OUTPUT_MAY_NEED),
+    enums: new EnumNameClaims(NAMES_THE_OUTPUT_MAY_NEED, componentEnumNames(document)),
     operations: new OperationKeys(operationKeysWritten(document)),
   };
   withRunFooter(document, ctx, names);

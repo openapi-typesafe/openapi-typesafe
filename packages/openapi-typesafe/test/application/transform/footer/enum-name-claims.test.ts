@@ -29,6 +29,15 @@ describe("EnumNameClaims", () => {
     expect(claims.nameFor("Status", "/Status")).toBe("Status_3");
   });
 
+  it("nameFor skips a component enum name before the component claims it", () => {
+    const claims = new EnumNameClaims(new Set(), new Set(["Pair_2"]));
+    claims.nameFor("Pair", "/Pair/0");
+
+    const element = claims.nameFor("Pair", "/Pair/1");
+
+    expect([element, claims.nameFor("Pair_2", "/Pair_2")]).toEqual(["Pair_3", "Pair_2"]);
+  });
+
   it("nameFor numbers a name the output may need", () => {
     const claims = new EnumNameClaims(new Set(["Blob"]));
 

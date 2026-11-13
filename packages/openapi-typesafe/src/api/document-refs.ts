@@ -34,7 +34,8 @@ function childOf(
   }
   const { visited = [] } = options;
   const target = node.$ref;
-  if (node[key] || typeof target !== "string" || visited.includes(target)) {
+  // A `false` schema (`items: false`) is a key the node has, not a missing one.
+  if (node[key] !== undefined || typeof target !== "string" || visited.includes(target)) {
     return node[key];
   }
   const resolved = resolveDocumentRef(schema, target, {
@@ -59,7 +60,7 @@ export function resolveDocumentRef<T>(
   let node: unknown = schema;
   for (const key of pointer) {
     const child = childOf(schema, node, key, { ...options, logger });
-    if (!child) {
+    if (child === undefined) {
       logger.warn(warningText(`Could not resolve $ref "${$ref}"`, WARNING_CODES.REF_NOT_FOUND));
       return undefined;
     }

@@ -72,27 +72,22 @@ function literalTypeOf(checker: ts.TypeChecker, value: ts.Expression): ts.Type |
 }
 
 /**
- * `{}`: the fixed `FlattenedDeepRequired` reads `unknown` as `NonNullable<unknown>`, which is `{}`
- * and admits every value but `null` and `undefined`. The generator reads it as `unknown`.
+ * An object type: an object, an array or a tuple, which admits values of its own kind. `{}` is one
+ * too: the fixed `FlattenedDeepRequired` reads `unknown` as `NonNullable<unknown>`, which is `{}`
+ * and admits every value but `null` and `undefined`; the generator reads it as `unknown`.
  */
-function isEmptyObject(checker: ts.TypeChecker, member: ts.Type): boolean {
-  return (
-    (member.flags & ts.TypeFlags.Object) !== 0 &&
-    checker.getPropertiesOfType(member).length === 0 &&
-    checker.getIndexInfosOfType(member).length === 0 &&
-    member.getCallSignatures().length === 0 &&
-    member.getConstructSignatures().length === 0
-  );
+function isObjectType(member: ts.Type): boolean {
+  return (member.flags & ts.TypeFlags.Object) !== 0;
 }
 
 /**
  * Whether a member of the element type surely is a value the array does not list, as the
  * generator decides it: a string or number literal not listed (not an enum member), a boolean
- * (TypeScript reads `boolean` as `true | false`), or `unknown`. TypeScript has reduced the type
- * already, so `("a" | "b") & "a"` is `"a"` here, as the generator reads it too.
+ * (TypeScript reads `boolean` as `true | false`), `unknown`, or an object type. TypeScript has
+ * reduced the type already, so `("a" | "b") & "a"` is `"a"` here, as the generator reads it too.
  */
-function isOtherValue(checker: ts.TypeChecker, member: ts.Type, values: ts.Type[]): boolean {
-  if (isEmptyObject(checker, member)) {
+function isOtherValue(member: ts.Type, values: ts.Type[]): boolean {
+  if (isObjectType(member)) {
     return true;
   }
   if (member.flags & ts.TypeFlags.EnumLiteral) {
@@ -117,7 +112,7 @@ function isWidened(checker: ts.TypeChecker, array: LocationTypedArray): boolean 
     return false;
   }
   const members = element.isUnion() ? element.types : [element];
-  return members.some((member) => isOtherValue(checker, member, literals));
+  return members.some((member) => isOtherValue(member, literals));
 }
 
 /**

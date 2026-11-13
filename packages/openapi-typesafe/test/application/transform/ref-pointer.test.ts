@@ -144,7 +144,6 @@ describe("generatedMember", () => {
   it("generatedMember counts shapes it does not model as opaque", () => {
     expect(member("Tagged", "kind")).toBe("opaque");
     expect(member("Enum", "x")).toBe("opaque");
-    expect(member("Mixed", "x")).toBe("opaque");
     expect(member("Item", "toString")).toBe("opaque");
     expect(member("List", "0")).toBe("opaque");
   });
@@ -159,6 +158,7 @@ describe("generatedMember", () => {
     expect(member("Both", "items")).toBe("missing");
     expect(member("Both", "time")).toBe("opaque");
     expect(member("Union", "time")).toBe("missing");
+    expect(member("Mixed", "x")).toBe("missing");
   });
 
   it("generatedMember reads an index signature of unknown in an allOf as unknown & T", () => {

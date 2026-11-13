@@ -61,18 +61,53 @@ function checkSchema(schema: unknown, path: string | undefined): CheckedSchema {
   return { schema: schema as SchemaObject };
 }
 
+/** How a schema is transformed: where its value is read, and the schema that nests it. */
+interface TransformCall {
+  readonly valueAccess: ValueAccess;
+  readonly parent?: SchemaObject | undefined;
+}
+
+/** The request of `schema`; the schemas it transforms get it as their `parent`. */
 function request(
+  schema: SchemaObject,
   location: SchemaLocation,
   context: SchemaContext,
-  valueAccess: ValueAccess,
+  call: TransformCall,
 ): SchemaRequest {
   return {
     location,
     context,
-    valueAccess,
-    transformNested: (schema, nestedLocation, nestedAccess = AT_LOCATION) =>
-      transformSchema(schema, nestedLocation, context, nestedAccess),
+    valueAccess: call.valueAccess,
+    parent: call.parent,
+    transformNested: (nested, nestedLocation, nestedAccess = AT_LOCATION, parent = schema) =>
+      transformWithin(nested, nestedLocation, context, { valueAccess: nestedAccess, parent }),
   };
+}
+
+function shapeWithin(
+  schema: Schema | null | undefined,
+  location: SchemaLocation,
+  context: SchemaContext,
+  call: TransformCall,
+): IrType {
+  const checked = checkSchema(schema, location.path);
+  if ("type" in checked) {
+    return checked.type;
+  }
+  const shaped = refWithSiblingsAsAllOf(checked.schema, context.options) ?? checked.schema;
+  const current = request(shaped, location, context, call);
+  const rule = SHAPE_RULES.find((candidate) => candidate.matches(shaped));
+  return rule ? rule.transform(shaped, current) : compositionType(shaped, current);
+}
+
+function transformWithin(
+  schema: Schema | null | undefined,
+  location: SchemaLocation,
+  context: SchemaContext,
+  call: TransformCall,
+): IrType {
+  const type = shapeWithin(schema, location, context, call);
+  return context.callbacks.postTransform(type, location) ?? type;
 }
 
 /**
@@ -85,14 +120,7 @@ export function transformSchemaShape(
   context: SchemaContext,
   valueAccess: ValueAccess = AT_LOCATION,
 ): IrType {
-  const checked = checkSchema(schema, location.path);
-  if ("type" in checked) {
-    return checked.type;
-  }
-  const current = request(location, context, valueAccess);
-  const shaped = refWithSiblingsAsAllOf(checked.schema, context.options) ?? checked.schema;
-  const rule = SHAPE_RULES.find((candidate) => candidate.matches(shaped));
-  return rule ? rule.transform(shaped, current) : compositionType(shaped, current);
+  return shapeWithin(schema, location, context, { valueAccess });
 }
 
 /** Transform a schema to IR, then apply `postTransform` (the original `transformSchemaObject`). */
@@ -102,6 +130,5 @@ export function transformSchema(
   context: SchemaContext,
   valueAccess: ValueAccess = AT_LOCATION,
 ): IrType {
-  const type = transformSchemaShape(schema, location, context, valueAccess);
-  return context.callbacks.postTransform(type, location) ?? type;
+  return transformWithin(schema, location, context, { valueAccess });
 }

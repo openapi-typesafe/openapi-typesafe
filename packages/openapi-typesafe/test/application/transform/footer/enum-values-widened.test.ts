@@ -13,6 +13,7 @@ import {
   irOptionalTupleElement,
   irProperty,
   irRaw,
+  irReadonly,
   irReference,
   irString,
   irTuple,
@@ -61,6 +62,17 @@ const SCHEMAS = irObject([
   irProperty(
     name("Joined"),
     irIntersection([irUnion([text("a"), text("b"), text("c")]), irUnion([text("a"), text("b")])]),
+  ),
+  irProperty(
+    name("WithObject"),
+    irUnion([text("a"), irObject([irProperty(name("x"), text("x"))])]),
+  ),
+  irProperty(name("WithArray"), irUnion([text("a"), irArray(irKeyword("string"))])),
+  irProperty(name("WithReadonly"), irUnion([text("a"), irReadonly(irArray(irKeyword("string")))])),
+  irProperty(name("WithTuple"), irUnion([text("s"), irTuple([irTupleElement(text("p"))])])),
+  irProperty(
+    name("WithRecord"),
+    irUnion([text("a"), irReference("Record", [irKeyword("string"), irKeyword("never")])]),
   ),
   irProperty(
     name("Other"),
@@ -141,6 +153,20 @@ describe("checkedEnumValues of a location that admits more", () => {
       ["widened", "flag"],
       ["widened", "toggle"],
       ["widened", "joined"],
+    ]);
+  });
+
+  it("checkedEnumValues retypes an array whose location admits an object, an array or a tuple", () => {
+    const footer = ["WithObject", "WithArray", "WithReadonly", "WithRecord"].map((schemaName) =>
+      array(schemaName, schema(schemaName), ["a"]),
+    );
+
+    expect(retypedOf([...footer, array("WithTuple", schema("WithTuple"), ["s"])])).toEqual([
+      ["widened", "WithObject"],
+      ["widened", "WithArray"],
+      ["widened", "WithReadonly"],
+      ["widened", "WithRecord"],
+      ["widened", "WithTuple"],
     ]);
   });
 

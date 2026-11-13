@@ -167,10 +167,15 @@ export function ownerEnumMembersType(
   return unionOf(names.map((member) => enumMemberType(name, member as string)));
 }
 
-/** Whether the schema is an element of the tuple its location types (`prefixItems`). */
+/**
+ * Whether the schema is a direct element of the tuple that transforms it (`prefixItems`, an
+ * `items` list), wherever the tuple is: a component, a property, an `items`, a union member, a
+ * parameter or a body. An enum inside an element's `allOf` is not one: it shares the element's
+ * enum with the element's other schemas.
+ */
 function isTupleElement(schema: SchemaObject, request: SchemaRequest): boolean {
-  const tuple = request.location.schema as SchemaObject | undefined;
-  if (typeof tuple !== "object" || tuple === null) {
+  const tuple = request.parent;
+  if (tuple === undefined) {
     return false;
   }
   const elements = tuple.prefixItems ?? (Array.isArray(tuple.items) ? tuple.items : []);

@@ -41,6 +41,15 @@ const SCHEMAS = {
       },
     ],
   },
+  Siblings: {
+    type: "object",
+    properties: {
+      withObject: { anyOf: [{ enum: ["a", "b"] }, { type: "object", properties: { x: { type: "string" } } }] },
+      withArray: { anyOf: [{ enum: ["a", "b"] }, { type: "array", items: { type: "string" } }] },
+      withEmptyObject: { anyOf: [{ enum: ["a", "b"] }, { type: "object" }] },
+      inTuple: { type: "array", prefixItems: [{ type: "array", prefixItems: [{ enum: ["p"] }] }, { enum: ["s"] }] },
+    },
+  },
   Mixed: {
     anyOf: [
       { type: "string", enum: ["a", "b"] },
@@ -107,6 +116,16 @@ describe("--enum-values arrays of union members", () => {
 
     expect(output).toContain('export const tagRuleParamsOneOf0OpValues: ReadonlyArray<"add"> = ');
     expect(output).toContain('export const tagRuleParamsOneOf1OpValues: ReadonlyArray<"set"> = ');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS types an array by its values next to an object, an array or a tuple", async () => {
+    const output = await generate({ immutable: true });
+
+    for (const name of ["WithObject", "WithArray", "WithEmptyObject"]) {
+      expect(output).toContain(`export const siblings${name}AnyOf0Values: ReadonlyArray<"a" | "b"> = `);
+    }
+    expect(output).toContain('export const siblingsInTupleValues_2: ReadonlyArray<"s"> = ');
     expect(typeErrorsOf(output)).toEqual([]);
   });
 });

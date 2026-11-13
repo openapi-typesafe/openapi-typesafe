@@ -3,10 +3,14 @@ import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import { unevaluatedSchemaOf } from "../schema/unevaluated-schema.js";
 import {
-  type IndexSignatureMember,
-  indexMember,
-  unevaluatedIndexMember,
-} from "./index-signature-member.js";
+  type GeneratedMember,
+  intersectionMember,
+  isMissing,
+  MISSING,
+  OPAQUE,
+  variantsMember,
+} from "./generated-member.js";
+import { indexMember, unevaluatedIndexMember } from "./index-signature-member.js";
 import {
   childLocation,
   followLocated,
@@ -20,7 +24,20 @@ import {
   isNullableSchema,
   isOptionalProperty,
 } from "./property-shape.js";
-import { hasObjectKeywords, isArrayShape, isComposed, isObjectShape } from "./schema-shape.js";
+import {
+  hasObjectKeywords,
+  isArrayShape,
+  isComposed,
+  isDiscriminatorKey,
+  isIgnoredUnevaluatedKey,
+  isObjectShape,
+} from "./schema-shape.js";
+import {
+  hasOwnObjectType,
+  locatedMembers,
+  variantsFormOf,
+  withoutComposition,
+} from "./variants-form.js";
 
 /**
  * What the generated type of a schema has under a key, read from the schema itself. It answers the
@@ -28,32 +45,11 @@ import { hasObjectKeywords, isArrayShape, isComposed, isObjectShape } from "./sc
  * sure; for every other shape it says `opaque`, so a caller never assumes an error that is not.
  */
 
-export type GeneratedMember =
-  | {
-      readonly kind: "property";
-      readonly node: unknown;
-      readonly location: string | undefined;
-      readonly isOptional: boolean;
-      /** `$Read<T>` or `$Write<T>` (`isMarkedProperty`): no member but the marker's own. */
-      readonly isMarked: boolean;
-    }
-  | IndexSignatureMember
-  /**
-   * `$defs`, a map of names. The original indexes it through `NonNullable` (`indexKeyword`), so it
-   * is present, and each definition is a member of it.
-   */
-  | { readonly kind: "names"; readonly names: JsonObject; readonly location: string | undefined }
-  | { readonly kind: "missing" }
-  | { readonly kind: "opaque" };
-
 const OPAQUE_KEYS = ["not", "enum", "const", "$ref"] as const;
 const DEFS_KEYWORD = "$defs";
-const UNEVALUATED_PROPERTIES = "unevaluatedProperties";
 /** How deep `allOf`/`anyOf`/`oneOf` members are read; deeper shapes count as opaque. */
 const MAX_DEPTH = 8;
 const INDEX_RE = /^\d+$/;
-const MISSING: GeneratedMember = { kind: "missing" };
-const OPAQUE: GeneratedMember = { kind: "opaque" };
 
 /**
  * A key of an object schema without object keywords. With a `type` it is `Record<string, never>`:
@@ -102,38 +98,10 @@ function objectMember(
     : emptyObjectMember(node, options);
 }
 
-function isDiscriminatorKey(node: JsonObject, key: string): boolean {
-  const { discriminator } = node;
-  return isJsonObject(discriminator) && discriminator.propertyName === key;
-}
-
-function membersOf(node: JsonObject, keyword: string): readonly unknown[] {
-  const members = node[keyword];
-  return Array.isArray(members) ? members : [];
-}
-
-/** The members of a composition keyword with their locations. */
-function locatedMembers(owner: LocatedNode & { node: JsonObject }, keyword: string): LocatedNode[] {
-  return membersOf(owner.node, keyword).map((node, index) => ({
-    node,
-    location: childLocation(owner.location, keyword, String(index)),
-  }));
-}
-
-function withoutComposition(node: JsonObject): JsonObject {
-  const { allOf: _allOf, anyOf: _anyOf, oneOf: _oneOf, ...own } = node;
-  return own;
-}
-
-/** Own keywords without an object type of their own (`properties: {}`) add no part. */
-function hasOwnObjectType(own: JsonObject): boolean {
-  return isObjectShape(own) && (hasObjectKeywords(own) || isJsonObject(own.discriminator));
-}
-
 /**
- * `allOf` with own keywords is an intersection (`intersectionMember`).
- * `anyOf` or `oneOf` alone is a union: a key is missing if one member misses it. A mix of both
- * is written in more than one way (`anyof-properties`), so it counts as opaque.
+ * `allOf` with own keywords is an intersection (`intersectionMember`). `anyOf` or `oneOf` alone
+ * is a union: a key is missing if one member misses it. Next to own keywords or `allOf` items
+ * they join that base as `variantsFormOf` reads it.
  */
 function composedMember(
   owner: LocatedNode & { node: JsonObject },
@@ -143,34 +111,16 @@ function composedMember(
   const { node } = owner;
   const variants = [...locatedMembers(owner, "anyOf"), ...locatedMembers(owner, "oneOf")];
   const own = withoutComposition(node);
-  const hasOwn = hasOwnObjectType(own);
-  if (variants.length > 0) {
-    const isAlone = membersOf(node, "allOf").length === 0 && !hasOwn;
-    const members = variants.map((variant) => memberAt(variant, key, input));
-    return isAlone && members.some((member) => member.kind === "missing") ? MISSING : OPAQUE;
-  }
   const ownPart = { node: own, location: owner.location };
-  const parts = [...locatedMembers(owner, "allOf"), ...(hasOwn ? [ownPart] : [])];
-  return intersectionMember(parts.map((part) => memberAt(part, key, input)));
-}
-
-function isUnknownIndex(member: GeneratedMember): boolean {
-  return member.kind === "index" && member.node === undefined;
-}
-
-/**
- * A key of an intersection: missing if every part misses it; the part's member if only one part
- * has it (`A & B` where `B` has no such key and no index signature); else opaque. A part's
- * `[key: string]: unknown` adds nothing (`unknown & T` is `T`), and only such parts give `unknown`.
- */
-function intersectionMember(members: readonly GeneratedMember[]): GeneratedMember {
-  const found = members.filter((member) => member.kind !== "missing");
-  const typed = found.filter((member) => !isUnknownIndex(member));
-  const [only] = typed;
-  if (only === undefined) {
-    return found[0] ?? MISSING;
+  const parts = [...locatedMembers(owner, "allOf"), ...(hasOwnObjectType(own) ? [ownPart] : [])];
+  const members = variants.map((variant) => memberAt(variant, key, input));
+  if (parts.length === 0) {
+    return members.some(isMissing) ? MISSING : OPAQUE;
   }
-  return typed.length === 1 && only.kind !== "opaque" ? only : OPAQUE;
+  const base = intersectionMember(parts.map((part) => memberAt(part, key, input)));
+  return variants.length === 0
+    ? base
+    : variantsMember(base, members, variantsFormOf(node, input.options));
 }
 
 /**
@@ -195,23 +145,10 @@ function unevaluatedMember(
     return index;
   }
   const member = memberAt({ ...owner, node: rest }, key, { ...input, depth: input.depth + 1 });
-  if (member.kind === "missing") {
+  if (isMissing(member)) {
     return index;
   }
   return member.kind === "property" || member.kind === "names" ? member : OPAQUE;
-}
-
-/**
- * Whether `key` names an `unevaluatedProperties` schema that the type ignores (no fix, or next to
- * `additionalProperties`). The original then reads another member, or `never` of
- * `Record<string, never>`, not the target, so the key counts as missing. `false` is `never`, as
- * the original reads it, and a property of that name is read as the property.
- */
-function isIgnoredUnevaluatedKey(node: JsonObject, key: string): boolean {
-  const value = node[UNEVALUATED_PROPERTIES];
-  const properties = isJsonObject(node.properties) ? node.properties : {};
-  const isIgnoredSchema = value !== undefined && value !== false;
-  return key === UNEVALUATED_PROPERTIES && isIgnoredSchema && !Object.hasOwn(properties, key);
 }
 
 interface MemberInput {
@@ -272,6 +209,26 @@ function primitiveMember(node: JsonObject, key: string): GeneratedMember {
   }
   const prototype = typeof node.type === "string" ? PRIMITIVE_PROTOTYPES[node.type] : undefined;
   return prototype !== undefined && !isBuiltInMember(key, prototype) ? MISSING : OPAQUE;
+}
+
+/**
+ * Whether a composed schema's type surely has no member `key` (a union whose variant misses it),
+ * read without the schema's nullability: the typed walk reads it through `NonNullable`.
+ */
+export function isMissingComposedKey(
+  schema: LocatedNode,
+  key: string,
+  options: SchemaOptions,
+  refs: RefResolver,
+): boolean {
+  const followed = followLocated(schema, refs);
+  const { node } = followed;
+  const isComposedOnly =
+    isJsonObject(node) &&
+    isComposed(node) &&
+    unevaluatedSchemaOf(node as SchemaObject, options) === null;
+  const input = { options, refs, depth: 0 };
+  return isComposedOnly && isMissing(composedMember({ ...followed, node }, key, input));
 }
 
 /** The member `key` of the type generated for `schema` (a `$ref` is followed first). */

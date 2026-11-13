@@ -3,6 +3,7 @@ import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object
 import { FIX } from "../../../domain/output-fixes.js";
 import { unionOf, withRequiredKeys } from "../type-combinators.js";
 import { isKeptProperty } from "./object-type.js";
+import { requiredOnlyKeys } from "./required-only-variant.js";
 import type { SchemaRequest } from "./schema-rule.js";
 
 /**
@@ -12,19 +13,6 @@ import type { SchemaRequest } from "./schema-rule.js";
  * variant is the parent with its keys required:
  * `WithRequired<Props, "a"> | WithRequired<Props, "b">`.
  */
-
-/** Keywords that do not change a value's type: a variant of these and `required` counts. */
-const ANNOTATION_KEYS: ReadonlySet<string> = new Set(["required", "description", "title"]);
-
-/** The `required` keys of a variant that has nothing else, or null for any other variant. */
-function requiredOnlyKeys(variant: Schema): readonly string[] | null {
-  if (typeof variant !== "object" || variant === null || "$ref" in variant) {
-    return null;
-  }
-  const { required } = variant as SchemaObject;
-  const isRequiredOnly = Object.keys(variant).every((key) => ANNOTATION_KEYS.has(key));
-  return isRequiredOnly && Array.isArray(required) && required.length > 0 ? required : null;
-}
 
 /** Whether the schema's type is an object: no `type`, `object`, or a list with `object`. */
 function isObjectTyped(schema: SchemaObject): boolean {
