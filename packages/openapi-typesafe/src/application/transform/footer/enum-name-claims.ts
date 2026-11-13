@@ -11,6 +11,10 @@ import { freeNumberedName } from "../numbered-names.js";
  * the name and each later one gets the next free `Name_2`, `Name_3`, …; requests of one owner (a
  * property and an inline `allOf` item of one schema) still share one enum.
  *
+ * A number never takes the name a component schema gives its own enum (`Pair_2` for
+ * `#/components/schemas/Pair_2`), even before that component is transformed: a component's name
+ * comes from its schema name, so a derived name such as a tuple element's number skips it.
+ *
  * An enum also gives way to a name the output may need, which is only known at the end: a global
  * type the output refers to (the `Blob` of `--binary-as-blob`, the `Record` of
  * `Record<string, never>`), a helper type, or `ApiPaths`. Until then it takes the numbered name;
@@ -25,13 +29,22 @@ export class EnumNameClaims {
   private readonly given = new Map<string, string>();
   /** Every name given, and every name the output may need. */
   private readonly taken: Set<string>;
+  /** Every name a number skips: the names taken, and the names of the component enums. */
+  private readonly unavailable: Set<string>;
   /** A numbered name given only because the output may need the name asked for: that name. */
   private readonly standIns = new Map<string, string>();
 
-  /** `mayBeNeeded`: the names an enum avoids until the end of the run; empty outside a run. */
-  constructor(mayBeNeeded: ReadonlySet<string> = new Set()) {
+  /**
+   * `mayBeNeeded`: the names an enum avoids until the end of the run; `componentNames`: the enum
+   * names of the component schemas (`componentEnumNames`). Both are empty outside a run.
+   */
+  constructor(
+    mayBeNeeded: ReadonlySet<string> = new Set(),
+    componentNames: ReadonlySet<string> = new Set(),
+  ) {
     this.mayBeNeeded = mayBeNeeded;
     this.taken = new Set(mayBeNeeded);
+    this.unavailable = new Set([...mayBeNeeded, ...componentNames]);
   }
 
   /** The declaration name of the enum `owner` asks to name `name`; the same for every request. */
@@ -44,11 +57,12 @@ export class EnumNameClaims {
     const isFirstOwner = (this.owners.get(name) ?? owner) === owner;
     this.owners.set(name, this.owners.get(name) ?? owner);
     const isFree = isFirstOwner && !this.taken.has(name);
-    const declared = isFree ? name : freeNumberedName(name, this.taken);
+    const declared = isFree ? name : freeNumberedName(name, this.unavailable);
     if (isFirstOwner && this.mayBeNeeded.has(name)) {
       this.standIns.set(declared, name);
     }
     this.taken.add(declared);
+    this.unavailable.add(declared);
     this.given.set(key, declared);
     return declared;
   }

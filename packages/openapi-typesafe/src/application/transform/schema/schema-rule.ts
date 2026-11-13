@@ -13,11 +13,15 @@ export type ValueAccess = "location" | "string-index" | "none";
 /** A schema typed at its own location. */
 export const AT_LOCATION: ValueAccess = "location";
 
-/** Transform a nested schema, with `postTransform` applied (the recursion entry point). */
+/**
+ * Transform a nested schema, with `postTransform` applied (the recursion entry point). `parent`
+ * is the schema that holds it, the current one by default (a `$ref` target's own holder).
+ */
 export type TransformNested = (
   schema: Schema,
   location: SchemaLocation,
   valueAccess?: ValueAccess,
+  parent?: SchemaObject,
 ) => IrType;
 
 /** One call of the schema transformer. */
@@ -25,6 +29,11 @@ export interface SchemaRequest {
   readonly location: SchemaLocation;
   readonly context: SchemaContext;
   readonly valueAccess: ValueAccess;
+  /**
+   * The schema whose rule transforms this one through `transformNested` (a tuple for its
+   * elements); undefined for a schema the document transforms itself.
+   */
+  readonly parent?: SchemaObject | undefined;
   readonly transformNested: TransformNested;
 }
 
