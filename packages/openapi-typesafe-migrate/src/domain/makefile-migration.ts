@@ -1,6 +1,7 @@
 import { type CommandMigration, commandWordFindings } from "./command-migration.js";
 import { commandRoles } from "./command-roles.js";
 import { type FileVariables, runsGenerator } from "./file-variables.js";
+import { functionCommands, maskExpansions } from "./make-expansions.js";
 import { lineLocator } from "./migration-findings.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits } from "./text-edits.js";
@@ -14,8 +15,9 @@ import {
  * Makefiles. Make expands its variables before a recipe line reaches the shell, so a variable can
  * hold the generator command: `OAT := openapi-typescript`, then `$(OAT) a.yaml -it`. The value of
  * an assignment is read as a command and migrated where it is set; the flags after a reference
- * to such a variable, or to one set to it (`GEN := $(OAT)`), are migrated where it is used.
- * Everything else is shell text.
+ * to such a variable, or to one set to it (`GEN := $(OAT)`), are migrated where it is used. The
+ * arguments of `$(or …)`, `$(and …)` and `$(if …)` are command lines where they are written
+ * (make-expansions.ts). Everything else is shell text.
  */
 
 /**
@@ -39,53 +41,9 @@ const VARIABLE_REFERENCE_RE =
   /^\$(?:\(([A-Za-z_][A-Za-z0-9_.-]*)\)|\{([A-Za-z_][A-Za-z0-9_.-]*)\}|([A-Za-z_]))$/;
 /** `@`, `-` and `+` before a recipe line: silent, ignore errors, always run. */
 const RECIPE_PREFIX_RE = /^[@+-]+/;
-const DOLLAR = "$";
-const CLOSING: Readonly<Record<string, string>> = { "(": ")", "{": "}" };
 const NOT_LINE_BREAK_RE = /[^\n]/g;
-const MASK = "_";
 const LINE_BREAK = "\n";
 const BACKSLASH = "\\";
-
-/** Where the make expansion that starts with the `$` at `start` ends, or undefined for none. */
-function expansionEnd(text: string, start: number): number | undefined {
-  const open = text[start + 1] ?? "";
-  const close = CLOSING[open];
-  if (close === undefined) {
-    return undefined;
-  }
-  let depth = 0;
-  for (let index = start + 1; index < text.length; index++) {
-    if (text[index] === open) {
-      depth++;
-    } else if (text[index] === close && --depth === 0) {
-      return index + 1;
-    }
-  }
-  return undefined;
-}
-
-/**
- * The text with each `$(…)` and `${…}` expansion turned into one word of the same length, so the
- * shell reads it as make passes it on. `$$` is a `$` for the shell and stays.
- */
-function maskExpansions(text: string): string {
-  const parts: string[] = [];
-  let copiedUpTo = 0;
-  for (let index = text.indexOf(DOLLAR); index !== -1; index = text.indexOf(DOLLAR, index + 1)) {
-    if (text[index + 1] === DOLLAR) {
-      index++;
-      continue;
-    }
-    const end = expansionEnd(text, index);
-    if (end !== undefined) {
-      parts.push(text.slice(copiedUpTo, index + 1), MASK.repeat(end - index - 1));
-      copiedUpTo = end;
-      index = end - 1;
-    }
-  }
-  parts.push(text.slice(copiedUpTo));
-  return parts.join("");
-}
 
 /** `+=` adds text to the value a variable already has, so the program it runs stays. */
 const APPEND_OPERATOR = "+=";
@@ -171,7 +129,9 @@ function valueDefinition(
   const inValue = commands.filter(
     ([first]) => first !== undefined && valueStart <= first.start && first.start < valueEnd,
   );
-  const program = inValue[0] === undefined ? "" : programWritten(text, inValue[0]);
+  // The command that starts first holds the program; the others are in its arguments.
+  const [first] = inValue.sort((left, right) => (left[0]?.start ?? 0) - (right[0]?.start ?? 0));
+  const program = first === undefined ? "" : programWritten(text, first);
   const target = referencedName(program);
   if (target !== undefined) {
     return { name, kind: "reference", target };
@@ -244,7 +204,10 @@ function makefileVariables(
 export function migrateMakefile(text: string, file: string): CommandMigration {
   const lineOf = lineLocator(text);
   const assignments = assignmentsOf(text);
-  const commands = shellCommands(withoutAssignmentHeads(maskExpansions(text), assignments));
+  const commands = [
+    ...shellCommands(withoutAssignmentHeads(maskExpansions(text), assignments)),
+    ...functionCommands(text),
+  ];
   const programs = variablePrograms(programDefinitions(text, commands, assignments));
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const variables = makefileVariables(text, assignments, programs);
