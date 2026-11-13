@@ -120,22 +120,32 @@ export type QueryKey<
  * The last element of an infinite query's key. `useQuery` and `useInfiniteQuery` cache different
  * data (`TData` and `InfiniteData<TData>`), so the same request must not share one key (upstream
  * #2184, ADR-022). A prefix such as `[method, path]` still matches both. A `pageParamName` other
- * than the default follows it (`infiniteQueryKey`). Not exported: it is not
- * needed outside the package, and a named export is public API; `InfiniteQueryKey` types the key.
+ * than the default follows it (`infiniteQueryKey`). Not exported: `infiniteQueryKey` writes the
+ * key, and a named export is public API; `InfiniteQueryKey` types the key.
  */
 const INFINITE_QUERY_KEY_MARKER = "infinite";
+
+/** The infinite keys of a query key: the marker after it, then a `pageParamName` or nothing. */
+type InfiniteKeyOf<Key extends readonly unknown[]> =
+  | readonly [...Key, typeof INFINITE_QUERY_KEY_MARKER]
+  | readonly [...Key, typeof INFINITE_QUERY_KEY_MARKER, { readonly pageParamName: string }];
 
 export type InfiniteQueryKey<
   Paths extends {},
   Method extends HttpMethod,
   Path extends PathsWithMethod<Paths, Method>,
-> =
-  | readonly [...QueryKey<Paths, Method, Path>, typeof INFINITE_QUERY_KEY_MARKER]
-  | readonly [
-      ...QueryKey<Paths, Method, Path>,
-      typeof INFINITE_QUERY_KEY_MARKER,
-      { readonly pageParamName: string },
-    ];
+> = InfiniteKeyOf<QueryKey<Paths, Method, Path>>;
+
+/**
+ * A query key without TanStack Query's data tag. The tag is an intersection, `[...] & { tag }`,
+ * and TypeScript spreads an intersection as an array, so `[...queryKey, "infinite"]` lost the
+ * tuple type; the elements read out here keep it.
+ */
+type UntaggedQueryKey<Key> = Key extends readonly [infer Method, infer Path, infer Init]
+  ? readonly [Method, Path, Init]
+  : Key extends readonly [infer Method, infer Path]
+    ? readonly [Method, Path]
+    : never;
 
 /**
  * Whether the options give an `initialData` that is never `undefined`: a value, or a function that
@@ -470,17 +480,26 @@ function pageInit(init: unknown, { pageParamName, pageParam }: PageRequest) {
 }
 
 /**
- * The key of an infinite query: the key of its request, the marker, and the `pageParamName` when
- * it is not the default one. The name is the query parameter each page is sent with, so queries
- * that differ only in it send different requests. The default name adds nothing, so the key of a
- * call without one is the key of a call that names the default.
+ * The key of an infinite query, the one `useInfiniteQuery` gives it: the key of its request from
+ * `queryOptions(...).queryKey`, the marker, and the `pageParamName` when it is not the default
+ * `"cursor"`. The name is the query parameter each page is sent with, so queries that differ only
+ * in it send different requests. The default name adds nothing, so the key of a call without one
+ * is the key of a call that names the default. Use it for `getQueryData` and `setQueryData`:
+ * `[...queryKey, "infinite"]` is the same key, but TypeScript does not type it as one.
  */
-function infiniteQueryKey<Key extends readonly unknown[]>(queryKey: Key, pageParamName: string) {
+export function infiniteQueryKey<Key extends readonly unknown[]>(
+  queryKey: Key,
+  pageParamName?: string,
+): InfiniteKeyOf<UntaggedQueryKey<Key>>;
+export function infiniteQueryKey(
+  queryKey: readonly unknown[],
+  pageParamName = DEFAULT_PAGE_PARAM_NAME,
+): readonly unknown[] {
   return [
     ...queryKey,
     INFINITE_QUERY_KEY_MARKER,
-    ...(pageParamName === DEFAULT_PAGE_PARAM_NAME ? ([] as const) : ([{ pageParamName }] as const)),
-  ] as const;
+    ...(pageParamName === DEFAULT_PAGE_PARAM_NAME ? [] : [{ pageParamName }]),
+  ];
 }
 
 /** Options of `createClient`. */
@@ -576,7 +595,9 @@ export default function createClient<Paths extends {}, Media extends MediaType =
       const { queryKey } = queryOptions(method, path, init);
       return useInfiniteQuery(
         {
-          queryKey: infiniteQueryKey(queryKey, pageParamName),
+          // `infiniteQueryKey` types the key by the elements of the given one, which TypeScript
+          // reads only for a known path; here the path is generic. It is the declared key.
+          queryKey: infiniteQueryKey(queryKey, pageParamName) as never,
           // An empty page stays `undefined`, as in upstream: TanStack Query rejects only
           // `undefined` query data, and the infinite query data is the `{ pages }` object.
           queryFn: ({ pageParam, signal }) =>

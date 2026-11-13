@@ -9,6 +9,12 @@
 const TYPE_TAG_START = "[object ".length;
 const TYPE_TAG_END = -1;
 
+/**
+ * The classes of `Number`, `Boolean` and `String` objects (`new Number(1)`). JSON writes such an
+ * object as its primitive value, which its members do not hold.
+ */
+const BOXED_PRIMITIVE_CLASSES: readonly string[] = ["Number", "Boolean", "String"];
+
 /** The kind of a value that JSON cannot hold. */
 type RawKind = "URLSearchParams" | "FormData" | "Blob" | "bytes";
 
@@ -23,6 +29,8 @@ type BodyKinds = RawKind | { readonly [member: string]: BodyKinds };
 export interface BodyKey {
   readonly body: unknown;
   readonly bodyType?: BodyKinds;
+  /** The members a form or multipart body sends, for a body with its own JSON form. */
+  readonly bodyFields?: BodyKey;
 }
 
 /**
@@ -36,6 +44,31 @@ function isClass(value: object, name: string): boolean {
     (typeof type === "function" && value instanceof type) ||
     Object.prototype.toString.call(value).slice(TYPE_TAG_START, TYPE_TAG_END) === name
   );
+}
+
+/**
+ * Whether JSON writes a value by its own JSON form rather than by its members: an object with a
+ * `toJSON` (a Date), or a `Number`, `Boolean` or `String` object of any realm.
+ */
+function hasJsonForm(value: object): boolean {
+  return (
+    typeof (value as { toJSON?: unknown }).toJSON === "function" ||
+    BOXED_PRIMITIVE_CLASSES.some((name) => isClass(value, name))
+  );
+}
+
+/**
+ * A whole body of bytes, an ArrayBuffer, a typed array or a DataView, which `fetch` sends as they
+ * are: its bytes as numbers, also for a typed array other than a Uint8Array. Undefined for any
+ * other value. An ArrayBuffer has no `buffer` and no `byteOffset`, which then reads as 0.
+ */
+function bytesKey(value: object): BodyKey | undefined {
+  if (!ArrayBuffer.isView(value) && !isClass(value, "ArrayBuffer")) {
+    return undefined;
+  }
+  const { buffer = value, byteOffset, byteLength } = value as Partial<ArrayBufferView>;
+  const bytes = new Uint8Array(buffer as ArrayBuffer, byteOffset, byteLength);
+  return { body: Array.from(bytes), bodyType: "bytes" };
 }
 
 /**
@@ -73,17 +106,9 @@ function formDataKey(form: FormData): readonly unknown[] {
   return (form as NativeFormData).getParts?.() ?? [];
 }
 
-/** The bytes of an ArrayBuffer or a typed array, or null for another value. */
-function valueBytes(value: object): Uint8Array | null {
-  if (ArrayBuffer.isView(value)) {
-    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-  }
-  return isClass(value, "ArrayBuffer") ? new Uint8Array(value as ArrayBuffer) : null;
-}
-
 /**
  * A value that JSON cannot hold, by its content: a URLSearchParams as its text, a FormData as its
- * fields, a Blob as `blobKey` and bytes as their numbers. Undefined for any other value.
+ * fields and a Blob as `blobKey`. Undefined for any other value.
  */
 function rawValueKey(value: object): BodyKey | undefined {
   if (isClass(value, "URLSearchParams")) {
@@ -95,20 +120,19 @@ function rawValueKey(value: object): BodyKey | undefined {
   if (isClass(value, "Blob") || isClass(value, "File")) {
     return { body: blobKey(value as Blob), bodyType: "Blob" };
   }
-  const bytes = valueBytes(value);
-  return bytes === null ? undefined : { body: Array.from(bytes), bodyType: "bytes" };
+  return undefined;
 }
 
 /**
- * The own enumerable members of an object or an array body, each as `bodyKey`, and their kinds by
- * name or index.
+ * The own enumerable members of an object or an array body, each as `memberKey`, and their kinds
+ * by name or index.
  * An empty object or array stays: a JSON `{}` or `[]` is a body, unlike none.
  */
 function membersKey(members: object): BodyKey {
   const body: Record<string, unknown> | unknown[] = Array.isArray(members) ? [] : {};
   const kinds: Record<string, BodyKinds> = {};
   for (const [name, value] of Object.entries(members)) {
-    const member = bodyKey(value);
+    const member = memberKey(value);
     (body as Record<string, unknown>)[name] = member.body;
     if (member.bodyType !== undefined) {
       kinds[name] = member.bodyType;
@@ -118,20 +142,40 @@ function membersKey(members: object): BodyKey {
 }
 
 /**
+ * A value inside a body. A value of its own JSON form stays as it is: TanStack Query's hash writes
+ * it as JSON does. Bytes are walked by their members like any other object, which writes them as
+ * JSON sends them, a `Uint16Array` as `{ "0": 256 }` and an ArrayBuffer as `{}`; their bytes
+ * would name `[0, 1]` for it, as for a `Uint8Array` of 0 and 1. A form or multipart body rejects
+ * such a member, so JSON is the only body that sends one.
+ */
+function memberKey(value: unknown): BodyKey {
+  if (typeof value !== "object" || value === null || hasJsonForm(value)) {
+    return { body: value };
+  }
+  return rawValueKey(value) ?? membersKey(value);
+}
+
+/**
  * A body in a key: a value JSON cannot hold by its content, wherever it is in the body, and the
  * kinds of such values in `bodyType`, a field no init has. A JSON body has no `bodyType`, so it
  * never shares a key with a body that holds such a value written as the same JSON. Any other
  * object, also a class instance or an object of another realm, is walked by its own enumerable
- * members, which are what `JSON.stringify` and the fetch client's multipart body send. An object
- * with its own JSON form, such as a Date, stays as it is: `JSON.stringify` and TanStack Query's
- * hash write what its `toJSON` returns.
+ * members, which are what `JSON.stringify` and the fetch client's form and multipart bodies send.
+ * Bytes are read as bytes only as the whole body.
+ *
+ * A whole body of its own JSON form is sent as that form as JSON, and by its own members as a
+ * form or multipart body. The key cannot see a `Content-Type` or a `bodySerializer` set on the
+ * fetch client, so it holds both: the form as `body` and the members as `bodyFields`, when there
+ * are some. A Date has none, so its key is its JSON form alone.
  */
 export function bodyKey(body: unknown): BodyKey {
   if (typeof body !== "object" || body === null) {
     return { body };
   }
   return (
-    rawValueKey(body) ??
-    (typeof (body as { toJSON?: unknown }).toJSON === "function" ? { body } : membersKey(body))
+    bytesKey(body) ??
+    (hasJsonForm(body) && Object.keys(body).length > 0
+      ? { body, bodyFields: membersKey(body) }
+      : memberKey(body))
   );
 }

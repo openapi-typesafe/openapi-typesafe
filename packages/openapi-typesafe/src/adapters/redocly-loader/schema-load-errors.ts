@@ -23,12 +23,28 @@ export function sourceInvalidError(source: unknown): OpenAPITypesafeError {
   });
 }
 
-/** A source string starts with a URL scheme but does not parse as a URL. */
-export function urlInvalidError(text: string): OpenAPITypesafeError {
+/**
+ * Why text is no schema source (`details.reason` of `SCHEMA_SOURCE_INVALID`): a location that is
+ * not a valid URL, or only a YAML string, such as a file path. The CLI reports both for stdin.
+ */
+export const SOURCE_TEXT_REASONS = { url: "url", path: "path" } as const;
+
+/** How a message names the text of a source, by where it came from. */
+const TEXT_SOURCE_NAMES: Readonly<Record<TextOrigin, string>> = {
+  string: "The string",
+  stream: "The stream text",
+};
+
+/**
+ * Text that is a location does not parse as a URL. `details.text` is the location, redacted, so
+ * the CLI can report it for stdin as it reports its schema argument.
+ */
+export function urlInvalidError(location: string, origin: TextOrigin): OpenAPITypesafeError {
+  const shown = redactUnparsedUrl(location);
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_SOURCE_INVALID,
-    message: `The string ${redactUnparsedUrl(text)} starts like a URL but is not a valid URL`,
-    details: { reason: "url", received: "string" },
+    message: `${TEXT_SOURCE_NAMES[origin]} ${shown} starts like a URL but is not a valid URL`,
+    details: { reason: SOURCE_TEXT_REASONS.url, received: origin, text: shown },
   });
 }
 
@@ -61,7 +77,7 @@ export function pathStringError(text: string, origin: TextOrigin): OpenAPITypesa
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_SOURCE_INVALID,
     message,
-    details: { reason: "path", received: origin, text: shown },
+    details: { reason: SOURCE_TEXT_REASONS.path, received: origin, text: shown },
   });
 }
 

@@ -247,6 +247,10 @@ client returns (`GetResponseContent`, `ResponseBody`):
 4. `SuccessResponse<any>` and `ErrorResponse<any>` are `any`, so `createClient<any>()` types
    `data` and `error` as `any`, as openapi-fetch and rc.4 did. No key of `keyof any` matched a
    status pattern, so both were `never` and `if (error)` narrowed the result to `never`.
+   The `any` check stands inside `T extends unknown`. Outside it (rc.8), the conditional type on
+   `IsAny<T>` related through both its branches, so for a path generic in its name the whole
+   `responses` map joined the bodies and generic handlers failed with TS2322. Inside it,
+   TypeScript relates the type through the one with the constraint of `T` put in: the bodies.
 
 The body class (`string` for an error, `never` for a success) is passed in by `SuccessResponse`
 and `ErrorResponse`, not read from the status, and `Media` is read only in
