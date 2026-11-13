@@ -1,5 +1,48 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.10
+
+### Patch Changes
+
+- [#126](https://github.com/openapi-typesafe/openapi-typesafe/pull/126) [`06e4e2b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/06e4e2b3a54a9bd93bf79a8949ec3c9a7be5cec8) Thanks [@fedorello](https://github.com/fedorello)! - Old flags appended to a variable that holds the generator are renamed: a Makefile `GEN += -it`,
+  a shell `G+=" -it"` and a justfile `"npx openapi-typescript" + " -it"`. A Makefile value that `+=`
+  starts after an empty one (`CMD =`, then `CMD += npx openapi-typescript`) runs the generator, so
+  the flags after `$(CMD)` are renamed too. Where the variable may also run another program, the
+  appended flags are listed as a manual step. Before, they were kept without a word, and the
+  migrated command failed with an unknown flag.
+
+- [#126](https://github.com/openapi-typesafe/openapi-typesafe/pull/126) [`06e4e2b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/06e4e2b3a54a9bd93bf79a8949ec3c9a7be5cec8) Thanks [@fedorello](https://github.com/fedorello)! - The generator set in Azure Pipelines `variables` is migrated, as in a workflow `env`: a map, or a
+  list of `- name: … / value: …` items, in `azure-pipelines.yml`, `*.azure-pipelines.yml`,
+  `azure-pipelines-*.yml` and the files of `.azure-pipelines/` and `.azuredevops/`. A script that
+  runs it as `$(gen)`, `${{ variables.gen }}`, `$GEN` or `${GEN}` gets the flags after it renamed.
+  A GitLab CI list item with a `value` key under `variables` is no longer read as a variable.
+
+- [#126](https://github.com/openapi-typesafe/openapi-typesafe/pull/126) [`06e4e2b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/06e4e2b3a54a9bd93bf79a8949ec3c9a7be5cec8) Thanks [@fedorello](https://github.com/fedorello)! - The generator set in the variables of more files is migrated, as in a workflow `env`: GitLab CI
+  `variables` (also `{ value: … }`), CircleCI, Drone and Woodpecker `environment`, Docker Compose
+  `environment` (a map or `NAME=value` items), and Taskfile `vars` and `env`. A Taskfile command
+  that names a variable as `{{.GEN}}` gets the flags after it renamed, as after `$GEN`. Before,
+  these values kept the old name, and the report could say that nothing was found.
+
+- [#126](https://github.com/openapi-typesafe/openapi-typesafe/pull/126) [`06e4e2b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/06e4e2b3a54a9bd93bf79a8949ec3c9a7be5cec8) Thanks [@fedorello](https://github.com/fedorello)! - Old flags that a workflow step gets from an input are listed as a manual step in more forms:
+  `${{ github.event.inputs.flags }}`, an `env` value `FL: ${{ inputs.flags }}` used as `$FL`, and a
+  literal in an expression (`${{ inputs.flags || '-it' }}`). The flags after a shell default around
+  an input (`${GEN:-${{ inputs.gen }}} e.yaml -it`) and after a shell default for a variable the
+  file does not set (`${GEN:-mytool}`) are listed too. Before, these were kept without a word.
+
+- [#126](https://github.com/openapi-typesafe/openapi-typesafe/pull/126) [`06e4e2b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/06e4e2b3a54a9bd93bf79a8949ec3c9a7be5cec8) Thanks [@fedorello](https://github.com/fedorello)! - A Kubernetes container `env` item whose value names an old package
+  (`- name: GEN / value: npx openapi-typescript`) is now listed in the report as a step to do by
+  hand. No shell reads such a value, so the tool does not change it. Before, it was not reported.
+
+- [#126](https://github.com/openapi-typesafe/openapi-typesafe/pull/126) [`06e4e2b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/06e4e2b3a54a9bd93bf79a8949ec3c9a7be5cec8) Thanks [@fedorello](https://github.com/fedorello)! - The generator inside a Makefile `$(strip …)` is renamed, as inside `$(or …)` and `$(if …)`. A call
+  of any other make function whose arguments name an old package (`$(firstword npx
+openapi-typescript)`, `$(call …)`, `$(shell …)`) is listed as a manual step. Before, such a call
+  kept the old name, and the report could say that nothing was found.
+
+- [#126](https://github.com/openapi-typesafe/openapi-typesafe/pull/126) [`06e4e2b`](https://github.com/openapi-typesafe/openapi-typesafe/commit/06e4e2b3a54a9bd93bf79a8949ec3c9a7be5cec8) Thanks [@fedorello](https://github.com/fedorello)! - The generator bin given by a Windows path without a suffix (`node_modules\.bin\openapi-typescript`,
+  which cmd.exe runs as the `.cmd` file) is renamed to `node_modules\.bin\openapi-typesafe`, and the
+  old flags after it are renamed. Before, the script was kept as it was and not reported, so it
+  called a bin that the migration had removed.
+
 ## 1.0.0-rc.9
 
 ### Patch Changes

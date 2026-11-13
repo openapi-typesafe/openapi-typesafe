@@ -2,6 +2,50 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.10
+
+### Patch Changes
+
+- [#123](https://github.com/openapi-typesafe/openapi-typesafe/pull/123) [`e6f4e04`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6f4e04d3e00ab32cdc2730ca892d05d98b9c9dc) Thanks [@fedorello](https://github.com/fedorello)! - An empty `--output` or `--redocly` (`-o "$OUT"` with `OUT` unset, `--output=`, a trailing `-o`)
+  now fails with `CLI_FLAG_INVALID` and exit code `2`. It used to write the types to stdout, or look
+  for another `redocly.yaml`, without a word.
+
+- [#123](https://github.com/openapi-typesafe/openapi-typesafe/pull/123) [`e6f4e04`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6f4e04d3e00ab32cdc2730ca892d05d98b9c9dc) Thanks [@fedorello](https://github.com/fedorello)! - An empty schema argument, such as `openapi-typesafe "$SPEC"` with `SPEC` unset, now fails with
+  `CLI_LOCATION_INVALID` and exit code `2`. It used to read stdin, so a URL on stdin that does not
+  parse failed with the wrong code and the printed lines named a blank source. A `SCHEMA_SOURCE_INVALID`
+  error for a URL that does not parse also no longer gets the advice for a YAML string on stdin.
+
+- [#125](https://github.com/openapi-typesafe/openapi-typesafe/pull/125) [`bb44f4c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bb44f4ca3f578bc97ee433acc8b2ce9261e9b8f2) Thanks [@fedorello](https://github.com/fedorello)! - `--enum`: a numbered tuple element enum no longer takes the name of another property's enum. With
+  a tuple property `sort` of two enums next to an enum property `sort_2`, the tuple's second element
+  took `HolderSort_2`, so the `sort_2` enum was renamed to `HolderSort_2_2`. `sort_2` now keeps
+  `HolderSort_2`, and the element gets the next free number. Tuple elements are also numbered by
+  their position in the tuple: a `$ref` to the second element that the generator met first no
+  longer swapped the names (`[Tup_2, Tup]`).
+
+- [#123](https://github.com/openapi-typesafe/openapi-typesafe/pull/123) [`e6f4e04`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6f4e04d3e00ab32cdc2730ca892d05d98b9c9dc) Thanks [@fedorello](https://github.com/fedorello)! - The Node API now rejects options of the wrong type with `OPTION_INVALID` before anything runs: a
+  Redocly config that was not made with `createConfig` or `loadConfig` (such as `{ extends: [...] }`),
+  an `inject` that is no string, a callback that is no function, and a boolean option that is not
+  `true` or `false`. A Redocly config or `inject` of the wrong type used to reject with a plain
+  `TypeError`, and `enum: "false"` turned enums on.
+
+- [#123](https://github.com/openapi-typesafe/openapi-typesafe/pull/123) [`e6f4e04`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6f4e04d3e00ab32cdc2730ca892d05d98b9c9dc) Thanks [@fedorello](https://github.com/fedorello)! - With several APIs in `redocly.yaml`, a `root` that is not a valid URL now fails with a line that
+  starts with `API <name>:`, as other failures of an API do. A `local-ref-root` that is not a valid
+  URL fails that API with `CLI_CONFIG_INVALID`, and `--local-ref-root` with `CLI_FLAG_INVALID`
+  naming the flag, as their other bad values do; both failed with a `CLI_LOCATION_INVALID` that
+  named neither.
+
+- [#125](https://github.com/openapi-typesafe/openapi-typesafe/pull/125) [`bb44f4c`](https://github.com/openapi-typesafe/openapi-typesafe/commit/bb44f4ca3f578bc97ee433acc8b2ce9261e9b8f2) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` into a property of a schema whose `oneOf` variants only list required fields now
+  compiles. With `oneOf: [{ required: [email] }, { required: [phone] }]` next to `properties` (the
+  "one of these fields is required" pattern), or with variants that are only `{ type: object }`, a
+  `$ref` to `Contact/properties/owner/properties/name` was written `Contact["owner"]["name"]`, which
+  fails through the optional `owner` (TS2339). It is now `NonNullable<Contact["owner"]>["name"]`.
+  The same holds with the `anyof-oneof-required` fix.
+
+- [#123](https://github.com/openapi-typesafe/openapi-typesafe/pull/123) [`e6f4e04`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6f4e04d3e00ab32cdc2730ca892d05d98b9c9dc) Thanks [@fedorello](https://github.com/fedorello)! - A relative `file:` URL given as text (`openapiTS("file:api.yaml", { cwd: "https://host/specs/" })`)
+  with a `cwd` that is an `http:` or `https:` URL now rejects with `SCHEMA_SOURCE_INVALID`. It used to
+  read `/api.yaml` from the file system root. A `localRefRoot` such as `"file:specs/"` with such a
+  `cwd` rejects with `OPTION_INVALID`, as a relative path does, instead of limiting `$ref`s to `/specs/`.
+
 ## 1.0.0-rc.9
 
 ### Patch Changes
