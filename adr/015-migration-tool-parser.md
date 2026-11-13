@@ -589,11 +589,61 @@ commands the tool did not read.
 - **Make functions have command text.** The arguments that `$(if …)` (its second and third),
   `$(or …)` and `$(and …)` can give as their value are read as command lines where they are
   written (`domain/make-expansions.ts`), also in nested calls, as the literals of a workflow
-  expression are. Other functions compute a new text, so their arguments stay unread.
+  expression are. Other functions compute a new text, so their arguments stay unread (since the
+  eighth review, a call that names an old package is reported).
 - **A one-member union is its member.** The type text of a union or intersection of one member
   dropped the member's operator, so `createArrayTypeNode(createUnionTypeNode([DATE_OR_NULL]))`
   gave `Date | null[]`. Precedence now follows the node kinds, as the TypeScript printer does.
   This fixes silently wrong output, so it is on by default (ADR-021).
+
+## Amendment (2026-11-13): the eighth review of the migration tool
+
+The rc.9 hunt found old flags and old names kept without a word, where the tool read only some
+forms of a value. The rule for all of them: after `--write`, no command may still run the old
+generator or pass it an old flag silently; a form the tool cannot migrate is a manual step, and
+the report never says "Nothing to migrate" for it.
+
+- **Appended text is part of a variable's value.** A Makefile `GEN += -it`, a bash `G+=" -it"`
+  and a justfile `"npx openapi-typescript" + " -it"` were read as commands of their own, so the
+  old flag in them stayed. Appended words are now the arguments after the program the value runs
+  (`AppendedValue`, `domain/argument-findings.ts`): renamed where they are written when every
+  definition runs the generator, reported when one may run another program, as the flags after
+  `$(GEN)` are. Where the appended text is depends on the earlier definitions of the name
+  (`appendedPlace`): after a value the file sets (it keeps that program), at the start of the
+  value when every earlier one is empty (`CMD =`, then `CMD += npx openapi-typescript`: its own
+  program counts), or after a value from outside the file (the environment, an included file),
+  which may be the generator. An empty value sets no program of its own (`no-program`, which
+  replaces `append`). A justfile value of strings and names joined by `+` holds the program in its
+  first part only when every later part is a string joined at a blank; a variable part or a join
+  inside a word can change the program word, so such a value stays computed and the flags in its
+  later strings are reported. Following which `+=` reaches which use was rejected for the reason
+  given for definitions above.
+- **Each YAML file kind names its variable maps.** Only `env` was read. GitLab CI `variables`
+  (also a map with `value`), CircleCI, Drone and Woodpecker `environment`, Docker Compose
+  `environment` (a map or `NAME=value` items) and Taskfile `vars` and `env` are read like a
+  workflow `env` value (`domain/yaml-environments.ts`), each only in its own file kind, chosen by
+  the file's name or folder (`application/yaml-file-kinds.ts`): the same keys mean other things in
+  other files, the reason the command keys are per kind. Task's `{{.GEN}}` is read as `$GEN`, as
+  `${{ env.GEN }}` is.
+- **Every expression has a value for its flags.** Only a word that was exactly
+  `${{ inputs.NAME }}` had the input default as its value. A word that is any expression now gets
+  the defaults of the inputs it reads (`inputs.NAME`, `github.event.inputs.NAME`) and its string
+  literals (`${{ inputs.flags || '-it' }}`), and the expressions in a variable's value
+  (`FL: ${{ inputs.flags }}`, used as `$FL`) are read the same way.
+- **A shell default may run the generator from outside.** In `${GEN:-word}` the variable's value
+  came from outside the text and counted as another program, so `${GEN:-${{ inputs.gen }}} -it`
+  and `${GEN:-mytool} -it` were silent. A variable that no definition the tool reads sets may run
+  the generator, as an unread `$GEN` may, and a word that is a workflow expression is a value the
+  run decides, so the flags after both are reported.
+- **"Unread" means reported.** The seventh review left the arguments of other make functions
+  unread, and a generator inside `$(strip …)` or `$(firstword …)` kept its old name without a
+  word. `$(strip …)` gives its argument text, so it is read like `$(or …)`. A call of any other
+  function whose arguments name an old package (`$(firstword …)`, `$(call …)`, `$(shell …)`)
+  is now an `old-name-in-command` step; the tool still does not compute what it gives.
+- **A Windows path without a suffix.** cmd.exe finds `node_modules\.bin\openapi-typescript.cmd`
+  from `node_modules\.bin\openapi-typescript`, which a POSIX shell would read as escapes. A `\`
+  between two path segments of a word without `/` makes it a Windows path, as a suffix does; a
+  `\` at the start (`\openapi-typescript`, which skips an alias) still escapes.
 
 ## Review trigger
 
