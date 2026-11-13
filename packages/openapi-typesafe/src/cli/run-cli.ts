@@ -1,15 +1,18 @@
+import { SOURCE_TEXT_REASONS } from "../adapters/redocly-loader/schema-load-errors.js";
 import type { Logger } from "../application/ports/logger.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
+import { ERROR_CODES, isOpenAPITypesafeError } from "../domain/errors.js";
 import { hasUrlScheme } from "../domain/location-text.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { SchemaSource } from "../types.js";
 import { ineffectiveFlagNotices, parseCliArguments } from "./cli-arguments.js";
-import type { CliDependencies } from "./cli-dependencies.js";
+import type { CliDependencies, GeneratedTypes } from "./cli-dependencies.js";
 import { cliError, describeCliFailure, EXIT_CODES, type ExitCode } from "./cli-errors.js";
 import {
   type CliRun,
   ensureOutputIsNotSchema,
   filesReadBy,
+  locationInvalidError,
   type OutputFile,
   outputFileOf,
   redoclyConfigFiles,
@@ -70,6 +73,40 @@ function isGlobPattern(run: CliRun, input: string): boolean {
 }
 
 /**
+ * A location on stdin that does not parse as a URL fails as the same schema argument does, with
+ * `CLI_LOCATION_INVALID`: the loader resolves stdin text by the argument's rule, but reports it
+ * with the Node API's code, which names no CLI input.
+ */
+function stdinFailure(error: unknown): unknown {
+  if (
+    !isOpenAPITypesafeError(error) ||
+    error.code !== ERROR_CODES.SCHEMA_SOURCE_INVALID ||
+    error.details.reason !== SOURCE_TEXT_REASONS.url
+  ) {
+    return error;
+  }
+  const { text } = error.details;
+  return typeof text === "string" ? locationInvalidError(text) : error;
+}
+
+/** The types of the one schema; a failure of stdin is reported as a schema argument's. */
+async function generateSchemaTypes(
+  run: CliRun,
+  source: SchemaSource,
+  redocly: RedoclyConfig,
+): Promise<GeneratedTypes> {
+  const options = {
+    ...run.args.generatorFlags,
+    ...refLimitOptions(run.args, run.deps.cwd),
+    ...fixOption(run.args.fix),
+    redocly,
+  };
+  return run.deps.generate(source, options).catch((error: unknown) => {
+    throw run.args.input === undefined ? stdinFailure(error) : error;
+  });
+}
+
+/**
  * One schema from a path, a URL or stdin; without `--output`, the types go to stdout. Warnings and
  * errors go to stderr either way, so they never mix with the types (upstream dropped warnings).
  */
@@ -94,13 +131,7 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
   }
   const source = schemaSource(run);
   const outputFile = output ? singleOutputFile(run, output, source, redocly) : undefined;
-  const options = {
-    ...run.args.generatorFlags,
-    ...refLimitOptions(run.args, run.deps.cwd),
-    ...fixOption(run.args.fix),
-    redocly,
-  };
-  const types = await run.deps.generate(source, options);
+  const types = await generateSchemaTypes(run, source, redocly);
   if (!outputFile) {
     run.deps.writeStdout(types.contents);
     return;

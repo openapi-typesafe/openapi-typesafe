@@ -12,6 +12,7 @@ import {
 import parseJson from "parse-json";
 import type { SchemaLoadRequest } from "../../application/ports/schema-loader.js";
 import { assertNever } from "../../domain/assert-never.js";
+import { locationInText, parseUrlLocation } from "../../domain/location-text.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
 import {
   loadFailedError,
@@ -26,7 +27,7 @@ import {
 /** Parse a schema source of any supported type into a Redocly document (ENGINEERING_PLAN 4.5). */
 
 /**
- * A source once its text is read: a URL, document text, or an object. Text that starts like a URL
+ * A source once its text is read: a URL, document text, or an object. Text that is a location
  * is a URL here, whether it came as a string, a buffer or a stream, so every later step (the name
  * of the root, its redirects, whether it is a file) treats it exactly as a `URL` source.
  */
@@ -71,7 +72,7 @@ function urlAbsoluteRef(url: URL): string {
 }
 
 /** The name of an inline source, which is also the base of its relative `$ref`s. */
-export function inlineAbsoluteRef(cwd: URL): string {
+function inlineAbsoluteRef(cwd: URL): string {
   return urlAbsoluteRef(new URL(INLINE_SOURCE_NAME, cwd));
 }
 
@@ -107,37 +108,40 @@ async function readStream(stream: Readable, absoluteRef: string): Promise<string
   }
 }
 
-/** A URL source string; a scheme is the same in any case (RFC 3986, section 3.1). */
-const URL_PREFIX_RE = /^(?:https?|file):\/\//i;
-
 const EMPTY_SOURCE_MESSAGE = "Can’t parse empty schema";
 
+/** Text of a schema source, where it came from, and the directory its relative URL names. */
+interface SchemaText {
+  readonly text: string;
+  readonly origin: TextOrigin;
+  readonly cwd: URL;
+}
+
 /**
- * Text is a URL or document text. Text that starts like a URL but does not parse as one fails
- * with `SCHEMA_SOURCE_INVALID`, not the parser's `TypeError`.
+ * Text is a location or document text, by the rule the CLI applies to its schema argument
+ * (`locationInText`). A location resolves against `cwd` as that argument does (`file:api.yaml`);
+ * one that does not parse as a URL fails with `SCHEMA_SOURCE_INVALID`, not a `TypeError`.
  */
-function resolveSchemaText(schema: string, origin: TextOrigin): ResolvedSource {
-  if (!schema) {
+function resolveSchemaText({ text, origin, cwd }: SchemaText): ResolvedSource {
+  if (!text) {
     throw sourceEmptyError(EMPTY_SOURCE_MESSAGE);
   }
-  if (!URL_PREFIX_RE.test(schema)) {
-    return { kind: "text", text: schema, origin };
+  const location = locationInText(text);
+  if (location === undefined) {
+    return { kind: "text", text, origin };
   }
-  const url = URL.parse(schema);
-  if (url === null) {
-    throw urlInvalidError(schema);
+  const url = parseUrlLocation(location, cwd);
+  if (url === undefined) {
+    throw urlInvalidError(location, origin);
   }
   return { kind: "url", url };
 }
 
 /**
- * Read the text of a stream or buffer, and turn text that is a URL into that URL. `inlineRef`
- * names a stream that fails to read.
+ * Read the text of a stream or buffer, and turn text that is a location into its URL. `cwd` is
+ * the base of a relative location, and names a stream that fails to read.
  */
-export async function resolveSchemaSource(
-  schema: unknown,
-  inlineRef: string,
-): Promise<ResolvedSource> {
+export async function resolveSchemaSource(schema: unknown, cwd: URL): Promise<ResolvedSource> {
   if (!schema) {
     throw sourceEmptyError(EMPTY_SOURCE_MESSAGE);
   }
@@ -145,13 +149,14 @@ export async function resolveSchemaSource(
     return { kind: "url", url: schema };
   }
   if (schema instanceof Readable) {
-    return resolveSchemaText(await readStream(schema, inlineRef), "stream");
+    const text = await readStream(schema, inlineAbsoluteRef(cwd));
+    return resolveSchemaText({ text, origin: "stream", cwd });
   }
   if (schema instanceof Buffer) {
-    return resolveSchemaText(schema.toString("utf8"), "string");
+    return resolveSchemaText({ text: schema.toString("utf8"), origin: "string", cwd });
   }
   if (typeof schema === "string") {
-    return resolveSchemaText(schema, "string");
+    return resolveSchemaText({ text: schema, origin: "string", cwd });
   }
   return { kind: "object", value: schema };
 }
