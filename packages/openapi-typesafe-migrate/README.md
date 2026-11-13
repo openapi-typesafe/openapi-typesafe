@@ -37,7 +37,8 @@ pre-commit hooks (`entry` with its `args`), and the `simple-git-hooks`, `lint-st
 `nx.targets` and wireit `command` commands of a manifest, also in `.lintstagedrc*` and `.simple-git-hooks.json`. The
 generator is found behind the usual wrappers too (`npx`, `pnpm exec`, `yarn workspace <name>`,
 `dotenvx run`, `nx exec`, `tsx`, `timeout`, `xargs`, …), and under its Windows names
-(`openapi-typescript.cmd`, `.ps1`, `.exe`, `node_modules\.bin\openapi-typescript.cmd`). A here-document is data, except the one a
+(`openapi-typescript.cmd`, `.ps1`, `.exe`, `node_modules\.bin\openapi-typescript.cmd`, and the
+cmd.exe path `node_modules\.bin\openapi-typescript`). A here-document is data, except the one a
 shell runs (`bash <<EOF`, `cat <<EOF | sh`). They are read word by word, the way the shell splits
 them (quotes, `\` line continuations, comments, `&&`, `|`,
 `sh -c "…"`, and the commands inside `if`, `while`, `for` and `{ … }`), so only the generator's
@@ -47,7 +48,10 @@ Dockerfile's exec form (`RUN ["npx",
 `["sh", "-c", "…"]` as shell text. A Makefile variable that holds the generator (`OAT :=
 openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed where it is set,
 and the flags after `$(OAT)` (or `$G` for a one-letter name) where it runs; so is an `env` variable
-of a workflow and the flags after `$GEN` or `${{ env.GEN }}`, and a Dockerfile `ARG` or `ENV`
+of a workflow and the flags after `$GEN` or `${{ env.GEN }}` (also GitLab CI `variables`,
+Azure Pipelines `variables`, a map or `- name: / value:` items, with the flags after `$(gen)` or
+`${{ variables.gen }}`, CircleCI, Drone, Woodpecker and Docker Compose `environment`, and
+Taskfile `vars` and `env` with the flags after `{{.GEN}}`), and a Dockerfile `ARG` or `ENV`
 variable and the flags after `$GEN`, and a justfile variable (`gen := "npx openapi-typescript"`)
 and the flags after `{{gen}}` (or `$gen`, when `export`, a `$gen` parameter or `set export` gives
 it to the recipe's shell). In a justfile every string and backtick of an expression is read
@@ -56,10 +60,15 @@ as a command line where it is written: in a value that just computes
 (`types gen="npx openapi-typescript":`) and in an interpolation; such a value and a parameter (the
 command line can set it) may run another program, so the flags after them are reported. A shell variable that a script, a `run` block or a package.json
 script sets itself (`GEN="npx openapi-typescript"`, also after `export`, `local` or `readonly`)
-is renamed where it is set, and the flags after `$GEN` where it runs. The word of a default
+is renamed where it is set, and the flags after `$GEN` where it runs. Text appended to such a
+variable (a Makefile `GEN += --immutable-types`, a shell `G+=" -it"`, a justfile
+`"npx openapi-typescript" + " -it"`) holds arguments of the program its value runs, so its old
+flags are renamed where they are written, or reported when the variable may run another program;
+a Makefile `+=` after an empty value (`CMD =`) is the value. The word of a default
 (`${GEN:-npx openapi-typescript}`, `${GEN:=…}`, `${GEN:+…}`) is read as a command line where it
 is written, so the old name in it is renamed; the variable may hold another program set outside
-the file, so the flags after such a default are reported. The same holds for the string literals
+the file, so the flags after such a default are reported, as they are after a default whose
+word is a workflow expression (`${GEN:-${{ inputs.gen }}}`). The same holds for the string literals
 of a GitHub Actions expression (`${{ inputs.gen || 'npx openapi-typescript' }}`), which the runner
 puts into the script before the shell runs, and for the default of an input
 (`inputs.command.default` of an `action.yml`, `workflow_call` and `workflow_dispatch` inputs):
@@ -67,8 +76,10 @@ the old name in them is renamed, and the flags after an expression are reported,
 comes from the run; so are the flags after a variable that an expression sets
 (`GEN: ${{ vars.GEN || 'npx openapi-typescript' }}`, then `$GEN`). A Makefile program that make
 computes (`$(or $(GEN),npx openapi-typescript)`, `$(shell …)`) may run the generator too, so the
-flags after it are reported; the arguments that `$(or …)`, `$(and …)` and `$(if …)` can give are
-read as command lines where they are written, so the old name in them is renamed. A Makefile
+flags after it are reported; the arguments that `$(or …)`, `$(and …)` and `$(if …)` can give, and
+the text of `$(strip …)`, are read as command lines where they are written, so the old name in
+them is renamed. A call of any other make function whose arguments name an old package
+(`$(firstword npx openapi-typescript)`, `$(call …)`, `$(shell …)`) is reported. A Makefile
 variable set with `?=` (the environment can override it) or to a value that make computes is
 reported the same way where it runs. The flags change only when every definition of the variable
 in the file sets it to the generator: a variable that another Dockerfile stage, a step `env` or a
@@ -79,9 +90,11 @@ array (`GEN=(npx openapi-typescript)`, whose items are renamed, run as `"${GEN[@
 set outside the file. A variable of old
 flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`, a justfile `{{flags}}` with
 `flags := '-it'` or a recipe parameter `*flags='-it'`, an exported justfile `$FLAGS`, or
-`${{ inputs.flags }}` with an input default `-it`) may serve other commands too, so it
+`${{ inputs.flags }}` with an input default `-it`, also as `${{ github.event.inputs.flags }}`,
+through an `env` value `FL: ${{ inputs.flags }}`, or as a literal in an expression,
+`${{ inputs.flags || '-it' }}`) may serve other commands too, so it
 is reported, not changed. YAML files are changed only in command
-keys (`run`, `script`, `command`, `entrypoint`, …), in the values of `env` and in input
+keys (`run`, `script`, `command`, `entrypoint`, …), in the values of the variable maps above and in input
 defaults, in block and flow style, never in other values. An anchor that an alias uses under such
 a key (`script: [*gen_scripts]`, `env: *common`) is migrated where it is written, once. A CI step whose `shell` is another program (`shell: python`) runs
 code of that language, so its script is not changed, and it is reported when it names an old
@@ -166,7 +179,8 @@ The report lists each of these with the file and line:
 - a patch file of an old package (`patches/openapi-fetch+0.13.0.patch`): the new package has other
   code, so check whether the fix is still needed;
 - a word in a command that names an old package where the tool cannot tell what runs it (an
-  argument of a program it does not know, a script name): migrate it by hand;
+  argument of a program it does not know, a script name), and a Kubernetes `env` item
+  (`- name: GEN / value: npx openapi-typescript`), which no shell reads: migrate it by hand;
 - a CI step whose `shell` is another program (`shell: python`), a justfile recipe with a shebang
   for one, or inline code (`python3 -c '…'`) that names an old package: the tool does not read
   code of other languages, so migrate it by hand;

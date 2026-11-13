@@ -1,11 +1,17 @@
-import { type CommandMigration, commandWordFindings } from "./command-migration.js";
+import {
+  type AppendedValue,
+  type CommandMigration,
+  commandWordFindings,
+} from "./command-migration.js";
 import { commandRoles } from "./command-roles.js";
 import { type FileVariables, runsGenerator } from "./file-variables.js";
-import { functionCommands, maskExpansions } from "./make-expansions.js";
+import { functionCommands, maskExpansions, unreadCallSteps } from "./make-expansions.js";
 import { lineLocator } from "./migration-findings.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits } from "./text-edits.js";
 import {
+  type AppendedPlace,
+  appendedPlace,
   type ProgramDefinition,
   type VariableProgram,
   variablePrograms,
@@ -131,7 +137,10 @@ function valueDefinition(
   );
   // The command that starts first holds the program; the others are in its arguments.
   const [first] = inValue.sort((left, right) => (left[0]?.start ?? 0) - (right[0]?.start ?? 0));
-  const program = first === undefined ? "" : programWritten(text, first);
+  if (first === undefined) {
+    return { name, kind: "no-program" };
+  }
+  const program = programWritten(text, first);
   const target = referencedName(program);
   if (target !== undefined) {
     return { name, kind: "reference", target };
@@ -142,23 +151,82 @@ function valueDefinition(
   return { name, kind: "command", runsGenerator: inValue.some(runsGenerator) };
 }
 
+/** An assignment, and for a `+=` one, where its text is in the variable's value. */
+interface PlacedAssignment {
+  readonly assignment: Assignment;
+  readonly place: AppendedPlace | undefined;
+}
+
+/** The assignments with their places, from the values that earlier lines set. */
+function placedAssignments(text: string, assignments: readonly Assignment[]): PlacedAssignment[] {
+  return assignments.map((assignment, index) => {
+    if (assignment.operator !== APPEND_OPERATOR) {
+      return { assignment, place: undefined };
+    }
+    const earlier = assignments
+      .slice(0, index)
+      .filter((found) => found.name === assignment.name)
+      .map(({ valueStart, valueEnd }) => text.slice(valueStart, valueEnd));
+    return { assignment, place: appendedPlace(earlier) };
+  });
+}
+
 /**
- * Each assignment as the programs it can set: text appended to the value keeps the program, and
- * a `?=` value is also whatever the environment or the command line sets.
+ * Each assignment as the programs it can set. Text appended after a value keeps its program; one
+ * appended after a value from outside the file, or a `?=` value, is also whatever the environment
+ * or the command line sets; text appended to an empty value is the value.
  */
 function programDefinitions(
   text: string,
   commands: readonly ShellCommand[],
-  assignments: readonly Assignment[],
+  placed: readonly PlacedAssignment[],
 ): ProgramDefinition[] {
-  return assignments.flatMap((assignment): ProgramDefinition[] => {
+  return placed.flatMap(({ assignment, place }): ProgramDefinition[] => {
     const { name, operator } = assignment;
-    if (operator === APPEND_OPERATOR) {
-      return [{ name, kind: "append" }];
+    if (place === "after-value") {
+      return [{ name, kind: "no-program" }];
+    }
+    if (place === "after-outside") {
+      return [{ name, kind: "run-time" }];
     }
     const value = valueDefinition(text, assignment, commands);
     return operator === CONDITIONAL_OPERATOR ? [value, { name, kind: "run-time" }] : [value];
   });
+}
+
+/** The commands of an appended text, and the others. */
+interface AppendedCommands {
+  readonly commands: readonly ShellCommand[];
+  readonly appended: readonly AppendedValue[];
+}
+
+const startsIn = (command: ShellCommand, { valueStart, valueEnd }: Assignment): boolean => {
+  const start = command[0]?.start ?? -1;
+  return valueStart <= start && start < valueEnd;
+};
+
+/**
+ * The text appended after a value (`GEN += --immutable-types`): its words are arguments of the
+ * program the variable runs, not a command of their own, in the order they are written.
+ */
+function appendedCommands(
+  commands: readonly ShellCommand[],
+  placed: readonly PlacedAssignment[],
+  programs: ReadonlyMap<string, VariableProgram>,
+): AppendedCommands {
+  const appends = placed.filter(({ place }) => place !== undefined && place !== "start");
+  const appended = appends.map(({ assignment }): AppendedValue => {
+    const words = commands
+      .filter((command) => startsIn(command, assignment))
+      .flat()
+      .sort((left, right) => left.start - right.start);
+    const written = `$(${assignment.name})`;
+    const program = programs.get(assignment.name) ?? "generator-or-other";
+    return { words, program: { written, program } };
+  });
+  const isAppended = (command: ShellCommand): boolean =>
+    appends.some(({ assignment }) => startsIn(command, assignment));
+  return { commands: commands.filter((command) => !isAppended(command)), appended };
 }
 
 /** The values each variable gets in the file, joined: any of them can reach a command. */
@@ -208,9 +276,13 @@ export function migrateMakefile(text: string, file: string): CommandMigration {
     ...shellCommands(withoutAssignmentHeads(maskExpansions(text), assignments)),
     ...functionCommands(text),
   ];
-  const programs = variablePrograms(programDefinitions(text, commands, assignments));
+  const placed = placedAssignments(text, assignments);
+  const programs = variablePrograms(programDefinitions(text, commands, placed));
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const variables = makefileVariables(text, assignments, programs);
-  const { edits, changes, manualSteps } = commandWordFindings(commands, locate, variables);
-  return { text: applyTextEdits(text, edits), changes, manualSteps };
+  const own = appendedCommands(commands, placed, programs);
+  const found = commandWordFindings(own.commands, locate, variables, own.appended);
+  const { edits, changes, manualSteps } = found;
+  const steps = [...manualSteps, ...unreadCallSteps(text, locate)];
+  return { text: applyTextEdits(text, edits), changes, manualSteps: steps };
 }

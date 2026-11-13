@@ -1,5 +1,15 @@
 import { type CommandMigration, commandWordFindings } from "./command-migration.js";
-import { type FileVariables, runsGenerator } from "./file-variables.js";
+import type { FileVariables } from "./file-variables.js";
+import {
+  commandLiterals,
+  concatenationOperands,
+  concatenationsOf,
+  concatenationText,
+  firstOperandDefinition,
+  isFirstPartProgram,
+  type JustOperand,
+  stringRunsGenerator,
+} from "./just-concatenations.js";
 import {
   expressionAt,
   interpolationsOf,
@@ -64,6 +74,8 @@ interface Assignment {
   readonly start: number;
   readonly end: number;
   readonly literals: readonly JustLiteral[];
+  /** The parts of a value that joins strings and names with `+`, else undefined. */
+  readonly operands: readonly JustOperand[] | undefined;
 }
 
 function assignmentsOf(text: string): Assignment[] {
@@ -72,7 +84,9 @@ function assignmentsOf(text: string): Assignment[] {
     const { literals, end } = expressionAt(text, valueStart);
     const value = text.slice(valueStart, end).trim();
     const name = match[2] as string;
-    return { name, isExported: match[1] !== undefined, value, start: match.index, end, literals };
+    const operands = concatenationOperands(text, { start: valueStart, end, literals });
+    const isExported = match[1] !== undefined;
+    return { name, isExported, value, start: match.index, end, literals, operands };
   });
 }
 
@@ -84,9 +98,6 @@ function onlyString({ value, literals }: Assignment): JustLiteral | undefined {
   }
   return value.length === literal.end - literal.start ? literal : undefined;
 }
-
-const stringRunsGenerator = (literal: JustLiteral): boolean =>
-  literal.kind === "string" && shellCommands(literal.content).some(runsGenerator);
 
 /**
  * The definitions of a value that just computes from `literals`, or that the command line gives:
@@ -100,9 +111,12 @@ function computedDefinitions(name: string, literals: readonly JustLiteral[]): Pr
 
 /** Each assignment as the programs it can set: a reference, a command, or a computed value. */
 function assignmentDefinitions(assignment: Assignment): ProgramDefinition[] {
-  const { name, value } = assignment;
+  const { name, value, operands } = assignment;
   if (NAME_VALUE_RE.test(value)) {
     return [{ name, kind: "reference", target: value }];
+  }
+  if (operands?.[0] !== undefined && isFirstPartProgram(operands)) {
+    return [firstOperandDefinition(name, operands[0])];
   }
   const literal = onlyString(assignment);
   return literal === undefined
@@ -151,6 +165,14 @@ function shellText(text: string, spans: readonly { start: number; end: number }[
 const literalCommands = (literals: readonly JustLiteral[]): ShellCommand[] =>
   literals.flatMap((literal) => shellCommandsAt(literal.content, literal.contentStart));
 
+/** The text an assignment gives its variable: a string's contents, or the value as written. */
+function assignmentText(assignment: Assignment): string {
+  const { operands } = assignment;
+  return operands === undefined
+    ? (onlyString(assignment)?.content ?? assignment.value)
+    : concatenationText(operands);
+}
+
 /** The text a parameter default may give its variable: the contents of its literals. */
 const defaultValue = ({ literals }: ParameterDefault): string =>
   literals.map((literal) => literal.content).join(BLANK);
@@ -165,7 +187,7 @@ function variableValues(
 ): Map<string, string> {
   const values = new Map<string, string>();
   const named = [
-    ...assignments.map((found) => ({ ...found, value: onlyString(found)?.content ?? found.value })),
+    ...assignments.map((found) => ({ ...found, value: assignmentText(found) })),
     ...defaults.map((found) => ({ name: found.name, value: defaultValue(found) })),
   ];
   for (const { name, value } of named) {
@@ -260,14 +282,17 @@ export function migrateJustfile(text: string, file: string): CommandMigration {
   });
   const scripts = shebangRecipes(text, headers);
   const shell = shellText(text, [...assignments, ...headers, ...scripts]);
+  const concatenations = concatenationsOf(assignments, programs);
   const commands = [
     ...shellCommands(shell.text),
-    ...literalCommands(assignments.flatMap((assignment) => assignment.literals)),
+    ...literalCommands(commandLiterals(assignments)),
+    ...concatenations.commands,
     ...literalCommands(defaults.flatMap((found) => found.literals)),
     ...literalCommands(shell.interpolations.flatMap((found) => found.literals)),
   ];
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
-  const { edits, changes, manualSteps } = commandWordFindings(commands, locate, variables);
+  const found = commandWordFindings(commands, locate, variables, concatenations.appended);
+  const { edits, changes, manualSteps } = found;
   const steps = [...manualSteps, ...shebangSteps(text, scripts, locate)];
   return { text: applyTextEdits(text, edits), changes, manualSteps: steps };
 }

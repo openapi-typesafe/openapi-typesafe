@@ -1,7 +1,8 @@
+import { isAfterValue, placedAssignments } from "./appended-assignments.js";
 import { commandRoles } from "./command-roles.js";
 import { type FileVariables, runsGenerator, type VariableProgramUse } from "./file-variables.js";
 import { type WordExpansion, wholeWordExpansion, wordExpansions } from "./parameter-expansions.js";
-import { isArrayAssignment, shellAssignments } from "./shell-assignments.js";
+import { isArrayAssignment } from "./shell-assignments.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import {
   type ProgramDefinition,
@@ -10,10 +11,14 @@ import {
 } from "./variable-programs.js";
 import { isWholeExpression } from "./workflow-expressions.js";
 
-/** A shell variable as a file sets it: its name and its value, read as shell text. */
+/**
+ * A shell variable as a file sets it: its name and its value, read as shell text. An appended
+ * value (`G+=" -it"`) sets no program of its own: the variable keeps the one it has.
+ */
 export interface VariableDefinition {
   readonly name: string;
   readonly value: string;
+  readonly isAppended?: boolean;
 }
 
 /** A whole word that expands one shell variable: `$NAME`, `${NAME}`, also in double quotes. */
@@ -24,9 +29,6 @@ function expandedName(text: string): string | undefined {
   const match = SHELL_VARIABLE_RE.exec(text);
   return match === null ? undefined : (match[1] ?? match[2]);
 }
-
-/** Whether text, read as a command line, runs the generator. */
-const textRunsGenerator = (text: string): boolean => shellCommands(text).some(runsGenerator);
 
 /**
  * Whether a command's program is a workflow expression (`${{ vars.GEN || 'npx …' }} a.yaml`):
@@ -69,7 +71,10 @@ function expansionDefinitions(name: string, expansion: WordExpansion): ProgramDe
 }
 
 /** A definition as the programs it can set: references to variables, or commands. */
-function programDefinitions({ name, value }: VariableDefinition): ProgramDefinition[] {
+function programDefinitions({ name, value, isAppended }: VariableDefinition): ProgramDefinition[] {
+  if (isAppended === true) {
+    return [{ name, kind: "no-program" }];
+  }
   const expansion = wholeWordExpansion(value.trim());
   return expansion === undefined
     ? [textDefinition(name, value)]
@@ -139,7 +144,15 @@ export function withShellAssignments(
   commands: readonly ShellCommand[],
   file: FileVariables,
 ): FileVariables {
-  const assigned = commands.flatMap(shellAssignments).filter((found) => !isArrayAssignment(found));
+  const assigned = placedAssignments(commands).flatMap((placed): VariableDefinition[] => {
+    const { assignment, place } = placed;
+    // A value appended to one from outside the text says nothing of the program: the file's
+    // variables or the environment give it.
+    if (isArrayAssignment(assignment) || place === "after-outside") {
+      return [];
+    }
+    return [{ name: assignment.name, value: assignment.value, isAppended: isAfterValue(placed) }];
+  });
   const definitions = [...assigned, ...assignedByExpansions(commands)];
   if (definitions.length === 0) {
     return file;
@@ -156,22 +169,34 @@ const joinedProgram = (left: VariableProgram, right: VariableProgram): VariableP
   left === right ? left : "generator-or-other";
 
 /**
+ * What the word of an expansion runs as a command line: a workflow expression in it
+ * (`${GEN:-${{ inputs.gen }}}`) is a value that the run decides, so it may be either.
+ */
+function wordProgram(text: string): VariableProgram {
+  const commands = shellCommands(text);
+  if (commands.some(runsExpression)) {
+    return "generator-or-other";
+  }
+  return commands.some(runsGenerator) ? "generator" : "other";
+}
+
+/**
  * What a program word that is one expansion with a word runs (`npx ${GEN:-openapi-typescript}`,
  * `"${GEN:-npx openapi-typescript}" a.yaml`): its word, or the variable's value, which the
- * variables of the text know or which comes from outside it.
+ * variables of the text know or which comes from outside it. A variable that no definition the
+ * tool reads sets may run the generator, as an unread `$GEN` may.
  */
 function expansionUse(word: ShellWord, variables: FileVariables): VariableProgramUse | undefined {
   const expansion = wholeWordExpansion(word.raw);
   if (expansion === undefined) {
     return undefined;
   }
-  const programOf = (name: string | undefined): VariableProgram =>
-    (name === undefined ? undefined : variables.programAt({ ...word, raw: `$${name}` })?.program) ??
-    "other";
+  const programOf = (name: string): VariableProgram =>
+    variables.programAt({ ...word, raw: `$${name}` })?.program ?? "generator-or-other";
   const target = expandedName(expansion.text.trim());
-  const textProgram = textRunsGenerator(expansion.text) ? "generator" : "other";
-  const own = target === undefined ? textProgram : programOf(target);
-  const variable = programOf(expansion.use === "alternative" ? undefined : expansion.name);
+  const own = target === undefined ? wordProgram(expansion.text) : programOf(target);
+  // An alternative gives its word only when the variable is set, and nothing else.
+  const variable = expansion.use === "alternative" ? "other" : programOf(expansion.name);
   return { written: word.raw, program: joinedProgram(own, variable) };
 }
 

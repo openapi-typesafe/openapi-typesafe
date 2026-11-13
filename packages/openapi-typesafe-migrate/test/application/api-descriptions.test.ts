@@ -55,6 +55,8 @@ describe("fileMigrationFor and API descriptions", () => {
     ["a key with a name, not a version", "swagger: ui", "ci/jobs.yml"],
     ["an API description at a CI config path", "openapi: 3.1.0", "apps/a/.gitlab-ci.yml"],
     ["a CI config in a CI folder", "asyncapi: 3.0.0", "apps/a/.github/workflows/a.yml"],
+    ["a named Azure Pipelines file", "openapi: 3.1.0", "ci.azure-pipelines.yml"],
+    ["an Azure Pipelines folder", "openapi: 3.1.0", ".azuredevops/gen.yml"],
   ])("fileMigrationFor migrates the commands of %s", (_, head, path) => {
     const text = `${head}\nscript:\n  - npx openapi-typescript spec.yaml -it\n`;
 

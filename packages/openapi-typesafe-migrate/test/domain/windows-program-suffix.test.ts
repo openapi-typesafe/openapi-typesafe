@@ -25,6 +25,38 @@ describe("migrateCommand and Windows program suffixes", () => {
     },
   );
 
+  it.each([
+    [
+      "node_modules\\.bin\\openapi-typescript a.yaml -it",
+      "node_modules\\.bin\\openapi-typesafe a.yaml --immutable",
+    ],
+    [
+      '"node_modules\\.bin\\openapi-typescript" a.yaml',
+      '"node_modules\\.bin\\openapi-typesafe" a.yaml',
+    ],
+    ["\\openapi-typescript a.yaml -it", "\\openapi-typesafe a.yaml --immutable"],
+  ])(
+    "migrateCommand renames the generator bin given by a Windows path in %s",
+    (command, expected) => {
+      expect(migrateCommand(command, "scripts.gen").text).toBe(expected);
+    },
+  );
+
+  it("migrateCommand reports a file of the old package given by a Windows path without a suffix", () => {
+    const migrated = migrateCommand(
+      "node node_modules\\openapi-typescript\\bin\\cli.js a.yaml",
+      "scripts.gen",
+    );
+
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "old-package-file",
+        location: "scripts.gen",
+        path: "node_modules/openapi-typescript/bin/cli.js",
+      },
+    ]);
+  });
+
   it("migrateCommand keeps a program that only starts with the generator name", () => {
     const command = "openapi-typescript.cmdx a.yaml -it && openapi-typescript-x.cmd b.yaml -it";
 

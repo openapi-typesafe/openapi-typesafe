@@ -1,10 +1,14 @@
+import type { ManualStep } from "./migration-findings.js";
+import { namesOriginalPackage } from "./package-names.js";
 import { type ShellCommand, shellCommandsAt } from "./shell-words.js";
 
 /**
  * Make expansions in a Makefile: `$(NAME)`, `${NAME}` and function calls such as `$(or …)`. Make
  * expands them before a recipe line reaches the shell, so the shell reads each as one word. The
  * functions that give one of their arguments as their value (`$(or $(GEN),npx
- * openapi-typescript)`) have command text in those arguments, read where it is written.
+ * openapi-typescript)`, `$(strip …)`) have command text in those arguments, read where it is
+ * written. Any other function computes a new text from its arguments (`$(firstword …)`,
+ * `$(call …)`, `$(shell …)`), so a call of one that names an old package is reported.
  */
 
 const DOLLAR = "$";
@@ -71,13 +75,16 @@ export function maskExpansions(text: string): string {
 /**
  * The functions whose value is one of their arguments, by the first argument that can be it:
  * `$(if COND,THEN,ELSE)` gives THEN or ELSE, `$(or A,B)` the first that is not empty, `$(and A,B)`
- * the last. Any other function (`$(shell …)`, `$(subst …)`) computes a new text.
+ * the last. `$(strip TEXT)` gives its one argument (commas included) with the blanks between
+ * words made one, which the shell splits the same way. Any other function (`$(shell …)`,
+ * `$(subst …)`) computes a new text.
  */
 const VALUE_ARGUMENTS: ReadonlyMap<string, number> = new Map([
   ["if", 1],
   ["or", 0],
   ["and", 0],
 ]);
+const WHOLE_TEXT_FUNCTIONS: ReadonlySet<string> = new Set(["strip"]);
 /** The head of a function call: `$(`, the function's name and the blanks after it. */
 const FUNCTION_HEAD_RE = /^\$[({]([a-z]+)[ \t]+/;
 const OPENING: ReadonlySet<string> = new Set(Object.keys(CLOSING));
@@ -108,11 +115,41 @@ function callArguments(text: string, start: number, end: number): Argument[] {
 /** The arguments of the expansion that can be its value, or none for another expansion. */
 function valueArguments(text: string, { start, end }: Expansion): Argument[] {
   const head = FUNCTION_HEAD_RE.exec(text.slice(start, end));
-  const first = head === null ? undefined : VALUE_ARGUMENTS.get(head[1] as string);
-  if (head === null || first === undefined) {
-    return [];
+  const name = head?.[1] ?? "";
+  const first = VALUE_ARGUMENTS.get(name);
+  const argumentStart = start + (head?.[0].length ?? 0);
+  if (WHOLE_TEXT_FUNCTIONS.has(name)) {
+    return [{ text: text.slice(argumentStart, end - 1), start: argumentStart }];
   }
-  return callArguments(text, start + head[0].length, end - 1).slice(first);
+  return first === undefined ? [] : callArguments(text, argumentStart, end - 1).slice(first);
+}
+
+/** Whether an expansion calls a function whose value the tool does not read. */
+function isUnreadCall(text: string, { start, end }: Expansion): boolean {
+  const name = FUNCTION_HEAD_RE.exec(text.slice(start, end))?.[1];
+  return name !== undefined && !VALUE_ARGUMENTS.has(name) && !WHOLE_TEXT_FUNCTIONS.has(name);
+}
+
+/** A call of a function that computes a new text, as written, and where it starts. */
+export interface UnreadCall {
+  readonly written: string;
+  readonly start: number;
+}
+
+/**
+ * The calls of functions that compute a new text in `text` (which starts at `offset` of the whole
+ * text), also in the value arguments of other calls: their arguments are not read.
+ */
+function unreadCalls(text: string, offset = 0): UnreadCall[] {
+  return expansionsOf(text).flatMap((expansion) => {
+    const own = isUnreadCall(text, expansion)
+      ? [{ written: text.slice(expansion.start, expansion.end), start: offset + expansion.start }]
+      : [];
+    const nested = valueArguments(text, expansion).flatMap((argument) =>
+      unreadCalls(argument.text, offset + argument.start),
+    );
+    return [...own, ...nested];
+  });
 }
 
 /**
@@ -128,3 +165,16 @@ export function functionCommands(text: string, offset = 0): ShellCommand[] {
       ...functionCommands(argument.text, offset + argument.start),
     ]);
 }
+
+/**
+ * A call of a function that computes a new text from arguments that name an old package
+ * (`$(firstword npx openapi-typescript)`): the tool does not read what it gives, so it is reported.
+ */
+export const unreadCallSteps = (text: string, locate: (offset: number) => string): ManualStep[] =>
+  unreadCalls(text)
+    .filter((call) => namesOriginalPackage(call.written))
+    .map(({ written, start }) => ({
+      kind: "old-name-in-command",
+      location: locate(start),
+      word: written,
+    }));

@@ -34,7 +34,7 @@ import {
   PNPM_WORKSPACE_FILE,
   YARNRC_FILE,
 } from "../domain/workspace-catalog-migration.js";
-import { TASKFILE_COMMAND_KEYS } from "../domain/yaml-command-keys.js";
+import { TASKFILE } from "../domain/yaml-environments.js";
 import {
   migrateDependabotConfig,
   migrateYamlCommands,
@@ -84,6 +84,7 @@ import {
   YAML_MANIFEST_FILES,
   YARNRC_FILE_NAME,
 } from "./project-file-names.js";
+import { yamlCommandFileFor } from "./yaml-file-kinds.js";
 
 const isHuskyHook = (path: string): boolean =>
   (path.startsWith(HUSKY_FOLDER) || path.includes(`/${HUSKY_FOLDER}`)) &&
@@ -149,9 +150,7 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
     matches: (path) => TASKFILE_NAMES.has(baseName(path)),
     migrate: whenNamed(
       yamlConfig((_context, path) => [
-        usedStringsStep((text, strings) =>
-          migrateYamlCommands(text, path, strings, TASKFILE_COMMAND_KEYS),
-        ),
+        usedStringsStep((text, strings) => migrateYamlCommands(text, path, strings, TASKFILE)),
       ]),
     ),
   },
@@ -174,10 +173,9 @@ const yamlCommandsStep =
   (text, read) =>
     isPart || (!isCiConfigFile(path) && read.kind === "read" && isApiDescription(read.documents))
       ? unchanged(text)
-      : usedStringsStep((current, strings) => migrateYamlCommands(current, path, strings))(
-          text,
-          read,
-        );
+      : usedStringsStep((current, strings) =>
+          migrateYamlCommands(current, path, strings, yamlCommandFileFor(path)),
+        )(text, read);
 
 /** What the manifest at `path` is migrated with. */
 const manifestTarget = ({ version, catalogs, aliases }: MigrationContext, path: string) => ({

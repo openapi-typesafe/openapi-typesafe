@@ -14,7 +14,16 @@ import { shellVariables } from "./shell-variables.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { otherShellFindings, stepShells } from "./step-shells.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
-import { YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
+import {
+  DEFAULT_YAML_FILE,
+  type EnvironmentEntry,
+  environmentEntries,
+  environmentItemSteps,
+  type VariableReferences,
+  withVariableReferences,
+  type YamlCommandFile,
+  type YamlEnvironment,
+} from "./yaml-environments.js";
 
 /**
  * YAML files are migrated only where they hold commands or package names, so the text of other
@@ -22,25 +31,22 @@ import { YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
  */
 
 /**
- * Keys whose map holds environment variables (GitHub Actions, Drone and Woodpecker `env`). A
- * variable can hold a command that a step runs as `$GEN`, so each value is read as shell text:
- * it changes only where the generator is in command position, never in a sentence that names it.
+ * The variables of a file as its commands use them (yaml-environments.ts): `$GEN` runs the
+ * generator when a map sets `GEN` to it. The maps of a workflow, a job and a step are read as
+ * one, by name.
  */
-const ENVIRONMENT_KEYS: ReadonlySet<string> = new Set(["env"]);
-
-const isEnvironmentValue = (value: DocumentString): boolean =>
-  value.path.length >= 2 && ENVIRONMENT_KEYS.has(String(value.path.at(-2)));
-
-/**
- * The `env` variables of a file as its commands use them: `$GEN` runs the generator when an `env`
- * map sets `GEN` to it. The maps of a workflow, a job and a step are read as one, by name.
- */
-function environmentVariables(text: string, strings: readonly DocumentString[]): FileVariables {
+function environmentVariables(
+  text: string,
+  entries: ReadonlyMap<DocumentString, EnvironmentEntry>,
+  references: VariableReferences,
+): FileVariables {
   return shellVariables(
-    strings.filter(isEnvironmentValue).map((value) => ({
-      name: String(value.path.at(-1)),
-      value: value.isEscaped ? value.value : shellText(text, value),
-    })),
+    [...entries].map(([value, entry]) => {
+      const shell = value.isEscaped
+        ? withVariableReferences(value.value, references)
+        : shellText(text, value, references);
+      return { name: entry.name, value: shell.slice(entry.head) };
+    }),
   );
 }
 
@@ -55,23 +61,18 @@ export const DEPENDABOT_NAME_KEYS: ReadonlySet<string> = new Set([
 const FOLDED_LINE_BREAK_RE = /(?<=\S[^\S\n]*)\n(?=[^\S\n]*\S)/g;
 
 /**
- * The shell text of a value: where YAML folds a line break to a space, so does the shell text.
- * The replacement keeps the length, so offsets into it are offsets into the value as written.
+ * The shell text of a value: where YAML folds a line break to a space, so does the shell text,
+ * and a reference that the runner replaces is read as the variable it names. The replacements
+ * keep the length, so offsets into it are offsets into the value as written.
  */
-/**
- * A GitHub Actions expression that reads one `env` variable: `${{ env.NAME }}`. The runner puts its
- * value into the command before the shell runs, as the shell expands `$NAME`.
- */
-const ENV_EXPRESSION_RE = /\$\{\{[ \t]*env\.([A-Za-z_][A-Za-z0-9_]*)[ \t]*\}\}/g;
-
-/** `${{ env.NAME }}` read as `$NAME`, padded with blanks so that every offset stays. */
-const asShellVariable = (expression: string, name: string): string =>
-  `$${name}`.padEnd(expression.length, " ");
-
-export function shellText(text: string, value: DocumentString): string {
+export function shellText(
+  text: string,
+  value: DocumentString,
+  references?: VariableReferences,
+): string {
   const slice = text.slice(value.content.start, value.content.end);
   const unfolded = value.isFolded ? slice.replace(FOLDED_LINE_BREAK_RE, " ") : slice;
-  return unfolded.replace(ENV_EXPRESSION_RE, asShellVariable);
+  return withVariableReferences(unfolded, references);
 }
 
 const LEADING_SPACES_RE = /^ */;
@@ -141,6 +142,14 @@ function execFormCommands(text: string, items: readonly DocumentString[]): Shell
   return commands;
 }
 
+/** What the values of one file are read with. */
+interface ValueContext {
+  readonly text: string;
+  readonly locate: Locate;
+  readonly variables?: FileVariables;
+  readonly references?: VariableReferences;
+}
+
 /**
  * The findings of a value with an escape (`"echo \"Don't\" && …"`), read as the value the shell
  * gets: its text as written would read `\"` as a quote and `'` as the start of a quoted word.
@@ -150,10 +159,9 @@ function execFormCommands(text: string, items: readonly DocumentString[]): Shell
 function escapedValueFindings(
   value: DocumentString,
   encode: (value: string) => string,
-  locate: Locate,
-  variables?: FileVariables,
+  { locate, variables, references }: ValueContext,
 ): ShellTextFindings {
-  const commands = shellCommands(value.value);
+  const commands = shellCommands(withVariableReferences(value.value, references));
   const found = commandWordFindings(commands, () => locate(value.start), variables);
   const migrated = applyTextEdits(value.value, found.edits);
   const isChanged = migrated !== value.value;
@@ -162,17 +170,13 @@ function escapedValueFindings(
 }
 
 /** The findings of one value read as shell text, with offsets into the whole text. */
-function valueFindings(
-  text: string,
-  value: DocumentString,
-  locate: Locate,
-  variables?: FileVariables,
-): ShellTextFindings {
+function valueFindings(value: DocumentString, context: ValueContext): ShellTextFindings {
   if (value.isEscaped && value.encode !== undefined) {
-    return escapedValueFindings(value, value.encode, locate, variables);
+    return escapedValueFindings(value, value.encode, context);
   }
+  const { text, locate, variables, references } = context;
   const { start } = value.content;
-  const shell = shellText(text, value);
+  const shell = shellText(text, value, references);
   const commands = shellCommands(shell, blockIndent(shell));
   const found = commandWordFindings(commands, (offset) => locate(start + offset), variables);
   return { ...found, edits: shiftedEdits(found.edits, start) };
@@ -196,6 +200,19 @@ export function appliedFindings(
   };
 }
 
+/** What the values of a file are read with: its variables and the references to them. */
+function valueContext(
+  { text, locate }: Pick<ValueContext, "text" | "locate">,
+  strings: readonly DocumentString[],
+  entries: ReadonlyMap<DocumentString, EnvironmentEntry>,
+  environment: YamlEnvironment,
+): ValueContext {
+  const names = new Set([...entries.values()].map((entry) => entry.name));
+  const references = { environment, names };
+  const fileVariables = environmentVariables(text, entries, references);
+  return { text, locate, variables: withInputDefaults(fileVariables, strings), references };
+}
+
 /**
  * Migrate the commands of a YAML file (CI workflows, Compose files, hook configs). Edits replace
  * words only, never the blanks between them, so they apply to the value as written even where a
@@ -205,23 +222,25 @@ export function migrateYamlCommands(
   text: string,
   file: string,
   strings: readonly DocumentString[],
-  keys: ReadonlySet<string> = YAML_COMMAND_KEYS,
+  { commandKeys, environment }: YamlCommandFile = DEFAULT_YAML_FILE,
 ): CommandMigration {
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const shellOf = stepShells(strings);
-  const values = valuesOf(strings, keys).filter((value) => shellOf(value) === undefined);
+  const values = valuesOf(strings, commandKeys).filter((value) => shellOf(value) === undefined);
   const commandValues = new Set(values.filter((value) => !isExecFormItem(value)));
+  const entries = environmentEntries(strings, environment);
+  const isVariable = (value: DocumentString): boolean =>
+    entries.has(value) || isInputDefault(value);
   const shellValues = oncePerPlace(
-    strings.filter(
-      (value) => commandValues.has(value) || isEnvironmentValue(value) || isInputDefault(value),
-    ),
+    strings.filter((value) => commandValues.has(value) || isVariable(value)),
   );
-  const variables = withInputDefaults(environmentVariables(text, strings), strings);
+  const context = valueContext({ text, locate }, strings, entries, environment);
   return appliedFindings(text, [
-    ...shellValues.map((value) => valueFindings(text, value, locate, variables)),
+    ...shellValues.map((value) => valueFindings(value, context)),
     commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),
-    otherShellFindings(valuesOf(strings, keys), shellOf, locate),
+    otherShellFindings(valuesOf(strings, commandKeys), shellOf, locate),
+    { edits: [], changes: [], manualSteps: environmentItemSteps(strings, entries, locate) },
   ]);
 }
 
@@ -237,7 +256,9 @@ export function migrateYamlPathCommands(
   const commands = strings.filter((string) => isCommandPath(string.path, patterns));
   return appliedFindings(
     text,
-    commands.map((command) => valueFindings(text, command, () => command.path.join("."))),
+    commands.map((command) =>
+      valueFindings(command, { text, locate: () => command.path.join(".") }),
+    ),
   );
 }
 

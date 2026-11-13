@@ -37,7 +37,7 @@ describe("shellCommands and bash arrays", () => {
       ["c"],
       ["y"],
     ]);
-    expect(valuesOf("A+=(x) z")).toEqual([["A+=(x)", "z"]]);
+    expect(valuesOf("A+=(x) z")).toEqual([["A+=(x)", "z"], ["x"]]);
   });
 
   it("shellCommands reads an unclosed array or a parenthesis after a word as before", () => {
