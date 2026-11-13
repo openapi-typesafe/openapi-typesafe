@@ -149,8 +149,10 @@ responses without content.
    object (`Object.entries`). The key now walks every object body by its own enumerable members,
    the members both `JSON.stringify` and the multipart body send. The raw kinds keep their own
    rule, checked first, and so does an object with a `toJSON` (a Date): JSON sends what `toJSON`
-   returns, so the key keeps the value. Keys of object literals, arrays and raw bodies are
-   unchanged; a class-instance JSON body now hashes by sorted member names, as a literal does.
+   returns, so the key keeps the value. (Corrected by the second amendment of 2026-11-12: a form
+   or multipart body sends the own members of such an object, not its `toJSON` form, so "both
+   send the same members" holds only for objects without a `toJSON`.) Keys of object literals,
+   arrays and raw bodies are unchanged; a class-instance JSON body now hashes by sorted member names, as a literal does.
    `params` stays limited to object literals: the fetch client reads only their records.
 2. **React Native FormData.** React Native's FormData has `append`, `getAll` and `getParts`, and
    no `entries`, so every such body had the fields `[]` and one key per path. Its fields are now
@@ -171,6 +173,48 @@ responses without content.
 | `{ pageParamName }` after the marker, only for another name (chosen) | Default keys unchanged; a `[..., "infinite"]` prefix matches all | Two key shapes |
 | `pageParamName` in the key's init | One shape | The init would hold a field no request init has |
 | The name always after the marker | One shape | Every infinite key changes |
+
+## Amendment (2026-11-12, second): JSON forms, bytes inside a body, the infinite key's type
+
+The rule, restated: a key differs exactly when the request differs, judged by what the fetch
+client's default body serializer sends.
+
+1. **`Number`, `Boolean` and `String` objects.** Walked by their members since the first
+   amendment of 2026-11-12, `new Number(1)` and `new Number(2)` both had the body `{}`, and
+   `new String("ab")` had `{ "0": "a", "1": "b" }`, while JSON sends `1`, `2` and `"ab"`. They are
+   now kept as they are, like an object with a `toJSON`, and TanStack Query's hash writes them as
+   JSON does. They are told by their class or type tag, so a `Number` of another realm counts.
+2. **An object with a `toJSON` as a form or multipart body.** The key held only the `toJSON`
+   form, while the form and multipart serializers send the object's own members
+   (`Object.entries`). Two upload forms of different files shared an entry. The key cannot see
+   a `Content-Type` or a `bodySerializer` set on the fetch client, so for a whole body of its own
+   JSON form with own members it holds both: the JSON form as `body`, and the members, keyed as
+   any object body is, as `bodyFields` (`{ body, bodyType }`). A Date has no own members and
+   keeps its key. Inside a body nothing changes: a form or multipart body rejects a nested
+   object other than a Date, so only JSON sends one.
+3. **Bytes inside a body.** A typed array inside a body was keyed by its bytes, so
+   `{ a: new Uint8Array([0, 1]) }` and `{ a: new Uint16Array([256]) }` shared an entry, while JSON
+   sends `{"0":0,"1":1}` and `{"0":256}`. Bytes are only what is sent for a whole raw body, which
+   keeps its key. Inside a body they are now walked by their members like any other object, which
+   is what JSON writes; an `ArrayBuffer` and a `DataView` there are `{}`, as JSON sends them. The
+   form and multipart serializers reject such a member, so JSON is the only case. Its `"bytes"`
+   kind in `bodyType` goes away.
+4. **The infinite key's type.** `[...queryOptions(...).queryKey, "infinite"]` is the documented
+   key, but it did not type-check as `InfiniteQueryKey` (TS2322): the `queryKey` carries
+   TanStack's data tag as an intersection, and TypeScript spreads an intersection as an array,
+   not as a tuple. No type of the key both keeps the tag, which `getQueryData` reads, and spreads
+   as a tuple. The package now exports `infiniteQueryKey(queryKey, pageParamName?)`, which the
+   hook uses too, typed by the elements of the given key; the docs use it.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Both forms of a whole toJSON body, `bodyFields` (chosen) | Right for any `Content-Type` source | A JSON body whose hidden members differ costs one more request |
+| Pick the form by the init's `Content-Type` | One form per key | Wrong for a `Content-Type` set on the fetch client |
+| Export `infiniteQueryKey` (chosen) | A typed key, the hook's own code | One more export |
+| Type `InfiniteQueryKey` as any array | The spread compiles | The key's elements are no longer checked |
+
+The bundle grows by about 190 bytes, past its 3.9 kB size limit; the limit is left for the
+maintainer to decide.
 
 ## Review trigger
 
