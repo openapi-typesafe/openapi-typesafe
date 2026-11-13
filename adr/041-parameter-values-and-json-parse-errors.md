@@ -358,6 +358,14 @@ path unrelated to a `FetchResponse` with another `Media` (TS2322, ADR-030). The 
 media types by key instead (`Content[keyof Content & Media & JSONErrorMediaTypes<Content>]`, plus
 `string` when a picked media type may be text), which relates as before.
 
+`ParseAsResponse` also follows the runtime for a `parseAs` that may be `undefined`: each member of
+the union gives its body and `undefined` is `"json"`, so `parseAs: "text" | undefined` (a wrapper
+that passes its option on, allowed since `undefined` options are typed) gives `string | T`. An
+optional `parseAs` (the declared init type) still gives `T`, as in openapi-fetch. The type reads
+`Options["parseAs"]` rather than `infer`: TypeScript relates a value to a deferred conditional type
+through both branches only when it infers nothing, and the react-query hooks return a call's data
+as this type for a generic path.
+
 | Option | Pros | Cons |
 | --- | --- | --- |
 | Error type by media type (chosen) | Types and runtime agree | A schema of a non-JSON error is not used |

@@ -100,7 +100,9 @@ JSON (for example the HTML page of a proxy) throws a `SyntaxError` that names th
 `Content-Type` and the length of the body, and says which `parseAs` to set (`parseAs: "text"` for
 a `text/*` response). The error holds no body text, since a body can hold a secret (a form-encoded
 OAuth token answer) and errors reach logs, so it has no `cause` either: the parser's message quotes
-the body. Read `response` with `parseAs: "text"` to see it.
+the body. Read `response` with `parseAs: "text"` to see it. A `parseAs` typed as a union, such as
+`"text" | undefined` from a wrapper that passes its option on, types `data` as the body of each
+member, and `undefined` is the default `"json"`: `string` or the JSON body.
 
 An error response (`4xx`, `5xx`) never throws for its body, and `parseAs` does not apply to it.
 Its `Content-Type` decides: a JSON media type (`json` or a `+json` suffix, with or without
