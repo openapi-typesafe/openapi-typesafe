@@ -168,10 +168,17 @@ function joined(
   if (parts.some((part) => part === undefined)) {
     return undefined;
   }
-  const texts = (parts as TypeText[]).map((part) =>
-    operator === "&" && part.operator === "|" ? `(${part.text})` : part.text,
+  const members = (parts as TypeText[]).map(
+    (part): TypeText =>
+      operator === "&" && part.operator === "|" ? plain(`(${part.text})`) : part,
   );
-  return { text: texts.join(` ${operator} `), operator: texts.length > 1 ? operator : null };
+  // A union or intersection of one member prints that member as it is, so the member's own
+  // operator decides where it needs parentheses: `(Date | null)[]`, not `Date | null[]`.
+  const [only] = members;
+  if (members.length === 1 && only !== undefined) {
+    return only;
+  }
+  return { text: members.map((member) => member.text).join(` ${operator} `), operator };
 }
 
 function factoryCallText(
