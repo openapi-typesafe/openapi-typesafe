@@ -34,7 +34,7 @@ async function loadRedoclyConfig(run: CliRun): Promise<RedoclyConfig> {
   const { redoclyConfigs } = run.deps;
   const explicitPath = run.args.redocly;
   const configPath = redoclyConfigs.find(explicitPath);
-  if (explicitPath && !configPath) {
+  if (explicitPath !== undefined && !configPath) {
     throw cliError("CLI_CONFIG_NOT_FOUND", `Redocly config not found at: ${explicitPath}`);
   }
   return configPath ? redoclyConfigs.load(configPath) : redoclyConfigs.createDefault();
@@ -43,7 +43,7 @@ async function loadRedoclyConfig(run: CliRun): Promise<RedoclyConfig> {
 /** The schema's URL, or stdin when no path or URL is given and something is piped in. */
 function schemaSource(run: CliRun): SchemaSource {
   const { input } = run.args;
-  if (input) {
+  if (input !== undefined) {
     return resolveLocationUrl(input, run.deps.cwd);
   }
   if (run.deps.isStdinTerminal()) {
@@ -119,7 +119,7 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
         `See ${MULTIPLE_SCHEMAS_DOCS_URL}`,
     );
   }
-  if (run.args.isCheck && !output) {
+  if (run.args.isCheck && output === undefined) {
     // Without a file there is nothing to compare: the original printed the types and passed.
     throw cliError(
       "CLI_CHECK_OUTPUT_MISSING",
@@ -130,7 +130,8 @@ async function generateSingleSchema(run: CliRun, redocly: RedoclyConfig): Promis
     run.deps.console.notice(notice);
   }
   const source = schemaSource(run);
-  const outputFile = output ? singleOutputFile(run, output, source, redocly) : undefined;
+  const outputFile =
+    output === undefined ? undefined : singleOutputFile(run, output, source, redocly);
   const types = await generateSchemaTypes(run, source, redocly);
   if (!outputFile) {
     run.deps.writeStdout(types.contents);
@@ -152,7 +153,9 @@ function singleOutputFile(
   const { input } = run.args;
   const outputFile = outputFileOf(run, { source: input ?? "stdin", output }, run.deps.cwd);
   const schemas =
-    input && source instanceof URL ? [{ name: `schema ${input}`, location: source }] : [];
+    input !== undefined && source instanceof URL
+      ? [{ name: `schema ${input}`, location: source }]
+      : [];
   ensureOutputIsNotSchema(run, outputFile, [...schemas, ...redoclyConfigFiles(run, redocly)]);
   return outputFile;
 }
@@ -170,7 +173,7 @@ async function generate(run: CliRun): Promise<unknown[]> {
 /** With the APIs of a Redocly config, the input and the output of the command line are unused. */
 function warnAboutIgnoredArguments(run: CliRun): void {
   const { args, deps } = run;
-  if (args.input) {
+  if (args.input !== undefined) {
     deps.logger.warn(
       warningText(
         "APIs are specified both in Redocly Config and CLI argument. Only using Redocly config.",
@@ -178,7 +181,7 @@ function warnAboutIgnoredArguments(run: CliRun): void {
       ),
     );
   }
-  if (args.output) {
+  if (args.output !== undefined) {
     deps.logger.warn(
       warningText(
         `APIs are specified in Redocly Config, so --output ${args.output} is ignored: ` +
@@ -200,7 +203,7 @@ async function runCommand(argv: readonly string[], deps: CliDependencies): Promi
     deps.console.info(args.isHelp ? HELP_TEXT : `v${deps.version}`);
     return [];
   }
-  if (args.output) {
+  if (args.output !== undefined) {
     deps.console.info(`✨ ${deps.style.bold(`openapi-typesafe ${deps.version}`)}`);
   }
   return generate({ deps, args, startedAt });

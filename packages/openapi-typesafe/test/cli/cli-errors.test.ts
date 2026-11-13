@@ -36,6 +36,12 @@ describe("describeCliFailure", () => {
     );
   });
 
+  it("describeCliFailure with a stream URL that does not parse keeps its own message", () => {
+    const failure = failureFor("SCHEMA_SOURCE_INVALID", { reason: "url", received: "stream", text: "http://[" });
+
+    expect(failure.message).toBe("Message (SCHEMA_SOURCE_INVALID)");
+  });
+
   it("describeCliFailure with any other SCHEMA_SOURCE_INVALID keeps its message", () => {
     expect(failureFor("SCHEMA_SOURCE_INVALID", { received: "number" }).message).toBe("Message (SCHEMA_SOURCE_INVALID)");
   });

@@ -153,7 +153,9 @@ async function generateApi(run: CliRun, apiRun: ApiRun, target: ApiTarget): Prom
     ensureOutputIsOwn(run, file, otherOutputs(files, target.name));
     return file;
   });
-  const source = resolveLocationUrl(target.root, target.configRoot);
+  const source = failingAsApi(target.name, () =>
+    resolveLocationUrl(target.root, target.configRoot),
+  );
   const options = apiOptions(run, apiRun, target);
   try {
     const types = await run.deps.generate(source, options, target.name);

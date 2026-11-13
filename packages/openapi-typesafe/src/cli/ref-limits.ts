@@ -2,19 +2,20 @@ import { isLocalFileUrl } from "../api/local-file-url.js";
 import type { GeneratorOptions } from "../types.js";
 import type { CliArguments } from "./cli-arguments.js";
 import { cliError } from "./cli-errors.js";
-import { resolveLocationUrl } from "./cli-output.js";
+import { parseLocationUrl } from "./cli-output.js";
 
 /** The `$ref` limits of the CLI flags as generator options (threat model R1, R2, ADR-017). */
 
 export type RefLimitOptions = Pick<GeneratorOptions, "localRefRoot" | "remoteRefHosts">;
 
 /**
- * A local `$ref` root as a URL; undefined for a URL of another protocol or a `file:` URL with a
- * host, which name no local folder.
+ * A local `$ref` root as a URL; undefined for a URL of another protocol, a `file:` URL with a
+ * host, which name no local folder, or a URL that does not parse (`http://[::1/x`), so each
+ * caller reports it as its own bad value, as it reports the others.
  */
 export function localRootUrl(location: string, base: URL): URL | undefined {
-  const url = resolveLocationUrl(location, base);
-  return isLocalFileUrl(url) ? url : undefined;
+  const url = parseLocationUrl(location, base);
+  return url !== undefined && isLocalFileUrl(url) ? url : undefined;
 }
 
 /**

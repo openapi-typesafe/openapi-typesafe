@@ -1,6 +1,6 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { hasUrlScheme } from "../domain/location-text.js";
+import { hasUrlScheme, parseUrlLocation } from "../domain/location-text.js";
 import type { GeneratorOptions } from "../types.js";
 import { processCwd } from "./default-ports.js";
 import { isLocalFileUrl, NO_LOCAL_PATH_KIND } from "./local-file-url.js";
@@ -32,7 +32,8 @@ function cwdUrlOf(value: unknown): URL | undefined {
     if (!hasUrlScheme(value)) {
       return pathDirectoryUrl(value);
     }
-    return URL.parse(value, pathDirectoryUrl(processCwd()).href) ?? undefined;
+    const resolved = parseUrlLocation(value, pathDirectoryUrl(processCwd()));
+    return resolved.kind === "url" ? resolved.url : undefined;
   }
   if (Buffer.isBuffer(value)) {
     return pathDirectoryUrl(value.toString());
