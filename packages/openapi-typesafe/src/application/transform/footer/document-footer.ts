@@ -78,7 +78,7 @@ const ENUM_VALUES_NUMBER_SEPARATOR = "_";
  * with its set of values, and elements of the same values still share one enum.
  */
 function enumOwner(request: EnumDeclarationRequest): string {
-  if (request.isTupleElement !== true) {
+  if (request.tupleIndex === undefined) {
     return request.name;
   }
   return JSON.stringify([request.name, [...request.values].sort(compareAsStrings)]);
@@ -140,7 +140,7 @@ export class RunFooter implements DocumentFooter {
       return known;
     }
     // Requests of one owner share one enum, with `--dedupe-enums` too.
-    const name = this.names.enums.nameFor(sharedName, enumOwner(request));
+    const name = this.names.enums.nameFor(sharedName, enumOwner(request), request.tupleIndex);
     // Only a repeated member fails to compile; two empty declarations merge, so they stay.
     const declared = request.values.length > 0 ? declarationKey(name, request) : null;
     if (declared !== null && this.declaredEnums.has(declared)) {

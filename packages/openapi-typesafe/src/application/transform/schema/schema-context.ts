@@ -93,9 +93,10 @@ export interface EnumDeclarationRequest {
   readonly isOwnerReference?: boolean;
   /**
    * The schema is a `prefixItems` (or `items` list) element, typed at its tuple's location, so
-   * the elements of one tuple share `name`; elements with other values are other enums.
+   * the elements of one tuple share `name`; elements with other values are other enums. The
+   * element's position in the tuple, which orders the numbers of their names.
    */
-  readonly isTupleElement?: boolean;
+  readonly tupleIndex?: number;
 }
 
 export interface EnumValuesRequest {

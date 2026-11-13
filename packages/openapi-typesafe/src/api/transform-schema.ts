@@ -109,15 +109,16 @@ function withRunFooter(document: DocumentObject, ctx: RunContext, names: RunFoot
 }
 
 /**
- * The document with the enums renamed that gave way to a name the output turned out not to need
- * (`EnumNameClaims`): they get that name back, as before.
+ * The document with the enums renamed to their final names (`EnumNameClaims.finalNames`): one that
+ * gave way to a name the output turned out not to need gets it back, and a number that another
+ * location's name asked for moves on.
  */
-function withEnumNamesGivenBack(
+function withFinalEnumNames(
   parts: TransformedDocument,
   names: RunFooterNames,
 ): TransformedDocument {
   const footer = parts.footer.filter(isIrDeclaration);
-  const renames = names.enums.givenBack(namesTheOutputNeeds({ ...parts, footer }));
+  const renames = names.enums.finalNames(namesTheOutputNeeds({ ...parts, footer }));
   if (renames.size === 0) {
     return parts;
   }
@@ -183,7 +184,7 @@ export function transformDocument(schema: OpenAPI3, ctx: RunContext): Transforme
   const rawFooter = enumValuesChecked(rawBody, templated, ctx, keyTypes);
   // The closing declarations (an empty `operations`, the paths enum) index no path.
   const rawClosing = documentClosing(document, context, rawFooter.some(isOperations));
-  const parts = withEnumNamesGivenBack(
+  const parts = withFinalEnumNames(
     { body: rawBody, footer: rawFooter, closing: rawClosing },
     names,
   );
