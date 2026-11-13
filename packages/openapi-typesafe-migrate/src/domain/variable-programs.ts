@@ -17,16 +17,33 @@ export type VariableProgram = "generator" | "generator-or-other" | "other";
 
 /**
  * What one definition of a variable sets it to: a command (that runs the generator or not), a
- * reference to one variable (`GEN := $(OAT)`, `ENV GEN=$GEN`), text that make appends to the
- * value it already has (`GEN += --flag`), which keeps the program, or a value that only the run
- * decides (a workflow expression, a make `?=` that the environment can override, a value make
- * computes), which can be the generator or another program.
+ * reference to one variable (`GEN := $(OAT)`, `ENV GEN=$GEN`), no program of its own (an empty
+ * value, or text appended to the value the variable has, `GEN += --flag`, which keeps its
+ * program), or a value that only the run decides (a workflow expression, a make `?=` that the
+ * environment can override, a value make computes), which can be the generator or another program.
  */
 export type ProgramDefinition =
   | { readonly name: string; readonly kind: "command"; readonly runsGenerator: boolean }
   | { readonly name: string; readonly kind: "reference"; readonly target: string }
-  | { readonly name: string; readonly kind: "append" }
+  | { readonly name: string; readonly kind: "no-program" }
   | { readonly name: string; readonly kind: "run-time" };
+
+/**
+ * Where text appended to a variable's value (make `+=`, bash `+=`) is: at the start of the value,
+ * when every earlier definition in the file is empty (`CMD =`, then `CMD += npx …`), so its own
+ * program is the variable's; after a value the file sets, whose program it keeps; or after a
+ * value from outside the file (the environment, an included file), when no earlier definition
+ * sets the name.
+ */
+export type AppendedPlace = "start" | "after-value" | "after-outside";
+
+/** Where appended text is, from the values that earlier definitions of its name set. */
+export function appendedPlace(earlierValues: readonly string[]): AppendedPlace {
+  if (earlierValues.length === 0) {
+    return "after-outside";
+  }
+  return earlierValues.every((value) => value.trim() === "") ? "start" : "after-value";
+}
 
 /** Whether a definition can run the generator, given the names found to run it so far. */
 function canRunGenerator(definition: ProgramDefinition, generators: ReadonlySet<string>): boolean {
@@ -35,7 +52,7 @@ function canRunGenerator(definition: ProgramDefinition, generators: ReadonlySet<
       return definition.runsGenerator;
     case "reference":
       return generators.has(definition.target);
-    case "append":
+    case "no-program":
       return false;
     case "run-time":
       return true;
@@ -58,7 +75,7 @@ function canRunOther(
       return !definition.runsGenerator;
     case "reference":
       return others.has(definition.target) || !defined.has(definition.target);
-    case "append":
+    case "no-program":
       return false;
     case "run-time":
       return true;

@@ -4,11 +4,13 @@ import { type ShellCommand, type ShellWord, wordPart } from "./shell-word-parts.
  * The variables a shell text sets itself: `GEN="npx openapi-typescript"` alone or before a
  * command, and the arguments of `export`, `readonly`, `local`, `declare` and `typeset`. A later
  * `$GEN a.yaml -it` runs what the value holds, so the value is read as a command line where it is
- * set, and the commands that expand the variable know which program it runs.
+ * set, and the commands that expand the variable know which program it runs. bash, ksh and zsh
+ * also append to a value (`G+=" -it"`).
  */
 
-/** A word that assigns a variable (POSIX 2.9.1): a name, `=`, then the value. */
-export const ASSIGNMENT_RE = /^([A-Za-z_][A-Za-z0-9_]*)=/;
+/** A word that assigns a variable (POSIX 2.9.1): a name, `=` or `+=`, then the value. */
+export const ASSIGNMENT_RE = /^([A-Za-z_][A-Za-z0-9_]*)(\+?=)/;
+const APPEND_OPERATOR = "+=";
 
 /** Builtins whose `NAME=value` arguments set variables of the shell. */
 const DECLARATION_BUILTINS: ReadonlySet<string> = new Set([
@@ -26,11 +28,16 @@ const QUOTES: ReadonlySet<string> = new Set(["'", '"']);
  */
 const UNPLAIN_RE = /['"\\$`]/;
 
-/** One assignment: the variable, its value after quote removal, and its word. */
+/**
+ * One assignment: the variable, its value after quote removal, its word, and whether it appends
+ * the value to the one the variable has. `head` is the length of `NAME=` or `NAME+=`.
+ */
 export interface ShellAssignment {
   readonly name: string;
   readonly value: string;
   readonly word: ShellWord;
+  readonly isAppend: boolean;
+  readonly head: number;
 }
 
 /** How many words at the start of a command are assignments. */
@@ -47,7 +54,12 @@ export function shellAssignments(command: ShellCommand): ShellAssignment[] {
   return words.flatMap((word) => {
     const match = ASSIGNMENT_RE.exec(word.raw);
     const name = match?.[1];
-    return name === undefined ? [] : [{ name, value: word.value.slice(name.length + 1), word }];
+    if (match === null || name === undefined) {
+      return [];
+    }
+    const head = match[0].length;
+    const isAppend = match[2] === APPEND_OPERATOR;
+    return [{ name, value: word.value.slice(head), word, isAppend, head }];
   });
 }
 
@@ -60,7 +72,7 @@ const ARRAY_CLOSE = ")";
  * item, `"${GEN[@]}"` all of them) is not read: the commands after it are reported.
  */
 export const isArrayAssignment = (assignment: ShellAssignment): boolean =>
-  assignment.word.raw.startsWith(ARRAY_OPEN, assignment.name.length + 1);
+  assignment.word.raw.startsWith(ARRAY_OPEN, assignment.head);
 
 /**
  * The value of an assignment as written and its offset in the text, when its offsets map one to
@@ -70,7 +82,7 @@ export const isArrayAssignment = (assignment: ShellAssignment): boolean =>
 export function assignmentValueText(
   assignment: ShellAssignment,
 ): { readonly text: string; readonly start: number } | undefined {
-  const at = assignment.name.length + 1;
+  const at = assignment.head;
   const raw = assignment.word.raw.slice(at);
   const start = assignment.word.start + at;
   const quote = raw[0] ?? "";

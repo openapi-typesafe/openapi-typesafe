@@ -32,7 +32,7 @@ describe("migrateMakefile", () => {
     const migrated = migrateMakefile(text, "Makefile");
 
     expect(migrated.text).toBe(
-      lines("G := openapi-typesafe", "G += --redoc r.yaml", "gen:", `\t${g} --immutable`),
+      lines("G := openapi-typesafe", "G += --redocly r.yaml", "gen:", `\t${g} --immutable`),
     );
   });
 

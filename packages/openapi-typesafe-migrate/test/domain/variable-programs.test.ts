@@ -35,7 +35,7 @@ describe("variablePrograms", () => {
       reference("GEN", "MID"),
       reference("MID", "OAT"),
       generator("OAT"),
-      { name: "GEN", kind: "append" },
+      { name: "GEN", kind: "no-program" },
       reference("SELF", "SELF"),
       generator("SELF"),
     ]);

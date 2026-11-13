@@ -1,7 +1,8 @@
+import { isAfterValue, placedAssignments } from "./appended-assignments.js";
 import { commandRoles } from "./command-roles.js";
 import { type FileVariables, runsGenerator, type VariableProgramUse } from "./file-variables.js";
 import { type WordExpansion, wholeWordExpansion, wordExpansions } from "./parameter-expansions.js";
-import { isArrayAssignment, shellAssignments } from "./shell-assignments.js";
+import { isArrayAssignment } from "./shell-assignments.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import {
   type ProgramDefinition,
@@ -10,10 +11,14 @@ import {
 } from "./variable-programs.js";
 import { isWholeExpression } from "./workflow-expressions.js";
 
-/** A shell variable as a file sets it: its name and its value, read as shell text. */
+/**
+ * A shell variable as a file sets it: its name and its value, read as shell text. An appended
+ * value (`G+=" -it"`) sets no program of its own: the variable keeps the one it has.
+ */
 export interface VariableDefinition {
   readonly name: string;
   readonly value: string;
+  readonly isAppended?: boolean;
 }
 
 /** A whole word that expands one shell variable: `$NAME`, `${NAME}`, also in double quotes. */
@@ -69,7 +74,10 @@ function expansionDefinitions(name: string, expansion: WordExpansion): ProgramDe
 }
 
 /** A definition as the programs it can set: references to variables, or commands. */
-function programDefinitions({ name, value }: VariableDefinition): ProgramDefinition[] {
+function programDefinitions({ name, value, isAppended }: VariableDefinition): ProgramDefinition[] {
+  if (isAppended === true) {
+    return [{ name, kind: "no-program" }];
+  }
   const expansion = wholeWordExpansion(value.trim());
   return expansion === undefined
     ? [textDefinition(name, value)]
@@ -139,7 +147,15 @@ export function withShellAssignments(
   commands: readonly ShellCommand[],
   file: FileVariables,
 ): FileVariables {
-  const assigned = commands.flatMap(shellAssignments).filter((found) => !isArrayAssignment(found));
+  const assigned = placedAssignments(commands).flatMap((placed): VariableDefinition[] => {
+    const { assignment, place } = placed;
+    // A value appended to one from outside the text says nothing of the program: the file's
+    // variables or the environment give it.
+    if (isArrayAssignment(assignment) || place === "after-outside") {
+      return [];
+    }
+    return [{ name: assignment.name, value: assignment.value, isAppended: isAfterValue(placed) }];
+  });
   const definitions = [...assigned, ...assignedByExpansions(commands)];
   if (definitions.length === 0) {
     return file;
