@@ -1,5 +1,51 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.9
+
+### Patch Changes
+
+- [#116](https://github.com/openapi-typesafe/openapi-typesafe/pull/116) [`600dd3a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/600dd3afd7148146a4ec06c9400dae98a17ef3e1) Thanks [@fedorello](https://github.com/fedorello)! - A shell default around a GitHub Actions expression (`${GEN:-${{ inputs.gen || 'npx
+openapi-typescript' }}} api.yaml`, also with `:+`, `:=` and in `G=${G:-…}`) is migrated: the old
+  name in it is renamed once, and old flags after it are listed as a manual step. Before, the tool
+  skipped the whole file with "edits overlap" and exited with `1`. A report whose only findings were
+  in such a skipped file no longer also says "Nothing to migrate".
+
+- [#116](https://github.com/openapi-typesafe/openapi-typesafe/pull/116) [`600dd3a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/600dd3afd7148146a4ec06c9400dae98a17ef3e1) Thanks [@fedorello](https://github.com/fedorello)! - Old flags in the default of an action or workflow input (`inputs.flags.default: --immutable-types`)
+  are listed as a manual step where a command gets them as `${{ inputs.flags }}`, as for an `env`
+  value used as `$FLAGS`. Before, they were not reported, and the migrated step failed.
+
+- [#116](https://github.com/openapi-typesafe/openapi-typesafe/pull/116) [`600dd3a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/600dd3afd7148146a4ec06c9400dae98a17ef3e1) Thanks [@fedorello](https://github.com/fedorello)! - Old flags in an exported justfile variable are listed as a manual step where a recipe line uses it
+  as a shell variable: `export FLAGS := "-it"` used as `$FLAGS`, a parameter `$OPTS="-it"` used as
+  `$OPTS`, and every variable with `set export`. Before, only `{{flags}}` was reported, and the
+  migrated recipe failed.
+
+- [#116](https://github.com/openapi-typesafe/openapi-typesafe/pull/116) [`600dd3a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/600dd3afd7148146a4ec06c9400dae98a17ef3e1) Thanks [@fedorello](https://github.com/fedorello)! - The old generator inside a make function is renamed: `$(or $(GEN),npx openapi-typescript)`,
+  `$(if $(GEN),$(GEN),npx openapi-typescript)` and `$(and …)`, in a recipe line or in a variable's
+  value. The function may give another program, so old flags after it are still listed as a manual
+  step. Before, the old name stayed, and with no flags after it the report said "Nothing to migrate".
+
+- [#116](https://github.com/openapi-typesafe/openapi-typesafe/pull/116) [`600dd3a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/600dd3afd7148146a4ec06c9400dae98a17ef3e1) Thanks [@fedorello](https://github.com/fedorello)! - The migration keeps the old flags after a variable whose program is decided when the job runs,
+  and lists them as a manual step: a workflow `env` set by an expression
+  (`GEN: ${{ vars.GEN || 'npx openapi-typescript' }}` or `GEN: ${{ vars.GEN }}`, used as `$GEN`), a
+  Makefile `GEN ?= npx openapi-typescript`, which the environment can override, and a Makefile value
+  that make computes (`GEN := $(or $(X),npx openapi-typescript)`). Before, the flags after `$GEN`
+  were renamed without a word, or kept without a word, though `$GEN` may run another program.
+
+- [#116](https://github.com/openapi-typesafe/openapi-typesafe/pull/116) [`600dd3a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/600dd3afd7148146a4ec06c9400dae98a17ef3e1) Thanks [@fedorello](https://github.com/fedorello)! - A `transform` that returns an array of a one-member union (`createArrayTypeNode(
+createUnionTypeNode([DATE_OR_NULL]))`, where `DATE_OR_NULL` is `Date | null`) is rewritten to
+  `"(Date | null)[]"`. Before, the parentheses were lost and the type text was `"Date | null[]"`, a
+  different type that still compiled.
+
+- [#116](https://github.com/openapi-typesafe/openapi-typesafe/pull/116) [`600dd3a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/600dd3afd7148146a4ec06c9400dae98a17ef3e1) Thanks [@fedorello](https://github.com/fedorello)! - The generator bin written with a Windows suffix is migrated: `openapi-typescript.cmd`,
+  `openapi-typescript.ps1`, `openapi-typescript.exe` and `node_modules\.bin\openapi-typescript.cmd`
+  become the same names of `openapi-typesafe`, and the old flags after them are renamed. Before, they
+  were neither changed nor reported, so the script called a bin that the migration had removed.
+
+- [#116](https://github.com/openapi-typesafe/openapi-typesafe/pull/116) [`600dd3a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/600dd3afd7148146a4ec06c9400dae98a17ef3e1) Thanks [@fedorello](https://github.com/fedorello)! - Commands that a YAML anchor shares are migrated where they are written, when an alias uses them
+  under a command key: a GitLab `.gen_scripts: &gen_scripts` list used as
+  `script: [*gen_scripts]`, an anchored `env` map, a Taskfile command. Before, such a file was
+  neither changed nor reported ("Nothing to migrate"), and the job kept running the old generator.
+
 ## 1.0.0-rc.8
 
 ### Patch Changes

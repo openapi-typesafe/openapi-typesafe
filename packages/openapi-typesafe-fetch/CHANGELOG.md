@@ -2,6 +2,28 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.9
+
+### Patch Changes
+
+- [#112](https://github.com/openapi-typesafe/openapi-typesafe/pull/112) [`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2) Thanks [@fedorello](https://github.com/fedorello)! - An error body is parsed as JSON only when its `Content-Type` is a JSON media type (`json` or a
+  `+json` suffix), or when the response has no `Content-Type` and the body is JSON. Any other error
+  body, such as `text/plain` or HTML, is returned as text, as its `string` type says. A `text/plain`
+  error body `429`, `true`, `0` or `null` came back as a number, a boolean or `null`, and with `0`
+  or `null` the check `if (error)` was skipped. openapi-fetch parses every error body, so this
+  differs from it.
+
+- [#112](https://github.com/openapi-typesafe/openapi-typesafe/pull/112) [`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2) Thanks [@fedorello](https://github.com/fedorello)! - Code that is generic in the path compiles again. `SuccessResponse`, `ErrorResponse`,
+  `ErrorResponseJSON` and the `data` and `error` of `FetchResponse` for `Paths[Path]` gave the whole
+  `responses` map next to the response bodies, so assigning them to the bodies failed with TS2322.
+  They give the bodies now. This also fixes the error type of hook wrappers generic in the path.
+
+- [#112](https://github.com/openapi-typesafe/openapi-typesafe/pull/112) [`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2) Thanks [@fedorello](https://github.com/fedorello)! - Every optional option of `createClient()` and of a request accepts `undefined` in its type, not
+  only the members of `querySerializer`: `baseUrl`, `fetch`, `Request`, `FormData`,
+  `querySerializer`, `bodySerializer`, `pathSerializer`, `headers`, `requestInitExt`, `parseAs`,
+  `middleware` and `params`. The client already counted `undefined` as left out, so a wrapper that
+  passes its own optional options on now compiles with `exactOptionalPropertyTypes`.
+
 ## 1.0.0-rc.8
 
 ### Patch Changes

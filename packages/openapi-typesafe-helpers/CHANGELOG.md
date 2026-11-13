@@ -2,6 +2,17 @@
 
 This package is a fork of `openapi-typescript-helpers`. The entries above `0.1.0` are releases of openapi-typesafe-helpers; `0.1.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript-helpers` versions.
 
+## 1.0.0-rc.9
+
+### Patch Changes
+
+- [#112](https://github.com/openapi-typesafe/openapi-typesafe/pull/112) [`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2) Thanks [@fedorello](https://github.com/fedorello)! - Code that is generic in the path compiles again. `SuccessResponse`, `ErrorResponse`,
+  `ErrorResponseJSON` and the `data` and `error` of `FetchResponse` for `Paths[Path]` gave the whole
+  `responses` map next to the response bodies, so assigning them to the bodies failed with TS2322.
+  They give the bodies now. This also fixes the error type of hook wrappers generic in the path.
+- Updated dependencies [[`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2), [`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2), [`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2)]:
+  - openapi-typesafe-fetch@1.0.0-rc.9
+
 ## 1.0.0-rc.8
 
 ### Patch Changes
