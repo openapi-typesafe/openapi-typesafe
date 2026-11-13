@@ -203,3 +203,31 @@ whose original does not compile kept it (TS2339), against point 1:
 
 `generated-shape.ts` grew past the file limit, so the schema shape tests (`isObjectShape`,
 `isArrayShape`, `hasObjectKeywords`) moved to `schema-shape.ts`; the Consequences apply to it too.
+
+## Amendment (2026-11-12): own properties next to `anyOf` / `oneOf`
+
+A schema with `properties` and `anyOf` or `oneOf` (the usual discriminator owner) was still
+opaque for every key, so `Pet/properties/owner/properties/name` kept `Pet["owner"]["name"]`
+(TS2339 through an optional `owner`), against point 1. The walk now reads how the generator joins
+the own keywords and `allOf` items (the base) with the variants (`variantsFormOf`, mirroring
+`variantsType`):
+
+- `Base & (A | B)`: `oneOf` with a variant that is surely no primitive (a whole component, an
+  object or an array), and `anyOf` with `anyof-properties`. TypeScript reads it as
+  `(Base & A) | (Base & B)`: where no variant has the key, it is the base's member; where a joined
+  member is an optional property, the key may be `undefined`; else opaque.
+- `Base | A | B`: `anyOf` without that fix, and `oneOf` of plain primitives. A key is missing if
+  the base or a variant misses it.
+- Any other form (both keywords, a `type` list, the `WithRequired` variants of
+  `anyof-oneof-required`) stays opaque.
+
+An intersection of parts that each declare the key as an optional property (`allOf` items, or a
+variant that repeats the base's property) may be `undefined` too, so a pointer that goes on
+through it is rewritten.
+
+The typed walk indexed a property of such a base even where the type is a union whose variant
+misses it, which does not compile either (also with `ref-pointers`). It now types such a target in
+place (`isMissingComposedKey`), as it does for a left-out property.
+
+`generated-shape.ts` grew past the file limit, so the member type and the way parts join moved
+to `generated-member.ts`, and the composition parts to `variants-form.ts`.

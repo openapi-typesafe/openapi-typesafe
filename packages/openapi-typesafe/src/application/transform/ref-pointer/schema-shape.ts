@@ -41,6 +41,27 @@ export function hasObjectKeywords(node: JsonObject): boolean {
   );
 }
 
+const UNEVALUATED_PROPERTIES = "unevaluatedProperties";
+
+/** Whether `key` is the discriminator's own property, which the discriminator scan may change. */
+export function isDiscriminatorKey(node: JsonObject, key: string): boolean {
+  const { discriminator } = node;
+  return isJsonObject(discriminator) && discriminator.propertyName === key;
+}
+
+/**
+ * Whether `key` names an `unevaluatedProperties` schema that the type ignores (no fix, or next to
+ * `additionalProperties`). The original then reads another member, or `never` of
+ * `Record<string, never>`, not the target, so the key counts as missing. `false` is `never`, as
+ * the original reads it, and a property of that name is read as the property.
+ */
+export function isIgnoredUnevaluatedKey(node: JsonObject, key: string): boolean {
+  const value = node[UNEVALUATED_PROPERTIES];
+  const properties = isJsonObject(node.properties) ? node.properties : {};
+  const isIgnoredSchema = value !== undefined && value !== false;
+  return key === UNEVALUATED_PROPERTIES && isIgnoredSchema && !Object.hasOwn(properties, key);
+}
+
 /** Whether the schema has `allOf`, `anyOf` or `oneOf`. */
 export function isComposed(node: JsonObject): boolean {
   return "allOf" in node || "anyOf" in node || "oneOf" in node;

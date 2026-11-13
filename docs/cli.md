@@ -1208,6 +1208,12 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   (`Pet/properties/owner/properties/name` gets `NonNullable<…["owner"]>["name"]`). Only the
   discriminator's own property keeps its pointer as written, since the generator may add or change
   that property.
+- The same holds next to `oneOf` or `anyOf` variants, where the type is the own properties
+  joined with the variants. Where it is an intersection (`oneOf` with an object variant, or
+  `anyOf` with the `anyof-properties` fix), a property no variant declares is read through the
+  own properties. Where it is a union (`anyOf` without that fix, or `oneOf` of primitives) and a
+  variant does not have the property, no pointer through it compiles, so it gets the target's
+  type inline.
 - A pointer to `unevaluatedProperties` gets the target's type inline: without the
   `unevaluated-properties` fix (or next to `additionalProperties`) the keyword is not in the type,
   so the original reads another member or `never`, and with the fix the index signature also holds
