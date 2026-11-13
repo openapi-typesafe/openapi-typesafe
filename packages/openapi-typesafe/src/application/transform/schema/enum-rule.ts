@@ -168,18 +168,19 @@ export function ownerEnumMembersType(
 }
 
 /**
- * Whether the schema is a direct element of the tuple that transforms it (`prefixItems`, an
- * `items` list), wherever the tuple is: a component, a property, an `items`, a union member, a
- * parameter or a body. An enum inside an element's `allOf` is not one: it shares the element's
- * enum with the element's other schemas.
+ * The position of the schema in the tuple that transforms it (`prefixItems`, an `items` list)
+ * when it is a direct element, wherever the tuple is: a component, a property, an `items`, a
+ * union member, a parameter or a body. An enum inside an element's `allOf` is not one: it shares
+ * the element's enum with the element's other schemas.
  */
-function isTupleElement(schema: SchemaObject, request: SchemaRequest): boolean {
+function tupleElement(schema: SchemaObject, request: SchemaRequest): { tupleIndex?: number } {
   const tuple = request.parent;
   if (tuple === undefined) {
-    return false;
+    return {};
   }
   const elements = tuple.prefixItems ?? (Array.isArray(tuple.items) ? tuple.items : []);
-  return (elements as readonly unknown[]).includes(schema);
+  const index = (elements as readonly unknown[]).indexOf(schema);
+  return index === -1 ? {} : { tupleIndex: index };
 }
 
 function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
@@ -187,7 +188,7 @@ function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
   // `isTsEnum` admits only strings and numbers, and the fix leaves `null` out of the members.
   const values = tsEnumEntries(schema, options).map(([value]) => value);
   const declaration = enumRequest(schema, request.location.path, options);
-  const element = isTupleElement(schema, request) ? { isTupleElement: true } : {};
+  const element = tupleElement(schema, request);
   const type =
     ownerEnumMembersType(schema, values, request) ??
     withOtherStrings(irReference(footer.addEnum({ ...declaration, ...element })), schema);
