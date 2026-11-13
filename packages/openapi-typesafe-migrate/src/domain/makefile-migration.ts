@@ -1,7 +1,8 @@
 import { type CommandMigration, commandWordFindings } from "./command-migration.js";
+import { commandRoles } from "./command-roles.js";
 import { type FileVariables, runsGenerator } from "./file-variables.js";
 import { lineLocator } from "./migration-findings.js";
-import { type ShellWord, shellCommands } from "./shell-words.js";
+import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits } from "./text-edits.js";
 import {
   type ProgramDefinition,
@@ -88,11 +89,13 @@ function maskExpansions(text: string): string {
 
 /** `+=` adds text to the value a variable already has, so the program it runs stays. */
 const APPEND_OPERATOR = "+=";
+/** `?=` sets a variable only when the environment or the command line does not. */
+const CONDITIONAL_OPERATOR = "?=";
 
-/** An assignment of a Makefile: the variable, where it starts, and where its value is. */
+/** An assignment of a Makefile: the variable, its operator, where it starts and its value is. */
 interface Assignment {
   readonly name: string;
-  readonly isAppend: boolean;
+  readonly operator: string;
   readonly start: number;
   readonly valueStart: number;
   readonly valueEnd: number;
@@ -112,8 +115,8 @@ const assignmentsOf = (text: string): Assignment[] =>
     const valueStart = match.index + match[0].length;
     const valueEnd = logicalLineEnd(text, valueStart);
     const name = match[1] as string;
-    const isAppend = match[2] === APPEND_OPERATOR;
-    return { name, isAppend, start: match.index, valueStart, valueEnd };
+    const operator = match[2] as string;
+    return { name, operator, start: match.index, valueStart, valueEnd };
   });
 
 /** The text with the `NAME :=` of each assignment blanked, so its value reads as a command. */
@@ -147,29 +150,54 @@ function referencedName(written: string): string | undefined {
   return match === null ? undefined : (match[1] ?? match[2] ?? match[3]);
 }
 
+/** The program word of a command as written, or "" for a command without one. */
+function programWritten(text: string, command: ShellCommand): string {
+  const { program } = commandRoles(command);
+  const word = program === undefined ? undefined : command[program];
+  return word === undefined ? "" : text.slice(word.start, word.end);
+}
+
 /**
- * Each assignment as the program it sets: text appended to the value, a reference to one variable
- * (`GEN := $(OAT)`), or a command, which runs the generator when one of the commands that start in
- * its value does.
+ * The program an assignment's value sets, by the program word of its first command: a reference
+ * to one variable (`GEN := $(OAT) --redoc r.yaml`), a program make computes (`$(or $(GEN),npx
+ * openapi-typescript)`), which the run decides, or a command, which runs the generator when one
+ * of the commands that start in the value does.
+ */
+function valueDefinition(
+  text: string,
+  { name, valueStart, valueEnd }: Assignment,
+  commands: readonly ShellCommand[],
+): ProgramDefinition {
+  const inValue = commands.filter(
+    ([first]) => first !== undefined && valueStart <= first.start && first.start < valueEnd,
+  );
+  const program = inValue[0] === undefined ? "" : programWritten(text, inValue[0]);
+  const target = referencedName(program);
+  if (target !== undefined) {
+    return { name, kind: "reference", target };
+  }
+  if (isComputed(program)) {
+    return { name, kind: "run-time" };
+  }
+  return { name, kind: "command", runsGenerator: inValue.some(runsGenerator) };
+}
+
+/**
+ * Each assignment as the programs it can set: text appended to the value keeps the program, and
+ * a `?=` value is also whatever the environment or the command line sets.
  */
 function programDefinitions(
   text: string,
-  commands: readonly (readonly ShellWord[])[],
+  commands: readonly ShellCommand[],
   assignments: readonly Assignment[],
 ): ProgramDefinition[] {
-  const generatorStarts = commands
-    .filter(runsGenerator)
-    .map((command) => (command[0] as ShellWord).start);
-  return assignments.map(({ name, isAppend, valueStart, valueEnd }): ProgramDefinition => {
-    if (isAppend) {
-      return { name, kind: "append" };
+  return assignments.flatMap((assignment): ProgramDefinition[] => {
+    const { name, operator } = assignment;
+    if (operator === APPEND_OPERATOR) {
+      return [{ name, kind: "append" }];
     }
-    const target = referencedName(text.slice(valueStart, valueEnd));
-    if (target !== undefined) {
-      return { name, kind: "reference", target };
-    }
-    const runs = generatorStarts.some((start) => valueStart <= start && start < valueEnd);
-    return { name, kind: "command", runsGenerator: runs };
+    const value = valueDefinition(text, assignment, commands);
+    return operator === CONDITIONAL_OPERATOR ? [value, { name, kind: "run-time" }] : [value];
   });
 }
 

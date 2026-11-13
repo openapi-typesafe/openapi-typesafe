@@ -63,7 +63,7 @@ describe("migrateMakefile", () => {
         "DOCKER = docker",
         "gen:",
         `\t${oat} a.yaml --immutable`,
-        `\t@${gen} b.yaml --immutable`,
+        `\t@${gen} b.yaml -it`,
         `\t${docker} run -it x`,
         "\t$(shell echo openapi-typescript) -it",
         "\techo $$(openapi-typesafe c.yaml --immutable)",
@@ -72,7 +72,7 @@ describe("migrateMakefile", () => {
     const locations = migrated.changes.map((change) =>
       "location" in change ? change.location : "",
     );
-    expect(locations).toEqual([1, 2, 3, 6, 7, 10, 10].map((line) => `Makefile:${line}`));
+    expect(locations).toEqual([1, 2, 3, 6, 10, 10].map((line) => `Makefile:${line}`));
   });
 
   it("migrateMakefile follows variables set to the generator variable and target variables", () => {
