@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { NOTHING_FOUND, SKIPPED_HEADING, skippedMessage } from "../../src/application/messages.js";
+import {
+  NOTHING_ELSE_FOUND,
+  NOTHING_FOUND,
+  SKIPPED_HEADING,
+  skippedMessage,
+} from "../../src/application/messages.js";
 import type {
   FileReport,
   ProjectMigration,
@@ -79,6 +84,17 @@ describe("renderReport", () => {
       `${SKIPPED_HEADING}\n  vendor/lib/../../outside/a.ts: ${OUTSIDE_MESSAGE}\n` +
         `\n${NOTHING_FOUND}\n`,
     );
+  });
+
+  it("renderReport does not say nothing was found when a bug of the tool skipped a file", () => {
+    const bug: ProjectMigration["skipped"] = [
+      { path: "ci.yml", reason: { kind: "migration-bug", message: "edits overlap at offset 1" } },
+    ];
+
+    const report = renderReport(migration([], bug));
+
+    expect(report).not.toContain(NOTHING_FOUND);
+    expect(report.endsWith(`\n${NOTHING_ELSE_FOUND}\n`)).toBe(true);
   });
 
   it("renderReport names where the writing stopped, what was written and what was not", () => {

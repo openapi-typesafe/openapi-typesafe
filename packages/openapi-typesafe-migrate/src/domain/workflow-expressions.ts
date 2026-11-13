@@ -13,7 +13,7 @@ export interface ExpressionLiteral {
 }
 
 /** In shell text `${{` is a bad substitution, so no valid shell text holds one otherwise. */
-const EXPRESSION_OPEN = "${{";
+export const EXPRESSION_OPEN = "${{";
 const EXPRESSION_CLOSE = "}}";
 const LITERAL_QUOTE = "'";
 const SHELL_SINGLE_QUOTE = "'";
@@ -24,7 +24,7 @@ const DOUBLE_QUOTE = '"';
  * The end of the expression at `start`, after the `}}` that closes it, or undefined when none
  * does. Its string literals are skipped whole; `''` in one reads as its end and a new start.
  */
-function expressionEnd(text: string, start: number): number | undefined {
+export function expressionEnd(text: string, start: number): number | undefined {
   for (let index = start + EXPRESSION_OPEN.length; index < text.length; ) {
     if (text.startsWith(EXPRESSION_CLOSE, index)) {
       return index + EXPRESSION_CLOSE.length;

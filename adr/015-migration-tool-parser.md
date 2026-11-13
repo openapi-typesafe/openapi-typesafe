@@ -551,6 +551,50 @@ language.
   `irCallbacks` on the options that spread it. Any other spread is reported as
   `options-spread-not-inspected`.
 
+## Amendment (2026-11-12): the seventh review of the migration tool
+
+The rc.8 hunt found flags changed or kept without a word, a file skipped by a tool bug, and
+commands the tool did not read.
+
+- **A program the run decides is a definition of its own.** A variable definition can now be
+  `run-time` (`domain/variable-programs.ts`): it can run the generator and another program, so
+  the flags after the variable are kept and reported. A workflow `env` value whose program is an
+  expression (`GEN: ${{ vars.GEN || 'npx openapi-typescript' }}`, `GEN: ${{ vars.GEN }}`), a
+  Makefile `?=` (the environment or the command line can set the variable) and a Makefile value
+  whose program make computes (`$(or …)`, `$(shell …)`) are such definitions. Reading the
+  literal of an expression as the variable's whole value made `$GEN` the generator, and an
+  expression without a literal made it another program; both were silent. The program of a
+  Makefile value is the program word of its first command, so `GEN := $(OAT) --redoc r.yaml`
+  runs what `OAT` runs.
+- **A literal is read once.** In `${GEN:-${{ inputs.gen || '…' }}}` the literal was read inside
+  the word of the expansion and again as a literal of the whole word, so two edits overlapped and
+  the file was skipped. A literal inside an expansion is read only with the expansion's word, and an
+  expression inside an expansion is skipped whole when its end is found, since its `}}` is the
+  runner's. A report whose only findings were in a file a tool bug skipped no longer says
+  "Nothing to migrate".
+- **Values that reach a command by another name.** An input default is the value of
+  `${{ inputs.NAME }}` (`domain/input-defaults.ts`), and an exported justfile variable (`export`,
+  a `$name` parameter, `set export`) is a shell variable of the recipe lines, so old flags in them
+  are reported where a command gets them, as for `$FLAGS` of an `env` value.
+- **The suffix rule covers the generator bin.** `openapi-typescript.cmd`, `.ps1`, `.exe` and
+  `node_modules\.bin\openapi-typescript.cmd` are renamed. A program word with such a suffix runs
+  in cmd.exe or PowerShell, where `\` separates folders, so its path is read from the word as
+  written (`domain/program-paths.ts`).
+- **YAML aliases are followed.** The YAML reader keeps anchors and aliases, and the command
+  migrations read each string where it is used: where it is written and again at the path of each
+  alias, with the same offsets (`usedDocumentStrings`), each place of the text once. An alias uses
+  the last anchor of its name before it that does not hold it, as YAML reads it. The other
+  migrations (manifests, catalogs, Dependabot) still read each string once at its own path: an
+  alias there is a value the tool does not edit, which is reported as before.
+- **Make functions have command text.** The arguments that `$(if …)` (its second and third),
+  `$(or …)` and `$(and …)` can give as their value are read as command lines where they are
+  written (`domain/make-expansions.ts`), also in nested calls, as the literals of a workflow
+  expression are. Other functions compute a new text, so their arguments stay unread.
+- **A one-member union is its member.** The type text of a union or intersection of one member
+  dropped the member's operator, so `createArrayTypeNode(createUnionTypeNode([DATE_OR_NULL]))`
+  gave `Date | null[]`. Precedence now follows the node kinds, as the TypeScript printer does.
+  This fixes silently wrong output, so it is on by default (ADR-021).
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

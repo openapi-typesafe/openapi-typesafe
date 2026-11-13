@@ -17,13 +17,16 @@ export type VariableProgram = "generator" | "generator-or-other" | "other";
 
 /**
  * What one definition of a variable sets it to: a command (that runs the generator or not), a
- * reference to one variable (`GEN := $(OAT)`, `ENV GEN=$GEN`), or text that make appends to the
- * value it already has (`GEN += --flag`), which keeps the program.
+ * reference to one variable (`GEN := $(OAT)`, `ENV GEN=$GEN`), text that make appends to the
+ * value it already has (`GEN += --flag`), which keeps the program, or a value that only the run
+ * decides (a workflow expression, a make `?=` that the environment can override, a value make
+ * computes), which can be the generator or another program.
  */
 export type ProgramDefinition =
   | { readonly name: string; readonly kind: "command"; readonly runsGenerator: boolean }
   | { readonly name: string; readonly kind: "reference"; readonly target: string }
-  | { readonly name: string; readonly kind: "append" };
+  | { readonly name: string; readonly kind: "append" }
+  | { readonly name: string; readonly kind: "run-time" };
 
 /** Whether a definition can run the generator, given the names found to run it so far. */
 function canRunGenerator(definition: ProgramDefinition, generators: ReadonlySet<string>): boolean {
@@ -34,6 +37,8 @@ function canRunGenerator(definition: ProgramDefinition, generators: ReadonlySet<
       return generators.has(definition.target);
     case "append":
       return false;
+    case "run-time":
+      return true;
     default:
       return assertNever(definition);
   }
@@ -55,6 +60,8 @@ function canRunOther(
       return others.has(definition.target) || !defined.has(definition.target);
     case "append":
       return false;
+    case "run-time":
+      return true;
     default:
       return assertNever(definition);
   }

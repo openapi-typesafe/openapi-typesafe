@@ -40,7 +40,14 @@ import {
  */
 
 /** An assignment at the start of a line: `gen := …`, also `export gen := …`. */
-const ASSIGNMENT_RE = /^(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_-]*)[ \t]*:=[ \t]*/gm;
+const ASSIGNMENT_RE = /^(export[ \t]+)?([A-Za-z_][A-Za-z0-9_-]*)[ \t]*:=[ \t]*/gm;
+/** `set export` (also `:= true`): every variable and parameter reaches the recipes' shell. */
+const SET_EXPORT_RE = /^set[ \t]+export(?:[ \t]*:=[ \t]*true)?[ \t]*(?:#.*)?$/m;
+/**
+ * A word that expands one shell variable, after the recipe prefix: an exported variable reaches
+ * the shell of a recipe as an environment variable (`$FLAGS`, `${FLAGS}`).
+ */
+const SHELL_VARIABLE_RE = /^[@+-]*"?\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})"?$/;
 /** A value that is the name of another variable. */
 const NAME_VALUE_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 /** An interpolation of one variable, after the recipe prefix (`@`, `-`) of the line. */
@@ -51,6 +58,7 @@ const BLANK = " ";
 /** An assignment of a justfile: the variable, its value as written, and their places. */
 interface Assignment {
   readonly name: string;
+  readonly isExported: boolean;
   /** The value as written, without a comment after it. */
   readonly value: string;
   readonly start: number;
@@ -63,7 +71,8 @@ function assignmentsOf(text: string): Assignment[] {
     const valueStart = match.index + match[0].length;
     const { literals, end } = expressionAt(text, valueStart);
     const value = text.slice(valueStart, end).trim();
-    return { name: match[1] as string, value, start: match.index, end, literals };
+    const name = match[2] as string;
+    return { name, isExported: match[1] !== undefined, value, start: match.index, end, literals };
   });
 }
 
@@ -174,14 +183,41 @@ function computedProgram(written: string): VariableProgram | undefined {
   return literals.some(stringRunsGenerator) ? "generator-or-other" : undefined;
 }
 
+/** The names that reach the shell of a recipe: all with `set export`, else the exported ones. */
+function exportedNames(
+  text: string,
+  assignments: readonly Assignment[],
+  defaults: readonly ParameterDefault[],
+): ReadonlySet<string> {
+  const isAll = SET_EXPORT_RE.test(text);
+  const names = [...assignments, ...defaults].filter((found) => isAll || found.isExported);
+  return new Set(names.map((found) => found.name));
+}
+
+/** The variable that a word expands: an interpolation, or an exported shell variable. */
+function expandedName(written: string, exported: ReadonlySet<string>): string | undefined {
+  const interpolated = VARIABLE_INTERPOLATION_RE.exec(written)?.[1];
+  const match = SHELL_VARIABLE_RE.exec(written);
+  const shellName = match === null ? undefined : (match[1] ?? match[2]);
+  return (
+    interpolated ?? (shellName !== undefined && exported.has(shellName) ? shellName : undefined)
+  );
+}
+
+/** What a justfile knows about its variables: their values, programs and exported names. */
+interface JustVariables {
+  readonly values: ReadonlyMap<string, string>;
+  readonly programs: ReadonlyMap<string, VariableProgram>;
+  readonly exported: ReadonlySet<string>;
+}
+
 /** The variables of a justfile, read from its assignments and recipe parameters. */
 function justfileVariables(
   text: string,
-  values: ReadonlyMap<string, string>,
-  programs: ReadonlyMap<string, VariableProgram>,
+  { values, programs, exported }: JustVariables,
 ): FileVariables {
   const writtenAt = (word: ShellWord): string => text.slice(word.start, word.end);
-  const nameAt = (word: ShellWord) => VARIABLE_INTERPOLATION_RE.exec(writtenAt(word))?.[1];
+  const nameAt = (word: ShellWord) => expandedName(writtenAt(word), exported);
   return {
     programAt: (word) => {
       const name = nameAt(word);
@@ -217,7 +253,11 @@ export function migrateJustfile(text: string, file: string): CommandMigration {
     ...assignments.flatMap(assignmentDefinitions),
     ...defaults.flatMap(parameterDefinitions),
   ]);
-  const variables = justfileVariables(text, variableValues(assignments, defaults), programs);
+  const variables = justfileVariables(text, {
+    values: variableValues(assignments, defaults),
+    programs,
+    exported: exportedNames(text, assignments, defaults),
+  });
   const scripts = shebangRecipes(text, headers);
   const shell = shellText(text, [...assignments, ...headers, ...scripts]);
   const commands = [

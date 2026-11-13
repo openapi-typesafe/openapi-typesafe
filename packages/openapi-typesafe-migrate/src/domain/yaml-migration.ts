@@ -7,6 +7,7 @@ import {
 import { type CommandPathPattern, isCommandPath } from "./command-paths.js";
 import { type DocumentString, ownerKey } from "./config-documents.js";
 import type { FileVariables } from "./file-variables.js";
+import { isInputDefault, withInputDefaults } from "./input-defaults.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import { shellVariables } from "./shell-variables.js";
@@ -29,20 +30,6 @@ const ENVIRONMENT_KEYS: ReadonlySet<string> = new Set(["env"]);
 
 const isEnvironmentValue = (value: DocumentString): boolean =>
   value.path.length >= 2 && ENVIRONMENT_KEYS.has(String(value.path.at(-2)));
-
-/**
- * The default of an input of an action (`inputs.NAME.default` in `action.yml`) or of a reusable
- * or manual workflow (`on.workflow_call.inputs`): a step that runs `${{ inputs.NAME }}` runs it
- * when the caller gives none, so it is read as shell text, as an `env` value is.
- */
-const INPUTS_KEY = "inputs";
-const DEFAULT_KEY = "default";
-const INPUT_DEFAULT_DEPTH = 3;
-
-const isInputDefault = (value: DocumentString): boolean =>
-  value.path.length >= INPUT_DEFAULT_DEPTH &&
-  value.path.at(-1) === DEFAULT_KEY &&
-  value.path.at(-INPUT_DEFAULT_DEPTH) === INPUTS_KEY;
 
 /**
  * The `env` variables of a file as its commands use them: `$GEN` runs the generator when an `env`
@@ -102,11 +89,25 @@ function blockIndent(shell: string): number {
   return indents.length === 0 ? 0 : Math.min(...indents);
 }
 
+/**
+ * Each place of the text once: a YAML alias gives the strings of its anchor again, at its own
+ * path (`script: [*scripts]`), and the first path that reads a place as shell text reads it.
+ */
+function oncePerPlace(strings: readonly DocumentString[]): DocumentString[] {
+  const starts = new Set<number>();
+  return strings.filter((string) => {
+    const isFirst = !starts.has(string.start);
+    starts.add(string.start);
+    return isFirst;
+  });
+}
+
 /** The values that belong to one of `keys`, also as items of a list. */
 const valuesOf = (
   strings: readonly DocumentString[],
   keys: ReadonlySet<string>,
-): DocumentString[] => strings.filter((string) => keys.has(ownerKey(string.path) ?? ""));
+): DocumentString[] =>
+  oncePerPlace(strings.filter((string) => keys.has(ownerKey(string.path) ?? "")));
 
 /**
  * Keys whose list value is one command in exec form, as Compose and Kubernetes read it: each item
@@ -211,10 +212,12 @@ export function migrateYamlCommands(
   const shellOf = stepShells(strings);
   const values = valuesOf(strings, keys).filter((value) => shellOf(value) === undefined);
   const commandValues = new Set(values.filter((value) => !isExecFormItem(value)));
-  const shellValues = strings.filter(
-    (value) => commandValues.has(value) || isEnvironmentValue(value) || isInputDefault(value),
+  const shellValues = oncePerPlace(
+    strings.filter(
+      (value) => commandValues.has(value) || isEnvironmentValue(value) || isInputDefault(value),
+    ),
   );
-  const variables = environmentVariables(text, strings);
+  const variables = withInputDefaults(environmentVariables(text, strings), strings);
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(text, value, locate, variables)),
     commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),

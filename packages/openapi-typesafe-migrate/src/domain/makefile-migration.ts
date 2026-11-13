@@ -1,7 +1,9 @@
 import { type CommandMigration, commandWordFindings } from "./command-migration.js";
+import { commandRoles } from "./command-roles.js";
 import { type FileVariables, runsGenerator } from "./file-variables.js";
+import { functionCommands, maskExpansions } from "./make-expansions.js";
 import { lineLocator } from "./migration-findings.js";
-import { type ShellWord, shellCommands } from "./shell-words.js";
+import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits } from "./text-edits.js";
 import {
   type ProgramDefinition,
@@ -13,8 +15,9 @@ import {
  * Makefiles. Make expands its variables before a recipe line reaches the shell, so a variable can
  * hold the generator command: `OAT := openapi-typescript`, then `$(OAT) a.yaml -it`. The value of
  * an assignment is read as a command and migrated where it is set; the flags after a reference
- * to such a variable, or to one set to it (`GEN := $(OAT)`), are migrated where it is used.
- * Everything else is shell text.
+ * to such a variable, or to one set to it (`GEN := $(OAT)`), are migrated where it is used. The
+ * arguments of `$(or …)`, `$(and …)` and `$(if …)` are command lines where they are written
+ * (make-expansions.ts). Everything else is shell text.
  */
 
 /**
@@ -38,61 +41,19 @@ const VARIABLE_REFERENCE_RE =
   /^\$(?:\(([A-Za-z_][A-Za-z0-9_.-]*)\)|\{([A-Za-z_][A-Za-z0-9_.-]*)\}|([A-Za-z_]))$/;
 /** `@`, `-` and `+` before a recipe line: silent, ignore errors, always run. */
 const RECIPE_PREFIX_RE = /^[@+-]+/;
-const DOLLAR = "$";
-const CLOSING: Readonly<Record<string, string>> = { "(": ")", "{": "}" };
 const NOT_LINE_BREAK_RE = /[^\n]/g;
-const MASK = "_";
 const LINE_BREAK = "\n";
 const BACKSLASH = "\\";
 
-/** Where the make expansion that starts with the `$` at `start` ends, or undefined for none. */
-function expansionEnd(text: string, start: number): number | undefined {
-  const open = text[start + 1] ?? "";
-  const close = CLOSING[open];
-  if (close === undefined) {
-    return undefined;
-  }
-  let depth = 0;
-  for (let index = start + 1; index < text.length; index++) {
-    if (text[index] === open) {
-      depth++;
-    } else if (text[index] === close && --depth === 0) {
-      return index + 1;
-    }
-  }
-  return undefined;
-}
-
-/**
- * The text with each `$(…)` and `${…}` expansion turned into one word of the same length, so the
- * shell reads it as make passes it on. `$$` is a `$` for the shell and stays.
- */
-function maskExpansions(text: string): string {
-  const parts: string[] = [];
-  let copiedUpTo = 0;
-  for (let index = text.indexOf(DOLLAR); index !== -1; index = text.indexOf(DOLLAR, index + 1)) {
-    if (text[index + 1] === DOLLAR) {
-      index++;
-      continue;
-    }
-    const end = expansionEnd(text, index);
-    if (end !== undefined) {
-      parts.push(text.slice(copiedUpTo, index + 1), MASK.repeat(end - index - 1));
-      copiedUpTo = end;
-      index = end - 1;
-    }
-  }
-  parts.push(text.slice(copiedUpTo));
-  return parts.join("");
-}
-
 /** `+=` adds text to the value a variable already has, so the program it runs stays. */
 const APPEND_OPERATOR = "+=";
+/** `?=` sets a variable only when the environment or the command line does not. */
+const CONDITIONAL_OPERATOR = "?=";
 
-/** An assignment of a Makefile: the variable, where it starts, and where its value is. */
+/** An assignment of a Makefile: the variable, its operator, where it starts and its value is. */
 interface Assignment {
   readonly name: string;
-  readonly isAppend: boolean;
+  readonly operator: string;
   readonly start: number;
   readonly valueStart: number;
   readonly valueEnd: number;
@@ -112,8 +73,8 @@ const assignmentsOf = (text: string): Assignment[] =>
     const valueStart = match.index + match[0].length;
     const valueEnd = logicalLineEnd(text, valueStart);
     const name = match[1] as string;
-    const isAppend = match[2] === APPEND_OPERATOR;
-    return { name, isAppend, start: match.index, valueStart, valueEnd };
+    const operator = match[2] as string;
+    return { name, operator, start: match.index, valueStart, valueEnd };
   });
 
 /** The text with the `NAME :=` of each assignment blanked, so its value reads as a command. */
@@ -147,29 +108,56 @@ function referencedName(written: string): string | undefined {
   return match === null ? undefined : (match[1] ?? match[2] ?? match[3]);
 }
 
+/** The program word of a command as written, or "" for a command without one. */
+function programWritten(text: string, command: ShellCommand): string {
+  const { program } = commandRoles(command);
+  const word = program === undefined ? undefined : command[program];
+  return word === undefined ? "" : text.slice(word.start, word.end);
+}
+
 /**
- * Each assignment as the program it sets: text appended to the value, a reference to one variable
- * (`GEN := $(OAT)`), or a command, which runs the generator when one of the commands that start in
- * its value does.
+ * The program an assignment's value sets, by the program word of its first command: a reference
+ * to one variable (`GEN := $(OAT) --redoc r.yaml`), a program make computes (`$(or $(GEN),npx
+ * openapi-typescript)`), which the run decides, or a command, which runs the generator when one
+ * of the commands that start in the value does.
+ */
+function valueDefinition(
+  text: string,
+  { name, valueStart, valueEnd }: Assignment,
+  commands: readonly ShellCommand[],
+): ProgramDefinition {
+  const inValue = commands.filter(
+    ([first]) => first !== undefined && valueStart <= first.start && first.start < valueEnd,
+  );
+  // The command that starts first holds the program; the others are in its arguments.
+  const [first] = inValue.sort((left, right) => (left[0]?.start ?? 0) - (right[0]?.start ?? 0));
+  const program = first === undefined ? "" : programWritten(text, first);
+  const target = referencedName(program);
+  if (target !== undefined) {
+    return { name, kind: "reference", target };
+  }
+  if (isComputed(program)) {
+    return { name, kind: "run-time" };
+  }
+  return { name, kind: "command", runsGenerator: inValue.some(runsGenerator) };
+}
+
+/**
+ * Each assignment as the programs it can set: text appended to the value keeps the program, and
+ * a `?=` value is also whatever the environment or the command line sets.
  */
 function programDefinitions(
   text: string,
-  commands: readonly (readonly ShellWord[])[],
+  commands: readonly ShellCommand[],
   assignments: readonly Assignment[],
 ): ProgramDefinition[] {
-  const generatorStarts = commands
-    .filter(runsGenerator)
-    .map((command) => (command[0] as ShellWord).start);
-  return assignments.map(({ name, isAppend, valueStart, valueEnd }): ProgramDefinition => {
-    if (isAppend) {
-      return { name, kind: "append" };
+  return assignments.flatMap((assignment): ProgramDefinition[] => {
+    const { name, operator } = assignment;
+    if (operator === APPEND_OPERATOR) {
+      return [{ name, kind: "append" }];
     }
-    const target = referencedName(text.slice(valueStart, valueEnd));
-    if (target !== undefined) {
-      return { name, kind: "reference", target };
-    }
-    const runs = generatorStarts.some((start) => valueStart <= start && start < valueEnd);
-    return { name, kind: "command", runsGenerator: runs };
+    const value = valueDefinition(text, assignment, commands);
+    return operator === CONDITIONAL_OPERATOR ? [value, { name, kind: "run-time" }] : [value];
   });
 }
 
@@ -216,7 +204,10 @@ function makefileVariables(
 export function migrateMakefile(text: string, file: string): CommandMigration {
   const lineOf = lineLocator(text);
   const assignments = assignmentsOf(text);
-  const commands = shellCommands(withoutAssignmentHeads(maskExpansions(text), assignments));
+  const commands = [
+    ...shellCommands(withoutAssignmentHeads(maskExpansions(text), assignments)),
+    ...functionCommands(text),
+  ];
   const programs = variablePrograms(programDefinitions(text, commands, assignments));
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const variables = makefileVariables(text, assignments, programs);

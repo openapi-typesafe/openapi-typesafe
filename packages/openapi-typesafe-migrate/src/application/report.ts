@@ -7,6 +7,7 @@ import {
   NEXT_STEPS,
   NONE_WRITTEN,
   NOT_WRITTEN_HEADING,
+  NOTHING_ELSE_FOUND,
   NOTHING_FOUND,
   SKIPPED_HEADING,
   skippedMessage,
@@ -85,7 +86,9 @@ export function renderReport(migration: ProjectMigration): string {
   const reports = migration.files;
   const skipped = skippedSection(migration.skipped);
   if (reports.length === 0) {
-    return printed([...skipped, NOTHING_FOUND]);
+    // A file that a bug of the tool skipped was read and had something to migrate.
+    const hasBug = migration.skipped.some((file) => file.reason.kind === "migration-bug");
+    return printed([...skipped, hasBug ? NOTHING_ELSE_FOUND : NOTHING_FOUND]);
   }
   const lines = [
     ...changesSection(reports),
