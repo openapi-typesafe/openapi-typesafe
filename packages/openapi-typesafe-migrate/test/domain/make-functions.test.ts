@@ -80,3 +80,62 @@ describe("migrateMakefile and make functions", () => {
     );
   });
 });
+
+describe("migrateMakefile and functions that compute a new text", () => {
+  /** A step that says a call names an old package where the tool does not read it. */
+  const unreadStep = (location: string, word: string) => ({
+    kind: "old-name-in-command",
+    location,
+    word,
+  });
+
+  it("functionCommands reads the whole text of strip as one argument", () => {
+    const text = make("strip npx openapi-typescript,x");
+
+    expect(commandsOf(text)).toEqual([[text.indexOf("npx"), ["npx", "openapi-typescript,x"]]]);
+  });
+
+  it("migrateMakefile renames the generator in strip and reports the flags after it", () => {
+    const gen = make("GEN");
+    const text = lines(
+      `GEN := ${make("strip npx openapi-typescript")}`,
+      "a:",
+      `\t${gen} a.yaml -it`,
+    );
+
+    const migrated = migrateMakefile(text, "Makefile");
+
+    expect(migrated.text).toBe(text.replace("openapi-typescript", "openapi-typesafe"));
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "variable-not-only-generator",
+        location: "Makefile:3",
+        variable: gen,
+        flags: ["-it"],
+      },
+    ]);
+  });
+
+  it("migrateMakefile reports other functions whose arguments name an old package", () => {
+    const first = make("firstword npx openapi-typescript");
+    const called = make(`call run,${make("firstword openapi-typescript")}`);
+    const text = lines(`GEN := ${first}`, "a:", `\t${called} a.yaml`, `\t${make("firstword a b")}`);
+
+    const migrated = migrateMakefile(text, "Makefile");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      unreadStep("Makefile:1", first),
+      unreadStep("Makefile:3", called),
+    ]);
+  });
+
+  it("migrateMakefile reports a function call inside an argument that it reads", () => {
+    const inner = make("firstword openapi-typescript");
+    const text = lines("a:", `\t${make(`or ${inner},x`)} a.yaml`);
+
+    expect(migrateMakefile(text, "Makefile").manualSteps).toEqual([
+      unreadStep("Makefile:2", inner),
+    ]);
+  });
+});

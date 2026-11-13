@@ -5,7 +5,7 @@ import {
 } from "./command-migration.js";
 import { commandRoles } from "./command-roles.js";
 import { type FileVariables, runsGenerator } from "./file-variables.js";
-import { functionCommands, maskExpansions } from "./make-expansions.js";
+import { functionCommands, maskExpansions, unreadCallSteps } from "./make-expansions.js";
 import { lineLocator } from "./migration-findings.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits } from "./text-edits.js";
@@ -283,5 +283,6 @@ export function migrateMakefile(text: string, file: string): CommandMigration {
   const own = appendedCommands(commands, placed, programs);
   const found = commandWordFindings(own.commands, locate, variables, own.appended);
   const { edits, changes, manualSteps } = found;
-  return { text: applyTextEdits(text, edits), changes, manualSteps };
+  const steps = [...manualSteps, ...unreadCallSteps(text, locate)];
+  return { text: applyTextEdits(text, edits), changes, manualSteps: steps };
 }
