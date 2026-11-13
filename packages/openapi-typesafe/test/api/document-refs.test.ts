@@ -20,6 +20,8 @@ const DOCUMENT = {
       },
       Loop: { $ref: "#/components/schemas/Wrap/properties/loop" },
       Self: { $ref: "#/components/schemas/Self/properties/a" },
+      Closed: { type: "array", items: false, unevaluatedProperties: false },
+      ClosedRef: { $ref: "#/components/schemas/Base", additionalProperties: false },
     },
   },
 };
@@ -34,6 +36,18 @@ describe("resolveDocumentRef", () => {
   it("resolveDocumentRef reads a pointer through a $ref on its way", () => {
     expect(resolve("#/components/schemas/Wrap/properties/o/properties/v")).toEqual({
       node: STRING,
+      warnings: [],
+    });
+  });
+
+  it("resolveDocumentRef resolves a false schema without a warning", () => {
+    expect(resolve("#/components/schemas/Closed/items")).toEqual({ node: false, warnings: [] });
+    expect(resolve("#/components/schemas/Closed/unevaluatedProperties").node).toBe(false);
+  });
+
+  it("resolveDocumentRef reads a false sibling of a $ref from the node itself", () => {
+    expect(resolve("#/components/schemas/ClosedRef/additionalProperties")).toEqual({
+      node: false,
       warnings: [],
     });
   });

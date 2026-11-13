@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { createDocumentRun } from "../../src/api/document-run.js";
+import { defaultGeneratorPorts } from "../../src/api/openapi-ts.js";
 import openapiTS, { astToString, type OpenAPI3, type OpenAPITSOptions } from "../../src/index.js";
+import { RecordingLogger } from "../fakes/cli-dependencies.js";
 import { typeErrorsOf } from "../typescript-diagnostics.js";
 
 /** The `read-write-refs` fix (ADR-021, upstream #1938). */
@@ -99,5 +102,33 @@ const body: Body = { name: "a" };
 const sent: Body = { name: "a", kind: "MAIN" };`;
 
     expect(typeErrorsOf(code)).toEqual([]);
+  });
+});
+
+describe("read-write-refs warnings", () => {
+  it("createDocumentRun with the fix resolves $refs to false schemas without a warning", async () => {
+    const ports = await defaultGeneratorPorts({ silent: true });
+    const logger = new RecordingLogger();
+    const source = JSON.stringify({
+      openapi: "3.1.0",
+      info: { title: "t", version: "1" },
+      paths: {},
+      components: {
+        schemas: {
+          Closed: { type: "object", additionalProperties: false, unevaluatedProperties: false },
+          Use: {
+            type: "object",
+            properties: {
+              a: { $ref: "#/components/schemas/Closed/additionalProperties" },
+              u: { $ref: "#/components/schemas/Closed/unevaluatedProperties" },
+            },
+          },
+        },
+      },
+    });
+
+    await createDocumentRun(source, { silent: true, fix: ["read-write-refs"] }, { ...ports, logger });
+
+    expect(logger.messages("warn")).toEqual([]);
   });
 });
