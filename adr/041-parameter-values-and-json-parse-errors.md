@@ -291,3 +291,44 @@ smaller choices are listed above and are worse. Correctness ranks above size
    rule above also compiles under `exactOptionalPropertyTypes`.
 
 The bundle stays within the 11.3 kB budget (11.27 kB).
+
+## Amendment (2026-11-12): every client and request option takes `undefined`
+
+The amendment above typed the members of `QuerySerializerOptions` with `| undefined`, but not the
+`querySerializer` option itself, nor the other options, so a wrapper that passed its own optional
+`querySerializer` or `baseUrl` on still failed under `exactOptionalPropertyTypes` (TS2769,
+TS2379). The rule is now general: every optional option of `ClientOptions`,
+`CustomFetchClientOptions` and `RequestOptions` that the client counts as left out when it is
+`undefined` says `| undefined` in its type: `baseUrl`, `fetch`, `Request`, `FormData`,
+`querySerializer`, `bodySerializer`, `pathSerializer`, `headers`, `requestInitExt`, `parseAs`,
+`middleware` and `params`. The runtime already took `undefined` for each one (defaults and
+truthiness checks); a test sends a request with all of them `undefined`. The options from the DOM
+lib's `RequestInit` keep its types, which are not ours to change, and an optional `body` already
+included `undefined`. Types only; the bundle is unchanged.
+
+## Amendment (2026-11-12): an error body is parsed by its `Content-Type`
+
+`readErrorBody` ran `JSON.parse` on every error body, as openapi-fetch does, and kept the text
+only when that failed. The types (ADR-025, amendment of 2026-11-12) and the docs say that an error
+body of a media type that is not JSON is the text, a `string`. So a `text/plain` body `429`,
+`true`, `0` or `null` came back as a number, a boolean or `null`, and with `0` or `null`
+`if (error)` was skipped and a failure looked like an empty success. The client now reads the
+`Content-Type` of an error response:
+
+1. A JSON media type (`JSON_MEDIA_TYPE_RE`: `json` or a `+json` suffix, with parameters): the
+   body is parsed; a body that does not parse stays the text, as before.
+2. Any other media type: the text, unparsed.
+3. No `Content-Type`: nothing names the media type, so the body is parsed when it is JSON, else
+   it is the text. The types cannot see a missing header; they describe the media type that the
+   document declares, which a server that follows it sends. The docs say so.
+
+A success body is unchanged: `parseAs` decides, whatever the `Content-Type` (openapi-fetch parity).
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| By `Content-Type`, try JSON without one (chosen) | Runtime, types and docs agree; a server that sends JSON without a header still works | Differs from openapi-fetch for non-JSON error bodies that parse |
+| Type every non-JSON error body as `unknown` | No runtime change | Loses the `string` for HTML and text errors; `if (error)` still skipped for `0` and `null` |
+| Text whenever the header is not JSON, also when it is missing | Simplest rule | A JSON error without a `Content-Type` becomes a string, which its type does not say |
+
+The `"Content-Type"` name is now one constant, which keeps the bundle within the 11.3 kB budget
+(11.296 kB).
