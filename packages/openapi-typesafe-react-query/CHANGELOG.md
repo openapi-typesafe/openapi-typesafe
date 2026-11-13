@@ -2,6 +2,36 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.9
+
+### Patch Changes
+
+- [#112](https://github.com/openapi-typesafe/openapi-typesafe/pull/112) [`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2) Thanks [@fedorello](https://github.com/fedorello)! - Code that is generic in the path compiles again. `SuccessResponse`, `ErrorResponse`,
+  `ErrorResponseJSON` and the `data` and `error` of `FetchResponse` for `Paths[Path]` gave the whole
+  `responses` map next to the response bodies, so assigning them to the bodies failed with TS2322.
+  They give the bodies now. This also fixes the error type of hook wrappers generic in the path.
+
+- [#113](https://github.com/openapi-typesafe/openapi-typesafe/pull/113) [`eb04649`](https://github.com/openapi-typesafe/openapi-typesafe/commit/eb0464964981a30d3dc36ba15b91f7d18c157c8c) Thanks [@fedorello](https://github.com/fedorello)! - New `infiniteQueryKey(queryKey, pageParamName?)` writes the key of a `useInfiniteQuery` query
+  from `queryOptions(...).queryKey`, typed as `InfiniteQueryKey`, for `getQueryData` and
+  `setQueryData`. `[...queryKey, "infinite"]` gives the same key but does not type-check as an
+  `InfiniteQueryKey`.
+
+- [#113](https://github.com/openapi-typesafe/openapi-typesafe/pull/113) [`eb04649`](https://github.com/openapi-typesafe/openapi-typesafe/commit/eb0464964981a30d3dc36ba15b91f7d18c157c8c) Thanks [@fedorello](https://github.com/fedorello)! - A `Number`, `Boolean` or `String` object in a body (`new Number(1)`), as the whole body or inside
+  it, also from another realm, is keyed by its value again, as JSON sends it. Such bodies with
+  different values had the same query key (`{}`), so a second query showed the first one's data.
+
+- [#113](https://github.com/openapi-typesafe/openapi-typesafe/pull/113) [`eb04649`](https://github.com/openapi-typesafe/openapi-typesafe/commit/eb0464964981a30d3dc36ba15b91f7d18c157c8c) Thanks [@fedorello](https://github.com/fedorello)! - A body object with a `toJSON` sent as `multipart/form-data` or `application/x-www-form-urlencoded`
+  now gets its own query key for each set of fields. The key held only what `toJSON` returns, while
+  the form body sends the object's own fields, so two uploads of different files shared one cache
+  entry. The key now holds the object's fields too, in `bodyFields`.
+
+- [#113](https://github.com/openapi-typesafe/openapi-typesafe/pull/113) [`eb04649`](https://github.com/openapi-typesafe/openapi-typesafe/commit/eb0464964981a30d3dc36ba15b91f7d18c157c8c) Thanks [@fedorello](https://github.com/fedorello)! - A typed array inside a JSON body is keyed as JSON sends it. It was keyed by its bytes, so
+  `{ a: new Uint8Array([0, 1]) }` and `{ a: new Uint16Array([256]) }` shared a query key although
+  they send `{"a":{"0":0,"1":1}}` and `{"a":{"0":256}}`. A whole bytes body is still keyed by its
+  bytes.
+- Updated dependencies [[`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2), [`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2), [`05886b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/05886b5b8fdbb832f58abd12b9f8c741b0c73ad2)]:
+  - openapi-typesafe-fetch@1.0.0-rc.9
+
 ## 1.0.0-rc.8
 
 ### Patch Changes

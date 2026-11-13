@@ -2,6 +2,46 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.9
+
+### Patch Changes
+
+- [#117](https://github.com/openapi-typesafe/openapi-typesafe/pull/117) [`0345166`](https://github.com/openapi-typesafe/openapi-typesafe/commit/034516664fe4da93abb582618f2f768a2496dce9) Thanks [@fedorello](https://github.com/fedorello)! - `--enum`: a numbered enum name no longer takes the name of a component schema. With a tuple
+  `Pair` of two enums and a separate enum schema `Pair_2`, the tuple's second element took `Pair_2`,
+  so the schema's enum was declared as `Pair_2_2`. The schema now keeps `Pair_2`, and the element
+  gets `Pair_3`.
+
+- [#117](https://github.com/openapi-typesafe/openapi-typesafe/pull/117) [`0345166`](https://github.com/openapi-typesafe/openapi-typesafe/commit/034516664fe4da93abb582618f2f768a2496dce9) Thanks [@fedorello](https://github.com/fedorello)! - `--enum`: the elements of a `prefixItems` tuple get their own enums wherever the tuple is. Before,
+  only a tuple that is a whole component schema got `[Pair, Pair_2]`; a tuple in a property, an
+  `items`, an `anyOf` / `oneOf` member, a parameter or a response body still declared one enum name
+  twice (`export enum HolderSort`), which TypeScript merged, so each element accepted the values of
+  the other. `--dedupe-enums` did the same. Such a tuple now gives `[HolderSort, HolderSort_2]`, and a
+  `$ref` to one of its elements uses that element's enum.
+
+- [#117](https://github.com/openapi-typesafe/openapi-typesafe/pull/117) [`0345166`](https://github.com/openapi-typesafe/openapi-typesafe/commit/034516664fe4da93abb582618f2f768a2496dce9) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values`: an array whose schema sits next to an object, an array or a tuple in an `anyOf`
+  / `oneOf` (or a `prefixItems` tuple) is now typed by its own values. Before, an enum `[a, b]` next
+  to `{ type: object }` typed the items of `["a", "b"]` as `"a" | "b" | Record<string, never>`, so a
+  string method on an item did not compile. It is now `ReadonlyArray<"a" | "b">`.
+
+- [#117](https://github.com/openapi-typesafe/openapi-typesafe/pull/117) [`0345166`](https://github.com/openapi-typesafe/openapi-typesafe/commit/034516664fe4da93abb582618f2f768a2496dce9) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` to a `false` schema (`additionalProperties: false`, `unevaluatedProperties: false`,
+  `items: false`) no longer prints a "Could not resolve $ref" warning (`REF_NOT_FOUND`) with the
+  `read-write-refs` fix or `--fix=all`. The `$ref` resolved all along; only the warning was wrong.
+
+- [#117](https://github.com/openapi-typesafe/openapi-typesafe/pull/117) [`0345166`](https://github.com/openapi-typesafe/openapi-typesafe/commit/034516664fe4da93abb582618f2f768a2496dce9) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` into a property of a schema with `properties` next to `oneOf` or `anyOf` now compiles.
+  `#/components/schemas/Pet/properties/owner/properties/name`, where `Pet` has a `oneOf` (the usual
+  discriminator shape), was written `Pet["owner"]["name"]`, which fails through the optional `owner`
+  (TS2339). It is now `NonNullable<Pet["owner"]>["name"]`. Where the type is a union whose member
+  does not have the property (`anyOf` without the `anyof-properties` fix), the `$ref` gets the
+  type it points at.
+
+- [#115](https://github.com/openapi-typesafe/openapi-typesafe/pull/115) [`4efc594`](https://github.com/openapi-typesafe/openapi-typesafe/commit/4efc594ab40d71c409d5db63d06a29cb649fee58) Thanks [@fedorello](https://github.com/fedorello)! - A schema given as text that is only a location (a string, a `Buffer`, a stream, or stdin in the
+  CLI) now follows the same rule as the CLI's schema argument. A relative `file:` URL such as
+  `file:api.yaml` loads that file from `cwd` (the current directory in the CLI) instead of failing
+  with `SCHEMA_SOURCE_INVALID`. On stdin, a URL that does not parse (`http://[::1/x`) fails with
+  `CLI_LOCATION_INVALID` and exit code `2`, as the schema argument does. Text with whitespace is
+  always a document, so YAML whose first key looks like a URL (`http://host/a: b`) is parsed as
+  YAML instead of being loaded as a URL.
+
 ## 1.0.0-rc.8
 
 ### Patch Changes
