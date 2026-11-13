@@ -138,11 +138,20 @@ type BodyType<T = unknown> = {
   stream: Response["body"];
 };
 export type ParseAs = keyof BodyType;
-export type ParseAsResponse<T, Options> = Options extends {
-  parseAs: ParseAs;
-}
-  ? BodyType<T>[Options["parseAs"]]
+/**
+ * The data of a success body `T` read with the `parseAs` of `Options`. Each value of a union gives
+ * its body, and `undefined` is the default `"json"`, as at runtime: a wrapper that passes on
+ * `parseAs: "text" | undefined` gets `string | T`, not `T` only. An optional `parseAs` (the
+ * declared init type, as for a call without options) gives `T`, as in openapi-fetch. No `infer`:
+ * TypeScript relates a type to a deferred conditional type through both of its branches only
+ * when it infers nothing, and generic hooks return the data of a call as this type.
+ */
+export type ParseAsResponse<T, Options> = Options extends { parseAs: ParseAs | undefined }
+  ? BodyType<T>[ParseAsValue<Options["parseAs"]>]
   : T;
+
+/** How a `parseAs` value reads the body, for each member of a union; `undefined` reads JSON. */
+type ParseAsValue<Value> = Value extends ParseAs ? Value : "json";
 
 export interface DefaultParamsOption {
   params?: { query?: Record<string, unknown> | undefined } | undefined;

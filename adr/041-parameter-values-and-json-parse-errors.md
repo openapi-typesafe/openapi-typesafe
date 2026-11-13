@@ -332,3 +332,45 @@ A success body is unchanged: `parseAs` decides, whatever the `Content-Type` (ope
 
 The `"Content-Type"` name is now one constant, which keeps the bundle within the 11.3 kB budget
 (11.296 kB).
+
+## Amendment (2026-11-13): the error type follows the media type too
+
+The amendment above changed the runtime only. The error types still gave the declared schema of
+every media type that `Media` picks, so with the default `Media` a `text/plain` error with an
+`integer` or `boolean` schema was typed `number` or `boolean`, while the client returns the text:
+`error === false` compiled and was never true. The rule is now the runtime's, for each declared
+error media type (`ErrorBody` in `helpers.ts`):
+
+1. A JSON media type (the pattern of `JSON_MEDIA_TYPE_RE`, in any case): the schema.
+2. A media range (`*/*`, `application/*`, `text/*`, any `<type>/*`, with or without
+   parameters), or a content map with an index signature (`Record<string, …>`): the schema or a
+   `string`. The client parses any `<type>/json`, `text/json` too, so every range may hold JSON.
+3. Any other media type: a `string`, whatever its schema.
+
+One type-level JSON rule serves the JSON helpers and the error types (`JSONMediaPattern`,
+`JSONMediaRange`, `IsJSONMediaType`). `JSONMediaRange` was `*/*` and `application/*` only; it
+is now every range, so `SuccessResponseJSON`, `ErrorResponseJSON` and `JSONLike` also take a
+`text/*` body, like an `application/*` one. Success `data` is unchanged otherwise: the default
+`parseAs: "json"` parses any body, so a picked media type keeps its schema.
+
+Success and error bodies now have an alias each. A branch on the body class inside one alias, or
+error bodies mapped first and then indexed by `Media`, made the result of a wrapper generic in the
+path unrelated to a `FetchResponse` with another `Media` (TS2322, ADR-030). The error type picks
+media types by key instead (`Content[keyof Content & Media & JSONErrorMediaTypes<Content>]`, plus
+`string` when a picked media type may be text), which relates as before.
+
+`ParseAsResponse` also follows the runtime for a `parseAs` that may be `undefined`: each member of
+the union gives its body and `undefined` is `"json"`, so `parseAs: "text" | undefined` (a wrapper
+that passes its option on, allowed since `undefined` options are typed) gives `string | T`. An
+optional `parseAs` (the declared init type) still gives `T`, as in openapi-fetch. The type reads
+`Options["parseAs"]` rather than `infer`: TypeScript relates a value to a deferred conditional type
+through both branches only when it infers nothing, and the react-query hooks return a call's data
+as this type for a generic path.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Error type by media type (chosen) | Types and runtime agree | A schema of a non-JSON error is not used |
+| Parse non-JSON error bodies again | Schemas stay meaningful | Brings back the falsy `0` and `null` errors |
+| Type every non-JSON error body as `unknown` | No wrong type | Loses the `string` that HTML and text errors are |
+
+Types only; the bundle is unchanged.
