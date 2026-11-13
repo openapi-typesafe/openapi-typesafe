@@ -231,3 +231,28 @@ place (`isMissingComposedKey`), as it does for a left-out property.
 
 `generated-shape.ts` grew past the file limit, so the member type and the way parts join moved
 to `generated-member.ts`, and the composition parts to `variants-form.ts`.
+
+## Amendment (2026-11-13): variants without a type of their own
+
+The amendment above read `oneOf` as `Base & (A | B)` only where a variant is surely composite (a
+component, an object with object keywords, an array), and every shape under
+`anyof-oneof-required` as opaque. So the commonest shape of all, "one of these fields is
+required" (`oneOf: [{ required: [email] }, { required: [phone] }]`), and variants that are only
+`{ type: object }` (with a `title`, say) kept `Contact["owner"]["name"]` (TS2339 through an
+optional `owner`), with and without the fix. The walk now reads what the generator emits for them:
+
+1. **A variant with no type of its own.** A variant with no `type` or `type: object`, and no
+   keyword that types it otherwise (`$ref`, `const`, `enum`, `allOf` / `anyOf` / `oneOf`), is
+   `unknown` or `Record<string, never>`, neither a primitive keyword (`isPrimitiveType`), so
+   `oneOfType` writes `Base & (A | B)`: the form is `intersection`. A key of `unknown` is missing.
+2. **`Record<string, never>`** is now its own member kind, `never`, not `opaque`: alone it
+   compiles for every key and every key after it, as before. In an intersection, TypeScript reads
+   a key that a part declares (a property or `$defs`) from the declaring parts alone; the index
+   signatures of the other parts (this one and `additionalProperties`) take no part in it. So
+   `{ owner?: O } & Record<string, never>` reads `owner` as `O | undefined`.
+3. **`anyof-oneof-required`.** Where the fix applies (`hasRequiredVariants`: an object schema
+   whose variants each require only properties it keeps), the type is
+   `WithRequired<Base, "a"> | WithRequired<Base, "b">`. The form `required` carries the key lists:
+   a key reads the base's member, required where every variant requires it (`-?` drops
+   `undefined`), optional otherwise. Where the fix does not apply, the variants read as without
+   it.

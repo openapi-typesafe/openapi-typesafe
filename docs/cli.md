@@ -1211,9 +1211,12 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
 - The same holds next to `oneOf` or `anyOf` variants, where the type is the own properties
   joined with the variants. Where it is an intersection (`oneOf` with an object variant, or
   `anyOf` with the `anyof-properties` fix), a property no variant declares is read through the
-  own properties. Where it is a union (`anyOf` without that fix, or `oneOf` of primitives) and a
-  variant does not have the property, no pointer through it compiles, so it gets the target's
-  type inline.
+  own properties. Variants that only say which properties are required
+  (`oneOf: [{ required: [email] }, { required: [phone] }]`, with or without `type: object`) count
+  as object variants, and with the `anyof-oneof-required` fix the property is read through each
+  `WithRequired` member. Where it is a union (`anyOf` without that fix, or `oneOf` of primitives)
+  and a variant does not have the property, no pointer through it compiles, so it gets the
+  target's type inline.
 - A pointer to `unevaluatedProperties` gets the target's type inline: without the
   `unevaluated-properties` fix (or next to `additionalProperties`) the keyword is not in the type,
   so the original reads another member or `never`, and with the fix the index signature also holds

@@ -304,7 +304,7 @@ describe("keywords the generated type ignores", () => {
     generatedMember(located(DOCUMENT.components.schemas[name as "Item"]), key, options, REFS).kind;
 
   it("generatedMember of an object without object keywords reads Record<string, never>", () => {
-    expect(member("Blank", "items")).toBe("opaque");
+    expect(member("Blank", "items")).toBe("never");
     expect(member("Blank", "items", { ...OPTIONS, emptyObjectsUnknown: true })).toBe("missing");
     expect(member("Hollow", "allOf")).toBe("missing");
   });
