@@ -5,7 +5,7 @@ import {
   MANIFEST_COMMAND_PATHS,
 } from "../../src/domain/command-paths.js";
 import { type DocumentString, documentStrings } from "../../src/domain/config-documents.js";
-import { TASKFILE_COMMAND_KEYS } from "../../src/domain/yaml-command-keys.js";
+import { TASKFILE } from "../../src/domain/yaml-environments.js";
 import {
   migrateDependabotConfig,
   migrateYamlCommands,
@@ -256,12 +256,7 @@ describe("migrateYamlCommands with the keys of a file kind", () => {
       "    desc: openapi-typescript a.yaml",
     );
 
-    const migrated = migrateYamlCommands(
-      text,
-      "Taskfile.yml",
-      stringsOf(text),
-      TASKFILE_COMMAND_KEYS,
-    );
+    const migrated = migrateYamlCommands(text, "Taskfile.yml", stringsOf(text), TASKFILE);
 
     expect(migrated.text).toBe(
       text
@@ -283,12 +278,7 @@ describe("migrateYamlCommands with the keys of a file kind", () => {
       "      - defer: { task: openapi-typescript }",
     );
 
-    const migrated = migrateYamlCommands(
-      text,
-      "Taskfile.yml",
-      stringsOf(text),
-      TASKFILE_COMMAND_KEYS,
-    );
+    const migrated = migrateYamlCommands(text, "Taskfile.yml", stringsOf(text), TASKFILE);
 
     expect(migrated.text).toBe(
       lines(
