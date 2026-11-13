@@ -157,6 +157,60 @@ describe("migrateYamlCommands and workflow expressions", () => {
     ]);
   });
 
+  it("migrateYamlCommands reports the old flags of an input default where they are passed", () => {
+    const text = lines(
+      "inputs:",
+      "  flags: { default: --immutable-types }",
+      "  more: { default: -it }",
+      "  other: { default: -x }",
+      "runs:",
+      "  steps:",
+      `    - run: npx openapi-typescript a.yaml ${expression("inputs.flags")}`,
+      `    - run: npx openapi-typescript a.yaml "${expression("inputs.more")}"`,
+      `    - run: npx openapi-typescript a.yaml ${expression("inputs.other")}`,
+    );
+
+    const migrated = migrateYamlCommands(text, "action.yml", stringsOf(text));
+
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "flags-in-variable",
+        location: "action.yml:7",
+        variable: expression("inputs.flags"),
+        flags: ["--immutable-types"],
+      },
+      {
+        kind: "flags-in-variable",
+        location: "action.yml:8",
+        variable: `"${expression("inputs.more")}"`,
+        flags: ["-it"],
+      },
+    ]);
+  });
+
+  it("migrateYamlCommands reads the defaults of one input name in a workflow as one", () => {
+    const text = lines(
+      "on:",
+      "  workflow_call: { inputs: { flags: { default: -it } } }",
+      "  workflow_dispatch: { inputs: { flags: { default: -x } } }",
+      "jobs:",
+      "  a:",
+      "    steps:",
+      `      - run: npx openapi-typescript a.yaml ${expression("inputs.flags")}`,
+    );
+
+    const migrated = migrateYamlCommands(text, "ci.yml", stringsOf(text));
+
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "flags-in-variable",
+        location: "ci.yml:7",
+        variable: expression("inputs.flags"),
+        flags: ["-it"],
+      },
+    ]);
+  });
+
   it("migrateYamlCommands reads the input defaults of a reusable workflow", () => {
     const text = lines(
       "on:",

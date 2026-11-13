@@ -7,6 +7,7 @@ import {
 import { type CommandPathPattern, isCommandPath } from "./command-paths.js";
 import { type DocumentString, ownerKey } from "./config-documents.js";
 import type { FileVariables } from "./file-variables.js";
+import { isInputDefault, withInputDefaults } from "./input-defaults.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import { shellVariables } from "./shell-variables.js";
@@ -29,20 +30,6 @@ const ENVIRONMENT_KEYS: ReadonlySet<string> = new Set(["env"]);
 
 const isEnvironmentValue = (value: DocumentString): boolean =>
   value.path.length >= 2 && ENVIRONMENT_KEYS.has(String(value.path.at(-2)));
-
-/**
- * The default of an input of an action (`inputs.NAME.default` in `action.yml`) or of a reusable
- * or manual workflow (`on.workflow_call.inputs`): a step that runs `${{ inputs.NAME }}` runs it
- * when the caller gives none, so it is read as shell text, as an `env` value is.
- */
-const INPUTS_KEY = "inputs";
-const DEFAULT_KEY = "default";
-const INPUT_DEFAULT_DEPTH = 3;
-
-const isInputDefault = (value: DocumentString): boolean =>
-  value.path.length >= INPUT_DEFAULT_DEPTH &&
-  value.path.at(-1) === DEFAULT_KEY &&
-  value.path.at(-INPUT_DEFAULT_DEPTH) === INPUTS_KEY;
 
 /**
  * The `env` variables of a file as its commands use them: `$GEN` runs the generator when an `env`
@@ -214,7 +201,7 @@ export function migrateYamlCommands(
   const shellValues = strings.filter(
     (value) => commandValues.has(value) || isEnvironmentValue(value) || isInputDefault(value),
   );
-  const variables = environmentVariables(text, strings);
+  const variables = withInputDefaults(environmentVariables(text, strings), strings);
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(text, value, locate, variables)),
     commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),
