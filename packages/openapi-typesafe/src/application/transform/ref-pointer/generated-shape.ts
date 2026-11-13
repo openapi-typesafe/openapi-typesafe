@@ -7,6 +7,7 @@ import {
   intersectionMember,
   isMissing,
   MISSING,
+  NEVER_VALUES,
   OPAQUE,
   variantsMember,
 } from "./generated-member.js";
@@ -57,7 +58,7 @@ const INDEX_RE = /^\d+$/;
  * which has no key). Without a `type` it is `unknown`.
  */
 function emptyObjectMember(node: JsonObject, options: SchemaOptions): GeneratedMember {
-  return node.type !== undefined && !options.emptyObjectsUnknown ? OPAQUE : MISSING;
+  return node.type !== undefined && !options.emptyObjectsUnknown ? NEVER_VALUES : MISSING;
 }
 
 /** Whether a key the object has no property for is still a member: `toString`, `length`, `0`. */
@@ -120,7 +121,7 @@ function composedMember(
   const base = intersectionMember(parts.map((part) => memberAt(part, key, input)));
   return variants.length === 0
     ? base
-    : variantsMember(base, members, variantsFormOf(node, input.options));
+    : variantsMember(base, members, variantsFormOf(node, input), key);
 }
 
 /**

@@ -22,11 +22,43 @@ const SCHEMAS = {
   PrimitivePet: { type: "object", properties: OWN, oneOf: [{ type: "string" }, { type: "number" }] },
   SharedPet: { type: "object", properties: OWN, oneOf: [ref("Owned")] },
   RequiredPet: { type: "object", properties: OWN, anyOf: [{ required: ["owner"] }] },
+  OneRequiredPet: {
+    type: "object",
+    properties: { ...OWN, email: { type: "string" }, phone: { type: "string" } },
+    oneOf: [{ required: ["email"] }, { required: ["phone"] }],
+  },
+  ObjectRequiredPet: {
+    type: "object",
+    properties: OWN,
+    oneOf: [
+      { type: "object", required: ["email"] },
+      { type: "object", required: ["phone"] },
+    ],
+  },
+  TitledPet: {
+    type: "object",
+    properties: OWN,
+    oneOf: [
+      { type: "object", title: "A" },
+      { type: "object", title: "B" },
+    ],
+  },
   Cat: { type: "object", properties: { meow: { type: "boolean" } } },
   Dog: { type: "object", properties: { bark: { type: "boolean" } } },
   Owned: { type: "object", properties: { owner: OWNER } },
 };
-const NAMES = ["OnePet", "AnyPet", "PrimitivePet", "SharedPet", "RequiredPet"];
+const NAMES = [
+  "OnePet",
+  "AnyPet",
+  "PrimitivePet",
+  "SharedPet",
+  "RequiredPet",
+  "OneRequiredPet",
+  "ObjectRequiredPet",
+  "TitledPet",
+];
+const VARIANT_SHAPES = ["OneRequiredPet", "ObjectRequiredPet", "TitledPet"];
+const readThrough = (name: string) => `${name}?: NonNullable<components["schemas"]["${name}"]["owner"]>["name"];`;
 const ownerName = (name: string) => ref(`${name}/properties/owner/properties/name`);
 const USE = {
   type: "object",
@@ -68,6 +100,23 @@ describe("$refs into properties next to anyOf and oneOf", () => {
     expect(output).toContain("RequiredPet?: string;");
   });
 
+  it.each([[{}], [{ fix: ["anyof-oneof-required"] }], [{ emptyObjectsUnknown: true }]] as const)(
+    "openapiTS %j reads through properties next to untyped variants",
+    async (options) => {
+      const output = await generate({ ...options, fix: "fix" in options ? [...options.fix] : [] });
+
+      for (const name of VARIANT_SHAPES) {
+        expect(output).toContain(readThrough(name));
+      }
+    },
+  );
+
+  it("openapiTS with anyof-oneof-required keeps a property every variant requires", async () => {
+    const output = await generate({ fix: ["anyof-oneof-required"] });
+
+    expect(output).toContain('RequiredPet?: components["schemas"]["RequiredPet"]["owner"]["name"];');
+  });
+
   it("openapiTS with anyof-properties reads through the properties next to anyOf", async () => {
     const output = await generate({ fix: ["anyof-properties"] });
 
@@ -80,4 +129,8 @@ describe("$refs into properties next to anyOf and oneOf", () => {
       expect(typeErrorsOf(await generate({ fix: [...fix] }))).toEqual([]);
     },
   );
+
+  it("openapiTS with --empty-objects-unknown writes output that compiles", async () => {
+    expect(typeErrorsOf(await generate({ emptyObjectsUnknown: true }))).toEqual([]);
+  });
 });

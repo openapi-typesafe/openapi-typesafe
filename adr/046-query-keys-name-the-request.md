@@ -221,6 +221,56 @@ whole body and a member (about 50), `bodyFields` (about 55) and the `infiniteQue
 could only shrink by cutting unrelated behavior, such as the signal merging, or one of these
 fixes.
 
+## Amendment (2026-11-13): plain values for filters, texts of `NaN`, two types
+
+The rule of the second amendment of 2026-11-12 holds; this amendment adds that a key must hold
+plain values only, since TanStack Query's filters read the key, not only its hash.
+
+1. **Objects in a key that filters cannot tell apart.** `invalidateQueries`, `setQueriesData` and
+   `removeQueries` match a key as a prefix with `partialMatchKey`, which compares two objects by
+   the own members of the filter's one. A Date, a boxed primitive or another object with a
+   `toJSON` was kept in the key as it is: in a body (for its JSON form), and as a parameter value.
+   It has no own members, so a filter with the key of one date matched the queries of every other
+   date, and `setQueriesData` wrote one query's data into the others. The key now holds the plain
+   form of such a value:
+   - in a body, its JSON form: what `toJSON` returns, or the primitive of a boxed primitive. The
+     hash is the same as before, so keys do not change. An object form is walked by its members,
+     as JSON writes it. A whole body with own members keeps them in `bodyFields`, as before.
+   - in `params` records and in plain `headers`, the form the fetch client sends: a value with a
+     `toISOString` (how the client tells a date) as its ISO text, through
+     `Date.prototype.toJSON`, which gives `null` for an invalid date instead of throwing while the
+     component renders; any other object or array by its members, each as sent. A boxed primitive
+     there is its members, as the client sends it (`new Number(1)` sends nothing).
+2. **`NaN` and the infinities.** The hash writes them as `null`, so in a parameter or a form
+   field they shared the key of `null` and of each other, while the fetch client sends the text
+   `NaN` or `Infinity` and nothing for `null`. A `NaN` kept in a key also never matched itself in
+   a filter (`NaN !== NaN`). In `params` and `headers` they are now their text, which is what is
+   sent, so `NaN` and `"NaN"` share a key, as they share a request. In a body the key cannot tell
+   JSON from a form body (the `Content-Type` may come from the fetch client), so the body keeps
+   JSON's `null` and `bodyType` names the text (`{ n: "NaN" }`). A JSON body with `NaN` and one
+   with `null` then send the same request under two keys: one request more, never another
+   request's data.
+3. **`infiniteQueryKey` of a general key.** For a TanStack `QueryKey` (`readonly unknown[]`) or a
+   tuple of another length than 2 or 3, the result type was `never`. Such a key now stays as it
+   is, so the result is a readonly array ending in the marker; the keys of `queryOptions` keep
+   their precise types.
+4. **`undefined` options.** Under `exactOptionalPropertyTypes`, `keyScope` of `createClient` and
+   `pageParamName` of `useInfiniteQuery` rejected `undefined`, which a wrapper passes when its own
+   option is left out, while the runtime already reads `undefined` as left out. Both now say
+   `| undefined`, as the options of the fetch client do (ADR-041). The other options are
+   TanStack Query's and keep its types.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Plain forms in the key (chosen) | Filters and hashes agree; key hash of JSON bodies unchanged | About 470 bytes |
+| Keep objects, document filters by hand-written prefixes | No code | `setQueriesData` writes wrong data with no error |
+| `NaN` as its text in a body too | One shape | JSON `NaN` and `"NaN"`, which send different bodies, share a key |
+| Pick the form by the init's `Content-Type` | Exact for JSON bodies | Wrong for a `Content-Type` set on the fetch client |
+
+**Size.** The bundle grows from 4.08 kB to 4.55 kB minified (1.94 kB gzipped), so the budget
+rises to 4.6 kB: the plain forms of parameter and header values (about 280 bytes) and of body
+values with the `NaN` kinds (about 190). Correctness ranks above size (ADR-013, ADR-030).
+
 ## Review trigger
 
 A report of two queries that share an entry while their requests differ in something a key can

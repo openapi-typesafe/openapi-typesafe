@@ -287,6 +287,41 @@ Two follow-ups of the enum names of the rc.4 amendment, both defaults by its tes
    transformed (`componentEnumNames`), and a number skips them. Which location keeps an
    unnumbered name is unchanged: the first one that asks.
 
+## Amendment (2026-11-13): enum names do not depend on traversal order
+
+Point 2 of the amendment above kept numbers off component names only. A number could still take
+the name a property asks for later: a tuple property `sort` (two enum elements) next to an enum
+property `sort_2` of `Holder` gave `[HolderSort, HolderSort_2]`, and the `sort_2` enum, named
+`HolderSort_2` in rc.8, became `HolderSort_2_2`. Element numbers also followed the order the
+generator met the elements: a path parameter `$ref` to `Tup/prefixItems/1`, met before the
+component, gave `[Tup_2, Tup]`. An unrelated `$ref` changed public enum names. Both are defaults
+by the test of the rc.4 amendment: the output contradicted the name the document gives a
+location, and changed with the order of the document.
+
+The rule: **first collect every name each location asks for, then number.**
+
+1. While the document is transformed, each owner gets a name as before (`EnumNameClaims.nameFor`),
+   and the claims record the name asked for, the order of asking, and a tuple element's position
+   (`EnumDeclarationRequest.tupleIndex`; elements of the same values share one owner, at the
+   lowest position).
+2. At the end, when every request is known, `finalEnumNames` decides the names, and
+   `withEnumsRenamed` renames the output, the step that already gave back the names the output
+   turned out not to need:
+   - The first owner of a name keeps it; a name the output may need goes to a number first and
+     comes back where the finished output does not need it, as before.
+   - The elements of a tuple rank together, where the first of them asked, and among themselves by
+     position, so the first element keeps the tuple's name and the later ones are numbered in
+     position order.
+   - Every later owner gets the next free number, which skips every name any location asked for,
+     the component enum names and the names the output may need.
+3. A number of one name can never be a number of another (`A_2` is no `A_2_<n>`), and every name
+   asked for is skipped, so the order of names does not change any number.
+
+Output where no number met a name asked for later, and where tuples are met in position order
+(every document before a `$ref` to a later element), keeps every name: the final names equal the
+ones the run gave. The per-object functions (`transformSchemaObject` and the others) have no end
+of document, so they keep the names given as they go.
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

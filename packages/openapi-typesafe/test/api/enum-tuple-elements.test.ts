@@ -106,3 +106,30 @@ describe("--enum numbers next to component names", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 });
+
+describe("--enum numbers next to names other locations ask for", () => {
+  it("openapiTS keeps a property's enum name that a tuple element's number would take", async () => {
+    const holder = { ...HOLDER.Holder, properties: { sort: SORT, sort_2: { enum: ["k1"] } } };
+
+    const output = await generate(documentWith({ Holder: holder }));
+
+    expect(output).toMatch(/sort\?: \[\n\s+HolderSort,\n\s+HolderSort_3\n\s+\];/);
+    expect(output).toContain("sort_2?: HolderSort_2;");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS numbers tuple elements by position when a $ref meets a later one first", async () => {
+    const parameter = {
+      name: "sort",
+      in: "query",
+      schema: { $ref: "#/components/schemas/Tup/prefixItems/1" },
+    };
+    const paths = { "/x": { get: { parameters: [parameter], responses: {} } } };
+
+    const output = await generate(documentWith({ Tup: SORT }, paths));
+
+    expect(output).toMatch(/Tup: \[\n\s+Tup,\n\s+Tup_2\n\s+\];/);
+    expect(output).toContain("sort?: Tup_2;");
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+});

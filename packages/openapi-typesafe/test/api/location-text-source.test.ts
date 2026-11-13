@@ -31,3 +31,23 @@ describe("openapiTS with location text", () => {
     expect(types).toBe(expected);
   });
 });
+
+describe("openapiTS with location text and a remote cwd", () => {
+  it.each([
+    ["a string", () => RELATIVE_FILE_URL, "The string"],
+    ["a stream", () => Readable.from([RELATIVE_FILE_URL]), "The stream text"],
+  ])(
+    "openapiTS with a relative file: URL in %s and an https: cwd rejects with SCHEMA_SOURCE_INVALID",
+    async (_, source, name) => {
+      const run = openapiTS(source(), { cwd: "https://example.invalid/specs/", silent: true });
+
+      await expect(run).rejects.toMatchObject({
+        code: "SCHEMA_SOURCE_INVALID",
+        message:
+          `${name} file:api.yaml is a relative file: URL, which needs a file: cwd; cwd is a ` +
+          "https: URL. Pass an absolute file: URL or a local cwd",
+        details: { reason: "relative-file", text: RELATIVE_FILE_URL },
+      });
+    },
+  );
+});

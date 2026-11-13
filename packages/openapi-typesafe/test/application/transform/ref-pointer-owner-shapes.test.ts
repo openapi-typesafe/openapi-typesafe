@@ -78,8 +78,8 @@ describe("generatedMember of unevaluatedProperties", () => {
   it("generatedMember without the fix reads the keyword as missing from the type", () => {
     expect(member("Stats", "unevaluatedProperties").kind).toBe("missing");
     expect(member("Only", "unevaluatedProperties").kind).toBe("missing");
-    expect(member("Only", "other").kind).toBe("opaque");
-    expect(member("ClosedOnly", "unevaluatedProperties").kind).toBe("opaque");
+    expect(member("Only", "other").kind).toBe("never");
+    expect(member("ClosedOnly", "unevaluatedProperties").kind).toBe("never");
     expect(member("Named", "unevaluatedProperties").kind).toBe("property");
   });
 

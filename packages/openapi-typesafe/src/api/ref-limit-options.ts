@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { RefAccess } from "../application/ports/schema-loader.js";
-import { hasUrlScheme } from "../domain/location-text.js";
+import { hasUrlScheme, parseUrlLocation } from "../domain/location-text.js";
 import type { GeneratorOptions } from "../types.js";
 import { isLocalFileUrl, NO_LOCAL_PATH_KIND } from "./local-file-url.js";
 import { kindOf, optionInvalid } from "./option-errors.js";
@@ -15,26 +15,35 @@ import { kindOf, optionInvalid } from "./option-errors.js";
 const FILE_PROTOCOL = "file:";
 
 const LOCAL_ROOT_EXPECTED = "a directory path or a file: URL";
-const RELATIVE_ROOT_EXPECTED = "an absolute path or a file: URL when cwd is no file: URL";
+const RELATIVE_ROOT_EXPECTED = "an absolute path or file: URL when cwd is no file: URL";
+
+/** A relative local root names no local directory against a cwd that is no `file:` URL. */
+function relativeRootError(relative: string, cwd: URL): Error {
+  return optionInvalid(
+    "localRefRoot",
+    RELATIVE_ROOT_EXPECTED,
+    `${relative}, and cwd is ${kindOf(cwd)}`,
+  );
+}
 
 /**
  * A string as the CLI reads `--local-ref-root`: a URL when it has a scheme (`file:///specs/`),
  * else a path that resolves against the cwd. Undefined when it does not parse as a URL. A
- * relative path needs a local cwd: with an `http:` cwd it names no local directory.
+ * relative path or `file:` URL needs a local cwd: with an `http:` cwd it names no local directory.
  */
 function localRootUrlOf(value: string, cwd: URL): URL | undefined {
   if (hasUrlScheme(value)) {
-    return URL.parse(value, cwd.href) ?? undefined;
+    const resolved = parseUrlLocation(value, cwd);
+    if (resolved.kind === "relative-file") {
+      throw relativeRootError("a relative file: URL", cwd);
+    }
+    return resolved.kind === "url" ? resolved.url : undefined;
   }
   if (path.isAbsolute(value)) {
     return pathToFileURL(value);
   }
   if (cwd.protocol !== FILE_PROTOCOL) {
-    throw optionInvalid(
-      "localRefRoot",
-      RELATIVE_ROOT_EXPECTED,
-      `a relative path, and cwd is ${kindOf(cwd)}`,
-    );
+    throw relativeRootError("a relative path", cwd);
   }
   return pathToFileURL(path.resolve(fileURLToPath(cwd), value));
 }

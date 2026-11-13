@@ -1,3 +1,4 @@
+import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { refAccessOf } from "../../src/api/ref-limit-options.js";
@@ -67,10 +68,31 @@ describe("refAccessOf", () => {
       expect.objectContaining({
         code: "OPTION_INVALID",
         message:
-          "The localRefRoot option must be an absolute path or a file: URL when cwd is no file: " +
+          "The localRefRoot option must be an absolute path or file: URL when cwd is no file: " +
           "URL; got a relative path, and cwd is a http: URL.",
       }),
     );
+  });
+
+  it("refAccessOf with a relative file: URL localRefRoot and an http: cwd fails with OPTION_INVALID", () => {
+    const access = () => refAccessOf({ localRefRoot: "file:specs/" }, new URL("https://example.com/specs/"));
+
+    expect(access).toThrow(
+      expect.objectContaining({
+        code: "OPTION_INVALID",
+        message:
+          "The localRefRoot option must be an absolute path or file: URL when cwd is no file: " +
+          "URL; got a relative file: URL, and cwd is a https: URL.",
+      }),
+    );
+  });
+
+  it("refAccessOf with an absolute file: URL localRefRoot and an http: cwd keeps the URL", () => {
+    const root = pathToFileURL(path.resolve("specs"));
+
+    expect(refAccessOf({ localRefRoot: root.href }, new URL("http://localhost:1/"))).toEqual({
+      localRoot: root,
+    });
   });
 
   it("refAccessOf with an absolute localRefRoot and an http: cwd keeps the path", () => {

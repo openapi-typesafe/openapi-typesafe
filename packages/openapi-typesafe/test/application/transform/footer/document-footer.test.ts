@@ -189,7 +189,7 @@ describe("RunFooter", () => {
   it("addEnum numbers a tuple element of other values and shares one of the same values", () => {
     const sink = new InMemorySink();
     const footer = new RunFooter(sink, false);
-    const element = { ...STATUS, name: "/Pair", isTupleElement: true };
+    const element = { ...STATUS, name: "/Pair", tupleIndex: 0 };
 
     const names = [
       footer.addEnum({ ...element, values: ["asc", "desc"] }),

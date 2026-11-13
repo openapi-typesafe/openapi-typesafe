@@ -18,16 +18,20 @@ describe("runCli: a location that is not a valid URL", () => {
     expect(cli.logger.messages("error")).toEqual([SHOWN]);
   });
 
-  it("runCli with a Redocly root that is not a valid URL exits with 2", async () => {
+  it("runCli with a Redocly root that is not a valid URL fails that API by name", async () => {
     const config = fakePath("/work/redocly.yaml");
     const cli = createFakeCli();
-    const apis = { bad: { root: BAD_URL, "x-openapi-ts": { output: "bad.ts" } } };
+    const apis = {
+      bad: { root: BAD_URL, "x-openapi-ts": { output: "bad.ts" } },
+      good: { root: "good.yaml", "x-openapi-ts": { output: "good.ts" } },
+    };
     cli.redoclyConfigs.configs.set(config, fakeRedoclyConfig(apis, config));
     cli.redoclyConfigs.found = config;
 
     const exitCode = await runCli([], cli.deps);
 
     expect(exitCode).toBe(2);
-    expect(cli.logger.messages("error")).toContain(SHOWN);
+    expect(cli.logger.messages("error")).toEqual([`API bad: ${SHOWN}`]);
+    expect(cli.generator.calls.map((call) => call.apiName)).toEqual(["good"]);
   });
 });

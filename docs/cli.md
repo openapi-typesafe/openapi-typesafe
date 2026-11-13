@@ -50,7 +50,7 @@ apis:
 
 :::
 
-Under `x-openapi-ts`, an API can set `output`, every generator flag of the [flags table](#flags) (the boolean flags except `--check`, `--help` and `--version`; `lint: false` is `--no-lint`), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. The lint settings an API sets in `redocly.yaml` next to its `root` (`rules` and the other lint settings) apply to that API, as `redocly lint <name>` applies them; openapi-typescript linted every API with the root rules only. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint. A setting of the wrong type (`root-types: "true"`, an `output` that is no text, an `x-openapi-ts` that is no map) and an API without a `root` fail that API with `CLI_CONFIG_INVALID`, which names the API and the key; an unknown name in an API's `fix` fails it with `OPTION_FIX_UNKNOWN`, which names the API. An error while an API is loaded, generated, written or checked (an output error such as `OUTPUT_STALE` or `CLI_OUTPUT_DUPLICATE` too) starts with `API <name>:` too, and keeps its code and exit code; so does every warning, problem and debug line of its generation. A notice about flags follows the CLI flags together with the API's settings and names the API (`API a: --root-types-keep-casing has no effect without --root-types flag`). An invalid `--local-ref-root` fails the run once, before any API. The other APIs are still generated. `content-never` is accepted and has no effect, as on the command line.
+Under `x-openapi-ts`, an API can set `output`, every generator flag of the [flags table](#flags) (the boolean flags except `--check`, `--help` and `--version`; `lint: false` is `--no-lint`), [`fix`](#fix) (a list or a comma-separated string), `local-ref-root` and `remote-ref-hosts` (a list or a comma-separated string), in kebab-case or camelCase. A setting of an API replaces the CLI flag of the same name for that API. The lint settings an API sets in `redocly.yaml` next to its `root` (`rules` and the other lint settings) apply to that API, as `redocly lint <name>` applies them; openapi-typescript linted every API with the root rules only. `local-ref-root` is relative to `redocly.yaml`; an empty value means the directory of `redocly.yaml`, and a URL that does not parse (`http://[::1/x`) fails that API with `CLI_CONFIG_INVALID`, as a URL of another protocol does. Any other key is ignored with the warning `CONFIG_SETTING_UNKNOWN`, so a misspelled setting does not change the output without a hint. A setting of the wrong type (`root-types: "true"`, an `output` that is no text, an `x-openapi-ts` that is no map) and an API without a `root` fail that API with `CLI_CONFIG_INVALID`, which names the API and the key; an unknown name in an API's `fix` fails it with `OPTION_FIX_UNKNOWN`, which names the API. An error while an API is loaded, generated, written or checked (an output error such as `OUTPUT_STALE` or `CLI_OUTPUT_DUPLICATE` too, or `CLI_LOCATION_INVALID` for a `root` that does not parse as a URL) starts with `API <name>:` too, and keeps its code and exit code; so does every warning, problem and debug line of its generation. A notice about flags follows the CLI flags together with the API's settings and names the API (`API a: --root-types-keep-casing has no effect without --root-types flag`). An invalid `--local-ref-root`, also a URL that does not parse, fails the run once with `CLI_FLAG_INVALID`, before any API. The other APIs are still generated. `content-never` is accepted and has no effect, as on the command line.
 
 ::: tip
 
@@ -125,8 +125,8 @@ The following flags are supported in the CLI:
 |:-----------------------------------| :---- | :------: |:--------------------------------------------------------------------------------------------------------------------|
 | `--help`                           |       |          | Display inline help message and exit                                                                                |
 | `--version`                        |       |          | Display this library’s version and exit                                                                             |
-| `--output [location]`              | `-o`  | (stdout) | Where should the output file be saved?                                                                              |
-| `--redocly [location]`             | `-c`  | `redocly.yaml` | Path to a `redocly.yaml` file (see [Multiple schemas](#multiple-schemas))                                           |
+| `--output [location]`              | `-o`  | (stdout) | Where should the output file be saved? An empty value fails with `CLI_FLAG_INVALID`                                 |
+| `--redocly [path]`                 | `-c`  | `redocly.yaml` | Path to a `redocly.yaml` file (see [Multiple schemas](#multiple-schemas)); an empty value fails with `CLI_FLAG_INVALID` |
 | `--additional-properties`          |       | `false`  | Allow arbitrary properties for all schema objects without `additionalProperties: false`                             |
 | `--alphabetize`                    |       | `false`  | Sort types alphabetically                                                                                           |
 | `--array-length`                   |       | `false`  | Generate tuples using array `minItems` / `maxItems`                                                                 |
@@ -168,7 +168,11 @@ as written and takes no value, unless it is written as `--flag=value`: `--alphab
 stdin). A long flag is known in its kebab-case or camelCase spelling (`--root-types`, `--rootTypes`);
 another spelling (`--Enum`, `--ROOT-TYPES`, `--root_types`) is unknown and changes nothing, also as
 `--Enum=true`, with `--no-` (`--no-Output`), and for a removed flag (`--Immutable-Types`). The schema argument
-is read as written, also when it looks like a number (`1.10`, `0x10`).
+is read as written, also when it looks like a number (`1.10`, `0x10`). An empty value names no location: an
+empty schema argument (`openapi-typesafe "$SPEC"` with `SPEC` unset) fails with `CLI_LOCATION_INVALID`, and an
+empty `--output` or `--redocly` (`-o "$OUT"`, `--output=`, a trailing `-o`) with `CLI_FLAG_INVALID`; openapi-typescript
+read stdin, wrote the types to stdout or looked for another `redocly.yaml` instead. The lists of `--fix` and
+`--remote-ref-hosts` may be empty, and `--local-ref-root` without a value means the working directory, as the table says.
 
 ## Warnings
 
@@ -1211,9 +1215,12 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
 - The same holds next to `oneOf` or `anyOf` variants, where the type is the own properties
   joined with the variants. Where it is an intersection (`oneOf` with an object variant, or
   `anyOf` with the `anyof-properties` fix), a property no variant declares is read through the
-  own properties. Where it is a union (`anyOf` without that fix, or `oneOf` of primitives) and a
-  variant does not have the property, no pointer through it compiles, so it gets the target's
-  type inline.
+  own properties. Variants that only say which properties are required
+  (`oneOf: [{ required: [email] }, { required: [phone] }]`, with or without `type: object`) count
+  as object variants, and with the `anyof-oneof-required` fix the property is read through each
+  `WithRequired` member. Where it is a union (`anyOf` without that fix, or `oneOf` of primitives)
+  and a variant does not have the property, no pointer through it compiles, so it gets the
+  target's type inline.
 - A pointer to `unevaluatedProperties` gets the target's type inline: without the
   `unevaluated-properties` fix (or next to `additionalProperties`) the keyword is not in the type,
   so the original reads another member or `never`, and with the fix the index signature also holds

@@ -12,6 +12,7 @@ import {
   REMOTE_REF_TIMEOUT_MS,
 } from "./default-ports.js";
 import { createDocumentRun, type GeneratorPorts } from "./document-run.js";
+import { checkOptionTypes } from "./option-types.js";
 import transformSchema from "./transform-schema.js";
 
 /**
@@ -104,5 +105,6 @@ export default async function openapiTS(
   source: SchemaSource,
   options: GeneratorOptions = {},
 ): Promise<IrDeclaration[]> {
+  checkOptionTypes(options);
   return generateDeclarations(source, options, await defaultGeneratorPorts(options));
 }

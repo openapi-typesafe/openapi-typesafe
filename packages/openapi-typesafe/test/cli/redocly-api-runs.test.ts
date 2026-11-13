@@ -66,6 +66,18 @@ describe("runCli with the APIs of a Redocly config", () => {
     expect(cli.generator.calls).toEqual([]);
   });
 
+  it("runCli with a --local-ref-root that is not a valid URL fails with CLI_FLAG_INVALID", async () => {
+    const cli = cliWithApis({ a: { root: "a.yaml", "x-openapi-ts": { output: "a.ts" } } });
+
+    const exitCode = await runCli(["--local-ref-root", "http://[::1/x"], cli.deps);
+
+    expect(exitCode).toBe(2);
+    expect(cli.logger.messages("error")).toEqual([
+      "--local-ref-root http://[::1/x: a directory path or a file: URL of a local directory. (CLI_FLAG_INVALID)",
+    ]);
+    expect(cli.generator.calls).toEqual([]);
+  });
+
   it("runCli names an ineffective flag for each API whose merged flags make it so", async () => {
     const cli = cliWithApis({
       typed: { root: "typed.yaml", "x-openapi-ts": { output: "typed.ts", "root-types": true } },

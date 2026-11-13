@@ -80,7 +80,8 @@ function schemaStep(walk: OriginalWalk, segment: string, isLast: boolean, input:
   if (member.kind === "missing" || (member.kind === "index" && member.isOtherType)) {
     return { step: "fails" as Step, walk };
   }
-  if (member.kind === "opaque") {
+  // `never` compiles for every key after it.
+  if (member.kind === "opaque" || member.kind === "never") {
     return { step: "compiles" as Step, walk };
   }
   const isAbsentValue = member.kind === "index" && member.node === undefined;

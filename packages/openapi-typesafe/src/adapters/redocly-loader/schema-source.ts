@@ -18,6 +18,7 @@ import {
   loadFailedError,
   parseFailedError,
   pathStringError,
+  relativeFileUrlError,
   sourceEmptyError,
   sourceInvalidError,
   type TextOrigin,
@@ -120,7 +121,8 @@ interface SchemaText {
 /**
  * Text is a location or document text, by the rule the CLI applies to its schema argument
  * (`locationInText`). A location resolves against `cwd` as that argument does (`file:api.yaml`);
- * one that does not parse as a URL fails with `SCHEMA_SOURCE_INVALID`, not a `TypeError`.
+ * one that does not parse as a URL, or a relative `file:` URL with a cwd that is no `file:` URL,
+ * fails with `SCHEMA_SOURCE_INVALID`, not a `TypeError` or a file in the file system root.
  */
 function resolveSchemaText({ text, origin, cwd }: SchemaText): ResolvedSource {
   if (!text) {
@@ -130,11 +132,17 @@ function resolveSchemaText({ text, origin, cwd }: SchemaText): ResolvedSource {
   if (location === undefined) {
     return { kind: "text", text, origin };
   }
-  const url = parseUrlLocation(location, cwd);
-  if (url === undefined) {
-    throw urlInvalidError(location, origin);
+  const resolved = parseUrlLocation(location, cwd);
+  switch (resolved.kind) {
+    case "url":
+      return resolved;
+    case "unparsed":
+      throw urlInvalidError(location, origin);
+    case "relative-file":
+      throw relativeFileUrlError(location, origin, cwd);
+    default:
+      return assertNever(resolved);
   }
-  return { kind: "url", url };
 }
 
 /**

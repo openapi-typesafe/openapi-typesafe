@@ -68,12 +68,14 @@ describe("queryKeyInit object bodies that are not object literals", () => {
     });
   });
 
-  it("queryKeyInit with an object of its own JSON form keeps it as it is", () => {
+  it("queryKeyInit with an object of its own JSON form keys it by that form", () => {
     const at = new Date(0);
     const money = { amount: 1, toJSON: () => "1.00 EUR" };
 
-    expect(queryKeyInit({ body: { at, money } }, NO_BASE_URL)).toEqual({ body: { at, money } });
-    expect(queryKeyInit({ body: at }, NO_BASE_URL)).toEqual({ body: at });
+    expect(queryKeyInit({ body: { at, money } }, NO_BASE_URL)).toEqual({
+      body: { at: at.toJSON(), money: "1.00 EUR" },
+    });
+    expect(queryKeyInit({ body: at }, NO_BASE_URL)).toEqual({ body: at.toJSON() });
   });
 });
 

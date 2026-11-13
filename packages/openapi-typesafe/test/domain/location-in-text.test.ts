@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { locationInText, parseUrlLocation } from "../../src/domain/location-text.js";
 
 const BASE = pathToFileURL(`${path.resolve("work")}${path.sep}`);
+const HTTPS_BASE = new URL("https://example.com/specs/");
 
 describe("locationInText", () => {
   it.each([
@@ -32,10 +33,29 @@ describe("locationInText", () => {
 
 describe("parseUrlLocation", () => {
   it("parseUrlLocation with a relative file: URL resolves it against the base", () => {
-    expect(parseUrlLocation("file:api.yaml", BASE)?.href).toBe(new URL("api.yaml", BASE).href);
+    expect(parseUrlLocation("file:api.yaml", BASE)).toEqual({
+      kind: "url",
+      url: new URL("api.yaml", BASE),
+    });
   });
 
-  it("parseUrlLocation with a URL that does not parse is undefined", () => {
-    expect(parseUrlLocation("http://[::1/x", BASE)).toBeUndefined();
+  it("parseUrlLocation with a URL that does not parse is unparsed", () => {
+    expect(parseUrlLocation("http://[::1/x", BASE)).toEqual({ kind: "unparsed" });
+  });
+
+  it.each(["file:api.yaml", "file:./specs/api.yaml", "file:", "FILE:api.yaml"])(
+    "parseUrlLocation with the relative %j and an https: base is relative-file",
+    (location) => {
+      expect(parseUrlLocation(location, HTTPS_BASE)).toEqual({ kind: "relative-file" });
+    },
+  );
+
+  it.each([
+    ["file:///specs/api.yaml", "file:///specs/api.yaml"],
+    ["file:/specs/api.yaml", "file:///specs/api.yaml"],
+    ["https://example.com/api.yaml", "https://example.com/api.yaml"],
+    ["api.yaml", "https://example.com/specs/api.yaml"],
+  ])("parseUrlLocation with %j and an https: base is the URL %j", (location, href) => {
+    expect(parseUrlLocation(location, HTTPS_BASE)).toEqual({ kind: "url", url: new URL(href) });
   });
 });
