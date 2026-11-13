@@ -29,6 +29,12 @@ The client has the methods of the [fetch options](#fetch-options) (`GET`, `POST`
 `use` and `eject` for [middleware](#middleware), and `baseUrl`: the `baseUrl` option without its
 trailing slash, or `""` without one. `openapi-typesafe-react-query` puts it into its query keys.
 
+An option set to `undefined` counts as left out, here and in the [fetch options](#fetch-options),
+and the option types say `| undefined`. So a wrapper can pass its own optional options on
+(`createClient<paths>({ baseUrl: options.baseUrl })`) also with `exactOptionalPropertyTypes`. The
+fetch options that come from the DOM lib's `RequestInit` (`mode`, `cache`, `signal`, …) keep the
+DOM lib's types.
+
 ### Another fetch implementation
 
 `fetch` and `Request` of another Fetch API implementation, such as the `undici` package, are typed

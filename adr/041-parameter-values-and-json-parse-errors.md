@@ -291,3 +291,17 @@ smaller choices are listed above and are worse. Correctness ranks above size
    rule above also compiles under `exactOptionalPropertyTypes`.
 
 The bundle stays within the 11.3 kB budget (11.27 kB).
+
+## Amendment (2026-11-12): every client and request option takes `undefined`
+
+The amendment above typed the members of `QuerySerializerOptions` with `| undefined`, but not the
+`querySerializer` option itself, nor the other options, so a wrapper that passed its own optional
+`querySerializer` or `baseUrl` on still failed under `exactOptionalPropertyTypes` (TS2769,
+TS2379). The rule is now general: every optional option of `ClientOptions`,
+`CustomFetchClientOptions` and `RequestOptions` that the client counts as left out when it is
+`undefined` says `| undefined` in its type: `baseUrl`, `fetch`, `Request`, `FormData`,
+`querySerializer`, `bodySerializer`, `pathSerializer`, `headers`, `requestInitExt`, `parseAs`,
+`middleware` and `params`. The runtime already took `undefined` for each one (defaults and
+truthiness checks); a test sends a request with all of them `undefined`. The options from the DOM
+lib's `RequestInit` keep its types, which are not ours to change, and an optional `body` already
+included `undefined`. Types only; the bundle is unchanged.
