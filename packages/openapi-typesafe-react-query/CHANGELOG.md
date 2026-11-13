@@ -2,6 +2,34 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.10
+
+### Patch Changes
+
+- [#121](https://github.com/openapi-typesafe/openapi-typesafe/pull/121) [`6e37855`](https://github.com/openapi-typesafe/openapi-typesafe/commit/6e37855a17f7cce607c283c4118b838e743c4a2b) Thanks [@fedorello](https://github.com/fedorello)! - `infiniteQueryKey(key)` with a TanStack Query `QueryKey`, or a key of another length than the keys
+  of `queryOptions`, is typed as a readonly array that ends with `"infinite"`. It was `never`.
+
+- [#121](https://github.com/openapi-typesafe/openapi-typesafe/pull/121) [`6e37855`](https://github.com/openapi-typesafe/openapi-typesafe/commit/6e37855a17f7cce607c283c4118b838e743c4a2b) Thanks [@fedorello](https://github.com/fedorello)! - `invalidateQueries`, `setQueriesData` and `removeQueries` with the `queryKey` of one query now
+  match only that query when its request holds a `Date`, a `Number`, `Boolean` or `String` object, or
+  another object with a `toJSON`. Such a value was kept in the key as an object without members, and
+  TanStack Query's filters compare objects by their members, so `setQueriesData` for one date also
+  wrote into the queries of every other date. In a body the key now holds the value's JSON form; in
+  query, path and header parameters and in headers, the text the fetch client sends (a `Date` as its
+  ISO text).
+
+- [#121](https://github.com/openapi-typesafe/openapi-typesafe/pull/121) [`6e37855`](https://github.com/openapi-typesafe/openapi-typesafe/commit/6e37855a17f7cce607c283c4118b838e743c4a2b) Thanks [@fedorello](https://github.com/fedorello)! - `NaN`, `Infinity` and `-Infinity` in query, path and header parameters, in headers and in form or
+  multipart fields no longer share the query key of `null` and of each other. The fetch client sends
+  them as the text `NaN` or `Infinity` (and nothing for `null`), so these different requests showed
+  one another's data. A query with `NaN` in its key now also matches itself in
+  `invalidateQueries({ queryKey })`.
+
+- [#121](https://github.com/openapi-typesafe/openapi-typesafe/pull/121) [`6e37855`](https://github.com/openapi-typesafe/openapi-typesafe/commit/6e37855a17f7cce607c283c4118b838e743c4a2b) Thanks [@fedorello](https://github.com/fedorello)! - `createClient(fetchClient, { keyScope })` and the `pageParamName` option of `useInfiniteQuery`
+  accept `undefined` under `exactOptionalPropertyTypes`, so a wrapper can pass its own optional
+  option on (`{ keyScope: options.keyScope }`). `undefined` counts as left out, as it already did at
+  run time.
+- Updated dependencies [[`e635904`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6359045a637d6edd0addf58b6703aabb2f3fceb), [`e635904`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6359045a637d6edd0addf58b6703aabb2f3fceb)]:
+  - openapi-typesafe-fetch@1.0.0-rc.10
+
 ## 1.0.0-rc.9
 
 ### Patch Changes

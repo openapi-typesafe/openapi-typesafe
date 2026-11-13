@@ -2,6 +2,21 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.10
+
+### Patch Changes
+
+- [#120](https://github.com/openapi-typesafe/openapi-typesafe/pull/120) [`e635904`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6359045a637d6edd0addf58b6703aabb2f3fceb) Thanks [@fedorello](https://github.com/fedorello)! - The `error` type now follows the media type of each error response, as the client reads it. An
+  error with a non-JSON media type, such as `text/plain`, is a `string` whatever its schema: a
+  `text/plain` error with an `integer` or `boolean` schema was typed as a number or a boolean, but
+  the client returns its text. An error with a media range such as `*/*`, `application/*` or
+  `text/*`, which may be JSON or not, is its schema or a `string`. `SuccessResponseJSON` and
+  `JSONLike` now count `text/*` as JSON too, like `application/*`. JSON errors keep their schemas, and success `data` is unchanged.
+
+- [#120](https://github.com/openapi-typesafe/openapi-typesafe/pull/120) [`e635904`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6359045a637d6edd0addf58b6703aabb2f3fceb) Thanks [@fedorello](https://github.com/fedorello)! - A `parseAs` typed as a union with `undefined`, such as `"text" | undefined` passed on by a wrapper,
+  now types `data` as both bodies (`string` or the JSON body). It gave the JSON body only, while the
+  client reads the body as text when `parseAs` is `"text"`. `undefined` stays the default `"json"`.
+
 ## 1.0.0-rc.9
 
 ### Patch Changes
