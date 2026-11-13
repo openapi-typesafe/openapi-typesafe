@@ -10,6 +10,7 @@ import {
   namesOriginalPackage,
   PACKAGE_RENAMES,
 } from "./package-names.js";
+import { type ProgramPath, programPath } from "./program-paths.js";
 import {
   withShellAssignments,
   withUnreadVariables,
@@ -42,13 +43,16 @@ const BIN_FOLDER = "/.bin/";
 const OLD_PACKAGE_FOLDER = `node_modules/${GENERATOR_COMMAND}/`;
 
 /**
- * The edit that renames `name` at the end of a word (`x`, `"x"`, `npm:x`, `.bin/x`), or undefined
- * when the word is quoted in a way that does not keep `name` in one piece.
+ * The edit that renames `name` at the end of a word (`x`, `"x"`, `npm:x`, `.bin/x`), before the
+ * Windows `suffix` of a program (`x.cmd`), or undefined when the word is quoted in a way that
+ * does not keep `name` in one piece.
  */
-function renameAtEnd(word: ShellWord, name: string, to: string): TextEdit | undefined {
+function renameAtEnd(word: ShellWord, name: string, to: string, suffix = ""): TextEdit | undefined {
   const at = word.raw.lastIndexOf(name);
   const tail = word.raw.slice(at + name.length);
-  if (at === -1 || (tail !== "" && !QUOTES.has(tail))) {
+  // The suffix is taken from the word's value, which ends with it, so the tail starts with it.
+  const quote = tail.slice(suffix.length);
+  if (at === -1 || (quote !== "" && !QUOTES.has(quote))) {
     return undefined;
   }
   return { start: word.start + at, end: word.start + at + name.length, text: to };
@@ -72,13 +76,18 @@ function packageFindings(found: PackageWord, locate: Locate): Finding[] {
 }
 
 /** The program given by a path: `node_modules/.bin/openapi-typescript` or a file of the package. */
-function programPathFindings(word: ShellWord, location: string): Finding[] {
+function programPathFindings(
+  word: ShellWord,
+  { path, suffix }: ProgramPath,
+  location: string,
+): Finding[] {
   const offset = word.start;
-  if (word.value.includes(OLD_PACKAGE_FOLDER)) {
-    return [{ offset, manualStep: { kind: "old-package-file", location, path: word.value } }];
+  if (path.includes(OLD_PACKAGE_FOLDER)) {
+    return [{ offset, manualStep: { kind: "old-package-file", location, path } }];
   }
-  const isBin = word.value.endsWith(`${BIN_FOLDER}${GENERATOR_COMMAND}`);
-  const edit = isBin ? renameAtEnd(word, GENERATOR_COMMAND, MIGRATED_GENERATOR_COMMAND) : undefined;
+  const isBin = path.endsWith(`${BIN_FOLDER}${GENERATOR_COMMAND}${suffix}`);
+  const to = MIGRATED_GENERATOR_COMMAND;
+  const edit = isBin ? renameAtEnd(word, GENERATOR_COMMAND, to, suffix) : undefined;
   return edit === undefined
     ? []
     : [{ offset, edit, change: { kind: "command-renamed", location } }];
@@ -86,17 +95,19 @@ function programPathFindings(word: ShellWord, location: string): Finding[] {
 
 /** The findings for the program word of a command; renamed tells whether flags follow. */
 function programFindings(word: ShellWord, location: string): Finding[] {
-  if (word.value.includes(PATH_SEPARATOR)) {
-    return programPathFindings(word, location);
+  const program = programPath(word);
+  if (program.path.includes(PATH_SEPARATOR)) {
+    return programPathFindings(word, program, location);
   }
-  const { name, isPinned } = packageReference(word.value);
+  const { path, suffix } = program;
+  const { name, isPinned } = packageReference(path.slice(0, path.length - suffix.length));
   if (name !== GENERATOR_COMMAND) {
     return [];
   }
   if (isPinned) {
     return [{ offset: word.start, manualStep: { kind: "versioned-command", location } }];
   }
-  const edit = renameAtEnd(word, GENERATOR_COMMAND, MIGRATED_GENERATOR_COMMAND);
+  const edit = renameAtEnd(word, GENERATOR_COMMAND, MIGRATED_GENERATOR_COMMAND, suffix);
   const change: Change = { kind: "command-renamed", location };
   return edit === undefined ? [] : [{ offset: word.start, edit, change }];
 }

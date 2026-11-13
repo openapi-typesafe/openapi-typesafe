@@ -1,4 +1,4 @@
-import { commandRoles } from "./command-roles.js";
+import { commandRoles, withoutWindowsSuffix } from "./command-roles.js";
 import { packageReference } from "./old-package-words.js";
 import { GENERATOR_COMMAND } from "./package-names.js";
 import type { ShellCommand, ShellWord } from "./shell-words.js";
@@ -62,5 +62,8 @@ export function runsGenerator(command: ShellCommand): boolean {
   const words = withoutRecipePrefix(command);
   const { program } = commandRoles(words);
   const word = program === undefined ? undefined : words[program];
-  return word !== undefined && packageReference(word.value).name === GENERATOR_COMMAND;
+  return (
+    word !== undefined &&
+    packageReference(withoutWindowsSuffix(word.value)).name === GENERATOR_COMMAND
+  );
 }
