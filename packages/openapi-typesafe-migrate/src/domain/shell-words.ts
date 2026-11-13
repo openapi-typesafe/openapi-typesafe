@@ -236,12 +236,19 @@ export function shellCommandsAt(text: string, offset: number, indent = 0): Shell
 
 /**
  * The words of the parameter expansions of a word (`${GEN:-npx …}`) and the string literals of
- * its workflow expressions (`${{ inputs.gen || 'npx …' }}`), read as command lines.
+ * its workflow expressions (`${{ inputs.gen || 'npx …' }}`), read as command lines. A literal
+ * inside the word of an expansion (`${GEN:-${{ … }}}`) is found when that word is read, so each
+ * one is read once.
  */
-const expansionCommands = (word: ShellWord): ShellCommand[] =>
-  [...wordExpansions(word.raw), ...expressionLiterals(word.raw)].flatMap((part) =>
+function expansionCommands(word: ShellWord): ShellCommand[] {
+  const expansions = wordExpansions(word.raw);
+  const literals = expressionLiterals(word.raw).filter(({ start }) =>
+    expansions.every((expansion) => start < expansion.start || start >= expansion.expansionEnd),
+  );
+  return [...expansions, ...literals].flatMap((part) =>
     shellCommandsAt(part.text, word.start + part.start),
   );
+}
 
 /**
  * The command lines inside the words of a command: a quoted word that holds one, the value of an

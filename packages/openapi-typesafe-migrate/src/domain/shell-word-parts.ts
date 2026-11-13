@@ -1,3 +1,5 @@
+import { EXPRESSION_OPEN, expressionEnd } from "./workflow-expressions.js";
+
 /**
  * The words of shell text: where a word ends, and its value after quote removal (POSIX 2.2, 2.3).
  * shell-words.ts splits a text into commands of these words.
@@ -91,12 +93,15 @@ const PARAMETER_CLOSE = "}";
 /**
  * The end of the parameter expansion at `start`, after the `}` that closes it, or undefined when
  * none does. A blank inside it does not end the word (`${GEN:-npx openapi-typescript}`), and a
- * quoted string, an escape or a nested expansion inside it is skipped whole.
+ * quoted string, an escape or a nested expansion inside it is skipped whole. So is a workflow
+ * expression inside it (`${GEN:-${{ inputs.gen }}}`), whose `}}` the runner reads, not the shell.
  */
 export function parameterExpansionEnd(text: string, start: number): number | undefined {
   let depth = 1;
   for (let index = start + PARAMETER_OPEN.length; index < text.length; ) {
-    if (text.startsWith(PARAMETER_OPEN, index)) {
+    if (text.startsWith(EXPRESSION_OPEN, index)) {
+      index = expressionEnd(text, index) ?? text.length;
+    } else if (text.startsWith(PARAMETER_OPEN, index)) {
       depth += 1;
       index += PARAMETER_OPEN.length;
     } else if (text[index] === PARAMETER_CLOSE) {

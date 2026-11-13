@@ -87,3 +87,6 @@ export const WRITTEN_NOTE = "Files were written.";
 export const NOTHING_FOUND =
   "Nothing to migrate: no openapi-typescript, openapi-fetch, openapi-react-query " +
   "or openapi-typescript-helpers found.";
+/** The end of a report whose only files with findings were skipped by a bug of the tool. */
+export const NOTHING_ELSE_FOUND =
+  "Nothing else to migrate: migrate the skipped files above by hand.";
