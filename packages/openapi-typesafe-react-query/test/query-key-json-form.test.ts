@@ -70,7 +70,7 @@ describe("queryKeyInit body objects with a toJSON", () => {
 
   it("queryKeyInit with a toJSON object keys its fields by what a form body sends", () => {
     expect(queryKeyInit({ body: new UploadForm(CAT) }, NO_BASE_URL)).toEqual({
-      body: new UploadForm(CAT),
+      body: { kind: "upload" },
       bodyFields: {
         body: { file: { type: "image/png", size: 4, name: "cat.png" } },
         bodyType: { file: "Blob" },
@@ -86,7 +86,9 @@ describe("queryKeyInit body objects with a toJSON", () => {
   });
 
   it("queryKeyInit with a Date body keys it by its JSON form alone", () => {
-    expect(queryKeyInit({ body: new Date(0) }, NO_BASE_URL)).toEqual({ body: new Date(0) });
+    expect(queryKeyInit({ body: new Date(0) }, NO_BASE_URL)).toEqual({
+      body: "1970-01-01T00:00:00.000Z",
+    });
   });
 });
 

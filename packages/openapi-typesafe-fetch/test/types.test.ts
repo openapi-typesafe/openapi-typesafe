@@ -226,17 +226,10 @@ describe("types", () => {
         // @ts-expect-error
         data: "200 application/json",
       });
-      assertType<Response>(
-        // @ts-expect-error
-        "200 text/plain",
-      );
-      assertType<Response>(
-        // @ts-expect-error
-        "206 text/plain",
-      );
-      assertType<Response>("404 text/plain");
-      assertType<Response>({ error: "500 application/json" });
-      assertType<Response>({ error: "default application/json" });
+      // The client returns a text/plain error as its text, so the 404 is any `string`.
+      expectTypeOf<Response>().toEqualTypeOf<
+        string | { error: "500 application/json" } | { error: "default application/json" }
+      >();
     });
 
     test("returns all 5XX and 4xx responses, only application/json", () => {

@@ -15,7 +15,8 @@ The `useInfiniteQuery` method allows you to use the original [useInfiniteQuery](
   than `"cursor"` follows the marker as `{ pageParamName }`, since it changes the request of every
   page: `[method, path, options, "infinite", { pageParamName: "page" }]`. Write the key with
   `infiniteQueryKey(queryKey, pageParamName?)` for `getQueryData` and `setQueryData`; it is typed
-  as an `InfiniteQueryKey`. `[...queryKey, "infinite"]` is the same key, but TypeScript types it as
+  as an `InfiniteQueryKey` (and, for a TanStack `QueryKey` of any length, as a readonly array
+  that ends with the marker). `[...queryKey, "infinite"]` is the same key, but TypeScript types it as
   an array, since the `queryKey` of `queryOptions` carries TanStack Query's data tag:
 
   ```ts
