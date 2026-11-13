@@ -625,6 +625,22 @@ the report never says "Nothing to migrate" for it.
   the file's name or folder (`application/yaml-file-kinds.ts`): the same keys mean other things in
   other files, the reason the command keys are per kind. Task's `{{.GEN}}` is read as `$GEN`, as
   `${{ env.GEN }}` is.
+- **Azure Pipelines variables, with their macros.** Azure `variables` (a map, or a list of
+  `- name: … / value: …` items; a `group` or `template` item sets nothing the tool can read) and
+  a step's `env` are read the same way in `azure-pipelines.yml`, a named
+  `*.azure-pipelines.yml` or `azure-pipelines-*.yml`, and the files of `.azure-pipelines/` or
+  `.azuredevops/`. A script reads a pipeline variable as `$GEN` or `${GEN}`, by its name
+  upper-cased with `_` for `.`, and Azure puts the value of the macro `$(gen)` and the
+  expression `${{ variables.gen }}` into the script first, so both are read as `$GEN`. A macro of
+  a name the file does not set stays as written: Azure leaves it, and the shell runs `$(date)` as
+  a command. The reading found a fault in the GitLab one: a list item's `value` under `variables`
+  counted as a GitLab value map for a variable named by the item's index. A value map now needs a
+  variable name above it.
+- **Kubernetes `env` items are reported, not migrated.** A container's
+  `env: [{ name: GEN, value: npx openapi-typescript }]` goes to the program as it is, and
+  Kubernetes puts it into `command` and `args` for `$(GEN)` without a shell. The tool does not
+  read those rules, so an `env` item whose value names an old package is an `old-name-in-command`
+  step in every YAML file kind that does not read it as a variable.
 - **Every expression has a value for its flags.** Only a word that was exactly
   `${{ inputs.NAME }}` had the input default as its value. A word that is any expression now gets
   the defaults of the inputs it reads (`inputs.NAME`, `github.event.inputs.NAME`) and its string

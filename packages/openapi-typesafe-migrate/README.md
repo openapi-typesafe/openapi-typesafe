@@ -49,8 +49,9 @@ Dockerfile's exec form (`RUN ["npx",
 openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed where it is set,
 and the flags after `$(OAT)` (or `$G` for a one-letter name) where it runs; so is an `env` variable
 of a workflow and the flags after `$GEN` or `${{ env.GEN }}` (also GitLab CI `variables`,
-CircleCI, Drone, Woodpecker and Docker Compose `environment`, and Taskfile `vars` and `env` with
-the flags after `{{.GEN}}`), and a Dockerfile `ARG` or `ENV`
+Azure Pipelines `variables`, a map or `- name: / value:` items, with the flags after `$(gen)` or
+`${{ variables.gen }}`, CircleCI, Drone, Woodpecker and Docker Compose `environment`, and
+Taskfile `vars` and `env` with the flags after `{{.GEN}}`), and a Dockerfile `ARG` or `ENV`
 variable and the flags after `$GEN`, and a justfile variable (`gen := "npx openapi-typescript"`)
 and the flags after `{{gen}}` (or `$gen`, when `export`, a `$gen` parameter or `set export` gives
 it to the recipe's shell). In a justfile every string and backtick of an expression is read
@@ -178,7 +179,8 @@ The report lists each of these with the file and line:
 - a patch file of an old package (`patches/openapi-fetch+0.13.0.patch`): the new package has other
   code, so check whether the fix is still needed;
 - a word in a command that names an old package where the tool cannot tell what runs it (an
-  argument of a program it does not know, a script name): migrate it by hand;
+  argument of a program it does not know, a script name), and a Kubernetes `env` item
+  (`- name: GEN / value: npx openapi-typescript`), which no shell reads: migrate it by hand;
 - a CI step whose `shell` is another program (`shell: python`), a justfile recipe with a shebang
   for one, or inline code (`python3 -c '…'`) that names an old package: the tool does not read
   code of other languages, so migrate it by hand;
