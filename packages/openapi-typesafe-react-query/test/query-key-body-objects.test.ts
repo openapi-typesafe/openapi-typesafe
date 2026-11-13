@@ -73,7 +73,7 @@ describe("queryKeyInit object bodies that are not object literals", () => {
     const money = { amount: 1, toJSON: () => "1.00 EUR" };
 
     expect(queryKeyInit({ body: { at, money } }, NO_BASE_URL)).toEqual({ body: { at, money } });
-    expect(queryKeyInit({ body: money }, NO_BASE_URL)).toEqual({ body: money });
+    expect(queryKeyInit({ body: at }, NO_BASE_URL)).toEqual({ body: at });
   });
 });
 

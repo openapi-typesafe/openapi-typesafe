@@ -127,4 +127,37 @@ describe("an error body", () => {
     expect(error).toBe(PROXY_PAGE);
     expect(response.status).toBe(502);
   });
+
+  it.each(["429", "true", "0", "null"])("a text/plain error body %s stays text", async (body) => {
+    const client = clientAnswering(() => typedResponse(body, "text/plain", 429));
+
+    const { error } = await client.GET("/greeting");
+
+    expect(error).toBe(body);
+  });
+
+  it("an error body of a JSON media type with parameters is parsed", async () => {
+    const contentType = "application/problem+json; charset=utf-8";
+    const client = clientAnswering(() => typedResponse('{"code":7}', contentType, 400));
+
+    expect((await client.GET("/greeting")).error).toEqual({ code: 7 });
+  });
+
+  it("an error body with a JSON media type that is not JSON stays text", async () => {
+    const client = clientAnswering(() => typedResponse(PROXY_PAGE, "application/json", 502));
+
+    expect((await client.GET("/greeting")).error).toBe(PROXY_PAGE);
+  });
+
+  it("an error body without a Content-Type is parsed when it is JSON", async () => {
+    const client = clientAnswering(() => untypedResponse('{"code":7}', 400));
+
+    expect((await client.GET("/greeting")).error).toEqual({ code: 7 });
+  });
+
+  it("an error body without a Content-Type stays text when it is not JSON", async () => {
+    const client = clientAnswering(() => untypedResponse(PROXY_PAGE, 502));
+
+    expect((await client.GET("/greeting")).error).toBe(PROXY_PAGE);
+  });
 });

@@ -14,7 +14,7 @@ version number:
 | :-- | :-- | :-- |
 | `openapi-typesafe` | Generator: CLI and Node API (dev dependency) | `openapi-typescript` |
 | `openapi-typesafe-fetch` | Typed `fetch` client, about 11 kB minified | `openapi-fetch` |
-| `openapi-typesafe-react-query` | TanStack Query v5 hooks on top of the client | `openapi-react-query` |
+| `openapi-typesafe-react-query` | TanStack Query v5 hooks on top of the client, about 4 kB minified | `openapi-react-query` |
 | `openapi-typesafe-helpers` | Shared utility types | `openapi-typescript-helpers` |
 | `openapi-typesafe-migrate` | One-off migration command, run with `npx` | none |
 
@@ -140,8 +140,9 @@ async function loadPet(petId: number) {
   `response` is not part of it, so `response.ok` does not narrow `data`.
 - Branch on `response.status` for status-specific handling; the `error` type is the union of all
   error bodies of the operation.
-- An error body that is not JSON comes back as text in `error`; a success body that is not JSON
-  rejects (see above).
+- An error body is parsed only when its `Content-Type` is JSON (or missing and the body parses);
+  any other error body, such as `text/plain` or HTML, comes back as text in `error`. A success
+  body that is not JSON rejects (see above).
 - Network failures and aborts reject: wrap the call in `try` / `catch` where you need to handle
   them, or turn them into a value with `onError` middleware (section 5).
 

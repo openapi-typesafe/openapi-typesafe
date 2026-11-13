@@ -13,7 +13,18 @@ The `useInfiniteQuery` method allows you to use the original [useInfiniteQuery](
   `useInfiniteQuery` for the same request do not share a cache entry, and `[method, path]` still
   matches both in `invalidateQueries`. Its type is `InfiniteQueryKey`. A `pageParamName` other
   than `"cursor"` follows the marker as `{ pageParamName }`, since it changes the request of every
-  page: `[method, path, options, "infinite", { pageParamName: "page" }]`.
+  page: `[method, path, options, "infinite", { pageParamName: "page" }]`. Write the key with
+  `infiniteQueryKey(queryKey, pageParamName?)` for `getQueryData` and `setQueryData`; it is typed
+  as an `InfiniteQueryKey`. `[...queryKey, "infinite"]` is the same key, but TypeScript types it as
+  an array, since the `queryKey` of `queryOptions` carries TanStack Query's data tag:
+
+  ```ts
+  import { infiniteQueryKey } from "openapi-typesafe-react-query";
+
+  const { queryKey } = $api.queryOptions("get", "/posts", { params: { query: { tag: "a" } } });
+  queryClient.getQueryData(infiniteQueryKey(queryKey));
+  queryClient.getQueryData(infiniteQueryKey(queryKey, "page")); // with `pageParamName: "page"`
+  ```
 - The request stops when TanStack Query cancels the query, and also when a `signal` of the init
   aborts.
 - `data` and `error` are fully typed. `error` is the declared error body, a
