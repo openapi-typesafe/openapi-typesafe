@@ -36,6 +36,16 @@ export function locationInvalidError(shown: string): Error {
 }
 
 /**
+ * The URL of a location written as a URL; undefined when it does not parse. The CLI resolves
+ * locations against local directories only (the working directory, the folder of
+ * `redocly.yaml`), where a relative `file:` URL always has a base.
+ */
+function urlOfLocation(location: string, base: URL): URL | undefined {
+  const resolved = parseUrlLocation(location, base);
+  return resolved.kind === "url" ? resolved.url : undefined;
+}
+
+/**
  * The URL of a location the user wrote: a URL, else a file path, absolute or relative to the
  * directory of `base` (a directory or file URL). A relative `file:` URL (`file:api.yaml`) resolves
  * against `base` too, as in openapi-typescript. A path is not parsed as a URL, so `#`, `?` and `%`
@@ -44,7 +54,7 @@ export function locationInvalidError(shown: string): Error {
  */
 export function resolveLocationUrl(location: string, base: URL): URL {
   if (hasUrlScheme(location)) {
-    const url = parseUrlLocation(location, base);
+    const url = urlOfLocation(location, base);
     if (url === undefined) {
       throw locationInvalidError(redactUnparsedUrl(location));
     }
@@ -200,7 +210,7 @@ export function duplicateOutputError(output: NamedOutput, others: readonly strin
 /** As `resolveLocationUrl`, but undefined for a URL that does not parse instead of a throw. */
 export function parseLocationUrl(location: string, base: URL): URL | undefined {
   if (hasUrlScheme(location)) {
-    return parseUrlLocation(location, base);
+    return urlOfLocation(location, base);
   }
   return resolveLocationUrl(location, base);
 }

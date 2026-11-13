@@ -295,3 +295,41 @@ TypeScript, as before.
    gives stdin its own advice for a YAML string (item 8). Reading stdin in the CLI to resolve it
    there was rejected: the stream would then be read in two places, and its text would lose the
    stream origin that names it in parse errors.
+
+## Amendment (2026-11-13): empty locations, relative `file:` URLs without a local base, option types
+
+1. **An empty location is a usage error.** An empty schema argument (`openapi-typesafe "$SPEC"`
+   with `SPEC` unset) read stdin, since one check asked whether the argument was truthy and
+   another whether it was set; so stdin skipped the mapping of item 2 of the previous amendment and
+   the output line named a blank source. It now fails with `CLI_LOCATION_INVALID` while the
+   arguments are parsed, and every later step asks only whether the argument is set. An empty
+   `--output` or `--redocly` (`-o "$OUT"`, `--output=`, a trailing `-o`) fails with
+   `CLI_FLAG_INVALID`, as `--no-output` does: read as unset, it wrote the types to stdout or looked
+   for another `redocly.yaml`. The list flags `--fix` and `--remote-ref-hosts` may be empty (an
+   empty host list allows no host), and `--local-ref-root` without a value stays the working
+   directory, as documented. Reading an empty location as unset was rejected: the user named a
+   location, and the run would silently do something else.
+2. **A relative `file:` URL needs a `file:` base.** The URL parser ignores a base of another
+   scheme for a `file:` URL, so `openapiTS("file:api.yaml", { cwd: "https://host/specs/" })` read
+   `/api.yaml` from the file system root, and `localRefRoot: "file:specs/"` with such a cwd limited
+   `$ref`s to `/specs/`. `parseUrlLocation` now returns why a location has no URL: it does not
+   parse, or it is a relative `file:` URL and the base is no `file:` URL. A URL is relative when
+   it parses to two URLs against two file bases, which asks the URL parser itself instead of
+   copying its rules into a pattern. The schema text then fails with `SCHEMA_SOURCE_INVALID`
+   (`details.reason: "relative-file"`), as text that does not parse does, and `localRefRoot` with
+   `OPTION_INVALID`, as a relative path does (ADR-023). `OPTION_INVALID` for `cwd` was rejected for
+   the schema: that `cwd` is valid for every other source, and the relative text is what names no
+   file. The CLI resolves against local directories only, so it never meets this case.
+3. **A location in `redocly.yaml` that does not parse fails its API by name.** A `root` that is
+   no valid URL failed with a bare `CLI_LOCATION_INVALID`; it is now an `ApiFailure`, as the
+   other failures of an API are. A `local-ref-root` or `--local-ref-root` that does not parse fails
+   as its other bad values do, with `CLI_CONFIG_INVALID` naming the API and the key, or
+   `CLI_FLAG_INVALID` naming the flag, instead of a `CLI_LOCATION_INVALID` that named neither.
+4. **The Node API checks the types of its options.** A boolean option, a callback, `inject` and
+   `redocly` of another type fail with `OPTION_INVALID` before anything runs, as `cwd`,
+   `localRefRoot`, `remoteRefHosts` and `fix` already did. A raw Redocly config object or a
+   number as `inject` failed with a plain `TypeError` deep in the run, and `enum: "false"` turned
+   enums on. A Redocly config is recognized by the parts the loader reads (`resolve.http`,
+   `styleguide.extendTypes`), not by `instanceof`, since the user's copy of
+   `@redocly/openapi-core` has its own class. `version` stays unchecked: no code reads it.
+   Zod was not added for this: the checks are a few type tests with the existing error helper.

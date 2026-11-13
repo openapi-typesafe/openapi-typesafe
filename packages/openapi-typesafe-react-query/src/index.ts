@@ -139,13 +139,18 @@ export type InfiniteQueryKey<
 /**
  * A query key without TanStack Query's data tag. The tag is an intersection, `[...] & { tag }`,
  * and TypeScript spreads an intersection as an array, so `[...queryKey, "infinite"]` lost the
- * tuple type; the elements read out here keep it.
+ * tuple type; the elements read out here keep it. Any other key, such as TanStack's `QueryKey`
+ * (`readonly unknown[]`) or a prefix, stays as it is: it was `never`, which no key is.
  */
-type UntaggedQueryKey<Key> = Key extends readonly [infer Method, infer Path, infer Init]
+type UntaggedQueryKey<Key extends readonly unknown[]> = Key extends readonly [
+  infer Method,
+  infer Path,
+  infer Init,
+]
   ? readonly [Method, Path, Init]
   : Key extends readonly [infer Method, infer Path]
     ? readonly [Method, Path]
-    : never;
+    : Key;
 
 /**
  * Whether the options give an `initialData` that is never `undefined`: a value, or a function that
@@ -331,7 +336,7 @@ export type UseInfiniteQueryMethod<Paths extends {}, Media extends MediaType> = 
       Method,
       Path
     >;
-    pageParamName?: string;
+    pageParamName?: string | undefined;
   },
   Initial = unknown,
   Next = never,
@@ -510,7 +515,7 @@ export interface CreateClientOptions {
    * reads the data the server rendered with; give different names to clients of one base URL that
    * fetch different data, such as one per tenant header.
    */
-  keyScope?: string;
+  keyScope?: string | undefined;
 }
 
 /**

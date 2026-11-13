@@ -1,3 +1,4 @@
+import { SOURCE_TEXT_REASONS } from "../adapters/redocly-loader/schema-load-errors.js";
 import {
   ERROR_CODES,
   type ErrorCode,
@@ -70,11 +71,12 @@ function parseFailedMessage(error: OpenAPITypesafeError): string {
 
 /**
  * Text piped into stdin that is only a YAML string (`echo api.yaml | openapi-typesafe`) gets the
- * CLI's advice, not the Node API's (`openapiTS(pathToFileURL(path))`).
+ * CLI's advice, not the Node API's (`openapiTS(pathToFileURL(path))`). Other reasons, such as a
+ * location that is not a valid URL, keep their own message.
  */
 function sourceInvalidMessage(error: OpenAPITypesafeError): string {
-  const { received, text } = error.details;
-  if (received !== "stream" || typeof text !== "string") {
+  const { reason, received, text } = error.details;
+  if (reason !== SOURCE_TEXT_REASONS.path || received !== "stream" || typeof text !== "string") {
     return error.message;
   }
   return (

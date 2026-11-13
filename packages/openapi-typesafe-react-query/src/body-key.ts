@@ -15,8 +15,11 @@ const TYPE_TAG_END = -1;
  */
 const BOXED_PRIMITIVE_CLASSES: readonly string[] = ["Number", "Boolean", "String"];
 
-/** The kind of a value that JSON cannot hold. */
-type RawKind = "URLSearchParams" | "FormData" | "Blob" | "bytes";
+/**
+ * The kind of a value that JSON cannot hold: a raw value, or a number JSON writes as `null` while
+ * a form or multipart body sends its text, named by that text.
+ */
+type RawKind = "URLSearchParams" | "FormData" | "Blob" | "bytes" | "NaN" | "Infinity" | "-Infinity";
 
 /**
  * The kinds of the values JSON cannot hold in a body: the kind of a body that is one, or, for an
@@ -55,6 +58,20 @@ function hasJsonForm(value: object): boolean {
     typeof (value as { toJSON?: unknown }).toJSON === "function" ||
     BOXED_PRIMITIVE_CLASSES.some((name) => isClass(value, name))
   );
+}
+
+/**
+ * A value of its own JSON form by that form, as `JSON.stringify` writes it: what its `toJSON`
+ * returns, or the primitive of a boxed primitive (JSON reads it with `valueOf`). The object itself
+ * is not kept: TanStack Query's filters match an object by its own members, and a Date or a
+ * `Number` object has none, so `setQueriesData` with one value wrote into the queries of every
+ * other value. An object form is walked by its members, as JSON writes it without calling a
+ * `toJSON` again.
+ */
+function jsonFormKey(value: object): BodyKey {
+  const { toJSON } = value as { toJSON?: unknown };
+  const form: unknown = typeof toJSON === "function" ? toJSON.call(value) : value.valueOf();
+  return typeof form === "object" && form !== null ? membersKey(form) : memberKey(form);
 }
 
 /**
@@ -142,17 +159,22 @@ function membersKey(members: object): BodyKey {
 }
 
 /**
- * A value inside a body. A value of its own JSON form stays as it is: TanStack Query's hash writes
- * it as JSON does. Bytes are walked by their members like any other object, which writes them as
- * JSON sends them, a `Uint16Array` as `{ "0": 256 }` and an ArrayBuffer as `{}`; their bytes
- * would name `[0, 1]` for it, as for a `Uint8Array` of 0 and 1. A form or multipart body rejects
- * such a member, so JSON is the only body that sends one.
+ * A value inside a body. A value of its own JSON form is its `jsonFormKey`. `NaN` and the
+ * infinities are `null`, as JSON sends them, with their text as their kind: a form or multipart
+ * body sends `NaN`, and a `NaN` kept in the key would not even match itself in a filter. Bytes are
+ * walked by their members like any other object, which writes them as JSON sends them, a
+ * `Uint16Array` as `{ "0": 256 }` and an ArrayBuffer as `{}`; their bytes would name `[0, 1]` for
+ * it, as for a `Uint8Array` of 0 and 1. A form or multipart body rejects such a member, so JSON is
+ * the only body that sends one.
  */
 function memberKey(value: unknown): BodyKey {
-  if (typeof value !== "object" || value === null || hasJsonForm(value)) {
+  if (typeof value === "number" && !Number.isFinite(value)) {
+    return { body: null, bodyType: String(value) as RawKind };
+  }
+  if (typeof value !== "object" || value === null) {
     return { body: value };
   }
-  return rawValueKey(value) ?? membersKey(value);
+  return hasJsonForm(value) ? jsonFormKey(value) : (rawValueKey(value) ?? membersKey(value));
 }
 
 /**
@@ -170,12 +192,12 @@ function memberKey(value: unknown): BodyKey {
  */
 export function bodyKey(body: unknown): BodyKey {
   if (typeof body !== "object" || body === null) {
-    return { body };
+    return memberKey(body);
   }
   return (
     bytesKey(body) ??
     (hasJsonForm(body) && Object.keys(body).length > 0
-      ? { body, bodyFields: membersKey(body) }
+      ? { ...jsonFormKey(body), bodyFields: membersKey(body) }
       : memberKey(body))
   );
 }

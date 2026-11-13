@@ -25,9 +25,14 @@ export function sourceInvalidError(source: unknown): OpenAPITypesafeError {
 
 /**
  * Why text is no schema source (`details.reason` of `SCHEMA_SOURCE_INVALID`): a location that is
- * not a valid URL, or only a YAML string, such as a file path. The CLI reports both for stdin.
+ * not a valid URL, only a YAML string, such as a file path, or a relative `file:` URL with a cwd
+ * that is no `file:` URL. The CLI reports the first two for stdin; its cwd is always local.
  */
-export const SOURCE_TEXT_REASONS = { url: "url", path: "path" } as const;
+export const SOURCE_TEXT_REASONS = {
+  url: "url",
+  path: "path",
+  relativeFile: "relative-file",
+} as const;
 
 /** How a message names the text of a source, by where it came from. */
 const TEXT_SOURCE_NAMES: Readonly<Record<TextOrigin, string>> = {
@@ -45,6 +50,26 @@ export function urlInvalidError(location: string, origin: TextOrigin): OpenAPITy
     code: ERROR_CODES.SCHEMA_SOURCE_INVALID,
     message: `${TEXT_SOURCE_NAMES[origin]} ${shown} starts like a URL but is not a valid URL`,
     details: { reason: SOURCE_TEXT_REASONS.url, received: origin, text: shown },
+  });
+}
+
+/**
+ * Text that is a relative `file:` URL (`file:api.yaml`) names a file in a local cwd only. The URL
+ * parser ignores a base of another scheme, so with an `https:` cwd it named `/api.yaml` in the
+ * file system root.
+ */
+export function relativeFileUrlError(
+  location: string,
+  origin: TextOrigin,
+  cwd: URL,
+): OpenAPITypesafeError {
+  const shown = redactUnparsedUrl(location);
+  return new OpenAPITypesafeError({
+    code: ERROR_CODES.SCHEMA_SOURCE_INVALID,
+    message:
+      `${TEXT_SOURCE_NAMES[origin]} ${shown} is a relative file: URL, which needs a file: cwd; ` +
+      `cwd is a ${cwd.protocol} URL. Pass an absolute file: URL or a local cwd`,
+    details: { reason: SOURCE_TEXT_REASONS.relativeFile, received: origin, text: shown },
   });
 }
 

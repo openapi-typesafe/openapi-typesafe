@@ -32,9 +32,11 @@ export interface CliRefLimits {
 }
 
 export interface CliArguments {
-  /** The schema path or URL; none means stdin, or the APIs of the Redocly config. */
+  /** The schema path or URL, never empty; none means stdin, or the APIs of the Redocly config. */
   readonly input: string | undefined;
+  /** The output path or URL, never empty; none means stdout. */
   readonly output: string | undefined;
+  /** The Redocly config path, never empty; none means the one the CLI finds, if any. */
   readonly redocly: string | undefined;
   readonly isCheck: boolean;
   readonly isHelp: boolean;
@@ -119,13 +121,45 @@ function inputOf(positionals: readonly (string | number)[]): string | undefined 
         `schemas, list them under \`apis\` in redocly.yaml. See ${MULTIPLE_SCHEMAS_DOCS_URL}`,
     );
   }
-  return optionalString(positionals[0]);
+  const input = optionalString(positionals[0]);
+  if (input === "") {
+    // An unset shell variable (`openapi-typesafe "$SPEC"`) read stdin instead.
+    throw cliError(
+      "CLI_LOCATION_INVALID",
+      "The schema argument is empty: pass a schema path or URL, or leave the argument out to " +
+        "read stdin.",
+    );
+  }
+  return input;
+}
+
+/** What each flag that takes a location needs, and what leaving it out does, for its error. */
+const LOCATION_FLAG_HINTS = {
+  output: "a file path or URL, or leave the flag out to write the types to stdout",
+  redocly: "the path of a redocly.yaml file, or leave the flag out to find one",
+} as const;
+
+/**
+ * The value of a flag that takes a location. An empty value (`-o "$OUT"` with `OUT` unset,
+ * `--output=`, a trailing `-o`) fails with `CLI_FLAG_INVALID`: it names no location, and read as
+ * unset it wrote the types to stdout or looked for another config, without a word.
+ */
+function locationFlagValue(
+  parsed: parser.Arguments,
+  flag: keyof typeof LOCATION_FLAG_HINTS,
+): string | undefined {
+  const value = lastString(parsed[flag]);
+  if (value === "") {
+    throw cliError("CLI_FLAG_INVALID", `--${flag} is empty: give ${LOCATION_FLAG_HINTS[flag]}.`);
+  }
+  return value;
 }
 
 /**
  * Parse the arguments after `node cli.js`. Fails with `CLI_FLAG_REMOVED` for an old flag, with
- * `CLI_FLAG_INVALID` for a boolean flag with another value than true or false or a `--no-` form
- * of a flag that takes a value, with `CLI_INPUT_EXTRA` for a second schema argument, and with
+ * `CLI_FLAG_INVALID` for a boolean flag with another value than true or false, a `--no-` form
+ * of a flag that takes a value or an empty `--output` or `--redocly`, with `CLI_INPUT_EXTRA` for a
+ * second schema argument, with `CLI_LOCATION_INVALID` for an empty one, and with
  * `OPTION_FIX_UNKNOWN` for an unknown `--fix` name.
  */
 export function parseCliArguments(argv: readonly string[]): CliArguments {
@@ -143,8 +177,8 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
   });
   return {
     input: inputOf(parsed._),
-    output: lastString(parsed.output),
-    redocly: lastString(parsed.redocly),
+    output: locationFlagValue(parsed, "output"),
+    redocly: locationFlagValue(parsed, "redocly"),
     isCheck: parsed.check === true,
     isHelp: "help" in parsed,
     isVersion: "version" in parsed,

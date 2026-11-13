@@ -21,13 +21,20 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   written as JSON sends it (a `Uint16Array` as `{ "0": 256 }`), and only a whole bytes body by its
   bytes. An object body is written by its own enumerable members, as the fetch client sends it,
   also when it is a class instance or comes from another realm. A `Date`, a `Number`, `Boolean`
-  or `String` object, or another object with a `toJSON` stays as it is, for its JSON form. As the
-  whole body, such an object with own members also has them in `bodyFields`, as `body` and
-  `bodyType`: JSON sends its JSON form, while a form or multipart body sends its members. The
-  kinds go in `bodyType` beside the body: `"URLSearchParams"`,
-  `"FormData"`, `"Blob"` or `"bytes"` for the whole body, or an object of them by member name or
+  or `String` object, or another object with a `toJSON` is written as its JSON form (what
+  `toJSON` returns, or the primitive), not as the object: TanStack Query's filters compare
+  objects by their own members, which a `Date` does not have, so `setQueriesData` with the key
+  of one date would match the queries of every date. As the whole body, such an object with own
+  members also has them in `bodyFields`, as `body` and `bodyType`: JSON sends its JSON form,
+  while a form or multipart body sends its members. `NaN`, `Infinity` and `-Infinity` in a body
+  are `null`, as JSON sends them, with their text as their kind, since a form or multipart body
+  sends the text. The kinds go in `bodyType` beside the body: `"URLSearchParams"`, `"FormData"`,
+  `"Blob"`, `"bytes"` or such a text for the whole body, or an object of them by member name or
   index (`{ image: "Blob" }`), so such a body never shares a key with a JSON body of the same
-  shape. Fields, parameters and headers set to `undefined` are left out, and so are `params`,
+  shape. Parameter and header values are written as the fetch client sends them: a `Date` (or
+  another value with a `toISOString`) as its ISO text, `NaN` and the infinities as their text,
+  and another object or an array by its members. Fields, parameters and headers set to
+  `undefined` are left out, and so are `params`,
   its `query`, `path`, `header` and `cookie` records and `headers` that this leaves empty, since
   they send nothing: `{ params: { query: { cursor: undefined } } }` has the key of no init.
   A `null`, `[]` or `{}` parameter or header value stays, and so does an empty JSON body. The
