@@ -228,3 +228,96 @@ describe("migrateYamlCommands and workflow expressions", () => {
     );
   });
 });
+
+describe("workflow expressions in other forms", () => {
+  /** A step that says a word or a variable holds old flags. */
+  const flagsStep = (location: string, variable: string, flags: string[]) => ({
+    kind: "flags-in-variable",
+    location,
+    variable,
+    flags,
+  });
+  const workflow = (...steps: string[]): string =>
+    lines(
+      "on:",
+      "  workflow_dispatch:",
+      "    inputs:",
+      "      gen: { default: npx openapi-typescript }",
+      "      flags: { default: -it }",
+      "jobs:",
+      "  a:",
+      `    env: { FL: "${expression("inputs.flags")}", OUT: "-o ${expression("inputs.out")} -ap" }`,
+      "    container: { env: { TOOL: mytool } }",
+      "    steps:",
+      ...steps.map((step) => `      - run: ${step}`),
+    );
+
+  it("migrateYamlCommands reports the old flags of an input read through github.event", () => {
+    const word = expression("github.event.inputs.flags");
+    const text = workflow(`npx openapi-typescript a.yaml ${word}`);
+
+    const migrated = migrateYamlCommands(text, "gen.yml", stringsOf(text));
+
+    expect(migrated.manualSteps).toEqual([flagsStep("gen.yml:11", word, ["-it"])]);
+  });
+
+  it("migrateYamlCommands reads an input only by its own name in an expression", () => {
+    const text = workflow(`npx openapi-typescript a.yaml ${expression("matrix.inputs.flags")}`);
+
+    expect(migrateYamlCommands(text, "gen.yml", stringsOf(text)).manualSteps).toEqual([]);
+  });
+
+  it("migrateYamlCommands reports the old flags of an input that an env value holds", () => {
+    const [fl, out] = [["$", "FL"].join(""), ["$", "OUT"].join("")] as const;
+    const text = workflow(`npx openapi-typescript a.yaml ${fl} ${out}`);
+
+    const migrated = migrateYamlCommands(text, "gen.yml", stringsOf(text));
+
+    expect(migrated.manualSteps).toEqual([
+      flagsStep("gen.yml:11", fl, ["-it"]),
+      flagsStep("gen.yml:11", out, ["-ap"]),
+    ]);
+  });
+
+  it("migrateYamlCommands reports an old flag in the literal of an expression argument", () => {
+    const word = expression("matrix.flags || '-ap'");
+    const text = workflow(`npx openapi-typescript a.yaml ${word} ${expression("matrix.x")}`);
+
+    const migrated = migrateYamlCommands(text, "gen.yml", stringsOf(text));
+
+    expect(migrated.manualSteps).toEqual([flagsStep("gen.yml:11", word, ["-ap"])]);
+  });
+
+  it("migrateYamlCommands reports the flags after a shell default that is an input", () => {
+    const program = `${["$", "{TOOL-"].join("")}${expression("inputs.gen")}}`;
+    const text = workflow(`${program} e.yaml -it`);
+
+    const migrated = migrateYamlCommands(text, "gen.yml", stringsOf(text));
+
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "variable-not-only-generator",
+        location: "gen.yml:11",
+        variable: program,
+        flags: ["-it"],
+      },
+    ]);
+  });
+
+  it("migrateYamlCommands reports the flags after a shell default for an unset variable", () => {
+    const program = ["$", "{GEN:-mytool}"].join("");
+    const alternative = ["$", "{GEN:+mytool}"].join("");
+    const text = workflow(`${program} e.yaml -it`, `${alternative} e.yaml -it`);
+
+    const migrated = migrateYamlCommands(text, "gen.yml", stringsOf(text));
+
+    expect(migrated.manualSteps).toEqual([
+      {
+        kind: "variable-not-only-generator",
+        location: "gen.yml:11",
+        variable: program,
+        flags: ["-it"],
+      },
+    ]);
+  });
+});

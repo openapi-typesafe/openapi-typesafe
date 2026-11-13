@@ -30,9 +30,6 @@ function expandedName(text: string): string | undefined {
   return match === null ? undefined : (match[1] ?? match[2]);
 }
 
-/** Whether text, read as a command line, runs the generator. */
-const textRunsGenerator = (text: string): boolean => shellCommands(text).some(runsGenerator);
-
 /**
  * Whether a command's program is a workflow expression (`${{ vars.GEN || 'npx …' }} a.yaml`):
  * the run puts its value there, so it may be the generator or another program.
@@ -172,22 +169,34 @@ const joinedProgram = (left: VariableProgram, right: VariableProgram): VariableP
   left === right ? left : "generator-or-other";
 
 /**
+ * What the word of an expansion runs as a command line: a workflow expression in it
+ * (`${GEN:-${{ inputs.gen }}}`) is a value that the run decides, so it may be either.
+ */
+function wordProgram(text: string): VariableProgram {
+  const commands = shellCommands(text);
+  if (commands.some(runsExpression)) {
+    return "generator-or-other";
+  }
+  return commands.some(runsGenerator) ? "generator" : "other";
+}
+
+/**
  * What a program word that is one expansion with a word runs (`npx ${GEN:-openapi-typescript}`,
  * `"${GEN:-npx openapi-typescript}" a.yaml`): its word, or the variable's value, which the
- * variables of the text know or which comes from outside it.
+ * variables of the text know or which comes from outside it. A variable that no definition the
+ * tool reads sets may run the generator, as an unread `$GEN` may.
  */
 function expansionUse(word: ShellWord, variables: FileVariables): VariableProgramUse | undefined {
   const expansion = wholeWordExpansion(word.raw);
   if (expansion === undefined) {
     return undefined;
   }
-  const programOf = (name: string | undefined): VariableProgram =>
-    (name === undefined ? undefined : variables.programAt({ ...word, raw: `$${name}` })?.program) ??
-    "other";
+  const programOf = (name: string): VariableProgram =>
+    variables.programAt({ ...word, raw: `$${name}` })?.program ?? "generator-or-other";
   const target = expandedName(expansion.text.trim());
-  const textProgram = textRunsGenerator(expansion.text) ? "generator" : "other";
-  const own = target === undefined ? textProgram : programOf(target);
-  const variable = programOf(expansion.use === "alternative" ? undefined : expansion.name);
+  const own = target === undefined ? wordProgram(expansion.text) : programOf(target);
+  // An alternative gives its word only when the variable is set, and nothing else.
+  const variable = expansion.use === "alternative" ? "other" : programOf(expansion.name);
   return { written: word.raw, program: joinedProgram(own, variable) };
 }
 
