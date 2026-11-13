@@ -63,9 +63,39 @@ function definedMembers(record: object): Record<string, unknown> | undefined {
 }
 
 /**
- * The `params` of an init without the records that send nothing: `{}`, `{ query: {} }` and
- * `{ query: { cursor: undefined } }` send the request of no `params`, since the fetch client reads
- * a missing record as an empty one. Undefined when no record is left.
+ * A parameter or header value as the fetch client sends it. `NaN` and the infinities are their
+ * text, which is sent, while TanStack Query's hash writes them as `null`, which sends nothing. A
+ * date, which the client tells by its `toISOString`, is its ISO text. Any other object or array is
+ * its members, each as sent. TanStack Query's filters match an object by its own members, and a
+ * Date or a `Number` object has none, so a key that kept one matched every other value.
+ */
+function sentValue(value: unknown): unknown {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : String(value);
+  }
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+  if (typeof (value as Partial<Date>).toISOString === "function") {
+    // `Date.prototype.toJSON` calls the `toISOString` of any object, and gives `null` for an
+    // invalid time instead of throwing while the component renders; the request reports it.
+    return Date.prototype.toJSON.call(value);
+  }
+  return Array.isArray(value) ? value.map(sentValue) : sentMembers(value);
+}
+
+/** The own members of an object, each as `sentValue`. An empty object stays, as `{}` does. */
+function sentMembers(record: object): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(record).map(([name, value]) => [name, sentValue(value)]),
+  );
+}
+
+/**
+ * The `params` of an init with the values of its records as `sentValue`, without the records that
+ * send nothing: `{}`, `{ query: {} }` and `{ query: { cursor: undefined } }` send the request of
+ * no `params`, since the fetch client reads a missing record as an empty one. Undefined when no
+ * record is left.
  */
 function paramsKey(params: unknown): unknown {
   if (!isPlainRecord(params)) {
@@ -73,15 +103,15 @@ function paramsKey(params: unknown): unknown {
   }
   const records = Object.entries(params).map(([location, record]) => [
     location,
-    isPlainRecord(record) ? definedMembers(record) : record,
+    isPlainRecord(record) ? definedMembers(sentMembers(record)) : record,
   ]);
   return definedMembers(Object.fromEntries(records));
 }
 
-/** The headers of an init as `plainHeaders`, or undefined when they set none. */
+/** The headers of an init as `plainHeaders` of sent values, or undefined when they set none. */
 function headersKey(headers: unknown): unknown {
   return typeof headers === "object" && headers !== null
-    ? definedMembers(plainHeaders(headers))
+    ? definedMembers(sentMembers(plainHeaders(headers)))
     : headers;
 }
 
