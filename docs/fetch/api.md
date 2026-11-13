@@ -112,7 +112,8 @@ A response without a `Content-Type` names no media type: its body is parsed when
 it is the text. A JSON body that does not parse is the text too. The `error` types assume the
 `Content-Type` that the document declares for the response: a JSON media type gives its schema,
 any other media type a `string` whatever its schema (a `text/plain` error with an `integer` schema
-is a `string`), and `*/*` or `application/*`, which may hold JSON or not, the schema or a `string`.
+is a `string`), and a media range (`*/*`, `application/*`, `text/*`), which may hold JSON or not, the schema or a
+`string`.
 
 An empty body (a 204, an answer to HEAD, a `Content-Length` of 0) is `undefined` data with the
 default `parseAs: "json"` and an `undefined` error. Another `parseAs` reads it with its method, as
@@ -579,11 +580,11 @@ like the rest of the API.
 success or error responses as the client returns them. `Media` picks among the media types of each
 response, as an `Accept` header does (any media type by default). Each success media type picked
 gives its schema. Each error media type picked gives what the client returns for it: the schema
-of a JSON media type, a `string` for any other media type, and the schema or a `string` for `*/*`
-and `application/*`. `SuccessResponseJSON<Operation>` and `ErrorResponseJSON<Operation>` pick the
+of a JSON media type, a `string` for any other media type, and the schema or a `string` for a
+media range (`*/*`, `application/*`, `text/*`). `SuccessResponseJSON<Operation>` and `ErrorResponseJSON<Operation>` pick the
 JSON media types: `application/json` and those with a `+json` suffix (`application/problem+json`,
 `application/vnd.api+json`), with or without parameters (`application/json; charset=utf-8`), and
-`*/*` and `application/*`, which may hold JSON. The `data` and `error` of a client made with
+the media ranges (`*/*`, `application/*`, `text/*`), which may hold JSON. The `data` and `error` of a client made with
 `` createClient<paths, Media>() `` follow the same rule, for example
 `` createClient<paths, `${string}/json`>() ``.
 

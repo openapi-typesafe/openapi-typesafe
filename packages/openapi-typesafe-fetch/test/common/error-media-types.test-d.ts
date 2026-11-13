@@ -11,7 +11,7 @@ import createClient from "../../src/index.js";
  * The error types describe what the client returns. It reads an error body by its media type: a
  * JSON one (`json` or a `+json` suffix, with parameters, in any case) is parsed, any other is the
  * text. So a `text/plain` error with an `integer` or `boolean` schema is a `string`, and a media
- * range that may hold JSON (any type, any `application` type) is the schema or a `string`. Success
+ * range (`text/*` too, as `text/json` parses) is the schema or a `string`. Success
  * data keeps its schema: the default `parseAs: "json"` parses whatever the media type.
  */
 
@@ -64,10 +64,12 @@ describe("ErrorResponse by media type", () => {
     expectTypeOf<ErrorResponse<AnyApplication>>().toEqualTypeOf<{ code: number } | string>();
   });
 
-  it("ErrorResponse of a text media range is a string", () => {
+  it("ErrorResponse of a text media range is the schema or a string, as text/json parses", () => {
     type Errors = { 500: Response<{ "text/*": { code: number } }> };
+    type WithParameters = { 500: Response<{ "text/*; charset=utf-8": { code: number } }> };
 
-    expectTypeOf<ErrorResponse<Errors>>().toEqualTypeOf<string>();
+    expectTypeOf<ErrorResponse<Errors>>().toEqualTypeOf<{ code: number } | string>();
+    expectTypeOf<ErrorResponse<WithParameters>>().toEqualTypeOf<{ code: number } | string>();
   });
 
   it("ErrorResponse of a JSON and a text body of one error is the schema or a string", () => {

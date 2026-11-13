@@ -410,8 +410,11 @@ type JSONMediaPattern =
   | `${string}/${"" | `${string}+`}json`
   | `${string}/${"" | `${string}+`}json${";" | " " | "\t"}${string}`;
 
-/** The media ranges that may hold JSON: the wildcards for any type and any `application` type. */
-type JSONMediaRange = "*/*" | "application/*";
+/**
+ * The media ranges, with or without parameters: each may hold JSON, as the client parses any
+ * `<type>/json` (`text/json` too), so `text/*` counts as `application/*` does.
+ */
+type JSONMediaRange = `${string}/*` | `${string}/*${";" | " " | "\t"}${string}`;
 
 /** The media types that may hold JSON, in lower case. */
 type JSONMediaType = JSONMediaPattern | JSONMediaRange;

@@ -342,15 +342,16 @@ every media type that `Media` picks, so with the default `Media` a `text/plain` 
 error media type (`ErrorBody` in `helpers.ts`):
 
 1. A JSON media type (the pattern of `JSON_MEDIA_TYPE_RE`, in any case): the schema.
-2. A media range that may hold JSON (`*/*`, `application/*`, the ranges the JSON helpers already
-   count as JSON), or a content map with an index signature (`Record<string, …>`): the schema or
-   a `string`.
+2. A media range (`*/*`, `application/*`, `text/*`, any `<type>/*`, with or without
+   parameters), or a content map with an index signature (`Record<string, …>`): the schema or a
+   `string`. The client parses any `<type>/json`, `text/json` too, so every range may hold JSON.
 3. Any other media type: a `string`, whatever its schema.
 
 One type-level JSON rule serves the JSON helpers and the error types (`JSONMediaPattern`,
-`JSONMediaRange`, `IsJSONMediaType`). `text/*` stays a text media type, as for `SuccessResponseJSON`, although a
-`text/json` body would parse. Success `data` is unchanged: the default `parseAs: "json"` parses
-any body, so a picked media type keeps its schema.
+`JSONMediaRange`, `IsJSONMediaType`). `JSONMediaRange` was `*/*` and `application/*` only; it
+is now every range, so `SuccessResponseJSON`, `ErrorResponseJSON` and `JSONLike` also take a
+`text/*` body, like an `application/*` one. Success `data` is unchanged otherwise: the default
+`parseAs: "json"` parses any body, so a picked media type keeps its schema.
 
 Success and error bodies now have an alias each. A branch on the body class inside one alias, or
 error bodies mapped first and then indexed by `Media`, made the result of a wrapper generic in the

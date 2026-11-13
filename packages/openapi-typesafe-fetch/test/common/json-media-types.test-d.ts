@@ -12,7 +12,7 @@ import createClient from "../../src/index.js";
 
 /**
  * The response types describe what the client returns. It parses every JSON body (`json` or a
- * `+json` suffix, with or without parameters, and the wildcards that may hold JSON), so each one
+ * `+json` suffix, with or without parameters, and the media ranges, which may hold JSON), so each one
  * gives its schema whatever the media types asked for. It returns any other error body as text,
  * and the default `parseAs: "json"` rejects any other success body. The JSON helpers matched only
  * `${string}/json`, so a problem+json error was left out of `error`.
@@ -87,18 +87,22 @@ describe("JSON media types", () => {
     expectTypeOf<SuccessResponseJSON<Operation<Successes>>>().toEqualTypeOf<Pet>();
   });
 
-  it("SuccessResponseJSON of the wildcards that may hold JSON is their schema", () => {
+  it("SuccessResponseJSON of the media ranges, which may hold JSON, is their schema", () => {
     type Successes = {
       200: Response<{ "*/*": Pet }>;
       201: Response<{ "application/*": Problem }>;
+      202: Response<{ "text/*": "text" }>;
+      203: Response<{ "Text/*; charset=utf-8": "charset" }>;
     };
 
-    expectTypeOf<SuccessResponseJSON<Operation<Successes>>>().toEqualTypeOf<Pet | Problem>();
+    expectTypeOf<SuccessResponseJSON<Operation<Successes>>>().toEqualTypeOf<
+      Pet | Problem | "text" | "charset"
+    >();
   });
 
-  it("SuccessResponseJSON of a text wildcard or line-delimited JSON is never", () => {
+  it("SuccessResponseJSON of line-delimited JSON or a text media type is never", () => {
     type Successes = {
-      200: Response<{ "text/*": string }>;
+      200: Response<{ "text/plain": string }>;
       201: Response<{ "application/x-ndjson": Pet }>;
       202: Response<{ "application/json-seq": Pet }>;
     };
