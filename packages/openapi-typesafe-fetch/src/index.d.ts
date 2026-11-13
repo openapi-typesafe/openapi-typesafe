@@ -29,29 +29,29 @@ import type {
 /** Options for each client instance */
 export interface ClientOptions extends Omit<RequestInit, "headers"> {
   /** set the common root URL for all API requests */
-  baseUrl?: string;
+  baseUrl?: string | undefined;
   /** custom fetch (defaults to globalThis.fetch) */
-  fetch?: (input: Request) => Promise<Response>;
+  fetch?: ((input: Request) => Promise<Response>) | undefined;
   /** custom Request (defaults to globalThis.Request) */
-  Request?: typeof Request;
+  Request?: typeof Request | undefined;
   /**
    * The `FormData` class of the `Request` implementation (defaults to globalThis.FormData). A
    * FormData body of another class, also the one the client builds for a multipart body, is sent
    * as a copy of this class.
    */
-  FormData?: typeof FormData;
+  FormData?: typeof FormData | undefined;
   /** global querySerializer */
-  querySerializer?: QuerySerializer<unknown> | QuerySerializerOptions;
+  querySerializer?: QuerySerializer<unknown> | QuerySerializerOptions | undefined;
   /** global bodySerializer */
-  bodySerializer?: BodySerializer<unknown>;
+  bodySerializer?: BodySerializer<unknown> | undefined;
   /** global pathSerializer */
-  pathSerializer?: PathSerializer;
-  headers?: HeadersOptions;
+  pathSerializer?: PathSerializer | undefined;
+  headers?: HeadersOptions | undefined;
   /**
    * RequestInit extension object to pass as 2nd argument to fetch when supported (defaults to
    * undefined)
    */
-  requestInitExt?: Record<string, unknown>;
+  requestInitExt?: Record<string, unknown> | undefined;
 }
 
 /**
@@ -66,14 +66,11 @@ export interface ClientOptions extends Omit<RequestInit, "headers"> {
 export interface CustomFetchClientOptions
   extends Omit<ClientOptions, "fetch" | "Request" | "FormData"> {
   /** `fetch` of another implementation (for example `fetch` from `undici`) */
-  fetch?: (input: never, init?: never) => PromiseLike<object>;
+  fetch?: ((input: never, init?: never) => PromiseLike<object>) | undefined;
   /** `Request` of the same implementation (for example `Request` from `undici`) */
-  Request?: new (
-    input: string,
-    init: never,
-  ) => object;
+  Request?: (new (input: string, init: never) => object) | undefined;
   /** `FormData` of the same implementation (for example `FormData` from `undici`) */
-  FormData?: new () => object;
+  FormData?: (new () => object) | undefined;
 }
 
 export type HeadersOptions =
@@ -148,16 +145,14 @@ export type ParseAsResponse<T, Options> = Options extends {
   : T;
 
 export interface DefaultParamsOption {
-  params?: {
-    query?: Record<string, unknown>;
-  };
+  params?: { query?: Record<string, unknown> | undefined } | undefined;
 }
 
 export type ParamsOption<T> = T extends {
   parameters: unknown;
 }
   ? RequiredKeysOf<T["parameters"]> extends never
-    ? { params?: T["parameters"] }
+    ? { params?: T["parameters"] | undefined }
     : { params: T["parameters"] }
   : DefaultParamsOption;
 
@@ -209,14 +204,14 @@ export type FetchResponse<
 
 export type RequestOptions<T> = ParamsOption<T> &
   RequestBodyOption<T> & {
-    baseUrl?: string;
-    querySerializer?: QuerySerializer<T> | QuerySerializerOptions;
-    bodySerializer?: BodySerializer<T>;
-    pathSerializer?: PathSerializer;
-    parseAs?: ParseAs;
+    baseUrl?: string | undefined;
+    querySerializer?: QuerySerializer<T> | QuerySerializerOptions | undefined;
+    bodySerializer?: BodySerializer<T> | undefined;
+    pathSerializer?: PathSerializer | undefined;
+    parseAs?: ParseAs | undefined;
     fetch?: ClientOptions["fetch"];
-    headers?: HeadersOptions;
-    middleware?: Middleware[];
+    headers?: HeadersOptions | undefined;
+    middleware?: Middleware[] | undefined;
   };
 
 export type MergedOptions<T = unknown> = {

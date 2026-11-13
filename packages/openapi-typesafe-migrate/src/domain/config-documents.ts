@@ -13,13 +13,18 @@ interface Span {
   readonly end: number;
 }
 
+/** A node that a YAML anchor names (`&scripts`), so an alias (`*scripts`) can use it elsewhere. */
+interface Anchorable {
+  readonly anchor?: string;
+}
+
 /**
  * A text value: a JSON string, a YAML scalar. `start` and `end` cover the node with its quotes;
  * `content` covers its text as written: inside the quotes, and the content lines of a block
  * scalar without its `|` or `>` line. A YAML plain scalar that YAML reads as a number or a
  * boolean has its text as written as `value` (`1.10`, not 1.1).
  */
-export interface TreeScalar extends Span {
+export interface TreeScalar extends Span, Anchorable {
   readonly kind: "scalar";
   readonly value: string;
   readonly content: Span;
@@ -44,19 +49,20 @@ export interface TreeEntry {
 }
 
 /** A JSON object or YAML mapping, every entry as written, duplicate keys included, in order. */
-export interface TreeMap extends Span {
+export interface TreeMap extends Span, Anchorable {
   readonly kind: "map";
   readonly entries: readonly TreeEntry[];
 }
 
-export interface TreeList extends Span {
+export interface TreeList extends Span, Anchorable {
   readonly kind: "list";
   readonly items: readonly TreeNode[];
 }
 
-/** A number, boolean or null in JSON, a YAML alias, an empty value. */
+/** A number, boolean or null in JSON, a YAML alias (with the anchor it names), an empty value. */
 export interface TreeOther extends Span {
   readonly kind: "other";
+  readonly alias?: string;
 }
 
 export type TreeNode = TreeMap | TreeList | TreeScalar | TreeOther;
@@ -99,25 +105,69 @@ export function mapsAt(map: TreeMap, key: string): TreeMap[] {
   return valuesAt(map, key).filter(isMap);
 }
 
-/** The string values below `node` in document order; none below a key that is not text. */
-function stringsBelow(node: TreeNode, path: DocumentPath): DocumentString[] {
+/** The node an alias uses, or undefined for none. */
+type AliasTarget = (alias: TreeOther) => TreeNode | undefined;
+
+const NO_ALIASES: AliasTarget = () => undefined;
+
+/**
+ * The string values below `node` in document order; none below a key that is not text. An alias
+ * gives the strings of the node it uses at its own path, with the offsets where they are written.
+ */
+function stringsBelow(node: TreeNode, path: DocumentPath, targetOf: AliasTarget): DocumentString[] {
   switch (node.kind) {
     case "scalar":
       return [{ ...node, path }];
     case "list":
-      return node.items.flatMap((item, index) => stringsBelow(item, [...path, index]));
+      return node.items.flatMap((item, index) => stringsBelow(item, [...path, index], targetOf));
     case "map":
       return textEntries(node).flatMap(({ key, value }) =>
-        stringsBelow(value, [...path, key.value]),
+        stringsBelow(value, [...path, key.value], targetOf),
       );
-    default:
-      return [];
+    default: {
+      const target = targetOf(node);
+      return target === undefined ? [] : stringsBelow(target, path, targetOf);
+    }
   }
 }
 
 /** Every string value of the documents (not the keys), with its key path, in document order. */
 export function documentStrings(documents: readonly TreeNode[]): DocumentString[] {
-  return documents.flatMap((document) => stringsBelow(document, []));
+  return documents.flatMap((document) => stringsBelow(document, [], NO_ALIASES));
+}
+
+/** `node` and every node below it, in document order. */
+function nodesBelow(node: TreeNode): TreeNode[] {
+  const children =
+    node.kind === "list"
+      ? node.items
+      : node.kind === "map"
+        ? node.entries.flatMap(({ key, value }) => [key, value])
+        : [];
+  return [node, ...children.flatMap(nodesBelow)];
+}
+
+/**
+ * The node each alias of a document uses: the last node before the alias with its anchor that
+ * does not hold the alias, as YAML reads it. A target ends before its alias, so the aliases in
+ * it come earlier in the text, and following them always ends.
+ */
+function aliasTargets(document: TreeNode): AliasTarget {
+  const anchored = nodesBelow(document).filter(
+    (node) => node.kind !== "other" && node.anchor !== undefined,
+  );
+  return (alias) =>
+    anchored.findLast(
+      (node) => node.kind !== "other" && node.anchor === alias.alias && node.end <= alias.start,
+    );
+}
+
+/**
+ * Every string value of the documents where it is used: once where it is written, and again at
+ * the path of each alias that uses it (`script: [*gen_scripts]`), with the same offsets.
+ */
+export function usedDocumentStrings(documents: readonly TreeNode[]): DocumentString[] {
+  return documents.flatMap((document) => stringsBelow(document, [], aliasTargets(document)));
 }
 
 /**

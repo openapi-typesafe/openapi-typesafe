@@ -3,7 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { formatDuration } from "../adapters/terminal-logger/terminal-logger.js";
 import { isLocalFileUrl } from "../api/local-file-url.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
-import { hasUrlScheme } from "../domain/location-text.js";
+import { hasUrlScheme, parseUrlLocation } from "../domain/location-text.js";
 import { terminalSafeText } from "../domain/terminal-text.js";
 import { redactUnparsedUrl, redactUrlSecrets } from "../domain/url-secrets.js";
 import type { CliArguments } from "./cli-arguments.js";
@@ -30,6 +30,11 @@ export interface OutputFile extends NamedOutput {
   readonly file: URL;
 }
 
+/** `CLI_LOCATION_INVALID` for a location written as a URL that does not parse, shown redacted. */
+export function locationInvalidError(shown: string): Error {
+  return cliError("CLI_LOCATION_INVALID", `The location ${shown} is not a valid URL`);
+}
+
 /**
  * The URL of a location the user wrote: a URL, else a file path, absolute or relative to the
  * directory of `base` (a directory or file URL). A relative `file:` URL (`file:api.yaml`) resolves
@@ -39,10 +44,9 @@ export interface OutputFile extends NamedOutput {
  */
 export function resolveLocationUrl(location: string, base: URL): URL {
   if (hasUrlScheme(location)) {
-    const url = URL.parse(location, base.href);
-    if (url === null) {
-      const shown = redactUnparsedUrl(location);
-      throw cliError("CLI_LOCATION_INVALID", `The location ${shown} is not a valid URL`);
+    const url = parseUrlLocation(location, base);
+    if (url === undefined) {
+      throw locationInvalidError(redactUnparsedUrl(location));
     }
     return url;
   }
@@ -196,7 +200,7 @@ export function duplicateOutputError(output: NamedOutput, others: readonly strin
 /** As `resolveLocationUrl`, but undefined for a URL that does not parse instead of a throw. */
 export function parseLocationUrl(location: string, base: URL): URL | undefined {
   if (hasUrlScheme(location)) {
-    return URL.parse(location, base.href) ?? undefined;
+    return parseUrlLocation(location, base);
   }
   return resolveLocationUrl(location, base);
 }

@@ -83,6 +83,22 @@ describe("TypescriptCallbackRewriter", () => {
     ],
     ["ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode('A')])", '"A"'],
     [
+      "ts.factory.createArrayTypeNode(ts.factory.createUnionTypeNode([ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode('Date'), ts.factory.createLiteralTypeNode(ts.factory.createNull())])]))",
+      '"(Date | null)[]"',
+    ],
+    [
+      "ts.factory.createIntersectionTypeNode([ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode('A'), ts.factory.createTypeReferenceNode('B')])])",
+      '"(A | B)"',
+    ],
+    [
+      "ts.factory.createArrayTypeNode(ts.factory.createIntersectionTypeNode([ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode('A'), ts.factory.createTypeReferenceNode('B')])]))",
+      '"(A | B)[]"',
+    ],
+    [
+      "ts.factory.createIntersectionTypeNode([ts.factory.createIntersectionTypeNode([ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode('A'), ts.factory.createTypeReferenceNode('B')])]), ts.factory.createTypeReferenceNode('C')])",
+      '"(A | B) & C"',
+    ],
+    [
       "({ schema: ts.factory.createTypeReferenceNode('Date'), questionToken: true })",
       '({ schema: "Date", questionToken: true })',
     ],

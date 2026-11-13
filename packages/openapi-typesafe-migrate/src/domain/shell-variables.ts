@@ -1,3 +1,4 @@
+import { commandRoles } from "./command-roles.js";
 import { type FileVariables, runsGenerator, type VariableProgramUse } from "./file-variables.js";
 import { type WordExpansion, wholeWordExpansion, wordExpansions } from "./parameter-expansions.js";
 import { isArrayAssignment, shellAssignments } from "./shell-assignments.js";
@@ -27,12 +28,30 @@ function expandedName(text: string): string | undefined {
 /** Whether text, read as a command line, runs the generator. */
 const textRunsGenerator = (text: string): boolean => shellCommands(text).some(runsGenerator);
 
-/** What a text sets a variable to: a reference to one variable, or a command. */
+/**
+ * Whether a command's program is a workflow expression (`${{ vars.GEN || 'npx …' }} a.yaml`):
+ * the run puts its value there, so it may be the generator or another program.
+ */
+function runsExpression(command: ShellCommand): boolean {
+  const { program } = commandRoles(command);
+  const word = program === undefined ? undefined : command[program];
+  return word !== undefined && isWholeExpression(word.raw);
+}
+
+/**
+ * What a text sets a variable to: a reference to one variable, a command, or a value that the
+ * run decides, when a program of it is a workflow expression. The literals of the expression
+ * are commands of the text too, so they must not make it the generator alone.
+ */
 function textDefinition(name: string, text: string): ProgramDefinition {
   const target = expandedName(text.trim());
-  return target === undefined
-    ? { name, kind: "command", runsGenerator: textRunsGenerator(text) }
-    : { name, kind: "reference", target };
+  if (target !== undefined) {
+    return { name, kind: "reference", target };
+  }
+  const commands = shellCommands(text);
+  return commands.some(runsExpression)
+    ? { name, kind: "run-time" }
+    : { name, kind: "command", runsGenerator: commands.some(runsGenerator) };
 }
 
 /**

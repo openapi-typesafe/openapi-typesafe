@@ -1,4 +1,6 @@
 // settings & const
+/** The header name, held once: the minifier shortens a constant but not a repeated string. */
+const CONTENT_TYPE = "Content-Type";
 const PATH_PARAM_RE = /\{[^{}]+\}/g;
 /**
  * A `.` or `..` path segment; URLs resolve it, so a parameter value could leave its path (#2483).
@@ -152,7 +154,7 @@ export default function createClient(clientOptions) {
         isRawBody(requestBody)
         ? {}
         : {
-            "Content-Type": "application/json",
+            [CONTENT_TYPE]: "application/json",
           },
       baseHeaders,
       headers,
@@ -469,8 +471,8 @@ export function createPathBasedClient(clientOptions) {
  * `fetch` of their own (ADR-013, decision 10).
  */
 function dropFormContentType(headers, isClientBuilt) {
-  if (isClientBuilt || !BOUNDARY_PARAMETER_RE.test(headers.get("Content-Type"))) {
-    headers.delete("Content-Type");
+  if (isClientBuilt || !BOUNDARY_PARAMETER_RE.test(headers.get(CONTENT_TYPE))) {
+    headers.delete(CONTENT_TYPE);
   }
 }
 
@@ -508,7 +510,7 @@ function parseJSON(raw, response) {
   try {
     return JSON.parse(raw);
   } catch {
-    const contentType = response.headers.get("Content-Type");
+    const contentType = response.headers.get(CONTENT_TYPE);
     const hint = TEXT_MEDIA_TYPE_RE.test(contentType) ? 'set `parseAs: "text"`' : "set `parseAs`";
     const subject = `Response ${response.status} (${contentType ?? "no Content-Type"})`;
     throw new SyntaxError(`${subject} is not JSON (${raw.length} characters); ${hint}`);
@@ -557,13 +559,20 @@ async function readSuccessBody(response, parseAs) {
 }
 
 /**
- * The error of an error response: `undefined` for an empty body, else JSON. A body that is not
- * JSON (a proxy's HTML page) stays text, as in openapi-fetch.
+ * The error of an error response: `undefined` for an empty body, JSON for a JSON media type, and
+ * the text for any other media type, as the response types say (ADR-041). openapi-fetch parsed
+ * every body, so a `text/plain` "429", "true" or "null" became a number, a boolean or `null`, and
+ * a falsy one skipped `if (error)`. Without a Content-Type nothing names the media type, so a body
+ * that parses is JSON. A body that is not JSON (a proxy's HTML page) stays text.
  */
 async function readErrorBody(response) {
   const raw = await response.text();
   if (!raw) {
     return undefined;
+  }
+  const contentType = response.headers.get(CONTENT_TYPE);
+  if (contentType !== null && !JSON_MEDIA_TYPE_RE.test(contentType)) {
+    return raw;
   }
   try {
     return JSON.parse(raw);
@@ -1131,7 +1140,7 @@ export function defaultBodySerializer(body, headers) {
   // nothing else (upstream #2637). A record or a list of pairs is read through `Headers`, which
   // matches the name in any letter case.
   const contentType =
-    headers && (isHeaders(headers) ? headers : mergeHeaders(headers)).get("Content-Type");
+    headers && (isHeaders(headers) ? headers : mergeHeaders(headers)).get(CONTENT_TYPE);
   if (FORM_MEDIA_TYPE_RE.test(contentType)) {
     return formBody(body);
   }

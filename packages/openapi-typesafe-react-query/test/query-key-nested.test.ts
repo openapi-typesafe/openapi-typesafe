@@ -29,12 +29,12 @@ describe("queryKeyInit values JSON cannot hold inside a body", () => {
 
   it("queryKeyInit with files in an array and nested bodies names their kinds by place", () => {
     const blob = new Blob(["ab"], { type: "a/b" });
-    const bytes = new Uint8Array([7]);
+    const params = new URLSearchParams("a=1");
 
-    expect(multipartKey({ files: ["x", blob], meta: { raw: bytes } })).toEqual({
+    expect(multipartKey({ files: ["x", blob], meta: { params } })).toEqual({
       headers: MULTIPART,
-      body: { files: ["x", { type: "a/b", size: 2, name: undefined }], meta: { raw: [7] } },
-      bodyType: { files: { 1: "Blob" }, meta: { raw: "bytes" } },
+      body: { files: ["x", { type: "a/b", size: 2, name: undefined }], meta: { params: "a=1" } },
+      bodyType: { files: { 1: "Blob" }, meta: { params: "URLSearchParams" } },
     });
   });
 

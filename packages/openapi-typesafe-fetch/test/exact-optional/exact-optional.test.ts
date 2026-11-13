@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
  */
 
 const QUERY_OPTIONS_SOURCE = fileURLToPath(new URL("./query-options.ts", import.meta.url));
+const CLIENT_OPTIONS_SOURCE = fileURLToPath(new URL("./client-options.ts", import.meta.url));
 
 /**
  * The test builds a whole TypeScript program; a loaded runner takes a few seconds. 60 s leaves room
@@ -39,6 +40,14 @@ describe("exactOptionalPropertyTypes", () => {
     timeout: TYPE_PROGRAM_TIMEOUT_MS,
   }, () => {
     const diagnostics = diagnosticsOf(QUERY_OPTIONS_SOURCE);
+
+    expect(diagnostics).toEqual([]);
+  });
+
+  it("client and request options set to undefined compile", {
+    timeout: TYPE_PROGRAM_TIMEOUT_MS,
+  }, () => {
+    const diagnostics = diagnosticsOf(CLIENT_OPTIONS_SOURCE);
 
     expect(diagnostics).toEqual([]);
   });

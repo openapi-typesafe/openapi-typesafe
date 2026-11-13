@@ -29,6 +29,12 @@ The client has the methods of the [fetch options](#fetch-options) (`GET`, `POST`
 `use` and `eject` for [middleware](#middleware), and `baseUrl`: the `baseUrl` option without its
 trailing slash, or `""` without one. `openapi-typesafe-react-query` puts it into its query keys.
 
+An option set to `undefined` counts as left out, here and in the [fetch options](#fetch-options),
+and the option types say `| undefined`. So a wrapper can pass its own optional options on
+(`createClient<paths>({ baseUrl: options.baseUrl })`) also with `exactOptionalPropertyTypes`. The
+fetch options that come from the DOM lib's `RequestInit` (`mode`, `cache`, `signal`, …) keep the
+DOM lib's types.
+
 ### Another fetch implementation
 
 `fetch` and `Request` of another Fetch API implementation, such as the `undici` package, are typed
@@ -94,8 +100,15 @@ JSON (for example the HTML page of a proxy) throws a `SyntaxError` that names th
 `Content-Type` and the length of the body, and says which `parseAs` to set (`parseAs: "text"` for
 a `text/*` response). The error holds no body text, since a body can hold a secret (a form-encoded
 OAuth token answer) and errors reach logs, so it has no `cause` either: the parser's message quotes
-the body. Read `response` with `parseAs: "text"` to see it. An error
-response (`4xx`, `5xx`) whose body is not JSON gives the text as `error` instead of throwing.
+the body. Read `response` with `parseAs: "text"` to see it.
+
+An error response (`4xx`, `5xx`) never throws for its body, and `parseAs` does not apply to it.
+Its `Content-Type` decides: a JSON media type (`json` or a `+json` suffix, with or without
+parameters) gives the parsed body, and any other media type the text, so a `text/plain` body
+`429`, `true` or `null` stays the string `"429"`, `"true"` or `"null"` (openapi-fetch parsed it).
+A response without a `Content-Type` names no media type: its body is parsed when it is JSON, else
+it is the text. A JSON body that does not parse is the text too. The `error` types assume the
+`Content-Type` that the document declares for the response.
 
 An empty body (a 204, an answer to HEAD, a `Content-Length` of 0) is `undefined` data with the
 default `parseAs: "json"` and an `undefined` error. Another `parseAs` reads it with its method, as

@@ -41,7 +41,6 @@ import {
   versionUnsupportedError,
 } from "./schema-load-errors.js";
 import {
-  inlineAbsoluteRef,
   isFileSource,
   parseSchema,
   type ResolvedLoadRequest,
@@ -126,7 +125,7 @@ class RedoclySchemaLoader implements SchemaLoader {
 
   async load(request: SchemaLoadRequest): Promise<LoadedSchema> {
     // Resolved once, before any step reads the source: URL text is then a URL in every step.
-    const source = await resolveSchemaSource(request.source, inlineAbsoluteRef(request.cwd));
+    const source = await resolveSchemaSource(request.source, request.cwd);
     const resolved = { ...request, source };
     const resolver = this.#resolver(resolved);
     // Parsing is guarded too: `JSON.stringify` of a deep object source overflows the stack on

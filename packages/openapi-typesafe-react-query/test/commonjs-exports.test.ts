@@ -36,4 +36,10 @@ describe("the CommonJS module", () => {
 
     expect(isResponseError).toBeTypeOf("function");
   });
+
+  it("require() has infiniteQueryKey as a property", () => {
+    const { infiniteQueryKey } = loadCommonJs() as { infiniteQueryKey: unknown };
+
+    expect(infiniteQueryKey).toBeTypeOf("function");
+  });
 });

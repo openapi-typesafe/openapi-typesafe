@@ -9,6 +9,8 @@ import { type JustLiteral, literalAt, literalsBetween } from "./just-expressions
 /** A parameter with a default: its name, the literals of the default, the variable it names. */
 export interface ParameterDefault {
   readonly name: string;
+  /** Whether the recipe exports it to its shell (`$name=…`), which reads it as `$name`. */
+  readonly isExported: boolean;
   readonly literals: readonly JustLiteral[];
   /** The variable that the default is (`gen=other`), or undefined for another expression. */
   readonly target: string | undefined;
@@ -24,7 +26,8 @@ export interface RecipeHeader {
 /** The recipe name at the start of a line, with the quiet `@` prefix. */
 const RECIPE_NAME_RE = /^@?[A-Za-z_][A-Za-z0-9_-]*(?=[ \t:])/gm;
 /** One parameter: its kind prefix (`+`, `*`, `$`), its name and its default. */
-const PARAMETER_RE = /^[+*$]*([A-Za-z_][A-Za-z0-9_-]*)(?:=([\s\S]*))?$/;
+const PARAMETER_RE = /^([+*$]*)([A-Za-z_][A-Za-z0-9_-]*)(?:=([\s\S]*))?$/;
+const EXPORT_PREFIX = "$";
 const NAME_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 const COLON = ":";
 const EQUALS = "=";
@@ -88,14 +91,15 @@ function parameterWords(text: string, start: number, end: number): ParameterWord
 function parameterDefault(text: string, word: ParameterWord): ParameterDefault[] {
   const written = text.slice(word.start, word.end);
   const match = PARAMETER_RE.exec(written);
-  const value = match?.[2];
+  const value = match?.[3];
   if (match === null || value === undefined) {
     return [];
   }
   const defaultStart = word.end - value.length;
   const literals = literalsBetween(text, defaultStart, word.end);
   const target = NAME_RE.test(value) ? value : undefined;
-  return [{ name: match[1] as string, literals, target }];
+  const isExported = (match[1] as string).includes(EXPORT_PREFIX);
+  return [{ name: match[2] as string, isExported, literals, target }];
 }
 
 /** The recipe headers of a justfile with the defaults of their parameters. */

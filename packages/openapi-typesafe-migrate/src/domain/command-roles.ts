@@ -33,12 +33,23 @@ function skipAssignments(words: ShellCommand, start: number): number {
   return index;
 }
 
-/** The Windows file suffixes of a program that npm, pnpm and yarn install (`npx.cmd`). */
+/**
+ * The Windows file suffixes of a program that npm, pnpm and yarn install (`npx.cmd`), for the
+ * launchers and for the bins of packages (`openapi-typescript.cmd`) alike.
+ */
 const WINDOWS_PROGRAM_SUFFIX_RE = /\.(?:cmd|exe|ps1)$/i;
+
+/** The Windows suffix of a program word (`.cmd` of `npx.cmd`), or "" for none. */
+export const windowsSuffix = (value: string): string =>
+  WINDOWS_PROGRAM_SUFFIX_RE.exec(value)?.[0] ?? "";
+
+/** The program a word names without its Windows suffix: `npx` of `npx.cmd`. */
+export const withoutWindowsSuffix = (value: string): string =>
+  value.slice(0, value.length - windowsSuffix(value).length);
 
 /** The name of a word of a launcher or installer: `npx` of `npx.cmd`. */
 const entryWord = (word: ShellWord | undefined): string | undefined =>
-  word?.value.replace(WINDOWS_PROGRAM_SUFFIX_RE, "");
+  word === undefined ? undefined : withoutWindowsSuffix(word.value);
 
 /** The first entry whose words start the command at `index`. */
 function matchingPrefix<T extends { readonly words: readonly string[] }>(
