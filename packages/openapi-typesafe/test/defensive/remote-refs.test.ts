@@ -556,7 +556,7 @@ describe("credentials in remote URLs", () => {
     const error = await loadFailure("http://tok:URL/SECRET@[::1/x.yaml");
 
     expect(error.code).toBe("SCHEMA_SOURCE_INVALID");
-    expect(error.details).toEqual({ reason: "url", received: "string" });
+    expect(error.details).toEqual({ reason: "url", received: "string", text: "http://***@[::1/x.yaml" });
     expect(inspect(error)).not.toContain("SECRET");
   });
 

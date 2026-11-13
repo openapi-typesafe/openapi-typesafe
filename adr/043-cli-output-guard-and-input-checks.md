@@ -276,3 +276,22 @@ TypeScript, as before.
    amendment), and here it was requested by two, so a merge must drop one name. Its problems
    would then name one URL only, and the lint ignore entries `redocly lint` writes for the other
    would no longer apply; `redocly lint` itself also reads two documents.
+
+## Amendment (2026-11-12): one rule for location text
+
+1. **Text is a location by the rule of the schema argument.** Item 1 of the previous amendment
+   took URL text by its own pattern (`file://`, `http://`, `https://`), while the CLI argument
+   used `hasUrlScheme` (item 4 of the 2026-11-10 amendment). So `file:api.yaml` loaded as the
+   argument but was a YAML string on stdin. Text of a string, `Buffer`, stream or stdin is now a
+   location when, trimmed, it is one word that `hasUrlScheme` accepts (`locationInText`), and it
+   resolves against `cwd` as the argument resolves against the working directory
+   (`parseUrlLocation`), both in `domain/location-text.ts`. The one-word condition keeps YAML
+   documents: a YAML key needs whitespace after its colon (`http://host/a: b`), so do a comment
+   and a second line, and one word is at most a lone string or a key without a value, which is no
+   OpenAPI document. The old pattern also took such a document for a URL.
+2. **A location on stdin that does not parse fails as the argument does.** The loader reports it
+   with `SCHEMA_SOURCE_INVALID` (the Node API has no CLI codes), and `details.text` holds the
+   location, redacted. The CLI reports that error for stdin as `CLI_LOCATION_INVALID`, as it
+   gives stdin its own advice for a YAML string (item 8). Reading stdin in the CLI to resolve it
+   there was rejected: the stream would then be read in two places, and its text would lose the
+   stream origin that names it in parse errors.
