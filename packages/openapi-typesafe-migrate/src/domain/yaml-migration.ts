@@ -18,6 +18,7 @@ import {
   DEFAULT_YAML_FILE,
   type EnvironmentEntry,
   environmentEntries,
+  environmentItemSteps,
   type VariableReferences,
   withVariableReferences,
   type YamlCommandFile,
@@ -239,6 +240,7 @@ export function migrateYamlCommands(
     ...shellValues.map((value) => valueFindings(value, context)),
     commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),
     otherShellFindings(valuesOf(strings, commandKeys), shellOf, locate),
+    { edits: [], changes: [], manualSteps: environmentItemSteps(strings, entries, locate) },
   ]);
 }
 

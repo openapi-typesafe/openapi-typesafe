@@ -1,4 +1,6 @@
 import type { DocumentString } from "./config-documents.js";
+import type { ManualStep } from "./migration-findings.js";
+import { namesOriginalPackage } from "./package-names.js";
 import { TASKFILE_COMMAND_KEYS, YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
 
 /**
@@ -176,6 +178,28 @@ export function environmentEntries(
       return entry === undefined ? [] : [[value, entry] as const];
     }),
   );
+}
+
+const ENV_ITEM_KEYS: ReadonlySet<string> = new Set([ENV_KEY]);
+
+/**
+ * The `env` items of a Kubernetes container (`- name: GEN / value: openapi-typescript`) that name
+ * an old package. Kubernetes gives such a value to the program as it is and puts it into
+ * `command` and `args` for `$(GEN)`, where no shell reads it, so the tool reports it.
+ */
+export function environmentItemSteps(
+  strings: readonly DocumentString[],
+  entries: ReadonlyMap<DocumentString, EnvironmentEntry>,
+  locate: (offset: number) => string,
+): ManualStep[] {
+  return strings
+    .filter((value) => isNamedItemValue(value, ENV_ITEM_KEYS) && !entries.has(value))
+    .filter((value) => namesOriginalPackage(value.value))
+    .map((value) => ({
+      kind: "old-name-in-command",
+      location: locate(value.start),
+      word: value.value,
+    }));
 }
 
 /**

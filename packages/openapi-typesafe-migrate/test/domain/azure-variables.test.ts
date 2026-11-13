@@ -122,6 +122,39 @@ describe("migrateYamlCommands and Azure Pipelines variables", () => {
   });
 });
 
+describe("migrateYamlCommands and Kubernetes env items", () => {
+  it("migrateYamlCommands reports an env item that names an old package", () => {
+    const text = lines(
+      "spec:",
+      "  containers:",
+      "    - command: [sh, -c, '$(GEN) api.yaml']",
+      "      env:",
+      "        - name: GEN",
+      "          value: npx openapi-typescript",
+      "        - name: PORT",
+      "          value: '8080'",
+    );
+
+    const result = migrated(text, DEFAULT_YAML_FILE);
+
+    expect(result.text).toBe(text);
+    expect(result.manualSteps).toEqual([
+      { kind: "old-name-in-command", location: `${FILE}:6`, word: "npx openapi-typescript" },
+    ]);
+  });
+
+  it("migrateYamlCommands leaves the value key of other lists alone", () => {
+    const text = lines(
+      "labels:",
+      "  - name: tool",
+      "    value: openapi-typescript",
+      "env: { tool: { value: openapi-typescript } }",
+    );
+
+    expect(migrated(text, DEFAULT_YAML_FILE).manualSteps).toEqual([]);
+  });
+});
+
 describe("yamlCommandFileFor and Azure Pipelines", () => {
   it.each([
     "azure-pipelines.yml",
