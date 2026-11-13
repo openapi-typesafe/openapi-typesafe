@@ -29,6 +29,10 @@ export interface components {
         Nums: -1 | 2 | 3;
         Tagged: "a" | Kind.X;
         Run: { status: "a" | "b" | "c" } & ({ status: "a" } | { status: "b" | "c" });
+        WithObject: "a" | { x?: string };
+        WithArray: "a" | string[];
+        WithTuple: ["p"] | "s";
+        WithRecord: "a" | Record<string, never>;
     };
 }`;
 
@@ -64,6 +68,22 @@ describe("TypeScriptWidenedEnumValuesFinder", { timeout: CHECKER_TEST_TIMEOUT_MS
       'looseValues "a"',
       'freeValues "a"',
       "numsValues -1,2",
+    ]);
+  });
+
+  it("find reports an array whose location admits an object, an array or a tuple", () => {
+    const found = widenedOf(
+      arrayOf("objectValues", at("WithObject"), '"a"'),
+      arrayOf("arrayValues", at("WithArray"), '"a"'),
+      arrayOf("tupleValues", at("WithTuple"), '"s"'),
+      arrayOf("recordValues", at("WithRecord"), '"a"'),
+    );
+
+    expect(found).toEqual([
+      'objectValues "a"',
+      'arrayValues "a"',
+      'tupleValues "s"',
+      'recordValues "a"',
     ]);
   });
 

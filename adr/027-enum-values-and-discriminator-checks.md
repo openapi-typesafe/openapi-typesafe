@@ -155,3 +155,13 @@ wrong, not as output to keep.
    location per element (`prefixItems/0`) would rename the `--enum` declaration and the array of
    every tuple element, also where the output is right; that is a change of names, not of a wrong
    type, so it is not made here.
+
+## Amendment (2026-11-12): objects, arrays and tuples admit more
+
+Point 1 of the amendment above counted only literals, booleans and `unknown` as surely other
+values. A location whose member is an object (`anyOf: [{ enum: [a, b] }, { type: object }]`), an
+array or a tuple (a `prefixItems` element next to a nested tuple) admits values of that kind,
+which no `--enum-values` array lists (its values are strings and numbers), so each item was typed
+`"a" | "b" | { x?: string }`. Such a member now counts as another value too, `readonly` arrays
+and `Record<string, never>` included. The compat rule `enum-values-widened-location` counts every
+object type of the TypeScript checker the same way.
