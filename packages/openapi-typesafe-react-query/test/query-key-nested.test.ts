@@ -54,10 +54,12 @@ describe("queryKeyInit values JSON cannot hold inside a body", () => {
     });
   });
 
-  it("queryKeyInit with a Date in a body keeps it for its JSON form", () => {
+  it("queryKeyInit with a Date in a body keys it by its JSON form", () => {
     const at = new Date(0);
 
-    expect(queryKeyInit({ body: { at } }, NO_BASE_URL)).toEqual({ body: { at } });
+    expect(queryKeyInit({ body: { at } }, NO_BASE_URL)).toEqual({
+      body: { at: "1970-01-01T00:00:00.000Z" },
+    });
   });
 });
 
