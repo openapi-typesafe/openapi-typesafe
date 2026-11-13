@@ -254,7 +254,12 @@ type SuccessStatus<T> = [SuccessStatusKey<T>] extends [never]
   ? Extract<keyof T, "default">
   : SuccessStatusKey<T>;
 
-/** `true` for `any`: a conditional type on `any` takes both branches, so `any` is checked first. */
+/**
+ * `true` for `any`: a conditional type on `any` takes both branches, so `any` is checked first.
+ * The response types check it inside `T extends unknown`: TypeScript relates a conditional type
+ * on a type parameter through the one with the parameter's constraint put in, while one on
+ * `IsAny<T>` relates through both branches, which for a generic path added the whole map.
+ */
 type IsAny<T> = 0 extends 1 & T ? true : false;
 
 /**
@@ -268,12 +273,11 @@ export type SuccessResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> =
-  IsAny<T> extends true
+> = T extends unknown
+  ? IsAny<T> extends true
     ? T
-    : T extends unknown
-      ? ResponseBodies<T, Media, SuccessStatus<T>, never>
-      : never;
+    : ResponseBodies<T, Media, SuccessStatus<T>, never>
+  : never;
 
 /**
  * Return all 1XX, 3XX, 4XX, 5XX and `default` responses from a Response Object Map; for a union
@@ -283,12 +287,11 @@ export type ErrorResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> =
-  IsAny<T> extends true
+> = T extends unknown
+  ? IsAny<T> extends true
     ? T
-    : T extends unknown
-      ? ResponseBodies<T, Media, ErrorStatusKey<T>, string>
-      : never;
+    : ResponseBodies<T, Media, ErrorStatusKey<T>, string>
+  : never;
 
 /**
  * The bodies of the responses `ResponseCode` as the client returns them (`ResponseBody`): each
