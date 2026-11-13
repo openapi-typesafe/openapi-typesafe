@@ -89,11 +89,25 @@ function blockIndent(shell: string): number {
   return indents.length === 0 ? 0 : Math.min(...indents);
 }
 
+/**
+ * Each place of the text once: a YAML alias gives the strings of its anchor again, at its own
+ * path (`script: [*scripts]`), and the first path that reads a place as shell text reads it.
+ */
+function oncePerPlace(strings: readonly DocumentString[]): DocumentString[] {
+  const starts = new Set<number>();
+  return strings.filter((string) => {
+    const isFirst = !starts.has(string.start);
+    starts.add(string.start);
+    return isFirst;
+  });
+}
+
 /** The values that belong to one of `keys`, also as items of a list. */
 const valuesOf = (
   strings: readonly DocumentString[],
   keys: ReadonlySet<string>,
-): DocumentString[] => strings.filter((string) => keys.has(ownerKey(string.path) ?? ""));
+): DocumentString[] =>
+  oncePerPlace(strings.filter((string) => keys.has(ownerKey(string.path) ?? "")));
 
 /**
  * Keys whose list value is one command in exec form, as Compose and Kubernetes read it: each item
@@ -198,8 +212,10 @@ export function migrateYamlCommands(
   const shellOf = stepShells(strings);
   const values = valuesOf(strings, keys).filter((value) => shellOf(value) === undefined);
   const commandValues = new Set(values.filter((value) => !isExecFormItem(value)));
-  const shellValues = strings.filter(
-    (value) => commandValues.has(value) || isEnvironmentValue(value) || isInputDefault(value),
+  const shellValues = oncePerPlace(
+    strings.filter(
+      (value) => commandValues.has(value) || isEnvironmentValue(value) || isInputDefault(value),
+    ),
   );
   const variables = withInputDefaults(environmentVariables(text, strings), strings);
   return appliedFindings(text, [

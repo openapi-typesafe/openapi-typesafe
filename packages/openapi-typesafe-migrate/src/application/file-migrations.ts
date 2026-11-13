@@ -47,6 +47,7 @@ import {
   jsonConfig,
   type MigrationContext,
   stringsStep,
+  usedStringsStep,
   whenNamed,
   withSteps,
   yamlConfig,
@@ -148,7 +149,7 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
     matches: (path) => TASKFILE_NAMES.has(baseName(path)),
     migrate: whenNamed(
       yamlConfig((_context, path) => [
-        stringsStep((text, strings) =>
+        usedStringsStep((text, strings) =>
           migrateYamlCommands(text, path, strings, TASKFILE_COMMAND_KEYS),
         ),
       ]),
@@ -173,7 +174,10 @@ const yamlCommandsStep =
   (text, read) =>
     isPart || (!isCiConfigFile(path) && read.kind === "read" && isApiDescription(read.documents))
       ? unchanged(text)
-      : stringsStep((current, strings) => migrateYamlCommands(current, path, strings))(text, read);
+      : usedStringsStep((current, strings) => migrateYamlCommands(current, path, strings))(
+          text,
+          read,
+        );
 
 /** What the manifest at `path` is migrated with. */
 const manifestTarget = ({ version, catalogs, aliases }: MigrationContext, path: string) => ({

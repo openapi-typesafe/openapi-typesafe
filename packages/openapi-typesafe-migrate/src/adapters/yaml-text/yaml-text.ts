@@ -1,4 +1,4 @@
-import { CST, isMap, isNode, isScalar, isSeq, parseAllDocuments, Scalar } from "yaml";
+import { CST, isAlias, isMap, isNode, isScalar, isSeq, parseAllDocuments, Scalar } from "yaml";
 import type { YamlDocumentReader } from "../../application/ports.js";
 import type { DocumentRead, TreeNode } from "../../domain/config-documents.js";
 
@@ -111,6 +111,7 @@ function convertScalar(node: Scalar, isFlow: boolean): TreeNode {
     quotings !== undefined && node.anchor === undefined && node.tag === undefined;
   return {
     kind: "scalar",
+    ...anchorOf(node),
     value,
     content: contentRange(node.srcToken, span),
     isFolded: node.type !== Scalar.BLOCK_LITERAL,
@@ -119,6 +120,10 @@ function convertScalar(node: Scalar, isFlow: boolean): TreeNode {
     ...span,
   };
 }
+
+/** The anchor of a node (`&scripts`), as a property only where the node has one. */
+const anchorOf = (node: { anchor?: string }): { anchor?: string } =>
+  node.anchor === undefined ? {} : { anchor: node.anchor };
 
 const flowOf = (conversion: Conversion, node: { flow?: boolean }): Conversion => ({
   isFlow: conversion.isFlow || node.flow === true,
@@ -130,7 +135,8 @@ function convert(node: unknown, conversion: Conversion): TreeNode {
   }
   if (isSeq(node)) {
     const inner = flowOf(conversion, node);
-    return { kind: "list", items: node.items.map((item) => convert(item, inner)), ...spanOf(node) };
+    const items = node.items.map((item) => convert(item, inner));
+    return { kind: "list", items, ...anchorOf(node), ...spanOf(node) };
   }
   if (isMap(node)) {
     const inner = flowOf(conversion, node);
@@ -138,9 +144,12 @@ function convert(node: unknown, conversion: Conversion): TreeNode {
       key: convert(pair.key, inner),
       value: convert(pair.value, inner),
     }));
-    return { kind: "map", entries, ...spanOf(node) };
+    return { kind: "map", entries, ...anchorOf(node), ...spanOf(node) };
   }
-  // An alias, or no value at all (`key:` with nothing after it).
+  if (isAlias(node)) {
+    return { kind: "other", alias: node.source, ...spanOf(node) };
+  }
+  // No value at all (`key:` with nothing after it).
   return { kind: "other", ...spanOf(isNode(node) ? node : {}) };
 }
 

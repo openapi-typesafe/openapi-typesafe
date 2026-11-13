@@ -4,6 +4,7 @@ import {
   type DocumentString,
   documentStrings,
   unreadableConfig,
+  usedDocumentStrings,
 } from "../domain/config-documents.js";
 import type { ManifestDeclarations } from "../domain/declared-packages.js";
 import {
@@ -91,6 +92,14 @@ export const stringsStep =
     read.kind === "unreadable"
       ? unreadableConfig(text, read.offset)
       : migrate(text, documentStrings(read.documents));
+
+/** A step that reads the string values where they are used: YAML aliases give theirs again. */
+export const usedStringsStep =
+  (migrate: (text: string, strings: readonly DocumentString[]) => FileMigration): ConfigStep =>
+  (text, read) =>
+    read.kind === "unreadable"
+      ? unreadableConfig(text, read.offset)
+      : migrate(text, usedDocumentStrings(read.documents));
 
 /** A JSON config migrated by `steps`, which also get its path. */
 export const jsonConfig =
