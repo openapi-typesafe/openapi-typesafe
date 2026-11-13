@@ -1,4 +1,4 @@
-import { type InfiniteData, QueryClient } from "@tanstack/react-query";
+import { type InfiniteData, QueryClient, type QueryKey } from "@tanstack/react-query";
 import createFetchClient from "openapi-typesafe-fetch";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import createClient, { type InfiniteQueryKey, infiniteQueryKey } from "../src/index.js";
@@ -66,6 +66,26 @@ describe("infiniteQueryKey", () => {
     const key: InfiniteQueryKey<Paths, "get", "/posts/{id}"> = infiniteQueryKey(queryKey);
 
     expectTypeOf(key).toEqualTypeOf<InfiniteQueryKey<Paths, "get", "/posts/{id}">>();
+  });
+
+  it("infiniteQueryKey of a TanStack QueryKey is a readonly array, not never", () => {
+    const queryKey: QueryKey = ["get", "/posts"];
+    const key = infiniteQueryKey(queryKey);
+
+    expectTypeOf(key).not.toBeNever();
+    expectTypeOf(key).toExtend<readonly unknown[]>();
+    expectTypeOf<readonly ["x", "infinite"]>().toExtend<typeof key>();
+    expect(key).toEqual(["get", "/posts", "infinite"]);
+  });
+
+  it("infiniteQueryKey of a key of one element keeps its elements", () => {
+    const key = infiniteQueryKey(["get"] as const);
+
+    expectTypeOf(key).toEqualTypeOf<
+      | readonly ["get", "infinite"]
+      | readonly ["get", "infinite", { readonly pageParamName: string }]
+    >();
+    expect(key).toEqual(["get", "infinite"]);
   });
 
   it("infiniteQueryKey reads the data useInfiniteQuery caches", () => {
