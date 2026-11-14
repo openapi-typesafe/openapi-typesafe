@@ -93,7 +93,17 @@ flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`, a justfile `{{fla
 `${{ inputs.flags }}` with an input default `-it`, also as `${{ github.event.inputs.flags }}`,
 through an `env` value `FL: ${{ inputs.flags }}`, or as a literal in an expression,
 `${{ inputs.flags || '-it' }}`) may serve other commands too, so it
-is reported, not changed. YAML files are changed only in command
+is reported, not changed. A Docker Compose `entrypoint` and `command` list and a Kubernetes
+`command` and `args` list are read as an exec form, joined per service or container
+(`command: ["sh", "-c", "…"]` is shell text), and Compose's `$$GEN` there is the container's
+`$GEN`. A GitLab variable's `options` are values of the variable. A variable map in a list item
+(a step's `env`) reaches only that item. The defaults of CircleCI `parameters`
+(`<< parameters.gen >>`), GitLab `spec: inputs` (`$[[ inputs.gen ]]`) and Azure Pipelines
+`parameters` (`${{ parameters.gen }}`) are read as input defaults are. A file that a Taskfile
+`includes`, a GitLab local `include` (also with `*` and `**`) or an Azure `template` names is read
+as a file of that kind. A variable that a YAML variable map sets to the generator may run it in
+any file the tool reads (a script that a CI job runs), so the flags after `$GEN` there are
+reported. YAML files are changed only in command
 keys (`run`, `script`, `command`, `entrypoint`, …), in the values of the variable maps above and in input
 defaults, in block and flow style, never in other values. An anchor that an alias uses under such
 a key (`script: [*gen_scripts]`, `env: *common`) is migrated where it is written, once. A CI step whose `shell` is another program (`shell: python`) runs

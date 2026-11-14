@@ -661,6 +661,57 @@ the report never says "Nothing to migrate" for it.
   between two path segments of a word without `/` makes it a Windows path, as a suffix does; a
   `\` at the start (`\openapi-typescript`, which skips an alias) still escapes.
 
+## Amendment (2026-11-14): the ninth review of the migration tool
+
+The rc.10 hunt found YAML values that run the generator in forms the tool did not read, so old
+flags stayed without a word. The rule of the eighth review holds: no command may still run the
+old generator or pass it an old flag silently.
+
+- **An exec form in YAML is a command line.** A Docker Compose `entrypoint` and `command` list
+  and a Kubernetes container's `command` and `args` list are read as a Dockerfile exec form
+  (`domain/yaml-exec-forms.ts`, with `shellScript` moved to `domain/exec-form-shells.ts` for both):
+  the lists of one service or container are joined, as the runtime joins them, so
+  `command: ["/bin/sh", "-c"]` with `args: ["npx openapi-typescript …"]` is shell text. An `args`
+  list alone gives the image's entrypoint arguments, which the tool does not know, so it is not a
+  command line. Compose reads `$$` as a literal `$`, so `$$GEN` in such a list is the container's
+  `$GEN`. A single `$GEN` there is still read as the variable the environment map sets, though
+  Compose fills it from the host first; a Compose string `entrypoint` joined with a `command`
+  is not read.
+- **Variable options and variable scope.** A GitLab variable's `options` list holds the values a
+  person may pick for it, so each item is read as a value of the variable. A variable map in a
+  list item (a step's `env`, an Azure step's `env`) reaches only that item: an Azure step that
+  set `GEN` to another tool made every step of the file keep its flags, and a step's generator
+  `GEN` changed the flags of the others. A map under a named entry (a GitLab job) still reaches
+  the whole file, because `extends` and anchors share it between jobs
+  (`domain/yaml-environment-entries.ts`, `domain/yaml-scoped-variables.ts`).
+- **CI parameters are inputs.** The defaults of CircleCI `parameters` (`<< parameters.gen >>`,
+  also `pipeline.parameters`), GitLab `spec: inputs` (`$[[ inputs.gen ]]`) and Azure Pipelines
+  `parameters` (`${{ parameters.gen }}`, a list of named items) are read as the default of a
+  GitHub Actions input is (`domain/yaml-parameters.ts`): the old name in them is renamed, and the
+  flags after a use are reported, because a caller may pass another value. CircleCI files get
+  their own kind (`.circleci/`) for this. A manual step names the variable as it is written
+  (`<< parameters.gen >>`, `{{.GEN}}`). The values that callers pass (a workflow job's
+  parameters, an Azure template's `parameters`, GitHub `with:`) are not read; the flags after a
+  parameter are reported either way.
+- **Included files keep the kind of the file that includes them.** A file that a Taskfile
+  `includes`, a GitLab local `include` (a string, a list, `local:`, from the project root, with
+  `*` and `**` wildcards) or an Azure `template` names is a Taskfile, a GitLab CI file or an Azure
+  Pipelines file, so its command keys and variable maps are read (`domain/yaml-includes.ts`,
+  `application/yaml-file-reach.ts`). A file whose own name gives it a kind keeps that kind. A path
+  that the tool computes (`$CI_DIR/…`, `{{.OS}}`), a URL, a remote, project or template include
+  and a path of another repository (`gen.yml@templates`) are not followed. An included file is
+  never taken for an API description, as a CI config never is.
+- **A CI variable reaches the files it runs.** A variable that a YAML variable map sets to the
+  generator (`variables: { GEN: npx openapi-typescript }`) runs it in the scripts that the job
+  calls, which the tool read without that knowledge. The project pass now collects these names
+  first, and any file the tool reads that expands one (`$GEN`, `${GEN}`, `$(GEN)`, `%GEN%`,
+  `$env:GEN`) is read even when it names no old package; the flags after the variable there are
+  reported, because the file does not set it ("may run" above). Finding which job runs which
+  script was rejected: the call can be computed, and a report where the variable is used is
+  enough to act on. Not covered: files the tool does not read (a script without a suffix, Python,
+  `process.env` in JavaScript), and variables that a Makefile `export`, a Dockerfile `ENV` or a
+  shell `export` passes to other files.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.
