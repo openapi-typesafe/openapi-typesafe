@@ -5,7 +5,7 @@
  * `0.13.x` fix the minor: `~`). A range of several comparators takes the style of its first one.
  * `catalog:` and `workspace:` stay, because they point elsewhere (a dependency on a local package
  * keeps its old name too, domain/dependency-map.ts); anything else (a tag, `*`, an
- * upper bound only, a URL, a file or an npm alias) is kept and reported.
+ * upper bound only, a URL, a file or an `npm:` alias of another package) is kept and reported.
  */
 
 const KEPT_PROTOCOLS = ["catalog:", "workspace:"] as const;
@@ -84,14 +84,22 @@ function rangeStyle(spec: string): RangeStyle | undefined {
 export const isLocalPackageSpec = (spec: string): boolean =>
   LOCAL_PROTOCOLS.some((protocol) => spec.startsWith(protocol));
 
+/**
+ * Yarn's `npm:` protocol before a bare range (`npm:^0.13.0`) names the entry's own package from
+ * the registry, so the renamed entry gets the new range after the same protocol. An `npm:` spec
+ * with a package name is an alias (domain/npm-alias.ts).
+ */
+const NPM_PROTOCOL = "npm:";
+
 /** The new spec for a renamed dependency whose old spec was `spec`. */
 export function migrateVersionSpec(spec: string, version: string): SpecDecision {
   if (KEPT_PROTOCOLS.some((protocol) => spec.startsWith(protocol))) {
     return { kind: "kept", spec, isReported: false };
   }
-  const style = rangeStyle(spec);
+  const protocol = spec.startsWith(NPM_PROTOCOL) ? NPM_PROTOCOL : "";
+  const style = rangeStyle(spec.slice(protocol.length));
   if (style === undefined) {
     return { kind: "kept", spec, isReported: true };
   }
-  return { kind: "replaced", spec: `${style}${version}` };
+  return { kind: "replaced", spec: `${protocol}${style}${version}` };
 }
