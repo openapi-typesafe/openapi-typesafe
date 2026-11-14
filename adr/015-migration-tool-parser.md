@@ -661,6 +661,35 @@ the report never says "Nothing to migrate" for it.
   between two path segments of a word without `/` makes it a Windows path, as a suffix does; a
   `\` at the start (`\openapi-typescript`, which skips an alias) still escapes.
 
+## Amendment (2026-11-13): shell values and entrypoints (shell side of the ninth review)
+
+The ninth review found shell values the tool read differently from the shell, and container
+commands whose flags it did not see. The rule of the eighth review holds: migrate, or report.
+
+- **One unquoting rule for a value.** A value was read as raw text, so
+  `GEN=npx\ openapi-typescript` or `GEN="npx "openapi-typescript` held words the shell never
+  splits that way. `assignmentValue` (`domain/shell-assignments.ts`) now unquotes the value as the
+  shell does and places each word by its character offsets, for both the definition and the
+  place where it is read. A word whose name is split by quotes has no single place, so it is
+  reported, not renamed.
+- **Assignments passed to a program.** `cross-env GEN="…"`, `env GEN="…"` and `$(MAKE) GEN="…"`
+  give a command line to another program; a value that holds one is migrated where it is
+  written, and a one-word value that names an old package is reported.
+- **An entrypoint gets the command as arguments.** One domain rule
+  (`domain/entrypoint-arguments.ts`) says whether an entrypoint passes its arguments to the
+  generator, to a script that may pass them on (reported), or to another program (kept). The
+  Dockerfile pairs an exec-form `CMD` with the exec-form `ENTRYPOINT` by Docker's stage rules
+  (the last one of a stage, inherited through `FROM` by name or index, ignored after a shell-form
+  entrypoint); the YAML side pairs `entrypoint` and `command`, and Kubernetes `command` and
+  `args`, by keys of one map (`domain/yaml-entrypoints.ts`). A folded or escaped value is
+  reported, since its words have no place in the text.
+- **Small gaps.** Make functions with a hyphen (`$(filter-out …)`) are read as calls and
+  reported; a generator run from a path outside `node_modules/.bin` (`/usr/local/bin/…`,
+  `C:\tools\openapi-typescript`) is reported, since the tool cannot install it; bun's
+  `trustedDependencies` is a setting that names a package and is reported; Yarn's `npm:^0.13.0`
+  is a range and gets the new version; text appended to a variable set outside the file that
+  runs the generator itself is migrated where it is written.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.
