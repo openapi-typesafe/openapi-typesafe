@@ -147,12 +147,13 @@ describe("IR callbacks: results the generator cannot print (G12)", () => {
 });
 
 describe("the fix option from JavaScript", () => {
-  it('openapiTS with fix: "all" as a string fails with OPTION_FIX_UNKNOWN (G12)', async () => {
+  it('openapiTS with fix: "all" as a string fails with OPTION_INVALID (G12)', async () => {
     const generation = openapiTS(DOCUMENT, { silent: true, fix: "all" as never });
 
     await expect(generation).rejects.toMatchObject({
-      code: "OPTION_FIX_UNKNOWN",
-      message: 'The fix option must be a list of fix names, such as ["all"]. Got "all".',
+      code: "OPTION_INVALID",
+      message: 'The fix option must be a list of fix names, such as ["all"]; got a string.',
+      details: { option: "fix" },
     });
   });
 });

@@ -333,3 +333,39 @@ TypeScript, as before.
    `styleguide.extendTypes`), not by `instanceof`, since the user's copy of
    `@redocly/openapi-core` has its own class. `version` stays unchecked: no code reads it.
    Zod was not added for this: the checks are a few type tests with the existing error helper.
+
+## Amendment (2026-11-13, second): relative `file:` URLs by the URL standard, option shapes
+
+1. **A relative `file:` URL is told by the URL standard's rule.** Asking the parser with two file
+   bases one level deep missed `file:../api.yaml` and `file:..`: `..` climbed out of both bases,
+   so the two URLs were equal and the location was taken as absolute; with an `http:` cwd it read
+   `/api.yaml`, and `localRefRoot: "file:../specs/"` limited `$ref`s to `/specs/`. Deeper bases
+   only move the limit. The check now follows the "file state" of the URL standard: after
+   `file:` (any letter case), with tabs and newlines removed as the parser removes them, a slash
+   or a backslash starts a path from the root, and a leading Windows drive (`C:` or `c|`, then the
+   end, a slash, a backslash, `?` or `#`) replaces the base path, so `file:C:/specs/api.yaml` is
+   `file:///C:/specs/api.yaml` against any base without a host. Any other text (`file:a`,
+   `file:../a`, `file:..`, `file:?q`, `file:`) keeps the base path and is relative. The rule was
+   compared with Node's parser on every mix of these parts.
+2. **A `fix` option that is no list is a type error.** `fix: null` was read as no fixes, while
+   `null` fails every other option; `fix: "all"` failed with `OPTION_FIX_UNKNOWN`, the code for an
+   unknown name. Both now fail with `OPTION_INVALID` (`details.option: "fix"`), as a value of the
+   wrong type does for every option; `OPTION_FIX_UNKNOWN` is left for unknown names in a list.
+   This replaces the last sentence of item 7 of the decision. In `redocly.yaml`, a `fix` of the
+   wrong type stays `CLI_CONFIG_INVALID`.
+3. **Options that are no object fail with `OPTION_INVALID`.** `openapiTS(source, "x")`, `true`,
+   `null` or a list failed with a plain `TypeError` from the option check. `undefined` stays no
+   options, as the signature says; `null` is a value of another type, as the docs say for every
+   option. The error has no `details.option`, since no single option is wrong.
+4. **A Redocly config must have what the loader calls.** A config from `@redocly/openapi-core`
+   1.0 to 1.25 has `resolve.http` and `styleguide.extendTypes`, but its styleguide names
+   `getRulesForSpecVersion` `getRulesForOasVersion`, so lint and bundle failed with a plain
+   `TypeError`. The check now asks for every styleguide method the loader's openapi-core calls
+   (`extendTypes`, `getRulesForSpecVersion`, `addProblemToIgnore`) and names a config with the old
+   method as one from before 1.26; the docs give 1.26 as the minimum. Calling the old name for an
+   old config was rejected: the bundled openapi-core calls the config, not this package.
+5. **An `output` in `redocly.yaml` is missing only when its key is.** `output: ""`, `0` or
+   `false` reported a missing key (`CLI_CONFIG_OUTPUT_MISSING`). A value that is no text now
+   fails with `CLI_CONFIG_INVALID`, as documented, and empty text fails the same way ("not
+   empty"), as an empty `--output` fails with `CLI_FLAG_INVALID`: the config has its own code for
+   a wrong value, and read as unset an empty value would name no file.
