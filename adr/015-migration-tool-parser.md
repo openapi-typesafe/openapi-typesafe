@@ -663,20 +663,39 @@ the report never says "Nothing to migrate" for it.
 
 ## Amendment (2026-11-14): the ninth review of the migration tool
 
-The rc.10 hunt found YAML values that run the generator in forms the tool did not read, so old
-flags stayed without a word. The rule of the eighth review holds: no command may still run the
-old generator or pass it an old flag silently.
+The rc.10 hunt found shell values the tool read differently from the shell, container commands
+whose flags it did not see, and YAML values that run the generator in forms the tool did not
+read, so old flags stayed without a word. The rule of the eighth review holds: no command may
+still run the old generator or pass it an old flag silently; migrate, or report.
 
-- **An exec form in YAML is a command line.** A Docker Compose `entrypoint` and `command` list
-  and a Kubernetes container's `command` and `args` list are read as a Dockerfile exec form
-  (`domain/yaml-exec-forms.ts`, with `shellScript` moved to `domain/exec-form-shells.ts` for both):
-  the lists of one service or container are joined, as the runtime joins them, so
-  `command: ["/bin/sh", "-c"]` with `args: ["npx openapi-typescript …"]` is shell text. An `args`
-  list alone gives the image's entrypoint arguments, which the tool does not know, so it is not a
-  command line. Compose reads `$$` as a literal `$`, so `$$GEN` in such a list is the container's
-  `$GEN`. A single `$GEN` there is still read as the variable the environment map sets, though
-  Compose fills it from the host first; a Compose string `entrypoint` joined with a `command`
-  is not read.
+- **One unquoting rule for a value.** A value was read as raw text, so
+  `GEN=npx\ openapi-typescript` or `GEN="npx "openapi-typescript` held words the shell never
+  splits that way. `assignmentValue` (`domain/shell-assignments.ts`) now unquotes the value as the
+  shell does and places each word by its character offsets, for both the definition and the
+  place where it is read. A word whose name is split by quotes has no single place, so it is
+  reported, not renamed.
+- **Assignments passed to a program.** `cross-env GEN="…"`, `env GEN="…"` and `$(MAKE) GEN="…"`
+  give a command line to another program; a value that holds one is migrated where it is
+  written, and a one-word value that names an old package is reported.
+- **A container runs one command, built in one place.** A container runs its entrypoint with the
+  command as its arguments: Docker an exec-form `CMD` after an exec-form `ENTRYPOINT`, Compose
+  (and GitLab and CircleCI images) `command` after `entrypoint`, Kubernetes `args` after
+  `command`. One domain rule (`domain/entrypoint-arguments.ts`) says whether an entrypoint passes
+  its arguments to the generator, to a script that may pass them on (reported), or to another
+  program (kept), and holds `shellScript`, the command line of `["sh", "-c", "…"]`, for both
+  file kinds. The Dockerfile pairs a `CMD` with its `ENTRYPOINT` by Docker's stage rules (the
+  last one of a stage, inherited through `FROM` by name or index, ignored after a shell-form
+  entrypoint, `domain/dockerfile-entrypoints.ts`). In YAML, `domain/yaml-entrypoints.ts` is the
+  only place that pairs the keys of one map, in either written order, and builds the command:
+  when every part is a list, the items of both, the entrypoint first, are one command, read once
+  for old names and flags (`["npx"]` with `["openapi-typescript", "-it"]`) and for the command
+  line of a shell it starts (`command: ["/bin/sh", "-c"]` with `args: ["npx openapi-typescript
+  …"]`); when a part is a string, the string is read where it is written, as other command values
+  are, and the command's flags by the entrypoint rule. A folded or escaped value is reported,
+  since its words have no place in the text. An `args` list alone gives the image's entrypoint
+  arguments, which the tool does not know, so it is not a command. Compose reads `$$` as a
+  literal `$`, so `$$GEN` in a command is the container's `$GEN`. A single `$GEN` there is still
+  read as the variable the environment map sets, though Compose fills it from the host first.
 - **Variable options and variable scope.** A GitLab variable's `options` list holds the values a
   person may pick for it, so each item is read as a value of the variable. A variable map in a
   list item (a step's `env`, an Azure step's `env`) reaches only that item: an Azure step that
@@ -711,6 +730,12 @@ old generator or pass it an old flag silently.
   enough to act on. Not covered: files the tool does not read (a script without a suffix, Python,
   `process.env` in JavaScript), and variables that a Makefile `export`, a Dockerfile `ENV` or a
   shell `export` passes to other files.
+- **Small gaps.** Make functions with a hyphen (`$(filter-out …)`) are read as calls and
+  reported; a generator run from a path outside `node_modules/.bin` (`/usr/local/bin/…`,
+  `C:\tools\openapi-typescript`) is reported, since the tool cannot install it; bun's
+  `trustedDependencies` is a setting that names a package and is reported; Yarn's `npm:^0.13.0`
+  is a range and gets the new version; text appended to a variable set outside the file that
+  runs the generator itself is migrated where it is written.
 
 ## Review trigger
 

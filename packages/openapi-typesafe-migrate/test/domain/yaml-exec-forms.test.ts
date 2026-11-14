@@ -18,6 +18,9 @@ function migrated(text: string, file: string, kind: YamlCommandFile = DEFAULT_YA
   return migrateYamlCommands(text, file, strings, kind);
 }
 
+const locationOf = (finding: object): unknown =>
+  "location" in finding ? finding.location : undefined;
+
 const renamed = (text: string): string =>
   text.replaceAll("openapi-typescript", "openapi-typesafe").replaceAll("-it", "--immutable");
 
@@ -76,6 +79,59 @@ describe("migrateYamlCommands and exec-form shells", () => {
     );
 
     expect(migrated(text, "compose.yaml", COMPOSE_FILE).text).toBe(renamed(text));
+  });
+
+  it("migrateYamlCommands finds each old word of an entrypoint and its command once", () => {
+    const script = String.raw`"npx openapi-typescript \"$@\""`;
+    const text = lines(
+      "services:",
+      "  gen:",
+      '    entrypoint: ["openapi-typescript"]',
+      '    command: ["a.yaml", "-it"]',
+      "  script:",
+      `    entrypoint: ["sh", "-c", ${script}, "--"]`,
+      '    command: ["-it"]',
+    );
+
+    const result = migrated(text, "compose.yaml", COMPOSE_FILE);
+
+    expect(result.text).toBe(renamed(text).replace('["--immutable"]', '["-it"]'));
+    expect(result.changes.map(locationOf).sort()).toEqual([
+      "compose.yaml:3",
+      "compose.yaml:4",
+      "compose.yaml:6",
+    ]);
+    expect(result.manualSteps.map((step) => [step.kind, locationOf(step)])).toEqual([
+      ["variable-not-only-generator", "compose.yaml:7"],
+    ]);
+  });
+
+  it("migrateYamlCommands renames the flags of a command when one part is a list", () => {
+    const text = lines(
+      "services:",
+      "  list:",
+      '    entrypoint: ["openapi-typescript"]',
+      "    command: a.yaml -it",
+      "  string:",
+      "    entrypoint: openapi-typescript",
+      '    command: ["b.yaml", "-it"]',
+    );
+
+    expect(migrated(text, "compose.yaml", COMPOSE_FILE).text).toBe(renamed(text));
+  });
+
+  it("migrateYamlCommands reads a -c word only of a shell, and a command map as commands", () => {
+    const text = lines(
+      "services:",
+      "  gen:",
+      '    command: ["mytool", "-c", "openapi-typescript a.yaml -it"]',
+      "x:",
+      "  command: { run: npx openapi-typescript b.yaml -it }",
+    );
+
+    expect(migrated(text, "compose.yaml").text).toBe(
+      text.replace("npx openapi-typescript b.yaml -it", "npx openapi-typesafe b.yaml --immutable"),
+    );
   });
 
   it("migrateYamlCommands leaves args without a command before them, and other owners apart", () => {

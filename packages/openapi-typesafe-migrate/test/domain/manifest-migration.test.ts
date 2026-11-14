@@ -145,6 +145,17 @@ describe("migratePackageManifest", () => {
     ]);
   });
 
+  it("migratePackageManifest reports bun's trusted dependencies that name one", () => {
+    const text = manifest({ trustedDependencies: ["esbuild", "openapi-typescript"] });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "setting-names-package", field: "trustedDependencies", name: "openapi-typescript" },
+    ]);
+  });
+
   it("migratePackageManifest reports the Jest patterns of the jest field", () => {
     const text = manifest({ jest: { moduleNameMapper: { "^openapi-fetch$": "<rootDir>/m.ts" } } });
 
@@ -417,6 +428,18 @@ describe("migratePackageManifest", () => {
       field: "dependencies",
       name: "my-fetch",
       spec: "npm:openapi-typesafe-fetch@^1.0.0",
+    });
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migratePackageManifest gives a Yarn npm range of an original package the new version", () => {
+    const text = manifest({ dependencies: { "openapi-fetch": "npm:^0.13.0", "my-x": "npm:^2" } });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(JSON.parse(migrated.text).dependencies).toEqual({
+      "openapi-typesafe-fetch": "npm:^1.0.0",
+      "my-x": "npm:^2",
     });
     expect(migrated.manualSteps).toEqual([]);
   });

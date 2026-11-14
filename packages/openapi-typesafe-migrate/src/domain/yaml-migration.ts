@@ -13,6 +13,7 @@ import { PACKAGE_RENAMES } from "./package-names.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { otherShellFindings, stepShells } from "./step-shells.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
+import { containerCommands, isContainerListItem } from "./yaml-entrypoints.js";
 import { environmentEntries, environmentItemSteps } from "./yaml-environment-entries.js";
 import {
   DEFAULT_YAML_FILE,
@@ -20,7 +21,6 @@ import {
   withVariableReferences,
   type YamlCommandFile,
 } from "./yaml-environments.js";
-import { execFormCommands, execFormScripts, execForms, isExecFormItem } from "./yaml-exec-forms.js";
 import { parameterDefaults } from "./yaml-parameters.js";
 import { scopedVariables } from "./yaml-scoped-variables.js";
 import { shellText } from "./yaml-shell-text.js";
@@ -189,9 +189,8 @@ export function migrateYamlCommands(
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const shellOf = stepShells(strings);
   const values = valuesOf(strings, commandKeys).filter((value) => shellOf(value) === undefined);
-  const commandValues = new Set(values.filter((value) => !isExecFormItem(value)));
-  const forms = execForms(oncePerPlace(strings.filter(isExecFormItem)));
-  const scripts = new Set(execFormScripts(forms));
+  const commandValues = new Set(values.filter((value) => !isContainerListItem(value)));
+  const { findings, scripts } = containerCommands(text, strings, locate);
   const entries = environmentEntries(strings, environment);
   const defaults = parameterDefaults(strings, parameters);
   const isShellText = (value: DocumentString): boolean =>
@@ -207,7 +206,7 @@ export function migrateYamlCommands(
   });
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(value, contextOf(value))),
-    commandWordFindings(execFormCommands(text, forms), locate),
+    ...findings,
     otherShellFindings(valuesOf(strings, commandKeys), shellOf, locate),
     { edits: [], changes: [], manualSteps: environmentItemSteps(strings, entries, locate) },
   ]);

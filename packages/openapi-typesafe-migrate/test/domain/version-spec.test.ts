@@ -43,6 +43,19 @@ describe("migrateVersionSpec", () => {
     },
   );
 
+  it.each([
+    ["npm:^0.13.0", "npm:^1.2.0"],
+    ["npm:0.13.1", "npm:1.2.0"],
+  ])("migrateVersionSpec keeps the npm protocol of the bare range %s: %s", (spec, expected) => {
+    expect(migrateVersionSpec(spec, "1.2.0")).toEqual({ kind: "replaced", spec: expected });
+  });
+
+  it("migrateVersionSpec keeps and reports an npm alias of another package", () => {
+    const spec = "npm:other@^1";
+
+    expect(migrateVersionSpec(spec, "1.2.0")).toEqual({ kind: "kept", spec, isReported: true });
+  });
+
   it.each(["catalog:", "catalog:api", "workspace:*"])(
     "migrateVersionSpec keeps %s silently",
     (spec) => {

@@ -1,10 +1,14 @@
 import { windowsSuffix } from "./command-roles.js";
 import type { ShellWord } from "./shell-words.js";
 
-/** A program word as a path, and its Windows suffix (`.cmd`), or "" for none. */
+/**
+ * A program word as a path, and its Windows suffix (`.cmd`), or "" for none. `written` is the
+ * path as the report names it: a Windows path with its `\`, any other the word's value.
+ */
 export interface ProgramPath {
   readonly path: string;
   readonly suffix: string;
+  readonly written: string;
 }
 
 const PATH_SEPARATOR = "/";
@@ -29,6 +33,8 @@ export function programPath(word: ShellWord): ProgramPath {
   const suffix = windowsSuffix(word.value);
   const written = word.raw.replace(QUOTE_RE, "");
   const isWindowsPath = suffix !== "" || WINDOWS_PATH_RE.test(written);
-  const windowsPath = written.replace(WINDOWS_SEPARATOR_RE, PATH_SEPARATOR);
-  return { path: isWindowsPath ? windowsPath : word.value, suffix };
+  if (!isWindowsPath) {
+    return { path: word.value, suffix, written: word.value };
+  }
+  return { path: written.replace(WINDOWS_SEPARATOR_RE, PATH_SEPARATOR), suffix, written };
 }

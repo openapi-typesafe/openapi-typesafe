@@ -29,7 +29,11 @@ import {
   PACKAGE_RENAMES,
   PNPM_SETTINGS_FIELD,
 } from "./package-names.js";
-import { reportSettingSections, type SettingsFile } from "./settings-sections.js";
+import {
+  oldPackagesNamedBy,
+  reportSettingSections,
+  type SettingsFile,
+} from "./settings-sections.js";
 import {
   migrateBrowserField,
   migrateSubpathImports,
@@ -106,13 +110,24 @@ const PNPM_SETTINGS: SettingsFile = {
 };
 
 /**
- * Overrides, resolutions and pnpm's settings can name the old packages; changing them needs the
- * user's intent (domain/settings-sections.ts).
+ * bun's top-level settings that name packages: `trustedDependencies` lists the packages whose
+ * install scripts may run, as pnpm's `onlyBuiltDependencies` does.
+ */
+const BUN_SETTING_FIELDS = ["trustedDependencies"] as const;
+
+/**
+ * Overrides, resolutions and the settings of pnpm and bun can name the old packages; changing
+ * them needs the user's intent (domain/settings-sections.ts).
  */
 function reportSettings(manifest: TreeMap, findings: Findings): void {
   for (const field of OVERRIDE_FIELDS) {
     for (const name of valuesAt(manifest, field).flatMap(overriddenOldPackages)) {
       findings.manualSteps.push({ kind: "override-names-package", field, name });
+    }
+  }
+  for (const field of BUN_SETTING_FIELDS) {
+    for (const name of valuesAt(manifest, field).flatMap(oldPackagesNamedBy)) {
+      findings.manualSteps.push({ kind: "setting-names-package", field, name });
     }
   }
   for (const settings of mapsAt(manifest, PNPM_SETTINGS_FIELD)) {

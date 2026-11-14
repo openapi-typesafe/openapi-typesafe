@@ -1,7 +1,8 @@
 import { NPM_SPECIFIER_PREFIX } from "./command-launchers.js";
 import type { ManualStep } from "./migration-findings.js";
 import { GENERATOR_COMMAND, oldPackageInNodeModules, PACKAGE_RENAMES } from "./package-names.js";
-import type { ShellCommand } from "./shell-words.js";
+import { argumentAssignments, holdsCommandLine } from "./shell-assignments.js";
+import type { ShellCommand, ShellWord } from "./shell-words.js";
 
 /** The words of a command that name the original packages, apart from the roles they have. */
 
@@ -33,17 +34,32 @@ export interface WordStep {
 }
 
 /**
+ * The values of the words that a command passes as variables (`make GEN=openapi-typescript`) and
+ * that are not read as command lines (shell-assignments.ts), by word.
+ */
+const unreadArgumentValues = (words: ShellCommand): Map<ShellWord, string> =>
+  new Map(
+    argumentAssignments(words)
+      .filter((assignment) => !holdsCommandLine(assignment))
+      .map(({ word, value }) => [word, value]),
+  );
+
+/**
  * The words that name an original package at offsets no finding renamed or reported: an argument
- * of a program the tool does not know (`chronic openapi-typescript`), or a script name of
- * `npm run`. The tool cannot tell what runs them, so each is a manual step, never silence.
+ * of a program the tool does not know (`chronic openapi-typescript`), a script name of `npm run`,
+ * or the one-word value of a variable passed to a program (`make GEN=openapi-typescript`). The
+ * tool cannot tell what runs them, so each is a manual step, never silence.
  */
 export function unmigratedWordFindings(
   words: ShellCommand,
   handledOffsets: ReadonlySet<number>,
   locate: (offset: number) => string,
 ): WordStep[] {
+  const values = unreadArgumentValues(words);
+  const namesOld = (word: ShellWord): boolean =>
+    namesOldPackage(word.value) || namesOldPackage(values.get(word) ?? "");
   return words
-    .filter((word) => !handledOffsets.has(word.start) && namesOldPackage(word.value))
+    .filter((word) => !handledOffsets.has(word.start) && namesOld(word))
     .map((word) => ({
       offset: word.start,
       manualStep: { kind: "old-name-in-command", location: locate(word.start), word: word.value },

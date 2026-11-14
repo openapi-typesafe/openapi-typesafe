@@ -38,8 +38,9 @@ no `typescript` dependency.
    It renames the packages in every `package.json` (dependencies, peer, optional and dev
    dependencies, pnpm catalogs), the module specifiers in sources, and the `openapi-typescript`
    command and its renamed flags in `package.json` scripts, shell scripts, CI files, Makefiles and
-   Dockerfiles. It rewrites a `transform` callback that only returns `ts.factory` types into type
-   text with `irCallbacks: true`. It prints every change it could not make safely, with file and
+   Dockerfiles, including the flags a `CMD` or a Compose / Kubernetes `command` / `args` gives a
+   generator entrypoint. It rewrites a `transform` callback that only returns `ts.factory` types
+   into type text with `irCallbacks: true`. It prints every change it could not make safely, with file and
    line, and the path of a JSON Lines log. Code in another language (`shell: python`, a justfile
    shebang recipe, `python3 -c '…'`) is listed, not changed. A file it skips because of its own
    bug is listed under "Skipped", and the run exits with `1`.

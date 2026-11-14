@@ -1,3 +1,4 @@
+import { isOwnGeneratorCommand } from "./appended-assignments.js";
 import {
   type AppendedValue,
   type CommandMigration,
@@ -214,10 +215,18 @@ function appendedCommands(
   placed: readonly PlacedAssignment[],
   programs: ReadonlyMap<string, VariableProgram>,
 ): AppendedCommands {
-  const appends = placed.filter(({ place }) => place !== undefined && place !== "start");
-  const appended = appends.map(({ assignment }): AppendedValue => {
-    const words = commands
+  const commandsIn = (assignment: Assignment): ShellCommand[] =>
+    commands
       .filter((command) => startsIn(command, assignment))
+      .sort((left, right) => (left[0]?.start ?? 0) - (right[0]?.start ?? 0));
+  const appends = placed.filter(
+    ({ assignment, place }) =>
+      place !== undefined &&
+      place !== "start" &&
+      !isOwnGeneratorCommand(place, commandsIn(assignment)[0]),
+  );
+  const appended = appends.map(({ assignment }): AppendedValue => {
+    const words = commandsIn(assignment)
       .flat()
       .sort((left, right) => left.start - right.start);
     const written = `$(${assignment.name})`;

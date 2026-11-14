@@ -45,7 +45,15 @@ them (quotes, `\` line continuations, comments, `&&`, `|`,
 own flags are renamed, and a script name (`npm run openapi-typescript`) is never changed. A
 Dockerfile's exec form (`RUN ["npx",
 "openapi-typescript", …]`, also after `RUN --mount=…`) is read word by word, and the command line of
-`["sh", "-c", "…"]` as shell text. A Makefile variable that holds the generator (`OAT :=
+`["sh", "-c", "…"]` as shell text. The items of an exec-form `CMD` are the arguments of the
+exec-form `ENTRYPOINT` of its stage (or of the stage it starts `FROM`), so after
+`ENTRYPOINT ["openapi-typescript"]` the old flags of `CMD ["api.yaml", "-it"]` are renamed, and an
+entrypoint script that may pass them on is reported. A YAML `command` after an `entrypoint` of
+the same map (Compose, GitLab, CircleCI) and Kubernetes `args` after a `command` are read the
+same way; when both are lists, they are one exec-form command, the entrypoint first
+(`entrypoint: ["npx"]` with `command: ["openapi-typescript", "-it"]`, or `command: ["/bin/sh",
+"-c"]` with its script in `args`), and Compose's `$$GEN` there is the container's `$GEN`. A
+Makefile variable that holds the generator (`OAT :=
 openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed where it is set,
 and the flags after `$(OAT)` (or `$G` for a one-letter name) where it runs; so is an `env` variable
 of a workflow and the flags after `$GEN` or `${{ env.GEN }}` (also GitLab CI `variables`,
@@ -59,8 +67,14 @@ as a command line where it is written: in a value that just computes
 (`env_var_or_default("GEN", "npx openapi-typescript")`, an `if`), in a recipe parameter default
 (`types gen="npx openapi-typescript":`) and in an interpolation; such a value and a parameter (the
 command line can set it) may run another program, so the flags after them are reported. A shell variable that a script, a `run` block or a package.json
-script sets itself (`GEN="npx openapi-typescript"`, also after `export`, `local` or `readonly`)
-is renamed where it is set, and the flags after `$GEN` where it runs. Text appended to such a
+script sets itself (`GEN="npx openapi-typescript"`, also after `export`, `local` or `readonly`,
+and written with a backslash or in several quoted parts, `GEN=npx\ openapi-typescript`, which
+is read as the shell reads it) is renamed where it is set, and the flags after `$GEN` where it
+runs. A command line passed to a program as a variable (`cross-env GEN="npx openapi-typescript
+-it" node gen.js`, `env GEN="…" make`, `$(MAKE) GEN="…"`) is migrated where it is written. Text
+appended to a variable the file does not set before is the value when it runs the generator
+itself (`H+="npx openapi-typescript"`, a Makefile `GEN += npx openapi-typescript`), so it is
+migrated where it is written. Text appended to such a
 variable (a Makefile `GEN += --immutable-types`, a shell `G+=" -it"`, a justfile
 `"npx openapi-typescript" + " -it"`) holds arguments of the program its value runs, so its old
 flags are renamed where they are written, or reported when the variable may run another program;
@@ -79,7 +93,8 @@ computes (`$(or $(GEN),npx openapi-typescript)`, `$(shell …)`) may run the gen
 flags after it are reported; the arguments that `$(or …)`, `$(and …)` and `$(if …)` can give, and
 the text of `$(strip …)`, are read as command lines where they are written, so the old name in
 them is renamed. A call of any other make function whose arguments name an old package
-(`$(firstword npx openapi-typescript)`, `$(call …)`, `$(shell …)`) is reported. A Makefile
+(`$(firstword npx openapi-typescript)`, `$(filter-out …)`, `$(call …)`, `$(shell …)`) is
+reported. A Makefile
 variable set with `?=` (the environment can override it) or to a value that make computes is
 reported the same way where it runs. The flags change only when every definition of the variable
 in the file sets it to the generator: a variable that another Dockerfile stage, a step `env` or a
@@ -93,10 +108,7 @@ flags that the generator gets (`$(FLAGS)` with `FLAGS := -it`, a justfile `{{fla
 `${{ inputs.flags }}` with an input default `-it`, also as `${{ github.event.inputs.flags }}`,
 through an `env` value `FL: ${{ inputs.flags }}`, or as a literal in an expression,
 `${{ inputs.flags || '-it' }}`) may serve other commands too, so it
-is reported, not changed. A Docker Compose `entrypoint` and `command` list and a Kubernetes
-`command` and `args` list are read as an exec form, joined per service or container
-(`command: ["sh", "-c", "…"]` is shell text), and Compose's `$$GEN` there is the container's
-`$GEN`. A GitLab variable's `options` are values of the variable. A variable map in a list item
+is reported, not changed. A GitLab variable's `options` are values of the variable. A variable map in a list item
 (a step's `env`) reaches only that item. The defaults of CircleCI `parameters`
 (`<< parameters.gen >>`), GitLab `spec: inputs` (`$[[ inputs.gen ]]`) and Azure Pipelines
 `parameters` (`${{ parameters.gen }}`) are read as input defaults are. A file that a Taskfile
@@ -175,10 +187,12 @@ The report and the log show a spec with credentials (`git+https://<token>@…`) 
 
 The report lists each of these with the file and line:
 
-- a version spec it cannot replace (`latest`, a URL, a file, an npm alias), and `overrides` /
+- a version spec it cannot replace (`latest`, a URL, a file, an npm alias of another package;
+  Yarn's `npm:^0.13.0` is a range and gets the new version), and `overrides` /
   `resolutions` and every other package manager setting (`packageExtensions`,
-  `allowedDeprecatedVersions`, …, in `package.json`, `pnpm-workspace.yaml` or `.yarnrc.yml`,
-  patches included) that names an old package, except an override that aliases it to its
+  `allowedDeprecatedVersions`, bun's `trustedDependencies`, …, in `package.json`,
+  `pnpm-workspace.yaml` or `.yarnrc.yml`, patches included) that names an old package, except an
+  override that aliases it to its
   successor (`"openapi-fetch": "npm:openapi-typesafe-fetch@^1.0.0"`), which is the migration done;
 - a dependency under an old name on a local package (`workspace:*`, `link:`, `file:`, `portal:`),
   such as a fork in the workspace: it and the imports of it keep the old name, because the new
@@ -189,7 +203,9 @@ The report lists each of these with the file and line:
 - a patch file of an old package (`patches/openapi-fetch+0.13.0.patch`): the new package has other
   code, so check whether the fix is still needed;
 - a word in a command that names an old package where the tool cannot tell what runs it (an
-  argument of a program it does not know, a script name), and a Kubernetes `env` item
+  argument of a program it does not know, a script name, a one-word variable passed to a
+  program such as `make GEN=openapi-typescript`), a generator installed outside the project
+  (`/usr/local/bin/openapi-typescript`, `C:\tools\openapi-typescript`), and a Kubernetes `env` item
   (`- name: GEN / value: npx openapi-typescript`), which no shell reads: migrate it by hand;
 - a CI step whose `shell` is another program (`shell: python`), a justfile recipe with a shebang
   for one, or inline code (`python3 -c '…'`) that names an old package: the tool does not read

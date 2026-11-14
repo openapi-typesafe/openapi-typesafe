@@ -1,5 +1,11 @@
-import { type CommandMigration, commandWordFindings, migrateCommand } from "./command-migration.js";
-import { shellScript } from "./exec-form-shells.js";
+import {
+  type CommandMigration,
+  commandWordFindings,
+  migrateCommand,
+  textFindings,
+} from "./command-migration.js";
+import { type ExecForm, entrypointCommandFindings } from "./dockerfile-entrypoints.js";
+import { shellScript } from "./entrypoint-arguments.js";
 import { lineLocator, type ManualStep } from "./migration-findings.js";
 import { shellVariables } from "./shell-variables.js";
 import {
@@ -55,15 +61,8 @@ function jsonString(raw: string): string | undefined {
   }
 }
 
-/** One exec-form array: where it starts (at the `[`) and ends (after the `]`), and its words. */
-interface ExecForm {
-  readonly start: number;
-  readonly end: number;
-  readonly words: readonly ShellWord[];
-}
-
-/** The exec-form array whose `[` is at `start`, or undefined when it is not one. */
-function execFormAt(text: string, start: number): ExecForm | undefined {
+/** The words of the exec-form array whose `[` is at `start`, or undefined when it is not one. */
+function execFormAt(text: string, start: number): Omit<ExecForm, "lineStart"> | undefined {
   const words: ShellWord[] = [];
   let index = start + 1;
   for (;;) {
@@ -91,11 +90,11 @@ function execFormAt(text: string, start: number): ExecForm | undefined {
   }
 }
 
-/** The exec-form arrays of a Dockerfile, in order. */
+/** The exec-form arrays of a Dockerfile, in order, each with the start of its instruction line. */
 function execForms(text: string): ExecForm[] {
   return [...text.matchAll(EXEC_FORM_START_RE)].flatMap((match) => {
     const form = execFormAt(text, match.index + match[0].length - 1);
-    return form === undefined ? [] : [form];
+    return form === undefined ? [] : [{ ...form, lineStart: match.index }];
   });
 }
 
@@ -243,8 +242,15 @@ export function migrateDockerfile(text: string, file: string): CommandMigration 
   const values = definitions.flatMap(valueCommands);
   const run = withoutVariableInstructions(shellForm, instructions);
   const commands = [...run, ...values, ...exec.commands];
-  const variables = shellVariables(definitions);
-  const { edits, changes, manualSteps } = commandWordFindings(commands, locate, variables);
-  const steps = [...manualSteps, ...escapedScriptSteps(exec.escaped, lineOf)];
-  return { text: applyTextEdits(text, edits), changes, manualSteps: steps };
+  const found = commandWordFindings(commands, locate, shellVariables(definitions));
+  // The items of a CMD are the arguments of the entrypoint, so their flags may be the generator's.
+  const entry = textFindings(entrypointCommandFindings(text, forms, locate));
+  const edits = [...found.edits, ...entry.edits];
+  const changes = [...found.changes, ...entry.changes];
+  const steps = [...found.manualSteps, ...entry.manualSteps];
+  return {
+    text: applyTextEdits(text, edits),
+    changes,
+    manualSteps: [...steps, ...escapedScriptSteps(exec.escaped, lineOf)],
+  };
 }

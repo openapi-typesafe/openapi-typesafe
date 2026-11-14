@@ -163,13 +163,13 @@ describe("migrateYamlCommands", () => {
     );
   });
 
-  it("migrateYamlCommands reads an exec-form list as one command, list by list", () => {
+  it("migrateYamlCommands reads exec-form lists as the entrypoint and then the command", () => {
     const text = lines(
       "services:",
       "  gen:",
       "    command: [openapi-typescript, a.yaml, -it]",
       "    entrypoint:",
-      "      - -it",
+      "      - npx",
       "---",
       "command: [openapi-typescript, b.yaml, -it]",
     );

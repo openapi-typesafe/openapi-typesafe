@@ -130,6 +130,15 @@ describe("migrateMakefile and functions that compute a new text", () => {
     ]);
   });
 
+  it("migrateMakefile reports a function whose name has a hyphen", () => {
+    const filtered = make("filter-out x,npx openapi-typescript");
+    const text = lines(`P := ${filtered}`, "a:", `\t${make("P")} a.yaml`);
+
+    expect(migrateMakefile(text, "Makefile").manualSteps).toEqual([
+      unreadStep("Makefile:1", filtered),
+    ]);
+  });
+
   it("migrateMakefile reports a function call inside an argument that it reads", () => {
     const inner = make("firstword openapi-typescript");
     const text = lines("a:", `\t${make(`or ${inner},x`)} a.yaml`);
