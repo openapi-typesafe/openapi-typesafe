@@ -103,6 +103,8 @@ export interface EnumValuesRequest {
   readonly name: string;
   readonly type: IrType;
   readonly values: readonly (string | number)[];
+  /** A tuple element's position in its tuple (`EnumDeclarationRequest.tupleIndex`). */
+  readonly tupleIndex?: number;
 }
 
 /** Declarations the transformer adds once per file, after the main interfaces. */

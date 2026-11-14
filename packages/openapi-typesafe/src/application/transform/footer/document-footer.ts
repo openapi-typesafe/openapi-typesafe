@@ -19,6 +19,7 @@ import {
   enumDeclaration,
   withoutDeclaredMembers,
 } from "./enum-naming.js";
+import { EnumValuesNames } from "./enum-values-names.js";
 import { OperationKeys } from "./operation-keys.js";
 import { FIRST_SCHEMA_NAMES, type SharedEnumNames } from "./shared-enum-names.js";
 
@@ -66,10 +67,6 @@ function memberKey(value: string | number, metadata: EnumMemberMetadata | undefi
   return [value, metadata?.name ?? null, metadata?.description || null];
 }
 
-/** Separates a repeated `--enum-values` array name from its number, as root type aliases do. */
-const ENUM_VALUES_NUMBER_SEPARATOR = "_";
-
-/** The whole declaration: an equal key means the same enum, member for member. */
 /**
  * The owner of an enum: its schema location. A property and an inline `allOf` item of one schema
  * share it and one enum (two enums would make their intersection `never`). The elements of one
@@ -84,14 +81,32 @@ function enumOwner(request: EnumDeclarationRequest): string {
   return JSON.stringify([request.name, [...request.values].sort(compareAsStrings)]);
 }
 
+/** The whole declaration: an equal key means the same enum, member for member. */
 function declarationKey(name: string, request: EnumDeclarationRequest): string {
   return JSON.stringify([name, request.values, request.metadata]);
+}
+
+/** A `--dedupe-enums` enum: its name and the claim that gave it (`EnumNameClaims.nameFor`). */
+interface DedupedEnum {
+  readonly name: string;
+  readonly asked: string;
+  readonly owner: string;
 }
 
 /** The naming state a run's footer shares with the rest of the run. */
 export interface RunFooterNames {
   readonly enums: EnumNameClaims;
+  readonly enumValues: EnumValuesNames;
   readonly operations: OperationKeys;
+}
+
+/** The naming state of a footer outside a run. */
+function freshNames(): RunFooterNames {
+  return {
+    enums: new EnumNameClaims(),
+    enumValues: new EnumValuesNames(),
+    operations: new OperationKeys(),
+  };
 }
 
 /**
@@ -101,17 +116,13 @@ export interface RunFooterNames {
  */
 export class RunFooter implements DocumentFooter {
   private readonly naming = new EnumNaming();
-  private readonly enumNamesByKey = new Map<string, string>();
+  private readonly enumsByKey = new Map<string, DedupedEnum>();
   /** Declarations added already: the same one twice fails with "Duplicate identifier". */
   private readonly declaredEnums = new Set<string>();
   /** The member names of each declared enum, by value. */
   private readonly membersByEnum = new Map<string, Map<string | number, string>>();
   /** The members of each declared enum name, by member name. */
   private readonly declaredMembers = new Map<string, Map<string, string | number>>();
-  /** `--enum-values` arrays added already: their declared name by name, type and values. */
-  private readonly declaredEnumValues = new Map<string, string>();
-  /** The declared `--enum-values` array names. */
-  private readonly enumValuesNames = new Set<string>();
   private readonly sink: FooterSink;
   private readonly isDedupingEnums: boolean;
   private readonly sharedNames: SharedEnumNames;
@@ -121,7 +132,7 @@ export class RunFooter implements DocumentFooter {
     sink: FooterSink,
     isDedupingEnums: boolean,
     sharedNames: SharedEnumNames = FIRST_SCHEMA_NAMES,
-    names: RunFooterNames = { enums: new EnumNameClaims(), operations: new OperationKeys() },
+    names: RunFooterNames = freshNames(),
   ) {
     this.sink = sink;
     this.isDedupingEnums = isDedupingEnums;
@@ -135,12 +146,13 @@ export class RunFooter implements DocumentFooter {
     const key = this.isDedupingEnums ? dedupeKey(request) : null;
     // Every schema of a shared enum goes to `sharedNames`, the later ones too.
     const sharedName = key === null ? ownName : this.sharedNames.nameOf(key, ownName, request);
-    const known = key === null ? undefined : this.enumNamesByKey.get(key);
+    const known = key === null ? undefined : this.enumsByKey.get(key);
     if (known !== undefined) {
-      return known;
+      return this.dedupedName(known, request);
     }
     // Requests of one owner share one enum, with `--dedupe-enums` too.
-    const name = this.names.enums.nameFor(sharedName, enumOwner(request), request.tupleIndex);
+    const owner = enumOwner(request);
+    const name = this.names.enums.nameFor(sharedName, owner, request.tupleIndex);
     // Only a repeated member fails to compile; two empty declarations merge, so they stay.
     const declared = request.values.length > 0 ? declarationKey(name, request) : null;
     if (declared !== null && this.declaredEnums.has(declared)) {
@@ -155,9 +167,21 @@ export class RunFooter implements DocumentFooter {
       this.sink.add(declaration);
     }
     if (key !== null) {
-      this.enumNamesByKey.set(key, name);
+      this.enumsByKey.set(key, { name, asked: sharedName, owner });
     }
     return name;
+  }
+
+  /**
+   * The name of an enum `--dedupe-enums` declared already. A tuple element of the owner that
+   * declared it still reports its position: the elements of a tuple are numbered by their lowest
+   * position, so the name does not depend on which element (or `$ref` to one) came first.
+   */
+  private dedupedName(known: DedupedEnum, request: EnumDeclarationRequest): string {
+    if (enumOwner(request) === known.owner) {
+      this.names.enums.nameFor(known.asked, known.owner, request.tupleIndex);
+    }
+    return known.name;
   }
 
   /** The declaration without members an earlier one of the name has; null when none is left. */
@@ -192,13 +216,11 @@ export class RunFooter implements DocumentFooter {
   addEnumValues(request: EnumValuesRequest): void {
     const baseName = this.naming.arrayName(request.name);
     // The same array twice fails with "Cannot redeclare"; a schema typed twice adds it twice.
-    const declared = JSON.stringify([baseName, request.type, request.values]);
-    if (this.declaredEnumValues.has(declared)) {
+    const key = JSON.stringify([baseName, request.type, request.values]);
+    const { name, isNew } = this.names.enumValues.nameFor(key, baseName, request.tupleIndex);
+    if (!isNew) {
       return;
     }
-    const name = this.freeEnumValuesName(baseName);
-    this.declaredEnumValues.set(declared, name);
-    this.enumValuesNames.add(name);
     this.require(HELPER_TYPES.flattenedDeepRequired);
     this.require(HELPER_TYPES.readonlyArray);
     this.sink.add({
@@ -209,20 +231,6 @@ export class RunFooter implements DocumentFooter {
       values: request.values,
       comments: [],
     });
-  }
-
-  /**
-   * Another array may have the name: `Discount/type` and `discount/type`, or a property and an
-   * inline `allOf` item of one schema, typed at one location. A redeclared `const` does not
-   * compile, so a later one gets the next number (`discountTypeValues_2`). Every unnumbered name
-   * ends with `Values`, so a number never takes a name that a later array needs.
-   */
-  private freeEnumValuesName(name: string): string {
-    let candidate = name;
-    for (let count = 2; this.enumValuesNames.has(candidate); count++) {
-      candidate = `${name}${ENUM_VALUES_NUMBER_SEPARATOR}${count}`;
-    }
-    return candidate;
   }
 
   requireWithRequired(): void {

@@ -118,6 +118,18 @@ describe("--enum numbers next to names other locations ask for", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS with --dedupe-enums numbers tuple elements by position after a $ref", async () => {
+    const tuple = { type: "array", prefixItems: [{ enum: ["a"] }, { enum: ["b"] }, { enum: ["a"] }] };
+    const parameter = { name: "last", in: "query", schema: { $ref: "#/components/schemas/Tup/prefixItems/2" } };
+    const paths = { "/x": { get: { parameters: [parameter], responses: {} } } };
+
+    const output = await generate(documentWith({ Tup: tuple }, paths), { enum: true, dedupeEnums: true });
+
+    expect(output).toMatch(/Tup: \[\n\s+Tup,\n\s+Tup_2,\n\s+Tup\n\s+\];/);
+    expect(output).toMatch(/export enum Tup \{\n\s+a = "a"\n\s*\}/);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("openapiTS numbers tuple elements by position when a $ref meets a later one first", async () => {
     const parameter = {
       name: "sort",

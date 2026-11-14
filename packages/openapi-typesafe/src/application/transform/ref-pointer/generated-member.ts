@@ -80,6 +80,31 @@ export function intersectionMember(members: readonly GeneratedMember[]): Generat
     : OPAQUE;
 }
 
+function isNeverIndex(member: GeneratedMember): boolean {
+  return member.kind === "never";
+}
+
+/**
+ * A key of a union `A | B`: missing if one member misses it. `Record<string, never>` adds
+ * nothing to the others (`never | T` is `T`), so the key reads as the other members have it, and
+ * as `never` only where every member is such a record. Where several members have it, an optional
+ * property may make it `undefined`; else opaque.
+ */
+export function unionMember(members: readonly GeneratedMember[]): GeneratedMember {
+  if (members.some(isMissing)) {
+    return MISSING;
+  }
+  const typed = members.filter((member) => !isNeverIndex(member));
+  const [first] = typed;
+  if (first === undefined) {
+    return members.length === 0 ? OPAQUE : NEVER_VALUES;
+  }
+  if (typed.every((member) => member === first)) {
+    return first;
+  }
+  return typed.find(isOptionalProperty) ?? OPAQUE;
+}
+
 /**
  * A key of `WithRequired<Base, "a"> | WithRequired<Base, "b">` (`anyof-oneof-required`): the
  * base's member in every variant, required where every variant requires the key, as `-?` drops
@@ -95,10 +120,10 @@ function requiredVariantsMember(
 }
 
 /**
- * A key of `Base & (A | B)`, which TypeScript reads as `(Base & A) | (Base & B)`: the base's
- * member when no variant has the key; an optional property when one of the joined members is one,
- * as the union may then be `undefined`; else opaque. A key of `Base | A | B` is missing if one of
- * them misses it. The `WithRequired` variants read the base (`requiredVariantsMember`).
+ * A key of `Base & (A | B)`, which TypeScript reads as `(Base & A) | (Base & B)`: the union of
+ * the joined members (`unionMember`), so the base's member when no variant has the key. A key of
+ * `Base | A | B` is the union of all of them. The `WithRequired` variants read the base
+ * (`requiredVariantsMember`).
  */
 export function variantsMember(
   base: GeneratedMember,
@@ -110,11 +135,7 @@ export function variantsMember(
     return requiredVariantsMember(base, key, form.keyLists);
   }
   if (form.kind === "intersection") {
-    const joined = variants.map((variant) => intersectionMember([base, variant]));
-    if (joined.every((member) => member === base)) {
-      return base;
-    }
-    return joined.find(isOptionalProperty) ?? OPAQUE;
+    return unionMember(variants.map((variant) => intersectionMember([base, variant])));
   }
-  return form.kind === "union" && [base, ...variants].some(isMissing) ? MISSING : OPAQUE;
+  return form.kind === "union" ? unionMember([base, ...variants]) : OPAQUE;
 }

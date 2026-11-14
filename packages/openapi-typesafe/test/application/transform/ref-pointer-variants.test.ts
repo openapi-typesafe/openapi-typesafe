@@ -5,6 +5,7 @@ import {
   MISSING,
   NEVER_VALUES,
   OPAQUE,
+  unionMember,
   variantsMember,
 } from "../../../src/application/transform/ref-pointer/generated-member.js";
 import {
@@ -140,6 +141,22 @@ describe("variantsMember", () => {
     expect(variantsMember(property(false), [property(false)], INTERSECTION, "k")).toBe(OPAQUE);
   });
 
+  it("variantsMember of an intersection whose every joined member is never is never", () => {
+    expect(variantsMember(MISSING, [NEVER_VALUES, NEVER_VALUES], INTERSECTION, "k")).toBe(
+      NEVER_VALUES,
+    );
+  });
+
+  it("variantsMember of an intersection is missing where a joined member misses the key", () => {
+    expect(variantsMember(MISSING, [MISSING, property(true)], INTERSECTION, "k")).toBe(MISSING);
+  });
+
+  it("variantsMember of a union with empty object variants is the base's", () => {
+    const base = property(true);
+
+    expect(variantsMember(base, [NEVER_VALUES, NEVER_VALUES], UNION, "k")).toBe(base);
+  });
+
   it("variantsMember of a union is missing when one part misses the key", () => {
     expect(variantsMember(property(false), [MISSING], UNION, "k")).toBe(MISSING);
     expect(variantsMember(MISSING, [property(false)], UNION, "k")).toBe(MISSING);
@@ -158,6 +175,30 @@ describe("variantsMember", () => {
     expect(variantsMember(property(true), [], form, "a")).toMatchObject({ isOptional: true });
     expect(variantsMember(property(true), [], some, "k")).toMatchObject({ isOptional: true });
     expect(variantsMember(MISSING, [], form, "k")).toBe(MISSING);
+  });
+});
+
+describe("unionMember", () => {
+  it("unionMember leaves out never members, so one other member is the key's", () => {
+    const only = property(false);
+
+    expect(unionMember([NEVER_VALUES, only, NEVER_VALUES])).toBe(only);
+  });
+
+  it("unionMember of never members only is never, and of none is opaque", () => {
+    expect(unionMember([NEVER_VALUES, NEVER_VALUES])).toBe(NEVER_VALUES);
+    expect(unionMember([])).toBe(OPAQUE);
+  });
+
+  it("unionMember is missing where one member misses the key", () => {
+    expect(unionMember([NEVER_VALUES, property(true), MISSING])).toBe(MISSING);
+  });
+
+  it("unionMember of several members is optional where one is, else opaque", () => {
+    const optional = property(true);
+
+    expect(unionMember([property(false), optional])).toBe(optional);
+    expect(unionMember([property(false), property(false)])).toBe(OPAQUE);
   });
 });
 
@@ -204,6 +245,27 @@ describe("isMissingComposedKey", () => {
     ).toBe(true);
   });
 
+  it("isMissingComposedKey reads the variants of a nullable type list without null", () => {
+    const listed = { ...OWN, type: ["object", "null"] };
+
+    expect(
+      isMissingComposedKey(owner({ ...listed, anyOf: [OBJECT] }), "owner", OPTIONS, NO_REFS),
+    ).toBe(true);
+    expect(
+      isMissingComposedKey(owner({ ...listed, oneOf: [OBJECT] }), "owner", OPTIONS, NO_REFS),
+    ).toBe(false);
+  });
+
+  it("isMissingComposedKey keeps a type list of two types besides null, and no variants", () => {
+    const pair = { ...OWN, type: ["object", "string"], anyOf: [OBJECT] };
+    const single = { ...OWN, type: ["object"], anyOf: [OBJECT] };
+    const listed = { ...OWN, type: ["object", "null"], allOf: [OBJECT] };
+
+    expect(isMissingComposedKey(owner(pair), "owner", OPTIONS, NO_REFS)).toBe(false);
+    expect(isMissingComposedKey(owner(single), "owner", OPTIONS, NO_REFS)).toBe(true);
+    expect(isMissingComposedKey(owner(listed), "owner", OPTIONS, NO_REFS)).toBe(true);
+  });
+
   it("isMissingComposedKey of an intersection, a plain object or unevaluatedProperties is false", () => {
     const fixed = withFix(FIX.UNEVALUATED_PROPERTIES);
     const unevaluated = { ...OWN, anyOf: [OBJECT], unevaluatedProperties: STRING };
@@ -219,11 +281,36 @@ describe("isMissingComposedKey", () => {
 describe("generatedMember of variants", () => {
   const located = (node: unknown) => ({ node, location: "#/components/schemas/Pet" });
 
-  it("generatedMember of a union alone whose every variant has the key is opaque", () => {
+  it("generatedMember of a union alone whose every variant has the key joins them", () => {
     const union = { anyOf: [OBJECT, OBJECT] };
+    const required = { ...OBJECT, required: ["meow"] };
 
-    expect(generatedMember(located(union), "meow", OPTIONS, NO_REFS).kind).toBe("opaque");
+    expect(generatedMember(located(union), "meow", OPTIONS, NO_REFS)).toMatchObject({
+      kind: "property",
+      isOptional: true,
+    });
+    expect(
+      generatedMember(located({ anyOf: [required, required] }), "meow", OPTIONS, NO_REFS),
+    ).toBe(OPAQUE);
     expect(generatedMember(located(union), "other", OPTIONS, NO_REFS).kind).toBe("missing");
+  });
+
+  it("generatedMember of a union alone leaves out its empty object variants", () => {
+    const empty = { type: "object", title: "A" };
+
+    expect(generatedMember(located({ oneOf: [empty, empty] }), "a", OPTIONS, NO_REFS)).toBe(
+      NEVER_VALUES,
+    );
+    expect(
+      generatedMember(located({ oneOf: [empty, OBJECT] }), "meow", OPTIONS, NO_REFS),
+    ).toMatchObject({ kind: "property" });
+  });
+
+  it("generatedMember of both variant keywords alone stays opaque", () => {
+    const both = { anyOf: [OBJECT], oneOf: [OBJECT] };
+
+    expect(generatedMember(located(both), "meow", OPTIONS, NO_REFS)).toBe(OPAQUE);
+    expect(generatedMember(located(both), "other", OPTIONS, NO_REFS)).toBe(MISSING);
   });
 
   it("generatedMember of an empty object is never, or missing with --empty-objects-unknown", () => {

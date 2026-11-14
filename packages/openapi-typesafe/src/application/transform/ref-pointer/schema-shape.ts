@@ -62,6 +62,22 @@ export function isIgnoredUnevaluatedKey(node: JsonObject, key: string): boolean 
   return key === UNEVALUATED_PROPERTIES && isIgnoredSchema && !Object.hasOwn(properties, key);
 }
 
+const NULL_TYPE_NAME = "null";
+
+/**
+ * The schema as `NonNullable` reads its `anyOf` / `oneOf` where a `type` list has one type besides
+ * `null` (`type: [object, "null"]`): with that type alone. The generator types the variants on the
+ * listed type's member (`multipleTypes`) and adds `null` next to it, so without `null` they join
+ * the base as they do for `type: object`. Any other schema stays as it is.
+ */
+export function withVariantsOfListedType(node: JsonObject): JsonObject {
+  const names = Array.isArray(node.type) ? node.type : [];
+  const others = names.filter((name) => name !== NULL_TYPE_NAME);
+  const hasVariants = "anyOf" in node || "oneOf" in node;
+  const [only] = others;
+  return hasVariants && others.length === 1 ? { ...node, type: only } : node;
+}
+
 /** Whether the schema has `allOf`, `anyOf` or `oneOf`. */
 export function isComposed(node: JsonObject): boolean {
   return "allOf" in node || "anyOf" in node || "oneOf" in node;

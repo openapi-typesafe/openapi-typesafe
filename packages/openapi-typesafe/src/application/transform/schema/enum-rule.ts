@@ -270,6 +270,7 @@ function addEnumValues(schema: SchemaObject, request: SchemaRequest): void {
     name: `${nameFromPath(request.location.path)}Values`,
     type: enumValuesType(values, request),
     values,
+    ...tupleElement(schema, request),
   });
 }
 

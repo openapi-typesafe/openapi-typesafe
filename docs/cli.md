@@ -1220,7 +1220,13 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   as object variants, and with the `anyof-oneof-required` fix the property is read through each
   `WithRequired` member. Where it is a union (`anyOf` without that fix, or `oneOf` of primitives)
   and a variant does not have the property, no pointer through it compiles, so it gets the
-  target's type inline.
+  target's type inline. A variant of only `type: object` (`Record<string, never>`) adds nothing to
+  such a union, so the property is read through the own properties, also where such variants sit
+  in an `allOf` item. With `type: [object, "null"]` the variants are read as with `type: object`.
+- A pointer whose original reads `never` through such a `Record<string, never>`
+  (`Contact/allOf/0/properties/owner/properties/name` next to `oneOf: [{ type: object }, …]`)
+  compiles but admits no value, so it gets the target's type. Only a pointer to a `false` schema
+  (`unevaluatedProperties: false`), whose type is `never` too, keeps its original type.
 - A pointer to `unevaluatedProperties` gets the target's type inline: without the
   `unevaluated-properties` fix (or next to `additionalProperties`) the keyword is not in the type,
   so the original reads another member or `never`, and with the fix the index signature also holds

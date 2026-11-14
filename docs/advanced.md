@@ -450,6 +450,10 @@ compiles (`ReadonlyArray<"available" | "sold">`):
 
 Every other array keeps its type.
 
+Arrays of one name are numbered: the elements of a `prefixItems` tuple share the tuple's place, so
+a tuple `Pair` of two enums gives `pairValues` and `pairValues_2`. The numbers follow the
+position in the tuple, also where a `$ref` to a later element comes first in the document.
+
 ## JSONSchema $defs caveats
 
 [JSONSchema $defs](https://json-schema.org/understanding-json-schema/structuring.html#defs) can be used to provide sub-schema definitions anywhere. However, these won’t always convert cleanly to TypeScript. For example, this works:
