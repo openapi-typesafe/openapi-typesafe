@@ -2,6 +2,27 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.11
+
+### Patch Changes
+
+- [#128](https://github.com/openapi-typesafe/openapi-typesafe/pull/128) [`fad3163`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fad31635ed28508082d59c2e0a3ba6e881b20d02) Thanks [@fedorello](https://github.com/fedorello)! - A `json` inside the parameters of a media type no longer makes it a JSON media type in the types,
+  as at runtime: an error declared as `text/plain; profile=urn:a+json` or
+  `message/http; msgtype=application/json` is typed as the text (`string`) the client returns, and
+  `JSONLike`, `RequestBodyJSON`, `SuccessResponseJSON` and `ErrorResponseJSON` leave such media
+  types out. Only the media type before the `;` counts, for media ranges (`text/*`) too.
+
+- [#128](https://github.com/openapi-typesafe/openapi-typesafe/pull/128) [`fad3163`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fad31635ed28508082d59c2e0a3ba6e881b20d02) Thanks [@fedorello](https://github.com/fedorello)! - An optional `parseAs` with only some values, such as a wrapper's `options: { parseAs?: "text" }`
+  passed to `client.GET()`, types `data` as the body of each value or the JSON body (`string | T`),
+  as the client returns it. Before, it was typed as the JSON body only. Options whose `parseAs` may
+  be any value, or that have none, still type `data` as the JSON body. With and without
+  `exactOptionalPropertyTypes`.
+
+- [#128](https://github.com/openapi-typesafe/openapi-typesafe/pull/128) [`fad3163`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fad31635ed28508082d59c2e0a3ba6e881b20d02) Thanks [@fedorello](https://github.com/fedorello)! - `client.request(method, path, { parseAs })` types `data` by `parseAs`, as `client.GET()` and the
+  other method calls do: `{ parseAs: "text" }` gives a `string`, `"stream"` the body stream. Before,
+  `data` was always the JSON body. A literal in `params` or `body` next to `parseAs`, such as an
+  enum value, no longer loses the `parseAs` type either.
+
 ## 1.0.0-rc.10
 
 ### Patch Changes

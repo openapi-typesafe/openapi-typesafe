@@ -2,6 +2,26 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.11
+
+### Patch Changes
+
+- [#129](https://github.com/openapi-typesafe/openapi-typesafe/pull/129) [`18ab395`](https://github.com/openapi-typesafe/openapi-typesafe/commit/18ab395b56be05e2fc58675f9f21c8d943000dde) Thanks [@fedorello](https://github.com/fedorello)! - A `bigint` in a parameter, a header or a form or multipart body no longer crashes the component
+  with "Do not know how to serialize a BigInt": the query key holds it as the text that is sent.
+
+- [#129](https://github.com/openapi-typesafe/openapi-typesafe/pull/129) [`18ab395`](https://github.com/openapi-typesafe/openapi-typesafe/commit/18ab395b56be05e2fc58675f9f21c8d943000dde) Thanks [@fedorello](https://github.com/fedorello)! - Query keys hold the values of plain `headers` as the text that is sent: `new Number(5)` and
+  `new Number(6)` no longer share a cache entry, and a `Date` or `URL` header is keyed by the text
+  `Headers` sends for it.
+
+- [#129](https://github.com/openapi-typesafe/openapi-typesafe/pull/129) [`18ab395`](https://github.com/openapi-typesafe/openapi-typesafe/commit/18ab395b56be05e2fc58675f9f21c8d943000dde) Thanks [@fedorello](https://github.com/fedorello)! - Query keys tell apart object parameter values that keep their state outside their own members,
+  such as a `URL`, a Temporal value or a value object with private fields: the key also holds what
+  their `toJSON` returns and their text, which a `querySerializer` or `pathSerializer` set on the
+  fetch client may send. Two such values no longer share a cache entry, and `invalidateQueries` or
+  `setQueriesData` with the key of one no longer matches the other. An invalid `Date` parameter no
+  longer shares the key of a `null` one.
+- Updated dependencies [[`fad3163`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fad31635ed28508082d59c2e0a3ba6e881b20d02), [`fad3163`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fad31635ed28508082d59c2e0a3ba6e881b20d02), [`fad3163`](https://github.com/openapi-typesafe/openapi-typesafe/commit/fad31635ed28508082d59c2e0a3ba6e881b20d02)]:
+  - openapi-typesafe-fetch@1.0.0-rc.11
+
 ## 1.0.0-rc.10
 
 ### Patch Changes
