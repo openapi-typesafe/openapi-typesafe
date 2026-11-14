@@ -374,3 +374,49 @@ as this type for a generic path.
 | Type every non-JSON error body as `unknown` | No wrong type | Loses the `string` that HTML and text errors are |
 
 Types only; the bundle is unchanged.
+
+## Amendment (2026-11-13): `parseAs` values, media type parameters and undeclared error bodies
+
+The type hunt on rc.10 found three more gaps between the types and the runtime.
+
+1. **An optional narrow `parseAs`.** `ParseAsResponse` gave `T` for any optional `parseAs`, so a
+   wrapper's `options: { parseAs?: "text" }` typed `data` as the JSON body while the client
+   returned a string. The rule is now the values the property may have: each one gives its body,
+   and `undefined` or a left-out `parseAs` is `"json"`. Only options whose `parseAs` may be every
+   value and may be left out (the declared `parseAs?: ParseAs | undefined`, also as a required
+   `ParseAs | undefined`), or that have no `parseAs`, give `T`, as in openapi-fetch. A required
+   `parseAs: ParseAs` gives every body. Under `exactOptionalPropertyTypes` an optional property
+   counts as possibly left out too. Each check takes the options as its checked type and a fixed
+   type (`RequiredParseAs`, `WithoutParseAs<Value>`), checked once per value, not one union of
+   them: TypeScript splits `parseAs?: ParseAs` into its values against a union and matches each
+   one, and a variable extends type would no longer relate the data of a generic call to a
+   wrapper's (ADR-030).
+2. **Media type parameters.** `JSONMediaPattern` let its `${string}` run across `;`, so
+   `text/plain; profile=urn:a+json` and `message/http; msgtype=application/json` were typed as
+   JSON while `JSON_MEDIA_TYPE_RE` reads them as text. Whether a media type is JSON, or a media
+   range, is now read from its subtype: the text after the first `/` and before the first `;`,
+   without trailing spaces and tabs, with a type before the `/`, as the regular expression wants.
+   `JSONLike`, `RequestBodyJSON` and the error types follow it. A template cannot keep a
+   `${string}` out of the parameters, so the JSON helpers (`SuccessResponseJSON`,
+   `ErrorResponseJSON`) still pick media types by the pattern; the error type of a picked one is
+   still the text when it is not JSON.
+3. **Error responses without `content`.** A response declared as `404: { description }` types
+   `error` as `undefined`, while a body the server sends anyway reaches `error` as the text or the
+   parsed JSON. The types keep `undefined`: as point 3 of "an error body is parsed by its
+   `Content-Type`" says, they describe what the document declares, which a server that follows
+   it sends, and a response without `content`
+   declares no body. `unknown` would be true for every server, but it absorbs the declared error
+   bodies of the other statuses: `error` of an operation with a `400` schema and a bare `404`
+   would lose the schema, and code written against openapi-fetch that reads it would no longer
+   compile. The docs say how to type such a body (declare its `content`) and to check
+   `response.ok`.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| `parseAs` values, fixed check types (chosen) | Runtime and types agree for optional and union options | One check per value instead of one check |
+| Read `Options["parseAs"]` after one `extends { parseAs?: … }` | Short | A variable extends type broke the generic wrapper relations; `{}` and `{ headers }` need special cases |
+| Subtype read by inference (chosen) | Exactly the regular expression | Only for classifying; the JSON helpers' pattern stays wider |
+| Bare error response stays `undefined` (chosen) | Follows the document; declared schemas kept | A body the document leaves out is not typed |
+| Bare error response as `unknown` | True for any server | Absorbs every other error schema of the operation |
+
+Types only; the bundle is unchanged.

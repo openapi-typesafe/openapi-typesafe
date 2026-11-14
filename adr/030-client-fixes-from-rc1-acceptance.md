@@ -254,6 +254,40 @@ bodies were JSON-encoded, as `{"_parts":[...]}` or `{}`, which rc.4 sent as they
 | Tag alone | Smallest | React Native's classes have no tag |
 | A class option for each kind | Explicit | Every React Native and Jest app must pass three classes |
 
+## Amendment (2026-11-13): only the operation's options distribute
+
+The type hunt on rc.10 found that `client.request("get", "/pet", { parseAs: "text" })` typed
+`data` as the JSON body, in every rc; openapi-fetch 0.17 gives `string`. `request()` infers its
+method, so while it checks the init the method is a type parameter. TypeScript then reads the
+init's contextual type through the constraints of the method, the path and the init, and the
+distributive `FetchOptions` of the amendment above is instantiated again at each step. After ten
+nested instantiations of one conditional type TypeScript stops (5.9 to 7.0; 5.4 does not), the
+init had no contextual type, `"text"` widened to `string`, the inferred init failed its
+constraint, and `Init` fell back to the declared init type, whose `parseAs` reads JSON. The
+method calls (`GET()`) fix their method, so their constraints resolve in a few steps.
+
+1. `FetchOptions<T>` is `(T extends unknown ? OperationRequestOptions<T> : never) &
+   SharedRequestOptions & Omit<RequestInit, "body" | "headers">`. Only `params`, `body`,
+   `querySerializer` and `bodySerializer` depend on the operation and distribute; `parseAs`,
+   `baseUrl`, `fetch`, `headers`, `middleware` and `pathSerializer` are the same for every
+   operation and stay outside. The type of one operation, of a union and of `never` is unchanged.
+2. With one conditional level less, the whole contextual type resolves: a literal in `params` or
+   `body` keeps its type too, so
+   `request("post", path, { parseAs: "blob", body: { kind: "dog" } })` gives `Blob`
+   (openapi-fetch 0.17 gives the JSON body there).
+3. `RequestOptions<T>` is `OperationRequestOptions<T> & SharedRequestOptions`, the same members as
+   before. The wrapper relations of the amendment above are unchanged: the client's init and a
+   wrapper's `FetchOptions` are still one alias.
+4. `request-parse-as.test-d.ts` and the type matrix (`request-parse-as.ts`, on the GitHub schema)
+   check `request()` with `parseAs`, literal parameters and a literal body.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Shared options outside the distributive part (chosen) | `parseAs` and every literal keep their types; no API change | Two named parts of the init type |
+| `const Init` | Literals kept without context | Not reached through the rest tuple of `InitParam`; readonly arrays fail mutable constraints |
+| One overload per method | Method known before the init | `Parameters<typeof client.request>` sees only the last overload; "No overload matches" errors |
+| Back to the non-distributive `FetchOptions` | openapi-fetch's type | Breaks the wrapper relations above; a literal body still widens |
+
 ## Review trigger
 
 A TypeScript release that relates generic signatures across declarations; a library that types
