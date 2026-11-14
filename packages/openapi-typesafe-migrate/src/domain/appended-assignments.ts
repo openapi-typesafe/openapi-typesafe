@@ -1,5 +1,5 @@
 import type { AppendedValue } from "./argument-findings.js";
-import type { FileVariables, VariableProgramUse } from "./file-variables.js";
+import { type FileVariables, runsGenerator, type VariableProgramUse } from "./file-variables.js";
 import { assignmentValue, type ShellAssignment, shellAssignments } from "./shell-assignments.js";
 import { type ShellCommand, shellCommands } from "./shell-words.js";
 import { type AppendedPlace, appendedPlace } from "./variable-programs.js";
@@ -50,8 +50,7 @@ function shellAppend(assignment: ShellAssignment, variables: FileVariables): She
   const written = `$${assignment.name}`;
   const found = variables.programAt({ raw: written, value: written, start: at, end: at });
   const program: VariableProgramUse = found ?? { written, program: "generator-or-other" };
-  const value = assignmentValue(assignment);
-  const command = shellCommands(value.text)[0]?.map(value.place);
+  const [command] = appendedText(assignment);
   return { value: { words: command ?? [], program }, command };
 }
 
@@ -61,6 +60,24 @@ export interface ShellAppends {
   readonly appended: readonly AppendedValue[];
 }
 
+/**
+ * Whether text appended after a value from outside the file is a command of its own: one that
+ * runs the generator itself (`H+="npx openapi-typescript"`, make's `GEN += npx …`). What comes
+ * before it is then empty or a prefix (a launcher, `time`) of that command, so the generator in
+ * it is migrated where it is written. Any other text holds arguments of a program the tool does
+ * not know, whose old flags are reported.
+ */
+export const isOwnGeneratorCommand = (
+  place: AppendedPlace | undefined,
+  command: ShellCommand | undefined,
+): boolean => place === "after-outside" && command !== undefined && runsGenerator(command);
+
+/** The commands that the appended text of an assignment holds, placed where they are written. */
+function appendedText(assignment: ShellAssignment): ShellCommand[] {
+  const value = assignmentValue(assignment);
+  return shellCommands(value.text).map((words) => words.map(value.place));
+}
+
 /** The appended values of a shell text, read as the arguments after their variables. */
 export function shellAppends(
   commands: readonly ShellCommand[],
@@ -68,6 +85,7 @@ export function shellAppends(
 ): ShellAppends {
   const appends = placedAssignments(commands)
     .filter(isAfterValue)
+    .filter(({ assignment, place }) => !isOwnGeneratorCommand(place, appendedText(assignment)[0]))
     .map(({ assignment }) => shellAppend(assignment, variables));
   const taken = new Set(appends.flatMap(({ command }) => (command === undefined ? [] : [command])));
   const isTaken = (command: ShellCommand): boolean =>

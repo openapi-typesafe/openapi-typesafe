@@ -71,6 +71,17 @@ describe("migrateMakefile and appended values", () => {
     expect(migrated.manualSteps).toEqual([keptStep("Makefile:1", make("GEN"), ["-it"])]);
   });
 
+  it("migrateMakefile migrates a generator command appended to a value from outside", () => {
+    const text = lines("GEN += npx openapi-typescript -it", "a:", `\t${make("GEN")} a.yaml -it`);
+
+    const migrated = migrateMakefile(text, "Makefile");
+
+    expect(migrated.text).toBe(
+      lines("GEN += npx openapi-typesafe --immutable", "a:", `\t${make("GEN")} a.yaml -it`),
+    );
+    expect(migrated.manualSteps).toEqual([keptStep("Makefile:3", make("GEN"), ["-it"])]);
+  });
+
   it("migrateMakefile keeps flags appended to a variable that runs another program", () => {
     const text = lines("GEN := docker run", "GEN += -it", "a:", `\t${make("GEN")} x`);
 
@@ -105,6 +116,17 @@ describe("migrateCommandLines and appended shell values", () => {
 
     expect(migrated.text).toBe(text);
     expect(migrated.manualSteps).toEqual([keptStep("gen.bash:1", shell("G"), ["-it"])]);
+  });
+
+  it("migrateCommandLines migrates a generator command appended to an outside value", () => {
+    const text = lines('G+="npx openapi-typescript -it"', `${shell("G")} c.yaml -it`);
+
+    const migrated = migrateCommandLines(text, "gen.bash");
+
+    expect(migrated.text).toBe(
+      lines('G+="npx openapi-typesafe --immutable"', `${shell("G")} c.yaml -it`),
+    );
+    expect(migrated.manualSteps).toEqual([keptStep("gen.bash:2", shell("G"), ["-it"])]);
   });
 
   it("migrateCommandLines renames flags in an appended value of several parts", () => {
