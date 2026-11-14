@@ -13,6 +13,15 @@ export function kindOf(value: unknown): string {
   return value === null ? "null" : `a ${typeof value}`;
 }
 
+/** `OPTION_INVALID` for options that are no object; `details.option` is absent, as no one is. */
+export function optionsInvalid(got: string): OpenAPITypesafeError {
+  return new OpenAPITypesafeError({
+    code: ERROR_CODES.OPTION_INVALID,
+    message: `The options must be an object; got ${got}.`,
+    details: {},
+  });
+}
+
 export function optionInvalid(option: string, expected: string, got: string): OpenAPITypesafeError {
   return new OpenAPITypesafeError({
     code: ERROR_CODES.OPTION_INVALID,

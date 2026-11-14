@@ -10,10 +10,30 @@ const document = () => ({ openapi: "3.1.0", info: { title: "t", version: "1" }, 
 // The options as JavaScript may pass them, without the declared types.
 const optionsOf = (options: Record<string, unknown>) => options as GeneratorOptions;
 
-const REDOCLY_EXPECTED = "a Redocly 1 config made with createConfig or loadConfig from @redocly/openapi-core";
+const REDOCLY_EXPECTED =
+  "a Redocly 1 config made with createConfig or loadConfig from @redocly/openapi-core 1.26 or later";
+const FIX_EXPECTED = 'a list of fix names, such as ["all"]';
+
+// The parts of a Redocly 1 config the loader calls; before 1.26 one method had another name.
+const method = () => ({});
+const styleguideBefore126 = { extendTypes: method, addProblemToIgnore: method };
+const olderStyleguide = { ...styleguideBefore126, getRulesForOasVersion: method };
+const styleguideWithoutIgnore = { extendTypes: method, getRulesForSpecVersion: method };
 
 describe("openapiTS option types", () => {
   it.each([
+    ["fix", null, FIX_EXPECTED, "null"],
+    ["fix", "all", FIX_EXPECTED, "a string"],
+    ["fix", { all: true }, FIX_EXPECTED, "an object"],
+    [
+      "redocly",
+      { resolve: { http: {} }, styleguide: olderStyleguide },
+      REDOCLY_EXPECTED,
+      "a config from @redocly/openapi-core before 1.26",
+    ],
+    ["redocly", { resolve: { http: {} }, styleguide: styleguideBefore126 }, REDOCLY_EXPECTED, "an object"],
+    ["redocly", { resolve: { http: {} }, styleguide: styleguideWithoutIgnore }, REDOCLY_EXPECTED, "an object"],
+    ["redocly", { resolve: {}, styleguide: olderStyleguide }, REDOCLY_EXPECTED, "an object"],
     ["inject", 42, "a string", "a number"],
     ["inject", null, "a string", "null"],
     ["enum", "false", "true or false", "a string"],
@@ -38,6 +58,28 @@ describe("openapiTS option types", () => {
       message: `The ${option} option must be ${expected}; got ${got}.`,
       details: { option },
     });
+  });
+
+  it.each([
+    ["x", "a string"],
+    [true, "a boolean"],
+    [null, "null"],
+    [[], "a list"],
+  ])("openapiTS with the options %j rejects with OPTION_INVALID", async (options, got) => {
+    const run = openapiTS(document(), options as unknown as GeneratorOptions);
+
+    await expect(run).rejects.toBeInstanceOf(OpenAPITypesafeError);
+    await expect(run).rejects.toMatchObject({
+      code: "OPTION_INVALID",
+      message: `The options must be an object; got ${got}.`,
+      details: {},
+    });
+  });
+
+  it("openapiTS without options generates the types", async () => {
+    const types = astToString(await openapiTS(document(), undefined));
+
+    expect(types).toContain("export type paths");
   });
 
   it("openapiTS with options of the right types generates the types", async () => {

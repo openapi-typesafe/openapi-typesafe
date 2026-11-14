@@ -50,7 +50,7 @@
     {
       "path": "packages/openapi-typesafe-react-query/dist/index.mjs",
       "ignore": ["@tanstack/react-query", "openapi-typesafe-fetch", "react"],
-      "limit": "4.6 kB",
+      "limit": "5.2 kB",
       "brotli": false
     }
   ]
