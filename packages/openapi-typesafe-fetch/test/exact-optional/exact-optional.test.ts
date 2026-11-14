@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 const QUERY_OPTIONS_SOURCE = fileURLToPath(new URL("./query-options.ts", import.meta.url));
 const CLIENT_OPTIONS_SOURCE = fileURLToPath(new URL("./client-options.ts", import.meta.url));
+const PARSE_AS_OPTIONS_SOURCE = fileURLToPath(new URL("./parse-as-options.ts", import.meta.url));
 
 /**
  * The test builds a whole TypeScript program; a loaded runner takes a few seconds. 60 s leaves room
@@ -48,6 +49,14 @@ describe("exactOptionalPropertyTypes", () => {
     timeout: TYPE_PROGRAM_TIMEOUT_MS,
   }, () => {
     const diagnostics = diagnosticsOf(CLIENT_OPTIONS_SOURCE);
+
+    expect(diagnostics).toEqual([]);
+  });
+
+  it("ParseAsResponse of an optional parseAs without undefined includes the JSON body", {
+    timeout: TYPE_PROGRAM_TIMEOUT_MS,
+  }, () => {
+    const diagnostics = diagnosticsOf(PARSE_AS_OPTIONS_SOURCE);
 
     expect(diagnostics).toEqual([]);
   });

@@ -240,7 +240,10 @@ plain values only, since TanStack Query's filters read the key, not only its has
      `toISOString` (how the client tells a date) as its ISO text, through
      `Date.prototype.toJSON`, which gives `null` for an invalid date instead of throwing while the
      component renders; any other object or array by its members, each as sent. A boxed primitive
-     there is its members, as the client sends it (`new Number(1)` sends nothing).
+     there is its members, as the client sends it (`new Number(1)` sends nothing). (Corrected by
+     the second amendment of 2026-11-13: a serializer of the client may send an object's
+     `toJSON` form or text, plain `headers` send the text of every value, and an invalid date
+     and a bigint get keys of their own.)
 2. **`NaN` and the infinities.** The hash writes them as `null`, so in a parameter or a form
    field they shared the key of `null` and of each other, while the fetch client sends the text
    `NaN` or `Infinity` and nothing for `null`. A `NaN` kept in a key also never matched itself in
@@ -270,6 +273,63 @@ plain values only, since TanStack Query's filters read the key, not only its has
 **Size.** The bundle grows from 4.08 kB to 4.55 kB minified (1.94 kB gzipped), so the budget
 rises to 4.6 kB: the plain forms of parameter and header values (about 280 bytes) and of body
 values with the `NaN` kinds (about 190). Correctness ranks above size (ADR-013, ADR-030).
+
+## Amendment (2026-11-13, second): every form an object may be sent as, header texts
+
+The rule, restated: two requests that may be sent differently never share a key. Splitting the
+cache more costs a request; merging shows one request's data for another with no error. The
+first amendment of 2026-11-13 broke it in four places.
+
+1. **Objects in `params` by their members only.** Keyed by its own enumerable members, every
+   object that keeps its state elsewhere had the key `{}`: a `URL`, a Temporal value, a value
+   object with private fields and a `toString` or `toJSON`, a `Number` object. A
+   `querySerializer` or `pathSerializer` set on the fetch client, which the key cannot see, may
+   send such a value's text or its `toJSON` form, so different requests shared one entry, and a
+   filter with the key of one matched the others. Up to rc.9 the hash wrote such a value as its
+   JSON form. An object in `params` (other than a valid date or an array) is now keyed by every
+   form a serializer may send: its own members, which the default serializers send, plus its
+   `toJSON` form under `"toJSON()"` when it has a `toJSON`, and its text under `"toString()"`
+   when `String` gives other text than the default `[object …]` tag. A plain object keeps its
+   key. The forms go beside the members rather than in place of them, so an object whose members
+   and `toJSON` differ is told apart by both, and a value with no members never shares the key
+   of a string with its text, which the default serializer sends while it sends nothing for the
+   object. The `"toJSON()"` form is walked as JSON writes it: an object form by its members,
+   without calling a `toJSON` again, so a `toJSON` that returns its own object ends. An object
+   without a `toString` (`Object.create(null)`) has no text: `String` would throw while the
+   component renders.
+2. **Plain `headers` by the parameter rule.** The fetch client sends a plain header value through
+   `Headers.set` or, for an array, `append`, which send `String(value)`. The key held `new
+   Number(5)` and `new Number(6)` as `{}` and a `Date` as its ISO text, which is not sent. A
+   value of plain `headers` is now the text that is sent: `"5"` for `5` and `new Number(5)`, the
+   local text of a `Date`, the href of a `URL`, the text of each item of an array. `null`, which
+   removes a header, stays. `params.header` keeps the parameter rule: the client writes it in the
+   `simple` style (a date as ISO text, an object by its members) and has no serializer option,
+   so there the extra forms only split entries that send the same.
+3. **A bigint.** TanStack Query's hash throws for a bigint, so a bigint parameter or form field
+   crashed the component while the fetch client sends its text. In `params` and headers it is now
+   its text, as `NaN` is. In a body it is its text with the kind `"bigint"` in `bodyType`: a form
+   or multipart body sends the text, while JSON fails for it, so it must not share the key of a
+   JSON string.
+4. **An invalid date.** `Date.prototype.toJSON` gives `null` for an invalid date, so it had the
+   key of a `null` parameter, which sends nothing, while the request with the date fails with a
+   `RangeError`. The ISO text is now taken only when there is one; an invalid date falls to the
+   object rule and is `{ "toJSON()": null, "toString()": "Invalid Date" }`.
+
+The member names `"toJSON()"` and `"toString()"` are in band: a plain object parameter with such
+members would share a key with an object of those forms. No request names a member like this,
+and the names say what they hold when a key is read in the devtools.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Members plus the `toJSON` form and text beside them (chosen) | Distinct for the default and custom serializers; plain objects keep their keys | Two more members in such keys |
+| The JSON form only, as rc.9 | Smaller | A URL shares the key of its href string, which the default serializer sends differently; objects whose members differ under one `toJSON` merge |
+| Members only (rc.10) | Exact for the default serializer | Every member-less object shares `{}` under a custom serializer |
+| Plain headers by the parameter rule | One rule | Headers send the text, so a `Date` and a `Number` object keyed wrongly |
+
+**Size.** The bundle grows from 4.55 kB to 5.19 kB minified (about 2.1 kB gzipped), so the
+budget rises to 5.2 kB: the object forms with the text check (about 330 bytes), header texts
+(about 150), the invalid-date fall-through and bigint texts in params and bodies (about 120).
+Correctness ranks above size (ADR-013, ADR-030).
 
 ## Review trigger
 

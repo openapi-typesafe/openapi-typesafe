@@ -17,9 +17,18 @@ const BOXED_PRIMITIVE_CLASSES: readonly string[] = ["Number", "Boolean", "String
 
 /**
  * The kind of a value that JSON cannot hold: a raw value, or a number JSON writes as `null` while
- * a form or multipart body sends its text, named by that text.
+ * a form or multipart body sends its text, named by that text, or a bigint, which JSON cannot
+ * send at all while a form or multipart body sends its text.
  */
-type RawKind = "URLSearchParams" | "FormData" | "Blob" | "bytes" | "NaN" | "Infinity" | "-Infinity";
+type RawKind =
+  | "URLSearchParams"
+  | "FormData"
+  | "Blob"
+  | "bytes"
+  | "NaN"
+  | "Infinity"
+  | "-Infinity"
+  | "bigint";
 
 /**
  * The kinds of the values JSON cannot hold in a body: the kind of a body that is one, or, for an
@@ -161,8 +170,10 @@ function membersKey(members: object): BodyKey {
 /**
  * A value inside a body. A value of its own JSON form is its `jsonFormKey`. `NaN` and the
  * infinities are `null`, as JSON sends them, with their text as their kind: a form or multipart
- * body sends `NaN`, and a `NaN` kept in the key would not even match itself in a filter. Bytes are
- * walked by their members like any other object, which writes them as JSON sends them, a
+ * body sends `NaN`, and a `NaN` kept in the key would not even match itself in a filter. A bigint
+ * is its text, as a form or multipart body sends it, of the kind `"bigint"`, apart from a string:
+ * JSON fails for it, and TanStack Query's hash throws for it while the component renders. Bytes
+ * are walked by their members like any other object, which writes them as JSON sends them, a
  * `Uint16Array` as `{ "0": 256 }` and an ArrayBuffer as `{}`; their bytes would name `[0, 1]` for
  * it, as for a `Uint8Array` of 0 and 1. A form or multipart body rejects such a member, so JSON is
  * the only body that sends one.
@@ -170,6 +181,9 @@ function membersKey(members: object): BodyKey {
 function memberKey(value: unknown): BodyKey {
   if (typeof value === "number" && !Number.isFinite(value)) {
     return { body: null, bodyType: String(value) as RawKind };
+  }
+  if (typeof value === "bigint") {
+    return { body: String(value), bodyType: "bigint" };
   }
   if (typeof value !== "object" || value === null) {
     return { body: value };
