@@ -398,8 +398,9 @@ The type hunt on rc.10 found three more gaps between the types and the runtime.
    without trailing spaces and tabs, with a type before the `/`, as the regular expression wants.
    `JSONLike`, `RequestBodyJSON` and the error types follow it. A template cannot keep a
    `${string}` out of the parameters, so the JSON helpers (`SuccessResponseJSON`,
-   `ErrorResponseJSON`) still pick media types by the pattern; the error type of a picked one is
-   still the text when it is not JSON.
+   `ErrorResponseJSON`) pick by key: the media types of the operation's responses that this rule
+   reads as JSON or as a media range (`JSONMediaKeys`). Only the wide key of a content map with an
+   index signature is picked by the pattern, as it names no media type.
 3. **Error responses without `content`.** A response declared as `404: { description }` types
    `error` as `undefined`, while a body the server sends anyway reaches `error` as the text or the
    parsed JSON. The types keep `undefined`: as point 3 of "an error body is parsed by its
@@ -415,8 +416,48 @@ The type hunt on rc.10 found three more gaps between the types and the runtime.
 | --- | --- | --- |
 | `parseAs` values, fixed check types (chosen) | Runtime and types agree for optional and union options | One check per value instead of one check |
 | Read `Options["parseAs"]` after one `extends { parseAs?: … }` | Short | A variable extends type broke the generic wrapper relations; `{}` and `{ headers }` need special cases |
-| Subtype read by inference (chosen) | Exactly the regular expression | Only for classifying; the JSON helpers' pattern stays wider |
+| Subtype read by inference (chosen) | Exactly the regular expression | Only for classifying; the helpers then pick the keys it classifies |
 | Bare error response stays `undefined` (chosen) | Follows the document; declared schemas kept | A body the document leaves out is not typed |
 | Bare error response as `unknown` | True for any server | Absorbs every other error schema of the operation |
+
+Types only; the bundle is unchanged.
+
+## Amendment (2026-11-14): generic options and unions of operations
+
+1. **Options of a generic call.** The amendment above made `ParseAsResponse` one conditional type
+   on the values that `parseAs` cannot have (`[MissingParseAsValues<Options>] extends [never]`).
+   It no longer distributed over `Options`, so for the options of a generic call (a wrapper
+   generic in the path that passes `{ ...init, parseAs: "text" }`, or takes
+   `FetchOptions<…> & { parseAs: "text" }`) TypeScript read it through both of its branches, and
+   `data` was the text and every JSON body of the paths (TS2322 where rc.10 and openapi-fetch give
+   `string`). `ParseAsResponse` distributes over `Options` again, as openapi-fetch's does:
+   TypeScript reads a deferred distributive conditional type through the constraint of its
+   check type, where `parseAs` is known. The check on the missing values moved into the index
+   (`BodyType<T>[ParseAsKey<Options>]`): as a branch, TypeScript read it through both branches
+   too while reading that constraint, since `[never]` fits any check type there. Each member of a
+   union of options now gives its own data, as in openapi-fetch and rc.10:
+   `{ parseAs: ParseAs } | undefined` gives every body, not `T`. The rules for one set of options
+   are unchanged.
+2. **JSON helpers of a union of operations.** `JSONMediaKeys` indexed its mapped type by
+   `keyof T`, which for a union of response maps is only the status codes they share, so the media
+   types of the other statuses were lost, and `ErrorResponseJSON<OpA | OpB>` gained a `string`.
+   `SuccessResponseJSON` and `ErrorResponseJSON` now distribute over the operations: each one
+   picks the JSON media types of its own responses, and the keys of one cannot pick a media type
+   of another.
+3. **A user `Media` filter is a key template.** `` createClient<paths, `${string}/json`>() ``
+   picks keys by the template, as point 1 of ADR-025's amendment "a response body is typed as the
+   client returns it" says, and a template's `${string}` runs across parameters. So it picks
+   `message/http; msgtype=application/json`, whose body the client returns as text, and not
+   `application/problem+json; charset=utf-8`: an error response with both is typed `string`,
+   while a problem+json body arrives parsed. This is the accepted limit of a key filter (ADR-025);
+   matching `Media` by JSON form was rejected there, as it breaks generic wrappers with another
+   `Media`. The docs say to use the default `Media`, an exact media type, or the JSON helpers.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Distribute `ParseAsResponse`, check in the index (chosen) | Generic wrappers get the `parseAs` body, as in rc.10 and openapi-fetch | A union of options is read member by member |
+| Keep one check over the whole union | `{ parseAs: ParseAs } \| undefined` gives `T` | Generic options give every body |
+| Distribute the JSON helpers over operations (chosen) | Each operation picks its own media types | None found |
+| Distribute only `JSONMediaKeys` | Smaller change | The media types of one operation pick in another |
 
 Types only; the bundle is unchanged.
