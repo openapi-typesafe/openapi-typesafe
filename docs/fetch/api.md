@@ -116,7 +116,11 @@ it is the text. A JSON body that does not parse is the text too. The `error` typ
 `Content-Type` that the document declares for the response: a JSON media type gives its schema,
 any other media type a `string` whatever its schema (a `text/plain` error with an `integer` schema
 is a `string`), and a media range (`*/*`, `application/*`, `text/*`), which may hold JSON or not, the schema or a
-`string`.
+`string`. Only the media type before the parameters counts, as at runtime:
+`text/plain; profile=urn:a+json` is not JSON. A response that declares no `content`
+(`404: { description: Not found }`) declares no body, so its `error` type is `undefined`; a body
+that the server sends anyway still reaches `error` at runtime (the text, or the parsed body of a
+JSON media type). Declare the response's `content` to type that body, or check `response.ok`.
 
 An empty body (a 204, an answer to HEAD, a `Content-Length` of 0) is `undefined` data with the
 default `parseAs: "json"` and an `undefined` error. Another `parseAs` reads it with its method, as
