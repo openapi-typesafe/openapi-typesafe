@@ -1,5 +1,83 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.11
+
+### Patch Changes
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - A generator command appended to a variable that the file does not set before
+  (`H+="npx openapi-typescript -it"` in a shell script, `GEN += npx openapi-typescript` in a
+  Makefile) is migrated where it is written. Before, it was only reported. The flags after a later
+  `$H` are still reported, since the value from outside may start with another program.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - bun's `trustedDependencies` in package.json is reported when it names an old package, as pnpm's
+  `onlyBuiltDependencies` already was.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - The migration reads the parameters of more CI files as it reads GitHub Actions inputs: CircleCI
+  `parameters` with `<< parameters.gen >>`, GitLab `spec: inputs` with `$[[ inputs.gen ]]`, and Azure
+  Pipelines template `parameters` with `${{ parameters.gen }}`. A parameter's default is renamed, and
+  the old flags after or inside such a reference are reported. Each file kind reads only its own
+  parameters, and `${{ inputs['flags'] }}` is read like `${{ inputs.flags }}`. Before, the flags
+  after these references were kept without a word, and a GitLab input default was renamed while the
+  flags after `$[[ inputs.gen ]]` were not.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - When a CI file sets a variable to the generator (GitLab `variables`, Compose `environment`,
+  CircleCI `environment`, Task `vars`, Azure `variables`, a workflow `env`), the migration now also
+  reads the scripts and other command files that expand it (`$GEN api.yaml -it` in
+  `scripts/gen.sh`), even when they name no old package, and reports the old flags after `$GEN`
+  there. Before, the variable was renamed and those flags were kept without a word.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - The old flags that a container gives the generator through its command are renamed: a
+  Dockerfile `CMD ["api.yaml", "-it"]` after `ENTRYPOINT ["openapi-typescript"]` (also from an
+  earlier build stage), a Compose, GitLab or CircleCI `command` after an `entrypoint`, and
+  Kubernetes `args` after a `command`. Before, the entrypoint got the new name while the command
+  kept `-it`, and the container failed with a removed flag. An entrypoint script that may pass its
+  arguments on is reported.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - The migration renames the `options` of a GitLab CI variable together with its `value`, and reads
+  each option as a value the variable can have. Before, only the value was renamed, so it was no
+  longer one of the options and GitLab rejected the pipeline.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - A YAML file that a Taskfile `includes`, a GitLab CI `include: local:` or an Azure Pipelines
+  `template:` names is now migrated as a file of the kind that includes it, whatever its name: its
+  `cmds`, `variables`, `$(gen)` macros and inputs are read as there. GitLab `*` and `**` patterns
+  are followed, and so are the files that included files include. Before, such a file was read as
+  plain YAML, and the report could say there was nothing to migrate.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile call of a function with a hyphen in its name, such as
+  `$(filter-out x,npx openapi-typescript)`, is reported when its arguments name an old package.
+  Before, the file was neither changed nor reported ("Nothing to migrate").
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - A shell variable whose value is written with a backslash or in several quoted parts
+  (`GEN=npx\ openapi-typescript`, `GEN="npx "openapi-typescript`) now gets the new generator name
+  too. Before, the flags after `$GEN` were renamed while the value kept `openapi-typescript`, and the
+  report said nothing about it.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - A variable that a step, a job or a stage written as a list item sets (an Azure Pipelines or
+  GitHub Actions step `env`, an Azure stage's `variables`) now counts for the commands of that item
+  only. Before, it counted for the whole file, so the flags after `$GEN` in another step were
+  renamed although `GEN` was not set there.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - A command line passed to a program as a variable is migrated:
+  `cross-env GEN="npx openapi-typescript -it" node gen.js`, `env GEN="…" make` and
+  `$(MAKE) -C api GEN="…"` get the new generator name and flags. A one-word value that names an
+  old package (`make GEN=openapi-typescript`) is reported. Before, both were left without a word.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - A command that runs the old generator from a Windows folder outside the project
+  (`C:\tools\openapi-typescript a.yaml`) is reported, as a POSIX path such as
+  `/usr/local/bin/openapi-typescript` already was.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - The migration reads the command line of an exec-form shell in a YAML file as shell text:
+  `command: ["sh", "-c", "…"]` in a Compose file, and a Kubernetes `command: ["/bin/sh", "-c"]`
+  with the script in `args`. A Compose `entrypoint` list and `command` list, and a Kubernetes
+  `command` list and `args` list, are read as one command, and Compose's `$$GEN` is read as the
+  service's `$GEN`. Before, the generator and its old flags in these commands were kept without a
+  word, or `$GEN` was renamed while the flags after `$$GEN` were not.
+
+- [#134](https://github.com/openapi-typesafe/openapi-typesafe/pull/134) [`e6bbda7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e6bbda77200c0888c387ec32b8fe6d774a071aeb) Thanks [@fedorello](https://github.com/fedorello)! - A renamed dependency whose spec is Yarn's `npm:` protocol with a bare range
+  (`"openapi-fetch": "npm:^0.13.0"`) gets the new version after the same protocol
+  (`"openapi-typesafe-fetch": "npm:^1.0.0"`). Before, it kept the old range, which no version of
+  the new package matches, and the report asked to fix it by hand.
+
 ## 1.0.0-rc.10
 
 ### Patch Changes

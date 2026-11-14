@@ -2,6 +2,50 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.11
+
+### Patch Changes
+
+- [#131](https://github.com/openapi-typesafe/openapi-typesafe/pull/131) [`a5a09d7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a5a09d73a8acab510e90ddf35485fc872e8e7cdd) Thanks [@fedorello](https://github.com/fedorello)! - An `x-openapi-ts.output` in `redocly.yaml` that is set but names no file (`""`, `0`, `false`) now fails
+  that API with `CLI_CONFIG_INVALID`, which names the API and the key. Before, it was reported as a
+  missing `output` key (`CLI_CONFIG_OUTPUT_MISSING`).
+
+- [#133](https://github.com/openapi-typesafe/openapi-typesafe/pull/133) [`61a565f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61a565fabd88ff48afbf1b605b8f09e51ded6847) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values`: the arrays of a tuple's elements are numbered by position (`pairValues` for the
+  first element, `pairValues_2` for the second), also when a `$ref` to a later element comes first in
+  the document; before, that `$ref` swapped the two names.
+
+- [#131](https://github.com/openapi-typesafe/openapi-typesafe/pull/131) [`a5a09d7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a5a09d73a8acab510e90ddf35485fc872e8e7cdd) Thanks [@fedorello](https://github.com/fedorello)! - `openapiTS()` options that are not an object (`null`, a string, `true`, a list) now fail with
+  `OPTION_INVALID` instead of a plain `TypeError`. A `fix` option that is not a list, such as `null` or
+  `"all"`, now fails with `OPTION_INVALID` too; `fix: null` was ignored, and `fix: "all"` failed with
+  `OPTION_FIX_UNKNOWN`, which is now only for unknown fix names.
+
+- [#131](https://github.com/openapi-typesafe/openapi-typesafe/pull/131) [`a5a09d7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a5a09d73a8acab510e90ddf35485fc872e8e7cdd) Thanks [@fedorello](https://github.com/fedorello)! - A `redocly` option made with `@redocly/openapi-core` 1.25 or earlier now fails with `OPTION_INVALID`,
+  which says that 1.26 or later is needed, instead of a plain `TypeError` during the run.
+
+- [#133](https://github.com/openapi-typesafe/openapi-typesafe/pull/133) [`61a565f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61a565fabd88ff48afbf1b605b8f09e51ded6847) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` through `allOf/0` of a schema with `oneOf` variants of only `type: object`
+  (`Contact/allOf/0/properties/owner/properties/name`) now gets the type it points at; before, it
+  was `Contact["allOf"]["0"]["owner"]["name"]`, which compiles but is `never`, so no value fits.
+
+- [#133](https://github.com/openapi-typesafe/openapi-typesafe/pull/133) [`61a565f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61a565fabd88ff48afbf1b605b8f09e51ded6847) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` into a property of a schema with `type: [object, "null"]` and `anyOf` variants that do
+  not have the property now gets the property's type; before, it was
+  `NonNullable<NonNullable<Contact>["owner"]>["name"]`, which does not compile, also with
+  `--fix ref-pointers`.
+
+- [#133](https://github.com/openapi-typesafe/openapi-typesafe/pull/133) [`61a565f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61a565fabd88ff48afbf1b605b8f09e51ded6847) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` into a property of a schema whose own `properties` sit next to `anyOf` variants of only
+  `type: object` (`{ type: object, required: [email] }`, `{ type: object, title: A }`), or next to
+  such `oneOf` variants inside an `allOf` item, now reads through the own properties
+  (`NonNullable<Contact["owner"]>["name"]`); before, it kept `Contact["owner"]["name"]`, which does
+  not compile.
+
+- [#131](https://github.com/openapi-typesafe/openapi-typesafe/pull/131) [`a5a09d7`](https://github.com/openapi-typesafe/openapi-typesafe/commit/a5a09d73a8acab510e90ddf35485fc872e8e7cdd) Thanks [@fedorello](https://github.com/fedorello)! - A relative `file:` URL that climbs up, such as `file:../api.yaml` or `file:..`, given as schema text
+  or as `localRefRoot` with an `http:` or `https:` `cwd` now fails with `SCHEMA_SOURCE_INVALID` or
+  `OPTION_INVALID`, like `file:api.yaml`. Before, it read `/api.yaml` or limited `$ref`s to `/specs/`
+  in the file system root.
+
+- [#133](https://github.com/openapi-typesafe/openapi-typesafe/pull/133) [`61a565f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61a565fabd88ff48afbf1b605b8f09e51ded6847) Thanks [@fedorello](https://github.com/fedorello)! - `--enum --dedupe-enums`: the enums of a tuple whose elements repeat values (`[a], [b], [a]`) are
+  named by position again (`[Tup, Tup_2, Tup]`) when a `$ref` to a later element comes first in the
+  document; before, the names swapped and `Tup` held the second element's values.
+
 ## 1.0.0-rc.10
 
 ### Patch Changes
