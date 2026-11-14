@@ -107,13 +107,13 @@ describe("migrateCommandLines and appended shell values", () => {
     expect(migrated.manualSteps).toEqual([keptStep("gen.bash:1", shell("G"), ["-it"])]);
   });
 
-  it("migrateCommandLines reports flags in an appended value of several parts", () => {
+  it("migrateCommandLines renames flags in an appended value of several parts", () => {
     const text = lines('G="npx openapi-typescript"', `G+=" -it "${shell("X")}`, shell("G"));
 
     const migrated = migrateCommandLines(text, "gen.bash");
 
-    expect(migrated.text).toContain(`G+=" -it "${shell("X")}`);
-    expect(migrated.manualSteps).toEqual([keptStep("gen.bash:2", shell("G"), ["-it"])]);
+    expect(migrated.text).toContain(`G+=" --immutable "${shell("X")}`);
+    expect(migrated.manualSteps).toEqual([]);
   });
 
   it("migrateCommandLines keeps flags appended to a variable that runs another program", () => {

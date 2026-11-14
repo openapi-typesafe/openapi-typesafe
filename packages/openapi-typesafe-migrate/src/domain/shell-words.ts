@@ -1,7 +1,14 @@
+import { simpleCommand } from "./compound-commands.js";
 import { type HeredocBody, heredocAt, type PendingHeredoc, readBodies } from "./here-documents.js";
 import { inlineCode } from "./inline-code.js";
 import { wordExpansions } from "./parameter-expansions.js";
-import { assignmentValueText, shellAssignments } from "./shell-assignments.js";
+import {
+  argumentAssignments,
+  assignmentValue,
+  holdsCommandLine,
+  type ShellAssignment,
+  shellAssignments,
+} from "./shell-assignments.js";
 import {
   COMMAND_SEPARATORS,
   isLineContinuation,
@@ -95,60 +102,6 @@ function topLevelCommands(text: string, indent: number): TopLevel {
     }
   }
   return { commands, heredocs, pipes };
-}
-
-/**
- * Reserved words (POSIX 2.4, and bash's `[[`) that open or close a compound command and are
- * followed by a command: `if a; then b; fi`, `while a; do b; done`, `! a`, `{ a; }`. They are
- * reserved only where a command name can stand, and only unquoted, so `echo then` and `"if"` stay
- * words. `time` is a launcher (domain/command-launchers.ts), as it takes options.
- */
-const COMMAND_PREFIX_WORDS: ReadonlySet<string> = new Set([
-  "if",
-  "then",
-  "elif",
-  "else",
-  "fi",
-  "while",
-  "until",
-  "do",
-  "done",
-  "!",
-  "{",
-  "}",
-  "esac",
-]);
-/**
- * Reserved words whose words up to the next separator are not a command: `for NAME in WORDS`,
- * `select NAME in WORDS`, `case WORD in`, and a `[[ … ]]` test.
- */
-const CLAUSE_WORDS: ReadonlySet<string> = new Set(["for", "select", "case", "[["]);
-/** `function NAME` (bash, ksh): the function's body, a compound command, follows the name. */
-const FUNCTION_WORD = "function";
-const FUNCTION_HEADER_LENGTH = 2;
-
-const isReserved = (word: ShellWord | undefined, words: ReadonlySet<string>): boolean =>
-  word !== undefined && word.raw === word.value && words.has(word.value);
-
-/** How many words at `index` are a reserved word or a function header, before a command. */
-function prefixLength(words: readonly ShellWord[], index: number): number {
-  if (isReserved(words[index], COMMAND_PREFIX_WORDS)) {
-    return 1;
-  }
-  const word = words[index];
-  return word?.raw === FUNCTION_WORD ? FUNCTION_HEADER_LENGTH : 0;
-}
-
-/**
- * The simple command that a list of words between two separators holds, without the reserved
- * words in front of it: `then a b` is the command `a b`, and `for x in a b` is none.
- */
-function simpleCommand(words: readonly ShellWord[]): ShellWord[] {
-  let first = 0;
-  for (let length = prefixLength(words, 0); length > 0; length = prefixLength(words, first)) {
-    first += length;
-  }
-  return isReserved(words[first], CLAUSE_WORDS) ? [] : words.slice(first);
 }
 
 const QUOTES: ReadonlySet<string> = new Set(["'", '"']);
@@ -251,6 +204,24 @@ function expansionCommands(word: ShellWord): ShellCommand[] {
 }
 
 /**
+ * The assignments of a command whose values are command lines: its own (`GEN=…`), and those
+ * after its program that hold one (`cross-env GEN="npx openapi-typescript" node gen.js`).
+ */
+function commandLineAssignments(command: ShellCommand): Map<ShellWord, ShellAssignment> {
+  const read = [
+    ...shellAssignments(command),
+    ...argumentAssignments(command).filter(holdsCommandLine),
+  ];
+  return new Map(read.map((assignment) => [assignment.word, assignment]));
+}
+
+/** The commands of an assignment's value, placed where their words are written. */
+function valueCommands(assignment: ShellAssignment): ShellCommand[] {
+  const value = assignmentValue(assignment);
+  return shellCommands(value.text).map((words) => words.map(value.place));
+}
+
+/**
  * The command lines inside the words of a command: a quoted word that holds one, the value of an
  * assignment (`GEN="npx openapi-typescript"`), which runs where the variable is expanded, and
  * the word of a parameter expansion (`${GEN:-npx openapi-typescript}`). A text read as commands
@@ -258,7 +229,7 @@ function expansionCommands(word: ShellWord): ShellCommand[] {
  * line.
  */
 function innerCommands(command: ShellCommand): ShellCommand[] {
-  const assignments = new Map(shellAssignments(command).map((found) => [found.word, found]));
+  const assignments = commandLineAssignments(command);
   const code = inlineCode(command)?.code;
   return command.flatMap((word) => {
     const inner = word === code ? undefined : nestedCommandText(word);
@@ -266,8 +237,7 @@ function innerCommands(command: ShellCommand): ShellCommand[] {
       return shellCommandsAt(inner, word.start + 1);
     }
     const assignment = assignments.get(word);
-    const value = assignment === undefined ? undefined : assignmentValueText(assignment);
-    return value === undefined ? expansionCommands(word) : shellCommandsAt(value.text, value.start);
+    return assignment === undefined ? expansionCommands(word) : valueCommands(assignment);
   });
 }
 

@@ -143,7 +143,10 @@ describe("migrateDockerfile and variables", () => {
     const migrated = migrateDockerfile(text, "Dockerfile");
 
     expect(migrated.text).toBe(text);
-    expect(migrated.manualSteps).toEqual([]);
+    // A label is no variable of the commands, but its value names an old package.
+    expect(migrated.manualSteps).toEqual([
+      { kind: "old-name-in-command", location: "Dockerfile:3", word: "GEN=openapi-typescript" },
+    ]);
   });
 
   it("migrateDockerfile reads a word without a name before = as no variable", () => {

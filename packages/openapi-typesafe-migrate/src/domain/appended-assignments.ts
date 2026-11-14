@@ -1,11 +1,7 @@
 import type { AppendedValue } from "./argument-findings.js";
 import type { FileVariables, VariableProgramUse } from "./file-variables.js";
-import {
-  assignmentValueText,
-  type ShellAssignment,
-  shellAssignments,
-} from "./shell-assignments.js";
-import { type ShellCommand, shellCommands, shellCommandsAt } from "./shell-words.js";
+import { assignmentValue, type ShellAssignment, shellAssignments } from "./shell-assignments.js";
+import { type ShellCommand, shellCommands } from "./shell-words.js";
 import { type AppendedPlace, appendedPlace } from "./variable-programs.js";
 
 /**
@@ -46,26 +42,17 @@ interface ShellAppend {
 }
 
 /**
- * The appended text of an assignment. A value built of several parts (`G+=" -it"$X`) has no
- * offsets in the text, so its words are placed at the assignment and the generator it may run is
- * not certain: its old flags are reported, never changed at a wrong place.
+ * The appended text of an assignment, its words placed where they are written, also in a value
+ * of several parts (`G+=" -it "$X`), whose characters each have their place in the text.
  */
 function shellAppend(assignment: ShellAssignment, variables: FileVariables): ShellAppend {
   const at = assignment.word.start;
   const written = `$${assignment.name}`;
   const found = variables.programAt({ raw: written, value: written, start: at, end: at });
   const program: VariableProgramUse = found ?? { written, program: "generator-or-other" };
-  const text = assignmentValueText(assignment);
-  if (text !== undefined) {
-    const [command] = shellCommandsAt(text.text, text.start);
-    return { value: { words: command ?? [], program }, command };
-  }
-  const words = shellCommands(assignment.value)
-    .flat()
-    .map((word) => ({ ...word, start: at, end: at }));
-  const isCertain = program.program === "other";
-  const uncertain: VariableProgramUse = { ...program, program: "generator-or-other" };
-  return { value: { words, program: isCertain ? program : uncertain }, command: undefined };
+  const value = assignmentValue(assignment);
+  const command = shellCommands(value.text)[0]?.map(value.place);
+  return { value: { words: command ?? [], program }, command };
 }
 
 /** The commands without those that appended text reads, and the appended values. */

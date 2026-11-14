@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { migrateCommand, migrateCommandLines } from "../../src/domain/command-migration.js";
 import { type DocumentString, documentStrings } from "../../src/domain/config-documents.js";
-import { assignmentValueText, shellAssignments } from "../../src/domain/shell-assignments.js";
+import { shellAssignments } from "../../src/domain/shell-assignments.js";
 import { shellCommands } from "../../src/domain/shell-words.js";
 import { migrateYamlCommands } from "../../src/domain/yaml-migration.js";
 
@@ -37,27 +37,6 @@ describe("shellAssignments", () => {
 
   it("shellAssignments reads no arguments of a command that is not a declaration", () => {
     expect(assignmentsOf("echo GEN=a")).toEqual([]);
-  });
-});
-
-describe("assignmentValueText", () => {
-  const assignedText = (text: string) => {
-    const [assignment] = shellAssignments(shellCommands(text)[0] ?? []);
-    return assignment === undefined ? undefined : assignmentValueText(assignment);
-  };
-
-  it("assignmentValueText gives a plain or one quoted value with its offset", () => {
-    expect(assignedText("GEN=npx")).toEqual({ text: "npx", start: 4 });
-    expect(assignedText(`GEN="npx a"`)).toEqual({ text: "npx a", start: 5 });
-    expect(assignedText("GEN='npx a'")).toEqual({ text: "npx a", start: 5 });
-  });
-
-  it("assignmentValueText gives nothing for a value of several parts or an expansion", () => {
-    expect(assignedText(`GEN="npx"' a'`)).toBeUndefined();
-    expect(assignedText(`GEN="npx"x"a"`)).toBeUndefined();
-    expect(assignedText(`GEN="npx`)).toBeUndefined();
-    expect(assignedText(`GEN=${GEN}x`)).toBeUndefined();
-    expect(assignedText("GEN=a\\ b")).toBeUndefined();
   });
 });
 
