@@ -366,7 +366,7 @@ describe("migrateYamlCommands and expressions", () => {
       {
         kind: "variable-not-only-generator",
         location: "ci.yml:8",
-        variable: "$GEN",
+        variable: expression,
         flags: ["-it"],
       },
     ]);

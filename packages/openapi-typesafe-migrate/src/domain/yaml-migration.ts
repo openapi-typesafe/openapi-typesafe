@@ -7,10 +7,10 @@ import {
 import { type CommandPathPattern, isCommandPath } from "./command-paths.js";
 import { type DocumentString, ownerKey } from "./config-documents.js";
 import type { FileVariables } from "./file-variables.js";
-import { isInputDefault } from "./input-defaults.js";
+import { inputValues } from "./input-defaults.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
-import { shellCommands } from "./shell-words.js";
+import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { otherShellFindings, stepShells } from "./step-shells.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 import { environmentEntries, environmentItemSteps } from "./yaml-environment-entries.js";
@@ -21,6 +21,7 @@ import {
   type YamlCommandFile,
 } from "./yaml-environments.js";
 import { execFormCommands, execFormScripts, execForms, isExecFormItem } from "./yaml-exec-forms.js";
+import { parameterDefaults } from "./yaml-parameters.js";
 import { scopedVariables } from "./yaml-scoped-variables.js";
 import { shellText } from "./yaml-shell-text.js";
 
@@ -92,12 +93,52 @@ function escapedValueFindings(
   encode: (value: string) => string,
   { locate, variables, references }: ValueContext,
 ): ShellTextFindings {
-  const commands = shellCommands(withVariableReferences(value.value, references));
-  const found = commandWordFindings(commands, () => locate(value.start), variables);
+  const read = withVariableReferences(value.value, references);
+  const commands = shellCommands(read);
+  const findings = commandWordFindings(commands, () => locate(value.start), variables);
+  const found = withWrittenWords(findings, commands, { read, written: value.value });
   const migrated = applyTextEdits(value.value, found.edits);
   const isChanged = migrated !== value.value;
   const edits = isChanged ? [{ start: value.start, end: value.end, text: encode(migrated) }] : [];
   return { ...found, edits };
+}
+
+/** A value as the shell reads it and as it is written, with the same offsets. */
+interface ReadValue {
+  readonly read: string;
+  readonly written: string;
+}
+
+const PADDING = " ";
+
+/**
+ * A word of the read value as written: a reference that the file's tool replaces is read in
+ * another form of the same length (`{{.GEN}}` as `$GEN` and blanks), so the word goes on to the
+ * last written character over the blanks after it.
+ */
+function writtenWord({ read, written }: ReadValue, word: ShellWord): string {
+  let blanks = word.end;
+  while (read[blanks] === PADDING) {
+    blanks += 1;
+  }
+  const covered = written.slice(word.end, blanks).trimEnd();
+  return written.slice(word.start, word.end + covered.length);
+}
+
+/**
+ * The findings with the variables they name as written: the shell read a reference that the
+ * file's tool replaces (`<< parameters.gen >>`, `${{ env.GEN }}`) in another form.
+ */
+function withWrittenWords(
+  found: ShellTextFindings,
+  commands: readonly ShellCommand[],
+  value: ReadValue,
+): ShellTextFindings {
+  const words = new Map(commands.flat().map((word) => [word.raw, writtenWord(value, word)]));
+  const manualSteps = found.manualSteps.map((step) =>
+    "variable" in step ? { ...step, variable: words.get(step.variable) ?? step.variable } : step,
+  );
+  return { ...found, manualSteps };
 }
 
 /** The findings of one value read as shell text, with offsets into the whole text. */
@@ -109,7 +150,9 @@ function valueFindings(value: DocumentString, context: ValueContext): ShellTextF
   const { start } = value.content;
   const shell = shellText(text, value, references);
   const commands = shellCommands(shell, blockIndent(shell));
-  const found = commandWordFindings(commands, (offset) => locate(start + offset), variables);
+  const findings = commandWordFindings(commands, (offset) => locate(start + offset), variables);
+  const written = text.slice(start, value.content.end);
+  const found = withWrittenWords(findings, commands, { read: shell, written });
   return { ...found, edits: shiftedEdits(found.edits, start) };
 }
 
@@ -140,7 +183,7 @@ export function migrateYamlCommands(
   text: string,
   file: string,
   strings: readonly DocumentString[],
-  { commandKeys, environment }: YamlCommandFile = DEFAULT_YAML_FILE,
+  { commandKeys, environment, parameters }: YamlCommandFile = DEFAULT_YAML_FILE,
 ): CommandMigration {
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
@@ -150,12 +193,14 @@ export function migrateYamlCommands(
   const forms = execForms(oncePerPlace(strings.filter(isExecFormItem)));
   const scripts = new Set(execFormScripts(forms));
   const entries = environmentEntries(strings, environment);
+  const defaults = parameterDefaults(strings, parameters);
   const isShellText = (value: DocumentString): boolean =>
-    commandValues.has(value) || scripts.has(value) || entries.has(value) || isInputDefault(value);
+    commandValues.has(value) || scripts.has(value) || entries.has(value) || defaults.has(value);
   const shellValues = oncePerPlace(strings.filter(isShellText));
   const names = new Set([...entries.values()].map((entry) => entry.name));
-  const references = { environment, names };
-  const variablesAt = scopedVariables({ text, strings, entries, references });
+  const references = { environment, names, parameters };
+  const inputs = inputValues(defaults);
+  const variablesAt = scopedVariables({ text, entries, inputs, references });
   const contextOf = (value: DocumentString): ValueContext => ({
     ...{ text, locate, references },
     variables: variablesAt(value),

@@ -35,9 +35,17 @@ export function expressionEnd(text: string, start: number): number | undefined {
   return undefined;
 }
 
+const INDEX_OPEN = "[";
+const TRAILING_BLANKS_RE = /[ \t]*$/;
+
+/** Whether the literal that opens at `open` is a key in an index (`inputs['flags']`). */
+const isIndexKey = (raw: string, open: number): boolean =>
+  raw.slice(0, open).replace(TRAILING_BLANKS_RE, "").endsWith(INDEX_OPEN);
+
 /**
  * The string literals between `start` and `end` of `raw`. A literal with an escaped quote (`''`)
  * is left out: its value is not the text as written, so its offsets would not map onto the text.
+ * A key in an index (`inputs['flags']`) names a value, so it is no literal of the expression.
  */
 function literalsIn(raw: string, start: number, end: number): ExpressionLiteral[] {
   const found: ExpressionLiteral[] = [];
@@ -52,7 +60,8 @@ function literalsIn(raw: string, start: number, end: number): ExpressionLiteral[
     if (close === -1) {
       break;
     }
-    found.push(...(isEscaped ? [] : [{ text: raw.slice(open + 1, close), start: open + 1 }]));
+    const isValue = !isEscaped && !isIndexKey(raw, open);
+    found.push(...(isValue ? [{ text: raw.slice(open + 1, close), start: open + 1 }] : []));
     open = raw.indexOf(LITERAL_QUOTE, close + 1);
   }
   return found;
@@ -79,6 +88,20 @@ export function expressionLiterals(raw: string): ExpressionLiteral[] {
     }
   }
   return found;
+}
+
+/** A text with each expression in it (to its `}}`, or to the end) replaced by what `map` gives. */
+export function mapExpressions(text: string, map: (expression: string) => string): string {
+  const parts: string[] = [];
+  let copiedUpTo = 0;
+  for (let open = text.indexOf(EXPRESSION_OPEN); open !== -1; ) {
+    const end = expressionEnd(text, open) ?? text.length;
+    parts.push(text.slice(copiedUpTo, open), map(text.slice(open, end)));
+    copiedUpTo = end;
+    open = text.indexOf(EXPRESSION_OPEN, end);
+  }
+  parts.push(text.slice(copiedUpTo));
+  return parts.join("");
 }
 
 /** Whether a word is one expression as a whole, also in double quotes: `"${{ inputs.gen }}"`. */

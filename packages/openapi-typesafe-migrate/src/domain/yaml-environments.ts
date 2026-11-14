@@ -1,4 +1,12 @@
 import { TASKFILE_COMMAND_KEYS, YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
+import {
+  AZURE_PARAMETERS,
+  CIRCLECI_PARAMETERS,
+  GITHUB_INPUTS,
+  GITLAB_INPUTS,
+  NO_PARAMETERS,
+  type YamlParameters,
+} from "./yaml-parameters.js";
 
 /**
  * Where a YAML file kind sets the variables its commands run (`$GEN`), and how its commands name
@@ -27,10 +35,11 @@ export interface YamlEnvironment {
   readonly hasDollarEscapes: boolean;
 }
 
-/** A YAML file kind: the keys that hold its commands and where it sets variables. */
+/** A YAML file kind: the keys that hold its commands, where it sets variables, its parameters. */
 export interface YamlCommandFile {
   readonly commandKeys: ReadonlySet<string>;
   readonly environment: YamlEnvironment;
+  readonly parameters: YamlParameters;
 }
 
 export const ENV_KEY = "env";
@@ -50,18 +59,30 @@ const PLAIN: Omit<YamlEnvironment, "keys"> = {
 export const DEFAULT_YAML_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
   environment: { ...PLAIN, keys: new Set([ENV_KEY]) },
+  parameters: GITHUB_INPUTS,
 };
 
 /** GitLab CI `variables` of the file and of a job; a value can be a map with `value`. */
 export const GITLAB_CI_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
   environment: { ...PLAIN, keys: new Set([ENV_KEY, VARIABLES_KEY]), hasValueMaps: true },
+  parameters: GITLAB_INPUTS,
 };
 
-/** CircleCI, Drone and Woodpecker `environment` of a job, a step or an executor. */
+const CI_ENVIRONMENT: YamlEnvironment = { ...PLAIN, keys: new Set([ENV_KEY, ENVIRONMENT_KEY]) };
+
+/** Drone and Woodpecker `environment` of a pipeline or a step. */
 export const CI_ENVIRONMENT_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
-  environment: { ...PLAIN, keys: new Set([ENV_KEY, ENVIRONMENT_KEY]) },
+  environment: CI_ENVIRONMENT,
+  parameters: NO_PARAMETERS,
+};
+
+/** CircleCI `environment` of a job, a step or an executor, and its `parameters`. */
+export const CIRCLECI_FILE: YamlCommandFile = {
+  commandKeys: YAML_COMMAND_KEYS,
+  environment: CI_ENVIRONMENT,
+  parameters: CIRCLECI_PARAMETERS,
 };
 
 /**
@@ -76,6 +97,7 @@ export const COMPOSE_FILE: YamlCommandFile = {
     hasListItems: true,
     hasDollarEscapes: true,
   },
+  parameters: NO_PARAMETERS,
 };
 
 /**
@@ -89,6 +111,7 @@ export const TASKFILE: YamlCommandFile = {
     keys: new Set([ENV_KEY, VARS_KEY]),
     reference: /\{\{-?[ \t]*\.([A-Za-z_][A-Za-z0-9_]*)[ \t]*-?\}\}/g,
   },
+  parameters: NO_PARAMETERS,
 };
 
 const AZURE_NAME_SEPARATOR_RE = /\./g;
@@ -114,6 +137,7 @@ export const AZURE_PIPELINES_FILE: YamlCommandFile = {
         ? name.replace(AZURE_NAME_SEPARATOR_RE, AZURE_SHELL_SEPARATOR).toUpperCase()
         : name,
   },
+  parameters: AZURE_PARAMETERS,
 };
 
 /**
@@ -126,10 +150,14 @@ const ENV_EXPRESSION_RE = /\$\{\{[ \t]*env\.([A-Za-z_][A-Za-z0-9_]*)[ \t]*\}\}/g
 const asShellVariable = (reference: string, name: string): string =>
   `$${name}`.padEnd(reference.length, " ");
 
-/** How a file's tool replaces references: its environment, and the variables the file sets. */
+/**
+ * How a file's tool replaces references: its environment, the variables the file sets, and how
+ * it names its parameters.
+ */
 export interface VariableReferences {
   readonly environment: YamlEnvironment;
   readonly names: ReadonlySet<string>;
+  readonly parameters: YamlParameters;
 }
 
 /** The references of the file's tool in `text` read as `$NAME`, where the tool replaces them. */
@@ -156,7 +184,8 @@ const withoutDollarEscapes = (text: string): string =>
 
 /** Shell text with the references that a tool replaces before the shell runs read as `$NAME`. */
 export function withVariableReferences(text: string, references?: VariableReferences): string {
-  const expressions = text.replace(ENV_EXPRESSION_RE, asShellVariable);
+  const parameters = references?.parameters.asExpressions(text) ?? text;
+  const expressions = parameters.replace(ENV_EXPRESSION_RE, asShellVariable);
   if (references === undefined) {
     return expressions;
   }

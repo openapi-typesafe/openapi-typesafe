@@ -4,6 +4,7 @@ import { yamlCommandFileFor } from "../../src/application/yaml-file-kinds.js";
 import { type DocumentString, documentStrings } from "../../src/domain/config-documents.js";
 import {
   CI_ENVIRONMENT_FILE,
+  CIRCLECI_FILE,
   COMPOSE_FILE,
   DEFAULT_YAML_FILE,
   GITLAB_CI_FILE,
@@ -62,7 +63,7 @@ describe("migrateYamlCommands and the variables of a file kind", () => {
       `    steps: [{ run: ${GEN} api.yaml -it }]`,
     );
 
-    expect(migrated(text, ".circleci/config.yml", CI_ENVIRONMENT_FILE).text).toBe(
+    expect(migrated(text, ".circleci/config.yml", CIRCLECI_FILE).text).toBe(
       text.replace("openapi-typescript", "openapi-typesafe").replace("-it", "--immutable"),
     );
   });
@@ -122,7 +123,7 @@ describe("yamlCommandFileFor", () => {
   it.each([
     [".gitlab-ci.yml", GITLAB_CI_FILE],
     ["apps/api/.gitlab/ci/gen.yml", GITLAB_CI_FILE],
-    [".circleci/config.yml", CI_ENVIRONMENT_FILE],
+    [".circleci/config.yml", CIRCLECI_FILE],
     [".drone.yml", CI_ENVIRONMENT_FILE],
     [".woodpecker/gen.yaml", CI_ENVIRONMENT_FILE],
     ["docker-compose.yml", COMPOSE_FILE],

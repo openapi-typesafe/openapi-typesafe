@@ -2,6 +2,7 @@ import type { DocumentPath, DocumentString } from "./config-documents.js";
 import type { ManualStep } from "./migration-findings.js";
 import { namesOriginalPackage } from "./package-names.js";
 import { ENV_KEY, type YamlEnvironment } from "./yaml-environments.js";
+import { itemName } from "./yaml-list-items.js";
 
 /**
  * The values of a YAML file that set variables, as its file kind names its variable maps
@@ -26,27 +27,9 @@ export interface EnvironmentEntry {
 
 const VALUE_KEY = "value";
 const OPTIONS_KEY = "options";
-const NAME_KEY = "name";
 const LIST_ITEM_RE = /^([A-Za-z_][A-Za-z0-9_]*)=/;
 /** The last parts of a value's path: its own key or index, its owner's, and the two above. */
 const PATH_TAIL: readonly number[] = [-1, -2, -3, -4];
-
-/** The `name` of the list item that `strings[index]` is the `value` of, or undefined. */
-function itemName(strings: readonly DocumentString[], index: number): string | undefined {
-  const item = strings[index]?.path.slice(0, -1) ?? [];
-  const isInItem = (string: DocumentString | undefined): boolean =>
-    string !== undefined && item.every((part, at) => string.path[at] === part);
-  const isName = (string: DocumentString): boolean =>
-    string.path.length === item.length + 1 && string.path.at(-1) === NAME_KEY;
-  let [first, last] = [index, index];
-  while (isInItem(strings[first - 1])) {
-    first -= 1;
-  }
-  while (isInItem(strings[last + 1])) {
-    last += 1;
-  }
-  return strings.slice(first, last + 1).find(isName)?.value;
-}
 
 /** Whether a value is the `value` of a list item under one of `keys` (`- name: X / value: Y`). */
 const isNamedItemValue = (value: DocumentString, keys: ReadonlySet<string>): boolean =>

@@ -16,8 +16,9 @@ import { shellText } from "./yaml-shell-text.js";
 /** What the variables of a file are read from. */
 export interface VariableSources {
   readonly text: string;
-  readonly strings: readonly DocumentString[];
   readonly entries: ReadonlyMap<DocumentString, EnvironmentEntry>;
+  /** The values of the file's parameters by name (input-defaults.ts). */
+  readonly inputs: ReadonlyMap<string, string>;
   readonly references: VariableReferences;
 }
 
@@ -31,8 +32,8 @@ interface ScopedDefinition {
 /** The variables that reach each value of a file. */
 export function scopedVariables({
   text,
-  strings,
   entries,
+  inputs,
   references,
 }: VariableSources): (value: DocumentString) => FileVariables {
   const definitions = [...entries].map(([value, entry]): ScopedDefinition => {
@@ -43,6 +44,6 @@ export function scopedVariables({
   });
   return (value) => {
     const reaching = definitions.filter(({ entry }) => isInScope(value.path, entry));
-    return withInputDefaults(shellVariables(reaching), strings);
+    return withInputDefaults(shellVariables(reaching), inputs);
   };
 }

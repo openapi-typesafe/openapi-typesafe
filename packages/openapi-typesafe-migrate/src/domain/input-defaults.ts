@@ -1,39 +1,28 @@
 import type { DocumentString } from "./config-documents.js";
 import type { FileVariables, VariableReference } from "./file-variables.js";
-import {
-  EXPRESSION_OPEN,
-  expressionEnd,
-  expressionLiterals,
-  isWholeExpression,
-} from "./workflow-expressions.js";
+import { expressionLiterals, isWholeExpression, mapExpressions } from "./workflow-expressions.js";
 
 /**
- * The default of an input of an action (`inputs.NAME.default` in `action.yml`) or of a reusable
- * or manual workflow (`on.workflow_call.inputs`): a step that runs `${{ inputs.NAME }}` runs it
- * when the caller gives none, so it is read as shell text, as an `env` value is, and it is the
- * value of `${{ inputs.NAME }}` (also `${{ github.event.inputs.NAME }}`) for the flags that a
- * command gets from it.
+ * The default of a parameter (yaml-parameters.ts: an input of a GitHub action or workflow, a
+ * GitLab input, a CircleCI or Azure parameter) is the value of `${{ inputs.NAME }}` when the
+ * caller gives none, so a command gets the flags in it from there.
  */
-const INPUTS_KEY = "inputs";
-const DEFAULT_KEY = "default";
-const INPUT_DEFAULT_DEPTH = 3;
-const INPUT_NAME_INDEX = -2;
 const BLANK = " ";
 const SURROUNDING_QUOTES_RE = /^"(.*)"$/s;
 
-export const isInputDefault = (value: DocumentString): boolean =>
-  value.path.length >= INPUT_DEFAULT_DEPTH &&
-  value.path.at(-1) === DEFAULT_KEY &&
-  value.path.at(-INPUT_DEFAULT_DEPTH) === INPUTS_KEY;
+/**
+ * A reference to an input in an expression: `inputs.NAME`, `github.event.inputs.NAME`, or the
+ * same with the name as a key, `inputs['NAME']`.
+ */
+const INPUT_REFERENCE_RE =
+  /(?<![\w.-])(?:github\.event\.)?inputs(?:\.([A-Za-z_][A-Za-z0-9_-]*)|\[[ \t]*'([^']*)'[ \t]*\])/g;
 
-/** A reference to an input in an expression: `inputs.NAME` or `github.event.inputs.NAME`. */
-const INPUT_REFERENCE_RE = /(?<![\w.-])(?:github\.event\.)?inputs\.([A-Za-z_][A-Za-z0-9_-]*)/g;
-
-/** The defaults of the inputs of a file, by name; the defaults of one name are read as one. */
-function inputDefaults(strings: readonly DocumentString[]): ReadonlyMap<string, string> {
+/** The values of the inputs of a file, by name; the defaults of one name are read as one. */
+export function inputValues(
+  defaults: ReadonlyMap<DocumentString, string>,
+): ReadonlyMap<string, string> {
   const values = new Map<string, string>();
-  for (const value of strings.filter(isInputDefault)) {
-    const name = String(value.path.at(INPUT_NAME_INDEX));
+  for (const [value, name] of defaults) {
     values.set(
       name,
       [values.get(name), value.value].filter((part) => part !== undefined).join(BLANK),
@@ -48,25 +37,11 @@ function inputDefaults(strings: readonly DocumentString[]): ReadonlyMap<string, 
  */
 function expressionValue(expression: string, defaults: ReadonlyMap<string, string>): string {
   const inputs = [...expression.matchAll(INPUT_REFERENCE_RE)].flatMap((match) => {
-    const value = defaults.get(match[1] as string);
+    const value = defaults.get(match[1] ?? match[2] ?? "");
     return value === undefined ? [] : [value];
   });
   const literals = expressionLiterals(expression).map((literal) => literal.text);
   return [...inputs, ...literals].join(BLANK);
-}
-
-/** A text with each expression in it replaced by what it can give. */
-function withExpressionValues(text: string, defaults: ReadonlyMap<string, string>): string {
-  const parts: string[] = [];
-  let copiedUpTo = 0;
-  for (let open = text.indexOf(EXPRESSION_OPEN); open !== -1; ) {
-    const end = expressionEnd(text, open) ?? text.length;
-    parts.push(text.slice(copiedUpTo, open), expressionValue(text.slice(open, end), defaults));
-    copiedUpTo = end;
-    open = text.indexOf(EXPRESSION_OPEN, end);
-  }
-  parts.push(text.slice(copiedUpTo));
-  return parts.join("");
 }
 
 /**
@@ -77,10 +52,10 @@ function withExpressionValues(text: string, defaults: ReadonlyMap<string, string
  */
 export function withInputDefaults(
   variables: FileVariables,
-  strings: readonly DocumentString[],
+  defaults: ReadonlyMap<string, string>,
 ): FileVariables {
-  const defaults = inputDefaults(strings);
-  const expressionsRead = (text: string): string => withExpressionValues(text, defaults);
+  const expressionsRead = (text: string): string =>
+    mapExpressions(text, (expression) => expressionValue(expression, defaults));
   return {
     programAt: (program) => variables.programAt(program),
     referenceAt: (word): VariableReference | undefined => {
