@@ -154,12 +154,19 @@ export type ParseAsResponse<T, Options> = [MissingParseAsValues<Options>] extend
 /**
  * The `parseAs` values that `Options` may have; `undefined` when it may be left out. One
  * conditional type, not a union: `BodyType<T>` indexed by a union of generic keys is read as the
- * intersection of their bodies when another type is checked against it.
+ * intersection of their bodies when another type is checked against it. `any` options give `any`,
+ * so their data is `any`, as in openapi-fetch: a caller that passes an `any` init (as the generic
+ * hooks of openapi-typesafe-react-query do) returns it as the data type it declares. The branch
+ * is `any` itself, not `Options`: a type parameter there stops TypeScript relating the data of a
+ * generic call to a wrapper's (ADR-030).
  */
 type ParseAsValues<Options> = Options extends unknown
-  ?
-      | (Options extends RequiredParseAs ? never : undefined)
-      | { [Value in ParseAs]: Options extends WithoutParseAs<Value> ? never : Value }[ParseAs]
+  ? IsAny<Options> extends true
+    ? // biome-ignore lint/suspicious/noExplicitAny: any options give any data, as in openapi-fetch
+      any
+    :
+        | (Options extends RequiredParseAs ? never : undefined)
+        | { [Value in ParseAs]: Options extends WithoutParseAs<Value> ? never : Value }[ParseAs]
   : never;
 
 /**

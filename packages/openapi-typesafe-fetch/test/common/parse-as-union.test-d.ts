@@ -76,6 +76,11 @@ describe("ParseAsResponse", () => {
     >();
   });
 
+  it("ParseAsResponse of any options is any", () => {
+    // biome-ignore lint/suspicious/noExplicitAny: the case under test
+    expectTypeOf<ParseAsResponse<Pet, any>>().toBeAny();
+  });
+
   it("GET with an optional parseAs text types data as a string or the JSON body", async () => {
     const options: { parseAs?: "text" } = {};
 
