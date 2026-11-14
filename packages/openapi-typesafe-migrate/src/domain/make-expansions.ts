@@ -85,8 +85,11 @@ const VALUE_ARGUMENTS: ReadonlyMap<string, number> = new Map([
   ["and", 0],
 ]);
 const WHOLE_TEXT_FUNCTIONS: ReadonlySet<string> = new Set(["strip"]);
-/** The head of a function call: `$(`, the function's name and the blanks after it. */
-const FUNCTION_HEAD_RE = /^\$[({]([a-z]+)[ \t]+/;
+/**
+ * The head of a function call: `$(`, the function's name and the blanks after it. GNU make names
+ * some functions with a hyphen (`filter-out`).
+ */
+const FUNCTION_HEAD_RE = /^\$[({]([a-z]+(?:-[a-z]+)*)[ \t]+/;
 const OPENING: ReadonlySet<string> = new Set(Object.keys(CLOSING));
 const CLOSINGS: ReadonlySet<string> = new Set(Object.values(CLOSING));
 
