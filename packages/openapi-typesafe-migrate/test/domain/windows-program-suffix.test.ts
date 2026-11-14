@@ -57,6 +57,29 @@ describe("migrateCommand and Windows program suffixes", () => {
     ]);
   });
 
+  it.each([
+    ["C:\\tools\\openapi-typescript a.yaml -it", "C:\\tools\\openapi-typescript"],
+    ['"C:\\tools\\openapi-typescript.cmd" a.yaml', "C:\\tools\\openapi-typescript.cmd"],
+    ["/usr/local/bin/openapi-typescript a.yaml -it", "/usr/local/bin/openapi-typescript"],
+  ])("migrateCommand reports a generator installed outside the project in %s", (command, word) => {
+    const migrated = migrateCommand(command, "scripts.gen");
+
+    expect(migrated.text).toBe(command);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "old-name-in-command", location: "scripts.gen", word },
+    ]);
+  });
+
+  it("migrateCommand keeps a path to another program silently", () => {
+    const command = "C:\\tools\\openapi-typescript-x a.yaml && /usr/bin/node gen.js";
+
+    expect(migrateCommand(command, "scripts.gen")).toEqual({
+      text: command,
+      changes: [],
+      manualSteps: [],
+    });
+  });
+
   it("migrateCommand keeps a program that only starts with the generator name", () => {
     const command = "openapi-typescript.cmdx a.yaml -it && openapi-typescript-x.cmd b.yaml -it";
 

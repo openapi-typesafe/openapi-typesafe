@@ -73,19 +73,23 @@ function packageFindings(found: PackageWord, locate: Locate): Finding[] {
   return edit === undefined ? [] : [{ offset, edit, change }];
 }
 
-/** The program given by a path: `node_modules/.bin/openapi-typescript` or a file of the package. */
-function programPathFindings(
-  word: ShellWord,
-  { path, suffix }: ProgramPath,
-  location: string,
-): Finding[] {
+/**
+ * The program given by a path: `node_modules/.bin/openapi-typescript` is renamed, a file of the
+ * package or a generator installed elsewhere (`/usr/local/bin/openapi-typescript`,
+ * `C:\tools\openapi-typescript.cmd`) is reported: the new one may not be there.
+ */
+function programPathFindings(word: ShellWord, program: ProgramPath, location: string): Finding[] {
+  const { path, suffix, written } = program;
   const offset = word.start;
   if (path.includes(OLD_PACKAGE_FOLDER)) {
     return [{ offset, manualStep: { kind: "old-package-file", location, path } }];
   }
-  const isBin = path.endsWith(`${BIN_FOLDER}${GENERATOR_COMMAND}${suffix}`);
-  const to = MIGRATED_GENERATOR_COMMAND;
-  const edit = isBin ? renameAtEnd(word, GENERATOR_COMMAND, to, suffix) : undefined;
+  if (!path.endsWith(`${BIN_FOLDER}${GENERATOR_COMMAND}${suffix}`)) {
+    const manualStep: ManualStep = { kind: "old-name-in-command", location, word: written };
+    const isGenerator = path.endsWith(`${PATH_SEPARATOR}${GENERATOR_COMMAND}${suffix}`);
+    return isGenerator ? [{ offset, manualStep }] : [];
+  }
+  const edit = renameAtEnd(word, GENERATOR_COMMAND, MIGRATED_GENERATOR_COMMAND, suffix);
   return edit === undefined
     ? []
     : [{ offset, edit, change: { kind: "command-renamed", location } }];
