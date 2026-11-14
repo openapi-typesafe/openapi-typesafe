@@ -454,25 +454,33 @@ type IsJSONMediaType<Key> = Key extends string
       : false
   : false;
 
-/** Return first JSON-like 2XX response from a path + HTTP method */
+/**
+ * Return first JSON-like 2XX response from a path + HTTP method; for a union of operations, the
+ * union of each one's.
+ */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
-export type SuccessResponseJSON<PathMethod extends Record<string | number, any>> = SuccessResponse<
-  ResponseObjectMap<PathMethod>,
-  JSONMediaKeys<ResponseObjectMap<PathMethod>>
->;
-
-/** Return JSON-like 1XX, 3XX, 4XX, 5XX and `default` responses from a path + HTTP method */
-// biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
-export type ErrorResponseJSON<PathMethod extends Record<string | number, any>> = ErrorResponse<
-  ResponseObjectMap<PathMethod>,
-  JSONMediaKeys<ResponseObjectMap<PathMethod>>
->;
+export type SuccessResponseJSON<PathMethod extends Record<string | number, any>> =
+  PathMethod extends unknown
+    ? SuccessResponse<ResponseObjectMap<PathMethod>, JSONMediaKeys<ResponseObjectMap<PathMethod>>>
+    : never;
 
 /**
- * The media types of the responses `T` that may hold JSON (`IsJSONMediaType`), for the JSON
- * helpers to pick by: their keys, as `JSONMediaType` cannot leave out a `json` in parameters. A
- * content map with an index signature has no such key, so it gives `JSONMediaType`, which picks
- * the schema of its signature.
+ * Return JSON-like 1XX, 3XX, 4XX, 5XX and `default` responses from a path + HTTP method; for a
+ * union of operations, the union of each one's.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
+export type ErrorResponseJSON<PathMethod extends Record<string | number, any>> =
+  PathMethod extends unknown
+    ? ErrorResponse<ResponseObjectMap<PathMethod>, JSONMediaKeys<ResponseObjectMap<PathMethod>>>
+    : never;
+
+/**
+ * The media types of the responses `T` (of one operation) that may hold JSON (`IsJSONMediaType`),
+ * for the JSON helpers to pick by: their keys, as `JSONMediaType` cannot leave out a `json` in
+ * parameters. A content map with an index signature has no such key, so it gives
+ * `JSONMediaType`, which picks the schema of its signature. The helpers pick per operation: the
+ * keys of a union of response maps are only the status codes they share, so the media types of
+ * the other statuses were lost, and the media types of one operation could pick in another.
  */
 type JSONMediaKeys<T> = {
   [Status in keyof T]: T[Status] extends { content: infer Content }
