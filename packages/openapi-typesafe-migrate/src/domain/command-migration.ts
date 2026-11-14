@@ -186,12 +186,17 @@ export function commandWordFindings(
 ): ShellTextFindings {
   const known = withUnreadVariables(withWordExpansions(withShellAssignments(commands, variables)));
   const shell = shellAppends(commands, known);
-  const findings = [
+  return textFindings([
     ...shell.commands.flatMap((words) => commandFindings(words, locate, known)),
     ...[...appended, ...shell.appended].flatMap((value) =>
       appendedValueFindings(value, locate, known),
     ),
-  ].sort((left, right) => left.offset - right.offset);
+  ]);
+}
+
+/** Findings as the edits, changes and steps of a text, in the order of their offsets. */
+export function textFindings(found: readonly Finding[]): ShellTextFindings {
+  const findings = [...found].sort((left, right) => left.offset - right.offset);
   return {
     edits: findings.flatMap((finding) => (finding.edit === undefined ? [] : [finding.edit])),
     changes: findings.flatMap((finding) => (finding.change === undefined ? [] : [finding.change])),

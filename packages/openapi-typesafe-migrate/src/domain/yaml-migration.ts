@@ -14,6 +14,7 @@ import { shellVariables } from "./shell-variables.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { otherShellFindings, stepShells } from "./step-shells.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
+import { yamlEntrypointFindings } from "./yaml-entrypoints.js";
 import {
   DEFAULT_YAML_FILE,
   type EnvironmentEntry,
@@ -240,6 +241,7 @@ export function migrateYamlCommands(
     ...shellValues.map((value) => valueFindings(value, context)),
     commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),
     otherShellFindings(valuesOf(strings, commandKeys), shellOf, locate),
+    yamlEntrypointFindings(text, strings, locate),
     { edits: [], changes: [], manualSteps: environmentItemSteps(strings, entries, locate) },
   ]);
 }
