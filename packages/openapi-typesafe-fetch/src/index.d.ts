@@ -139,16 +139,58 @@ type BodyType<T = unknown> = {
 };
 export type ParseAs = keyof BodyType;
 /**
- * The data of a success body `T` read with the `parseAs` of `Options`. Each value of a union gives
- * its body, and `undefined` is the default `"json"`, as at runtime: a wrapper that passes on
- * `parseAs: "text" | undefined` gets `string | T`, not `T` only. An optional `parseAs` (the
- * declared init type, as for a call without options) gives `T`, as in openapi-fetch. No `infer`:
- * TypeScript relates a type to a deferred conditional type through both of its branches only
- * when it infers nothing, and generic hooks return the data of a call as this type.
+ * The data of a success body `T` read with the `parseAs` of `Options`. Each value it may have gives
+ * its body, and `undefined` or a left-out `parseAs` is the default `"json"`, as at runtime: a
+ * wrapper that passes on `parseAs?: "text"` gets `string | T`, not `T` only. Options without
+ * `parseAs`, or whose `parseAs` may be any value (the declared init type, as for a call without
+ * options), give `T`, as in openapi-fetch. No `infer`: TypeScript relates a type to a deferred
+ * conditional type through both of its branches only when it infers nothing, and generic hooks
+ * return the data of a call as this type.
  */
-export type ParseAsResponse<T, Options> = Options extends { parseAs: ParseAs | undefined }
-  ? BodyType<T>[ParseAsValue<Options["parseAs"]>]
-  : T;
+export type ParseAsResponse<T, Options> = [MissingParseAsValues<Options>] extends [never]
+  ? T
+  : BodyType<T>[ParseAsValue<ParseAsValues<Options>>];
+
+/**
+ * The `parseAs` values that `Options` may have; `undefined` when it may be left out. One
+ * conditional type, not a union: `BodyType<T>` indexed by a union of generic keys is read as the
+ * intersection of their bodies when another type is checked against it. `any` options give `any`,
+ * so their data is `any`, as in openapi-fetch: a caller that passes an `any` init (as the generic
+ * hooks of openapi-typesafe-react-query do) returns it as the data type it declares. The branch
+ * is `any` itself, not `Options`: a type parameter there stops TypeScript relating the data of a
+ * generic call to a wrapper's (ADR-030).
+ */
+type ParseAsValues<Options> = Options extends unknown
+  ? IsAny<Options> extends true
+    ? // biome-ignore lint/suspicious/noExplicitAny: any options give any data, as in openapi-fetch
+      any
+    :
+        | (Options extends RequiredParseAs ? never : undefined)
+        | { [Value in ParseAs]: Options extends WithoutParseAs<Value> ? never : Value }[ParseAs]
+  : never;
+
+/**
+ * The `parseAs` values that `Options` cannot have, as `ParseAsValues` reads them. It does not
+ * distribute: a union of options cannot have a value only when none of its members can.
+ */
+type MissingParseAsValues<Options> =
+  | ([Options] extends [RequiredParseAs] ? undefined : never)
+  | { [Value in ParseAs]: [Options] extends [WithoutParseAs<Value>] ? Value : never }[ParseAs];
+
+/** Options that always have a `parseAs`. */
+type RequiredParseAs = { parseAs: ParseAs };
+
+/**
+ * Options that cannot have the `parseAs` value `Value`: `undefined` options, or options whose
+ * `parseAs` (if any) leaves it out. Each
+ * check takes `Options` as its checked type and a fixed type here, so TypeScript relates the
+ * data of a generic call to a wrapper's (ADR-030); one union of these types instead would let
+ * TypeScript split `parseAs?: ParseAs` into its values and match each one. The `object` keeps
+ * options without `parseAs` (`{ headers }`) from failing as a weak type.
+ */
+type WithoutParseAs<Value extends ParseAs> =
+  | undefined
+  | (object & { parseAs?: Exclude<ParseAs, Value> | undefined });
 
 /** How a `parseAs` value reads the body, for each member of a union; `undefined` reads JSON. */
 type ParseAsValue<Value> = Value extends ParseAs ? Value : "json";
@@ -188,10 +230,16 @@ export type RequestBodyOption<T> =
  * gave a conditional type no `FetchOptions` argument was assignable to (TS2345). The operations
  * of a union are not merged into one deep init type, which gave TS2589 on hundreds of paths
  * (upstream #1882).
+ * Only the options that depend on the operation distribute; the others stay outside the
+ * conditional type. While `request()` has not fixed its method, TypeScript reads the init's
+ * contextual type through the constraints of the method and the path, and stops after ten nested
+ * instantiations of one conditional type: with every option inside it, `parseAs: "text"` had no
+ * contextual type, widened to `string`, and the init fell back to its constraint (`data` the JSON
+ * body). `FetchOptions<never>` is still `never`.
  */
-export type FetchOptions<T> = T extends unknown
-  ? RequestOptions<T> & Omit<RequestInit, "body" | "headers">
-  : never;
+export type FetchOptions<T> = (T extends unknown ? OperationRequestOptions<T> : never) &
+  SharedRequestOptions &
+  Omit<RequestInit, "body" | "headers">;
 
 // Readable<T> strips $Write markers (writeOnly properties excluded from response)
 export type FetchResponse<
@@ -211,17 +259,24 @@ export type FetchResponse<
       response: Response;
     };
 
-export type RequestOptions<T> = ParamsOption<T> &
+export type RequestOptions<T> = OperationRequestOptions<T> & SharedRequestOptions;
+
+/** The options of a call that depend on its operation `T`. */
+type OperationRequestOptions<T> = ParamsOption<T> &
   RequestBodyOption<T> & {
-    baseUrl?: string | undefined;
     querySerializer?: QuerySerializer<T> | QuerySerializerOptions | undefined;
     bodySerializer?: BodySerializer<T> | undefined;
-    pathSerializer?: PathSerializer | undefined;
-    parseAs?: ParseAs | undefined;
-    fetch?: ClientOptions["fetch"];
-    headers?: HeadersOptions | undefined;
-    middleware?: Middleware[] | undefined;
   };
+
+/** The options of a call that are the same for every operation. */
+type SharedRequestOptions = {
+  baseUrl?: string | undefined;
+  pathSerializer?: PathSerializer | undefined;
+  parseAs?: ParseAs | undefined;
+  fetch?: ClientOptions["fetch"];
+  headers?: HeadersOptions | undefined;
+  middleware?: Middleware[] | undefined;
+};
 
 export type MergedOptions<T = unknown> = {
   baseUrl: string;
