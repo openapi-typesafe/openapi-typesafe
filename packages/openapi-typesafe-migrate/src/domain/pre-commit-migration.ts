@@ -10,7 +10,8 @@ import { PACKAGE_RENAMES } from "./package-names.js";
 import type { ShellCommand, ShellWord } from "./shell-word-parts.js";
 import { shellCommands } from "./shell-words.js";
 import type { TextEdit } from "./text-edits.js";
-import { appliedFindings, shellText } from "./yaml-migration.js";
+import { appliedFindings } from "./yaml-migration.js";
+import { shellText } from "./yaml-shell-text.js";
 
 /**
  * pre-commit hooks (`.pre-commit-config.yaml`). A hook runs its `entry`, split into words without

@@ -1,6 +1,3 @@
-import type { DocumentString } from "./config-documents.js";
-import type { ManualStep } from "./migration-findings.js";
-import { namesOriginalPackage } from "./package-names.js";
 import { TASKFILE_COMMAND_KEYS, YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
 
 /**
@@ -11,7 +8,7 @@ import { TASKFILE_COMMAND_KEYS, YAML_COMMAND_KEYS } from "./yaml-command-keys.js
 export interface YamlEnvironment {
   /** Keys whose map holds variables by name. */
   readonly keys: ReadonlySet<string>;
-  /** Whether a variable can be a map with its value under `value` (GitLab). */
+  /** Whether a variable can be a map with its value under `value` and its `options` (GitLab). */
   readonly hasValueMaps: boolean;
   /** Whether the map can be a list of `NAME=value` items (Compose). */
   readonly hasListItems: boolean;
@@ -36,12 +33,10 @@ export interface YamlCommandFile {
   readonly environment: YamlEnvironment;
 }
 
-const ENV_KEY = "env";
+export const ENV_KEY = "env";
 const ENVIRONMENT_KEY = "environment";
 const VARIABLES_KEY = "variables";
 const VARS_KEY = "vars";
-const VALUE_KEY = "value";
-const NAME_KEY = "name";
 const PLAIN: Omit<YamlEnvironment, "keys"> = {
   hasValueMaps: false,
   hasListItems: false,
@@ -120,98 +115,6 @@ export const AZURE_PIPELINES_FILE: YamlCommandFile = {
         : name,
   },
 };
-
-/** A variable that a YAML value sets: its name, and how much of the value its head takes. */
-export interface EnvironmentEntry {
-  readonly name: string;
-  /** The length of `NAME=` before the value of a list item, else 0. */
-  readonly head: number;
-}
-
-const LIST_ITEM_RE = /^([A-Za-z_][A-Za-z0-9_]*)=/;
-
-/** The `name` of the list item that `strings[index]` is the `value` of, or undefined. */
-function itemName(strings: readonly DocumentString[], index: number): string | undefined {
-  const item = strings[index]?.path.slice(0, -1) ?? [];
-  const isInItem = (string: DocumentString | undefined): boolean =>
-    string !== undefined && item.every((part, at) => string.path[at] === part);
-  const isName = (string: DocumentString): boolean =>
-    string.path.length === item.length + 1 && string.path.at(-1) === NAME_KEY;
-  let [first, last] = [index, index];
-  while (isInItem(strings[first - 1])) {
-    first -= 1;
-  }
-  while (isInItem(strings[last + 1])) {
-    last += 1;
-  }
-  return strings.slice(first, last + 1).find(isName)?.value;
-}
-
-/** Whether a value is the `value` of a list item under one of `keys` (`- name: X / value: Y`). */
-const isNamedItemValue = (value: DocumentString, keys: ReadonlySet<string>): boolean =>
-  value.path.at(-1) === VALUE_KEY &&
-  typeof value.path.at(-2) === "number" &&
-  keys.has(String(value.path.at(-3)));
-
-/** The variable that `strings[index]` sets in `environment`, or undefined when it sets none. */
-function environmentEntry(
-  strings: readonly DocumentString[],
-  index: number,
-  environment: YamlEnvironment,
-): EnvironmentEntry | undefined {
-  const value = strings[index] as DocumentString;
-  const { keys, hasValueMaps, hasListItems, hasNamedItems, shellName } = environment;
-  const [last, owner, outer] = [value.path.at(-1), value.path.at(-2), value.path.at(-3)];
-  const named = (name: string | undefined, key: unknown, head = 0): EnvironmentEntry | undefined =>
-    name === undefined ? undefined : { name: shellName(name, String(key)), head };
-  if (typeof last === "string" && keys.has(String(owner))) {
-    return named(last, owner);
-  }
-  if (hasValueMaps && last === VALUE_KEY && typeof owner === "string" && keys.has(String(outer))) {
-    return named(owner, outer);
-  }
-  if (hasNamedItems && isNamedItemValue(value, keys)) {
-    return named(itemName(strings, index), outer);
-  }
-  const item = hasListItems && typeof last === "number" && keys.has(String(owner));
-  const name = item ? LIST_ITEM_RE.exec(value.value)?.[1] : undefined;
-  return named(name, owner, (name?.length ?? 0) + 1);
-}
-
-/** The variables that the values of a file set in `environment`, by value. */
-export function environmentEntries(
-  strings: readonly DocumentString[],
-  environment: YamlEnvironment,
-): ReadonlyMap<DocumentString, EnvironmentEntry> {
-  return new Map(
-    strings.flatMap((value, index) => {
-      const entry = environmentEntry(strings, index, environment);
-      return entry === undefined ? [] : [[value, entry] as const];
-    }),
-  );
-}
-
-const ENV_ITEM_KEYS: ReadonlySet<string> = new Set([ENV_KEY]);
-
-/**
- * The `env` items of a Kubernetes container (`- name: GEN / value: openapi-typescript`) that name
- * an old package. Kubernetes gives such a value to the program as it is and puts it into
- * `command` and `args` for `$(GEN)`, where no shell reads it, so the tool reports it.
- */
-export function environmentItemSteps(
-  strings: readonly DocumentString[],
-  entries: ReadonlyMap<DocumentString, EnvironmentEntry>,
-  locate: (offset: number) => string,
-): ManualStep[] {
-  return strings
-    .filter((value) => isNamedItemValue(value, ENV_ITEM_KEYS) && !entries.has(value))
-    .filter((value) => namesOriginalPackage(value.value))
-    .map((value) => ({
-      kind: "old-name-in-command",
-      location: locate(value.start),
-      word: value.value,
-    }));
-}
 
 /**
  * A GitHub Actions expression that reads one `env` variable: `${{ env.NAME }}`. The runner puts its

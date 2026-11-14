@@ -7,49 +7,29 @@ import {
 import { type CommandPathPattern, isCommandPath } from "./command-paths.js";
 import { type DocumentString, ownerKey } from "./config-documents.js";
 import type { FileVariables } from "./file-variables.js";
-import { isInputDefault, withInputDefaults } from "./input-defaults.js";
+import { isInputDefault } from "./input-defaults.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
-import { shellVariables } from "./shell-variables.js";
 import { shellCommands } from "./shell-words.js";
 import { otherShellFindings, stepShells } from "./step-shells.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
+import { environmentEntries, environmentItemSteps } from "./yaml-environment-entries.js";
 import {
   DEFAULT_YAML_FILE,
-  type EnvironmentEntry,
-  environmentEntries,
-  environmentItemSteps,
   type VariableReferences,
   withVariableReferences,
   type YamlCommandFile,
-  type YamlEnvironment,
 } from "./yaml-environments.js";
 import { execFormCommands, execFormScripts, execForms, isExecFormItem } from "./yaml-exec-forms.js";
+import { scopedVariables } from "./yaml-scoped-variables.js";
+import { shellText } from "./yaml-shell-text.js";
+
+export { shellText } from "./yaml-shell-text.js";
 
 /**
  * YAML files are migrated only where they hold commands or package names, so the text of other
  * values (an OpenAPI `description`, a label) stays as written even when it names a package.
  */
-
-/**
- * The variables of a file as its commands use them (yaml-environments.ts): `$GEN` runs the
- * generator when a map sets `GEN` to it. The maps of a workflow, a job and a step are read as
- * one, by name.
- */
-function environmentVariables(
-  text: string,
-  entries: ReadonlyMap<DocumentString, EnvironmentEntry>,
-  references: VariableReferences,
-): FileVariables {
-  return shellVariables(
-    [...entries].map(([value, entry]) => {
-      const shell = value.isEscaped
-        ? withVariableReferences(value.value, references)
-        : shellText(text, value, references);
-      return { name: entry.name, value: shell.slice(entry.head) };
-    }),
-  );
-}
 
 /** Keys of a Dependabot config whose values are package names (`ignore`, `allow`, `groups`). */
 export const DEPENDABOT_NAME_KEYS: ReadonlySet<string> = new Set([
@@ -57,24 +37,6 @@ export const DEPENDABOT_NAME_KEYS: ReadonlySet<string> = new Set([
   "patterns",
   "exclude-patterns",
 ]);
-
-/** A line break between two lines with text; a blank line between them stays a line break. */
-const FOLDED_LINE_BREAK_RE = /(?<=\S[^\S\n]*)\n(?=[^\S\n]*\S)/g;
-
-/**
- * The shell text of a value: where YAML folds a line break to a space, so does the shell text,
- * and a reference that the runner replaces is read as the variable it names. The replacements
- * keep the length, so offsets into it are offsets into the value as written.
- */
-export function shellText(
-  text: string,
-  value: DocumentString,
-  references?: VariableReferences,
-): string {
-  const slice = text.slice(value.content.start, value.content.end);
-  const unfolded = value.isFolded ? slice.replace(FOLDED_LINE_BREAK_RE, " ") : slice;
-  return withVariableReferences(unfolded, references);
-}
 
 const LEADING_SPACES_RE = /^ */;
 
@@ -169,19 +131,6 @@ export function appliedFindings(
   };
 }
 
-/** What the values of a file are read with: its variables and the references to them. */
-function valueContext(
-  { text, locate }: Pick<ValueContext, "text" | "locate">,
-  strings: readonly DocumentString[],
-  entries: ReadonlyMap<DocumentString, EnvironmentEntry>,
-  environment: YamlEnvironment,
-): ValueContext {
-  const names = new Set([...entries.values()].map((entry) => entry.name));
-  const references = { environment, names };
-  const fileVariables = environmentVariables(text, entries, references);
-  return { text, locate, variables: withInputDefaults(fileVariables, strings), references };
-}
-
 /**
  * Migrate the commands of a YAML file (CI workflows, Compose files, hook configs). Edits replace
  * words only, never the blanks between them, so they apply to the value as written even where a
@@ -204,9 +153,15 @@ export function migrateYamlCommands(
   const isShellText = (value: DocumentString): boolean =>
     commandValues.has(value) || scripts.has(value) || entries.has(value) || isInputDefault(value);
   const shellValues = oncePerPlace(strings.filter(isShellText));
-  const context = valueContext({ text, locate }, strings, entries, environment);
+  const names = new Set([...entries.values()].map((entry) => entry.name));
+  const references = { environment, names };
+  const variablesAt = scopedVariables({ text, strings, entries, references });
+  const contextOf = (value: DocumentString): ValueContext => ({
+    ...{ text, locate, references },
+    variables: variablesAt(value),
+  });
   return appliedFindings(text, [
-    ...shellValues.map((value) => valueFindings(value, context)),
+    ...shellValues.map((value) => valueFindings(value, contextOf(value))),
     commandWordFindings(execFormCommands(text, forms), locate),
     otherShellFindings(valuesOf(strings, commandKeys), shellOf, locate),
     { edits: [], changes: [], manualSteps: environmentItemSteps(strings, entries, locate) },
