@@ -256,3 +256,39 @@ optional `owner`), with and without the fix. The walk now reads what the generat
    a key reads the base's member, required where every variant requires it (`-?` drops
    `undefined`), optional otherwise. Where the fix does not apply, the variants read as without
    it.
+
+## Amendment (2026-11-13): unions of `never` members and type lists
+
+The amendment above made `Record<string, never>` a member of its own, but only an intersection
+joined it. A union of such variants stayed opaque, and `originalIndexFails` counts opaque as
+compiling, so the pointer kept `Contact["owner"]["name"]` (TS2339 through an optional `owner`):
+`anyOf` of `{ type: object }` variants next to `properties` (`Props | Record<string, never>`),
+such variants in a `oneOf` inside an `allOf` item, and a `discriminator` owner with them. A
+pointer through `allOf/0` next to them printed `Contact["allOf"]["0"]["owner"]["name"]`, which
+compiles but is `never`.
+
+1. **A key of a union** (`unionMember`) is missing if one member misses it. A `never` member adds
+   nothing (`never | T` is `T`), so the key reads as the other members have it, and as `never`
+   only where every member is such a record. Several other members give an optional property
+   where one of them is one (the union may be `undefined`), else opaque. It reads `anyOf` /
+   `oneOf` alone, the `Base | A | B` form, and `Base & (A | B)` as `(Base & A) | (Base & B)`,
+   which is the union of the joined members: a joined member that misses the key now makes it
+   missing, where it was opaque. Both keywords without a base stay as they were.
+2. **`never` is no target's type.** It compiles for every key after it but admits no value, so
+   the original through a `never` member is wrong output and is corrected by default, as one read
+   through an index signature of another type (the amendment of 2026-11-10). The one exception is
+   a `false` target at the last segment (`unevaluatedProperties: false`,
+   `additionalProperties: false` of such an owner): the target is `never` too, so it stays.
+3. **A type list with one type besides `null`** (`type: [object, "null"]`). The generator types the
+   `anyOf` / `oneOf` variants on the listed type's member (`multipleTypes`) and adds `null` next
+   to it, so the typed walk, which reads the type through `NonNullable`, reads such variants as for
+   `type: object` (`withVariantsOfListedType`); before, every type list was `unknown`, so a union
+   whose variant misses the key kept `NonNullable<NonNullable<Contact>["owner"]>["name"]` (TS2339),
+   also with `ref-pointers`. A list without variants reads as before: its nullable own part counts
+   as missing, as for `nullable: true`, which types the target in place. That is the target's
+   type too, and changing it would change output that compiles.
+
+Measured: the generator fuzz of `$ref` pointers next to compositions (4428 documents, strict
+`tsc`) fails on 125 fewer documents (306 before, 181 after; the rest are contradictory schemas,
+such as an `allOf` of an object and a string) and changes no document that compiled; the 1806
+documents of the compat corpus give the same output over seven option sets.

@@ -68,16 +68,17 @@ function isSettingsMap(value: unknown): value is ApiSettings {
 }
 
 /**
- * The API with its settings. Fails with `CLI_CONFIG_OUTPUT_MISSING` when they name no output, and
- * with `CLI_CONFIG_INVALID` when they are no map or `root` is no path or URL; only this API then
- * fails, the others are still generated.
+ * The API with its settings. Fails with `CLI_CONFIG_OUTPUT_MISSING` when they have no `output`
+ * key, and with `CLI_CONFIG_INVALID` when they are no map or `root` is no path or URL; only this
+ * API then fails, the others are still generated. An `output` that is set but is no file path
+ * (`""`, `0`, `false`) fails later with `CLI_CONFIG_INVALID` (`apiOutputOf`), not as missing.
  */
 function apiTarget(api: RedoclyApi, configRoot: URL): ApiTarget {
   const { name, root, settings } = api;
   if (settings !== undefined && !isSettingsMap(settings)) {
     throw cliError("CLI_CONFIG_INVALID", `API ${name}: \`${REDOCLY_CONFIG_KEY}\` must be a map`);
   }
-  if (!settings?.[OUTPUT_SETTING]) {
+  if (settings === undefined || !(OUTPUT_SETTING in settings)) {
     throw cliError(
       "CLI_CONFIG_OUTPUT_MISSING",
       `API ${name} is missing an \`${REDOCLY_CONFIG_KEY}.output\` key. ` +

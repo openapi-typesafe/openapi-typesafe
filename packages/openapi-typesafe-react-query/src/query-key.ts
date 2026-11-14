@@ -63,14 +63,33 @@ function definedMembers(record: object): Record<string, unknown> | undefined {
 }
 
 /**
- * A parameter or header value as the fetch client sends it. `NaN` and the infinities are their
- * text, which is sent, while TanStack Query's hash writes them as `null`, which sends nothing. A
- * date, which the client tells by its `toISOString`, is its ISO text. Any other object or array is
- * its members, each as sent. TanStack Query's filters match an object by its own members, and a
- * Date or a `Number` object has none, so a key that kept one matched every other value.
+ * The names under which the key of an object holds the forms a serializer may send besides its
+ * members: what its `toJSON` returns and its own text. No request names a member like this.
+ */
+const JSON_FORM = "toJSON()";
+const TEXT_FORM = "toString()";
+
+/**
+ * The text `String` gives a value, as `Headers` and a serializer that writes text send it, or
+ * undefined for an object without a `toString` (`Object.create(null)`): `String` throws for it,
+ * which would crash the component while it renders instead of failing the request.
+ */
+function textOf(value: unknown): string | undefined {
+  const isConvertible =
+    typeof value !== "object" ||
+    value === null ||
+    typeof (value as { toString?: unknown }).toString === "function";
+  return isConvertible ? String(value) : undefined;
+}
+
+/**
+ * A parameter value as the fetch client sends it. `NaN`, the infinities and a bigint are their
+ * text, which is sent, while TanStack Query's hash writes the numbers as `null`, which sends
+ * nothing, and throws for a bigint. A valid date, which the client tells by its `toISOString`, is
+ * its ISO text. An array is its items, and any other object, also an invalid date, `objectKey`.
  */
 function sentValue(value: unknown): unknown {
-  if (typeof value === "number") {
+  if (typeof value === "number" || typeof value === "bigint") {
     return Number.isFinite(value) ? value : String(value);
   }
   if (typeof value !== "object" || value === null) {
@@ -79,9 +98,63 @@ function sentValue(value: unknown): unknown {
   if (typeof (value as Partial<Date>).toISOString === "function") {
     // `Date.prototype.toJSON` calls the `toISOString` of any object, and gives `null` for an
     // invalid time instead of throwing while the component renders; the request reports it.
-    return Date.prototype.toJSON.call(value);
+    const isoText: unknown = Date.prototype.toJSON.call(value);
+    if (isoText !== null) {
+      return isoText;
+    }
   }
-  return Array.isArray(value) ? value.map(sentValue) : sentMembers(value);
+  return Array.isArray(value) ? value.map(sentValue) : objectKey(value);
+}
+
+/**
+ * An object parameter value as plain values, by every form a serializer may send. The default
+ * serializers send its own members, so the key holds them. A `querySerializer` or
+ * `pathSerializer` of the client, which the key cannot see, may send its `toJSON` form or its
+ * text instead, so the key also holds those it has: a URL, a Temporal value or a value object
+ * with private fields has no members, and keyed by them alone all such values shared one entry.
+ * The object itself is not kept: TanStack Query's filters match an object by its own members.
+ */
+function objectKey(value: object): Record<string, unknown> {
+  const key = sentMembers(value);
+  const { toJSON } = value as { toJSON?: unknown };
+  if (typeof toJSON === "function") {
+    key[JSON_FORM] = jsonFormKey(toJSON.call(value));
+  }
+  const text = textOf(value);
+  if (text !== undefined && text !== Object.prototype.toString.call(value)) {
+    key[TEXT_FORM] = text;
+  }
+  return key;
+}
+
+/**
+ * A `toJSON` form as `JSON.stringify` writes it: an object form by its members, since JSON does
+ * not call a `toJSON` again, which also ends a `toJSON` that returns its own object.
+ */
+function jsonFormKey(form: unknown): unknown {
+  const isRecord = typeof form === "object" && form !== null && !Array.isArray(form);
+  return isRecord ? sentMembers(form) : sentValue(form);
+}
+
+/**
+ * A header value as `Headers.set` and `append` send it: its text, so a `Number` object, a URL and
+ * a date are their text (a date its local text, not its ISO text), and `5` and `"5"` send one
+ * header. An object without a `toString` is its members: the request fails for it.
+ */
+function headerText(value: unknown): unknown {
+  return textOf(value) ?? sentMembers(value as object);
+}
+
+/**
+ * A value of plain `headers` as the fetch client sends it: an array as the text of each item it
+ * appends, any other value as `headerText`. `null`, which removes a header, and `undefined`,
+ * which sends nothing, stay.
+ */
+function headerValueKey(value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  return Array.isArray(value) ? value.map(headerText) : headerText(value);
 }
 
 /** The own members of an object, each as `sentValue`. An empty object stays, as `{}` does. */
@@ -108,11 +181,16 @@ function paramsKey(params: unknown): unknown {
   return definedMembers(Object.fromEntries(records));
 }
 
-/** The headers of an init as `plainHeaders` of sent values, or undefined when they set none. */
+/** The headers of an init as `plainHeaders` of sent texts, or undefined when they set none. */
 function headersKey(headers: unknown): unknown {
-  return typeof headers === "object" && headers !== null
-    ? definedMembers(sentMembers(plainHeaders(headers)))
-    : headers;
+  if (typeof headers !== "object" || headers === null) {
+    return headers;
+  }
+  const entries = Object.entries(plainHeaders(headers)).map(([name, value]) => [
+    name,
+    headerValueKey(value),
+  ]);
+  return definedMembers(Object.fromEntries(entries));
 }
 
 /**

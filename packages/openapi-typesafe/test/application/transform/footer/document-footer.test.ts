@@ -4,6 +4,7 @@ import {
   RunFooter,
 } from "../../../../src/application/transform/footer/document-footer.js";
 import { EnumNameClaims } from "../../../../src/application/transform/footer/enum-name-claims.js";
+import { EnumValuesNames } from "../../../../src/application/transform/footer/enum-values-names.js";
 import { OperationKeys } from "../../../../src/application/transform/footer/operation-keys.js";
 import { FIRST_SCHEMA_NAMES } from "../../../../src/application/transform/footer/shared-enum-names.js";
 import { irProperty, irReference } from "../../../../src/domain/ir/constructors.js";
@@ -201,10 +202,48 @@ describe("RunFooter", () => {
     expect(sink.declarations).toHaveLength(2);
   });
 
+  it("addEnum with --dedupe-enums names tuple elements by position when a later one came first", () => {
+    const names = {
+      enums: new EnumNameClaims(),
+      enumValues: new EnumValuesNames(),
+      operations: new OperationKeys(),
+    };
+    const footer = new RunFooter(new InMemorySink(), true, FIRST_SCHEMA_NAMES, names);
+    const element = { ...STATUS, name: "/Tup", values: ["a"] };
+
+    footer.addEnum({ ...element, tupleIndex: 2 });
+    footer.addEnum({ ...element, values: ["b"], tupleIndex: 1 });
+    footer.addEnum({ ...element, tupleIndex: 0 });
+
+    expect(names.enums.finalNames(new Set())).toEqual(new Map());
+  });
+
+  it("addEnum with --dedupe-enums keeps the position of another owner of the same members", () => {
+    const names = {
+      enums: new EnumNameClaims(),
+      enumValues: new EnumValuesNames(),
+      operations: new OperationKeys(),
+    };
+    const footer = new RunFooter(new InMemorySink(), true, FIRST_SCHEMA_NAMES, names);
+    const element = { ...STATUS, name: "/Tup", values: ["a"] };
+
+    footer.addEnum({ ...element, tupleIndex: 1 });
+    footer.addEnum({ ...element, values: ["b"], tupleIndex: 0 });
+    footer.addEnum({ ...element, name: "/tup", tupleIndex: 0 });
+
+    expect(names.enums.finalNames(new Set())).toEqual(
+      new Map([
+        ["Tup", "Tup_2"],
+        ["Tup_2", "Tup"],
+      ]),
+    );
+  });
+
   it("addEnum gives way to a name the run's claims reserve", () => {
     const sink = new InMemorySink();
     const names = {
       enums: new EnumNameClaims(new Set(["Record"])),
+      enumValues: new EnumValuesNames(),
       operations: new OperationKeys(),
     };
     const footer = new RunFooter(sink, false, FIRST_SCHEMA_NAMES, names);
@@ -261,6 +300,26 @@ describe("RunFooter", () => {
     expect(
       sink.declarations.map((declaration) => "name" in declaration && declaration.name),
     ).toEqual(["discountTypeValues", "discountTypeValues_2", "discountTypeValues_3"]);
+  });
+
+  it("addEnumValues names the arrays of tuple elements by position at the end", () => {
+    const names = {
+      enums: new EnumNameClaims(),
+      enumValues: new EnumValuesNames(),
+      operations: new OperationKeys(),
+    };
+    const footer = new RunFooter(new InMemorySink(), false, FIRST_SCHEMA_NAMES, names);
+    const request = { name: "TupValues", type: irReference("T"), values: ["c"], tupleIndex: 1 };
+
+    footer.addEnumValues(request);
+    footer.addEnumValues({ ...request, values: ["a"], tupleIndex: 0 });
+
+    expect(names.enumValues.finalNames()).toEqual(
+      new Map([
+        ["tupValues", "tupValues_2"],
+        ["tupValues_2", "tupValues"],
+      ]),
+    );
   });
 
   it("requireWithRequired adds the helper only when it is not declared", () => {

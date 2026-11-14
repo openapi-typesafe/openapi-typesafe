@@ -16,6 +16,7 @@ import { componentEnumNames } from "../application/transform/footer/component-en
 import { RunFooter, type RunFooterNames } from "../application/transform/footer/document-footer.js";
 import { EnumNameClaims } from "../application/transform/footer/enum-name-claims.js";
 import { checkedEnumValues } from "../application/transform/footer/enum-values-check.js";
+import { EnumValuesNames } from "../application/transform/footer/enum-values-names.js";
 import { OperationKeys } from "../application/transform/footer/operation-keys.js";
 import {
   FIRST_SCHEMA_NAMES,
@@ -155,6 +156,19 @@ function enumValuesChecked(
   return checked.footer;
 }
 
+/** The footer with the `--enum-values` arrays renamed to their final names. */
+function withFinalEnumValuesNames(
+  footer: readonly FooterEntry[],
+  names: RunFooterNames,
+): FooterEntry[] {
+  const renames = names.enumValues.finalNames();
+  return footer.map((entry) => {
+    const final =
+      isIrDeclaration(entry) && entry.kind === "constArray" ? renames.get(entry.name) : undefined;
+    return final === undefined ? entry : { ...entry, name: final };
+  });
+}
+
 /** The footer with its references into templated paths indexed by their templates. */
 function withTemplateRefs(
   footer: readonly FooterEntry[],
@@ -171,6 +185,7 @@ export function transformDocument(schema: OpenAPI3, ctx: RunContext): Transforme
   ctx.schemaDialect = schemaDialectOf(document.openapi);
   const names: RunFooterNames = {
     enums: new EnumNameClaims(NAMES_THE_OUTPUT_MAY_NEED, componentEnumNames(document)),
+    enumValues: new EnumValuesNames(),
     operations: new OperationKeys(operationKeysWritten(document)),
   };
   withRunFooter(document, ctx, names);
@@ -180,7 +195,8 @@ export function transformDocument(schema: OpenAPI3, ctx: RunContext): Transforme
   const body = documentBody(document, context, () => ctx.injectFooter.filter(isIrDeclaration));
   const rawBody = withTemplatePathRefs(body, templates);
   const keyTypes = templateKeyTypes(document.paths, context);
-  const templated = withTemplateRefs(ctx.injectFooter, templates);
+  const named = withFinalEnumValuesNames(ctx.injectFooter, names);
+  const templated = withTemplateRefs(named, templates);
   const rawFooter = enumValuesChecked(rawBody, templated, ctx, keyTypes);
   // The closing declarations (an empty `operations`, the paths enum) index no path.
   const rawClosing = documentClosing(document, context, rawFooter.some(isOperations));

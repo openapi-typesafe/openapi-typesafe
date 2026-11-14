@@ -47,22 +47,33 @@ export function locationInText(text: string): string | undefined {
 
 const FILE_PROTOCOL = "file:";
 
-/**
- * Two file bases that differ: a location that parses into two URLs against them depends on its
- * base. The URL parser ignores a base of another scheme for a `file:` URL, so `file:api.yaml`
- * against `https://host/specs/` is `file:///api.yaml`; asking the parser itself follows every
- * spelling it reads as relative (`file:a`, `file:./a`, `file:`, `file:?q`), which a pattern would
- * have to copy from the URL standard.
- */
-const PROBE_BASES = ["file:///probe-a/", "file:///probe-b/"] as const;
+/** The URL parser drops these anywhere in a URL before it reads it (`file:\t/a` is `file:/a`). */
+const TAB_OR_NEWLINE = /[\t\n\r]/g;
 
-/** Whether the location is a relative `file:` URL, which resolves against a `file:` base only. */
+/** A path that starts at the root: the URL standard reads a backslash as `/` in a `file:` URL. */
+const ROOT_SLASHES: ReadonlySet<string> = new Set(["/", "\\"]);
+
+/**
+ * A Windows drive letter at the start of the path (`C:`, `c|`), then the end, a slash, a
+ * backslash, `?` or `#`: the "starts with a Windows drive letter" rule of the URL standard.
+ */
+const LEADING_DRIVE_LETTER = /^[a-z][:|](?:$|[/\\?#])/i;
+
+/**
+ * Whether the location is a relative `file:` URL, which resolves against a `file:` base only.
+ * This is the URL standard's "file state": after `file:`, a slash or backslash starts a path from
+ * the root (`file:/a`, `file://host/a`), and a leading drive letter replaces the base path
+ * (`file:C:/a` is `file:///C:/a` against `file:///specs/` and against an `https:` base). Any
+ * other text (`file:a`, `file:../a`, `file:..`, `file:?q`, `file:`) keeps the base path, so it
+ * names no file without a `file:` base.
+ */
 function isRelativeFileUrl(location: string): boolean {
-  if (URL_SCHEME.exec(location)?.[0].toLowerCase() !== FILE_PROTOCOL) {
+  const scheme = URL_SCHEME.exec(location)?.[0];
+  if (scheme?.toLowerCase() !== FILE_PROTOCOL) {
     return false;
   }
-  const [first, second] = PROBE_BASES.map((base) => URL.parse(location, base)?.href);
-  return first !== second;
+  const rest = location.slice(scheme.length).replace(TAB_OR_NEWLINE, "");
+  return !ROOT_SLASHES.has(rest.charAt(0)) && !LEADING_DRIVE_LETTER.test(rest);
 }
 
 /**

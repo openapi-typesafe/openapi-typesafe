@@ -190,6 +190,9 @@ const { data, error, response } = await client.GET("/url");
 ::: warning
 
 A `4xx` / `5xx` response without a body has `error: undefined`, so `if (error)` alone does not catch it.
+The types follow the document: a response declared without `content` (`404: { description }`)
+types its `error` as `undefined`, but a body the server sends anyway is still returned in `error`
+(the text, or the parsed body of a JSON media type). Declare `content` to type it.
 Check `response.ok` too:
 
 ```ts

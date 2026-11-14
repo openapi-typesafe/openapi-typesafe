@@ -9,6 +9,7 @@ import {
   MISSING,
   NEVER_VALUES,
   OPAQUE,
+  unionMember,
   variantsMember,
 } from "./generated-member.js";
 import { indexMember, unevaluatedIndexMember } from "./index-signature-member.js";
@@ -32,6 +33,7 @@ import {
   isDiscriminatorKey,
   isIgnoredUnevaluatedKey,
   isObjectShape,
+  withVariantsOfListedType,
 } from "./schema-shape.js";
 import {
   hasOwnObjectType,
@@ -101,8 +103,8 @@ function objectMember(
 
 /**
  * `allOf` with own keywords is an intersection (`intersectionMember`). `anyOf` or `oneOf` alone
- * is a union: a key is missing if one member misses it. Next to own keywords or `allOf` items
- * they join that base as `variantsFormOf` reads it.
+ * is a union (`unionMember`). Next to own keywords or `allOf` items they join that base as
+ * `variantsFormOf` reads it.
  */
 function composedMember(
   owner: LocatedNode & { node: JsonObject },
@@ -115,6 +117,11 @@ function composedMember(
   const ownPart = { node: own, location: owner.location };
   const parts = [...locatedMembers(owner, "allOf"), ...(hasOwnObjectType(own) ? [ownPart] : [])];
   const members = variants.map((variant) => memberAt(variant, key, input));
+  // One keyword alone is a union of its variants. Both make `(A | B) & (C | D)` or one union.
+  const isOneKeyword = !("anyOf" in node && "oneOf" in node);
+  if (parts.length === 0 && isOneKeyword) {
+    return unionMember(members);
+  }
   if (parts.length === 0) {
     return members.some(isMissing) ? MISSING : OPAQUE;
   }
@@ -214,7 +221,9 @@ function primitiveMember(node: JsonObject, key: string): GeneratedMember {
 
 /**
  * Whether a composed schema's type surely has no member `key` (a union whose variant misses it),
- * read without the schema's nullability: the typed walk reads it through `NonNullable`.
+ * read without the schema's nullability: the typed walk reads it through `NonNullable`. Only the
+ * variants of a `type` list are read so (`withVariantsOfListedType`); a base alone reads its
+ * nullable own part as missing, as for `nullable: true`, which types the target in place.
  */
 export function isMissingComposedKey(
   schema: LocatedNode,
@@ -223,7 +232,9 @@ export function isMissingComposedKey(
   refs: RefResolver,
 ): boolean {
   const followed = followLocated(schema, refs);
-  const { node } = followed;
+  const node = isJsonObject(followed.node)
+    ? withVariantsOfListedType(followed.node)
+    : followed.node;
   const isComposedOnly =
     isJsonObject(node) &&
     isComposed(node) &&

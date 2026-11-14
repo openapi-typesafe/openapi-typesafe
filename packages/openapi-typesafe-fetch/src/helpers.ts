@@ -394,17 +394,39 @@ type TextErrorMediaTypes<Content> = {
   [Key in keyof Content]: IsJSONMediaPattern<Key> extends true ? never : Key;
 }[keyof Content];
 
-/** Whether the client parses every body of the media type `Key` as JSON, in any letter case. */
+/**
+ * Whether the client parses every body of the media type `Key` as JSON, in any letter case: its
+ * subtype is `json` or ends in `+json`, as `JSON_MEDIA_TYPE_RE` reads it. A `json` in a parameter
+ * (`text/plain; profile=urn:a+json`) does not count; `JSONMediaPattern` alone matched it.
+ */
 type IsJSONMediaPattern<Key> = Key extends string
-  ? Lowercase<Key> extends JSONMediaPattern
+  ? MediaSubtype<Lowercase<Key>> extends "json" | `${string}+json`
     ? true
     : false
   : false;
 
 /**
+ * The subtype of a media type: the text after the first `/` and before the parameters (the first
+ * `;`), without the spaces and tabs at its end. Empty without a type before a `/`, as
+ * `JSON_MEDIA_TYPE_RE` wants one. A subtype may hold a `/`, as the regular expression allows.
+ */
+type MediaSubtype<Text extends string> = Text extends `${infer Type}/${infer Rest}`
+  ? Type extends ""
+    ? ""
+    : TrimmedEnd<Rest extends `${infer Subtype};${string}` ? Subtype : Rest>
+  : "";
+
+/** The text without the spaces and tabs at its end (OWS before parameters, RFC 9110). */
+type TrimmedEnd<Text extends string> = Text extends `${infer Rest} ` | `${infer Rest}\t`
+  ? TrimmedEnd<Rest>
+  : Text;
+
+/**
  * The media types that the client parses as JSON, as a content map writes them: `json` or a
  * `+json` suffix (RFC 6838), with or without parameters, as the client's `JSON_MEDIA_TYPE_RE`.
- * Not `x-ndjson` or `json-seq`, whose bodies are lines of JSON.
+ * Not `x-ndjson` or `json-seq`, whose bodies are lines of JSON. A template cannot keep its
+ * `${string}` out of the parameters, so it only picks the schema of an index signature
+ * (`JSONMediaKey`); whether a media type is JSON is `IsJSONMediaPattern`'s answer.
  */
 type JSONMediaPattern =
   | `${string}/${"" | `${string}+`}json`
@@ -419,26 +441,51 @@ type JSONMediaRange = `${string}/*` | `${string}/*${";" | " " | "\t"}${string}`;
 /** The media types that may hold JSON, in lower case. */
 type JSONMediaType = JSONMediaPattern | JSONMediaRange;
 
-/** Whether the client parses a body of the media type `Key` as JSON, in any letter case. */
+/**
+ * Whether a body of the media type `Key` may be one the client parses as JSON, in any letter
+ * case: a JSON media type (`IsJSONMediaPattern`) or a media range (subtype `*`), with or without
+ * parameters, which do not count.
+ */
 type IsJSONMediaType<Key> = Key extends string
-  ? Lowercase<Key> extends JSONMediaType
+  ? IsJSONMediaPattern<Key> extends true
     ? true
-    : false
+    : MediaSubtype<Lowercase<Key>> extends "*"
+      ? true
+      : false
   : false;
 
 /** Return first JSON-like 2XX response from a path + HTTP method */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type SuccessResponseJSON<PathMethod extends Record<string | number, any>> = SuccessResponse<
   ResponseObjectMap<PathMethod>,
-  JSONMediaType
+  JSONMediaKeys<ResponseObjectMap<PathMethod>>
 >;
 
 /** Return JSON-like 1XX, 3XX, 4XX, 5XX and `default` responses from a path + HTTP method */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type ErrorResponseJSON<PathMethod extends Record<string | number, any>> = ErrorResponse<
   ResponseObjectMap<PathMethod>,
-  JSONMediaType
+  JSONMediaKeys<ResponseObjectMap<PathMethod>>
 >;
+
+/**
+ * The media types of the responses `T` that may hold JSON (`IsJSONMediaType`), for the JSON
+ * helpers to pick by: their keys, as `JSONMediaType` cannot leave out a `json` in parameters. A
+ * content map with an index signature has no such key, so it gives `JSONMediaType`, which picks
+ * the schema of its signature.
+ */
+type JSONMediaKeys<T> = {
+  [Status in keyof T]: T[Status] extends { content: infer Content }
+    ? { [Key in keyof Content]: JSONMediaKey<Key> }[keyof Content]
+    : never;
+}[keyof T];
+
+/** `Key` when it may hold JSON; `JSONMediaType` for the wide key of an index signature. */
+type JSONMediaKey<Key> = string extends Key
+  ? JSONMediaType
+  : IsJSONMediaType<Key> extends true
+    ? Key
+    : never;
 
 /** Return JSON-like request body from a path + HTTP method */
 export type RequestBodyJSON<PathMethod> = JSONLike<

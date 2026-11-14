@@ -28,12 +28,22 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   members also has them in `bodyFields`, as `body` and `bodyType`: JSON sends its JSON form,
   while a form or multipart body sends its members. `NaN`, `Infinity` and `-Infinity` in a body
   are `null`, as JSON sends them, with their text as their kind, since a form or multipart body
-  sends the text. The kinds go in `bodyType` beside the body: `"URLSearchParams"`, `"FormData"`,
-  `"Blob"`, `"bytes"` or such a text for the whole body, or an object of them by member name or
-  index (`{ image: "Blob" }`), so such a body never shares a key with a JSON body of the same
-  shape. Parameter and header values are written as the fetch client sends them: a `Date` (or
-  another value with a `toISOString`) as its ISO text, `NaN` and the infinities as their text,
-  and another object or an array by its members. Fields, parameters and headers set to
+  sends the text. A bigint in a body is its text, with the kind `"bigint"`: a form or multipart
+  body sends the text, and JSON fails for it. The kinds go in `bodyType` beside the body:
+  `"URLSearchParams"`, `"FormData"`, `"Blob"`, `"bytes"` or such a text for the whole body, or an
+  object of them by member name or index (`{ image: "Blob" }`), so such a body never shares a key
+  with a JSON body of the same shape. Parameter values (`params`) are written as the fetch client
+  sends them: a valid `Date` (or another value with a `toISOString`) as its ISO text, `NaN`, the
+  infinities and a bigint as their text, an array by its items, and another object by its own
+  members, which the default serializers send. A `querySerializer` or `pathSerializer` set on the
+  fetch client may send the object's `toJSON` form or its text instead, so the key also holds
+  them, when the object has its own, under `"toJSON()"` and `"toString()"`: a `URL` is
+  `{ "toJSON()": href, "toString()": href }`, a `Number` object `{ "toString()": "5" }` and an
+  invalid date `{ "toJSON()": null, "toString()": "Invalid Date" }`. Two URLs, Temporal values
+  or value objects with private fields therefore never share an entry. Plain `headers` values
+  are written as the text `Headers` sends: `5` and `new Number(5)` as `"5"`, a `URL` as its
+  href, a `Date` as its local text (`String(date)`, not the ISO text a header parameter sends),
+  and an array as the text of each item. Fields, parameters and headers set to
   `undefined` are left out, and so are `params`,
   its `query`, `path`, `header` and `cookie` records and `headers` that this leaves empty, since
   they send nothing: `{ params: { query: { cursor: undefined } } }` has the key of no init.

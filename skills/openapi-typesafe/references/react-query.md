@@ -84,9 +84,12 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
   such as a multipart `{ image: file }`, also a class instance; React Native FormData via
   `getParts` parts) as plain values, bytes inside a body as JSON sends them, a whole-body object
   with a `toJSON` also by its members (`bodyFields`), plus the fetch client's `baseUrl` (or
-  `keyScope`). A `Date`, boxed primitive or `toJSON` value is held by its JSON form in a body and
-  by the text the client sends in params and headers (ISO for a `Date`, `"NaN"` for `NaN`), so
-  filters such as `setQueriesData({ queryKey })` match only that value's query. `undefined` fields, params and headers, and the `params` records they leave empty,
+  `keyScope`). A `Date`, boxed primitive or `toJSON` value is held by its JSON form in a body. In
+  params a valid `Date` is its ISO text, `NaN` and a bigint their text, and another object its
+  own members plus, when it has them, its `"toJSON()"` form and `"toString()"` text, since a
+  client `querySerializer` / `pathSerializer` may send those (two `URL`s never share a key).
+  Plain `headers` values are the text `Headers` sends (`new Number(5)` is `"5"`, a `Date` its
+  local text). Filters such as `setQueriesData({ queryKey })` match only that value's query. `undefined` fields, params and headers, and the `params` records they leave empty,
   are left out; `[method, path]` when nothing is left (no init, no `baseUrl`).
 - `createClient(fetchClient, { keyScope: "blog" })`: the keys name the API instead of the base
   URL. Use it when server rendering uses another base URL than the browser, so the browser reads

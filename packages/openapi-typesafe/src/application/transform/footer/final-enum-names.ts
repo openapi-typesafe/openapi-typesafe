@@ -28,6 +28,15 @@ export interface FinalNamesInput {
   readonly needed: ReadonlySet<string>;
 }
 
+/** A claim's lowest tuple position: elements of the same values share one claim. */
+export function lowestPosition(
+  known: number | undefined,
+  asked: number | undefined,
+): number | undefined {
+  const positions = [known, asked].filter((position) => position !== undefined);
+  return positions.length === 0 ? undefined : Math.min(...positions);
+}
+
 /** The order of a name's claims: the first gets the name, the later ones numbers. */
 type ClaimRank = readonly [number, number, number];
 
@@ -37,7 +46,7 @@ type ClaimRank = readonly [number, number, number];
  * themselves by position, so a `$ref` to a later element met first does not take the tuple's
  * name from the first element.
  */
-function inNamingOrder(claims: readonly EnumNameClaim[]): EnumNameClaim[] {
+export function inNamingOrder(claims: readonly EnumNameClaim[]): EnumNameClaim[] {
   const elementOrders = claims.flatMap((claim) =>
     claim.position === undefined ? [] : claim.order,
   );

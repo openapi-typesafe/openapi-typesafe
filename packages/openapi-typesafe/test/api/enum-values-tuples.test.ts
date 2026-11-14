@@ -79,6 +79,21 @@ describe("--enum-values arrays of tuple elements", () => {
     expect(typeErrorsOf(`${output}\n${item("pairValues", '"date"')}`)).not.toEqual([]);
   });
 
+  it("openapiTS names the arrays of tuple elements by position when a $ref meets one first", async () => {
+    const parameter = { name: "by", in: "query", schema: { $ref: "#/components/schemas/Pair/prefixItems/1" } };
+    const document = {
+      openapi: "3.1.0",
+      info: { title: "t", version: "1" },
+      paths: { "/x": { get: { parameters: [parameter], responses: {} } } },
+      components: { schemas: { Pair: SCHEMAS.Pair } },
+    } as unknown as OpenAPI3;
+
+    const output = astToString(await openapiTS(document, { silent: true, enumValues: true }));
+
+    expect(output).toContain('export const pairValues: ReadonlyArray<"asc" | "desc"> = ');
+    expect(output).toContain('export const pairValues_2: ReadonlyArray<"name" | "date"> = ');
+  });
+
   it("openapiTS keeps the location of a tuple whose one element has the values", async () => {
     const output = await generate();
 

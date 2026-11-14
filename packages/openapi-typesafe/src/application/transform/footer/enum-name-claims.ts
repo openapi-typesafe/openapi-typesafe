@@ -1,11 +1,5 @@
 import { freeNumberedName } from "../numbered-names.js";
-import { type EnumNameClaim, finalEnumNames } from "./final-enum-names.js";
-
-/** An owner's lowest tuple position: elements of the same values share one owner. */
-function lowestPosition(known: number | undefined, asked: number | undefined): number | undefined {
-  const positions = [known, asked].filter((position) => position !== undefined);
-  return positions.length === 0 ? undefined : Math.min(...positions);
-}
+import { type EnumNameClaim, finalEnumNames, lowestPosition } from "./final-enum-names.js";
 
 /**
  * The names of the `--enum` declarations of one run, unique across the enums and apart from the
