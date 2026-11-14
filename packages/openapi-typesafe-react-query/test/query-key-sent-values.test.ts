@@ -77,10 +77,16 @@ describe("queryKeyInit dates and objects in parameters", () => {
     });
   });
 
-  it("queryKeyInit with an invalid Date query param gives a key without throwing", () => {
+  it("queryKeyInit with an invalid Date query param keys its forms without throwing", () => {
     const init = { params: { query: { from: new Date(Number.NaN) } } };
 
-    expect(queryKeyInit(init, NO_BASE_URL)).toEqual({ params: { query: { from: null } } });
+    expect(queryKeyInit(init, NO_BASE_URL)).toEqual({
+      params: { query: { from: { "toJSON()": null, "toString()": "Invalid Date" } } },
+    });
+  });
+
+  it("queryKeyInit with an invalid Date and a null query param gives other keys", () => {
+    expect(queryHash(new Date(Number.NaN))).not.toBe(queryHash(null));
   });
 
   it("queryKeyInit with Dates in an array query param keys them by their ISO texts", () => {
@@ -93,11 +99,11 @@ describe("queryKeyInit dates and objects in parameters", () => {
     });
   });
 
-  it("queryKeyInit with boxed primitives in query params keys them by their members", () => {
+  it("queryKeyInit with boxed primitives in query params keys their members and text", () => {
     expect(queryKeyInit({ params: { query: { n: new Number(1) } } }, NO_BASE_URL)).toEqual({
-      params: { query: { n: {} } },
+      params: { query: { n: { "toString()": "1" } } },
     });
-    expect(queryHash(new String("ab"))).toBe(queryHash({ 0: "a", 1: "b" }));
+    expect(queryHash(new String("ab"))).toBe(queryHash({ 0: "a", 1: "b", "toString()": "ab" }));
   });
 
   it("queryKeyInit with an empty object query param keeps it", () => {
