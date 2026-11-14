@@ -84,7 +84,7 @@ import {
   YAML_MANIFEST_FILES,
   YARNRC_FILE_NAME,
 } from "./project-file-names.js";
-import { yamlCommandFileFor } from "./yaml-file-kinds.js";
+import { yamlKindOf } from "./yaml-file-reach.js";
 
 const isHuskyHook = (path: string): boolean =>
   (path.startsWith(HUSKY_FOLDER) || path.includes(`/${HUSKY_FOLDER}`)) &&
@@ -169,13 +169,16 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
  * by `$ref` are data and stay. A CI config is never one (project-file-names.ts).
  */
 const yamlCommandsStep =
-  (path: string, isPart: boolean): ConfigStep =>
-  (text, read) =>
-    isPart || (!isCiConfigFile(path) && read.kind === "read" && isApiDescription(read.documents))
+  (path: string, { apiDescriptionParts, yamlReach }: MigrationContext): ConfigStep =>
+  (text, read) => {
+    const isCiFile = isCiConfigFile(path) || yamlReach.kinds.has(path);
+    const isApi = !isCiFile && read.kind === "read" && isApiDescription(read.documents);
+    return apiDescriptionParts.has(path) || isApi
       ? unchanged(text)
       : usedStringsStep((current, strings) =>
-          migrateYamlCommands(current, path, strings, yamlCommandFileFor(path)),
+          migrateYamlCommands(current, path, strings, yamlKindOf(yamlReach, path)),
         )(text, read);
+  };
 
 /** What the manifest at `path` is migrated with. */
 const manifestTarget = ({ version, catalogs, aliases }: MigrationContext, path: string) => ({
@@ -256,11 +259,7 @@ const FILE_KINDS: readonly FileKind[] = [
   },
   {
     matches: (path) => YAML_EXTENSIONS.has(extensionOf(path)),
-    migrate: whenNamed(
-      yamlConfig((context, path) => [
-        yamlCommandsStep(path, context.apiDescriptionParts.has(path)),
-      ]),
-    ),
+    migrate: whenNamed(yamlConfig((context, path) => [yamlCommandsStep(path, context)])),
   },
   {
     matches: (path) => DOCKERFILE_NAMES.has(baseName(path)),

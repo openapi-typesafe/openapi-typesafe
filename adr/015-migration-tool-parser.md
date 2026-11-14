@@ -661,6 +661,82 @@ the report never says "Nothing to migrate" for it.
   between two path segments of a word without `/` makes it a Windows path, as a suffix does; a
   `\` at the start (`\openapi-typescript`, which skips an alias) still escapes.
 
+## Amendment (2026-11-14): the ninth review of the migration tool
+
+The rc.10 hunt found shell values the tool read differently from the shell, container commands
+whose flags it did not see, and YAML values that run the generator in forms the tool did not
+read, so old flags stayed without a word. The rule of the eighth review holds: no command may
+still run the old generator or pass it an old flag silently; migrate, or report.
+
+- **One unquoting rule for a value.** A value was read as raw text, so
+  `GEN=npx\ openapi-typescript` or `GEN="npx "openapi-typescript` held words the shell never
+  splits that way. `assignmentValue` (`domain/shell-assignments.ts`) now unquotes the value as the
+  shell does and places each word by its character offsets, for both the definition and the
+  place where it is read. A word whose name is split by quotes has no single place, so it is
+  reported, not renamed.
+- **Assignments passed to a program.** `cross-env GEN="…"`, `env GEN="…"` and `$(MAKE) GEN="…"`
+  give a command line to another program; a value that holds one is migrated where it is
+  written, and a one-word value that names an old package is reported.
+- **A container runs one command, built in one place.** A container runs its entrypoint with the
+  command as its arguments: Docker an exec-form `CMD` after an exec-form `ENTRYPOINT`, Compose
+  (and GitLab and CircleCI images) `command` after `entrypoint`, Kubernetes `args` after
+  `command`. One domain rule (`domain/entrypoint-arguments.ts`) says whether an entrypoint passes
+  its arguments to the generator, to a script that may pass them on (reported), or to another
+  program (kept), and holds `shellScript`, the command line of `["sh", "-c", "…"]`, for both
+  file kinds. The Dockerfile pairs a `CMD` with its `ENTRYPOINT` by Docker's stage rules (the
+  last one of a stage, inherited through `FROM` by name or index, ignored after a shell-form
+  entrypoint, `domain/dockerfile-entrypoints.ts`). In YAML, `domain/yaml-entrypoints.ts` is the
+  only place that pairs the keys of one map, in either written order, and builds the command:
+  when every part is a list, the items of both, the entrypoint first, are one command, read once
+  for old names and flags (`["npx"]` with `["openapi-typescript", "-it"]`) and for the command
+  line of a shell it starts (`command: ["/bin/sh", "-c"]` with `args: ["npx openapi-typescript
+  …"]`); when a part is a string, the string is read where it is written, as other command values
+  are, and the command's flags by the entrypoint rule. A folded or escaped value is reported,
+  since its words have no place in the text. An `args` list alone gives the image's entrypoint
+  arguments, which the tool does not know, so it is not a command. Compose reads `$$` as a
+  literal `$`, so `$$GEN` in a command is the container's `$GEN`. A single `$GEN` there is still
+  read as the variable the environment map sets, though Compose fills it from the host first.
+- **Variable options and variable scope.** A GitLab variable's `options` list holds the values a
+  person may pick for it, so each item is read as a value of the variable. A variable map in a
+  list item (a step's `env`, an Azure step's `env`) reaches only that item: an Azure step that
+  set `GEN` to another tool made every step of the file keep its flags, and a step's generator
+  `GEN` changed the flags of the others. A map under a named entry (a GitLab job) still reaches
+  the whole file, because `extends` and anchors share it between jobs
+  (`domain/yaml-environment-entries.ts`, `domain/yaml-scoped-variables.ts`).
+- **CI parameters are inputs.** The defaults of CircleCI `parameters` (`<< parameters.gen >>`,
+  also `pipeline.parameters`), GitLab `spec: inputs` (`$[[ inputs.gen ]]`) and Azure Pipelines
+  `parameters` (`${{ parameters.gen }}`, a list of named items) are read as the default of a
+  GitHub Actions input is (`domain/yaml-parameters.ts`): the old name in them is renamed, and the
+  flags after a use are reported, because a caller may pass another value. CircleCI files get
+  their own kind (`.circleci/`) for this. A manual step names the variable as it is written
+  (`<< parameters.gen >>`, `{{.GEN}}`). The values that callers pass (a workflow job's
+  parameters, an Azure template's `parameters`, GitHub `with:`) are not read; the flags after a
+  parameter are reported either way.
+- **Included files keep the kind of the file that includes them.** A file that a Taskfile
+  `includes`, a GitLab local `include` (a string, a list, `local:`, from the project root, with
+  `*` and `**` wildcards) or an Azure `template` names is a Taskfile, a GitLab CI file or an Azure
+  Pipelines file, so its command keys and variable maps are read (`domain/yaml-includes.ts`,
+  `application/yaml-file-reach.ts`). A file whose own name gives it a kind keeps that kind. A path
+  that the tool computes (`$CI_DIR/…`, `{{.OS}}`), a URL, a remote, project or template include
+  and a path of another repository (`gen.yml@templates`) are not followed. An included file is
+  never taken for an API description, as a CI config never is.
+- **A CI variable reaches the files it runs.** A variable that a YAML variable map sets to the
+  generator (`variables: { GEN: npx openapi-typescript }`) runs it in the scripts that the job
+  calls, which the tool read without that knowledge. The project pass now collects these names
+  first, and any file the tool reads that expands one (`$GEN`, `${GEN}`, `$(GEN)`, `%GEN%`,
+  `$env:GEN`) is read even when it names no old package; the flags after the variable there are
+  reported, because the file does not set it ("may run" above). Finding which job runs which
+  script was rejected: the call can be computed, and a report where the variable is used is
+  enough to act on. Not covered: files the tool does not read (a script without a suffix, Python,
+  `process.env` in JavaScript), and variables that a Makefile `export`, a Dockerfile `ENV` or a
+  shell `export` passes to other files.
+- **Small gaps.** Make functions with a hyphen (`$(filter-out …)`) are read as calls and
+  reported; a generator run from a path outside `node_modules/.bin` (`/usr/local/bin/…`,
+  `C:\tools\openapi-typescript`) is reported, since the tool cannot install it; bun's
+  `trustedDependencies` is a setting that names a package and is reported; Yarn's `npm:^0.13.0`
+  is a range and gets the new version; text appended to a variable set outside the file that
+  runs the generator itself is migrated where it is written.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

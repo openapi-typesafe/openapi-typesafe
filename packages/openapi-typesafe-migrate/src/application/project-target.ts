@@ -15,6 +15,7 @@ import { type NamedImportMaps, namedImportMaps, withNamedImportMaps } from "./na
 import { type PlanSource, planSourceOf } from "./plan-sources.js";
 import type { DocumentReaders, ProjectFiles } from "./ports.js";
 import { MANIFEST_FILE, WORKSPACE_FILE, YARNRC_FILE_NAME } from "./project-file-names.js";
+import { planYamlReach, type YamlReach } from "./yaml-file-reach.js";
 
 /**
  * The project plan: what the manifests, catalog files and import maps of a project say, read once
@@ -41,6 +42,8 @@ export interface ProjectTarget {
   readonly importMaps: NamedImportMaps;
   /** The files that the API descriptions reach by `$ref`, which are data. */
   readonly apiDescriptionParts: ApiDescriptionParts;
+  /** What the YAML files give the others: the kinds of included files, generator variables. */
+  readonly yamlReach: YamlReach;
 }
 
 /**
@@ -149,8 +152,9 @@ export async function planProjectTarget(
   });
   const declarations = withNamedImportMaps(manifests, importMaps);
   const parts = await apiDescriptionParts(paths, dependencies);
+  const yamlReach = await planYamlReach(paths, dependencies);
   return {
     ...{ version, catalogs, manifests: declarations, aliases, importMaps },
-    apiDescriptionParts: parts,
+    ...{ apiDescriptionParts: parts, yamlReach },
   };
 }

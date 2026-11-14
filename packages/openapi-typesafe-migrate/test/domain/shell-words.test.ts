@@ -180,6 +180,8 @@ describe("shellCommands and here-documents", () => {
   it("shellCommands reads an arithmetic expansion as one word part, so its << is a shift", () => {
     expect(values("x=$((1<<2)) y=$(( (3) * 2 ))z\nnpx gen a.yaml")).toEqual([
       ["x=$((1<<2))", "y=$(( (3) * 2 ))z"],
+      ["$((1<<2))"],
+      ["$(( (3) * 2 ))z"],
       ["npx", "gen", "a.yaml"],
     ]);
   });

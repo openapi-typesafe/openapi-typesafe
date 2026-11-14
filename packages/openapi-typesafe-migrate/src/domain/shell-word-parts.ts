@@ -162,6 +162,56 @@ export function wordPart(text: string, index: number): QuotedPart {
   return { end: index + 1, value: char };
 }
 
+/** A text after quote removal, with the offset in the text as written of each of its characters. */
+export interface UnquotedText {
+  readonly value: string;
+  readonly offsets: readonly number[];
+}
+
+/** The offsets of the characters that a double-quoted part at `start` keeps. */
+function doubleQuotedOffsets(text: string, start: number, end: number): number[] {
+  const offsets: number[] = [];
+  for (let index = start + 1; index < end && text[index] !== '"'; index++) {
+    const isEscape = text[index] === BACKSLASH && DOUBLE_QUOTE_ESCAPES.has(text[index + 1] ?? "");
+    index += isEscape ? 1 : 0;
+    if (text[index] !== "\n" || !isEscape) {
+      offsets.push(index);
+    }
+  }
+  return offsets;
+}
+
+/** The offsets of the characters of the part at `start`: what quotes and escapes keep. */
+function partOffsets(text: string, start: number, part: QuotedPart): number[] {
+  const char = text[start];
+  if (char === '"') {
+    return doubleQuotedOffsets(text, start, part.end);
+  }
+  // A quote or an escaping backslash is not a character of the value; a `\` that ends the
+  // text escapes nothing and stays.
+  const isOpened = char === "'" || (char === BACKSLASH && part.end - start > 1);
+  const first = isOpened ? start + 1 : start;
+  return Array.from(part.value, (_, index) => first + index);
+}
+
+/**
+ * A word (or a part of one) after quote removal, as `readWord` gives its value, with where each
+ * character is written: `npx\ a` and `"npx "a` are `npx a`, whose `a` is at offset 5. A value
+ * read again as a command line (`GEN="npx "openapi-typescript`, then `$GEN`) places its words
+ * by these offsets, so a word written without quotes inside it is edited where it is written.
+ */
+export function unquotedText(text: string): UnquotedText {
+  let value = "";
+  const offsets: number[] = [];
+  for (let index = 0; index < text.length; ) {
+    const part = wordPart(text, index);
+    value += part.value;
+    offsets.push(...partOffsets(text, index, part));
+    index = part.end;
+  }
+  return { value, offsets };
+}
+
 /** The head of a bash array assignment, `NAME=` or `NAME+=` right before its `(`. */
 const ARRAY_HEAD_RE = /^[A-Za-z_][A-Za-z0-9_]*\+?=$/;
 

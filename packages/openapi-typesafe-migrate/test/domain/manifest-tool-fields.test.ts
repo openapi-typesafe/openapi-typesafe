@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { fileMigrationFor } from "../../src/application/file-migrations.js";
+import { NO_YAML_REACH } from "../../src/application/yaml-file-reach.js";
 import { NO_CATALOG_PLAN } from "../../src/domain/catalog-plan.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
@@ -12,6 +13,7 @@ const context = {
   manifests: [],
   aliases: [],
   apiDescriptionParts: new Set<string>(),
+  yamlReach: NO_YAML_REACH,
   rewriter: new StubCallbackRewriter(),
   scanner: new QuotedStringScanner(),
   readers: { json: createJsonTextReader(), yaml: createYamlTextReader() },

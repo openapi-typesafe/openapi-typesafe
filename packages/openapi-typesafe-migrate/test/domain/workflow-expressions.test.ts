@@ -31,6 +31,12 @@ describe("workflow expressions", () => {
     expect(expressionLiterals(raw)).toEqual([{ text: "b", start: 16 }]);
   });
 
+  it("expressionLiterals leaves out the key of an index, also after blanks", () => {
+    const raw = expression("inputs['flags'] || inputs[ 'gen'] || 'c'");
+
+    expect(expressionLiterals(raw)).toEqual([{ text: "c", start: 42 }]);
+  });
+
   it("expressionLiterals reads a backslash as an escape and an unclosed expression to the end", () => {
     const raw = `\\'${["$", "{{ 'a'"].join("")}`;
 

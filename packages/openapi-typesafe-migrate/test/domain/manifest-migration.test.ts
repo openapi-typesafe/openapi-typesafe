@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { fileMigrationFor } from "../../src/application/file-migrations.js";
+import { NO_YAML_REACH } from "../../src/application/yaml-file-reach.js";
 import { NO_CATALOG_PLAN } from "../../src/domain/catalog-plan.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
@@ -25,6 +26,7 @@ function migratePackageManifest(text: string, version: string) {
     manifests: [],
     aliases: [],
     apiDescriptionParts: new Set<string>(),
+    yamlReach: NO_YAML_REACH,
     rewriter,
     scanner,
     readers,
@@ -140,6 +142,17 @@ describe("migratePackageManifest", () => {
         field: "pnpm.onlyBuiltDependencies",
         name: "openapi-typescript",
       },
+    ]);
+  });
+
+  it("migratePackageManifest reports bun's trusted dependencies that name one", () => {
+    const text = manifest({ trustedDependencies: ["esbuild", "openapi-typescript"] });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([
+      { kind: "setting-names-package", field: "trustedDependencies", name: "openapi-typescript" },
     ]);
   });
 
@@ -415,6 +428,18 @@ describe("migratePackageManifest", () => {
       field: "dependencies",
       name: "my-fetch",
       spec: "npm:openapi-typesafe-fetch@^1.0.0",
+    });
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migratePackageManifest gives a Yarn npm range of an original package the new version", () => {
+    const text = manifest({ dependencies: { "openapi-fetch": "npm:^0.13.0", "my-x": "npm:^2" } });
+
+    const migrated = migratePackageManifest(text, "1.0.0");
+
+    expect(JSON.parse(migrated.text).dependencies).toEqual({
+      "openapi-typesafe-fetch": "npm:^1.0.0",
+      "my-x": "npm:^2",
     });
     expect(migrated.manualSteps).toEqual([]);
   });

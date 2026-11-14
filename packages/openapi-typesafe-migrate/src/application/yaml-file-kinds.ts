@@ -1,6 +1,7 @@
 import {
   AZURE_PIPELINES_FILE,
   CI_ENVIRONMENT_FILE,
+  CIRCLECI_FILE,
   COMPOSE_FILE,
   DEFAULT_YAML_FILE,
   GITLAB_CI_FILE,
@@ -22,7 +23,8 @@ const CI_ENVIRONMENT_FILES: ReadonlySet<string> = new Set([
   ".woodpecker.yml",
   ".woodpecker.yaml",
 ]);
-const CI_ENVIRONMENT_FOLDERS: readonly string[] = [".circleci/", ".woodpecker/"];
+const CIRCLECI_FOLDER = ".circleci/";
+const WOODPECKER_FOLDER = ".woodpecker/";
 /** `compose.yaml`, `docker-compose.yml` and their overrides (`compose.override.yaml`). */
 const COMPOSE_FILE_RE = /^(?:docker-)?compose(?:\.[^/]+)?\.ya?ml$/;
 
@@ -32,8 +34,10 @@ export function yamlCommandFileFor(path: string): YamlCommandFile {
   if (GITLAB_FILES.has(name) || isInFolder(path, GITLAB_FOLDER)) {
     return GITLAB_CI_FILE;
   }
-  const isCiEnvironment = CI_ENVIRONMENT_FOLDERS.some((folder) => isInFolder(path, folder));
-  if (CI_ENVIRONMENT_FILES.has(name) || isCiEnvironment) {
+  if (isInFolder(path, CIRCLECI_FOLDER)) {
+    return CIRCLECI_FILE;
+  }
+  if (CI_ENVIRONMENT_FILES.has(name) || isInFolder(path, WOODPECKER_FOLDER)) {
     return CI_ENVIRONMENT_FILE;
   }
   if (isAzurePipelinesFile(path)) {

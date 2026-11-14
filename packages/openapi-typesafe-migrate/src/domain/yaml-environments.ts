@@ -1,7 +1,19 @@
-import type { DocumentString } from "./config-documents.js";
-import type { ManualStep } from "./migration-findings.js";
-import { namesOriginalPackage } from "./package-names.js";
 import { TASKFILE_COMMAND_KEYS, YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
+import {
+  AZURE_TEMPLATES,
+  GITLAB_INCLUDES,
+  NO_INCLUDES,
+  TASKFILE_INCLUDES,
+  type YamlIncludes,
+} from "./yaml-includes.js";
+import {
+  AZURE_PARAMETERS,
+  CIRCLECI_PARAMETERS,
+  GITHUB_INPUTS,
+  GITLAB_INPUTS,
+  NO_PARAMETERS,
+  type YamlParameters,
+} from "./yaml-parameters.js";
 
 /**
  * Where a YAML file kind sets the variables its commands run (`$GEN`), and how its commands name
@@ -11,7 +23,7 @@ import { TASKFILE_COMMAND_KEYS, YAML_COMMAND_KEYS } from "./yaml-command-keys.js
 export interface YamlEnvironment {
   /** Keys whose map holds variables by name. */
   readonly keys: ReadonlySet<string>;
-  /** Whether a variable can be a map with its value under `value` (GitLab). */
+  /** Whether a variable can be a map with its value under `value` and its `options` (GitLab). */
   readonly hasValueMaps: boolean;
   /** Whether the map can be a list of `NAME=value` items (Compose). */
   readonly hasListItems: boolean;
@@ -26,50 +38,82 @@ export interface YamlEnvironment {
   readonly reference: RegExp | undefined;
   /** The name the shell reads a variable of `key` by (Azure: `my.gen` as `$MY_GEN`). */
   readonly shellName: (name: string, key: string) => string;
+  /** Whether the file's tool gives `$$` to the shell as one `$` (Compose). */
+  readonly hasDollarEscapes: boolean;
 }
 
-/** A YAML file kind: the keys that hold its commands and where it sets variables. */
+/**
+ * A YAML file kind: the keys that hold its commands, where it sets variables, its parameters, and
+ * how it names the files it includes.
+ */
 export interface YamlCommandFile {
   readonly commandKeys: ReadonlySet<string>;
   readonly environment: YamlEnvironment;
+  readonly parameters: YamlParameters;
+  readonly includes: YamlIncludes;
 }
 
-const ENV_KEY = "env";
+export const ENV_KEY = "env";
 const ENVIRONMENT_KEY = "environment";
 const VARIABLES_KEY = "variables";
 const VARS_KEY = "vars";
-const VALUE_KEY = "value";
-const NAME_KEY = "name";
 const PLAIN: Omit<YamlEnvironment, "keys"> = {
   hasValueMaps: false,
   hasListItems: false,
   hasNamedItems: false,
   reference: undefined,
   shellName: (name) => name,
+  hasDollarEscapes: false,
 };
 
 /** GitHub Actions, Gitea and Forgejo `env`, also of any other YAML file. */
 export const DEFAULT_YAML_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
   environment: { ...PLAIN, keys: new Set([ENV_KEY]) },
+  parameters: GITHUB_INPUTS,
+  includes: NO_INCLUDES,
 };
 
 /** GitLab CI `variables` of the file and of a job; a value can be a map with `value`. */
 export const GITLAB_CI_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
   environment: { ...PLAIN, keys: new Set([ENV_KEY, VARIABLES_KEY]), hasValueMaps: true },
+  parameters: GITLAB_INPUTS,
+  includes: GITLAB_INCLUDES,
 };
 
-/** CircleCI, Drone and Woodpecker `environment` of a job, a step or an executor. */
+const CI_ENVIRONMENT: YamlEnvironment = { ...PLAIN, keys: new Set([ENV_KEY, ENVIRONMENT_KEY]) };
+
+/** Drone and Woodpecker `environment` of a pipeline or a step. */
 export const CI_ENVIRONMENT_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
-  environment: { ...PLAIN, keys: new Set([ENV_KEY, ENVIRONMENT_KEY]) },
+  environment: CI_ENVIRONMENT,
+  parameters: NO_PARAMETERS,
+  includes: NO_INCLUDES,
 };
 
-/** Docker Compose `environment` of a service, as a map or as a list of `NAME=value`. */
+/** CircleCI `environment` of a job, a step or an executor, and its `parameters`. */
+export const CIRCLECI_FILE: YamlCommandFile = {
+  commandKeys: YAML_COMMAND_KEYS,
+  environment: CI_ENVIRONMENT,
+  parameters: CIRCLECI_PARAMETERS,
+  includes: NO_INCLUDES,
+};
+
+/**
+ * Docker Compose `environment` of a service, as a map or as a list of `NAME=value`. Compose
+ * gives `$$GEN` to the container's shell as `$GEN`, which reads the service's `environment`.
+ */
 export const COMPOSE_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
-  environment: { ...PLAIN, keys: new Set([ENV_KEY, ENVIRONMENT_KEY]), hasListItems: true },
+  environment: {
+    ...PLAIN,
+    keys: new Set([ENV_KEY, ENVIRONMENT_KEY]),
+    hasListItems: true,
+    hasDollarEscapes: true,
+  },
+  parameters: NO_PARAMETERS,
+  includes: NO_INCLUDES,
 };
 
 /**
@@ -83,6 +127,8 @@ export const TASKFILE: YamlCommandFile = {
     keys: new Set([ENV_KEY, VARS_KEY]),
     reference: /\{\{-?[ \t]*\.([A-Za-z_][A-Za-z0-9_]*)[ \t]*-?\}\}/g,
   },
+  parameters: NO_PARAMETERS,
+  includes: TASKFILE_INCLUDES,
 };
 
 const AZURE_NAME_SEPARATOR_RE = /\./g;
@@ -108,99 +154,9 @@ export const AZURE_PIPELINES_FILE: YamlCommandFile = {
         ? name.replace(AZURE_NAME_SEPARATOR_RE, AZURE_SHELL_SEPARATOR).toUpperCase()
         : name,
   },
+  parameters: AZURE_PARAMETERS,
+  includes: AZURE_TEMPLATES,
 };
-
-/** A variable that a YAML value sets: its name, and how much of the value its head takes. */
-export interface EnvironmentEntry {
-  readonly name: string;
-  /** The length of `NAME=` before the value of a list item, else 0. */
-  readonly head: number;
-}
-
-const LIST_ITEM_RE = /^([A-Za-z_][A-Za-z0-9_]*)=/;
-
-/** The `name` of the list item that `strings[index]` is the `value` of, or undefined. */
-function itemName(strings: readonly DocumentString[], index: number): string | undefined {
-  const item = strings[index]?.path.slice(0, -1) ?? [];
-  const isInItem = (string: DocumentString | undefined): boolean =>
-    string !== undefined && item.every((part, at) => string.path[at] === part);
-  const isName = (string: DocumentString): boolean =>
-    string.path.length === item.length + 1 && string.path.at(-1) === NAME_KEY;
-  let [first, last] = [index, index];
-  while (isInItem(strings[first - 1])) {
-    first -= 1;
-  }
-  while (isInItem(strings[last + 1])) {
-    last += 1;
-  }
-  return strings.slice(first, last + 1).find(isName)?.value;
-}
-
-/** Whether a value is the `value` of a list item under one of `keys` (`- name: X / value: Y`). */
-const isNamedItemValue = (value: DocumentString, keys: ReadonlySet<string>): boolean =>
-  value.path.at(-1) === VALUE_KEY &&
-  typeof value.path.at(-2) === "number" &&
-  keys.has(String(value.path.at(-3)));
-
-/** The variable that `strings[index]` sets in `environment`, or undefined when it sets none. */
-function environmentEntry(
-  strings: readonly DocumentString[],
-  index: number,
-  environment: YamlEnvironment,
-): EnvironmentEntry | undefined {
-  const value = strings[index] as DocumentString;
-  const { keys, hasValueMaps, hasListItems, hasNamedItems, shellName } = environment;
-  const [last, owner, outer] = [value.path.at(-1), value.path.at(-2), value.path.at(-3)];
-  const named = (name: string | undefined, key: unknown, head = 0): EnvironmentEntry | undefined =>
-    name === undefined ? undefined : { name: shellName(name, String(key)), head };
-  if (typeof last === "string" && keys.has(String(owner))) {
-    return named(last, owner);
-  }
-  if (hasValueMaps && last === VALUE_KEY && typeof owner === "string" && keys.has(String(outer))) {
-    return named(owner, outer);
-  }
-  if (hasNamedItems && isNamedItemValue(value, keys)) {
-    return named(itemName(strings, index), outer);
-  }
-  const item = hasListItems && typeof last === "number" && keys.has(String(owner));
-  const name = item ? LIST_ITEM_RE.exec(value.value)?.[1] : undefined;
-  return named(name, owner, (name?.length ?? 0) + 1);
-}
-
-/** The variables that the values of a file set in `environment`, by value. */
-export function environmentEntries(
-  strings: readonly DocumentString[],
-  environment: YamlEnvironment,
-): ReadonlyMap<DocumentString, EnvironmentEntry> {
-  return new Map(
-    strings.flatMap((value, index) => {
-      const entry = environmentEntry(strings, index, environment);
-      return entry === undefined ? [] : [[value, entry] as const];
-    }),
-  );
-}
-
-const ENV_ITEM_KEYS: ReadonlySet<string> = new Set([ENV_KEY]);
-
-/**
- * The `env` items of a Kubernetes container (`- name: GEN / value: openapi-typescript`) that name
- * an old package. Kubernetes gives such a value to the program as it is and puts it into
- * `command` and `args` for `$(GEN)`, where no shell reads it, so the tool reports it.
- */
-export function environmentItemSteps(
-  strings: readonly DocumentString[],
-  entries: ReadonlyMap<DocumentString, EnvironmentEntry>,
-  locate: (offset: number) => string,
-): ManualStep[] {
-  return strings
-    .filter((value) => isNamedItemValue(value, ENV_ITEM_KEYS) && !entries.has(value))
-    .filter((value) => namesOriginalPackage(value.value))
-    .map((value) => ({
-      kind: "old-name-in-command",
-      location: locate(value.start),
-      word: value.value,
-    }));
-}
 
 /**
  * A GitHub Actions expression that reads one `env` variable: `${{ env.NAME }}`. The runner puts its
@@ -212,10 +168,14 @@ const ENV_EXPRESSION_RE = /\$\{\{[ \t]*env\.([A-Za-z_][A-Za-z0-9_]*)[ \t]*\}\}/g
 const asShellVariable = (reference: string, name: string): string =>
   `$${name}`.padEnd(reference.length, " ");
 
-/** How a file's tool replaces references: its environment, and the variables the file sets. */
+/**
+ * How a file's tool replaces references: its environment, the variables the file sets, and how
+ * it names its parameters.
+ */
 export interface VariableReferences {
   readonly environment: YamlEnvironment;
   readonly names: ReadonlySet<string>;
+  readonly parameters: YamlParameters;
 }
 
 /** The references of the file's tool in `text` read as `$NAME`, where the tool replaces them. */
@@ -231,8 +191,24 @@ function withToolReferences(text: string, { environment, names }: VariableRefere
   });
 }
 
+/** A `$$` before a name or a `{`: Compose gives it to the shell as one `$`. */
+const DOLLAR_ESCAPE_RE = /\$\$([A-Za-z_][A-Za-z0-9_]*|\{[^}]*\})/g;
+
+/** `$$GEN` read as `$GEN`, padded with a blank after it so that every offset stays. */
+const withoutDollarEscapes = (text: string): string =>
+  text.replace(DOLLAR_ESCAPE_RE, (written: string, name: string) =>
+    `$${name}`.padEnd(written.length, " "),
+  );
+
 /** Shell text with the references that a tool replaces before the shell runs read as `$NAME`. */
 export function withVariableReferences(text: string, references?: VariableReferences): string {
-  const expressions = text.replace(ENV_EXPRESSION_RE, asShellVariable);
-  return references === undefined ? expressions : withToolReferences(expressions, references);
+  const parameters = references?.parameters.asExpressions(text) ?? text;
+  const expressions = parameters.replace(ENV_EXPRESSION_RE, asShellVariable);
+  if (references === undefined) {
+    return expressions;
+  }
+  const escaped = references.environment.hasDollarEscapes
+    ? withoutDollarEscapes(expressions)
+    : expressions;
+  return withToolReferences(escaped, references);
 }
