@@ -322,6 +322,29 @@ Output where no number met a name asked for later, and where tuples are met in p
 ones the run gave. The per-object functions (`transformSchemaObject` and the others) have no end
 of document, so they keep the names given as they go.
 
+## Amendment (2026-11-13): the same rule with `--dedupe-enums` and for `--enum-values`
+
+The amendment above left two paths that still named by traversal order:
+
+1. **`--dedupe-enums`.** An enum of the same members as one declared already took the stored
+   name before its owner's claim saw the request, so the claim kept the position of the element
+   met first. A tuple `[a], [b], [a]` with a `$ref` to `prefixItems/2` met first gave
+   `[Tup_2, Tup, Tup_2]`, `Tup` holding `b`. Now a request of the owner that declared the enum
+   still reports its position to that claim; a request of another owner (another schema with the
+   same members) does not, since its position is in another tuple.
+2. **`--enum-values` arrays.** The arrays of one name (the elements of a tuple, typed at the
+   tuple's location; `Discount/type` and `discount/type`) were numbered as they came, so the same
+   `$ref` swapped `tupValues` and `tupValues_2`. The arrays now get the same two steps
+   (`EnumValuesNames`): a name as they come, then the final names once every array is known, with
+   the elements of a tuple ranked together by position (`inNamingOrder`). Every array name ends
+   with `Values`, so a number of one name is never another name asked for, and the other arrays
+   keep their order of arrival, as before.
+
+Both are defaults by the test of the rc.4 amendment. Output where the elements are met in position
+order keeps every name; a generator fuzz of shuffled documents names the same enums and arrays in
+every order (0 of 300 documents differ, against 21 with `--dedupe-enums` and 134 with
+`--enum-values` before).
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

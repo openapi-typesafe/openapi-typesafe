@@ -312,27 +312,36 @@ describe("schema $refs into a schema with allOf next to properties", () => {
 
 describe("schema $refs into a schema whose type its keywords do not change", () => {
   // `type: object` without properties is `Record<string, never>`: every key is `never`, so the
-  // original compiles. `type: string` ignores `items`: the original indexes `string`.
+  // original compiles but admits no value. `type: string` ignores `items`: the original indexes
+  // `string`.
   const document = documentWith({
     Shared: { type: "object", definitions: { Money: OBJECT } },
     Bag: { type: "object", items: { type: "string" } },
+    Closed: { type: "object", unevaluatedProperties: false },
     Text: { type: "string", items: { type: "number" } },
     Copy: {
       type: "object",
       properties: {
         money: { $ref: "#/components/schemas/Shared/definitions/Money" },
         bag: { $ref: "#/components/schemas/Bag/items" },
+        closed: { $ref: "#/components/schemas/Closed/unevaluatedProperties" },
         text: { $ref: "#/components/schemas/Text/items" },
       },
     },
   });
 
-  it("openapiTS keeps the original type where Record<string, never> admits the key", async () => {
+  it("openapiTS types the target where Record<string, never> reads the key as never", async () => {
     const output = await generate(document);
 
-    expect(output).toContain('money?: components["schemas"]["Shared"]["definitions"]["Money"];');
-    expect(output).toContain('bag?: components["schemas"]["Bag"]["items"];');
+    expect(output).toMatch(/money\?: \{\n\s+time\?: string;\n\s+\};/);
+    expect(output).toContain("bag?: string;");
     expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS keeps the original never where the target is the false schema", async () => {
+    const output = await generate(document);
+
+    expect(output).toContain('closed?: components["schemas"]["Closed"]["unevaluatedProperties"];');
   });
 
   it("openapiTS writes items of a schema that is no array inline", async () => {

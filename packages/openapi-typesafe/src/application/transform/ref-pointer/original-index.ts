@@ -64,6 +64,18 @@ function definitionStep(
   };
 }
 
+/**
+ * A key `Record<string, never>` reads as `never`: it compiles, also for every key after it, but
+ * admits no value, so it is the target's type only where the target is the `false` schema
+ * (`unevaluatedProperties: false`, which such an owner reads as `never` too). Anywhere else the
+ * original is wrong, and is corrected by default (ADR-026).
+ */
+function neverStep(walk: OriginalWalk, segment: string, isLast: boolean, refs: RefResolver): Step {
+  const owner = followLocated(walk, refs).node;
+  const isFalseTarget = isLast && isJsonObject(owner) && owner[segment] === false;
+  return isFalseTarget ? "compiles" : "fails";
+}
+
 function schemaStep(walk: OriginalWalk, segment: string, isLast: boolean, input: WalkInput) {
   if (walk.names !== undefined) {
     return definitionStep({ ...walk, names: walk.names }, segment, isLast, input);
@@ -76,12 +88,14 @@ function schemaStep(walk: OriginalWalk, segment: string, isLast: boolean, input:
     const { names, location } = member;
     return { step: "continue" as Step, walk: { ...walk, location, names } };
   }
+  if (member.kind === "never") {
+    return { step: neverStep(walk, segment, isLast, input.refs), walk };
+  }
   // Such an index signature compiles, but its type is not the target's alone.
   if (member.kind === "missing" || (member.kind === "index" && member.isOtherType)) {
     return { step: "fails" as Step, walk };
   }
-  // `never` compiles for every key after it.
-  if (member.kind === "opaque" || member.kind === "never") {
+  if (member.kind === "opaque") {
     return { step: "compiles" as Step, walk };
   }
   const isAbsentValue = member.kind === "index" && member.node === undefined;

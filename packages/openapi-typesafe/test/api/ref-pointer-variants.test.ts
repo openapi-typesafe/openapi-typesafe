@@ -43,6 +43,40 @@ const SCHEMAS = {
       { type: "object", title: "B" },
     ],
   },
+  AnyObjectPet: {
+    type: "object",
+    properties: OWN,
+    anyOf: [
+      { type: "object", required: ["email"] },
+      { type: "object", required: ["phone"] },
+    ],
+  },
+  NestedOneOfPet: {
+    type: "object",
+    properties: OWN,
+    allOf: [
+      {
+        oneOf: [
+          { type: "object", title: "A" },
+          { type: "object", title: "B" },
+        ],
+      },
+    ],
+  },
+  DiscriminatorAnyPet: {
+    type: "object",
+    properties: { ...OWN, kind: { type: "string" } },
+    discriminator: { propertyName: "kind" },
+    anyOf: [{ type: "object" }, { type: "object" }],
+  },
+  BasedPet: {
+    allOf: [ref("Owned")],
+    oneOf: [
+      { type: "object", required: ["email"] },
+      { type: "object", required: ["phone"] },
+    ],
+  },
+  NullablePet: { type: ["object", "null"], properties: OWN, anyOf: [ref("Cat"), ref("Dog")] },
   Cat: { type: "object", properties: { meow: { type: "boolean" } } },
   Dog: { type: "object", properties: { bark: { type: "boolean" } } },
   Owned: { type: "object", properties: { owner: OWNER } },
@@ -56,8 +90,13 @@ const NAMES = [
   "OneRequiredPet",
   "ObjectRequiredPet",
   "TitledPet",
+  "AnyObjectPet",
+  "NestedOneOfPet",
+  "DiscriminatorAnyPet",
+  "NullablePet",
 ];
 const VARIANT_SHAPES = ["OneRequiredPet", "ObjectRequiredPet", "TitledPet"];
+const NEVER_VARIANT_SHAPES = ["AnyObjectPet", "NestedOneOfPet", "DiscriminatorAnyPet"];
 const readThrough = (name: string) => `${name}?: NonNullable<components["schemas"]["${name}"]["owner"]>["name"];`;
 const ownerName = (name: string) => ref(`${name}/properties/owner/properties/name`);
 const USE = {
@@ -65,6 +104,7 @@ const USE = {
   properties: {
     ...Object.fromEntries(NAMES.map((name) => [name, ownerName(name)])),
     tag: ref("OnePet/properties/tags/items"),
+    based: ref("BasedPet/allOf/0/properties/owner/properties/name"),
   },
 };
 
@@ -110,6 +150,27 @@ describe("$refs into properties next to anyOf and oneOf", () => {
       }
     },
   );
+
+  it("openapiTS reads through properties next to a union of empty object variants", async () => {
+    const output = await generate();
+
+    for (const name of NEVER_VARIANT_SHAPES) {
+      expect(output).toContain(readThrough(name));
+    }
+  });
+
+  it("openapiTS types the target in place where a nullable type list's variant misses it", async () => {
+    const output = await generate();
+
+    expect(output).toContain("NullablePet?: string;");
+  });
+
+  it("openapiTS types the target of a pointer through allOf/0 that reads never", async () => {
+    const output = await generate();
+
+    expect(output).toContain("based?: string;");
+    expect(typeErrorsOf(`${output}\nconst name: components["schemas"]["Use"]["based"] = "Ann";`)).toEqual([]);
+  });
 
   it("openapiTS with anyof-oneof-required keeps a property every variant requires", async () => {
     const output = await generate({ fix: ["anyof-oneof-required"] });
