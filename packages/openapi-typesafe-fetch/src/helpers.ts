@@ -425,8 +425,8 @@ type TrimmedEnd<Text extends string> = Text extends `${infer Rest} ` | `${infer 
  * The media types that the client parses as JSON, as a content map writes them: `json` or a
  * `+json` suffix (RFC 6838), with or without parameters, as the client's `JSON_MEDIA_TYPE_RE`.
  * Not `x-ndjson` or `json-seq`, whose bodies are lines of JSON. A template cannot keep its
- * `${string}` out of the parameters, so it is only the `Media` that the JSON helpers pick by;
- * whether a media type is JSON is `IsJSONMediaPattern`'s answer.
+ * `${string}` out of the parameters, so it only picks the schema of an index signature
+ * (`JSONMediaKey`); whether a media type is JSON is `IsJSONMediaPattern`'s answer.
  */
 type JSONMediaPattern =
   | `${string}/${"" | `${string}+`}json`
@@ -458,15 +458,34 @@ type IsJSONMediaType<Key> = Key extends string
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type SuccessResponseJSON<PathMethod extends Record<string | number, any>> = SuccessResponse<
   ResponseObjectMap<PathMethod>,
-  JSONMediaType
+  JSONMediaKeys<ResponseObjectMap<PathMethod>>
 >;
 
 /** Return JSON-like 1XX, 3XX, 4XX, 5XX and `default` responses from a path + HTTP method */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type ErrorResponseJSON<PathMethod extends Record<string | number, any>> = ErrorResponse<
   ResponseObjectMap<PathMethod>,
-  JSONMediaType
+  JSONMediaKeys<ResponseObjectMap<PathMethod>>
 >;
+
+/**
+ * The media types of the responses `T` that may hold JSON (`IsJSONMediaType`), for the JSON
+ * helpers to pick by: their keys, as `JSONMediaType` cannot leave out a `json` in parameters. A
+ * content map with an index signature has no such key, so it gives `JSONMediaType`, which picks
+ * the schema of its signature.
+ */
+type JSONMediaKeys<T> = {
+  [Status in keyof T]: T[Status] extends { content: infer Content }
+    ? { [Key in keyof Content]: JSONMediaKey<Key> }[keyof Content]
+    : never;
+}[keyof T];
+
+/** `Key` when it may hold JSON; `JSONMediaType` for the wide key of an index signature. */
+type JSONMediaKey<Key> = string extends Key
+  ? JSONMediaType
+  : IsJSONMediaType<Key> extends true
+    ? Key
+    : never;
 
 /** Return JSON-like request body from a path + HTTP method */
 export type RequestBodyJSON<PathMethod> = JSONLike<

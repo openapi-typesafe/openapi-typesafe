@@ -1,5 +1,11 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import type { ErrorResponse, JSONLike } from "../../src/helpers.js";
+import type {
+  ErrorResponse,
+  ErrorResponseJSON,
+  JSONLike,
+  RequestBodyJSON,
+  SuccessResponseJSON,
+} from "../../src/helpers.js";
 import createClient from "../../src/index.js";
 
 /**
@@ -11,6 +17,8 @@ import createClient from "../../src/index.js";
 const PROFILE_JSON = "text/plain; profile=urn:a+json";
 const MESSAGE_JSON = "message/http; msgtype=application/json";
 type Errors<Content> = { 400: { headers: {}; content: Content } };
+type Operation<Responses> = { responses: Responses };
+type Mixed = { [PROFILE_JSON]: number; "application/json": boolean };
 
 describe("media type parameters", () => {
   it("ErrorResponse of a media type with a json parameter is a string", () => {
@@ -43,9 +51,44 @@ describe("media type parameters", () => {
   });
 
   it("JSONLike of a media type with a json parameter leaves it out", () => {
-    type Content = { [PROFILE_JSON]: number; "application/json": boolean };
+    expectTypeOf<JSONLike<Mixed>>().toEqualTypeOf<boolean>();
+  });
 
-    expectTypeOf<JSONLike<Content>>().toEqualTypeOf<boolean>();
+  it("SuccessResponseJSON of a media type with a json parameter leaves it out", () => {
+    type Success = { 200: { headers: {}; content: Mixed } };
+    type WithNoContent = Success & { 204: { headers: {}; content?: never } };
+
+    expectTypeOf<SuccessResponseJSON<Operation<Success>>>().toEqualTypeOf<boolean>();
+    expectTypeOf<SuccessResponseJSON<Operation<WithNoContent>>>().toEqualTypeOf<
+      boolean | undefined
+    >();
+  });
+
+  it("ErrorResponseJSON of a media type with a json parameter leaves it out", () => {
+    expectTypeOf<ErrorResponseJSON<Operation<Errors<Mixed>>>>().toEqualTypeOf<boolean>();
+  });
+
+  it("ErrorResponseJSON keeps the JSON media types and ranges of every response", () => {
+    type Responses = {
+      400: { headers: {}; content: { "application/json; charset=utf-8": boolean } };
+      404: { headers: {}; content: { "text/*": number; [PROFILE_JSON]: null } };
+    };
+
+    expectTypeOf<ErrorResponseJSON<Operation<Responses>>>().toEqualTypeOf<
+      boolean | number | string
+    >();
+  });
+
+  it("SuccessResponseJSON of a content map with an index signature is its schema", () => {
+    type Success = { 200: { headers: {}; content: { [media: string]: boolean } } };
+
+    expectTypeOf<SuccessResponseJSON<Operation<Success>>>().toEqualTypeOf<boolean>();
+  });
+
+  it("RequestBodyJSON of a media type with a json parameter leaves it out", () => {
+    type Body = { requestBody: { content: Mixed } };
+
+    expectTypeOf<RequestBodyJSON<Body>>().toEqualTypeOf<boolean>();
   });
 
   it("an error with a json parameter in its Content-Type is returned as text", async () => {
