@@ -15,8 +15,10 @@ import {
 } from "../domain/migration-findings.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
 import type { SuccessorAliases } from "../domain/successor-aliases.js";
+import { usesVariable } from "../domain/yaml-generator-variables.js";
 import type { ApiDescriptionParts } from "./api-description-parts.js";
 import type { CallbackRewriter, DocumentReaders, SourceStringScanner } from "./ports.js";
+import type { YamlReach } from "./yaml-file-reach.js";
 
 /**
  * The parts that file migrations are built from: the context they get, configs read once and
@@ -34,6 +36,8 @@ export interface MigrationContext {
   readonly aliases: readonly SuccessorAliases[];
   /** The files that the API descriptions reach by `$ref`: data, not commands. */
   readonly apiDescriptionParts: ApiDescriptionParts;
+  /** What the YAML files give the others: the kinds of included files, generator variables. */
+  readonly yamlReach: YamlReach;
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
   readonly readers: DocumentReaders;
@@ -121,8 +125,12 @@ export const yamlConfig =
  * A migration that leaves a text naming no original package as it is, without reading it. For
  * the files whose findings all start at an old name: commands and Dependabot names. Any YAML file
  * matches the command kind, and an OpenAPI document of megabytes is read in seconds, for nothing.
+ * A text that expands a variable which a YAML file sets to the old generator is read too: the
+ * flags after `$GEN` in a script that a job runs are the generator's.
  */
 export const whenNamed =
   (migrate: FileKind["migrate"]): FileKind["migrate"] =>
   (text, path, context) =>
-    namesOriginalPackage(text) ? migrate(text, path, context) : unchanged(text);
+    namesOriginalPackage(text) || usesVariable(text, context.yamlReach.generatorVariables)
+      ? migrate(text, path, context)
+      : unchanged(text);

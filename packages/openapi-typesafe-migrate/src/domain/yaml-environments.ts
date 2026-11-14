@@ -1,5 +1,12 @@
 import { TASKFILE_COMMAND_KEYS, YAML_COMMAND_KEYS } from "./yaml-command-keys.js";
 import {
+  AZURE_TEMPLATES,
+  GITLAB_INCLUDES,
+  NO_INCLUDES,
+  TASKFILE_INCLUDES,
+  type YamlIncludes,
+} from "./yaml-includes.js";
+import {
   AZURE_PARAMETERS,
   CIRCLECI_PARAMETERS,
   GITHUB_INPUTS,
@@ -35,11 +42,15 @@ export interface YamlEnvironment {
   readonly hasDollarEscapes: boolean;
 }
 
-/** A YAML file kind: the keys that hold its commands, where it sets variables, its parameters. */
+/**
+ * A YAML file kind: the keys that hold its commands, where it sets variables, its parameters, and
+ * how it names the files it includes.
+ */
 export interface YamlCommandFile {
   readonly commandKeys: ReadonlySet<string>;
   readonly environment: YamlEnvironment;
   readonly parameters: YamlParameters;
+  readonly includes: YamlIncludes;
 }
 
 export const ENV_KEY = "env";
@@ -60,6 +71,7 @@ export const DEFAULT_YAML_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
   environment: { ...PLAIN, keys: new Set([ENV_KEY]) },
   parameters: GITHUB_INPUTS,
+  includes: NO_INCLUDES,
 };
 
 /** GitLab CI `variables` of the file and of a job; a value can be a map with `value`. */
@@ -67,6 +79,7 @@ export const GITLAB_CI_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
   environment: { ...PLAIN, keys: new Set([ENV_KEY, VARIABLES_KEY]), hasValueMaps: true },
   parameters: GITLAB_INPUTS,
+  includes: GITLAB_INCLUDES,
 };
 
 const CI_ENVIRONMENT: YamlEnvironment = { ...PLAIN, keys: new Set([ENV_KEY, ENVIRONMENT_KEY]) };
@@ -76,6 +89,7 @@ export const CI_ENVIRONMENT_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
   environment: CI_ENVIRONMENT,
   parameters: NO_PARAMETERS,
+  includes: NO_INCLUDES,
 };
 
 /** CircleCI `environment` of a job, a step or an executor, and its `parameters`. */
@@ -83,6 +97,7 @@ export const CIRCLECI_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
   environment: CI_ENVIRONMENT,
   parameters: CIRCLECI_PARAMETERS,
+  includes: NO_INCLUDES,
 };
 
 /**
@@ -98,6 +113,7 @@ export const COMPOSE_FILE: YamlCommandFile = {
     hasDollarEscapes: true,
   },
   parameters: NO_PARAMETERS,
+  includes: NO_INCLUDES,
 };
 
 /**
@@ -112,6 +128,7 @@ export const TASKFILE: YamlCommandFile = {
     reference: /\{\{-?[ \t]*\.([A-Za-z_][A-Za-z0-9_]*)[ \t]*-?\}\}/g,
   },
   parameters: NO_PARAMETERS,
+  includes: TASKFILE_INCLUDES,
 };
 
 const AZURE_NAME_SEPARATOR_RE = /\./g;
@@ -138,6 +155,7 @@ export const AZURE_PIPELINES_FILE: YamlCommandFile = {
         : name,
   },
   parameters: AZURE_PARAMETERS,
+  includes: AZURE_TEMPLATES,
 };
 
 /**

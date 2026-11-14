@@ -3,6 +3,7 @@ import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js"
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { fileMigrationFor } from "../../src/application/file-migrations.js";
 import { migrateProject } from "../../src/application/migrate-project.js";
+import { NO_YAML_REACH } from "../../src/application/yaml-file-reach.js";
 import { NO_CATALOG_PLAN } from "../../src/domain/catalog-plan.js";
 import { InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
@@ -15,6 +16,7 @@ const context = {
   manifests: [],
   aliases: [],
   apiDescriptionParts: new Set<string>(),
+  yamlReach: NO_YAML_REACH,
   rewriter: new StubCallbackRewriter(),
   scanner: new QuotedStringScanner(),
   readers: { json: createJsonTextReader(), yaml: createYamlTextReader() },
