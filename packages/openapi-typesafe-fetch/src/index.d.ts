@@ -188,10 +188,16 @@ export type RequestBodyOption<T> =
  * gave a conditional type no `FetchOptions` argument was assignable to (TS2345). The operations
  * of a union are not merged into one deep init type, which gave TS2589 on hundreds of paths
  * (upstream #1882).
+ * Only the options that depend on the operation distribute; the others stay outside the
+ * conditional type. While `request()` has not fixed its method, TypeScript reads the init's
+ * contextual type through the constraints of the method and the path, and stops after ten nested
+ * instantiations of one conditional type: with every option inside it, `parseAs: "text"` had no
+ * contextual type, widened to `string`, and the init fell back to its constraint (`data` the JSON
+ * body). `FetchOptions<never>` is still `never`.
  */
-export type FetchOptions<T> = T extends unknown
-  ? RequestOptions<T> & Omit<RequestInit, "body" | "headers">
-  : never;
+export type FetchOptions<T> = (T extends unknown ? OperationRequestOptions<T> : never) &
+  SharedRequestOptions &
+  Omit<RequestInit, "body" | "headers">;
 
 // Readable<T> strips $Write markers (writeOnly properties excluded from response)
 export type FetchResponse<
@@ -211,17 +217,24 @@ export type FetchResponse<
       response: Response;
     };
 
-export type RequestOptions<T> = ParamsOption<T> &
+export type RequestOptions<T> = OperationRequestOptions<T> & SharedRequestOptions;
+
+/** The options of a call that depend on its operation `T`. */
+type OperationRequestOptions<T> = ParamsOption<T> &
   RequestBodyOption<T> & {
-    baseUrl?: string | undefined;
     querySerializer?: QuerySerializer<T> | QuerySerializerOptions | undefined;
     bodySerializer?: BodySerializer<T> | undefined;
-    pathSerializer?: PathSerializer | undefined;
-    parseAs?: ParseAs | undefined;
-    fetch?: ClientOptions["fetch"];
-    headers?: HeadersOptions | undefined;
-    middleware?: Middleware[] | undefined;
   };
+
+/** The options of a call that are the same for every operation. */
+type SharedRequestOptions = {
+  baseUrl?: string | undefined;
+  pathSerializer?: PathSerializer | undefined;
+  parseAs?: ParseAs | undefined;
+  fetch?: ClientOptions["fetch"];
+  headers?: HeadersOptions | undefined;
+  middleware?: Middleware[] | undefined;
+};
 
 export type MergedOptions<T = unknown> = {
   baseUrl: string;
