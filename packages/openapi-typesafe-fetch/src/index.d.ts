@@ -139,16 +139,51 @@ type BodyType<T = unknown> = {
 };
 export type ParseAs = keyof BodyType;
 /**
- * The data of a success body `T` read with the `parseAs` of `Options`. Each value of a union gives
- * its body, and `undefined` is the default `"json"`, as at runtime: a wrapper that passes on
- * `parseAs: "text" | undefined` gets `string | T`, not `T` only. An optional `parseAs` (the
- * declared init type, as for a call without options) gives `T`, as in openapi-fetch. No `infer`:
- * TypeScript relates a type to a deferred conditional type through both of its branches only
- * when it infers nothing, and generic hooks return the data of a call as this type.
+ * The data of a success body `T` read with the `parseAs` of `Options`. Each value it may have gives
+ * its body, and `undefined` or a left-out `parseAs` is the default `"json"`, as at runtime: a
+ * wrapper that passes on `parseAs?: "text"` gets `string | T`, not `T` only. Options without
+ * `parseAs`, or whose `parseAs` may be any value (the declared init type, as for a call without
+ * options), give `T`, as in openapi-fetch. No `infer`: TypeScript relates a type to a deferred
+ * conditional type through both of its branches only when it infers nothing, and generic hooks
+ * return the data of a call as this type.
  */
-export type ParseAsResponse<T, Options> = Options extends { parseAs: ParseAs | undefined }
-  ? BodyType<T>[ParseAsValue<Options["parseAs"]>]
-  : T;
+export type ParseAsResponse<T, Options> = [MissingParseAsValues<Options>] extends [never]
+  ? T
+  : BodyType<T>[ParseAsValue<ParseAsValues<Options>>];
+
+/**
+ * The `parseAs` values that `Options` may have; `undefined` when it may be left out. One
+ * conditional type, not a union: `BodyType<T>` indexed by a union of generic keys is read as the
+ * intersection of their bodies when another type is checked against it.
+ */
+type ParseAsValues<Options> = Options extends unknown
+  ?
+      | (Options extends RequiredParseAs ? never : undefined)
+      | { [Value in ParseAs]: Options extends WithoutParseAs<Value> ? never : Value }[ParseAs]
+  : never;
+
+/**
+ * The `parseAs` values that `Options` cannot have, as `ParseAsValues` reads them. It does not
+ * distribute: a union of options cannot have a value only when none of its members can.
+ */
+type MissingParseAsValues<Options> =
+  | ([Options] extends [RequiredParseAs] ? undefined : never)
+  | { [Value in ParseAs]: [Options] extends [WithoutParseAs<Value>] ? Value : never }[ParseAs];
+
+/** Options that always have a `parseAs`. */
+type RequiredParseAs = { parseAs: ParseAs };
+
+/**
+ * Options that cannot have the `parseAs` value `Value`: `undefined` options, or options whose
+ * `parseAs` (if any) leaves it out. Each
+ * check takes `Options` as its checked type and a fixed type here, so TypeScript relates the
+ * data of a generic call to a wrapper's (ADR-030); one union of these types instead would let
+ * TypeScript split `parseAs?: ParseAs` into its values and match each one. The `object` keeps
+ * options without `parseAs` (`{ headers }`) from failing as a weak type.
+ */
+type WithoutParseAs<Value extends ParseAs> =
+  | undefined
+  | (object & { parseAs?: Exclude<ParseAs, Value> | undefined });
 
 /** How a `parseAs` value reads the body, for each member of a union; `undefined` reads JSON. */
 type ParseAsValue<Value> = Value extends ParseAs ? Value : "json";
