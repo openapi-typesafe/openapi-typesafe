@@ -11,7 +11,7 @@ import { isInputDefault, withInputDefaults } from "./input-defaults.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
 import { shellVariables } from "./shell-variables.js";
-import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
+import { shellCommands } from "./shell-words.js";
 import { otherShellFindings, stepShells } from "./step-shells.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 import {
@@ -24,6 +24,7 @@ import {
   type YamlCommandFile,
   type YamlEnvironment,
 } from "./yaml-environments.js";
+import { execFormCommands, execFormScripts, execForms, isExecFormItem } from "./yaml-exec-forms.js";
 
 /**
  * YAML files are migrated only where they hold commands or package names, so the text of other
@@ -109,38 +110,6 @@ const valuesOf = (
   keys: ReadonlySet<string>,
 ): DocumentString[] =>
   oncePerPlace(strings.filter((string) => keys.has(ownerKey(string.path) ?? "")));
-
-/**
- * Keys whose list value is one command in exec form, as Compose and Kubernetes read it: each item
- * is one word, and no shell splits it. A string value of these keys is still shell text.
- */
-const EXEC_FORM_KEYS: ReadonlySet<string> = new Set(["command", "entrypoint"]);
-
-const isExecFormItem = (value: DocumentString): boolean =>
-  typeof value.path.at(-1) === "number" && EXEC_FORM_KEYS.has(String(value.path.at(-2)));
-
-const listOf = (item: DocumentString): string => item.path.slice(0, -1).join(".");
-
-/** The next item of the same list: the documents of a stream may repeat a list's path. */
-const isNextItem = (previous: DocumentString, item: DocumentString): boolean =>
-  listOf(previous) === listOf(item) && Number(item.path.at(-1)) > Number(previous.path.at(-1));
-
-/** The commands of exec-form lists, one per list, each item a word. */
-function execFormCommands(text: string, items: readonly DocumentString[]): ShellCommand[] {
-  const commands: ShellWord[][] = [];
-  let previous: DocumentString | undefined;
-  let command: ShellWord[] = [];
-  for (const item of items) {
-    if (previous === undefined || !isNextItem(previous, item)) {
-      command = [];
-      commands.push(command);
-    }
-    const { start, end } = item.content;
-    command.push({ start, end, value: item.value, raw: text.slice(start, end) });
-    previous = item;
-  }
-  return commands;
-}
 
 /** What the values of one file are read with. */
 interface ValueContext {
@@ -229,16 +198,16 @@ export function migrateYamlCommands(
   const shellOf = stepShells(strings);
   const values = valuesOf(strings, commandKeys).filter((value) => shellOf(value) === undefined);
   const commandValues = new Set(values.filter((value) => !isExecFormItem(value)));
+  const forms = execForms(oncePerPlace(strings.filter(isExecFormItem)));
+  const scripts = new Set(execFormScripts(forms));
   const entries = environmentEntries(strings, environment);
-  const isVariable = (value: DocumentString): boolean =>
-    entries.has(value) || isInputDefault(value);
-  const shellValues = oncePerPlace(
-    strings.filter((value) => commandValues.has(value) || isVariable(value)),
-  );
+  const isShellText = (value: DocumentString): boolean =>
+    commandValues.has(value) || scripts.has(value) || entries.has(value) || isInputDefault(value);
+  const shellValues = oncePerPlace(strings.filter(isShellText));
   const context = valueContext({ text, locate }, strings, entries, environment);
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(value, context)),
-    commandWordFindings(execFormCommands(text, values.filter(isExecFormItem)), locate),
+    commandWordFindings(execFormCommands(text, forms), locate),
     otherShellFindings(valuesOf(strings, commandKeys), shellOf, locate),
     { edits: [], changes: [], manualSteps: environmentItemSteps(strings, entries, locate) },
   ]);

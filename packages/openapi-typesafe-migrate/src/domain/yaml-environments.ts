@@ -26,6 +26,8 @@ export interface YamlEnvironment {
   readonly reference: RegExp | undefined;
   /** The name the shell reads a variable of `key` by (Azure: `my.gen` as `$MY_GEN`). */
   readonly shellName: (name: string, key: string) => string;
+  /** Whether the file's tool gives `$$` to the shell as one `$` (Compose). */
+  readonly hasDollarEscapes: boolean;
 }
 
 /** A YAML file kind: the keys that hold its commands and where it sets variables. */
@@ -46,6 +48,7 @@ const PLAIN: Omit<YamlEnvironment, "keys"> = {
   hasNamedItems: false,
   reference: undefined,
   shellName: (name) => name,
+  hasDollarEscapes: false,
 };
 
 /** GitHub Actions, Gitea and Forgejo `env`, also of any other YAML file. */
@@ -66,10 +69,18 @@ export const CI_ENVIRONMENT_FILE: YamlCommandFile = {
   environment: { ...PLAIN, keys: new Set([ENV_KEY, ENVIRONMENT_KEY]) },
 };
 
-/** Docker Compose `environment` of a service, as a map or as a list of `NAME=value`. */
+/**
+ * Docker Compose `environment` of a service, as a map or as a list of `NAME=value`. Compose
+ * gives `$$GEN` to the container's shell as `$GEN`, which reads the service's `environment`.
+ */
 export const COMPOSE_FILE: YamlCommandFile = {
   commandKeys: YAML_COMMAND_KEYS,
-  environment: { ...PLAIN, keys: new Set([ENV_KEY, ENVIRONMENT_KEY]), hasListItems: true },
+  environment: {
+    ...PLAIN,
+    keys: new Set([ENV_KEY, ENVIRONMENT_KEY]),
+    hasListItems: true,
+    hasDollarEscapes: true,
+  },
 };
 
 /**
@@ -231,8 +242,23 @@ function withToolReferences(text: string, { environment, names }: VariableRefere
   });
 }
 
+/** A `$$` before a name or a `{`: Compose gives it to the shell as one `$`. */
+const DOLLAR_ESCAPE_RE = /\$\$([A-Za-z_][A-Za-z0-9_]*|\{[^}]*\})/g;
+
+/** `$$GEN` read as `$GEN`, padded with a blank after it so that every offset stays. */
+const withoutDollarEscapes = (text: string): string =>
+  text.replace(DOLLAR_ESCAPE_RE, (written: string, name: string) =>
+    `$${name}`.padEnd(written.length, " "),
+  );
+
 /** Shell text with the references that a tool replaces before the shell runs read as `$NAME`. */
 export function withVariableReferences(text: string, references?: VariableReferences): string {
   const expressions = text.replace(ENV_EXPRESSION_RE, asShellVariable);
-  return references === undefined ? expressions : withToolReferences(expressions, references);
+  if (references === undefined) {
+    return expressions;
+  }
+  const escaped = references.environment.hasDollarEscapes
+    ? withoutDollarEscapes(expressions)
+    : expressions;
+  return withToolReferences(escaped, references);
 }

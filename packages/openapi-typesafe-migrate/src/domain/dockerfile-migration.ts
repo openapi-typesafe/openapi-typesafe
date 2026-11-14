@@ -1,4 +1,5 @@
 import { type CommandMigration, commandWordFindings, migrateCommand } from "./command-migration.js";
+import { shellScript } from "./exec-form-shells.js";
 import { lineLocator, type ManualStep } from "./migration-findings.js";
 import { shellVariables } from "./shell-variables.js";
 import {
@@ -22,13 +23,6 @@ import { applyTextEdits } from "./text-edits.js";
  * write them and as the launcher table reads the shell form (command-launchers.ts).
  */
 const EXEC_FORM_START_RE = /^[ \t]*(?:RUN|CMD|ENTRYPOINT)(?:[ \t]+--\S+)*[ \t]+\[/gm;
-/** Shells whose `-c` option takes a command line, as `SHELL` and the shell form use them. */
-const SHELLS: ReadonlySet<string> = new Set(["sh", "bash", "dash", "ash", "zsh"]);
-const OPTION_PREFIX = "-";
-const LONG_OPTION_PREFIX = "--";
-const COMMAND_OPTION = "c";
-const SET_OPTION = "-o";
-const PATH_SEPARATOR = "/";
 /** Blanks between the items of the array; a `\` at the end of a line continues the instruction. */
 const ARRAY_BLANK_RE = /(?:[ \t\r\n]|\\\r?\n)*/y;
 /** A double-quoted string on one line; `JSON.parse` decides whether it is a JSON string. */
@@ -103,29 +97,6 @@ function execForms(text: string): ExecForm[] {
     const form = execFormAt(text, match.index + match[0].length - 1);
     return form === undefined ? [] : [form];
   });
-}
-
-/**
- * The command line of `["sh", "-c", "…"]` (also `/bin/bash -o pipefail -ec`): the word after the
- * first short option that holds `c`, before any word that is not an option.
- */
-function shellScript(words: readonly ShellWord[]): ShellWord | undefined {
-  const program = words[0]?.value.split(PATH_SEPARATOR).at(-1) ?? "";
-  if (!SHELLS.has(program)) {
-    return undefined;
-  }
-  let index = 1;
-  for (let option = words[index]?.value; option !== undefined; option = words[index]?.value) {
-    if (!option.startsWith(OPTION_PREFIX)) {
-      return undefined;
-    }
-    if (!option.startsWith(LONG_OPTION_PREFIX) && option.includes(COMMAND_OPTION)) {
-      return words[index + 1];
-    }
-    // `-o pipefail` names a shell option in the next word.
-    index += option === SET_OPTION ? 2 : 1;
-  }
-  return undefined;
 }
 
 /** What the exec-form arrays run: the arrays, and the command lines of the shells they start. */
