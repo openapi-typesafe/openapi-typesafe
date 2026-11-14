@@ -74,18 +74,21 @@ describe("refAccessOf", () => {
     );
   });
 
-  it("refAccessOf with a relative file: URL localRefRoot and an http: cwd fails with OPTION_INVALID", () => {
-    const access = () => refAccessOf({ localRefRoot: "file:specs/" }, new URL("https://example.com/specs/"));
+  it.each(["file:specs/", "file:../specs/", "file:.."])(
+    "refAccessOf with the relative file: URL localRefRoot %j and an http: cwd fails with OPTION_INVALID",
+    (localRefRoot) => {
+      const access = () => refAccessOf({ localRefRoot }, new URL("https://example.com/specs/"));
 
-    expect(access).toThrow(
-      expect.objectContaining({
-        code: "OPTION_INVALID",
-        message:
-          "The localRefRoot option must be an absolute path or file: URL when cwd is no file: " +
-          "URL; got a relative file: URL, and cwd is a https: URL.",
-      }),
-    );
-  });
+      expect(access).toThrow(
+        expect.objectContaining({
+          code: "OPTION_INVALID",
+          message:
+            "The localRefRoot option must be an absolute path or file: URL when cwd is no file: " +
+            "URL; got a relative file: URL, and cwd is a https: URL.",
+        }),
+      );
+    },
+  );
 
   it("refAccessOf with an absolute file: URL localRefRoot and an http: cwd keeps the URL", () => {
     const root = pathToFileURL(path.resolve("specs"));

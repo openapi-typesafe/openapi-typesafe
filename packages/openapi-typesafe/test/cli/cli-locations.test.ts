@@ -40,6 +40,12 @@ describe("resolveLocationUrl", () => {
     expect(resolveLocationUrl("file:./a.yaml", configFile)).toEqual(pathToFileURL(fakePath("/work/api/a.yaml")));
   });
 
+  it("resolveLocationUrl with a relative file: URL that leaves the base resolves it in the parent", () => {
+    const configFile = pathToFileURL(fakePath("/work/api/redocly.yaml"));
+
+    expect(resolveLocationUrl("file:../a.yaml", configFile)).toEqual(pathToFileURL(fakePath("/work/a.yaml")));
+  });
+
   it("resolveLocationUrl with a Windows drive path does not read the drive as a URL scheme", () => {
     const url = resolveLocationUrl("C:\\specs\\api.yaml", FAKE_CWD);
 
