@@ -99,11 +99,17 @@ export function apiFlags(apiName: string, settings: ApiSettings): GeneratorFlags
   return flags;
 }
 
-/** The API's `output` file as written; fails with `CLI_CONFIG_INVALID` when it is not text. */
+/**
+ * The API's `output` file as written; fails with `CLI_CONFIG_INVALID` when it is not text or is
+ * empty, as an empty `--output` fails: read as unset, it would name no file.
+ */
 export function apiOutputOf(apiName: string, settings: ApiSettings): string {
   const output = settings[OUTPUT_SETTING];
   if (typeof output !== "string") {
     throw invalidSetting(apiName, settings, OUTPUT_SETTING, "a file path");
+  }
+  if (output === "") {
+    throw invalidSetting(apiName, settings, OUTPUT_SETTING, "a file path, not empty");
   }
   return output;
 }

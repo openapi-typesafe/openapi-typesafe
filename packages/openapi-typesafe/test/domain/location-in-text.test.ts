@@ -39,20 +39,46 @@ describe("parseUrlLocation", () => {
     });
   });
 
+  it("parseUrlLocation with a relative file: URL that leaves the base resolves it in the parent", () => {
+    expect(parseUrlLocation("file:../api.yaml", BASE)).toEqual({
+      kind: "url",
+      url: new URL("../api.yaml", BASE),
+    });
+  });
+
   it("parseUrlLocation with a URL that does not parse is unparsed", () => {
     expect(parseUrlLocation("http://[::1/x", BASE)).toEqual({ kind: "unparsed" });
   });
 
-  it.each(["file:api.yaml", "file:./specs/api.yaml", "file:", "FILE:api.yaml"])(
-    "parseUrlLocation with the relative %j and an https: base is relative-file",
-    (location) => {
-      expect(parseUrlLocation(location, HTTPS_BASE)).toEqual({ kind: "relative-file" });
-    },
-  );
+  it.each([
+    "file:api.yaml",
+    "file:./specs/api.yaml",
+    "file:",
+    "FILE:api.yaml",
+    "file:../api.yaml",
+    "file:..",
+    "file:../../../../../../../../api.yaml",
+    "file:\t../api.yaml",
+    "file:?q",
+    "file:#f",
+    "file:C:api.yaml",
+  ])("parseUrlLocation with the relative %j and an https: base is relative-file", (location) => {
+    expect(parseUrlLocation(location, HTTPS_BASE)).toEqual({ kind: "relative-file" });
+  });
 
   it.each([
     ["file:///specs/api.yaml", "file:///specs/api.yaml"],
     ["file:/specs/api.yaml", "file:///specs/api.yaml"],
+    ["FILE:/specs/api.yaml", "file:///specs/api.yaml"],
+    ["file:\\specs\\api.yaml", "file:///specs/api.yaml"],
+    ["file:\t/specs/api.yaml", "file:///specs/api.yaml"],
+    ["file://host/specs/api.yaml", "file://host/specs/api.yaml"],
+    ["file:C:/specs/api.yaml", "file:///C:/specs/api.yaml"],
+    ["file:c|/specs/api.yaml", "file:///c:/specs/api.yaml"],
+    ["file:C:\\specs", "file:///C:/specs"],
+    ["file:C:?q", "file:///C:?q"],
+    ["file:C:#f", "file:///C:#f"],
+    ["file:C:", "file:///C:"],
     ["https://example.com/api.yaml", "https://example.com/api.yaml"],
     ["api.yaml", "https://example.com/specs/api.yaml"],
   ])("parseUrlLocation with %j and an https: base is the URL %j", (location, href) => {

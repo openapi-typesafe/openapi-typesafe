@@ -11,7 +11,9 @@ import openapiTS, { astToString } from "../../src/index.js";
 const SIMPLE_SCHEMA = fileURLToPath(new URL("../../examples/simple-example.yaml", import.meta.url));
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "openapi-typesafe-location-text-"));
 fs.copyFileSync(SIMPLE_SCHEMA, path.join(workDir, "api.yaml"));
+fs.mkdirSync(path.join(workDir, "specs"));
 const RELATIVE_FILE_URL = "file:api.yaml";
+const PARENT_FILE_URL = "file:../api.yaml";
 
 afterAll(() => {
   fs.rmSync(workDir, { recursive: true, force: true });
@@ -27,6 +29,16 @@ describe("openapiTS with location text", () => {
     const expected = astToString(await openapiTS(document, { silent: true }));
 
     const types = astToString(await openapiTS(source(), { cwd: workDir, silent: true }));
+
+    expect(types).toBe(expected);
+  });
+
+  it("openapiTS with a file: URL that leaves cwd loads the file in its parent", async () => {
+    const document = fs.readFileSync(SIMPLE_SCHEMA, "utf8");
+    const expected = astToString(await openapiTS(document, { silent: true }));
+    const cwd = path.join(workDir, "specs");
+
+    const types = astToString(await openapiTS(PARENT_FILE_URL, { cwd, silent: true }));
 
     expect(types).toBe(expected);
   });
@@ -50,4 +62,23 @@ describe("openapiTS with location text and a remote cwd", () => {
       });
     },
   );
+});
+
+describe("openapiTS with a file: URL that leaves a remote cwd", () => {
+  it.each([
+    ["a string", () => PARENT_FILE_URL, "The string", PARENT_FILE_URL],
+    ["a buffer", () => Buffer.from(PARENT_FILE_URL), "The string", PARENT_FILE_URL],
+    ["a stream", () => Readable.from([PARENT_FILE_URL]), "The stream text", PARENT_FILE_URL],
+    ["the string file:..", () => "file:..", "The string", "file:.."],
+  ])("openapiTS with %s and an https: cwd rejects with SCHEMA_SOURCE_INVALID", async (_, source, name, text) => {
+    const run = openapiTS(source(), { cwd: "https://example.invalid/specs/", silent: true });
+
+    await expect(run).rejects.toMatchObject({
+      code: "SCHEMA_SOURCE_INVALID",
+      message:
+        `${name} ${text} is a relative file: URL, which needs a file: cwd; cwd is a ` +
+        "https: URL. Pass an absolute file: URL or a local cwd",
+      details: { reason: "relative-file", text },
+    });
+  });
 });
