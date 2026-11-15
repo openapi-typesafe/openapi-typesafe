@@ -14,7 +14,7 @@ import type {
   SchemaLoadRequest,
 } from "../../application/ports/schema-loader.js";
 import { withStackOverflowReportedAsync } from "../../application/stack-overflow.js";
-import { redactUrlSecrets } from "../../domain/url-secrets.js";
+import { redactLocationSecrets } from "../../domain/url-secrets.js";
 import { WARNING_CODES, warningText } from "../../domain/warnings.js";
 import type { OpenAPI3 } from "../../types.js";
 import { removeBundledMappingCopies, schemaKeysOf } from "./bundled-mapping-copies.js";
@@ -280,7 +280,7 @@ type PointerLocation = Extract<LocationObject, { pointer: string }>;
 function locationText(location: PointerLocation, renaming: ComponentRenaming, rootRef: string) {
   const pointer = renaming.pointer(location.pointer);
   const documentRef = location.source.absoluteRef;
-  return documentRef === rootRef ? pointer : `${pointer} in ${redactUrlSecrets(documentRef)}`;
+  return documentRef === rootRef ? pointer : `${pointer} in ${redactLocationSecrets(documentRef)}`;
 }
 
 function problemMessage(

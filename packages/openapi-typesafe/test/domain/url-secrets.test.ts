@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { OpenAPITypesafeError } from "../../src/domain/errors.js";
-import { redactUnparsedUrl, redactUrlSecrets } from "../../src/domain/url-secrets.js";
+import {
+  redactLocationSecrets,
+  redactUnparsedUrl,
+  redactUrlSecrets,
+} from "../../src/domain/url-secrets.js";
 
 describe("redactUrlSecrets", () => {
   it.each([
@@ -64,5 +68,19 @@ describe("redactUnparsedUrl", () => {
     ["not a URL", "not a URL"],
   ])("redactUnparsedUrl(%j) is %j", (text, expected) => {
     expect(redactUnparsedUrl(text)).toBe(expected);
+  });
+});
+
+describe("redactLocationSecrets", () => {
+  it.each([
+    ["http://h/my pet.yaml?key=SECRET", "http://h/my pet.yaml?***"],
+    ["http://tok:pw@h/my pet.yaml", "http://***@h/my pet.yaml"],
+    ['https://h/a"b.yaml?key=SECRET#/x', 'https://h/a"b.yaml?***#/x'],
+    ["https://h/users/@me/pet.yaml", "https://h/users/@me/pet.yaml"],
+    ["s3://user:ab/cd@bucket/pet.yaml", "s3://***@bucket/pet.yaml"],
+    ["/specs/my pet.yaml?x", "/specs/my pet.yaml?x"],
+    ["C:/specs/my pet.yaml?x", "C:/specs/my pet.yaml?x"],
+  ])("redactLocationSecrets(%j) is %j", (location, expected) => {
+    expect(redactLocationSecrets(location)).toBe(expected);
   });
 });

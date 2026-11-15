@@ -44,12 +44,31 @@ function withoutQuery(rest: string): string {
   return `${rest.slice(0, queryStart + 1)}${HIDDEN}${fragment}`;
 }
 
+/** A URL, or its part from `://` on, with its user info and its query replaced by `***`. */
+function redactParsedUrl(url: string): string {
+  const separator = url.indexOf(SCHEME_SEPARATOR);
+  const rest = url.slice(separator + SCHEME_SEPARATOR.length);
+  return `${url.slice(0, separator)}${SCHEME_SEPARATOR}${withoutQuery(withoutUserInfo(rest))}`;
+}
+
 /** The text with the user info and the query of every URL in it replaced by `***`. */
 export function redactUrlSecrets(text: string): string {
-  return text.replace(URL_AFTER_SCHEME, (url) => {
-    const rest = url.slice(SCHEME_SEPARATOR.length);
-    return `${SCHEME_SEPARATOR}${withoutQuery(withoutUserInfo(rest))}`;
-  });
+  return text.replace(URL_AFTER_SCHEME, redactParsedUrl);
+}
+
+/**
+ * Text that is one location, a URL as a `$ref` wrote it or a path, with what may be secret
+ * hidden. Unlike `redactUrlSecrets` it hides the query also after a space or a quote, which end a
+ * URL in a message but which Redocly keeps in a `$ref` URL as written
+ * (`http://host/my pet.yaml?key=…`). A URL that does not parse is read as `redactUnparsedUrl`
+ * reads it; text without `://` (a path) stays as it is.
+ */
+export function redactLocationSecrets(location: string): string {
+  // A drive path (`C:/specs/pet.yaml`) parses as a URL too, but has no authority to hide.
+  if (!location.includes(SCHEME_SEPARATOR)) {
+    return location;
+  }
+  return URL.canParse(location) ? redactParsedUrl(location) : redactUnparsedUrl(location);
 }
 
 /**
