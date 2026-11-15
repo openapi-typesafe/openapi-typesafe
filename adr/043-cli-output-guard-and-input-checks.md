@@ -442,3 +442,34 @@ TypeScript, as before.
    the rule of every CLI location and is found by its path; a URL that names no local file, or
    that does not parse, fails with `CLI_CONFIG_NOT_FOUND`, as before. Correcting the docs instead
    was rejected: every other location flag accepts `file:` URLs.
+
+## Amendment (2026-11-15, second): `$ref` URLs keep Redocly's name
+
+1. **Only the `$ref`s Redocly misreads are resolved by the URL standard.** Item 2 of the previous
+   amendment resolved every `http:` and `https:` `$ref` with `new URL()`, also those that start
+   with `http://` or `https://`, so a document's name was the parser's normal form. Redocly keeps
+   such a `$ref` as written (`isAbsoluteUrl` is `startsWith("http://") || startsWith("https://")`,
+   and `resolveExternalRef` returns it unchanged) and names the document, its cache entry and the
+   lint ignore file entries by that text. So `http://LOCALHOST:8080/bad.yaml`, `x/../bad.yaml`,
+   `my bad.yaml` or a port with a leading zero no longer matched the entries that
+   `redocly lint --generate-ignore-file` writes, and ignored problems failed the run with
+   `SCHEMA_INVALID`. The rule now follows Redocly's own test: `remoteRefUrl` resolves a `$ref`
+   only when its scheme is `http:` or `https:` and it does not start with `http://` or
+   `https://` (another letter case, or no `//`); Redocly would read it as a file below the
+   document's folder, so no ignore entry of `redocly lint` can name it, and its name stays the
+   normal form. Every other `$ref` gets Redocly's name. In a remote document Redocly resolves
+   relative `$ref`s with `new URL()` already, so both rules give the same URL there. The host
+   limit, the local root check and `local-ref-from-remote` parse the name as before.
+2. **The same document written two ways is two documents, as in `redocly lint`.**
+   `http://LocalHost/pet.yaml` and `http://localhost/pet.yaml` are linted, counted against the
+   remote document limit and listed in the ignore file once each, as for a redirect (item 3 of the 2026-11-12
+   amendment); the bundle still makes one component of them, since Redocly's bundler reuses a
+   component with the same name and the same content. Naming both by their normal form was
+   rejected: the ignore file would then match neither, and messages would name a URL that
+   `redocly lint` does not show.
+3. **A `$ref`'s name is hidden as one URL.** A name as written may hold a space or a quote
+   (`http://host/my pet.yaml?key=…`), which end a URL for the redaction of free text, so the query
+   after them showed in messages. Where the loader puts a document's name in a message (a
+   problem's `in <document>`, a refusal, the `details.source`, `details.ref` and `details.base`)
+   it hides the secrets of the name as a whole (`redactLocationSecrets`), and Redocly's load
+   errors (`Failed to load <ref>: 404`) have the known name replaced by its hidden form.
