@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   fileRefPath,
   isRemoteRef,
+  remoteRefUrl,
   unreadableRefRefusal,
 } from "../../../src/adapters/redocly-loader/ref-urls.js";
 
@@ -69,5 +70,29 @@ describe("unreadableRefRefusal", () => {
     ["an s3: URL in a remote document", "s3://bucket/pet.yaml", REMOTE_BASE],
   ])("unreadableRefRefusal with %s is undefined", (_, ref, base) => {
     expect(unreadableRefRefusal(base, ref)).toBeUndefined();
+  });
+});
+
+describe("remoteRefUrl", () => {
+  it.each([
+    ["http:127.0.0.1:8080/pet.yaml", BASE, "http://127.0.0.1:8080/pet.yaml"],
+    ["https:pet.yaml", BASE, "https://pet.yaml/"],
+    ["HTTPS://Example.com/pet.yaml", BASE, "https://example.com/pet.yaml"],
+    ["https://example.com/pet.yaml#/Pet", BASE, "https://example.com/pet.yaml#/Pet"],
+    ["http:pet.yaml", "http://example.com/specs/api.yaml", "http://example.com/specs/pet.yaml"],
+    ["http:api.yaml", null, "http://api.yaml/"],
+  ])("remoteRefUrl with %s in %s is the URL the schema argument names, %s", (ref, base, expected) => {
+    expect(remoteRefUrl(base, ref)).toBe(expected);
+  });
+
+  it.each(["./pet.yaml", "a:b.yaml", "ab:c.yaml", "C:/specs/pet.yaml", "file:pet.yaml", "s3://bucket/pet.yaml"])(
+    "remoteRefUrl with %s is undefined",
+    (ref) => {
+      expect(remoteRefUrl(BASE, ref)).toBeUndefined();
+    },
+  );
+
+  it("remoteRefUrl with an http URL that does not parse throws the URL parser's error", () => {
+    expect(() => remoteRefUrl(BASE, "http://[::1/pet.yaml")).toThrow(TypeError);
   });
 });
