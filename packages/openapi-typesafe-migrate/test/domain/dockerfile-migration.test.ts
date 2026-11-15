@@ -183,7 +183,7 @@ describe("migrateDockerfile and variables", () => {
 
   it("migrateDockerfile renames the default word of an ARG or ENV value once", () => {
     const text = lines(
-      `ARG A=${braced("A:-npx openapi-typescript")}`,
+      `ARG A="${braced("A:-npx openapi-typescript")}"`,
       `ENV B="${braced("B:-npx openapi-typescript")}" C=x`,
       `ENV D ${braced("D:-npx openapi-typescript")}`,
       `ENV E "npx openapi-typescript"`,

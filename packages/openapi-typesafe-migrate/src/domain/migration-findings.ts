@@ -127,6 +127,8 @@ export type ManualStep =
   | { readonly kind: "pinned-package"; readonly location: string; readonly name: string }
   | { readonly kind: "old-package-file"; readonly location: string; readonly path: string }
   | { readonly kind: "old-name-in-command"; readonly location: string; readonly word: string }
+  /** An old flag of the generator whose characters quotes split where it is written. */
+  | { readonly kind: "split-flag"; readonly location: string; readonly flag: string }
   /** A CI step whose `shell` is a program the tool does not read (`shell: python`). */
   | { readonly kind: "script-not-shell"; readonly location: string; readonly shell: string }
   | { readonly kind: "command-string"; readonly line: number; readonly to: string }

@@ -1,7 +1,7 @@
 import type { AppendedValue } from "./argument-findings.js";
 import { type FileVariables, runsGenerator, type VariableProgramUse } from "./file-variables.js";
 import { assignmentValue, type ShellAssignment, shellAssignments } from "./shell-assignments.js";
-import { type ShellCommand, shellCommands } from "./shell-words.js";
+import { placedCommands, type ShellCommand } from "./shell-words.js";
 import { type AppendedPlace, appendedPlace } from "./variable-programs.js";
 
 /**
@@ -74,8 +74,28 @@ export const isOwnGeneratorCommand = (
 
 /** The commands that the appended text of an assignment holds, placed where they are written. */
 function appendedText(assignment: ShellAssignment): ShellCommand[] {
-  const value = assignmentValue(assignment);
-  return shellCommands(value.text).map((words) => words.map(value.place));
+  return placedCommands(assignmentValue(assignment));
+}
+
+/** Whether an assignment appends a command that runs the generator to a value from outside. */
+export const appendsOwnGenerator = ({ assignment, place }: PlacedAssignment): boolean =>
+  isOwnGeneratorCommand(place, appendedText(assignment)[0]);
+
+/**
+ * Whether an assignment says what its variable's program may be: one that sets a value, and any
+ * `+=` after it or after an appended command that runs the generator itself
+ * (`H+="npx openapi-typescript"`, then `H+=" -it"`), which may start the value. Text appended
+ * only to a value from outside the text says nothing of the program, however many times: the
+ * environment or the file's own variables give it.
+ */
+export function setsKnownProgram(
+  placed: PlacedAssignment,
+  all: readonly PlacedAssignment[],
+): boolean {
+  const chain = all
+    .slice(0, all.indexOf(placed) + 1)
+    .filter((earlier) => earlier.assignment.name === placed.assignment.name);
+  return chain.some((part) => part.place !== "after-outside" || appendsOwnGenerator(part));
 }
 
 /** The appended values of a shell text, read as the arguments after their variables. */
@@ -85,7 +105,7 @@ export function shellAppends(
 ): ShellAppends {
   const appends = placedAssignments(commands)
     .filter(isAfterValue)
-    .filter(({ assignment, place }) => !isOwnGeneratorCommand(place, appendedText(assignment)[0]))
+    .filter((placed) => !appendsOwnGenerator(placed))
     .map(({ assignment }) => shellAppend(assignment, variables));
   const taken = new Set(appends.flatMap(({ command }) => (command === undefined ? [] : [command])));
   const isTaken = (command: ShellCommand): boolean =>

@@ -7,7 +7,7 @@ import {
   holdsCommandLine,
   shellAssignments,
 } from "../../src/domain/shell-assignments.js";
-import { type ShellWord, shellCommands } from "../../src/domain/shell-words.js";
+import { placedCommands, type ShellWord, shellCommands } from "../../src/domain/shell-words.js";
 
 const lines = (...parts: string[]): string => `${parts.join("\n")}\n`;
 const shell = (name: string): string => ["$", name].join("");
@@ -19,8 +19,7 @@ function placedWords(text: string): ShellWord[] {
   if (assignment === undefined) {
     return [];
   }
-  const value = assignmentValue(assignment);
-  return shellCommands(value.text).flat().map(value.place);
+  return placedCommands(assignmentValue(assignment)).flat();
 }
 
 /** The words of the value of the first assignment of `text`: each value and its text as written. */

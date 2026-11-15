@@ -53,6 +53,10 @@ the same map (Compose, GitLab, CircleCI) and Kubernetes `args` after a `command`
 same way; when both are lists, they are one exec-form command, the entrypoint first
 (`entrypoint: ["npx"]` with `command: ["openapi-typescript", "-it"]`, or `command: ["/bin/sh",
 "-c"]` with its script in `args`), and Compose's `$$GEN` there is the container's `$GEN`. A
+GitHub Docker action's `args` after its `entrypoint` are read the same way, and so are keys that
+a merge key (`<<: *gen`) gives. After an init program or an entrypoint script that runs its
+command (`["tini", "--"]`, `["dumb-init", "--"]`, `["docker-entrypoint.sh"]`), a command that
+runs the generator itself is migrated as its own command. A
 Makefile variable that holds the generator (`OAT :=
 openapi-typescript`, also for some targets only, and `GEN := $(OAT)`) is renamed where it is set,
 and the flags after `$(OAT)` (or `$G` for a one-letter name) where it runs; so is an `env` variable
@@ -69,9 +73,11 @@ as a command line where it is written: in a value that just computes
 command line can set it) may run another program, so the flags after them are reported. A shell variable that a script, a `run` block or a package.json
 script sets itself (`GEN="npx openapi-typescript"`, also after `export`, `local` or `readonly`,
 and written with a backslash or in several quoted parts, `GEN=npx\ openapi-typescript`, which
-is read as the shell reads it) is renamed where it is set, and the flags after `$GEN` where it
+is read as the shell reads it; the same holds for a Dockerfile `ENV` value with Docker's escape
+character and for the script of `sh -c` however it is quoted; a flag in quotes, `"-it"`, is
+renamed, and a name or flag that quotes split, `-i't'`, is reported) is renamed where it is set, and the flags after `$GEN` where it
 runs. A command line passed to a program as a variable (`cross-env GEN="npx openapi-typescript
--it" node gen.js`, `env GEN="…" make`, `$(MAKE) GEN="…"`) is migrated where it is written. Text
+-it" node gen.js`, `env GEN="…" make`, `$(MAKE) GEN="…"` or `GEN:="…"`) is migrated where it is written. Text
 appended to a variable the file does not set before is the value when it runs the generator
 itself (`H+="npx openapi-typescript"`, a Makefile `GEN += npx openapi-typescript`), so it is
 migrated where it is written. Text appended to such a

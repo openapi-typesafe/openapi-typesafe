@@ -160,17 +160,58 @@ export const AZURE_PIPELINES_FILE: YamlCommandFile = {
 
 /**
  * A GitHub Actions expression that reads one `env` variable: `${{ env.NAME }}`. The runner puts its
- * value into the command before the shell runs, as the shell expands `$NAME`.
+ * value into the command before the shell runs, as the shell expands `$NAME`. Every file kind
+ * reads it.
  */
 const ENV_EXPRESSION_RE = /\$\{\{[ \t]*env\.([A-Za-z_][A-Za-z0-9_]*)[ \t]*\}\}/g;
+const WORKFLOW_ENVIRONMENT: YamlEnvironment = {
+  ...PLAIN,
+  keys: new Set(),
+  reference: ENV_EXPRESSION_RE,
+};
 
 /** A reference read as `$NAME`, padded with blanks so that every offset stays. */
 const asShellVariable = (reference: string, name: string): string =>
   `$${name}`.padEnd(reference.length, " ");
 
+/** The YAML file kinds, each with the references its tool replaces. */
+const YAML_FILE_KINDS: readonly YamlCommandFile[] = [
+  DEFAULT_YAML_FILE,
+  GITLAB_CI_FILE,
+  CI_ENVIRONMENT_FILE,
+  CIRCLECI_FILE,
+  COMPOSE_FILE,
+  TASKFILE,
+  AZURE_PIPELINES_FILE,
+];
+
+/** The name of the variable that a match of a reference names, as the shell reads it. */
+const referencedName = (environment: YamlEnvironment, groups: readonly unknown[]): string =>
+  environment.shellName(
+    groups.find((part): part is string => typeof part === "string") ?? "",
+    VARIABLES_KEY,
+  );
+
 /**
- * How a file's tool replaces references: its environment, the variables the file sets, and how
- * it names its parameters.
+ * The variables that the references of a text name, as the shell reads them, by the references
+ * of every file kind's tool (`{{.GEN}}`, `$(gen)`, `${{ variables.gen }}`) and the workflow
+ * expressions (`${{ env.GEN }}`): a file that one of them includes can name a variable that way.
+ */
+export function referencedVariables(text: string): string[] {
+  const environments = [...YAML_FILE_KINDS.map((kind) => kind.environment), WORKFLOW_ENVIRONMENT];
+  return environments.flatMap((environment) =>
+    environment.reference === undefined
+      ? []
+      : [...text.matchAll(environment.reference)].map((match) =>
+          referencedName(environment, match.slice(1)),
+        ),
+  );
+}
+
+/**
+ * How a file's tool replaces references: its environment, the variables set for it (by the file,
+ * and to the generator by the other YAML files of the project, which reach a file they include),
+ * and how it names its parameters.
  */
 export interface VariableReferences {
   readonly environment: YamlEnvironment;
@@ -180,13 +221,12 @@ export interface VariableReferences {
 
 /** The references of the file's tool in `text` read as `$NAME`, where the tool replaces them. */
 function withToolReferences(text: string, { environment, names }: VariableReferences): string {
-  const { reference, shellName } = environment;
+  const { reference } = environment;
   if (reference === undefined) {
     return text;
   }
   return text.replace(reference, (written: string, ...groups: unknown[]) => {
-    const group = groups.find((part): part is string => typeof part === "string") ?? "";
-    const name = shellName(group, VARIABLES_KEY);
+    const name = referencedName(environment, groups);
     return names.has(name) ? asShellVariable(written, name) : written;
   });
 }

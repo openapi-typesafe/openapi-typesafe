@@ -47,9 +47,15 @@ export const windowsSuffix = (value: string): string =>
 export const withoutWindowsSuffix = (value: string): string =>
   value.slice(0, value.length - windowsSuffix(value).length);
 
-/** The name of a word of a launcher or installer: `npx` of `npx.cmd`. */
+/** The folders of a path before the program it names: `/usr/bin/` of `/usr/bin/env`. */
+const FOLDERS_RE = /^.*[/\\]/;
+
+/**
+ * The name of a word of a launcher or installer: `npx` of `npx.cmd`, `tini` of `/sbin/tini`. A
+ * container image runs its init program by its path, and a shell finds `/usr/bin/env` as `env`.
+ */
 const entryWord = (word: ShellWord | undefined): string | undefined =>
-  word === undefined ? undefined : withoutWindowsSuffix(word.value);
+  word === undefined ? undefined : withoutWindowsSuffix(word.value.replace(FOLDERS_RE, ""));
 
 /** The first entry whose words start the command at `index`. */
 function matchingPrefix<T extends { readonly words: readonly string[] }>(

@@ -152,6 +152,14 @@ export const LAUNCHERS: readonly Launcher[] = [
   launcher(["xargs"], NONE, XARGS_OPTIONS),
   launcher(["nohup"]),
   launcher(["sudo"], NONE, new Set(["-u", "-g"])),
+  // The init programs of containers run their arguments as the container's command, so an
+  // entrypoint `["tini", "--"]` gives the generator the command's flags.
+  launcher(["tini"], NONE, new Set(["-p", "-e"])),
+  launcher(["docker-init"], NONE, new Set(["-p", "-e"])),
+  launcher(["dumb-init"], NONE, new Set(["-r", "--rewrite"])),
+  launcher(["catatonit"]),
+  withOperands(["gosu"], 1),
+  withOperands(["su-exec"], 1),
   // The shell form of Dockerfile instructions runs the rest of the line in a shell.
   launcher(["RUN"], NONE, new Set(["--mount", "--network", "--security"])),
   launcher(["CMD"]),

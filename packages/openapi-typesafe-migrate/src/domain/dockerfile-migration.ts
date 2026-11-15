@@ -4,11 +4,19 @@ import {
   migrateCommand,
   textFindings,
 } from "./command-migration.js";
-import { type ExecForm, entrypointCommandFindings } from "./dockerfile-entrypoints.js";
-import { shellScript } from "./entrypoint-arguments.js";
+import {
+  type ExecForm,
+  type ExecPair,
+  entrypointCommandFindings,
+  entrypointPairs,
+} from "./dockerfile-entrypoints.js";
+import { type VariableInstruction, variableInstructions } from "./dockerfile-variables.js";
+import { containerCommand } from "./entrypoint-arguments.js";
 import { lineLocator, type ManualStep } from "./migration-findings.js";
+import { shellScript } from "./shell-scripts.js";
 import { shellVariables } from "./shell-variables.js";
 import {
+  placedCommands,
   type ShellCommand,
   type ShellWord,
   shellCommands,
@@ -36,11 +44,6 @@ const QUOTED_RE = /"(?:[^"\\\n]|\\.)*"/y;
 const ITEM_SEPARATOR = ",";
 const NOT_LINE_BREAK_RE = /[^\n]/g;
 const ARRAY_END = "]";
-/** Instructions that set variables which later shell-form commands expand (`$GEN`). */
-const VARIABLE_INSTRUCTIONS: ReadonlySet<string> = new Set(["ARG", "ENV"]);
-const LEGACY_ENV_INSTRUCTION = "ENV";
-const ASSIGNMENT = "=";
-const QUOTES: ReadonlySet<string> = new Set(['"', "'"]);
 
 /** Where a pattern with the sticky flag matches at `index`, or undefined. */
 function matchAt(pattern: RegExp, text: string, index: number): string | undefined {
@@ -105,10 +108,19 @@ interface ExecCommands {
   readonly escaped: readonly ShellWord[];
 }
 
-function execCommands(forms: readonly ExecForm[]): ExecCommands {
+/**
+ * The commands of the exec-form arrays: each array, except a `CMD` that an exec-form entrypoint
+ * gets as arguments, which is read with it as the container runs them.
+ */
+function execCommands(forms: readonly ExecForm[], pairs: readonly ExecPair[]): ExecCommands {
+  const paired = new Set(pairs.map((pair) => pair.command));
   const commands: ShellCommand[] = [];
   const escaped: ShellWord[] = [];
-  for (const { words } of forms) {
+  const read = [
+    ...forms.filter((form) => !paired.has(form)).map((form) => form.words),
+    ...pairs.flatMap((pair) => containerCommand(pair.entrypoint.words, pair.command.words)),
+  ];
+  for (const words of read) {
     commands.push(words);
     const script = shellScript(words);
     if (script !== undefined && script.raw === script.value) {
@@ -117,7 +129,9 @@ function execCommands(forms: readonly ExecForm[]): ExecCommands {
       escaped.push(script);
     }
   }
-  return { commands, escaped };
+  // An entrypoint that several commands are read with holds its script once.
+  const scripts = new Map(escaped.map((script) => [script.start, script]));
+  return { commands, escaped: [...scripts.values()] };
 }
 
 /** The text with the arrays blanked out, line breaks kept, so the shell reads the rest. */
@@ -145,65 +159,6 @@ function escapedScriptSteps(scripts: readonly ShellWord[], lineOf: (offset: numb
   });
 }
 
-/** A variable that `ARG` or `ENV` sets: its name, and its value as written at its offset. */
-interface DockerVariable {
-  readonly name: string;
-  readonly value: string;
-  readonly start: number;
-}
-
-/** The variable of one `NAME=value` word, its quotes taken off, or undefined. */
-function assignedVariable(word: ShellWord): DockerVariable | undefined {
-  const at = word.raw.indexOf(ASSIGNMENT);
-  if (at <= 0) {
-    return undefined;
-  }
-  const raw = word.raw.slice(at + 1);
-  const isQuoted = raw.length >= 2 && QUOTES.has(raw[0] as string) && raw.at(-1) === raw[0];
-  const value = isQuoted ? raw.slice(1, -1) : raw;
-  const start = word.start + at + 1 + (isQuoted ? 1 : 0);
-  return { name: word.raw.slice(0, at), value, start };
-}
-
-/** An `ARG` or `ENV` instruction: where it is in the text, and the variables it sets. */
-interface VariableInstruction {
-  readonly start: number;
-  readonly end: number;
-  readonly variables: readonly DockerVariable[];
-}
-
-/**
- * The variables of one instruction: `ARG NAME=value`, `ENV NAME=value …`, and `ENV NAME value`,
- * the legacy form that sets one variable to the rest of the line.
- */
-function instructionVariables(text: string, words: readonly ShellWord[]): DockerVariable[] {
-  const [instruction, first, ...rest] = words as [ShellWord, ShellWord, ...ShellWord[]];
-  const last = rest.at(-1);
-  if (instruction.value === LEGACY_ENV_INSTRUCTION && !first.raw.includes(ASSIGNMENT)) {
-    const value = last === undefined ? "" : text.slice(rest[0]?.start, last.end);
-    return [{ name: first.value, value, start: rest[0]?.start ?? first.end }];
-  }
-  return [first, ...rest].flatMap((word) => assignedVariable(word) ?? []);
-}
-
-/** The `ARG` and `ENV` instructions among the shell-form commands of a Dockerfile. */
-function variableInstructions(
-  text: string,
-  commands: readonly ShellCommand[],
-): VariableInstruction[] {
-  return commands.flatMap((words): VariableInstruction[] => {
-    const [instruction, first] = words;
-    if (instruction === undefined || first === undefined) {
-      return [];
-    }
-    if (!VARIABLE_INSTRUCTIONS.has(instruction.value)) {
-      return [];
-    }
-    const end = (words.at(-1) as ShellWord).end;
-    return [{ start: instruction.start, end, variables: instructionVariables(text, words) }];
-  });
-}
-
 /**
  * The shell-form commands that are not `ARG` or `ENV` instructions, nor read inside one. Docker,
  * not a shell, reads those: their values are read once, as the commands that `$NAME` runs, so
@@ -222,9 +177,6 @@ function withoutVariableInstructions(
   return commands.filter((words) => !isInInstruction(words));
 }
 
-const valueCommands = ({ value, start }: DockerVariable): ShellCommand[] =>
-  shellCommandsAt(value, start);
-
 /**
  * Migrate the commands of a Dockerfile: exec-form arrays word by word, everything else as shell
  * text, with the values of `ARG` and `ENV` variables as commands that `$NAME` runs. Each finding
@@ -234,17 +186,19 @@ export function migrateDockerfile(text: string, file: string): CommandMigration 
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const forms = execForms(text);
-  const exec = execCommands(forms);
+  const pairs = entrypointPairs(text, forms);
+  const exec = execCommands(forms, pairs);
   const shellForm = shellCommands(withoutExecForms(text, forms));
   const instructions = variableInstructions(text, shellForm);
   // A value that runs the generator is migrated where it is set, its flags where it is used.
-  const definitions = instructions.flatMap((instruction) => instruction.variables);
-  const values = definitions.flatMap(valueCommands);
+  const variables = instructions.flatMap((instruction) => instruction.variables);
+  const definitions = variables.map(({ name, value }) => ({ name, value: value.text }));
+  const values = variables.flatMap(({ value }) => placedCommands(value));
   const run = withoutVariableInstructions(shellForm, instructions);
   const commands = [...run, ...values, ...exec.commands];
   const found = commandWordFindings(commands, locate, shellVariables(definitions));
-  // The items of a CMD are the arguments of the entrypoint, so their flags may be the generator's.
-  const entry = textFindings(entrypointCommandFindings(text, forms, locate));
+  // A shell script entrypoint gets the items of a CMD as arguments, and may pass their flags on.
+  const entry = textFindings(entrypointCommandFindings(pairs, locate));
   const edits = [...found.edits, ...entry.edits];
   const changes = [...found.changes, ...entry.changes];
   const steps = [...found.manualSteps, ...entry.manualSteps];

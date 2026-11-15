@@ -737,6 +737,41 @@ still run the old generator or pass it an old flag silently; migrate, or report.
   is a range and gets the new version; text appended to a variable set outside the file that
   runs the generator itself is migrated where it is written.
 
+## Amendment (2026-11-14): the tenth review of the migration tool
+
+The rc.11 hunt found container commands that rc.11 reported where rc.10 migrated them, and
+values whose words the tool read in a different place than the shell or Docker. The rule holds:
+migrate, or report; and never rename the flags of a program that is not ours.
+
+- **Each character is placed where it is written.** A text that is read again as a command line
+  (an assignment's value, the `-c` script of a shell however it is quoted, an `ENV` value) keeps
+  the file offset of each character after quote removal (`domain/word-places.ts`, the `written`
+  offsets of a `ShellWord`). A name or flag in one piece is edited there; one that quotes or
+  escapes split (`-i't'`, `openapi-'"'"'typescript`) has no single place, so it is reported (a
+  new `split-flag` step for a flag). Flags are read after quote removal, so `"-it"` is renamed.
+  Docker reads `ARG` and `ENV` with its own word rules and escape character (`# escape=`), not
+  the shell's (`domain/dockerfile-variables.ts`); it does not keep `${…}` whole when it splits
+  words, so a blank in an unquoted default is a broken Dockerfile, not a value.
+- **A container runs its command after an init program.** `tini`, `docker-init`, `dumb-init`,
+  `catatonit`, `gosu` and `su-exec` are launchers, found by the basename of their path
+  (`/sbin/tini`). When the command runs the generator itself and the entrypoint runs its
+  command (anything but a shell script that does not run `"$@"`), the command is its own command
+  (`containerCommand`, `domain/entrypoint-arguments.ts`); otherwise the two are joined as before.
+  This brings back the rc.10 result for `["docker-entrypoint.sh"]` and `["tini", "--"]`.
+- **The keys of a container are paired in their map.** Docker actions pair `entrypoint` with
+  `args`, YAML merge keys (`<<: *gen`) give keys the map's own keys override (the first map of a
+  merge list wins), and a key repeated in the same map path starts a new document. A place that
+  two pairings read is one change (`textFindings` keeps each finding once).
+- **Appends and arguments.** `+=` to a value from outside says what the program is only when
+  the appended text runs the generator; flags appended after it are then reported, never kept
+  silently. Make reads `GEN:=`, `::=`, `:::=`, `?=`, `!=` and `+=` arguments as assignments, as
+  it reads `GEN=`. A `node_modules/.bin/openapi-typescript` program runs the generator.
+- **References in included files.** The variables that a project's YAML files set to the
+  generator reach the files they include in every reference form of the file kinds
+  (`{{.GEN}}`, Azure `$(gen)`, `${{ variables.gen }}`), so the flags after them are reported.
+- **Options with no value.** `openapiTS(spec, undefined)` and `openapiTS(spec, void 0)` pass no
+  options, as a call without them does, unless the file declares its own `undefined`.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

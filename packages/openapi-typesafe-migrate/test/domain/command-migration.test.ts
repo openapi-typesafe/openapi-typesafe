@@ -256,7 +256,7 @@ describe("migrateCommand on the words of each command", () => {
     ).toBe(`sh -c "openapi-typesafe a --immutable" && concurrently 'npx openapi-typesafe b'`);
   });
 
-  it("migrateCommand leaves words that only contain a name, and quoted flags", () => {
+  it("migrateCommand leaves words that only contain a name", () => {
     for (const script of [
       "echo openapi-typescript",
       "openapi-typescript'x' a",
@@ -269,7 +269,6 @@ describe("migrateCommand on the words of each command", () => {
     ]) {
       expect(text(script)).toBe(script);
     }
-    expect(text("openapi-typescript a '-it'")).toBe("openapi-typesafe a '-it'");
   });
 });
 

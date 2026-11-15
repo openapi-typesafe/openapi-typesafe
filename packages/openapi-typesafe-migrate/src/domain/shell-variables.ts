@@ -1,4 +1,9 @@
-import { isAfterValue, placedAssignments } from "./appended-assignments.js";
+import {
+  appendsOwnGenerator,
+  isAfterValue,
+  placedAssignments,
+  setsKnownProgram,
+} from "./appended-assignments.js";
 import { commandRoles } from "./command-roles.js";
 import { type FileVariables, runsGenerator, type VariableProgramUse } from "./file-variables.js";
 import { type WordExpansion, wholeWordExpansion, wordExpansions } from "./parameter-expansions.js";
@@ -13,12 +18,15 @@ import { isWholeExpression } from "./workflow-expressions.js";
 
 /**
  * A shell variable as a file sets it: its name and its value, read as shell text. An appended
- * value (`G+=" -it"`) sets no program of its own: the variable keeps the one it has.
+ * value (`G+=" -it"`) sets no program of its own: the variable keeps the one it has. A command
+ * appended to a value from outside the text (`G+="npx openapi-typescript"`) runs after whatever
+ * that value is, so the run decides the program.
  */
 export interface VariableDefinition {
   readonly name: string;
   readonly value: string;
   readonly isAppended?: boolean;
+  readonly isAfterOutside?: boolean;
 }
 
 /** A whole word that expands one shell variable: `$NAME`, `${NAME}`, also in double quotes. */
@@ -71,8 +79,12 @@ function expansionDefinitions(name: string, expansion: WordExpansion): ProgramDe
 }
 
 /** A definition as the programs it can set: references to variables, or commands. */
-function programDefinitions({ name, value, isAppended }: VariableDefinition): ProgramDefinition[] {
-  if (isAppended === true) {
+function programDefinitions(definition: VariableDefinition): ProgramDefinition[] {
+  const { name, value } = definition;
+  if (definition.isAfterOutside === true) {
+    return [{ name, kind: "run-time" }];
+  }
+  if (definition.isAppended === true) {
     return [{ name, kind: "no-program" }];
   }
   const expansion = wholeWordExpansion(value.trim());
@@ -144,14 +156,16 @@ export function withShellAssignments(
   commands: readonly ShellCommand[],
   file: FileVariables,
 ): FileVariables {
-  const assigned = placedAssignments(commands).flatMap((placed): VariableDefinition[] => {
-    const { assignment, place } = placed;
-    // A value appended to one from outside the text says nothing of the program: the file's
-    // variables or the environment give it.
-    if (isArrayAssignment(assignment) || place === "after-outside") {
+  const placed = placedAssignments(commands);
+  const assigned = placed.flatMap((entry): VariableDefinition[] => {
+    const { assignment } = entry;
+    if (isArrayAssignment(assignment) || !setsKnownProgram(entry, placed)) {
       return [];
     }
-    return [{ name: assignment.name, value: assignment.value, isAppended: isAfterValue(placed) }];
+    const { name, value } = assignment;
+    return appendsOwnGenerator(entry)
+      ? [{ name, value, isAfterOutside: true }]
+      : [{ name, value, isAppended: isAfterValue(entry) }];
   });
   const definitions = [...assigned, ...assignedByExpansions(commands)];
   if (definitions.length === 0) {

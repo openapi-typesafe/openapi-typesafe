@@ -262,6 +262,23 @@ describe("TypescriptCallbackRewriter", () => {
     });
   });
 
+  it.each([["undefined"], ["void 0"], ["(undefined as never)"]])(
+    "rewrite reads options %s as no options and reports nothing",
+    (options) => {
+      const text = lines(...HEADER, `openapiTS(schema, ${options});`);
+
+      expect(rewriter.rewrite(text, "gen.ts")).toEqual({ text, changes: [], manualSteps: [] });
+    },
+  );
+
+  it("rewrite reports options named by a declared undefined variable", () => {
+    const text = lines(...HEADER, "const undefined = load();", "openapiTS(schema, undefined);");
+
+    expect(rewriter.rewrite(text, "gen.ts").manualSteps).toEqual([
+      { kind: "options-not-inspected", line: 4 },
+    ]);
+  });
+
   it("rewrite leaves files that do not import the generator", () => {
     const text =
       'import openapiTS from "./local.js";\nimport "openapi-typesafe";\nimport type {} from 1;\nopenapiTS(s, { transform: () => x });\n';

@@ -13,6 +13,12 @@ export interface ShellWord {
   readonly value: string;
   /** The word as written: `"a b"` is `"a b"`. */
   readonly raw: string;
+  /**
+   * For a word read from a text after quote removal (`sh -c '…'"'"'…'`, `GEN="npx "a`) whose
+   * characters are not in one piece of the file: the offset of each character of `raw`.
+   * Otherwise `raw` is the text from `start` to `end` (word-places.ts).
+   */
+  readonly written?: readonly number[];
 }
 
 /** A simple command: the words between two control operators. */

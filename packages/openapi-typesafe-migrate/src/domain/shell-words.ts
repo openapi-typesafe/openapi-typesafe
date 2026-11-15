@@ -9,6 +9,7 @@ import {
   type ShellAssignment,
   shellAssignments,
 } from "./shell-assignments.js";
+import { SHELLS, shellScript } from "./shell-scripts.js";
 import {
   COMMAND_SEPARATORS,
   isLineContinuation,
@@ -18,6 +19,7 @@ import {
   WORD_BREAKS,
   wordPart,
 } from "./shell-word-parts.js";
+import { movedWord, type PlacedText, placedWord, rawText, unquotedRawText } from "./word-places.js";
 import { expressionLiterals } from "./workflow-expressions.js";
 
 export type { ShellCommand, ShellWord } from "./shell-word-parts.js";
@@ -108,24 +110,28 @@ const QUOTES: ReadonlySet<string> = new Set(["'", '"']);
 /** A quoted word with more than one word in it may be a command (`sh -c "…"`, `concurrently`). */
 const NESTED_COMMAND_RE = /[\s;&|()`]/;
 
-/**
- * The text inside the quotes of a word that is one quoted string holding a command line. The
- * inner text is read as written, so its offsets map one to one onto the outer text.
- */
-function nestedCommandText(word: ShellWord): string | undefined {
+/** Whether a word is one quoted string that holds a command line. */
+function isQuotedCommandLine(word: ShellWord): boolean {
   const quote = word.raw[0] as string;
   const isOneQuotedString =
     QUOTES.has(quote) &&
     word.raw.length > 1 &&
     word.raw.endsWith(quote) &&
     wordPart(word.raw, 0).end === word.raw.length;
-  return isOneQuotedString && NESTED_COMMAND_RE.test(word.value)
-    ? word.raw.slice(1, -1)
-    : undefined;
+  return isOneQuotedString && NESTED_COMMAND_RE.test(word.value);
 }
 
-/** Shells that run the script a here-document or a pipe gives them. */
-const SHELLS: ReadonlySet<string> = new Set(["sh", "bash", "dash", "ash", "zsh", "ksh"]);
+/**
+ * The command line inside a word, as the shell that runs it reads it: the quotes and escapes of
+ * the word taken off (`"X='npx openapi-typescript'; \$X a.yaml"` is `X='npx …'; $X a.yaml`),
+ * each character placed where it is written. The `-c` word of a shell is one, however it is
+ * quoted (`sh -c 'npx openapi-typescript '"'"'a.yaml'"'"''`); so is any word that is one quoted
+ * string holding a command line.
+ */
+function nestedCommandText(word: ShellWord, script: ShellWord | undefined): PlacedText | undefined {
+  return word === script || isQuotedCommandLine(word) ? unquotedRawText(word, 0) : undefined;
+}
+
 /** Docker's `RUN <<EOF` runs the here-document, or gives it to the command after its options. */
 const DOCKER_RUN = "RUN";
 /** A command that writes the here-document it reads as it is, so a pipe gives it on. */
@@ -178,13 +184,14 @@ function scriptsRunBy(top: TopLevel, index: number, command: ShellCommand): Here
   );
 }
 
-/** Moves the offsets of words found in a part of a text to offsets in the whole text. */
-const shifted = (words: readonly ShellWord[], offset: number): ShellWord[] =>
-  words.map((word) => ({ ...word, start: word.start + offset, end: word.end + offset }));
-
 /** The commands of `text`, which starts at `offset` of a larger text, by offsets in that one. */
 export function shellCommandsAt(text: string, offset: number, indent = 0): ShellCommand[] {
-  return shellCommands(text, indent).map((words) => shifted(words, offset));
+  return shellCommands(text, indent).map((words) => words.map((word) => movedWord(word, offset)));
+}
+
+/** The commands of a text read again as a command line, each word where it is written. */
+export function placedCommands(placed: PlacedText): ShellCommand[] {
+  return shellCommands(placed.text).map((words) => words.map((word) => placedWord(word, placed)));
 }
 
 /**
@@ -199,7 +206,7 @@ function expansionCommands(word: ShellWord): ShellCommand[] {
     expansions.every((expansion) => start < expansion.start || start >= expansion.expansionEnd),
   );
   return [...expansions, ...literals].flatMap((part) =>
-    shellCommandsAt(part.text, word.start + part.start),
+    placedCommands(rawText(word, part.start, part.text)),
   );
 }
 
@@ -215,12 +222,6 @@ function commandLineAssignments(command: ShellCommand): Map<ShellWord, ShellAssi
   return new Map(read.map((assignment) => [assignment.word, assignment]));
 }
 
-/** The commands of an assignment's value, placed where their words are written. */
-function valueCommands(assignment: ShellAssignment): ShellCommand[] {
-  const value = assignmentValue(assignment);
-  return shellCommands(value.text).map((words) => words.map(value.place));
-}
-
 /**
  * The command lines inside the words of a command: a quoted word that holds one, the value of an
  * assignment (`GEN="npx openapi-typescript"`), which runs where the variable is expanded, and
@@ -231,13 +232,16 @@ function valueCommands(assignment: ShellAssignment): ShellCommand[] {
 function innerCommands(command: ShellCommand): ShellCommand[] {
   const assignments = commandLineAssignments(command);
   const code = inlineCode(command)?.code;
+  const script = shellScript(command);
   return command.flatMap((word) => {
-    const inner = word === code ? undefined : nestedCommandText(word);
+    const inner = word === code ? undefined : nestedCommandText(word, script);
     if (inner !== undefined) {
-      return shellCommandsAt(inner, word.start + 1);
+      return placedCommands(inner);
     }
     const assignment = assignments.get(word);
-    return assignment === undefined ? expansionCommands(word) : valueCommands(assignment);
+    return assignment === undefined
+      ? expansionCommands(word)
+      : placedCommands(assignmentValue(assignment));
   });
 }
 
