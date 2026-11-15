@@ -51,13 +51,15 @@ function skipTrivia(text: string, index: number): number {
 }
 
 /**
- * The commands of a text without nested ones, the bodies of its here-documents, and the commands
- * whose output a pipe gives to the next one (`cat <<EOF | sh`).
+ * The commands of a text without nested ones, the bodies of its here-documents, the commands
+ * whose output a pipe gives to the next one (`cat <<EOF | sh`), and the here-documents whose body
+ * the text does not hold (it ends before their next line).
  */
 interface TopLevel {
   readonly commands: ShellWord[][];
   readonly heredocs: HeredocBody[];
   readonly pipes: ReadonlySet<number>;
+  readonly pending: readonly PendingHeredoc[];
 }
 
 /**
@@ -103,7 +105,7 @@ function topLevelCommands(text: string, indent: number): TopLevel {
       index = word.end;
     }
   }
-  return { commands, heredocs, pipes };
+  return { commands, heredocs, pipes, pending };
 }
 
 const QUOTES: ReadonlySet<string> = new Set(["'", '"']);
@@ -244,6 +246,10 @@ function innerCommands(command: ShellCommand): ShellCommand[] {
       : placedCommands(assignmentValue(assignment));
   });
 }
+
+/** The here-documents that a line opens: their bodies follow it (`RUN <<EOF` of a Dockerfile). */
+export const openHeredocs = (line: string): readonly PendingHeredoc[] =>
+  topLevelCommands(line, 0).pending;
 
 /**
  * The simple commands that `text` itself holds, without those that its words or here-documents

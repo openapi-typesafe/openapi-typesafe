@@ -1,19 +1,15 @@
-import type { ShellCommand } from "./shell-words.js";
+import type { DockerInstruction } from "./dockerfile-instructions.js";
 import type { PlacedText } from "./word-places.js";
 
 /**
  * The variables that `ARG` and `ENV` instructions of a Dockerfile set. Docker, not a shell, reads
- * them: it splits the instruction into words at blanks outside quotes and takes the quotes and
- * escapes off each word, with its escape character, `\` or the one the `# escape=` parser
- * directive sets (`# escape=` + "`" in Windows images). A later `RUN $GEN api.yaml` splits the
- * value into words again, so the value is read as a command line, each character placed where it
- * is written (word-places.ts).
+ * them: it splits the instruction (its lines joined, dockerfile-instructions.ts) into words at
+ * blanks outside quotes and takes the quotes and escapes off each word, with its escape
+ * character, `\` or the one the `# escape=` parser directive sets. A later `RUN $GEN api.yaml`
+ * splits the value into words again, so the value is read as a command line, each character
+ * placed where it is written (word-places.ts).
  */
 
-const DEFAULT_ESCAPE = "\\";
-/** A parser directive: `# name=value` on one of the first lines, before anything else. */
-const DIRECTIVE_RE = /^#[ \t]*([A-Za-z]+)[ \t]*=[ \t]*(\S+)[ \t]*$/;
-const ESCAPE_DIRECTIVE = "escape";
 const LINE_BREAK = "\n";
 const CARRIAGE_RETURN = "\r";
 const BLANKS: ReadonlySet<string> = new Set([" ", "\t", CARRIAGE_RETURN, LINE_BREAK]);
@@ -24,32 +20,7 @@ const DOUBLE_QUOTE_ESCAPES: ReadonlySet<string> = new Set([DOUBLE_QUOTE, "$"]);
 const ASSIGNMENT = "=";
 const VARIABLE_INSTRUCTIONS: ReadonlySet<string> = new Set(["ARG", "ENV"]);
 const LEGACY_ENV_INSTRUCTION = "ENV";
-
-/** The escape character of a Dockerfile, which its `escape` parser directive may set. */
-export function escapeCharacter(text: string): string {
-  for (const line of text.split(LINE_BREAK)) {
-    const directive = DIRECTIVE_RE.exec(line.replace(CARRIAGE_RETURN, ""));
-    if (directive === null) {
-      return DEFAULT_ESCAPE;
-    }
-    if (directive[1]?.toLowerCase() === ESCAPE_DIRECTIVE) {
-      return directive[2] as string;
-    }
-  }
-  return DEFAULT_ESCAPE;
-}
-
-/** Where the instruction that holds `index` ends: an escape at the end of a line continues it. */
-function instructionEnd(text: string, index: number, escapeMark: string): number {
-  for (let end = text.indexOf(LINE_BREAK, index); end !== -1; ) {
-    if (!text.slice(index, end).trimEnd().endsWith(escapeMark)) {
-      return end;
-    }
-    index = end + 1;
-    end = text.indexOf(LINE_BREAK, index);
-  }
-  return text.length;
-}
+const KEYWORD_RE = /^[ \t]*\S+/;
 
 /** A Docker word being read: its characters and where each is written. */
 interface WordBuilder {
@@ -62,14 +33,6 @@ const add = (word: WordBuilder, text: string, index: number): void => {
   word.offsets.push(index);
 };
 
-/** Whether an escape at `index` continues the line: only blanks after it, then a line break. */
-function isContinuation(text: string, index: number, escapeMark: string): boolean {
-  const lineEnd = text.indexOf(LINE_BREAK, index);
-  return (
-    text[index] === escapeMark && lineEnd !== -1 && text.slice(index + 1, lineEnd).trim() === ""
-  );
-}
-
 /** Whether the character at `index` of a double-quoted part escapes the next one. */
 function isQuotedEscape(text: string, index: number, escapeMark: string): boolean {
   const next = text[index + 1] ?? "";
@@ -81,12 +44,8 @@ function readQuoted(text: string, index: number, word: WordBuilder, escapeMark: 
   const quote = text[index];
   let at = index + 1;
   for (; at < text.length && text[at] !== quote; at++) {
-    if (isContinuation(text, at, escapeMark)) {
-      at = text.indexOf(LINE_BREAK, at);
-    } else {
-      at += quote === DOUBLE_QUOTE && isQuotedEscape(text, at, escapeMark) ? 1 : 0;
-      add(word, text, at);
-    }
+    at += quote === DOUBLE_QUOTE && isQuotedEscape(text, at, escapeMark) ? 1 : 0;
+    add(word, text, at);
   }
   return at + 1;
 }
@@ -125,9 +84,7 @@ function dockerWords(text: string, range: TextRange, escapeMark: string, isWhole
   const instruction = text.slice(0, range.end);
   let word: WordBuilder = { value: "", offsets: [] };
   for (let index = range.start; index < range.end; ) {
-    if (isContinuation(text, index, escapeMark)) {
-      index = text.indexOf(LINE_BREAK, index) + 1;
-    } else if (BLANKS.has(text[index] as string) && (!isWhole || word.value === "")) {
+    if (BLANKS.has(text[index] as string) && (!isWhole || word.value === "")) {
       word = endWord(word, words);
       index++;
     } else {
@@ -180,26 +137,26 @@ function instructionVariables(text: string, keyword: string, range: TextRange, e
   return [first, ...rest].flatMap(assignedVariable);
 }
 
-/** An `ARG` or `ENV` instruction: where it is in the text, and the variables it sets. */
-export interface VariableInstruction extends TextRange {
-  readonly variables: readonly DockerVariable[];
-}
+/** Whether an instruction sets variables (`ARG`, `ENV`), which Docker reads, not a shell. */
+export const isVariableInstruction = (keyword: string): boolean =>
+  VARIABLE_INSTRUCTIONS.has(keyword);
 
 /**
- * The `ARG` and `ENV` instructions that start the shell-form commands of a Dockerfile, each to
- * the end of its last continued line.
+ * The variables that the `ARG` and `ENV` instructions of a Dockerfile set, in order, each value
+ * placed where it is written in the file.
  */
-export function variableInstructions(
-  text: string,
-  commands: readonly ShellCommand[],
-): VariableInstruction[] {
-  const escapeMark = escapeCharacter(text);
-  return commands.flatMap(([keyword]): VariableInstruction[] => {
-    if (keyword === undefined || !VARIABLE_INSTRUCTIONS.has(keyword.value)) {
+export function dockerVariables(
+  instructions: readonly DockerInstruction[],
+  escapeMark: string,
+): DockerVariable[] {
+  return instructions.flatMap(({ keyword, text }) => {
+    if (!isVariableInstruction(keyword)) {
       return [];
     }
-    const range = { start: keyword.end, end: instructionEnd(text, keyword.end, escapeMark) };
-    const variables = instructionVariables(text, keyword.value, range, escapeMark);
-    return [{ start: keyword.start, end: range.end, variables }];
+    const range = { start: KEYWORD_RE.exec(text.text)?.[0].length ?? 0, end: text.text.length };
+    return instructionVariables(text.text, keyword, range, escapeMark).map(({ name, value }) => ({
+      name,
+      value: { text: value.text, offsets: value.offsets.map((at) => text.offsets[at] as number) },
+    }));
   });
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { escapeCharacter } from "../../src/domain/dockerfile-instructions.js";
 import { migrateDockerfile } from "../../src/domain/dockerfile-migration.js";
-import { escapeCharacter } from "../../src/domain/dockerfile-variables.js";
 
 const lines = (...parts: string[]): string => `${parts.join("\n")}\n`;
 const migrate = (text: string) => migrateDockerfile(text, "Dockerfile");
