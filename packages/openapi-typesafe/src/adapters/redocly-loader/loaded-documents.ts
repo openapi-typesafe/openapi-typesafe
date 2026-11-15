@@ -1,6 +1,6 @@
-import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { BaseResolver, Document } from "@redocly/openapi-core";
+import { isRemoteRef } from "./ref-urls.js";
 import type { LoadedDocument } from "./unsupported-keys.js";
 
 /** The documents one load read, from the Redocly resolver's cache. */
@@ -28,9 +28,13 @@ export async function loadedDocuments(
 
 /**
  * The local files the load read: the root, when it is a file, and every `$ref`'d file. Redocly
- * names a local document by its absolute path and a remote one by its URL. An inline root (a
- * string, object, buffer or stream) has a made-up path in the working directory, so it is left
- * out unless it was read from a file.
+ * names a remote document by its http(s) URL and reads any other name as a path, relative to
+ * the working directory if it is relative (as `pathToFileURL` resolves it), so every other name
+ * is a local file the run read.
+ * Keeping only absolute paths left out a root such as `s3://bucket/a.yaml`, which Redocly read
+ * as `./s3:/bucket/a.yaml`, and the CLI then overwrote it. An inline root (a string, object,
+ * buffer or stream) has a made-up path in the working directory, so it is left out unless it was
+ * read from a file.
  */
 export async function localFilesRead(
   root: Document,
@@ -40,7 +44,7 @@ export async function localFilesRead(
   const documents = await loadedDocuments(root, resolver);
   return documents
     .map(({ source }) => source)
-    .filter((source) => path.isAbsolute(source))
+    .filter((source) => !isRemoteRef(source))
     .filter((source) => isRootAFile || source !== root.source.absoluteRef)
     .map((source) => pathToFileURL(source));
 }

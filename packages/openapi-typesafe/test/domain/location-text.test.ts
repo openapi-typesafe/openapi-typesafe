@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runCli } from "../../src/cli/run-cli.js";
-import { hasUrlScheme } from "../../src/domain/location-text.js";
+import { hasUrlScheme, isReadScheme, urlSchemeOf } from "../../src/domain/location-text.js";
 import { createFakeCli, fakePath, fakeUrl } from "../fakes/cli-dependencies.js";
 
 describe("hasUrlScheme", () => {
@@ -25,6 +25,30 @@ describe("hasUrlScheme", () => {
     "out:v2//x.ts",
   ])("hasUrlScheme with %s is false", (location) => {
     expect(hasUrlScheme(location)).toBe(false);
+  });
+});
+
+describe("urlSchemeOf", () => {
+  it.each([
+    ["S3://b/a", "s3:"],
+    ["File:api.yaml", "file:"],
+    ["https://example.com/a.yaml", "https:"],
+    ["out:v2.ts", undefined],
+    ["C:/specs/a.yaml", undefined],
+  ])("urlSchemeOf with %s is %s", (location, scheme) => {
+    expect(urlSchemeOf(location)).toBe(scheme);
+  });
+});
+
+describe("isReadScheme", () => {
+  it.each([
+    ["file:", true],
+    ["http:", true],
+    ["https:", true],
+    ["s3:", false],
+    ["ftp:", false],
+  ])("isReadScheme with %s is %s", (scheme, expected) => {
+    expect(isReadScheme(scheme)).toBe(expected);
   });
 });
 

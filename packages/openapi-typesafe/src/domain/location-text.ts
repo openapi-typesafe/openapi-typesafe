@@ -30,6 +30,23 @@ export function hasUrlScheme(location: string): boolean {
   );
 }
 
+/**
+ * The scheme of a location written as a URL (`hasUrlScheme`), in lowercase (`s3:`); undefined
+ * for a file path. A `$ref` is read by the same rule, so `s3://bucket/a.yaml` is a URL there too.
+ */
+export function urlSchemeOf(location: string): string | undefined {
+  return hasUrlScheme(location) ? URL_SCHEME.exec(location)?.[0].toLowerCase() : undefined;
+}
+
+/**
+ * Whether the generator reads URLs of this scheme (`file:`, `http:`, `https:`, in lowercase, as
+ * `URL.protocol` writes it). Any other URL names nothing it can read: Redocly would take it for a
+ * path relative to the working directory, so `s3://bucket/a.yaml` read `./s3:/bucket/a.yaml`.
+ */
+export function isReadScheme(scheme: string): boolean {
+  return READ_SCHEMES.has(scheme);
+}
+
 /** Any whitespace: a URL holds none, and a YAML key needs it after its colon. */
 const WHITESPACE = /\s/;
 
