@@ -13,6 +13,7 @@ import {
   AT_LOCATION,
   type SchemaRequest,
   type SchemaRule,
+  type TypePlacement,
   type ValueAccess,
 } from "./schema-rule.js";
 
@@ -67,6 +68,7 @@ interface TransformCall {
   readonly parent?: SchemaObject | undefined;
   readonly isThroughRef: boolean;
   readonly isAtSharedLocation: boolean;
+  readonly typePlacement?: TypePlacement | undefined;
 }
 
 /** A schema the document transforms itself: walked, at a location of its own. */
@@ -86,6 +88,7 @@ function request(
     parent: call.parent,
     isThroughRef: call.isThroughRef,
     isAtSharedLocation: call.isAtSharedLocation,
+    typePlacement: call.typePlacement,
     // A schema nested in a `$ref` target is typed for that `$ref` too.
     transformNested: (nested, nestedLocation, nestedCall = {}) =>
       transformWithin(nested, nestedLocation, context, {
@@ -93,6 +96,7 @@ function request(
         parent: nestedCall.parent ?? schema,
         isThroughRef: call.isThroughRef || nestedCall.isThroughRef === true,
         isAtSharedLocation: nestedCall.isAtSharedLocation ?? call.isAtSharedLocation,
+        typePlacement: nestedCall.typePlacement ?? call.typePlacement,
       }),
   };
 }
@@ -144,4 +148,18 @@ export function transformSchema(
   valueAccess: ValueAccess = AT_LOCATION,
 ): IrType {
   return transformWithin(schema, location, context, { valueAccess, ...WALKED_ROOT });
+}
+
+/** `transformSchema` of a schema the generated types hold elsewhere (`TypePlacement`). */
+export function transformPlacedSchema(
+  schema: Schema | null | undefined,
+  location: SchemaLocation,
+  context: SchemaContext,
+  typePlacement: TypePlacement,
+): IrType {
+  return transformWithin(schema, location, context, {
+    valueAccess: AT_LOCATION,
+    ...WALKED_ROOT,
+    typePlacement,
+  });
 }

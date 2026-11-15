@@ -17,9 +17,12 @@ import {
   type PathItemObject,
   QUERY_METHOD,
 } from "../../../domain/openapi/path-item-object.js";
+import { FIX } from "../../../domain/output-fixes.js";
 import { indexBy, refType } from "../ref-type.js";
 import type { RefResolver } from "../schema/schema-context.js";
+import { transformPlacedSchema } from "../schema/schema-transform.js";
 import type { TransformContext } from "../transform-context.js";
+import { isExplodedQueryObject } from "./exploded-query.js";
 import { mergedParameters, type ParameterEntry, parameterEntries } from "./parameter-entries.js";
 
 /**
@@ -32,6 +35,9 @@ import { mergedParameters, type ParameterEntry, parameterEntries } from "./param
  *   fails (TS2339); it is wrapped in `NonNullable` before the name is indexed.
  * - An OpenAPI 3.2 `in: querystring` parameter is the whole `query` member (ADR-020), not a member
  *   `querystring`, so the pointer reads `["query"]`.
+ *
+ * - With `exploded-query-objects`, an exploded parameter is no member of `query`: its keys are.
+ *   Its type is its schema's, typed where its list types it, so it shares that list's enums.
  *
  * A `$ref` to a component parameter, or into a list the generator types elsewhere (a `$ref` path
  * item or operation, a callback), keeps the original type.
@@ -141,6 +147,35 @@ export function referencedParameterType(
   if (pointer === null || parameters === null) {
     return original;
   }
+  if (isExplodedQueryParameter(resolved, context)) {
+    return explodedType(pointer, resolved, context);
+  }
   const listType = refType(pointerTo(pointer.root, [...pointer.owner, "parameters"]));
   return correctedType(listType, parameterEntries(parameters, context), resolved) ?? original;
+}
+
+function isExplodedQueryParameter(parameter: ParameterObject, context: TransformContext): boolean {
+  return (
+    context.options.fixes.has(FIX.EXPLODED_QUERY_OBJECTS) &&
+    isExplodedQueryObject(parameter, context.refs)
+  );
+}
+
+/**
+ * The schema type of an exploded parameter, at the location its list types it at (a path item's
+ * list under one more `parameters`, as `pathItemType` passes it), with its keys under `query`.
+ */
+function explodedType(
+  pointer: ParameterListPointer,
+  parameter: ParameterObject,
+  context: TransformContext,
+): IrType {
+  const { root, owner } = pointer;
+  const listOwner = isPathItemAt(root, owner) ? [...owner, "parameters"] : owner;
+  const typePath = pointerTo(root, [...listOwner, "parameters", parameter.in]);
+  const path = appendPointer(typePath, [parameter.name]);
+  return transformPlacedSchema(parameter.schema, { path, schema: parameter }, context, {
+    locationPath: path,
+    typePath,
+  });
 }

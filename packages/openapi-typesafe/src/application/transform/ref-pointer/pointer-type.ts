@@ -1,11 +1,17 @@
 import { irReference } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
+import type { ParameterObject } from "../../../domain/openapi/parameter-object.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { FIX } from "../../../domain/output-fixes.js";
+import { isExplodedQueryObject } from "../document/exploded-query.js";
 import { InvalidRefError, refType } from "../ref-type.js";
 import type { RefResolver } from "../schema/schema-context.js";
 import { AT_LOCATION, type SchemaRequest, type ValueAccess } from "../schema/schema-rule.js";
-import { generatedLocationOf, type RecordOwner } from "./generated-location.js";
+import {
+  generatedLocationOf,
+  type IsExplodedParameter,
+  type RecordOwner,
+} from "./generated-location.js";
 import { hasInlineCycle } from "./inline-cycles.js";
 import { followRefs, isJsonObject } from "./located-node.js";
 import { originalIndexFails } from "./original-index.js";
@@ -66,7 +72,7 @@ function targetType(
     return null;
   }
   // Typed where the generator types the node, so it shares the node's enum (`--enum`).
-  const location = generatedLocationOf(ref, request.context.refs);
+  const location = generatedLocationOf(ref, request.context.refs, explodedParameters(request));
   return request.transformNested(
     target as never,
     { path: location.path, schema: target },
@@ -75,8 +81,23 @@ function targetType(
       parent: tupleHolderOf(pointer, request.context.refs),
       isThroughRef: true,
       isAtSharedLocation: location.isShared,
+      typePlacement: location.typePlacement,
     },
   );
+}
+
+/** The parameters whose keys are keys of `query` in this run (`exploded-query-objects`). */
+function explodedParameters({ context }: SchemaRequest): IsExplodedParameter {
+  if (!context.options.fixes.has(FIX.EXPLODED_QUERY_OBJECTS)) {
+    return () => false;
+  }
+  return (parameter) =>
+    isParameterObject(parameter) && isExplodedQueryObject(parameter, context.refs);
+}
+
+/** A parameter object as far as `isExplodedQueryObject` reads it; a `$ref` is none. */
+function isParameterObject(node: unknown): node is ParameterObject {
+  return isJsonObject(node) && typeof node.in === "string" && typeof node.name === "string";
 }
 
 /** How a target's type is read at its location, as `objectType` passes it down. */

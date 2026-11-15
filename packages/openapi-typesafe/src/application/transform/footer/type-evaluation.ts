@@ -18,9 +18,9 @@ import { extracted, markerObject, omitted } from "./type-rules.js";
 /**
  * A small evaluator of the generated types, as TypeScript reads them, for the `--enum-values`
  * check (ADR-027). It follows the declarations of the document and the helper types the generator
- * writes (`NonNullable`, `Extract`, `WithRequired`, `Omit`, `Record`, `FlattenedDeepRequired`). Its
- * answers are sure: a key is `missing` only where TypeScript reports it, and every type it does
- * not model is `opaque`, which never counts as an error.
+ * writes (`NonNullable`, `Extract`, `WithRequired`, `Omit`, `Record`, `Partial`,
+ * `FlattenedDeepRequired`). Its answers are sure: a key is `missing` only where TypeScript
+ * reports it, and every type it does not model is `opaque`, which never counts as an error.
  */
 
 /** How many references one evaluation expands; a deeper one is opaque. */
@@ -116,6 +116,10 @@ export class TypeEvaluator {
       case "WithRequired":
       case "Readonly":
         return argument;
+      case "Partial":
+        // `FlattenedDeepRequired` makes every key required and its value non-null again, so
+        // inside it `Partial<T>` is `T`; outside it each value may also be `undefined`.
+        return argument.deep ? argument : OPAQUE;
       case "Extract":
         return second === undefined ? OPAQUE : this.extract(argument, second);
       case "Record":

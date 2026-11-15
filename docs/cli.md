@@ -1066,6 +1066,10 @@ query?: Partial<components["schemas"]["GetPosts"]>; // [!code ++]
 - A schema is an object when its `type` is `object` (also with `null`), when it has object keywords
   and no `type`, or when every `allOf`, `anyOf` or `oneOf` member is one; `$ref`s are followed.
 - `style: deepObject`, `explode: false`, other styles and other locations keep the name.
+- What reads the parameter in the generated types reads it there too: an `--enum-values` array of
+  its schema is typed by `…["parameters"]["query"]["status"]`, and a `$ref` to the parameter in an
+  operation's or path item's list is typed by the parameter's schema (the list's `query` holds
+  its keys, not the parameter).
 - The default `querySerializer` of `openapi-typesafe-fetch` sends top-level primitive values as
   `key=value`, which is this format, so the client needs no other option.
 

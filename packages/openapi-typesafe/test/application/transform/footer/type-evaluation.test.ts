@@ -51,6 +51,10 @@ const SCHEMAS = irObject([
     irObject([irProperty({ kind: "identifier", text: "tags" }, irReadonly(irArray(text("f"))))]),
   ),
   irProperty(
+    { kind: "identifier", text: "Query" },
+    irReference("Partial", [irObject([irProperty({ kind: "identifier", text: "q" }, text("q"))])]),
+  ),
+  irProperty(
     { kind: "identifier", text: "Both" },
     irIntersection([
       irIndexedAccess(irIndexedAccess(irReference("components"), key("schemas")), key("A")),
@@ -101,6 +105,17 @@ describe("TypeEvaluator", () => {
     expect(evaluated(deep(key("schemas"), key("A"), key("x-y"), key("z")))).toBe("missing");
     expect(evaluated(deep(key("schemas"), key("A"), key("nope")))).toBe("missing");
     expect(evaluated(deep(key("schemas"), key("A"), key("tags"), irNumber(0)))).toBe('"t"');
+  });
+
+  it("evaluate reads Partial as its argument inside FlattenedDeepRequired only", () => {
+    const query = irIndexedAccess(
+      irIndexedAccess(irReference("components"), key("schemas")),
+      key("Query"),
+    );
+
+    expect(evaluated(deep(key("schemas"), key("Query"), key("q")))).toBe('"q"');
+    expect(evaluated(deep(key("schemas"), key("Query"), key("filter")))).toBe("missing");
+    expect(evaluated(irIndexedAccess(query, key("q")))).toBe("opaque");
   });
 
   it("evaluate reads helper types and leaves other shapes opaque", () => {
