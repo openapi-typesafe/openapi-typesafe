@@ -100,14 +100,18 @@ export default function openapiTS(
   source: SchemaSource,
   options?: GeneratorOptions,
 ): Promise<IrDeclaration[]>;
-// The same call with the options required. It adds no call that the signature above does not
-// take: it is last because `Parameters<typeof openapiTS>` reads the last signature, and a wrapper
-// typed from it must give inline callbacks their types. TypeScript picks a member of
-// `GeneratorOptions` by a key the object leaves out, but not of `GeneratorOptions | undefined`.
-/** Convert an OpenAPI schema to IR declarations, with either form of the options. */
+// The first signature again, last: `Parameters<typeof openapiTS>` and `ReturnType` read the last
+// signature, so a wrapper typed from them (`(...args: Parameters<typeof openapiTS>)`) takes what
+// openapi-typescript's one signature takes: the source alone, `undefined` options, and inline
+// callbacks with their types. It adds no call. A wrapper that takes either form of the options
+// types them as `GeneratorOptions`.
+/**
+ * Convert an OpenAPI schema to TypeScript declarations (IR nodes; print them with `astToString`)
+ * @param {string|URL|object|Readable} source OpenAPI schema source
+ */
 export default function openapiTS(
   source: SchemaSource,
-  options: GeneratorOptions,
+  options?: OpenAPITSOptions,
 ): Promise<IrDeclaration[]>;
 export default async function openapiTS(
   source: SchemaSource,

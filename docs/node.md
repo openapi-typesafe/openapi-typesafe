@@ -168,6 +168,19 @@ and `OpenAPITSIrOptions` (the IR form) are compatibility names; in 2.0 both beco
 of `GeneratorOptions`. In 2.0 `irCallbacks: true` is still accepted and does nothing, with a
 deprecation warning, so code that set it in 1.x keeps compiling; it is removed in 3.0.
 
+`Parameters<typeof openapiTS>` and `ReturnType<typeof openapiTS>` are those of openapi-typescript 7:
+`[source, options?: OpenAPITSOptions]` and `Promise` of the declarations, so a wrapper typed from
+them takes the TypeScript-node form only. A wrapper that takes the IR form (`irCallbacks: true`)
+types its options as `GeneratorOptions`. Make the parameter required: TypeScript does not pick the
+callback form of an optional one (`options?: GeneratorOptions`) by the keys of the object, so
+inline callbacks there have implicit `any` parameters.
+
+```ts
+import openapiTS, { type GeneratorOptions, type SchemaSource } from "openapi-typesafe";
+
+const generate = (source: SchemaSource, options: GeneratorOptions) => openapiTS(source, options);
+```
+
 ### IR callbacks
 
 With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, emits a Node.js `DeprecationWarning` (see [Deprecations](#deprecations)), and is removed in 2.0. The examples below use the IR form.

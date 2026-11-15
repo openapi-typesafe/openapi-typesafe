@@ -12,14 +12,22 @@ import { type FileBindings, GENERATOR_MODULES } from "./file-bindings.js";
 const TS_NODE_OPTIONS = "OpenAPITSOptions";
 const IR_OPTIONS = "OpenAPITSIrOptions";
 const TYPE_MODIFIER = "type ";
+const DEFAULT_EXPORT = "default";
+
+/** Whether an import type names the generator module (`import("openapi-typescript")`). */
+function importsGeneratorModule(node: ts.ImportTypeNode): boolean {
+  const { argument } = node;
+  return (
+    ts.isLiteralTypeNode(argument) &&
+    ts.isStringLiteral(argument.literal) &&
+    GENERATOR_MODULES.has(argument.literal.text)
+  );
+}
 
 /** `import("openapi-typescript").OpenAPITSOptions`: its `OpenAPITSOptions`, or undefined. */
 function importTypeName(node: ts.ImportTypeNode): ts.Identifier | undefined {
-  const { argument, qualifier } = node;
-  const isGeneratorModule =
-    ts.isLiteralTypeNode(argument) &&
-    ts.isStringLiteral(argument.literal) &&
-    GENERATOR_MODULES.has(argument.literal.text);
+  const { qualifier } = node;
+  const isGeneratorModule = importsGeneratorModule(node);
   const isOptions =
     !node.isTypeOf &&
     qualifier !== undefined &&
@@ -68,6 +76,41 @@ function optionsTypeName(node: ts.Node, bindings: FileBindings): ts.Identifier |
   return isGeneratorModule && parts.right.text === TS_NODE_OPTIONS ? parts.right : undefined;
 }
 
+/** Whether a `typeof` names the generator function: `openapiTS`, or `ns.default`. */
+function isGeneratorName(name: ts.EntityName, bindings: FileBindings): boolean {
+  if (ts.isIdentifier(name)) {
+    return bindings.bindingOf(name)?.kind === "generator-function";
+  }
+  return (
+    ts.isIdentifier(name.left) &&
+    bindings.bindingOf(name.left)?.kind === "generator-module" &&
+    name.right.text === DEFAULT_EXPORT
+  );
+}
+
+/**
+ * Whether a type is the type of the generator function (`typeof openapiTS`, `typeof ns.default`,
+ * `typeof import("openapi-typescript").default`). A type built from it
+ * (`Parameters<typeof openapiTS>[1]`) reads its last signature, whose options are
+ * `OpenAPITSOptions`, so it is a type built from `OpenAPITSOptions` too.
+ */
+function isGeneratorType(node: ts.Node, bindings: FileBindings): boolean {
+  if (ts.isTypeQueryNode(node)) {
+    return isGeneratorName(node.exprName, bindings);
+  }
+  if (!ts.isImportTypeNode(node)) {
+    return false;
+  }
+  const { qualifier } = node;
+  return (
+    node.isTypeOf &&
+    importsGeneratorModule(node) &&
+    qualifier !== undefined &&
+    ts.isIdentifier(qualifier) &&
+    qualifier.text === DEFAULT_EXPORT
+  );
+}
+
 /**
  * The declaration of a type of this file that a type reference or an `extends` names: an alias,
  * an interface or a JSDoc `@typedef`, or undefined.
@@ -80,8 +123,9 @@ function localTypeOf(node: ts.Node, bindings: FileBindings): ts.Node | undefined
 }
 
 /**
- * Whether a type names `OpenAPITSOptions` anywhere in it (`Partial<OpenAPITSOptions>`), also
- * through a type of this file (`type Opts = OpenAPITSOptions`), which the rewrite does not change.
+ * Whether a type names `OpenAPITSOptions` or the generator's type anywhere in it
+ * (`Partial<OpenAPITSOptions>`, `Parameters<typeof openapiTS>[1]`), also through a type of this
+ * file (`type Opts = OpenAPITSOptions`), which the rewrite does not change.
  */
 function mentionsOptionsType(
   node: ts.Node,
@@ -97,6 +141,7 @@ function mentionsOptionsType(
   return (
     (isNewLocal && mentionsOptionsType(local, bindings, seen)) ||
     optionsTypeName(node, bindings) !== undefined ||
+    isGeneratorType(node, bindings) ||
     (ts.forEachChild(node, mentions) ?? false)
   );
 }
