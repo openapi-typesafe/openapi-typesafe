@@ -65,6 +65,7 @@ describe("deep nesting", () => {
       deprecations: new RecordingDeprecations(),
       redoc: await defaultRedoclyConfig(),
       now: () => 0,
+      files: { isFile: () => false },
     };
 
     const generation = generateDeclarations(deep as never, { silent: true }, ports);

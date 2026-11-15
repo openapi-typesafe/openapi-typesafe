@@ -97,7 +97,7 @@ async function generateSchemaTypes(
 ): Promise<GeneratedTypes> {
   const options = {
     ...run.args.generatorFlags,
-    ...refLimitOptions(run.args, run.deps.cwd),
+    ...refLimitOptions(run),
     ...fixOption(run.args.fix),
     redocly,
   };
