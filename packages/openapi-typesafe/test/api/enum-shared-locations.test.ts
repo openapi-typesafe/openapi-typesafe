@@ -132,6 +132,22 @@ describe("--enum at a location shared by other schemas", () => {
     const output = await generate(documentWith({ Tup: tuple, Pet: union }));
 
     expect(enumsNamed(output, "PetSize")).toEqual(["export enum PetSize "]);
+    expect(output).not.toMatch(/export enum Tup/);
+  });
+
+  it("openapiTS keeps the union's record values at a shared location for a tuple member", async () => {
+    const union = {
+      type: "object",
+      discriminator: { propertyName: "type" },
+      properties: { type: { type: "string" }, mode: { enum: ["a"] } },
+      additionalProperties: modeOf(["b"]),
+      oneOf: [{ $ref: "#/components/schemas/Tup" }],
+    };
+    const tuple = { type: "array", prefixItems: [{ allOf: [{ $ref: "#/components/schemas/Pet" }] }] };
+
+    const output = await generate(documentWith({ Tup: tuple, Pet: union }));
+
+    expect(enumsNamed(output, "PetMode")).toEqual(["export enum PetMode ", "export enum PetMode_2 "]);
   });
 });
 

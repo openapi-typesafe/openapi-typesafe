@@ -102,11 +102,11 @@ function inlineItemType(item: Schema, required: readonly string[], request: Sche
  */
 function ownKeywordsType(own: SchemaObject, ref: string, request: SchemaRequest): IrType | null {
   const location = { ...request.location, path: ref };
-  // The nested schemas take the flag from the call, not from the request, so it is reset there.
+  // Only the enum rule reads `isAtSharedLocation`, from the request each nested call builds, and
+  // `combinedType` applies no rule to `own` itself: the flag is reset on the nested calls.
   const atOwnLocation: SchemaRequest = {
     ...request,
     location,
-    isAtSharedLocation: false,
     transformNested: (nested, nestedLocation, call = {}) =>
       request.transformNested(nested, nestedLocation, { isAtSharedLocation: false, ...call }),
   };
