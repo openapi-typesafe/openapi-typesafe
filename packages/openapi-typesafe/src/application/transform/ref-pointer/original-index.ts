@@ -15,6 +15,7 @@ import {
   startsInSchema,
 } from "./pointer-walk.js";
 import { isMarkedProperty } from "./property-shape.js";
+import { isRedeclaredKey } from "./redeclared-key.js";
 
 /**
  * Whether the type the original wrote for a `$ref` (`refType`: every segment indexed by name,
@@ -82,6 +83,10 @@ function schemaStep(walk: OriginalWalk, segment: string, isLast: boolean, input:
   }
   if (segment === "properties") {
     return { step: "continue" as Step, walk };
+  }
+  // It compiles, but reads the join of every part's declaration, not the target's type alone.
+  if (isRedeclaredKey(followLocated(walk, input.refs), segment, input.options, input.refs)) {
+    return { step: "fails" as Step, walk };
   }
   const member = generatedMember(walk, segment, input.options, input.refs);
   if (member.kind === "names") {

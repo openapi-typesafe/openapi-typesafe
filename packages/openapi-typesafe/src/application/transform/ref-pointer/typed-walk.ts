@@ -32,6 +32,7 @@ import {
   propertyPresence,
   schemaPresence,
 } from "./property-shape.js";
+import { isRedeclaredKey } from "./redeclared-key.js";
 import { isArrayShape, isObjectShape } from "./schema-shape.js";
 
 /**
@@ -94,7 +95,8 @@ function indexEntries(walk: TypedWalk, key: IrKeyword, keyword: string, refs: Re
 /**
  * A property `--exclude-deprecated` left out has no member to index, the `$Read<T>` or
  * `$Write<T>` of a marked property has no member but the marker's, and a property of a union
- * whose variant misses it (`Own | A`) is no member of the union: such a pointer is typed in place.
+ * whose variant misses it (`Own | A`) is no member of the union, and one that a part declares too
+ * reads their join (`isRedeclaredKey`): such a pointer is typed in place.
  */
 function nameStep(walk: TypedWalk, name: string, isLast: boolean, input: TypedWalkInput) {
   const owner = followLocated(walk, input.refs);
@@ -103,7 +105,8 @@ function nameStep(walk: TypedWalk, name: string, isLast: boolean, input: TypedWa
   const value = properties[name];
   const { options, refs } = input;
   const isMarkedOnTheWay = !isLast && isMarkedProperty(value, options, refs);
-  const isNoMember = isMissingComposedKey(owner, name, options, refs);
+  const isNoMember =
+    isMissingComposedKey(owner, name, options, refs) || isRedeclaredKey(owner, name, options, refs);
   if (isExcludedProperty(value, options, refs) || isMarkedOnTheWay || isNoMember) {
     return null;
   }
