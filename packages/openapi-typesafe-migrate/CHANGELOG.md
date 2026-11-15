@@ -1,5 +1,51 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.12
+
+### Patch Changes
+
+- [#142](https://github.com/openapi-typesafe/openapi-typesafe/pull/142) [`61181e9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61181e9ec62191cb119d1ba4f8348fd1f4fbb0ea) Thanks [@fedorello](https://github.com/fedorello)! - In a shell script that appends to a variable twice (`H+="npx openapi-typescript"`, then
+  `H+=" -it"`), the appended old flag is now reported. Before, the name was renamed and `-it` was
+  kept without a word, so `$H api.yaml` failed.
+
+- [#142](https://github.com/openapi-typesafe/openapi-typesafe/pull/142) [`61181e9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61181e9ec62191cb119d1ba4f8348fd1f4fbb0ea) Thanks [@fedorello](https://github.com/fedorello)! - A Compose `entrypoint` or `command` that a merge key gives (`<<: *gen`) is paired with the
+  service's own keys, so the old flags of `command: ["api.yaml", "-it"]` after a merged generator
+  entrypoint are renamed. The service's own keys win over merged ones, and the first map of a
+  merge list wins over later ones. Before, the entrypoint was renamed and `-it` was kept.
+
+- [#142](https://github.com/openapi-typesafe/openapi-typesafe/pull/142) [`61181e9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61181e9ec62191cb119d1ba4f8348fd1f4fbb0ea) Thanks [@fedorello](https://github.com/fedorello)! - The `args` of a GitHub Docker action (`runs.entrypoint` with `runs.args`) and of a `docker://`
+  step (`with.entrypoint` with `with.args`) are read as the arguments of the entrypoint, so the
+  old flags there are renamed. Before, they were kept and not reported.
+
+- [#142](https://github.com/openapi-typesafe/openapi-typesafe/pull/142) [`61181e9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61181e9ec62191cb119d1ba4f8348fd1f4fbb0ea) Thanks [@fedorello](https://github.com/fedorello)! - Dockerfile `ENV` and `ARG` values are read as Docker reads them: escaped blanks
+  (`ENV GEN=node_modules/.bin/openapi-typescript\ --redoc\ r.yaml`), several quoted parts
+  (`ARG G2="npx "openapi-typescript`), escaped quotes, continued lines and the escape character
+  that `# escape=` sets. The generator command in them is migrated, and the old flags after
+  `$GEN` are renamed. Before, these values were neither changed nor reported.
+
+- [#142](https://github.com/openapi-typesafe/openapi-typesafe/pull/142) [`61181e9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61181e9ec62191cb119d1ba4f8348fd1f4fbb0ea) Thanks [@fedorello](https://github.com/fedorello)! - A file that a Taskfile includes or an Azure Pipelines template now reports the old flags after
+  `{{.GEN}}` or `$(gen)` when the including file sets that variable to the generator. Before, only
+  `$GEN` was reported there and the other forms kept their flags silently.
+
+- [#142](https://github.com/openapi-typesafe/openapi-typesafe/pull/142) [`61181e9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61181e9ec62191cb119d1ba4f8348fd1f4fbb0ea) Thanks [@fedorello](https://github.com/fedorello)! - A container command that runs the generator after an init program or an entrypoint script
+  (`entrypoint: ["tini", "--"]`, `["dumb-init", "--"]`, `["docker-entrypoint.sh"]`, a Dockerfile
+  `ENTRYPOINT ["/sbin/tini", "--"]`, a Kubernetes `command` with `args`) is migrated again: the
+  generator name and its old flags are renamed. Before, it was only reported as a name the tool
+  could not place. `tini`, `docker-init`, `dumb-init`, `catatonit`, `gosu` and `su-exec` are now
+  known wrappers in every command, also by their full path.
+
+- [#142](https://github.com/openapi-typesafe/openapi-typesafe/pull/142) [`61181e9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61181e9ec62191cb119d1ba4f8348fd1f4fbb0ea) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile argument written with `:=`, `::=`, `:::=`, `?=`, `!=` or `+=`
+  (`$(MAKE) -C api GEN:="npx openapi-typescript -it"`) is read as the variable it sets, as
+  `GEN="…"` already was, so its command is migrated.
+
+- [#142](https://github.com/openapi-typesafe/openapi-typesafe/pull/142) [`61181e9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61181e9ec62191cb119d1ba4f8348fd1f4fbb0ea) Thanks [@fedorello](https://github.com/fedorello)! - The script of `sh -c` is read as the shell reads it however it is quoted
+  (`sh -c 'npx openapi-typescript '"'"'a.yaml'"'"' -it'`, `sh -c "X='…'; \$X b.yaml -it"`), so
+  the generator and its old flags are renamed. A flag in quotes (`"-it"`) is renamed too. A flag
+  that quotes split (`-i't'`) is reported with its new name instead of kept silently.
+
+- [#142](https://github.com/openapi-typesafe/openapi-typesafe/pull/142) [`61181e9`](https://github.com/openapi-typesafe/openapi-typesafe/commit/61181e9ec62191cb119d1ba4f8348fd1f4fbb0ea) Thanks [@fedorello](https://github.com/fedorello)! - `openapiTS(spec, undefined)` and `openapiTS(spec, void 0)` are read as a call without options.
+  Before, the report asked to check the options by hand.
+
 ## 1.0.0-rc.11
 
 ### Patch Changes

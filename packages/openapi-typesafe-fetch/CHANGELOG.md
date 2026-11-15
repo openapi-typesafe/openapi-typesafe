@@ -2,6 +2,21 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.12
+
+### Patch Changes
+
+- [#136](https://github.com/openapi-typesafe/openapi-typesafe/pull/136) [`68ce29a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/68ce29ad4b8f8490d38990af62bbc830b54df015) Thanks [@fedorello](https://github.com/fedorello)! - A wrapper generic in the path that sets `parseAs`, such as
+  `client.GET(path, { ...init, parseAs: "text" })` or an `init` typed
+  `FetchOptions<…> & { parseAs: "text" }`, types `data` as the body of that `parseAs` again
+  (`string` for `"text"`), as openapi-fetch does. Before, it was the text or any JSON body of the
+  paths, so assigning it to `string | undefined` failed. Each member of a union of options now
+  types its own data: `{ parseAs: ParseAs } | undefined` gives every body, as in openapi-fetch.
+
+- [#136](https://github.com/openapi-typesafe/openapi-typesafe/pull/136) [`68ce29a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/68ce29ad4b8f8490d38990af62bbc830b54df015) Thanks [@fedorello](https://github.com/fedorello)! - `SuccessResponseJSON` and `ErrorResponseJSON` of a union of operations are the union of each
+  operation's JSON bodies again. Before, only the status codes the operations share counted, so
+  `ErrorResponseJSON<OpA | OpB>` could gain a `string` that neither operation has alone.
+
 ## 1.0.0-rc.11
 
 ### Patch Changes
