@@ -142,8 +142,54 @@ describe("transformSchema", () => {
           { name: undefined, description: undefined },
           { name: undefined, description: undefined },
         ],
+        walkedAt: ROOT.path,
       },
     ]);
+  });
+
+  it("transformSchema with --enum gives a $ref's tuple element no walked location", () => {
+    const tuple = { type: "array", prefixItems: [{ enum: ["a"] }, { enum: ["b"] }] };
+    const documents = { "#/components": { schemas: { Tup: tuple } } };
+    const input = { options: { enum: true }, documents };
+    const tup = "#/components/schemas/Tup";
+
+    const { footer: referred } = transform({ $ref: `${tup}/prefixItems/1` }, input);
+    const { footer: walked } = transform(tuple, input, tup);
+
+    expect(referred.enums).toMatchObject([{ name: "/Tup", values: ["b"], tupleIndex: 1 }]);
+    expect(referred.enums[0]).not.toHaveProperty("walkedAt");
+    expect(walked.enums.map((request) => [request.tupleIndex, request.walkedAt])).toEqual([
+      [0, tup],
+      [1, tup],
+    ]);
+  });
+
+  it("transformSchema with --enum gives the elements of a $ref's tuple no walked location", () => {
+    const tuple = { type: "array", prefixItems: [{ enum: ["a"] }, { enum: ["b"] }] };
+    const holder = { type: "object", properties: { sort: { allOf: [tuple] } } };
+    const documents = { "#/components": { schemas: { Holder: holder } } };
+    const input = { options: { enum: true }, documents };
+    const ref = "#/components/schemas/Holder/properties/sort/allOf/0";
+
+    const { footer } = transform({ $ref: ref }, input);
+
+    expect(footer.enums.map((request) => [request.tupleIndex, request.walkedAt])).toEqual([
+      [0, undefined],
+      [1, undefined],
+    ]);
+  });
+
+  it("transformSchema with --enum-values gives a $ref's array no walked location", () => {
+    const element = { type: "string", enum: ["b"] };
+    const tuple = { type: "array", prefixItems: [{ type: "string", enum: ["a"] }, element] };
+    const documents = { "#/components": { schemas: { Tup: tuple } } };
+    const input = { options: { enumValues: true }, documents };
+
+    const { footer } = transform({ $ref: "#/components/schemas/Tup/prefixItems/1" }, input);
+
+    expect(footer.enumValues).toMatchObject([{ values: ["b"], tupleIndex: 1 }]);
+    expect(footer.enumValues[0]).not.toHaveProperty("walkedAt");
+    expect(transform(element, input).footer.enumValues[0]?.walkedAt).toBe(ROOT.path);
   });
 
   it("transformSchema with --enum and a null member keeps a literal union", () => {

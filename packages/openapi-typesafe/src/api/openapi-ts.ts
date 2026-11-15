@@ -1,3 +1,4 @@
+import { createNodeFileSystem } from "../adapters/node-file-system/node-file-system.js";
 import { createRedoclySchemaLoader } from "../adapters/redocly-loader/redocly-schema-loader.js";
 import type { Logger } from "../application/ports/logger.js";
 import { withStackOverflowReported } from "../application/stack-overflow.js";
@@ -68,7 +69,14 @@ export async function defaultGeneratorPorts(
     remoteRefTimeoutMs: REMOTE_REF_TIMEOUT_MS,
     remoteDocumentLimits: DEFAULT_REMOTE_DOCUMENT_LIMITS,
   });
-  return { loader, logger, deprecations: defaultDeprecationReporter(), redoc, now: monotonicNow };
+  return {
+    loader,
+    logger,
+    deprecations: defaultDeprecationReporter(),
+    redoc,
+    now: monotonicNow,
+    files: createNodeFileSystem(),
+  };
 }
 
 /**

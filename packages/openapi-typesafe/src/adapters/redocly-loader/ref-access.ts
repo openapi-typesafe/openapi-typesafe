@@ -14,6 +14,7 @@ import { redactUrlSecrets } from "../../domain/url-secrets.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
 import { isHostAllowed } from "./allowed-hosts.js";
 import { pointMappingNamesAtSchemas } from "./mapping-schema-names.js";
+import { fileRefPath, isRemoteRef, unreadableRefRefusal } from "./ref-urls.js";
 import type { RedirectedUrls } from "./remote-fetch.js";
 import { isParsedSource, RemoteNodeLimit } from "./remote-node-limit.js";
 import { refForbiddenError } from "./schema-load-errors.js";
@@ -24,11 +25,6 @@ import { refForbiddenError } from "./schema-load-errors.js";
  */
 
 type ResolveConfig = RedoclyConfig["resolve"];
-
-/** Redocly treats only these prefixes as remote; any other `$ref` is a local file path. */
-function isRemoteRef(absoluteRef: string): boolean {
-  return absoluteRef.startsWith("http://") || absoluteRef.startsWith("https://");
-}
 
 /** Whether `target` is `root` or below it; both are absolute paths. */
 export function isInsideDirectory(target: string, root: string): boolean {
@@ -146,12 +142,15 @@ export class RefAccessResolver extends BaseResolver {
    *
    * A redirected document keeps the URL it was requested by as its name, as in `redocly lint`,
    * whose lint ignore file lists its problems by that URL. Its relative `$ref`s resolve against
-   * the URL it came from in the end (RFC 3986, section 5.1.3).
+   * the URL it came from in the end (RFC 3986, section 5.1.3). A `file:` URL in a local document
+   * names its file (`fileRefPath`), not a path below the document's folder.
    */
   override resolveExternalRef(base: string | null, ref: string): string {
     const normalized = ref.replace(REMOTE_SCHEME_RE, (scheme) => scheme.toLowerCase());
     const retrievedFrom = base === null ? null : this.#limits.redirects.finalUrlOf(base);
-    return super.resolveExternalRef(retrievedFrom, normalized);
+    return (
+      fileRefPath(retrievedFrom, normalized) ?? super.resolveExternalRef(retrievedFrom, normalized)
+    );
   }
 
   override resolveDocument(
@@ -163,7 +162,10 @@ export class RefAccessResolver extends BaseResolver {
       this.#rootRef = this.resolveExternalRef(base, ref);
     }
     const refusal =
-      base === null ? undefined : localFromRemoteRefusal(base, this.resolveExternalRef(base, ref));
+      base === null
+        ? undefined
+        : (localFromRemoteRefusal(base, this.resolveExternalRef(base, ref)) ??
+          unreadableRefRefusal(base, ref));
     if (refusal !== undefined) {
       this.#refusals.push(refusal);
       return Promise.reject(refusal);

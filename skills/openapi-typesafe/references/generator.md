@@ -131,8 +131,9 @@ try {
 
 `ERROR_CODES` exports them all. `openapiTS()` never fails with the CLI-only codes (`CLI_*`,
 `OUTPUT_*`). A lower-level error (file system, parser) is in `cause`. Of `details`, only
-`problems` (`string[]`, `SCHEMA_INVALID`) and `ref` and `reason` (`SCHEMA_REF_FORBIDDEN`) are
-stable; other keys may change in any release.
+`problems` (`string[]`, `SCHEMA_INVALID`), `option` (`string`, `OPTION_INVALID`: the option with
+the wrong value; absent when the options are no object) and `ref` and `reason`
+(`SCHEMA_REF_FORBIDDEN`) are stable; other keys may change in any release.
 
 Warnings do not fail the run; their codes are `WARNING_CODES` (union `WarningCode`), listed in
 https://openapi-typesafe.github.io/openapi-typesafe/cli#warnings. A minor release may add error

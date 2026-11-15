@@ -70,8 +70,11 @@ function targetType(
   return request.transformNested(
     target as never,
     { path: location.path, schema: target },
-    valueAccessOf(location.recordOwner, request),
-    tupleHolderOf(pointer, request.context.refs),
+    {
+      valueAccess: valueAccessOf(location.recordOwner, request),
+      parent: tupleHolderOf(pointer, request.context.refs),
+      isThroughRef: true,
+    },
   );
 }
 

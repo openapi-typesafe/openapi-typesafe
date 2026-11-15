@@ -331,6 +331,74 @@ budget rises to 5.2 kB: the object forms with the text check (about 330 bytes), 
 (about 150), the invalid-date fall-through and bigint texts in params and bodies (about 120).
 Correctness ranks above size (ADR-013, ADR-030).
 
+## Amendment (2026-11-14): records of any class, functions, header names, unreadable values
+
+The rule, restated with what this amendment adds: two requests that openapi-typesafe-fetch may
+send differently never share a key; a key never throws while the component renders; and a
+filter with the key of a query finds it, also after `dehydrate` and `hydrate` (a JSON round
+trip). Five gaps broke it.
+
+1. **Records that are not object literals.** `params` and its `query`, `path` and `header`
+   records were walked only when they were object literals; any other object, such as a class
+   instance DTO, stayed in the key as it was. Its `NaN` hashed as `null` and shared the key of a
+   `null` parameter, a bigint made the hash throw, and a `Date` member kept the object, which
+   filters match by its (missing) own members, so `setQueriesData` wrote into the queries of
+   other dates. The fetch client reads any record by its members, so every object record is now
+   keyed as an object literal is: a query or path record by `objectKey` (a serializer of the
+   client gets it whole), a header record by its members.
+2. **Functions in the init.** A `fetch`, a serializer or the hooks of a `middleware` stayed in
+   the key. The hash drops them, but `partialMatchKey` compares them by identity, so with an
+   inline function a filter with the key of a later render (`invalidateQueries`,
+   `setQueriesData`, the docs' own `useInvalidateQuery`) missed the query, and after `hydrate`,
+   which has no functions, every filter did. The init's members other than `params`, `headers`,
+   `body` and `signal` are now plain values by the parameter rule, which leaves a function out
+   wherever it is. Decision 3 still holds: queries that differ only in a function share an entry.
+3. **Header names in two letter cases.** `Headers` matches a name in any case, and the client
+   sets plain headers one after the other, so `{ "X-A": "1", "x-a": "2" }` sends `x-a: 2` and the
+   reverse order `x-a: 1`, while both had one key. Plain header names are now folded to lower
+   case in order, as the client's `mergeHeaders` does: a value sets the header, `null` removes
+   it, an array appends its items, and `undefined` does nothing. Items appended after the same
+   name was set or removed in the object give the whole text joined with `, `; items appended to
+   nothing yet keep their list, since they add to the client's own headers. `params.header` is
+   folded the same way with the last value kept, since the client sets each one. Header names in
+   keys are therefore always lower case, as they already were for a `Headers` object and pairs.
+4. **Values a key cannot read.** rc.11 calls `toJSON`, `toString` and `toISOString` of parameter
+   and header values; one that throws, or a `toJSON` that loops, crashed the component while it
+   rendered, as did a getter that throws and an object that refers back to itself. Each such
+   read is now guarded: a form that throws is left out of the key, a member whose getter throws
+   is left out, and a reference back to an object the walk is inside of is left out, which ends
+   every loop. The request reads the value again and reports its own error as a query error.
+   Such a value shares a key with one that has the same readable forms. Both send the same
+   unless a serializer reads the form that throws; then the first request fails, so the shared
+   entry can only hold a failure or the other's data for a value that cannot be sent at all. No
+   two requests that both succeed are merged.
+5. **`undefined` array items.** The hash writes an `undefined` item (also a hole) as `null`, so
+   with a `qs` serializer `[1, undefined]` and `[1, null]`, which send `ids[0]=1` and
+   `ids[0]=1&ids[1]=`, shared a key, and after a JSON round trip the key held `null`, which a
+   filter with the key of `undefined` does not match. In parameters such an item, and a function
+   item, is now `{ "(undefined)": true }`, an in-band form like `"toJSON()"` that JSON keeps. In
+   a body it is `null`: JSON, form and multipart bodies send `null` and `undefined` items alike,
+   so the key only stops changing in the round trip.
+
+Members of a parameter object are its own enumerable ones, as before. The client's default
+serializers read inherited enumerable members too (`for…in`), but a key of those would hold
+every attribute of a `URL` or another platform object, whose attributes are enumerable on its
+prototype; an object made by `Object.create(defaults)` as a parameter value is left to the
+review trigger.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| One parameter rule for every object record and init member (chosen) | Complete: no class of record or member is kept raw | Header names in keys change to lower case |
+| Walk class instances only where a report found them | Smaller | The next record kind repeats the bug |
+| Strip only top-level init functions | Smaller | Middleware objects and nested functions still miss filters |
+| Keep header names as written unless two collide | Keys of most apps unchanged | A special case; one key per spelling of the same request |
+| Catch around the whole key | One `try` | No key to fall back to: every fallback merges requests |
+
+**Size.** The bundle grows from 5.18 kB to 5.84 kB minified (about 2.4 kB gzipped), so the
+budget rises to 5.9 kB: guarded reads with the cycle check, the header fold in order, the
+`undefined` item form in parameters and bodies, and the walk of every record and init member.
+Correctness ranks above size (ADR-013, ADR-030).
+
 ## Review trigger
 
 A report of two queries that share an entry while their requests differ in something a key can

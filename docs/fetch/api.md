@@ -105,7 +105,9 @@ values, such as `"text" | undefined` or an optional `parseAs?: "text"` from a wr
 its options on, types `data` as the body of each value, and `undefined` or a left-out `parseAs` is
 the default `"json"`: `string` or the JSON body. Options whose `parseAs` may be any value (the
 `parseAs?: ParseAs` of the declared options type) type `data` as the JSON body, as in
-openapi-fetch. This holds for `client.request(method, path, init)` as for `client.GET()`.
+openapi-fetch. This holds for `client.request(method, path, init)` as for `client.GET()`, for
+each member of a union of options, and for a wrapper generic in the path that sets `parseAs`
+(`client.GET(path, { ...init, parseAs: "text" })` gives `string` data).
 
 An error response (`4xx`, `5xx`) never throws for its body, and `parseAs` does not apply to it.
 Its `Content-Type` decides: a JSON media type (`json` or a `+json` suffix, with or without
@@ -591,9 +593,15 @@ of a JSON media type, a `string` for any other media type, and the schema or a `
 media range (`*/*`, `application/*`, `text/*`). `SuccessResponseJSON<Operation>` and `ErrorResponseJSON<Operation>` pick the
 JSON media types: `application/json` and those with a `+json` suffix (`application/problem+json`,
 `application/vnd.api+json`), with or without parameters (`application/json; charset=utf-8`), and
-the media ranges (`*/*`, `application/*`, `text/*`), which may hold JSON. The `data` and `error` of a client made with
+the media ranges (`*/*`, `application/*`, `text/*`), which may hold JSON. For a union of
+operations, they are the union of each operation's. The `data` and `error` of a client made with
 `` createClient<paths, Media>() `` follow the same rule, for example
-`` createClient<paths, `${string}/json`>() ``.
+`` createClient<paths, `${string}/json`>() ``. `Media` picks by key, as a template: its
+`${string}` also matches parameters, so `` `${string}/json` `` picks
+`message/http; msgtype=application/json` (a body the client returns as text) and leaves out
+`application/problem+json; charset=utf-8`. An error response with both is then typed `string`,
+although a problem+json body arrives parsed. Keep the default `Media`, name the exact media
+types, or use the JSON helpers, which read each media type as the client does.
 
 A response with none of the picked media types can still arrive, for example a proxy's HTML 500,
 so it gives what the client makes of its body: a JSON media type gives its schema (a JSON-only

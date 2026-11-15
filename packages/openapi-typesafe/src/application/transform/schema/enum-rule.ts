@@ -183,12 +183,17 @@ function tupleElement(schema: SchemaObject, request: SchemaRequest): { tupleInde
   return index === -1 ? {} : { tupleIndex: index };
 }
 
+/** The location the walk of the document types the schema at; none for a `$ref`'s target. */
+function walkedLocation(request: SchemaRequest): { walkedAt?: string } {
+  return request.isThroughRef ? {} : { walkedAt: request.location.path ?? "" };
+}
+
 function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
   const { options, footer } = request.context;
   // `isTsEnum` admits only strings and numbers, and the fix leaves `null` out of the members.
   const values = tsEnumEntries(schema, options).map(([value]) => value);
   const declaration = enumRequest(schema, request.location.path, options);
-  const element = tupleElement(schema, request);
+  const element = { ...tupleElement(schema, request), ...walkedLocation(request) };
   const type =
     ownerEnumMembersType(schema, values, request) ??
     withOtherStrings(irReference(footer.addEnum({ ...declaration, ...element })), schema);
@@ -271,6 +276,7 @@ function addEnumValues(schema: SchemaObject, request: SchemaRequest): void {
     type: enumValuesType(values, request),
     values,
     ...tupleElement(schema, request),
+    ...walkedLocation(request),
   });
 }
 

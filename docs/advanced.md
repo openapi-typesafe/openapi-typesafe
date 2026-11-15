@@ -452,7 +452,10 @@ Every other array keeps its type.
 
 Arrays of one name are numbered: the elements of a `prefixItems` tuple share the tuple's place, so
 a tuple `Pair` of two enums gives `pairValues` and `pairValues_2`. The numbers follow the
-position in the tuple, also where a `$ref` to a later element comes first in the document.
+position in the tuple, also where a `$ref` to a later element comes first in the document. Two
+tuples of one name (a tuple property `sort` of `Order` and a tuple schema `OrderSort`) are
+numbered one after the other, in the order of the document: `orderSortValues` and
+`orderSortValues_2` for the first, `orderSortValues_3` and `orderSortValues_4` for the second.
 
 ## JSONSchema $defs caveats
 
@@ -557,8 +560,9 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
 - `--local-ref-root` (`localRefRoot` in the Node API): local `$ref` files must be in this
   directory or below it. A relative path is relative to the working directory; the flag without a
   value means the working directory. Links are followed before the check, so a link inside the directory that
-  points outside it is refused too. The root is a path or a `file:` URL; a URL of another protocol,
-  or a `file:` URL that names no local path (`file://host/specs/`), fails with `CLI_FLAG_INVALID`
+  points outside it is refused too. The root is a path or a `file:` URL of a directory; a URL of
+  another protocol, a `file:` URL that names no local path (`file://host/specs/`) or an existing
+  file (`--local-ref-root api.yaml`, which refused every local `$ref`) fails with `CLI_FLAG_INVALID`
   (`CLI_CONFIG_INVALID` in `redocly.yaml`, `OPTION_INVALID` in the Node API) before anything
   loads, as does a `remoteRefHosts` that is no list of strings.
 - `--remote-ref-hosts` (`remoteRefHosts`): remote `$ref` documents must come from these hosts,
@@ -578,9 +582,16 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   redirects are followed to any host.
 - A remote document may refer only to other `http(s)` URLs. A `$ref` in it that names a local file
   (`file:///…`, or `C:/…`, which a URL base turns into a drive-letter path) is always refused.
+- A `$ref` is a URL by the rule of the schema argument (`http:`, `https:` or `file:`, or another
+  scheme followed by `//`); other text before a colon is part of a file name (`out:v2.yaml`,
+  `C:/specs/pet.yaml`). In a local document, a `file:` URL names its file (`file:pet.yaml` is next
+  to the document), and a URL of another scheme (`s3://bucket/pet.yaml`) or a `file:` URL that
+  names no local path is always refused (`unsupported-url`). openapi-typescript read both as
+  paths below the document's folder (`./s3:/bucket/pet.yaml`, `./file:/specs/pet.yaml`).
 
 A refused `$ref` fails with `SCHEMA_REF_FORBIDDEN` (CLI exit code `3`); `err.details` has the
-`ref` and the `reason` (`outside-local-root`, `host-not-allowed`, `local-ref-from-remote`, or
+`ref` and the `reason` (`outside-local-root`, `host-not-allowed`, `local-ref-from-remote`,
+`unsupported-url`, or
 `too-many-remote-documents`, `remote-document-too-large` and `remote-documents-too-large` from
 [Limits](#limits)). The
 [threat model](/security/threat-model) explains the risks (T3, T4).

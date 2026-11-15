@@ -24,14 +24,16 @@ export function sourceInvalidError(source: unknown): OpenAPITypesafeError {
 }
 
 /**
- * Why text is no schema source (`details.reason` of `SCHEMA_SOURCE_INVALID`): a location that is
- * not a valid URL, only a YAML string, such as a file path, or a relative `file:` URL with a cwd
- * that is no `file:` URL. The CLI reports the first two for stdin; its cwd is always local.
+ * Why text or a URL is no schema source (`details.reason` of `SCHEMA_SOURCE_INVALID`): a location
+ * that is not a valid URL, only a YAML string, such as a file path, a relative `file:` URL with a
+ * cwd that is no `file:` URL, or a URL of a scheme the generator does not read (`s3:`). The CLI
+ * reports the first two for stdin; its cwd is always local.
  */
 export const SOURCE_TEXT_REASONS = {
   url: "url",
   path: "path",
   relativeFile: "relative-file",
+  unsupportedScheme: "unsupported-scheme",
 } as const;
 
 /** How a message names the text of a source, by where it came from. */
@@ -70,6 +72,22 @@ export function relativeFileUrlError(
       `${TEXT_SOURCE_NAMES[origin]} ${shown} is a relative file: URL, which needs a file: cwd; ` +
       `cwd is a ${cwd.protocol} URL. Pass an absolute file: URL or a local cwd`,
     details: { reason: SOURCE_TEXT_REASONS.relativeFile, received: origin, text: shown },
+  });
+}
+
+/**
+ * The source is a URL of a scheme the generator does not read (`s3://bucket/a.yaml`). Redocly
+ * would read it as a path relative to the working directory, and the CLI could then overwrite
+ * that file with the types; `details.text` is the URL, redacted.
+ */
+export function unsupportedSchemeError(url: URL): OpenAPITypesafeError {
+  const shown = redactUrlSecrets(url.href);
+  return new OpenAPITypesafeError({
+    code: ERROR_CODES.SCHEMA_SOURCE_INVALID,
+    message:
+      `The schema ${shown} is a ${url.protocol} URL, which the generator cannot read. ` +
+      "Pass a file path, a file: URL or an http(s) URL",
+    details: { reason: SOURCE_TEXT_REASONS.unsupportedScheme, received: "url", text: shown },
   });
 }
 
@@ -173,6 +191,7 @@ export type RefRefusalDetails =
   | { readonly reason: "outside-local-root"; readonly localRoot: string }
   | { readonly reason: "host-not-allowed"; readonly allowedHosts: readonly string[] }
   | { readonly reason: "local-ref-from-remote"; readonly base: string }
+  | { readonly reason: "unsupported-url" }
   | { readonly reason: "too-many-remote-documents"; readonly maxDocuments: number }
   | { readonly reason: "remote-document-too-large"; readonly maxDocumentBytes: number }
   | { readonly reason: "remote-documents-too-large"; readonly maxTotalBytes: number }
@@ -195,6 +214,8 @@ function limitText(details: RefRefusalDetails): string {
     }
     case "local-ref-from-remote":
       return `it is not an http(s) URL, and the $ref is in the remote document ${details.base}`;
+    case "unsupported-url":
+      return "it is a URL of no scheme the generator reads (http(s), or file: of a local file)";
     case "too-many-remote-documents":
       return `the document refers to more than ${details.maxDocuments} remote documents`;
     case "remote-document-too-large":
@@ -214,7 +235,8 @@ function limitText(details: RefRefusalDetails): string {
 
 /**
  * A `$ref` is outside the local root, its host is not allowed (threat model R1, R2), a remote
- * document refers to a local file (T3), or there are too many or too large remote documents (T2).
+ * document refers to a local file (T3), a `$ref` is a URL that names nothing the generator can
+ * read, or there are too many or too large remote documents (T2).
  */
 export function refForbiddenError(ref: string, details: RefRefusalDetails): OpenAPITypesafeError {
   const limit = limitText(details);

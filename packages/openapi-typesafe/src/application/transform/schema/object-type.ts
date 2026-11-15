@@ -231,7 +231,11 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
   const types: IrType[] = [];
   if (hasExplicit) {
     const access = recordValueAccess(schema, "additionalProperties", request);
-    types.push(request.transformNested(additionalProperties as Schema, request.location, access));
+    types.push(
+      request.transformNested(additionalProperties as Schema, request.location, {
+        valueAccess: access,
+      }),
+    );
   }
   if (hasImplicit || (!additionalProperties && request.context.options.additionalProperties)) {
     types.push(UNKNOWN_TYPE);

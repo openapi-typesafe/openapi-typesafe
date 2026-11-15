@@ -33,6 +33,36 @@ describe("resolveSchemaSource", () => {
     },
   );
 
+  it.each([
+    ["a URL", () => new URL("s3://user:secret@bucket/a.yaml")],
+    ["a string", () => "s3://user:secret@bucket/a.yaml"],
+    ["a stream", () => Readable.from(["S3://user:secret@bucket/a.yaml\n"])],
+  ])(
+    "resolveSchemaSource with an s3: URL as %s fails with SCHEMA_SOURCE_INVALID",
+    async (_, source) => {
+      const error = await resolveSchemaSource(source(), CWD).catch((failure: unknown) => failure);
+
+      expect(error).toBeInstanceOf(OpenAPITypesafeError);
+      expect(error).toMatchObject({
+        code: "SCHEMA_SOURCE_INVALID",
+        message:
+          "The schema s3://***@bucket/a.yaml is a s3: URL, which the generator cannot read. " +
+          "Pass a file path, a file: URL or an http(s) URL",
+        details: { reason: "unsupported-scheme", received: "url", text: "s3://***@bucket/a.yaml" },
+      });
+    },
+  );
+
+  it.each(["https://example.com/a.yaml", "HTTP://example.com/a.yaml", "file:api.yaml"])(
+    "resolveSchemaSource with the URL %s that the generator reads resolves it",
+    async (location) => {
+      expect(await resolveSchemaSource(location, CWD)).toEqual({
+        kind: "url",
+        url: new URL(location, CWD),
+      });
+    },
+  );
+
   it("resolveSchemaSource with a stream that holds a URL that does not parse names the stream", async () => {
     const error = await resolveSchemaSource(Readable.from(["http://[::1/x\n"]), CWD).catch(
       (failure: unknown) => failure,
