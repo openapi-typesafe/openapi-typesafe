@@ -461,3 +461,49 @@ Types only; the bundle is unchanged.
 | Distribute only `JSONMediaKeys` | Smaller change | The media types of one operation pick in another |
 
 Types only; the bundle is unchanged.
+
+## Amendment (2026-11-15): generic options and generic operations stay sound
+
+The type hunt on rc.12 found that code generic in its options or in its operation could assign
+`data` and `error` to unrelated types.
+
+1. **Rule: a type parameter is read as every value it may stand for.** TypeScript relates a
+   deferred conditional type to another type through the constraint of its check type, so a
+   response type is sound for generic code only when its result for the constraint covers every
+   subtype of it. This holds for the options, the operation and the paths alike; a type that
+   gives an exact answer for a concrete argument must not give a narrower one for a constraint.
+2. **Generic options.** The distributive `ParseAsResponse` of the amendment above read an init
+   generic in its type (`Init extends FetchOptions<…>`) through its constraint, the declared
+   options, whose `parseAs?: ParseAs` gives the JSON body as in openapi-fetch. A caller may pass
+   `{ parseAs: "text" }` as that `Init`, so a wrapper assigned a string to a JSON type. The
+   declared options of a generic path (`init: FetchOptions<…<Path>>`) gave the JSON body for the
+   same reason; TypeScript reads both the same way, so they cannot differ. `ParseAsResponse` now
+   checks first whether the options always have a `parseAs`. TypeScript reads the true branch of
+   a distributive conditional type for a constraint too when a subtype of the constraint fits the
+   extends type, so options that are a type parameter give every body their `parseAs` may pick,
+   as in openapi-fetch and rc.11. The extends type infers the options
+   (`RequiredParseAs & infer _Options`): `RequiredParseAs` alone fits no subtype of an init with
+   required parameters, and a type parameter there breaks the relation of a wrapper's declared
+   response to the client's (ADR-030), which needs the same extends type on both sides. Concrete
+   options and options whose `parseAs` is known keep the results of the amendment above.
+3. **Generic operations.** `ResponseObjectMap` checked `T extends { responses: any }`, so the map
+   of an operation generic in its type (`Op extends Record<string | number, any>`) was read through
+   the constraint as `any`, and `SuccessResponse`, `ErrorResponse`, `SuccessResponseJSON` and
+   `ErrorResponseJSON` of it fit any type, in rc.11 too. The check names the `Record` constraint
+   instead, and a type without `responses` gives `never` (`unknown` does not meet the constraint
+   of the response types).
+4. **Generic paths.** `FilterKeys` of a path of `Paths extends {}` has no constraint, so
+   TypeScript found none for the operation of a call in code generic in `Paths` and related its
+   response types to any type: a library that takes any `Client<Paths>` could assign `data` to a
+   `number`, and an annotated result became `undefined` for its callers. `PathOperation` takes
+   `NonNullable` of the operations before `Extract`, which changes no operation and gives the
+   checked type a constraint.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Check required `parseAs` first, inferred extends type (chosen) | Generic inits give every body; known `parseAs` stays exact; wrapper relations kept | A generic declared init no longer gives the JSON body (rc.12 did) |
+| Keep `Options extends unknown` | Generic declared init gives the JSON body | A generic init that a caller sets to `"text"` is typed JSON |
+| Extends type `Options & RequiredParseAs` | Same results for calls | Wrappers that return the client's response as their own (TS2322) |
+| Non-distributive `ResponseObjectMap` | Sound for generic paths of generic `Paths` | Generic paths of concrete `Paths` lose their bodies |
+
+Types only; the bundle is unchanged.
