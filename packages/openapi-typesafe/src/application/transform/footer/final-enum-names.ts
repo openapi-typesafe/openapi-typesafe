@@ -33,9 +33,9 @@ export interface FinalNamesInput {
  * The claims of one name in the order they get names: where the walk of the document first met
  * each owner (`WalkRanks`), so the first owner in the document keeps the name. The elements of
  * a tuple share the tuple's location and rank by position, so a tuple's elements are numbered
- * together and in order, and a `$ref` to a later element met first changes no name. An owner
- * that only `$ref`s typed (a location the walk does not visit) comes last. `claims` come in the
- * order they asked, which the stable sort keeps among owners of one rank.
+ * together and in order, and a `$ref` to a later element met first changes no name. Two ranks
+ * never tie. An owner that only `$ref`s typed (a location the walk does not visit) comes last:
+ * `claims` come in the order they asked, which the stable sort keeps among those owners.
  */
 export function inNamingOrder(claims: readonly EnumNameClaim[]): EnumNameClaim[] {
   return [...claims].sort((left, right) => compareRanks(left.rank, right.rank));
