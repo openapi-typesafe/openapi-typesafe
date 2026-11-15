@@ -410,6 +410,56 @@ The 1806 documents of the compat corpus give the same output over ten option set
 `--enum-values`, `--dedupe-enums` with and without `dedupe-enum-names`, `--alphabetize`,
 `--root-types`, `ref-pointers`, `all`, the defaults): none has two tuples of one name.
 
+## Amendment (2026-11-15): enums at a shared location, and ranks without `$ref`s
+
+The 2026-11-12 amendment numbered the enums of `prefixItems` elements, which are typed at their
+tuple's location. Everything inside such an element is typed at the tuple's location too, and so
+are the `items` of an array and the record values of an object (`additionalProperties`,
+`patternProperties`, `unevaluatedProperties`). The rule was keyed on the element itself
+(`tupleIndex`), so the properties of these schemas still merged:
+
+- `Shape: [{ kind: [point] }, { kind: [line] }]` declared `ShapeKind` twice; TypeScript merged
+  the declarations, so both elements accepted `point` and `line`. The same for `Settings` with an
+  own `mode: [auto, manual]` and record values with `mode: [on, off]`. The output compiled, so
+  the error was silent (also in the compat corpus: `sendgrid.com` merged a `bounce_type` of
+  `bounced | blocked | expired` with one of `soft | hard`).
+- Tuple elements inside a nested tuple or an `allOf` of tuples ranked by position alone, so two
+  elements at one location and position tied, and a `$ref` met first decided their names.
+- With `--fix dedupe-enum-names`, a `$ref` into a schema the walk does not type (a `$defs` entry
+  of an enum schema) was a name candidate, so adding such a `$ref` renamed a shared enum.
+
+The rules:
+
+1. A schema typed at its holder's location next to other schemas is at a shared location
+   (`SchemaRequest.isAtSharedLocation`): tuple elements, `items`, record values and everything
+   in them. An `allOf` item is not (it is intersected with its parent), nor are the own keywords
+   of a discriminated union typed at the union's location, and a `$ref` target typed through a
+   pointer is at a shared location only where its pointer goes through one
+   (`GeneratedLocation.isShared`).
+2. An enum at a shared location is owned by its location and its set of values (`EnumOwners`).
+   Enums of the same values there share one enum, and they share the enum of the location's own
+   schema when that enum has exactly their values. An object types its own properties before its
+   record values, so that enum is complete when they ask. An enum at a shared location with other
+   values is numbered as another owner.
+3. Two places of one location and position rank by the order of the walk's requests (the third
+   part of `WalkRank`), so the names follow the document and no `$ref` changes them.
+4. `dedupe-enum-names` reads its candidates only from requests the walk makes (`walkedAt`).
+
+Changes from rc.12: in the cases above, an enum with other values than its neighbours at the
+shared location now gets a number (`ShapeKind_2`, `SettingsMode_2`) and the property's type
+changes to it. Names that a `$ref` decided in the tied cases now follow the document. Correct
+output does not change: an enum whose values equal its neighbours' keeps its name and
+declaration.
+
+Measured: the colliding-names fuzz (150 + 300 + 300 documents) gives no type error that rc.12
+does not give, and no name change but the ones above and the order-dependent `--dedupe-enums`
+names (G8); with its `$ref`s removed it gives the same names (rc.12 differed in 4 to 16
+documents per set). The compat corpus (1806 documents; the defaults, `--enum`, `--enum-values`,
+`--dedupe-enums` with and without the fix, `--alphabetize --root-types`, `ref-pointers`, `all`,
+`--immutable`) changes only the merged `bounce_type` above (with `--enum`, `all`,
+`--dedupe-enums` and `--alphabetize`) and, with `dedupe-enum-names`, one document whose shared
+enums took the names of `definitions` entries only `$ref`s typed (`codat.io_accounting`).
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

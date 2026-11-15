@@ -459,6 +459,10 @@ position in the tuple, also where a `$ref` to a later element comes first in the
 tuples of one name (a tuple property `sort` of `Order` and a tuple schema `OrderSort`) are
 numbered one after the other, in the order of the document: `orderSortValues` and
 `orderSortValues_2` for the first, `orderSortValues_3` and `orderSortValues_4` for the second.
+The same holds for the properties of the elements (`Shape` of two element objects, each with a
+`kind` enum, gives `shapeKindValues` and `shapeKindValues_2`), of the `items` and of the record
+values (`additionalProperties`, `patternProperties`, `unevaluatedProperties`). The numbers do not
+depend on whether a `$ref` points into the schema.
 
 ## JSONSchema $defs caveats
 

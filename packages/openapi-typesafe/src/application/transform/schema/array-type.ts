@@ -10,7 +10,7 @@ import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object
 import { FIX } from "../../../domain/output-fixes.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { unionOf } from "../type-combinators.js";
-import type { SchemaRequest } from "./schema-rule.js";
+import { AT_SHARED_LOCATION, type SchemaRequest } from "./schema-rule.js";
 
 /**
  * `--array-length` writes tuples only while the estimated number of tuple elements stays below
@@ -31,14 +31,17 @@ function prefixTupleType(schema: SchemaObject, request: SchemaRequest): IrType |
     return null;
   }
   const prefixItems = schema.prefixItems ?? (items as SchemaObject[]);
-  return irTuple(
-    prefixItems.map((item) => irTupleElement(request.transformNested(item, request.location))),
-  );
+  return irTuple(prefixItems.map((item) => irTupleElement(elementType(item, request))));
+}
+
+/** An element or the items of the array, typed at the array's location next to the others. */
+function elementType(schema: Schema, request: SchemaRequest): IrType {
+  return request.transformNested(schema, request.location, AT_SHARED_LOCATION);
 }
 
 /** The type of the items after the prefix, or null when there may be none (`false`). */
 function restItemType(schema: Schema, request: SchemaRequest): IrType | null {
-  return schema === false ? null : request.transformNested(schema, request.location);
+  return schema === false ? null : elementType(schema, request);
 }
 
 /**
@@ -71,7 +74,7 @@ function prefixItemsTupleType(
 ): IrType {
   const { min } = lengthBounds(schema);
   const elements = prefixItems.map((item, index): IrTupleElement => {
-    const type = request.transformNested(item, request.location);
+    const type = elementType(item, request);
     return index < min ? irTupleElement(type) : irOptionalTupleElement(type);
   });
   const rest = prefixRestType(schema, request);
@@ -85,7 +88,7 @@ function isPrefixItemsFixed(schema: SchemaObject, request: SchemaRequest): boole
 /** The type of one item; `unknown` without `items`. */
 function singleItemType(schema: SchemaObject, request: SchemaRequest): IrType {
   const { items } = schema;
-  return items ? request.transformNested(items as SchemaObject, request.location) : UNKNOWN_TYPE;
+  return items ? elementType(items as SchemaObject, request) : UNKNOWN_TYPE;
 }
 
 /**

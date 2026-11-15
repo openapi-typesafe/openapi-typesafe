@@ -392,6 +392,7 @@ describe("generatedLocationOf", () => {
     expect(located("#/components/schemas/Map/additionalProperties")).toEqual({
       path: "#/components/schemas/Map",
       recordOwner: { node: DOCUMENT.components.schemas.Map, keyword: "additionalProperties" },
+      isShared: true,
     });
     expect(located("#/components/schemas/Map").recordOwner).toBeNull();
   });
@@ -418,6 +419,31 @@ describe("generatedLocationOf", () => {
       "#/components/schemas/Optional/properties/inner/not",
     );
     expect(located("no pointer").path).toBe("no pointer");
+  });
+
+  it("generatedLocationOf tells a location that other schemas are typed at too", () => {
+    const shared = resolverOf({
+      components: {
+        schemas: {
+          Item: ITEM,
+          Tup: { type: "array", prefixItems: [ITEM] },
+          Wrap: { type: "array", items: { $ref: "#/components/schemas/Item" } },
+        },
+      },
+    });
+    const isShared = (ref: string) => generatedLocationOf(ref, shared).isShared;
+    const isSharedHere = (ref: string) => located(ref).isShared;
+
+    expect(isShared("#/components/schemas/Tup/prefixItems/0/properties/time")).toBe(true);
+    expect(isSharedHere("#/components/schemas/List/items/properties/time")).toBe(true);
+    expect(isSharedHere("#/components/schemas/Pattern/patternProperties/^x/properties/time")).toBe(
+      true,
+    );
+    expect(isSharedHere("#/components/schemas/Both/allOf/0/properties/time")).toBe(false);
+    expect(isSharedHere("#/components/schemas/Union/anyOf/1/properties/other")).toBe(false);
+    // A crossed `$ref` continues at its target's own location.
+    expect(isShared("#/components/schemas/Wrap/items/properties/time")).toBe(false);
+    expect(isShared("no pointer")).toBe(false);
   });
 
   const PARAMETER = { name: "w", in: "header", schema: { type: "string" } };

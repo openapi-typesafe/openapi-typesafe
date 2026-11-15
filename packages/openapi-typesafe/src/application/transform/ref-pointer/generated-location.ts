@@ -32,6 +32,11 @@ export interface GeneratedLocation {
   readonly path: string;
   /** The owner when the node is a record value, which decides how its type is read. */
   readonly recordOwner: RecordOwner | null;
+  /**
+   * Whether other schemas are typed at the location too (`SchemaRequest.isAtSharedLocation`):
+   * the node is in an array's element or items, or in an object's record value.
+   */
+  readonly isShared: boolean;
 }
 
 interface LocationWalk {
@@ -39,6 +44,7 @@ interface LocationWalk {
   readonly node: unknown;
   readonly isSchema: boolean;
   readonly recordOwner: RecordOwner | null;
+  readonly isShared: boolean;
 }
 
 /** One step: the segments it adds to the path, the node it moves to, the segments it reads. */
@@ -48,14 +54,16 @@ interface Step {
   readonly length: 1 | 2;
   readonly isSchema: boolean;
   readonly recordOwner?: RecordOwner;
+  /** The step goes into a schema typed next to others at the parent's location. */
+  readonly isShared?: boolean;
 }
 
-/** Keywords followed by a name or position whose schema is typed at the parent's location. */
-const PARENT_LOCATION_PAIRS: ReadonlySet<string> = new Set([
-  "allOf",
-  "prefixItems",
-  "patternProperties",
-]);
+/**
+ * Keywords followed by a name or position whose schema is typed at the parent's location, next to
+ * other schemas there (`GeneratedLocation.isShared`); an `allOf` item is intersected with them.
+ */
+const SHARED_LOCATION_PAIRS: ReadonlySet<string> = new Set(["prefixItems", "patternProperties"]);
+const INTERSECTED_PAIR = "allOf";
 /** Keywords whose schema is typed at the parent's location as a record value. */
 const RECORD_VALUE_KEYWORDS: ReadonlySet<string> = new Set([
   "additionalProperties",
@@ -77,6 +85,11 @@ function pairStep(value: unknown, next: string | undefined, path: readonly strin
   return { path, child: childOf(value, next), length: 2, isSchema: true };
 }
 
+/** A step to a schema typed at the parent's location next to other schemas. */
+function sharedStep(step: Step): Step {
+  return { ...step, isShared: true };
+}
+
 /** The step through a schema keyword; null for a keyword the generator does not type. */
 function schemaStep(node: unknown, segment: string, next: string | undefined): Step | null {
   const value = childOf(node, segment);
@@ -84,7 +97,10 @@ function schemaStep(node: unknown, segment: string, next: string | undefined): S
   if (segment === "properties") {
     return pairStep(value, next, named);
   }
-  if (PARENT_LOCATION_PAIRS.has(segment) || (segment === "items" && Array.isArray(value))) {
+  if (SHARED_LOCATION_PAIRS.has(segment) || (segment === "items" && Array.isArray(value))) {
+    return sharedStep(pairStep(value, next, []));
+  }
+  if (segment === INTERSECTED_PAIR) {
     return pairStep(value, next, []);
   }
   if (KEPT_PAIRS.has(segment)) {
@@ -94,7 +110,8 @@ function schemaStep(node: unknown, segment: string, next: string | undefined): S
     return null;
   }
   const recordOwner = RECORD_VALUE_KEYWORDS.has(segment) ? { node, keyword: segment } : undefined;
-  return { path: [], child: value, length: 1, isSchema: true, ...(recordOwner && { recordOwner }) };
+  const step = { path: [], child: value, length: 1, isSchema: true } as const;
+  return sharedStep(recordOwner === undefined ? step : { ...step, recordOwner });
 }
 
 /** A path item's own parameters sit under one more `parameters` segment (`pathItemType`). */
@@ -177,6 +194,7 @@ function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): Locati
     node: refs.resolve(`#/${root}`),
     isSchema: false,
     recordOwner: null,
+    isShared: false,
   };
   for (let index = 0; index < pointer.segments.length; ) {
     const step = stepAt(walk, pointer, index);
@@ -189,6 +207,7 @@ function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): Locati
       node: step.child,
       isSchema: step.isSchema,
       recordOwner: step.recordOwner ?? null,
+      isShared: walk.isShared || step.isShared === true,
     };
     const inner = refOf(walk.node);
     const target = inner !== null && index < pointer.segments.length;
@@ -207,5 +226,6 @@ export function generatedLocationOf(ref: string, refs: RefResolver): GeneratedLo
   return {
     path: walk === null ? ref : appendPointer(ROOT_POINTER, walk.path),
     recordOwner: walk?.recordOwner ?? null,
+    isShared: walk?.isShared ?? false,
   };
 }

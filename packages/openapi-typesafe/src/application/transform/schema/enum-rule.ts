@@ -193,7 +193,11 @@ function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
   // `isTsEnum` admits only strings and numbers, and the fix leaves `null` out of the members.
   const values = tsEnumEntries(schema, options).map(([value]) => value);
   const declaration = enumRequest(schema, request.location.path, options);
-  const element = { ...tupleElement(schema, request), ...walkedLocation(request) };
+  const element = {
+    ...tupleElement(schema, request),
+    ...walkedLocation(request),
+    isAtSharedLocation: request.isAtSharedLocation,
+  };
   const type =
     ownerEnumMembersType(schema, values, request) ??
     withOtherStrings(irReference(footer.addEnum({ ...declaration, ...element })), schema);

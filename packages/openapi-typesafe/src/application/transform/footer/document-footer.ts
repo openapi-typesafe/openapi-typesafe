@@ -19,6 +19,7 @@ import {
   enumDeclaration,
   withoutDeclaredMembers,
 } from "./enum-naming.js";
+import { EnumOwners } from "./enum-owners.js";
 import { EnumValuesNames } from "./enum-values-names.js";
 import { OperationKeys } from "./operation-keys.js";
 import { FIRST_SCHEMA_NAMES, type SharedEnumNames } from "./shared-enum-names.js";
@@ -66,20 +67,6 @@ function compareAsStrings(left: string | number, right: string | number): number
 /** One member: the value (JSON keeps `"1"` and `1` apart), its name and its description. */
 function memberKey(value: string | number, metadata: EnumMemberMetadata | undefined) {
   return [value, metadata?.name ?? null, metadata?.description || null];
-}
-
-/**
- * The owner of an enum: its schema location. A property and an inline `allOf` item of one schema
- * share it and one enum (two enums would make their intersection `never`). The elements of one
- * tuple are typed at the tuple's location too, but under one name TypeScript merges their
- * declarations, so each element would admit the values of the others: an element owns its name
- * with its set of values, and elements of the same values still share one enum.
- */
-function enumOwner(request: EnumDeclarationRequest): string {
-  if (request.tupleIndex === undefined) {
-    return request.name;
-  }
-  return JSON.stringify([request.name, [...request.values].sort(compareAsStrings)]);
 }
 
 /** Where the walk of the document met a request (`WalkRanks`). */
@@ -132,6 +119,7 @@ function freshNames(): RunFooterNames {
  */
 export class RunFooter implements DocumentFooter {
   private readonly naming = new EnumNaming();
+  private readonly owners = new EnumOwners();
   private readonly enumsByKey = new Map<string, DedupedEnum>();
   /** Declarations added already: the same one twice fails with "Duplicate identifier". */
   private readonly declaredEnums = new Set<string>();
@@ -167,7 +155,7 @@ export class RunFooter implements DocumentFooter {
       return this.dedupedName(known, ownName, request);
     }
     // Requests of one owner share one enum, with `--dedupe-enums` too.
-    const owner = enumOwner(request);
+    const owner = this.owners.ownerOf(request);
     const name = this.names.enums.nameFor(
       sharedName,
       owner,

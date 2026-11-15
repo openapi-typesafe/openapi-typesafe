@@ -21,7 +21,7 @@ import { discriminatorMember, inheritedDiscriminator } from "./inherited-discrim
 import { isInputLocation } from "./input-location.js";
 import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
 import type { SchemaOptions } from "./schema-context.js";
-import type { SchemaRequest, ValueAccess } from "./schema-rule.js";
+import { AT_SHARED_LOCATION, type SchemaRequest, type ValueAccess } from "./schema-rule.js";
 
 export class InvalidPropertyError extends OpenAPITypesafeError {
   constructor(path: string | undefined, key: string, value: unknown) {
@@ -233,6 +233,7 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
     const access = recordValueAccess(schema, "additionalProperties", request);
     types.push(
       request.transformNested(additionalProperties as Schema, request.location, {
+        ...AT_SHARED_LOCATION,
         valueAccess: access,
       }),
     );
@@ -243,7 +244,7 @@ function indexValueTypes(schema: SchemaObject, request: SchemaRequest): IrType[]
   const patterns = schema.patternProperties;
   if (typeof patterns === "object" && patterns !== null && Object.keys(patterns).length > 0) {
     for (const [, value] of documentEntries(patterns, request.context.options)) {
-      types.push(request.transformNested(value, request.location));
+      types.push(request.transformNested(value, request.location, AT_SHARED_LOCATION));
     }
   }
   return types;

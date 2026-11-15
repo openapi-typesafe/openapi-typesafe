@@ -96,11 +96,21 @@ function inlineItemType(item: Schema, required: readonly string[], request: Sche
 }
 
 /**
- * The union's own keywords at the union's location, so nested names (enums) stay the union's.
+ * The union's own keywords at the union's location, so nested names (enums) stay the union's:
+ * a component's location, which the walk of the union types it at alone.
  * Null when the union has none.
  */
 function ownKeywordsType(own: SchemaObject, ref: string, request: SchemaRequest): IrType | null {
-  return combinedType(own, { ...request, location: { ...request.location, path: ref } });
+  const location = { ...request.location, path: ref };
+  // The nested schemas take the flag from the call, not from the request, so it is reset there.
+  const atOwnLocation: SchemaRequest = {
+    ...request,
+    location,
+    isAtSharedLocation: false,
+    transformNested: (nested, nestedLocation, call = {}) =>
+      request.transformNested(nested, nestedLocation, { isAtSharedLocation: false, ...call }),
+  };
+  return combinedType(own, atOwnLocation);
 }
 
 /**
