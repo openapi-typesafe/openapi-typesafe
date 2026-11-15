@@ -85,7 +85,8 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
   `getParts` parts) as plain values, bytes inside a body as JSON sends them, a whole-body object
   with a `toJSON` also by its members (`bodyFields`), plus the fetch client's `baseUrl` (or
   `keyScope`). A `Date`, boxed primitive or `toJSON` value is held by its JSON form in a body. In
-  params a valid `Date` is its ISO text, `NaN` and a bigint their text, and another object its
+  params a valid `Date` is its ISO text, `NaN`, an infinity and a bigint `{ "(number)": text }`
+  (a JSON `querySerializer` sends `NaN` and `"NaN"` apart), and another object its
   own members plus, when it has them, its `"toJSON()"` form and `"toString()"` text, since a
   client `querySerializer` / `pathSerializer` may send those (two `URL`s never share a key).
   Records that are class instances are read like object literals. An `undefined` array item in
@@ -93,8 +94,10 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
   `Headers` sends (`new Number(5)` is `"5"`, a `Date` its local text), and header names are lower
   case, a later name in another case winning as in `Headers`. A `Map` or `Set` (body or params)
   is keyed by its contents, `{ "entries()": [...] }` or `{ "values()": [...] }`, since a custom
-  serializer may send them; other iterables by their own members only. One rule reads body,
-  params and headers: functions (`fetch`, serializers, middleware hooks, a function inside a
+  serializer may send them; a MobX-style `Map` / `Set` (its type tag only) by its contents alone,
+  a subclass also by its own members; other iterables by their own members only. A value more
+  than 100 objects deep is keyed in parts under `"(deeper)"`, so the key is stable. One rule
+  reads body, params and headers: functions (`fetch`, serializers, middleware hooks, a function inside a
   body), circular references and values that throw when read (getters, `toJSON`, revoked
   `Proxy`, header pairs with an item that is no pair) are left out of the key. Filters such as
   `setQueriesData({ queryKey })` match only that value's query, also after `hydrate`.
