@@ -143,9 +143,45 @@ describe("generatedMember", () => {
 
   it("generatedMember counts shapes it does not model as opaque", () => {
     expect(member("Tagged", "kind")).toBe("opaque");
-    expect(member("Enum", "x")).toBe("opaque");
+    expect(member("Enum", "length")).toBe("opaque");
     expect(member("Item", "toString")).toBe("opaque");
     expect(member("List", "0")).toBe("opaque");
+  });
+
+  it("generatedMember reads a const or enum as the literal type the generator writes", () => {
+    const literal = (node: unknown, key: string) =>
+      generatedMember(located(node), key, OPTIONS, REFS).kind;
+
+    expect(member("Enum", "schema")).toBe("missing");
+    expect(literal({ const: "red" }, "oneOf")).toBe("missing");
+    expect(literal({ const: 1 }, "toFixed")).toBe("opaque");
+    expect(literal({ enum: [true, "a"] }, "length")).toBe("missing");
+    expect(literal({ enum: ["a", null] }, "length")).toBe("opaque");
+    expect(literal({ enum: ["a", null] }, "oneOf")).toBe("missing");
+    expect(literal({ const: { a: 1 } }, "a")).toBe("opaque");
+    // The enum rule leaves an object enum to the object rules.
+    expect(literal({ type: "object", enum: [{}], properties: { a: {} } }, "a")).toBe("property");
+  });
+
+  it("generatedMember with a cycle of $refs is opaque", () => {
+    const ring = resolverOf({
+      components: {
+        schemas: {
+          Ring: { $ref: "#/components/schemas/Loop" },
+          Loop: { $ref: "#/components/schemas/Ring" },
+        },
+      },
+    });
+    const node = { $ref: "#/components/schemas/Ring" };
+
+    expect(generatedMember(located(node), "schema", OPTIONS, ring).kind).toBe("opaque");
+  });
+
+  it("generatedMember reads a schema with not by its other keywords", () => {
+    const node = { type: "object", properties: { a: {} }, not: { required: ["a"] } };
+
+    expect(generatedMember(located(node), "a", OPTIONS, REFS).kind).toBe("property");
+    expect(generatedMember(located(node), "not", OPTIONS, REFS).kind).toBe("missing");
   });
 
   it("generatedMember with --read-write-markers reads a property without a marker", () => {

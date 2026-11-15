@@ -1247,6 +1247,11 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   type inline; a pointer to the property itself keeps `$Read<T>`.
 - A pointer may pass through another `$ref` (`Wrap/properties/o/properties/v`, where `o` is a
   `$ref`): the rest of the pointer is read from the `$ref`'s target.
+- A schema typed as a literal union or an `--enum` enum (an `enum` or a `const`) has no key such
+  as `schema`, `oneOf` or `allOf`, so a pointer through it (the `schema` of an enum parameter, a
+  `const` variant of a `oneOf`, an `enum` item of an `allOf`) gets the target's type. A `$defs`
+  entry of a schema with no `$defs` member in its type (an enum, an array) gets the target's type
+  inline too. `not` is ignored: it adds nothing to the type, so it does not hide the other keywords.
 
 A parameter `$ref` to a parameter of another operation or path item
 (`#/paths/~1a/get/parameters/0`) is indexed by the parameter's location and name. When every

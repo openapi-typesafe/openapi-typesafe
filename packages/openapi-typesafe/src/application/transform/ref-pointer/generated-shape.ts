@@ -1,5 +1,6 @@
 import { isRawBinarySchema } from "../../../domain/openapi/binary-content.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { enumRule } from "../schema/enum-rule.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import { unevaluatedSchemaOf } from "../schema/unevaluated-schema.js";
 import {
@@ -48,7 +49,8 @@ import {
  * sure; for every other shape it says `opaque`, so a caller never assumes an error that is not.
  */
 
-const OPAQUE_KEYS = ["not", "enum", "const", "$ref"] as const;
+/** A `$ref` left after following one is a cycle of `$ref`s, whose type is not read here. */
+const REF_KEYWORD = "$ref";
 const DEFS_KEYWORD = "$defs";
 /** How deep `allOf`/`anyOf`/`oneOf` members are read; deeper shapes count as opaque. */
 const MAX_DEPTH = 8;
@@ -66,6 +68,47 @@ function emptyObjectMember(node: JsonObject, options: SchemaOptions): GeneratedM
 /** Whether a key the object has no property for is still a member: `toString`, `length`, `0`. */
 function isBuiltInMember(key: string, prototype: object): boolean {
   return key in prototype;
+}
+
+/**
+ * The values of the literal type the generator writes for a `const` or for an `enum` its enum
+ * rule types (`SHAPE_RULES`: a union of the values, or a TypeScript enum of them, whose members
+ * have the members of their primitive); null for any other schema. `not` is not typed, so a
+ * schema with it is read by its other keywords.
+ */
+function literalValuesOf(node: JsonObject): readonly unknown[] | null {
+  if (node.const !== undefined) {
+    return [node.const];
+  }
+  return enumRule.matches(node as SchemaObject) ? (node.enum as readonly unknown[]) : null;
+}
+
+/** The value whose members a primitive literal has: `"a".length`; undefined for an object. */
+function literalPrototypeOf(value: unknown): object | undefined {
+  switch (typeof value) {
+    case "string":
+      return String.prototype;
+    case "number":
+      return Number.prototype;
+    case "boolean":
+      return Boolean.prototype;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * A key of a literal type: missing where one of its primitive values has no such member (the
+ * `oneOf` of `"red" | "green"`). A `null` value is left out: the `nullable-enums` fix may drop it.
+ * An object or array literal is opaque.
+ */
+function literalMember(values: readonly unknown[], key: string): GeneratedMember {
+  const prototypes = values.filter((value) => value !== null).map(literalPrototypeOf);
+  if (prototypes.some((prototype) => prototype === undefined)) {
+    return OPAQUE;
+  }
+  const isMissingKey = prototypes.some((prototype) => !isBuiltInMember(key, prototype as object));
+  return isMissingKey ? MISSING : OPAQUE;
 }
 
 function objectMember(
@@ -168,8 +211,12 @@ interface MemberInput {
 function memberAt(schema: LocatedNode, key: string, input: MemberInput): GeneratedMember {
   const followed = followLocated(schema, input.refs);
   const { node } = followed;
-  if (!isJsonObject(node) || OPAQUE_KEYS.some((name) => name in node) || input.depth > MAX_DEPTH) {
+  if (!isJsonObject(node) || REF_KEYWORD in node || input.depth > MAX_DEPTH) {
     return OPAQUE;
+  }
+  const literals = literalValuesOf(node);
+  if (literals !== null) {
+    return literalMember(literals, key);
   }
   if (isNullableSchema(node)) {
     // Every key of `T | null` is an error, unless `T` is unknown (then the type is `unknown`).
