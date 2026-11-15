@@ -369,3 +369,42 @@ TypeScript, as before.
    fails with `CLI_CONFIG_INVALID`, as documented, and empty text fails the same way ("not
    empty"), as an empty `--output` fails with `CLI_FLAG_INVALID`: the config has its own code for
    a wrong value, and read as unset an empty value would name no file.
+
+## Amendment (2026-11-14): URLs the generator cannot read, local roots that are files
+
+1. **A schema that is a URL of another scheme fails before it is read.** Redocly takes only
+   `http://` and `https://` for URLs and reads any other name as a path relative to
+   `process.cwd()`. So `openapi-typesafe s3://bucket/a.yaml -o s3:/bucket/a.yaml` read
+   `./s3:/bucket/a.yaml` and then overwrote it with exit code `0`, as did a `root: s3://…` and the
+   Node API with such a `URL` or string; the output guard missed the root, since the loader listed
+   only absolute paths as local files. The loader now fails a source URL whose scheme is not
+   `file:`, `http:` or `https:` with `SCHEMA_SOURCE_INVALID` (`details.reason:
+   "unsupported-scheme"`), once the source is resolved, so a `URL`, text and stdin take one path;
+   the CLI keeps the code, as for a `file:` URL that names no local path (item 2 of the
+   2026-11-11 amendment). The loader also lists every document that is no http(s) URL as a local
+   file, resolved against the working directory as `fs` reads it, so no root Redocly reads from
+   disk can escape the guard. A CLI code for the argument was rejected for the same reason as
+   then: the Node API reports the same source with this code.
+2. **A `$ref` is a URL by the same rule.** In a local document, a `$ref` with a scheme the
+   generator does not read and `//` (`s3://bucket/pet.yaml`, `ftp://…`) was read from
+   `<folder>/s3:/bucket/pet.yaml`, and `file:///specs/pet.yaml` from `<folder>/file:/specs/…`. A
+   `file:` URL now names its file, resolved against the document (RFC 3986), so it is checked
+   against the local root as any path is; any other URL, and a `file:` URL that names no local
+   path, is refused with `SCHEMA_REF_FORBIDDEN` (`reason: "unsupported-url"`). Text without `//`
+   before a colon stays a file name (`out:v2.yaml`, `C:/specs/pet.yaml`, `urn:x`), as for every
+   location (item 4 of the 2026-11-10 amendment). In a remote document every `$ref` that is no
+   http(s) URL stays refused as `local-ref-from-remote`. Refusing `file:` URLs too was rejected:
+   they are valid references to local files, and the docs already name them so.
+3. **Locations in `redocly.yaml` resolve against its folder.** They resolved against the config
+   file's URL, so a `file:` URL with an empty path (`local-ref-root: "file:"`, `file:?x`) named
+   `redocly.yaml` itself, and every local `$ref` was then refused as outside that root. Paths and
+   other relative URLs name the same files against the folder; only these now name the folder,
+   as `""` and `file:.` did, and as `--local-ref-root file:` names the working directory.
+4. **A local `$ref` root must not be a file.** `--local-ref-root spec.yaml` and `localRefRoot`
+   with a file were accepted and refused every local `$ref`, also one next to the schema. A root
+   that is an existing file now fails before anything loads: `CLI_FLAG_INVALID`,
+   `CLI_CONFIG_INVALID` naming the API and the key, or `OPTION_INVALID` (`details.option:
+   "localRefRoot"`). The Node API asks a `FileCheck` port of its run (`GeneratorPorts.files`), as
+   the CLI asks its own. A root that does not exist yet stays valid: no `$ref` can load a file
+   from it, and the refusal then names the root. Reading a file root as its folder was rejected:
+   the flag names a directory, and a silent change of meaning would hide the mistake.
