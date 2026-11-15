@@ -2,8 +2,11 @@ import { mayBeApiDescription } from "../domain/api-descriptions.js";
 import { type DocumentString, usedDocumentStrings } from "../domain/config-documents.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
 import { DEFAULT_YAML_FILE, TASKFILE, type YamlCommandFile } from "../domain/yaml-environments.js";
-import { generatorVariables } from "../domain/yaml-generator-variables.js";
-import { includedPaths, NO_INCLUDES } from "../domain/yaml-includes.js";
+import {
+  generatorVariables,
+  includedGeneratorVariables,
+} from "../domain/yaml-generator-variables.js";
+import { type IncludedFile, includedFiles, NO_INCLUDES } from "../domain/yaml-includes.js";
 import type { DocumentReaders, ProjectFiles } from "./ports.js";
 import {
   baseName,
@@ -17,15 +20,24 @@ import { yamlCommandFileFor } from "./yaml-file-kinds.js";
 /**
  * What the YAML files of a project give the other files, read before any file is migrated: the
  * kind of each file that a Taskfile, a GitLab CI file or an Azure pipeline includes under another
- * name, and the variables that YAML files set to the old generator, which the scripts their jobs
- * run may expand.
+ * name, the variables that YAML files set to the old generator, which the scripts their jobs run
+ * may expand, and those that reach each included file, whose includes may set them otherwise.
  */
 export interface YamlReach {
   readonly kinds: ReadonlyMap<string, YamlCommandFile>;
   readonly generatorVariables: ReadonlySet<string>;
+  readonly includedVariables: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
-export const NO_YAML_REACH: YamlReach = { kinds: new Map(), generatorVariables: new Set() };
+export const NO_YAML_REACH: YamlReach = {
+  kinds: new Map(),
+  generatorVariables: new Set(),
+  includedVariables: new Map(),
+};
+
+/** The variables set to the generator that reach the file at `path` from the project. */
+export const outsideVariablesOf = (reach: YamlReach, path: string): ReadonlySet<string> =>
+  reach.includedVariables.get(path) ?? reach.generatorVariables;
 
 interface ReachDependencies {
   readonly files: ProjectFiles;
@@ -67,30 +79,48 @@ function matchingPaths(pattern: string, listed: readonly string[]): string[] {
   return listed.filter((path) => matches.test(path));
 }
 
+/** The files that includes name: the kind each gets, and the variables each include gives it. */
+interface Inclusions {
+  readonly kinds: Map<string, YamlCommandFile>;
+  readonly variables: Map<string, ReadonlyMap<string, string>[]>;
+}
+
 /**
  * The kinds of the files that the files of `paths` include, followed through the files they
- * include in turn. A file that its name gives a kind keeps it. Only the files of a kind that
- * includes files are read.
+ * include in turn, and the variables of each include. A file that its name gives a kind keeps
+ * it. Only the files of a kind that includes files are read, each once.
  */
-async function includedKinds(
+async function inclusions(
   paths: readonly string[],
   dependencies: ReachDependencies,
-): Promise<Map<string, YamlCommandFile>> {
-  const kinds = new Map<string, YamlCommandFile>();
+): Promise<Inclusions> {
+  const found: Inclusions = { kinds: new Map(), variables: new Map() };
   const pending = paths
     .map((path) => ({ path, kind: namedKindOf(path) }))
     .filter(({ kind }) => kind.includes !== NO_INCLUDES);
   for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
     const strings = stringsOf(await textOf(next.path, dependencies), dependencies);
-    const included = includedPaths(next.path, strings, next.kind.includes);
-    for (const path of included.flatMap((pattern) => matchingPaths(pattern, paths))) {
-      if (!kinds.has(path) && namedKindOf(path) === DEFAULT_YAML_FILE) {
-        kinds.set(path, next.kind);
-        pending.push({ path, kind: next.kind });
-      }
+    const { kind } = next;
+    for (const { path: pattern, variables } of includedFiles(next.path, strings, kind.includes)) {
+      const matched = matchingPaths(pattern, paths);
+      pending.push(...matched.flatMap((path) => recordInclude(found, { path, variables }, kind)));
     }
   }
-  return kinds;
+  return found;
+}
+
+/**
+ * Records one file that an include of a file of `kind` names: its variables, and the kind of a
+ * file that its name gives none, which is then read for its own includes.
+ */
+function recordInclude(found: Inclusions, file: IncludedFile, kind: YamlCommandFile) {
+  const { path, variables } = file;
+  found.variables.set(path, [...(found.variables.get(path) ?? []), variables]);
+  if (found.kinds.has(path) || namedKindOf(path) !== DEFAULT_YAML_FILE) {
+    return [];
+  }
+  found.kinds.set(path, kind);
+  return [{ path, kind }];
 }
 
 /** Whether the variables of a YAML file are read: it names an old package, and it is no API. */
@@ -103,7 +133,7 @@ export async function planYamlReach(
   dependencies: ReachDependencies,
 ): Promise<YamlReach> {
   const yamlPaths = paths.filter((path) => YAML_EXTENSIONS.has(extensionOf(path)));
-  const kinds = await includedKinds(yamlPaths, dependencies);
+  const { kinds, variables } = await inclusions(yamlPaths, dependencies);
   const names = new Set<string>();
   for (const path of yamlPaths) {
     const text = await textOf(path, dependencies);
@@ -114,5 +144,8 @@ export async function planYamlReach(
       }
     }
   }
-  return { kinds, generatorVariables: names };
+  const includedVariables = new Map(
+    [...variables].map(([path, sets]) => [path, includedGeneratorVariables(names, sets)]),
+  );
+  return { kinds, generatorVariables: names, includedVariables };
 }

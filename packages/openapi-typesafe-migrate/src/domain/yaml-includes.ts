@@ -12,6 +12,11 @@ export interface YamlIncludes {
   readonly isIncludeAt: (path: DocumentPath) => boolean;
   /** Whether a path as written is from the project root, not from the including file's folder. */
   readonly isFromRoot: (reference: string) => boolean;
+  /**
+   * The key path of the variables that the include whose file the value at `path` names gives
+   * that file (a Taskfile include's `vars`); none when the tool's includes give none.
+   */
+  readonly variablesPath?: (path: DocumentPath) => DocumentPath;
 }
 
 const ROOT_PREFIX = "/";
@@ -30,14 +35,21 @@ export const NO_INCLUDES: YamlIncludes = {
 
 const TASKFILE_INCLUDES_KEY = "includes";
 const TASKFILE_KEY = "taskfile";
+const TASKFILE_VARS_KEY = "vars";
+/** `includes` and the include's name: the start of the key path of all its fields. */
+const INCLUDE_PATH_LENGTH = 2;
 
-/** Task `includes: { gen: ./tasks/gen.yml }`, also `{ taskfile: … }`, from the file's folder. */
+/**
+ * Task `includes: { gen: ./tasks/gen.yml }`, also `{ taskfile: …, vars: { GEN: … } }`, from the
+ * file's folder. The `vars` of an include are variables of the file it includes there.
+ */
 export const TASKFILE_INCLUDES: YamlIncludes = {
   isIncludeAt: ([key, name, field]) =>
     key === TASKFILE_INCLUDES_KEY &&
     typeof name === "string" &&
     (field === undefined || field === TASKFILE_KEY),
   isFromRoot: () => false,
+  variablesPath: (path) => [...path.slice(0, INCLUDE_PATH_LENGTH), TASKFILE_VARS_KEY],
 };
 
 const GITLAB_INCLUDE_KEY = "include";
@@ -64,15 +76,34 @@ export const AZURE_TEMPLATES: YamlIncludes = {
   isFromRoot: (reference) => reference.startsWith(ROOT_PREFIX),
 };
 
+/** A file that an include names, and the variables that the include gives it, by name. */
+export interface IncludedFile {
+  readonly path: string;
+  readonly variables: ReadonlyMap<string, string>;
+}
+
+/** The string variables of the map at `path` (`vars: { GEN: grep }`); a computed one is none. */
+function variablesAt(
+  strings: readonly DocumentString[],
+  path: DocumentPath | undefined,
+): Map<string, string> {
+  const map = JSON.stringify(path);
+  const variables = strings.filter(
+    (string) => path !== undefined && JSON.stringify(string.path.slice(0, -1)) === map,
+  );
+  return new Map(variables.map((string) => [String(string.path.at(-1)), string.value]));
+}
+
 /**
- * The project paths of the YAML files that the file at `fromPath` includes. GitLab may name
- * several files with `*` and `**`, which stay in the path for the caller to match.
+ * The project paths of the YAML files that the file at `fromPath` includes, with the variables
+ * that each include gives. GitLab may name several files with `*` and `**`, which stay in the
+ * path for the caller to match.
  */
-export function includedPaths(
+export function includedFiles(
   fromPath: string,
   strings: readonly DocumentString[],
   includes: YamlIncludes,
-): string[] {
+): IncludedFile[] {
   return strings.flatMap((string) => {
     const reference = string.value.trim();
     if (!includes.isIncludeAt(string.path) || NOT_A_PROJECT_PATH_RE.test(reference)) {
@@ -81,6 +112,14 @@ export function includedPaths(
     const path = includes.isFromRoot(reference)
       ? referencedProjectPath("", reference.replace(LEADING_ROOT_RE, ""))
       : referencedProjectPath(fromPath, reference);
-    return path !== undefined && YAML_FILE_RE.test(path) ? [path] : [];
+    const variables = variablesAt(strings, includes.variablesPath?.(string.path));
+    return path !== undefined && YAML_FILE_RE.test(path) ? [{ path, variables }] : [];
   });
 }
+
+/** The project paths of the YAML files that the file at `fromPath` includes. */
+export const includedPaths = (
+  fromPath: string,
+  strings: readonly DocumentString[],
+  includes: YamlIncludes,
+): string[] => includedFiles(fromPath, strings, includes).map(({ path }) => path);

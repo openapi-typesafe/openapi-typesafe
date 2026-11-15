@@ -84,7 +84,7 @@ import {
   YAML_MANIFEST_FILES,
   YARNRC_FILE_NAME,
 } from "./project-file-names.js";
-import { yamlKindOf } from "./yaml-file-reach.js";
+import { outsideVariablesOf, yamlKindOf } from "./yaml-file-reach.js";
 
 const isHuskyHook = (path: string): boolean =>
   (path.startsWith(HUSKY_FOLDER) || path.includes(`/${HUSKY_FOLDER}`)) &&
@@ -153,7 +153,7 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
         usedValuesStep((text, values) =>
           migrateYamlCommands(text, path, values, {
             ...TASKFILE,
-            outsideVariables: context.yamlReach.generatorVariables,
+            outsideVariables: outsideVariablesOf(context.yamlReach, path),
           }),
         ),
       ]),
@@ -183,7 +183,7 @@ const yamlCommandsStep =
       : usedValuesStep((current, values) =>
           migrateYamlCommands(current, path, values, {
             ...yamlKindOf(yamlReach, path),
-            outsideVariables: yamlReach.generatorVariables,
+            outsideVariables: outsideVariablesOf(yamlReach, path),
           }),
         )(text, read);
   };
