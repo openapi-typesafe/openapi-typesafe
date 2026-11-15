@@ -1258,6 +1258,14 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   `const` variant of a `oneOf`, an `enum` item of an `allOf`) gets the target's type. A `$defs`
   entry of a schema with no `$defs` member in its type (an enum, an array) gets the target's type
   inline too. `not` is ignored: it adds nothing to the type, so it does not hide the other keywords.
+- An `enum: []` (typed `never`) and an `enum: [null]` have no keys, so a pointer through one, its
+  `$defs` included, gets the target's type inline.
+- In an `anyOf` / `oneOf` of several records, `[string]` reads the union of every variant's value
+  type, so a pointer to one variant's `additionalProperties` gets that variant's type inline. A
+  single record keeps `[string]`.
+- `[number]` of a tuple (`prefixItems`) reads its elements and its rest items together, so a
+  pointer to the tuple's `items` (or deeper) gets the target's type inline. A plain array keeps
+  `[number]`.
 
 A parameter `$ref` to a parameter of another operation or path item
 (`#/paths/~1a/get/parameters/0`) is indexed by the parameter's location and name. When every
