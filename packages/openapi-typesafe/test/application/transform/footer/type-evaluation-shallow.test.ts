@@ -123,6 +123,16 @@ describe("TypeEvaluator outside FlattenedDeepRequired", () => {
     expect(evaluated(irReference("WithRequired", [text("r"), text("k")]))).toBe('"r"');
   });
 
+  it("evaluate reads Exclude of undefined as the other members", () => {
+    const owner = irObject([optional("next", irKeyword("string"))]);
+    const excluded = (type: IrType, by: IrType) => irReference("Exclude", [type, by]);
+
+    expect(evaluated(excluded(at(owner, "next"), irKeyword("undefined")))).toBe("string");
+    expect(evaluated(excluded(at(owner, "next"), irKeyword("string")))).toBe("opaque");
+    expect(evaluated(excluded(irReference("Unknown"), irKeyword("undefined")))).toBe("opaque");
+    expect(evaluated(irReference("Exclude", [irKeyword("string")]))).toBe("opaque");
+  });
+
   it("evaluate reads a required property without undefined", () => {
     const owner = irObject([required("next", EMAIL)]);
 

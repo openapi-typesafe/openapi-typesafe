@@ -38,6 +38,10 @@ const DEEP_HELPER = "FlattenedDeepRequired";
 /** How many members distributing an intersection may give; more is opaque. */
 const MAX_DISTRIBUTED = 64;
 
+function isUndefinedKeyword(type: IrType | undefined): boolean {
+  return type?.kind === "keyword" && type.keyword === "undefined";
+}
+
 /** Without templated paths no raw key has known key types. */
 const NO_RAW_KEY_TYPES: RawKeyTypes = new Map();
 
@@ -153,6 +157,8 @@ export class TypeEvaluator {
         return argument.deep ? argument : OPAQUE;
       case "Extract":
         return second === undefined ? OPAQUE : this.extract(argument, second);
+      case "Exclude":
+        return isUndefinedKeyword(second) ? this.withoutUndefined(argument) : OPAQUE;
       case "Record":
         return second === undefined ? OPAQUE : stringRecord(argument, second);
       case "Omit":
@@ -192,6 +198,16 @@ export class TypeEvaluator {
       combinations = combinations.flatMap((done) => list.map((member) => [...done, member.type]));
     }
     return combinations.map((types) => ({ ...value, type: intersectionType(types) }));
+  }
+
+  /** `Exclude<T, undefined>`, which a `$ref` to an optional property gets (ADR-026). */
+  private withoutUndefined(value: Evaluated): Evaluation {
+    const members = this.membersOf(value);
+    if (members.some((member) => member.kind !== "type")) {
+      return OPAQUE;
+    }
+    const kept = (members as Evaluated[]).filter((member) => !isUndefinedKeyword(member.type));
+    return { ...value, type: unionType(kept.map((member) => member.type)) };
   }
 
   private withoutNullish(value: Evaluated): Evaluation {

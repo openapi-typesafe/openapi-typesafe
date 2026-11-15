@@ -391,6 +391,6 @@ describe("schema $refs with --read-write-markers", () => {
   it("openapiTS without markers indexes a readOnly property", async () => {
     const output = await generate(document, { fix: ["ref-pointers"] });
 
-    expect(output).toContain('ThroughMarked: components["schemas"]["Wrap"]["r"]["b"];');
+    expect(output).toContain('ThroughMarked: Exclude<components["schemas"]["Wrap"]["r"]["b"], undefined>;');
   });
 });

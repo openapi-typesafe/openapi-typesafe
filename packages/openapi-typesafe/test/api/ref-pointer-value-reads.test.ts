@@ -40,6 +40,14 @@ describe("schema $refs whose pointer type has no value", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
+  it("openapiTS with the ref-pointers fix types an optional property of such an owner in place", async () => {
+    const contact = { type: ["object"], allOf: [{ type: ["null"] }], properties: { email: STRING } };
+
+    const output = await generate({ Contact: contact, R: ref("Contact/properties/email") }, { fix: ["ref-pointers"] });
+
+    expect(aliasOf(output, "R")).toBe("string");
+  });
+
   it("openapiTS types an allOf item in place where the original reads never through closed parts", async () => {
     const contact = {
       type: "object",
@@ -62,5 +70,54 @@ describe("schema $refs whose pointer type has no value", () => {
     const output = await generate({ Contact: contact, R: ref("Contact/properties/never") });
 
     expect(aliasOf(output, "R")).toBe('components["schemas"]["Contact"]["never"]');
+  });
+});
+
+describe("schema $refs to optional properties with the ref-pointers fix", () => {
+  const contact = {
+    type: "object",
+    properties: { email: STRING, name: STRING, note: { type: ["string", "null"] } },
+    required: ["name", "note"],
+  };
+  const schemas = {
+    Contact: contact,
+    Email: ref("Contact/properties/email"),
+    Name: ref("Contact/properties/name"),
+    Note: ref("Contact/properties/note"),
+  };
+
+  it("openapiTS leaves the undefined of an optional property out", async () => {
+    const output = await generate(schemas, { fix: ["ref-pointers"] });
+
+    expect(aliasOf(output, "Email")).toBe('Exclude<components["schemas"]["Contact"]["email"], undefined>');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS keeps the pointer of a required property, nullable or not", async () => {
+    const output = await generate(schemas, { fix: ["ref-pointers"] });
+
+    expect(aliasOf(output, "Name")).toBe('components["schemas"]["Contact"]["name"]');
+    expect(aliasOf(output, "Note")).toBe('components["schemas"]["Contact"]["note"]');
+  });
+
+  it("openapiTS without the fix keeps the pointer of an optional property", async () => {
+    const output = await generate(schemas);
+
+    expect(aliasOf(output, "Email")).toBe('components["schemas"]["Contact"]["email"]');
+  });
+
+  it("openapiTS with the fix leaves out the undefined of a nested optional property", async () => {
+    const nested = { type: "object", properties: { inner: contact } };
+
+    const output = await generate(
+      { Outer: nested, R: ref("Outer/properties/inner/properties/email") },
+      {
+        fix: ["ref-pointers"],
+      },
+    );
+
+    expect(aliasOf(output, "R")).toBe(
+      'Exclude<NonNullable<components["schemas"]["Outer"]["inner"]>["email"], undefined>',
+    );
   });
 });

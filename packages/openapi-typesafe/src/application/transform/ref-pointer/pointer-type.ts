@@ -14,6 +14,7 @@ import {
 } from "./generated-location.js";
 import { hasInlineCycle } from "./inline-cycles.js";
 import { followRefs, isJsonObject } from "./located-node.js";
+import { withoutOptionalUndefined } from "./optional-target.js";
 import { originalIndexFails } from "./original-index.js";
 import { leadingSegmentsOf, pointerNode, type RefPointer, refPointerOf } from "./pointer-walk.js";
 import { isWidenedRecordValue } from "./property-shape.js";
@@ -131,7 +132,12 @@ function correctedType(
 ) {
   const { options, refs } = request.context;
   const result = typedWalk({ pointer, options, refs });
-  return result.kind === "typed" ? result.walk.type : targetType(ref, pointer, request, seen);
+  if (result.kind !== "typed") {
+    return targetType(ref, pointer, request, seen);
+  }
+  return options.fixes.has(FIX.REF_POINTERS)
+    ? withoutOptionalUndefined(result.walk.type, pointer, options, refs)
+    : result.walk.type;
 }
 
 function isCorrected(pointer: RefPointer, request: SchemaRequest): boolean {
