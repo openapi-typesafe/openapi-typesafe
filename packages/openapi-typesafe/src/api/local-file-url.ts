@@ -54,5 +54,7 @@ export function fileRootKindOf(root: URL, files: FileCheck): FileRootKind | unde
     return FILE_ROOT_KINDS.file;
   }
   const parent = path.dirname(target);
-  return parent !== target && isFileAtOrAbove(parent, files) ? FILE_ROOT_KINDS.belowFile : undefined;
+  return parent !== target && isFileAtOrAbove(parent, files)
+    ? FILE_ROOT_KINDS.belowFile
+    : undefined;
 }

@@ -81,16 +81,23 @@ describe("remoteRefUrl", () => {
     ["https://example.com/pet.yaml#/Pet", BASE, "https://example.com/pet.yaml#/Pet"],
     ["http:pet.yaml", "http://example.com/specs/api.yaml", "http://example.com/specs/pet.yaml"],
     ["http:api.yaml", null, "http://api.yaml/"],
-  ])("remoteRefUrl with %s in %s is the URL the schema argument names, %s", (ref, base, expected) => {
-    expect(remoteRefUrl(base, ref)).toBe(expected);
-  });
-
-  it.each(["./pet.yaml", "a:b.yaml", "ab:c.yaml", "C:/specs/pet.yaml", "file:pet.yaml", "s3://bucket/pet.yaml"])(
-    "remoteRefUrl with %s is undefined",
-    (ref) => {
-      expect(remoteRefUrl(BASE, ref)).toBeUndefined();
+  ])(
+    "remoteRefUrl with %s in %s is the URL the schema argument names, %s",
+    (ref, base, expected) => {
+      expect(remoteRefUrl(base, ref)).toBe(expected);
     },
   );
+
+  it.each([
+    "./pet.yaml",
+    "a:b.yaml",
+    "ab:c.yaml",
+    "C:/specs/pet.yaml",
+    "file:pet.yaml",
+    "s3://bucket/pet.yaml",
+  ])("remoteRefUrl with %s is undefined", (ref) => {
+    expect(remoteRefUrl(BASE, ref)).toBeUndefined();
+  });
 
   it("remoteRefUrl with an http URL that does not parse throws the URL parser's error", () => {
     expect(() => remoteRefUrl(BASE, "http://[::1/pet.yaml")).toThrow(TypeError);

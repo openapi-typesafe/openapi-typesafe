@@ -106,18 +106,15 @@ describe("runCli: help, version and flags", () => {
     ["file:redocly.yaml", "/work/redocly.yaml"],
     [fakeUrl("/work/redocly.yaml"), "/work/redocly.yaml"],
     ["file:my%20redocly.yaml", "/work/my redocly.yaml"],
-  ])(
-    "runCli with --redocly %s as a file: URL reads the config file it names",
-    async (location, file) => {
-      const cli = createFakeCli();
-      const config = fakeRedoclyConfig({});
-      cli.redoclyConfigs.configs.set(fakePath(file), config);
+  ])("runCli with --redocly %s as a file: URL reads the config file it names", async (location, file) => {
+    const cli = createFakeCli();
+    const config = fakeRedoclyConfig({});
+    cli.redoclyConfigs.configs.set(fakePath(file), config);
 
-      expect(await runCli(["a.yaml", "--redocly", location], cli.deps)).toBe(0);
+    expect(await runCli(["a.yaml", "--redocly", location], cli.deps)).toBe(0);
 
-      expect(cli.generator.calls[0]?.options.redocly).toBe(config);
-    },
-  );
+    expect(cli.generator.calls[0]?.options.redocly).toBe(config);
+  });
 
   it.each(["https://example.com/redocly.yaml", "file:///a%2Fb/redocly.yaml", "http://[::1/redocly.yaml"])(
     "runCli with --redocly %s that names no local file exits with 2",
