@@ -837,6 +837,63 @@ ours.
   project, or a value from outside: the old flags are reported. A `-f` file with another name
   is not read, so it is reported.
 
+## Amendment (2026-11-15): the twelfth review of the migration tool
+
+The rc.13 hunt found Makefile lines that the tool read otherwise than make, a signature of the
+generator that `Parameters` read otherwise than openapi-typescript's, and containers whose
+program another file or the image decides. Each fix makes output correct that was wrong or did
+not compile, so it is on by default (ADR-021).
+
+- **Makefiles are read line by line, as make's `read.c` does.** `domain/make-lines.ts` splits the
+  text into logical lines (a backslash continues a line, also a comment line) and reads each one
+  as make would: a line that starts with a tab is a recipe only inside a rule, so before the first
+  rule it is an assignment, as are lines indented with spaces; a `define` block's body is its
+  variable's value, with nested `define`s counted and a tab-indented `endef` read as body text; an
+  assignment is found by `parse_variable_definition`'s rules (the first `=` outside references,
+  after the operator's characters), so `gen: a=b` is a target-specific value and not an
+  assignment of `gen: a`. Comments, conditionals, `export` lines, includes and `endef` are make's
+  own text: the shell reading and the function reading skip them.
+- **A name with a variable may be any target.** A rule target or a target-specific value whose
+  name holds `$` (`$(T): GEN = grep`) may match every target, so it is one of the possible values
+  in every recipe (`domain/make-rules.ts`, "maybe"); the old flags after a variable it may set are
+  reported.
+- **Included files are read.** `include`, `-include` and `sinclude` paths are resolved from the
+  main Makefile's folder, as make does without `-I`, and the project files they name are read in
+  place (`domain/make-includes.ts`, `application/called-makefiles.ts`); only the main file is
+  edited. An include that is missing, outside the project, or named by a reference or a wildcard
+  may set any variable after it, so the values after it are not known and the flags are reported.
+- **`$(eval …)` text is Makefile text.** The arguments of an `eval` call, and the values of the
+  variables they reference, are read as Makefile lines (`domain/make-evaluations.ts`): commands
+  in them are renamed, and a variable they assign gets a computed value besides its own, so the
+  flags after it are reported. An `eval` call is no longer reported as a function the tool cannot
+  read.
+- **The generator's last signature is openapi-typescript's.** The fifth review gave `openapiTS`
+  a last overload with required `GeneratorOptions` so that `Parameters<typeof openapiTS>[1]`
+  typed the callbacks of a wrapper. But `Parameters` and `ReturnType` read the last overload, and
+  a wrapper typed `(...args: Parameters<typeof openapiTS>)` then rejected `openapiTS(source)` and
+  `undefined` options, which openapi-typescript 7 takes. TypeScript cannot pick a member of
+  `GeneratorOptions | undefined` by a key the object leaves out, so no last signature serves both;
+  openapi-typescript's own (`options?: OpenAPITSOptions`) is last now, and a wrapper of the IR
+  form types its options as a required `GeneratorOptions` (docs/node.md). Code that typed IR
+  options as `Parameters<typeof openapiTS>[1]` with rc.13 no longer compiles; the rc is no
+  contract, and the migration tool now keeps and reports (`typed-options`) a `transform` whose
+  options are typed from the generator's parameters (`typeof openapiTS`, `typeof ns.default`,
+  `typeof import("…").default`), instead of adding `irCallbacks: true` there.
+- **A Compose service's `extends` gives it keys.** A service gets the `entrypoint` and `command`
+  it does not set (also by a merge key) from the service its `extends` names in the same file,
+  through a chain of them (`domain/compose-services.ts`, `domain/yaml-container-keys.ts`); the
+  place of the base's entrypoint is then read by both containers, as an anchor's text is.
+- **A container that the file does not show is reported.** `docker compose` merges the files of
+  a folder that it is given (`compose.override.yaml` by default, others with `-f`), and the tool
+  cannot tell which files a command merges. So a service that another Compose file of its folder
+  also gives an `entrypoint` or `command` (`application/compose-file-sets.ts`), a service that
+  gets one through `extends` from another file or from a service that the file does not have, and
+  `args` alone (Kubernetes, a `docker://` step's `with`), which the image's own program runs, are
+  not edited: a new `container-not-known` step (`domain/unknown-containers.ts`) names the renames
+  that reading them as written gives, with the old flags of the generator when another file may
+  give the entrypoint. Args alone that rename nothing (`["api.yaml", "-it"]`) are not reported:
+  the image's program is not ours to guess.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.
