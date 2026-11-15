@@ -178,3 +178,27 @@ is typed by its own values. Next to `null` the type keeps `[string]`: `Flattened
 drops `null`, so the index compiles. The `[string]` index is a keyword type now, as it is printed.
 
 Changes from rc.12: these arrays, which did not compile, are typed by their values.
+
+## Amendment (2026-11-15): where an exploded parameter's keys are
+
+An exploded `form` query parameter (`style: form`, `explode: true`, an object schema) puts its
+keys on the query object itself, so the `exploded-query-objects` fix types them there. The values
+pointer of an enum inside it still named the parameter (`["query"]["filter"]["status"]`), a key
+the query object does not have (TS2339). A `$ref` to such a parameter from a path or operation
+list read the parameter's own name in the same way, also without `--enum-values`.
+
+1. **The pointer follows the type, not the document.** A schema request carries a
+   `TypePlacement`: the location path where the schema is in the document, and the type path
+   where its type is. The values pointer swaps that prefix (`enumValuesPointer`), so an enum in an
+   exploded parameter reads `["query"]["status"]`. Nested requests keep their caller's placement.
+   The ref-pointer walk gives the same placement to a `$ref` into such a parameter.
+2. **A `$ref` to an exploded parameter** in a parameter list is typed by its schema, as the inline
+   parameter is.
+3. **The evaluator reads `Partial<T>`.** The check that proves a values pointer compiles read
+   `Partial` (the type of an optional query object) as opaque, so a wrong pointer through it
+   passed. Inside `FlattenedDeepRequired` it is now its argument, as TypeScript reads it, and a
+   key the argument lacks is missing; outside, it stays opaque (its values may be `undefined`).
+
+Changes from rc.13: these pointers, which did not compile, name the key where the type puts it.
+In a quarter of the compat corpus (452 documents, eight option sets) only two outputs change,
+both with `exploded-query-objects`: they failed with 1 and 12 errors and now compile.

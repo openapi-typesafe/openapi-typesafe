@@ -345,3 +345,33 @@ that compiled keeps its type.
 Measured: the pointer fuzz (400 documents, six option sets) fails on 1 to 2 fewer documents per
 set, and on no document that compiled before. The compat corpus (1806 documents, nine option
 sets) gives the same output.
+
+## Amendment (2026-11-15): record unions, tuple rest items, empty enums
+
+Opaque means "the walk cannot tell", and `originalIndexFails` keeps the original pointer there,
+as ADR-021 asks of output that may compile. Three shapes were opaque although the walk can tell:
+
+1. **A union of records.** `unionMember` read an `anyOf` / `oneOf` whose typed members are
+   several records as opaque, so `Mixed/oneOf/1/additionalProperties` kept
+   `Mixed["additionalProperties"]`, which reads the union of every member's value type. Several
+   distinct typed members with an index member are now `isOtherType`: the corrected type is the
+   one variant's value, written inline. One record (`Numbers/additionalProperties`) keeps its
+   original.
+2. **The rest items of a tuple.** `[number]` of a `prefixItems` tuple is the union of its elements
+   and its rest items, so a `$ref` to `Tuple/items` (and deeper) did not name the target's type.
+   Where the owner has tuple elements (`prefixItems`, or an `items` array) the `items` step stops
+   and the target is typed in place. A plain array keeps `[number]`.
+3. **Empty and null-only enums.** An `enum: []` is typed `never` (or an empty `--enum` enum), an
+   `enum: [null]` is `null`; neither has members. Their keys are missing now, and the walk does
+   not follow `$defs` through a `never` member, so such pointers are typed in place.
+
+What stays opaque, and why it may compile: a `$ref` cycle or a walk past the expansion limit; the
+discriminator's own key (the discriminator scan may change it); built-in members of literals
+(`length`) and keys of object or array literals; joins the model does not follow (a `nullable`
+next to a composition, an intersection of several properties of one name); and `Blob` bodies.
+Each is a type the generator writes after the walk, so keeping the original is the safe choice.
+
+Changes from rc.13: these pointers get their target's type. Measured: the pointer fuzz (400
+documents, five option sets) gives the same error counts; one output changes, a pointer that read
+a union of index types and now reads `number`. The compat sample (452 documents, eight option
+sets) gives the same output for the ref-pointer sets.
