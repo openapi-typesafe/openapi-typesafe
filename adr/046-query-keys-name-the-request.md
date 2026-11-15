@@ -399,6 +399,66 @@ budget rises to 5.9 kB: guarded reads with the cycle check, the header fold in o
 `undefined` item form in parameters and bodies, and the walk of every record and init member.
 Correctness ranks above size (ADR-013, ADR-030).
 
+## Amendment (2026-11-15): one rule for reading values, Map and Set
+
+The rule of the amendment of 2026-11-14 held for parameters only: the body walk had its own code
+without its guards, and a few reads of `params` and `headers` had none either. Three gaps broke it.
+
+1. **Functions in a body.** A function member of a body, or a function array item, stayed in the
+   key. The hash drops it, but `partialMatchKey` compares functions by identity, so a filter
+   with the key of a later render, and every filter after `hydrate`, missed the query. A
+   function body stayed too.
+2. **Values a key cannot read.** A circular body (`RangeError`), a body member whose `toJSON`
+   or getter throws, a revoked `Proxy` anywhere, a `toJSON` or `toISOString` getter that throws,
+   and header pairs with an item that is no list made the key throw while the component rendered.
+3. **Map and Set.** A `Map` or `Set` keeps its contents in none of its members, has no `toJSON`
+   and the text `[object Set]`, so every one had the key `{}`, in a body and in `params`. JSON and
+   the default serializers send `{}` or nothing for it, but a `querySerializer` or
+   `bodySerializer` that sends the contents sent different requests under one key.
+
+The fix is one rule, in `key-read.ts`, that the body, the parameter and the header keys all read
+values through; each still writes what it reads by its own rule (JSON forms and kinds for a body,
+every serializer form for parameters, texts for headers):
+
+- **Members.** `readMembers` gives an array's items by index, also holes; any other object's own
+  enumerable members, a member whose getter throws as `undefined`; and for a `Map` or a `Set`
+  one more member with its contents in order, under `"entries()"` (`[[key, value], …]`) or
+  `"values()"`, in-band names like `"toJSON()"`. Contents are plain values, so they survive a
+  JSON round trip and filters read them.
+- **Left out.** `keyOf` leaves out a function (JSON leaves it out of a body and writes a function
+  item as `null`, which the body key now does too), a reference back to an object the walk is in,
+  and a value whose reading throws in any way (the request reads it again and reports the
+  error). The finer guards of 2026-11-14 stay, so a `toJSON` that throws still leaves the members
+  and the text of a parameter value, and now a `toJSON` that throws on a whole body leaves its
+  `bodyFields`, which a form or multipart body sends.
+- **Every entry point.** The init's members, `params`, each record, `headers` and the body are
+  each read with `keyOf`, so a function `params`, record or `headers` is left out too.
+
+Other iterables are not iterated. An iterator or a generator is used up by reading it, which
+would take the values its request sends, and a class of the caller may iterate without end, which
+would hang the render; such a value is keyed by its own members, and a `toJSON` gives it a key of
+its contents. A `WeakMap`, `WeakSet` or `WeakRef` cannot be read, by the key or by a serializer,
+so `{}` is right for it. `ArrayBuffer` and `DataView` inside a body keep the rule of the second
+amendment of 2026-11-12 (as JSON sends them); a whole bytes body is keyed by its bytes.
+
+Keys that change against rc.12: a `Map` or `Set` value, in `params` or a body, is its contents
+instead of `{}`; a function in a body, and a function `params`, record or `headers`, is no
+longer in the key (the hash is the same, so the cache entry is the same, but filters now find
+the query); keys that threw now exist. No other key changes.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| One read rule shared by body, params and headers (chosen) | The next guard holds everywhere; smaller than two copies | The body key's left-out members read as `undefined` entries, which the hash drops |
+| Copy the parameter guards into the body walk | Smaller diff | Two walks to keep in step, which is how this gap came |
+| Iterate every iterable | Covers custom collections | Uses up iterators, may never end |
+| Map and Set as arrays | Shorter keys | Share the key of an array, which JSON sends differently |
+| Map and Set kinds in `bodyType` | Out of band in bodies | Parameters have no `bodyType`; two shapes for one value |
+
+**Size.** The bundle grows from 5.84 kB to 6.10 kB minified (about 2.5 kB gzipped), so the
+budget rises to 6.1 kB: the shared reader with the Map and Set contents (about 150 bytes) and the
+guarded reads of the init, `params`, records, `headers` and bodies (about 100). Correctness ranks
+above size (ADR-013, ADR-030).
+
 ## Review trigger
 
 A report of two queries that share an entry while their requests differ in something a key can

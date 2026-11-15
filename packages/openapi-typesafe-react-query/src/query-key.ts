@@ -5,9 +5,11 @@
  * entry, and the `queryFn` of that entry sent the request of the first. Two clients with
  * different base URLs shared entries too. The key's init holds the headers and such a body as
  * plain values, and the base URL the request goes to or the client's key scope, so the key names
- * what was fetched.
+ * what was fetched. Every value is read by the rule of `key-read.ts`, so no key throws while the
+ * component renders.
  */
 import { bodyKey } from "./body-key.js";
+import { attempt, keyOf, readMembers } from "./key-read.js";
 import { objectKey, sentMembers, textOf } from "./param-key.js";
 
 /** The `params` record the fetch client sends as headers, through no serializer. */
@@ -80,7 +82,7 @@ function foldHeader(sent: Map<string, unknown>, name: string, value: unknown): v
  */
 function plainHeadersKey(headers: object): Record<string, unknown> {
   const sent = new Map<string, unknown>();
-  for (const [name, value] of Object.entries(headers)) {
+  for (const [name, value] of readMembers(headers)) {
     foldHeader(sent, name.toLowerCase(), headerValueKey(value));
   }
   return Object.fromEntries(sent);
@@ -103,7 +105,11 @@ function headerPairsKey(headers: Iterable<unknown>): Record<string, unknown> {
   return Object.fromEntries(sent);
 }
 
-/** The headers of an init by the headers they send, or undefined when they set none. */
+/**
+ * The headers of an init by the headers they send, or undefined when they set none. Throws for
+ * headers it cannot read, such as a pair that is not a list, for `keyOf` to leave them out: the
+ * request fails for them too and reports it.
+ */
 function headersKey(headers: unknown): unknown {
   if (typeof headers !== "object" || headers === null) {
     return headers;
@@ -146,9 +152,9 @@ function paramsKey(params: unknown): unknown {
   if (typeof params !== "object" || params === null) {
     return params;
   }
-  const records = Object.entries(params).map(([location, record]) => [
+  const records = readMembers(params).map(([location, record]) => [
     location,
-    recordKey(location, record),
+    keyOf(record, [], (value) => recordKey(location, value)),
   ]);
   return definedMembers(Object.fromEntries(records));
 }
@@ -170,12 +176,14 @@ export function queryKeyInit(init: unknown, client: KeyClient): object | undefin
     headers,
     body,
     ...rest
-  } = (init ?? {}) as { signal?: unknown; params?: unknown; headers?: unknown; body?: unknown };
+  }: { signal?: unknown; params?: unknown; headers?: unknown; body?: unknown } = Object.fromEntries(
+    attempt(() => readMembers(init ?? {})) ?? [],
+  );
   const keyInit: Record<string, unknown> = {
     ...sentMembers(rest, []),
-    params: paramsKey(params),
-    headers: headersKey(headers),
-    ...(body === undefined ? {} : bodyKey(body)),
+    params: keyOf(params, [], paramsKey),
+    headers: keyOf(headers, [], headersKey),
+    ...keyOf(body, [], bodyKey),
   };
   if (client.keyScope !== undefined) {
     keyInit.keyScope = client.keyScope;
