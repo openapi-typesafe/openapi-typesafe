@@ -1,5 +1,6 @@
 import { freeNumberedName } from "../numbered-names.js";
-import { type EnumNameClaim, finalEnumNames, lowestPosition } from "./final-enum-names.js";
+import { type EnumNameClaim, finalEnumNames } from "./final-enum-names.js";
+import { type ClaimPlace, earlierRank, WalkRanks } from "./walk-ranks.js";
 
 /**
  * The names of the `--enum` declarations of one run, unique across the enums and apart from the
@@ -10,8 +11,9 @@ import { type EnumNameClaim, finalEnumNames, lowestPosition } from "./final-enum
  * (`status` and `Status`, or two `prefixItems` elements of other values) merged into one enum
  * before, so each accepted the values of the other (upstream behavior). Now the first owner keeps
  * the name and each later one gets the next free `Name_2`, `Name_3`, …; requests of one owner (a
- * property and an inline `allOf` item of one schema) still share one enum. The elements of a
- * tuple are numbered by their position in it.
+ * property and an inline `allOf` item of one schema) still share one enum. "First" is the order
+ * of the document (`WalkRanks`): the elements of a tuple are numbered together, by their position
+ * in it, and a `$ref` the generator meets earlier does not change any name.
  *
  * A number never takes a name a location asks for: the name a component schema gives its own
  * enum (`Pair_2` for `#/components/schemas/Pair_2`), or a property's (`HolderSort_2` for
@@ -33,6 +35,7 @@ export class EnumNameClaims {
   private readonly taken: Set<string>;
   /** Every name a number skips: the names taken, and the names of the component enums. */
   private readonly unavailable: Set<string>;
+  private readonly ranks = new WalkRanks();
 
   /**
    * `mayBeNeeded`: the names an enum avoids until the end of the run; `componentNames`: the enum
@@ -50,13 +53,14 @@ export class EnumNameClaims {
 
   /**
    * The declaration name of the enum `owner` asks to name `name`; the same for every request.
-   * `position`: a tuple element's position in its tuple.
+   * `place`: where the walk of the document met the request, if it did.
    */
-  nameFor(name: string, owner: string, position?: number): string {
+  nameFor(name: string, owner: string, place: ClaimPlace = {}): string {
     const key = JSON.stringify([name, owner]);
+    const rank = this.ranks.rankOf(place);
     const known = this.claims.get(key);
     if (known !== undefined) {
-      this.claims.set(key, { ...known, position: lowestPosition(known.position, position) });
+      this.claims.set(key, { ...known, rank: earlierRank(known.rank, rank) });
       return known.given;
     }
     const isFirstOwner = (this.owners.get(name) ?? owner) === owner;
@@ -65,7 +69,7 @@ export class EnumNameClaims {
     const given = isFree ? name : freeNumberedName(name, this.unavailable);
     this.taken.add(given);
     this.unavailable.add(given);
-    this.claims.set(key, { name, given, order: this.claims.size, position });
+    this.claims.set(key, { name, given, order: this.claims.size, rank });
     return given;
   }
 

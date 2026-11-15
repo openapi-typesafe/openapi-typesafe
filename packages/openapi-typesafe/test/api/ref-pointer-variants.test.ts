@@ -77,6 +77,7 @@ const SCHEMAS = {
     ],
   },
   NullablePet: { type: ["object", "null"], properties: OWN, anyOf: [ref("Cat"), ref("Dog")] },
+  ListedPet: { type: ["object"], properties: OWN, anyOf: [ref("Cat"), ref("Dog")] },
   Cat: { type: "object", properties: { meow: { type: "boolean" } } },
   Dog: { type: "object", properties: { bark: { type: "boolean" } } },
   Owned: { type: "object", properties: { owner: OWNER } },
@@ -94,6 +95,7 @@ const NAMES = [
   "NestedOneOfPet",
   "DiscriminatorAnyPet",
   "NullablePet",
+  "ListedPet",
 ];
 const VARIANT_SHAPES = ["OneRequiredPet", "ObjectRequiredPet", "TitledPet"];
 const NEVER_VARIANT_SHAPES = ["AnyObjectPet", "NestedOneOfPet", "DiscriminatorAnyPet"];
@@ -165,6 +167,12 @@ describe("$refs into properties next to anyOf and oneOf", () => {
     expect(output).toContain("NullablePet?: string;");
   });
 
+  it("openapiTS types the target in place where a one-type list's variant misses it", async () => {
+    const output = await generate();
+
+    expect(output).toContain("ListedPet?: string;");
+  });
+
   it("openapiTS types the target of a pointer through allOf/0 that reads never", async () => {
     const output = await generate();
 
@@ -182,6 +190,7 @@ describe("$refs into properties next to anyOf and oneOf", () => {
     const output = await generate({ fix: ["anyof-properties"] });
 
     expect(output).toContain('AnyPet?: NonNullable<components["schemas"]["AnyPet"]["owner"]>["name"];');
+    expect(output).toContain(readThrough("ListedPet"));
   });
 
   it.each([[[]], [["anyof-properties"]], [["anyof-oneof-required"]], [["ref-pointers"]]] as const)(

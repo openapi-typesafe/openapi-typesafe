@@ -65,6 +65,7 @@ function checkSchema(schema: unknown, path: string | undefined): CheckedSchema {
 interface TransformCall {
   readonly valueAccess: ValueAccess;
   readonly parent?: SchemaObject | undefined;
+  readonly isThroughRef: boolean;
 }
 
 /** The request of `schema`; the schemas it transforms get it as their `parent`. */
@@ -79,8 +80,14 @@ function request(
     context,
     valueAccess: call.valueAccess,
     parent: call.parent,
-    transformNested: (nested, nestedLocation, nestedAccess = AT_LOCATION, parent = schema) =>
-      transformWithin(nested, nestedLocation, context, { valueAccess: nestedAccess, parent }),
+    isThroughRef: call.isThroughRef,
+    // A schema nested in a `$ref` target is typed for that `$ref` too.
+    transformNested: (nested, nestedLocation, nestedCall = {}) =>
+      transformWithin(nested, nestedLocation, context, {
+        valueAccess: nestedCall.valueAccess ?? AT_LOCATION,
+        parent: nestedCall.parent ?? schema,
+        isThroughRef: call.isThroughRef || nestedCall.isThroughRef === true,
+      }),
   };
 }
 
@@ -120,7 +127,7 @@ export function transformSchemaShape(
   context: SchemaContext,
   valueAccess: ValueAccess = AT_LOCATION,
 ): IrType {
-  return shapeWithin(schema, location, context, { valueAccess });
+  return shapeWithin(schema, location, context, { valueAccess, isThroughRef: false });
 }
 
 /** Transform a schema to IR, then apply `postTransform` (the original `transformSchemaObject`). */
@@ -130,5 +137,5 @@ export function transformSchema(
   context: SchemaContext,
   valueAccess: ValueAccess = AT_LOCATION,
 ): IrType {
-  return transformWithin(schema, location, context, { valueAccess });
+  return transformWithin(schema, location, context, { valueAccess, isThroughRef: false });
 }

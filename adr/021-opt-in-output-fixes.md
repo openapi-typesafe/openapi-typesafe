@@ -345,6 +345,71 @@ order keeps every name; a generator fuzz of shuffled documents names the same en
 every order (0 of 300 documents differ, against 21 with `--dedupe-enums` and 134 with
 `--enum-values` before).
 
+## Amendment (2026-11-14): owners rank by their place in the walk of the document
+
+The two amendments above ranked the claims of one name by when each owner first asked, and the
+elements of a tuple together "where the first of them asked". The claims did not record which
+tuple an element belongs to, so all tuple elements of one name ranked as one tuple:
+
+- Two tuples that ask for one name (a tuple property `Order.sort` and a tuple schema `OrderSort`,
+  both `OrderSort`; schemas `Tup`, `tup`, `TUP`) were numbered together by position:
+  `OrderSort = name, _2 = id, _3 = asc, _4 = up`. A query `$ref` to `OrderSort/prefixItems/1`,
+  typed before the components, moved the rank and swapped `asc` and `up`. With `--enum-values`
+  rc.10 numbered by arrival (`_2 = asc, _3 = id`); rc.11 interleaved them, so that output changed
+  from rc.10 without any `$ref`.
+- With `--dedupe-enums --fix dedupe-enum-names`, `Sort: [a]` and `Pair: [b], [a]` share `[a]` as
+  `Pair`. Its claim ranked at the position of the request that declared it (`Sort`'s 0), so `Pair`
+  was `[Pair_2, Pair]`; a `$ref` to `Pair/prefixItems/1`, met first, declared it from `Pair` and
+  gave `[Pair, Pair_2]`. The order of `Sort` and `Pair` in the document decided the name of
+  `Pair`'s elements.
+- The generator fuzz of colliding names (`Tup`, `tup`, `TUP` and their holders, 300 documents)
+  gave other names when its `$ref`s were removed in 27 documents with `--enum` and 35 with
+  `--dedupe-enums`.
+
+The rule: **an owner ranks by its place in the generator's walk of the document.**
+
+1. The walk meets every location of the document in the order the output is written: the roots
+   in their fixed order (`paths`, `webhooks`, `components`, `$defs`), then the document's keys in
+   the document's order (sorted with `--alphabetize`). A request records the location the walk
+   types it at (`walkedAt`; a tuple element's is its tuple's location) and its position in a
+   tuple. A schema typed for a `$ref` into it (`SchemaRequest.isThroughRef`: the
+   ADR-026 pointer types, and everything nested in such a target) and a request that only refers
+   to an enum (`isOwnerReference`, `discriminator-values`) have no place: the walk meets that
+   location elsewhere.
+2. `WalkRanks` ranks a place by when the walk first met its location, then by position. A claim
+   keeps the earliest place of its requests. The claims of a name get names in rank order
+   (`inNamingOrder`): the first owner in the document keeps the name, the elements of a tuple are
+   numbered together and in position order, and the next tuple of that name follows. An owner that
+   only `$ref`s typed (a location the walk does not visit) comes after every ranked one, in the
+   order it asked.
+3. With `--dedupe-enums`, a request gives the shared enum's claim its place only where its own
+   location gives that name; a request that shares the enum under another schema's name has no
+   place among the owners of this one. Any request of that name counts, whichever schema declared
+   the enum first.
+
+The run still gives names as it goes and `finalNames` renames at the end, so a document where no
+claim changes rank keeps every name. Names that change from rc.10, and why each depended on order:
+
+- `--enum` (and `--dedupe-enums` without the fix), where two tuples ask for one enum name: the
+  elements after the first tuple's are numbered tuple by tuple (`OrderSort_2 = asc`,
+  `OrderSort_3 = id`), where rc.10 interleaved them by position across tuples, a ranking any
+  `$ref` to an element changed. The first tuple's first element keeps the unnumbered name.
+- `--enum-values` in the same documents: the rc.10 names come back (rc.11 had interleaved them).
+- `--dedupe-enums --fix dedupe-enum-names`, where tuples share an enum under the name of a tuple
+  that did not declare it: it is numbered at its position in that tuple (`Pair: [Pair, Pair_2]`);
+  rc.10 numbered it by the tuple met first.
+- An owner whose first request came through a `$ref` or an owner reference, next to another owner
+  of its name: it now ranks where the walk meets it.
+
+Measured: the colliding-names fuzz (300 documents, six option sets) gives the same names with and
+without its `$ref`s, and when the `$ref` schemas, paths and webhooks are shuffled while the owners
+keep their order (0 documents differ in every set); without colliding names, a full shuffle of
+the components changes no name either (18 documents with `--dedupe-enums` before). With colliding
+names, a full shuffle changes names by design: the owner first in the document keeps the name (G8).
+The 1806 documents of the compat corpus give the same output over ten option sets (`--enum`,
+`--enum-values`, `--dedupe-enums` with and without `dedupe-enum-names`, `--alphabetize`,
+`--root-types`, `ref-pointers`, `all`, the defaults): none has two tuples of one name.
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

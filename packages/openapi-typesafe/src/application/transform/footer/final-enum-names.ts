@@ -1,4 +1,5 @@
 import { freeNumberedName } from "../numbered-names.js";
+import { compareRanks, type WalkRank } from "./walk-ranks.js";
 
 /**
  * The final names of the `--enum` declarations of a document, known once every location has asked
@@ -14,8 +15,8 @@ export interface EnumNameClaim {
   readonly given: string;
   /** When the owner first asked. */
   readonly order: number;
-  /** For a tuple element: its lowest position in the tuple. */
-  readonly position: number | undefined;
+  /** Where the walk of the document first met the owner; undefined where only `$ref`s typed it. */
+  readonly rank: WalkRank | undefined;
 }
 
 export interface FinalNamesInput {
@@ -28,36 +29,16 @@ export interface FinalNamesInput {
   readonly needed: ReadonlySet<string>;
 }
 
-/** A claim's lowest tuple position: elements of the same values share one claim. */
-export function lowestPosition(
-  known: number | undefined,
-  asked: number | undefined,
-): number | undefined {
-  const positions = [known, asked].filter((position) => position !== undefined);
-  return positions.length === 0 ? undefined : Math.min(...positions);
-}
-
-/** The order of a name's claims: the first gets the name, the later ones numbers. */
-type ClaimRank = readonly [number, number, number];
-
 /**
- * The claims of one name in the order they get names. An owner that is no tuple element ranks by
- * when it asked; the elements of a tuple rank together, where the first of them asked, and among
- * themselves by position, so a `$ref` to a later element met first does not take the tuple's
- * name from the first element.
+ * The claims of one name in the order they get names: where the walk of the document first met
+ * each owner (`WalkRanks`), so the first owner in the document keeps the name. The elements of
+ * a tuple share the tuple's location and rank by position, so a tuple's elements are numbered
+ * together and in order, and a `$ref` to a later element met first changes no name. An owner
+ * that only `$ref`s typed (a location the walk does not visit) comes last. `claims` come in the
+ * order they asked, which the stable sort keeps among owners of one rank.
  */
 export function inNamingOrder(claims: readonly EnumNameClaim[]): EnumNameClaim[] {
-  const elementOrders = claims.flatMap((claim) =>
-    claim.position === undefined ? [] : claim.order,
-  );
-  const tupleOrder = Math.min(...elementOrders);
-  const rank = (claim: EnumNameClaim): ClaimRank =>
-    claim.position === undefined
-      ? [claim.order, 0, claim.order]
-      : [tupleOrder, claim.position, claim.order];
-  const compare = (left: ClaimRank, right: ClaimRank) =>
-    left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
-  return [...claims].sort((left, right) => compare(rank(left), rank(right)));
+  return [...claims].sort((left, right) => compareRanks(left.rank, right.rank));
 }
 
 function claimsByName(claims: readonly EnumNameClaim[]): Map<string, EnumNameClaim[]> {

@@ -41,11 +41,9 @@ export function unevaluatedPropertiesType(
   const valueTypes = isAnySchema(unevaluated)
     ? [UNKNOWN_TYPE]
     : [
-        request.transformNested(
-          unevaluated,
-          request.location,
-          recordValueAccess(schema, "unevaluatedProperties", request),
-        ),
+        request.transformNested(unevaluated, request.location, {
+          valueAccess: recordValueAccess(schema, "unevaluatedProperties", request),
+        }),
         ...(composed === null ? [] : declaredValueTypes(composed, request.context.footer)),
       ];
   const { immutable } = request.context.options;
