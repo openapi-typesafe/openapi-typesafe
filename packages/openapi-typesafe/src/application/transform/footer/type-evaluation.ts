@@ -9,6 +9,7 @@ import {
   OPAQUE,
   propertyKey,
   tupleAsArray,
+  UNKNOWN,
   unionType,
 } from "./evaluation.js";
 import type { RawKeyTypes } from "./signature-index.js";
@@ -66,6 +67,8 @@ export class TypeEvaluator {
         return this.reference(value, type.name, type.typeArguments);
       case "tuple":
         return this.deepTuple(value, type);
+      case "intersection":
+        return this.withoutUnknownParts(value, type.types);
       case "raw":
         return OPAQUE;
       default:
@@ -73,10 +76,29 @@ export class TypeEvaluator {
     }
   }
 
-  /** A tuple inside `FlattenedDeepRequired` is read as the array of its items; else opaque. */
+  /**
+   * A tuple inside `FlattenedDeepRequired`, which maps it to a tuple again: indexing and the
+   * `--enum-values` element read it as the array of its items (`tupleAsArray`). Outside it, or
+   * with a rest element that is not an array type, it is opaque.
+   */
   private deepTuple(value: Evaluated, tuple: IrTupleType): Evaluation {
-    const array = value.deep ? tupleAsArray(tuple) : null;
-    return array === null ? OPAQUE : { ...value, type: array };
+    return value.deep && tupleAsArray(tuple) !== null ? value : OPAQUE;
+  }
+
+  /**
+   * `X & unknown` is `X`, as TypeScript reads it: an `allOf` item that only describes. An array
+   * or a tuple stays in its intersection, which indexing does not model (`hasArrayPart`): read
+   * as `X[]`, a values array there would get a pointer type where it is typed by its values.
+   */
+  private withoutUnknownParts(value: Evaluated, parts: readonly IrType[]): Evaluation {
+    const kept = parts.filter((part) => !(part.kind === "keyword" && part.keyword === "unknown"));
+    if (kept.length === parts.length) {
+      return value;
+    }
+    const rest = kept.length === 0 ? UNKNOWN : intersectionType(kept);
+    const expanded = this.expand({ ...value, type: rest });
+    const isArray = expanded.kind === "type" && ["array", "tuple"].includes(expanded.type.kind);
+    return isArray ? value : expanded;
   }
 
   private indexedAccess(value: Evaluated, object: IrType, index: IrType): Evaluation {

@@ -320,7 +320,7 @@ describe("checkedEnumValues", () => {
     };
   }
 
-  it("checkedEnumValues retypes only arrays whose location does not hold their values", () => {
+  it("checkedEnumValues retypes the arrays whose location is not shown to hold their values", () => {
     const footer = [
       array("kept", deep(key("schemas"), key("A"), key("status")), ["a", "b"]),
       array("missing", deep(key("schemas"), key("A"), key("nope")), ["a"]),
@@ -338,9 +338,11 @@ describe("checkedEnumValues", () => {
     expect(retyped.map((retype) => [retype.kind, retype.name])).toEqual([
       ["untyped", "missing"],
       ["excluded", "excluded"],
+      ["untyped", "opaque"],
     ]);
     expect(checked[0]).toBe(footer[0]);
-    expect(checked[3]).toBe(footer[3]);
+    expect(checked[3]).toEqual({ ...footer[3], type: irReference("ReadonlyArray", [text("a")]) });
+    expect(checked[4]).toBe(footer[4]);
   });
 
   it("checkedEnumValues reads array, boolean and opaque location types", () => {
@@ -364,14 +366,24 @@ describe("checkedEnumValues", () => {
       ["untyped", "elements"],
       ["excluded", "boolean"],
       ["widened", "someRaw"],
+      ["untyped", "rawFirst"],
     ]);
   });
 
-  it("checkedEnumValues keeps an array of opaque elements and a ReadonlyArray with no argument", () => {
-    const footer = [
-      array("opaqueElements", irArray(irReference("Elsewhere")), ["a"]),
-      { ...array("bare", text("a"), ["a"]), type: irReference("ReadonlyArray") },
-    ];
+  it("checkedEnumValues types an array of opaque elements by its values", () => {
+    const footer = [array("opaqueElements", irArray(irReference("Elsewhere")), ["a"])];
+
+    const { retyped } = checkedEnumValues(
+      footer,
+      DECLARATIONS,
+      (_entry): _entry is IrDeclaration => true,
+    );
+
+    expect(retyped).toEqual([{ kind: "untyped", name: "opaqueElements" }]);
+  });
+
+  it("checkedEnumValues keeps a ReadonlyArray with no argument", () => {
+    const footer = [{ ...array("bare", text("a"), ["a"]), type: irReference("ReadonlyArray") }];
 
     const { footer: checked, retyped } = checkedEnumValues(
       footer,
