@@ -57,6 +57,19 @@ function tupleHolderOf(pointer: RefPointer, refs: RefResolver): SchemaObject | u
   return isJsonObject(holder) ? (holder as SchemaObject) : undefined;
 }
 
+/**
+ * Whether the target can be written in place: a `$ref`, or a schema that is not written inside
+ * itself (`hasInlineCycle`). The others keep the original type, which no check changes.
+ */
+function hasInlineType(ref: string, pointer: RefPointer, request: SchemaRequest): boolean {
+  const { options, refs } = request.context;
+  const target = pointerNode(pointer, refs);
+  if (isJsonObject(target) && typeof target.$ref === "string") {
+    return true;
+  }
+  return target !== undefined && !hasInlineCycle(ref, options, refs);
+}
+
 /** The target of a pointer that crosses a segment with no type: its `$ref`, or its own type. */
 function targetType(
   ref: string,
@@ -144,7 +157,9 @@ export function schemaRefType(
   const type = isCorrected(pointer, request)
     ? (correctedType(ref, pointer, request, seen) ?? refType(ref))
     : refType(ref);
-  checks?.record(ref, type);
+  if (checks !== undefined && hasInlineType(ref, pointer, request)) {
+    checks.record(ref, type);
+  }
   return type;
 }
 

@@ -8,17 +8,19 @@ import {
 } from "../application/transform/ref-pointer/pointer-walk.js";
 import type { IrDeclaration, IrType } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
+import { defaultLogger } from "./default-ports.js";
 import type { TransformedDocument } from "./document-declarations.js";
 import { isIrDeclaration } from "./footer-entry.js";
+import { HeldMessages } from "./held-messages.js";
 import type { RunContext } from "./run-context.js";
 
 /**
- * The `$ref`s into other schemas whose type does not compile, found by a first pass over the
- * document (ADR-026). The shape model of the document answers where it is sure; where it is not,
- * the type the pass wrote is evaluated against the types the pass generated (`TypeEvaluator`),
- * and a type the evaluator surely reads as an error (a missing member) is typed in place in the
- * run's own pass. One first pass finds them all: a pointer through the location of such a `$ref`
- * reads its type, so it is missing too, and the others read the same types in both passes.
+ * The pass of a document whose `$ref`s into other schemas compile (ADR-026). The shape model of
+ * the document answers where it is sure; where it is not, the type a pass wrote is evaluated
+ * against the types the pass generated (`TypeEvaluator`). The run's pass is kept where no type
+ * surely reads as an error (a missing member); otherwise those `$ref`s are typed in place in one
+ * more pass. That pass finds no new error: a pointer through the location of such a `$ref` reads
+ * its type, so it is missing too, and the others read the same types in both passes.
  */
 
 /** One pass over the document: its output, and what the evaluator needs to read it. */
@@ -44,11 +46,11 @@ function hasPointerRefs(node: unknown): boolean {
   return Object.values(node).some(hasPointerRefs);
 }
 
-/** Drops a message: a pass before the run's own must not repeat its warnings or debug lines. */
+/** Drops a message: a scratch pass must not repeat the run's warnings or debug lines. */
 const dropMessage = (): void => undefined;
 const DROPPED_MESSAGES = { debug: dropMessage, warn: dropMessage, error: dropMessage };
 
-/** The context of the first pass: its own footer, no messages. */
+/** The context of a scratch pass: its own footer, no messages. */
 function scratchContext(ctx: RunContext, checks: RecordedPointers): RunContext {
   const { runFooter: _runFooter, ...rest } = ctx;
   return {
@@ -85,15 +87,55 @@ function failingRefs(pass: PointerPass, checks: RecordedPointers): string[] {
   );
 }
 
-/** The `$ref`s to type in place. A document without `$ref`s into schemas needs no first pass. */
-export function refsTypedInPlace(
+type Transform = (pass: RunContext) => PointerPass;
+
+/**
+ * The `$ref`s to type in place, from a scratch pass: the run's context already has a footer, of
+ * an earlier call on it, which a pass of the run's own would change before it may be dropped.
+ */
+function refsFailingInScratch(ctx: RunContext, transform: Transform): ReadonlySet<string> {
+  const checks = new RecordedPointers(new Set());
+  return new Set(failingRefs(transform(scratchContext(ctx, checks)), checks));
+}
+
+/**
+ * The run's own pass with its messages held. It is kept where every pointer type may compile;
+ * otherwise its footer entries are dropped and the failing `$ref`s are typed in place.
+ */
+function keptOrRedone(ctx: RunContext, transform: Transform): PointerPass {
+  const checks = new RecordedPointers(new Set());
+  const messages = new HeldMessages();
+  const footerLength = ctx.injectFooter.length;
+  // Shared with the pass, so a deprecated callback form is reported once over both passes.
+  ctx.legacyCallbackWarnings ??= new Set();
+  const own: RunContext = { ...ctx, logger: messages, refPointerChecks: checks };
+  const pass = transform(own);
+  const failing = failingRefs(pass, checks);
+  if (failing.length === 0) {
+    // A pass always creates its footer (`withRunFooter`); the guard is for the optional type.
+    if (own.runFooter !== undefined) {
+      ctx.runFooter = own.runFooter;
+    }
+    messages.writeTo(ctx.logger ?? defaultLogger(ctx.silent));
+    return pass;
+  }
+  ctx.injectFooter.length = footerLength;
+  ctx.refPointerChecks = new RecordedPointers(new Set(failing));
+  return transform(ctx);
+}
+
+/** The pass of the document, with `$ref`s whose pointer type does not compile typed in place. */
+export function checkedPass(
   document: DocumentObject,
   ctx: RunContext,
-  transformPass: (pass: RunContext) => PointerPass,
-): ReadonlySet<string> {
+  transform: Transform,
+): PointerPass {
   if (!hasPointerRefs(document)) {
-    return new Set();
+    return transform(ctx);
   }
-  const checks = new RecordedPointers(new Set());
-  return new Set(failingRefs(transformPass(scratchContext(ctx, checks)), checks));
+  if (ctx.runFooter === undefined) {
+    return keptOrRedone(ctx, transform);
+  }
+  ctx.refPointerChecks = new RecordedPointers(refsFailingInScratch(ctx, transform));
+  return transform(ctx);
 }

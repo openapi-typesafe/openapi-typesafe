@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { createDocumentRun } from "../../src/api/document-run.js";
+import { defaultGeneratorPorts, generateDeclarations } from "../../src/api/openapi-ts.js";
+import { createTransformContext } from "../../src/api/transform-context.js";
+import transformSchema from "../../src/api/transform-schema.js";
 import openapiTS, { astToString, type OpenAPI3, type OpenAPITSOptions } from "../../src/index.js";
+import { RecordingLogger } from "../fakes/cli-dependencies.js";
+import { RecordingDeprecations } from "../fakes/recording-deprecations.js";
 import { typeErrorsOf } from "../typescript-diagnostics.js";
 
 /**
@@ -31,6 +37,9 @@ const STRING_OR_OBJECT = {
   oneOf: [{ type: ["string"] }],
 };
 
+/** A type list of an object and a string, which the shape model of the walk does not read. */
+const TYPE_LIST = { type: ["object", "string"], properties: { email: STRING } };
+
 describe("schema $refs whose written type the generated types do not have", () => {
   it("openapiTS types a $ref into a variant of a null oneOf in place", async () => {
     const output = await generate({ Contact: { oneOf: [{ type: "null" }] }, R: ref("Contact/oneOf/0") });
@@ -50,6 +59,25 @@ describe("schema $refs whose written type the generated types do not have", () =
       expect(typeErrorsOf(output)).toEqual([]);
     },
   );
+
+  it.each([[[]], [["ref-pointers"]]] as const)(
+    "openapiTS with fix %j types a property of a type list in place",
+    async (fix) => {
+      const output = await generate({ Contact: TYPE_LIST, R: ref("Contact/properties/email") }, { fix: [...fix] });
+
+      expect(aliasOf(output, "R")).toBe("string");
+      expect(typeErrorsOf(output)).toEqual([]);
+    },
+  );
+
+  it("openapiTS types a property that is a $ref of a type list in place", async () => {
+    const contact = { ...TYPE_LIST, properties: { email: ref("Leaf") } };
+
+    const output = await generate({ Leaf: STRING, Contact: contact, R: ref("Contact/properties/email") });
+
+    expect(aliasOf(output, "R")).toBe('components["schemas"]["Leaf"]');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
 
   it("openapiTS keeps a pointer the generated types have", async () => {
     const contact = { type: "object", properties: { email: STRING }, oneOf: [{ type: "object" }] };
@@ -103,7 +131,7 @@ describe("$ref pointer checks into templated paths", () => {
   });
 });
 
-describe("the first pass of the $ref pointer checks", () => {
+describe("the passes of the $ref pointer checks", () => {
   async function transformCalls(schemas: Record<string, unknown>): Promise<number> {
     let calls = 0;
     const transform = () => {
@@ -114,19 +142,111 @@ describe("the first pass of the $ref pointer checks", () => {
     return calls;
   }
 
-  it("openapiTS runs no first pass for a document without $refs into schemas", async () => {
-    const alone = await transformCalls({ Contact: STRING_OR_OBJECT });
+  it("openapiTS runs one pass where every pointer type compiles", async () => {
+    const contact = { type: "object", properties: { email: STRING }, oneOf: [{ type: "object" }] };
+    const plain = await transformCalls({ Contact: contact, R: ref("Contact") });
 
-    const withRef = await transformCalls({ Contact: STRING_OR_OBJECT, R: ref("Contact") });
+    const pointed = await transformCalls({ Contact: contact, R: ref("Contact/properties/email") });
 
-    expect(withRef).toBe(alone + 1);
+    expect(pointed).toBe(plain);
   });
 
-  it("openapiTS runs a first pass for a document with a $ref into a schema", async () => {
-    const plain = await transformCalls({ Contact: STRING_OR_OBJECT, R: ref("Contact") });
+  it("openapiTS runs one pass where the failing target would be written inside itself", async () => {
+    const treeOf = (item: object) => ({
+      type: "object",
+      properties: { children: { type: "object", additionalProperties: item } },
+      definitions: {
+        item: { type: "object", properties: { children: { type: "object", additionalProperties: item } } },
+      },
+    });
+    const plain = await transformCalls({ Tree: treeOf(ref("Tree")) });
 
-    const pointed = await transformCalls({ Contact: STRING_OR_OBJECT, R: ref("Contact/properties/email") });
+    const pointed = await transformCalls({ Tree: treeOf(ref("Tree/definitions/item")) });
+
+    expect(pointed).toBe(plain);
+  });
+
+  it("openapiTS runs a second pass where a pointer type does not compile", async () => {
+    const plain = await transformCalls({ Contact: TYPE_LIST, R: ref("Contact") });
+
+    const pointed = await transformCalls({ Contact: TYPE_LIST, R: ref("Contact/properties/email") });
 
     expect(pointed).toBeGreaterThan(plain + 1);
+  });
+});
+
+describe("the messages and footer of the $ref pointer passes", () => {
+  const STATE = (values: string[]) => ({ type: "object", properties: { state: { type: "string", enum: values } } });
+  const EXCLUDING = {
+    Base: STATE(["open", "converting"]),
+    Created: { allOf: [ref("Base"), STATE(["open", "locked"])] },
+  };
+
+  async function run(schemas: Record<string, unknown>) {
+    const info = { title: "t", version: "1" };
+    const document = { openapi: "3.1.0", info, paths: {}, components: { schemas } };
+    const ports = await defaultGeneratorPorts({ silent: true });
+    const logger = new RecordingLogger();
+    const options = { silent: true, enumValues: true };
+    const declarations = await generateDeclarations(JSON.stringify(document), options, { ...ports, logger });
+    return { output: astToString(declarations), warnings: logger.messages("warn") };
+  }
+
+  it.each([
+    ["a pointer that compiles", ref("Base/properties/state")],
+    ["a pointer typed in place", ref("Contact/properties/email")],
+  ])("generateDeclarations warns once and writes the footer once with %s", async (_label, target) => {
+    const { output, warnings } = await run({ ...EXCLUDING, Contact: TYPE_LIST, R: target });
+
+    expect(warnings).toHaveLength(1);
+    expect(output.match(/export const createdStateValues:/g)).toHaveLength(1);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("generateDeclarations reports a deprecated callback form once over both passes", async () => {
+    const document = documentOf({ Contact: TYPE_LIST, R: ref("Contact/properties/email") });
+    const deprecations = new RecordingDeprecations();
+    const ports = { ...(await defaultGeneratorPorts({ silent: true })), deprecations };
+
+    await generateDeclarations(JSON.stringify(document), { silent: true, postTransform: (type) => type }, ports);
+
+    expect(deprecations.codes()).toEqual(["OPENAPI_TYPESAFE_DEP_TS_POST_TRANSFORM"]);
+  });
+
+  it("transformSchema keeps the footer of the pass it keeps on the context", async () => {
+    const options = { silent: true };
+    const contact = { type: "object", properties: { email: STRING }, oneOf: [{ type: "object" }] };
+    const document = documentOf({ Contact: contact, R: ref("Contact/properties/email") });
+    const ports = await defaultGeneratorPorts(options);
+    const { schema, ctx } = await createDocumentRun(JSON.stringify(document), options, ports);
+
+    transformSchema(schema, ctx);
+
+    expect(ctx.runFooter).toBeDefined();
+  });
+
+  it("transformSchema writes the footer on a context whose footer an earlier call created", async () => {
+    const options = { silent: true, enumValues: true };
+    const schemas = { ...EXCLUDING, Contact: TYPE_LIST, R: ref("Contact/properties/email") };
+    const ports = await defaultGeneratorPorts(options);
+    const { schema, ctx } = await createDocumentRun(JSON.stringify(documentOf(schemas)), options, ports);
+    createTransformContext(ctx);
+
+    const output = astToString(transformSchema(schema, ctx));
+
+    expect(output).toContain("export const createdStateValues:");
+    expect(aliasOf(output, "R")).toBe("string");
+  });
+
+  it("transformSchema types a failing pointer in place on a context with a footer", async () => {
+    const options = { silent: true };
+    const document = documentOf({ Contact: TYPE_LIST, R: ref("Contact/properties/email") });
+    const ports = await defaultGeneratorPorts(options);
+    const { schema, ctx } = await createDocumentRun(JSON.stringify(document), options, ports);
+    transformSchema(schema, ctx);
+
+    const output = astToString(transformSchema(schema, ctx));
+
+    expect(aliasOf(output, "R")).toBe("string");
   });
 });
