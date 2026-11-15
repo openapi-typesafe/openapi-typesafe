@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   NAMES_THE_OUTPUT_MAY_NEED,
   namesTheOutputNeeds,
+  withEnumDeclarationsMerged,
   withEnumsRenamed,
 } from "../../../../src/application/transform/document/enum-names-given-back.js";
 import { rootTypeAlias } from "../../../../src/application/transform/document/root-type-aliases.js";
@@ -11,7 +12,7 @@ import {
   irString,
   irUnion,
 } from "../../../../src/domain/ir/constructors.js";
-import type { IrDeclaration, IrType } from "../../../../src/domain/ir/nodes.js";
+import type { IrDeclaration, IrEnumDeclaration, IrType } from "../../../../src/domain/ir/nodes.js";
 
 function enumNamed(name: string): IrDeclaration {
   return { kind: "enum", name, isExported: true, members: [], comments: [] };
@@ -90,5 +91,68 @@ describe("withEnumsRenamed", () => {
     const declarations = [enumNamed("Blob_2")];
 
     expect(withEnumsRenamed(declarations, new Map())).toEqual(declarations);
+  });
+});
+
+describe("withEnumDeclarationsMerged", () => {
+  const modeOf = (...members: [string, string][]): IrEnumDeclaration => ({
+    kind: "enum",
+    name: "Mode",
+    isExported: true,
+    members: members.map(([name, value]) => ({ name, value, comments: [] })),
+    comments: [],
+  });
+  const enumOf = (entry: IrDeclaration) => (entry.kind === "enum" ? entry : null);
+
+  it("withEnumDeclarationsMerged drops the members a declaration of the name has already", () => {
+    const declarations = [
+      modeOf(["a", "a"]),
+      aliasOf("X", irReference("Y")),
+      modeOf(["a", "a"], ["b", "b"]),
+    ];
+
+    const merged = withEnumDeclarationsMerged(declarations, enumOf);
+
+    expect(merged).toEqual([
+      modeOf(["a", "a"]),
+      aliasOf("X", irReference("Y")),
+      modeOf(["b", "b"]),
+    ]);
+  });
+
+  it("withEnumDeclarationsMerged drops the members of every earlier declaration of the name", () => {
+    const merged = withEnumDeclarationsMerged(
+      [modeOf(["a", "a"]), modeOf(["b", "b"]), modeOf(["a", "a"])],
+      enumOf,
+    );
+
+    expect(merged).toEqual([modeOf(["a", "a"]), modeOf(["b", "b"])]);
+  });
+
+  it("withEnumDeclarationsMerged drops a later declaration left without members", () => {
+    const merged = withEnumDeclarationsMerged([modeOf(["a", "a"]), modeOf(["a", "a"])], enumOf);
+
+    expect(merged).toEqual([modeOf(["a", "a"])]);
+  });
+
+  it("withEnumDeclarationsMerged numbers a member whose name another value has", () => {
+    const merged = withEnumDeclarationsMerged([modeOf(["a", "a"]), modeOf(["a", "A"])], enumOf);
+
+    expect(merged).toEqual([modeOf(["a", "a"]), modeOf(["a_2", "A"])]);
+  });
+
+  it("withEnumDeclarationsMerged keeps the first declaration of an empty enum", () => {
+    const merged = withEnumDeclarationsMerged([modeOf(), modeOf()], enumOf);
+
+    expect(merged).toEqual([modeOf()]);
+  });
+
+  it("withEnumDeclarationsMerged keeps declarations of other names apart", () => {
+    const other = { ...modeOf(["a", "a"]), name: "Other" };
+
+    expect(withEnumDeclarationsMerged([modeOf(["a", "a"]), other], enumOf)).toEqual([
+      modeOf(["a", "a"]),
+      other,
+    ]);
   });
 });
