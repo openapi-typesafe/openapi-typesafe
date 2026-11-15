@@ -88,9 +88,14 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
   params a valid `Date` is its ISO text, `NaN` and a bigint their text, and another object its
   own members plus, when it has them, its `"toJSON()"` form and `"toString()"` text, since a
   client `querySerializer` / `pathSerializer` may send those (two `URL`s never share a key).
-  Plain `headers` values are the text `Headers` sends (`new Number(5)` is `"5"`, a `Date` its
-  local text). Filters such as `setQueriesData({ queryKey })` match only that value's query. `undefined` fields, params and headers, and the `params` records they leave empty,
-  are left out; `[method, path]` when nothing is left (no init, no `baseUrl`).
+  Records that are class instances are read like object literals. An `undefined` array item in
+  params is `{ "(undefined)": true }`, in a body `null`. Plain `headers` values are the text
+  `Headers` sends (`new Number(5)` is `"5"`, a `Date` its local text), and header names are lower
+  case, a later name in another case winning as in `Headers`. Functions (`fetch`, serializers,
+  middleware hooks) and values that throw when read are left out of the key. Filters such as
+  `setQueriesData({ queryKey })` match only that value's query, also after `hydrate`.
+  `undefined` fields, params and headers, and the `params` records they leave empty, are left
+  out; `[method, path]` when nothing is left (no init, no `baseUrl`).
 - `createClient(fetchClient, { keyScope: "blog" })`: the keys name the API instead of the base
   URL. Use it when server rendering uses another base URL than the browser, so the browser reads
   the server's data, and to tell apart clients of one base URL with different headers (tenants).

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { queryKeyInit } from "../src/query-key.js";
 
 const NO_BASE_URL = { baseUrl: "" };
-const MULTIPART = { "Content-Type": "multipart/form-data" };
+const MULTIPART = { "content-type": "multipart/form-data" };
 
 /** The key init of a multipart request with this body. */
 function multipartKey(body: unknown): object | undefined {
@@ -94,11 +94,11 @@ describe("queryKeyInit params and headers that send nothing", () => {
   });
 
   it("queryKeyInit keeps null, empty array and empty object parameter values", () => {
-    const params = { query: { tag: null, ids: [], filter: {} }, header: { "X-A": null } };
+    const params = { query: { tag: null, ids: [], filter: {} }, header: { "x-a": null } };
 
-    expect(queryKeyInit({ params, headers: { "X-B": null } }, NO_BASE_URL)).toEqual({
+    expect(queryKeyInit({ params, headers: { "x-b": null } }, NO_BASE_URL)).toEqual({
       params,
-      headers: { "X-B": null },
+      headers: { "x-b": null },
     });
   });
 });
