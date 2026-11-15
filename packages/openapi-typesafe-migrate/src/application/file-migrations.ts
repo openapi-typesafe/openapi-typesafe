@@ -40,6 +40,7 @@ import {
   migrateYamlCommands,
   migrateYamlPathCommands,
 } from "../domain/yaml-migration.js";
+import { isMakefilePath } from "./called-makefiles.js";
 import {
   type ConfigStep,
   chain,
@@ -69,8 +70,6 @@ import {
   LINT_STAGED_JSON_FILE,
   LINT_STAGED_YAML_FILES,
   LOCK_FILES,
-  MAKEFILE_EXTENSION,
-  MAKEFILE_NAMES,
   MANIFEST_FILE,
   NX_PROJECT_FILE,
   NX_WORKSPACE_FILE,
@@ -274,9 +273,10 @@ const FILE_KINDS: readonly FileKind[] = [
     migrate: whenNamed((text, path) => migrateDockerfile(text, path)),
   },
   {
-    matches: (path) =>
-      MAKEFILE_NAMES.has(baseName(path)) || extensionOf(path) === MAKEFILE_EXTENSION,
-    migrate: whenNamed((text, path) => migrateMakefile(text, path)),
+    matches: isMakefilePath,
+    migrate: whenNamed((text, path, context) =>
+      migrateMakefile(text, path, context.calledMakefiles),
+    ),
   },
   {
     matches: (path) => JUSTFILE_NAMES.has(baseName(path)),

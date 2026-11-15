@@ -105,11 +105,18 @@ flags after it are reported; the arguments that `$(or …)`, `$(and …)` and `$
 the text of `$(strip …)`, are read as command lines where they are written, so the old name in
 them is renamed. A call of any other make function whose arguments name an old package
 (`$(firstword npx openapi-typescript)`, `$(filter-out …)`, `$(call …)`, `$(shell …)`) is
-reported. A Makefile
+reported. A Makefile variable is read as the value its lines build in make's order: `G := npx`
+then `G += openapi-typescript` is one command, and a later `G := mytool` replaces the earlier
+value; `override`, an assignment for some targets (`gen: G += -it`, which their prerequisites
+get too) and an `ifeq`/`ifdef` block (each branch is one possible value) count as make counts
+them. Text a recipe appends on a sub-make's command line (`$(MAKE) -C api GEN+=-it`) is added
+by make to the value the calling Makefile exports, not to the called file's value, so its flags
+are renamed when that value runs the generator, left when the called Makefile replaces the
+variable by `override`, and reported when the called Makefile is not in the project. A Makefile
 variable set with `?=` (the environment can override it) or to a value that make computes is
-reported the same way where it runs. The flags change only when every definition of the variable
-in the file sets it to the generator: a variable that another Dockerfile stage, a step `env` or a
-later Makefile line or shell assignment sets to another program is reported with its old flags. So is a
+reported the same way where it runs. The flags change only when every value of the variable
+sets it to the generator: a variable that another Dockerfile stage, a step `env`, a Makefile
+branch or a shell assignment sets to another program is reported with its old flags. So is a
 variable that runs a command but that no definition the tool reads sets: one set by another
 `script` item or step (`echo "GEN=…" >> "$GITHUB_ENV"`), a Makefile recipe's `$$GEN`, a bash
 array (`GEN=(npx openapi-typescript)`, whose items are renamed, run as `"${GEN[@]}"`), or one

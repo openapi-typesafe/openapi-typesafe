@@ -8,9 +8,11 @@ import {
   namesUninstalledPackage,
 } from "../domain/declared-packages.js";
 import { importMapNames } from "../domain/import-map-migration.js";
+import type { CalledMakefiles } from "../domain/make-calls.js";
 import { namesOriginalPackage, WORKSPACES_FIELD } from "../domain/package-names.js";
 import { type SuccessorAliases, successorAliasedPackages } from "../domain/successor-aliases.js";
 import { type ApiDescriptionParts, apiDescriptionParts } from "./api-description-parts.js";
+import { planCalledMakefiles } from "./called-makefiles.js";
 import { type NamedImportMaps, namedImportMaps, withNamedImportMaps } from "./named-import-maps.js";
 import { type PlanSource, planSourceOf } from "./plan-sources.js";
 import type { DocumentReaders, ProjectFiles } from "./ports.js";
@@ -44,6 +46,8 @@ export interface ProjectTarget {
   readonly apiDescriptionParts: ApiDescriptionParts;
   /** What the YAML files give the others: the kinds of included files, generator variables. */
   readonly yamlReach: YamlReach;
+  /** The Makefiles that recipes can run, with what they set by `override`. */
+  readonly calledMakefiles: CalledMakefiles;
 }
 
 /**
@@ -153,8 +157,9 @@ export async function planProjectTarget(
   const declarations = withNamedImportMaps(manifests, importMaps);
   const parts = await apiDescriptionParts(paths, dependencies);
   const yamlReach = await planYamlReach(paths, dependencies);
+  const calledMakefiles = await planCalledMakefiles(paths, dependencies.files);
   return {
     ...{ version, catalogs, manifests: declarations, aliases, importMaps },
-    ...{ apiDescriptionParts: parts, yamlReach },
+    ...{ apiDescriptionParts: parts, yamlReach, calledMakefiles },
   };
 }

@@ -110,9 +110,10 @@ async function planFile(
     return read;
   }
   const { rewriter, scanner, readers } = dependencies;
-  const { version, catalogs, manifests, aliases, apiDescriptionParts, yamlReach } = target;
+  const { version, catalogs, manifests, aliases, apiDescriptionParts } = target;
+  const { yamlReach, calledMakefiles } = target;
   const context: MigrationContext = {
-    ...{ version, catalogs, manifests, aliases, apiDescriptionParts, yamlReach },
+    ...{ version, catalogs, manifests, aliases, apiDescriptionParts, yamlReach, calledMakefiles },
     ...{ rewriter, scanner, readers },
   };
   const attempt = attemptMigration(() => migrate(read.text, path, context));

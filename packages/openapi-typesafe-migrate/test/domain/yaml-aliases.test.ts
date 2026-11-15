@@ -9,6 +9,7 @@ import {
   type TreeNode,
   usedDocumentStrings,
 } from "../../src/domain/config-documents.js";
+import { NO_CALLED_MAKEFILES } from "../../src/domain/make-calls.js";
 import { migrateYamlCommands } from "../../src/domain/yaml-migration.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { StubCallbackRewriter } from "../fakes/stub-callback-rewriter.js";
@@ -21,6 +22,7 @@ const context = {
   aliases: [],
   apiDescriptionParts: new Set<string>(),
   yamlReach: NO_YAML_REACH,
+  calledMakefiles: NO_CALLED_MAKEFILES,
   rewriter: new StubCallbackRewriter(),
   scanner: new QuotedStringScanner(),
   readers: { json: createJsonTextReader(), yaml },

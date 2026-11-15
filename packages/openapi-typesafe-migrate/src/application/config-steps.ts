@@ -8,6 +8,7 @@ import {
   usedDocumentValues,
 } from "../domain/config-documents.js";
 import type { ManifestDeclarations } from "../domain/declared-packages.js";
+import type { CalledMakefiles } from "../domain/make-calls.js";
 import {
   type Change,
   type FileMigration,
@@ -39,6 +40,8 @@ export interface MigrationContext {
   readonly apiDescriptionParts: ApiDescriptionParts;
   /** What the YAML files give the others: the kinds of included files, generator variables. */
   readonly yamlReach: YamlReach;
+  /** The Makefiles that recipes can run, with what they set by `override` (make-calls.ts). */
+  readonly calledMakefiles: CalledMakefiles;
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
   readonly readers: DocumentReaders;

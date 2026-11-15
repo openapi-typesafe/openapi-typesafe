@@ -25,6 +25,18 @@ function resolvedPath(fromPath: string, reference: string): string | undefined {
 }
 
 /**
+ * The project-relative path that `reference` names from the folder `folder` (`""` for the project
+ * root), or undefined for a URL, an absolute path or a path outside the project; `""` names the
+ * project root.
+ */
+export function projectPathFrom(folder: string, reference: string): string | undefined {
+  const isOutside = URL_SCHEME.test(reference) || reference.startsWith(SEPARATOR);
+  // `resolvedPath` reads the folder of a file path, so any file name in the folder does.
+  const inFolder = folder === "" ? CURRENT_FOLDER : `${folder}${SEPARATOR}${CURRENT_FOLDER}`;
+  return isOutside ? undefined : resolvedPath(inFolder, reference);
+}
+
+/**
  * The project-relative path that `reference` in the file at `fromPath` names, or undefined for a
  * URL, an absolute path, a path outside the project, or the project folder itself.
  */
