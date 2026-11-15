@@ -128,6 +128,30 @@ describe("refAccessOf", () => {
     );
   });
 
+  it.each([
+    ["spec.yaml/", "got a file."],
+    [pathToFileURL("/work/spec.yaml/"), "got a file."],
+    [new URL("spec.yaml/", CWD).href, "got a file."],
+    ["spec.yaml/specs/", "got a path below a file."],
+    ["spec.yaml/specs/v1/", "got a path below a file."],
+    [new URL("spec.yaml/specs/", CWD), "got a path below a file."],
+  ])("refAccessOf with localRefRoot %s at or below a file fails with OPTION_INVALID", (localRefRoot, got) => {
+    const access = () => refAccessOf({ localRefRoot }, CWD, filesAt(pathToFileURL("/work/spec.yaml")));
+
+    expect(access).toThrow(
+      expect.objectContaining({
+        code: "OPTION_INVALID",
+        message: `The localRefRoot option must be a directory path or a file: URL; ${got}`,
+      }),
+    );
+  });
+
+  it("refAccessOf with a localRefRoot that does not exist yet keeps the root", () => {
+    const localRoot = pathToFileURL("/work/new/specs/");
+
+    expect(refAccessOf({ localRefRoot: localRoot }, CWD, NO_FILES)).toEqual({ localRoot });
+  });
+
   it("refAccessOf with a localRefRoot next to a file keeps the root", () => {
     const access = refAccessOf({ localRefRoot: "specs" }, CWD, filesAt(pathToFileURL("/work/spec.yaml")));
 
@@ -164,6 +188,14 @@ describe("openapiTS ref limit options", () => {
     const source = { openapi: "3.1.0", info: { title: "T", version: "1" }, paths: {} };
 
     const generation = openapiTS(source, { silent: true, localRefRoot: new URL(import.meta.url) });
+
+    await expect(generation).rejects.toMatchObject({ code: "OPTION_INVALID", details: { option: "localRefRoot" } });
+  });
+
+  it("openapiTS with a localRefRoot URL of a file with a trailing slash rejects with OPTION_INVALID", async () => {
+    const source = { openapi: "3.1.0", info: { title: "T", version: "1" }, paths: {} };
+
+    const generation = openapiTS(source, { silent: true, localRefRoot: new URL(`${import.meta.url}/`) });
 
     await expect(generation).rejects.toMatchObject({ code: "OPTION_INVALID", details: { option: "localRefRoot" } });
   });

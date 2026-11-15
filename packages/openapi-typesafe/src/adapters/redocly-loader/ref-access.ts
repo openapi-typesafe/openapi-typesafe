@@ -14,7 +14,7 @@ import { redactUrlSecrets } from "../../domain/url-secrets.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
 import { isHostAllowed } from "./allowed-hosts.js";
 import { pointMappingNamesAtSchemas } from "./mapping-schema-names.js";
-import { fileRefPath, isRemoteRef, unreadableRefRefusal } from "./ref-urls.js";
+import { fileRefPath, isRemoteRef, remoteRefUrl, unreadableRefRefusal } from "./ref-urls.js";
 import type { RedirectedUrls } from "./remote-fetch.js";
 import { isParsedSource, RemoteNodeLimit } from "./remote-node-limit.js";
 import { refForbiddenError } from "./schema-load-errors.js";
@@ -95,9 +95,6 @@ function localFromRemoteRefusal(
   return refForbiddenError(absoluteRef, { reason: "local-ref-from-remote", base: shownBase });
 }
 
-/** The scheme of an `http(s)` URL, in any case. */
-const REMOTE_SCHEME_RE = /^https?:(?=\/\/)/i;
-
 /** The limits one resolver checks; each load gets its own resolver. */
 export interface RefAccessLimits {
   readonly access: RefAccess;
@@ -135,21 +132,23 @@ export class RefAccessResolver extends BaseResolver {
   }
 
   /**
-   * A scheme is the same in any case (RFC 3986, section 3.1), but Redocly takes only `http://` and
-   * `https://` as URLs: it read `HTTP://host/x.yaml` as a file path, and its "not found" message
-   * showed the user info and the query of the URL, which no longer looked like one. The scheme
-   * is written in lowercase first, so the `$ref` loads as the URL it is, within the same limits.
+   * A `$ref` is a URL by the rule of the schema argument. Redocly takes only `http://` and
+   * `https://` as URLs: it read `HTTP://host/x.yaml` and `http:host/x.yaml` as file paths, and its
+   * "not found" message showed the user info and the query of the URL, which no longer looked
+   * like one. An `http(s)` `$ref` is resolved by the URL standard first (`remoteRefUrl`), so it
+   * loads as the URL it is, within the same limits, and a `file:` URL in a local document names
+   * its file (`fileRefPath`), not a path below the document's folder.
    *
    * A redirected document keeps the URL it was requested by as its name, as in `redocly lint`,
    * whose lint ignore file lists its problems by that URL. Its relative `$ref`s resolve against
-   * the URL it came from in the end (RFC 3986, section 5.1.3). A `file:` URL in a local document
-   * names its file (`fileRefPath`), not a path below the document's folder.
+   * the URL it came from in the end (RFC 3986, section 5.1.3).
    */
   override resolveExternalRef(base: string | null, ref: string): string {
-    const normalized = ref.replace(REMOTE_SCHEME_RE, (scheme) => scheme.toLowerCase());
     const retrievedFrom = base === null ? null : this.#limits.redirects.finalUrlOf(base);
     return (
-      fileRefPath(retrievedFrom, normalized) ?? super.resolveExternalRef(retrievedFrom, normalized)
+      fileRefPath(retrievedFrom, ref) ??
+      remoteRefUrl(retrievedFrom, ref) ??
+      super.resolveExternalRef(retrievedFrom, ref)
     );
   }
 

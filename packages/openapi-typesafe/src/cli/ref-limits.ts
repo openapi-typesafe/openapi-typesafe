@@ -1,4 +1,4 @@
-import { isLocalFileUrl } from "../api/local-file-url.js";
+import { fileRootKindOf, isLocalFileUrl } from "../api/local-file-url.js";
 import type { FileCheck } from "../application/ports/file-system.js";
 import type { GeneratorOptions } from "../types.js";
 import { cliError } from "./cli-errors.js";
@@ -10,14 +10,17 @@ export type RefLimitOptions = Pick<GeneratorOptions, "localRefRoot" | "remoteRef
 
 /**
  * A local `$ref` root as a URL; undefined for a URL of another protocol, a `file:` URL with a
- * host, which name no local folder, a URL that does not parse (`http://[::1/x`), or an existing
- * file, so each caller reports it as its own bad value, as it reports the others. A file as the
- * root refused every local `$ref`, also one next to it, as outside the root. A root that does not
+ * host, which name no local folder, a URL that does not parse (`http://[::1/x`), or a location
+ * with an existing file at it or above it (`api.yaml`, `file:api.yaml/`, `fileRootKindOf`), so
+ * each caller reports it as its own bad value, as it reports the others. A file as the root
+ * refused every local `$ref`, also one next to it, as outside the root. A root that does not
  * exist yet is allowed: no `$ref` can load a file from it.
  */
 export function localRootUrl(location: string, base: URL, files: FileCheck): URL | undefined {
   const url = parseLocationUrl(location, base);
-  return url !== undefined && isLocalFileUrl(url) && !files.isFile(url) ? url : undefined;
+  const isDirectoryPlace =
+    url !== undefined && isLocalFileUrl(url) && fileRootKindOf(url, files) === undefined;
+  return isDirectoryPlace ? url : undefined;
 }
 
 /**

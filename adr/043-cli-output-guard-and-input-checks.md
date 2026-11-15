@@ -408,3 +408,37 @@ TypeScript, as before.
    the CLI asks its own. A root that does not exist yet stays valid: no `$ref` can load a file
    from it, and the refusal then names the root. Reading a file root as its folder was rejected:
    the flag names a directory, and a silent change of meaning would hide the mistake.
+
+## Amendment (2026-11-15): file roots by their path, `http(s)` `$ref`s by the URL standard
+
+1. **A local `$ref` root is checked by its resolved path, and its parents too.** The check of item
+   4 of the previous amendment asked the file system about the URL as written, so a root written
+   with a trailing slash (`--local-ref-root file:api.yaml/`, `localRefRoot: new URL("api.yaml/",
+   base)`, `local-ref-root: "file:../specs/api.yaml/"`) passed: `stat` of `api.yaml/` fails with
+   "not a directory", which read as "no file", and every local `$ref` was refused again. The path
+   forms passed the check only because `path.resolve` drops the slash. One check now serves the
+   flag, `redocly.yaml` and the Node API (`fileRootKindOf`): it resolves the path first, and fails
+   a root with a file at it or at one of its parent folders (`api.yaml/specs/`), since no
+   directory can be there either; the Node API names the two as `a file` and `a path below a
+   file`. It asks the `FileCheck` port for each folder, not for a "not a directory" error code,
+   which Windows does not report for a trailing backslash. A root that does not exist yet stays
+   valid.
+2. **An `http:` or `https:` `$ref` is resolved by the URL standard.** The rule that tells a URL
+   from a path (`urlSchemeOf`) already counted `http:host/pet.yaml` as a URL, but Redocly takes
+   only `http://` and `https://` for URLs, so it read that `$ref` from
+   `<folder>/http:host/pet.yaml`, while the same text as the schema argument was fetched. The
+   resolver now resolves every `$ref` with one of these schemes, in any letter case and with or
+   without `//`, against its document with `new URL()` (`remoteRefUrl`), as the schema argument
+   resolves against the working directory, so it is fetched and limited by `--remote-ref-hosts`
+   like any remote `$ref`. This replaces the lowercasing of `HTTP://`. A `$ref` that does not
+   parse fails with the URL parser's error, as it did. Other text before a colon stays a file name
+   (`a:b.yaml`, `ab:c.yaml`, `C:/x`). Keeping the old reading was rejected: the docs give one rule
+   for every location, and a file named `http:…` is far less likely than a URL written without
+   `//`. The URL is the parser's normal form (`HTTPS://Host/x` is `https://host/x`), which is also
+   the document's name in messages.
+3. **`--redocly` reads `file:` URLs as other path flags do.** `--redocly file:redocly.yaml` was
+   looked up as a path named `file:redocly.yaml` and failed with `CLI_CONFIG_NOT_FOUND`, while the
+   docs say `file:` URLs work wherever a path does. A location written as a URL now resolves by
+   the rule of every CLI location and is found by its path; a URL that names no local file, or
+   that does not parse, fails with `CLI_CONFIG_NOT_FOUND`, as before. Correcting the docs instead
+   was rejected: every other location flag accepts `file:` URLs.
