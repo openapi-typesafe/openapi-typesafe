@@ -65,10 +65,11 @@ export function isIgnoredUnevaluatedKey(node: JsonObject, key: string): boolean 
 const NULL_TYPE_NAME = "null";
 
 /**
- * The schema as `NonNullable` reads its `anyOf` / `oneOf` where a `type` list has one type besides
- * `null` (`type: [object, "null"]`): with that type alone. The generator types the variants on the
- * listed type's member (`multipleTypes`) and adds `null` next to it, so without `null` they join
- * the base as they do for `type: object`. Any other schema stays as it is.
+ * The schema with its `anyOf` / `oneOf` read as the generator joins them where a `type` list has
+ * one type besides `null` (`[object]`, or `[object, "null"]` as `NonNullable` reads it): with that
+ * type alone. The generator types the variants on the listed type's member (`multipleTypes`) and
+ * adds `null` next to it, so without `null` they join the base as they do for `type: object`. Any
+ * other schema stays as it is.
  */
 export function withVariantsOfListedType(node: JsonObject): JsonObject {
   const names = Array.isArray(node.type) ? node.type : [];

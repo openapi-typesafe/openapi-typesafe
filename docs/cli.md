@@ -1222,7 +1222,8 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   and a variant does not have the property, no pointer through it compiles, so it gets the
   target's type inline. A variant of only `type: object` (`Record<string, never>`) adds nothing to
   such a union, so the property is read through the own properties, also where such variants sit
-  in an `allOf` item. With `type: [object, "null"]` the variants are read as with `type: object`.
+  in an `allOf` item. With a list of one type (`type: [object]`), or of one type and `null`
+  (`type: [object, "null"]`), the variants are read as with `type: object`.
 - A pointer whose original reads `never` through such a `Record<string, never>`
   (`Contact/allOf/0/properties/owner/properties/name` next to `oneOf: [{ type: object }, …]`)
   compiles but admits no value, so it gets the target's type. Only a pointer to a `false` schema

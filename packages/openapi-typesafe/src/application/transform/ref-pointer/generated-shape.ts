@@ -171,11 +171,21 @@ function memberAt(schema: LocatedNode, key: string, input: MemberInput): Generat
   if (!isJsonObject(node) || OPAQUE_KEYS.some((name) => name in node) || input.depth > MAX_DEPTH) {
     return OPAQUE;
   }
-  const owner = { ...followed, node };
   if (isNullableSchema(node)) {
     // Every key of `T | null` is an error, unless `T` is unknown (then the type is `unknown`).
     return isObjectShape(node) || isArrayShape(node) ? MISSING : OPAQUE;
   }
+  // A `type` list of one type (`[object]`) joins its variants as that type alone does.
+  return shapedMember({ ...followed, node: withVariantsOfListedType(node) }, key, input);
+}
+
+/** The member `key` of a schema that is no `$ref` and not nullable, by its shape. */
+function shapedMember(
+  owner: LocatedNode & { node: JsonObject },
+  key: string,
+  input: MemberInput,
+): GeneratedMember {
+  const { node } = owner;
   const unevaluated = unevaluatedSchemaOf(node as SchemaObject, input.options);
   if (unevaluated !== null) {
     return unevaluatedMember(owner, key, unevaluated, input);

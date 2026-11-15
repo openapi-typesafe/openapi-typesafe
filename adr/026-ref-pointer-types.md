@@ -292,3 +292,30 @@ Measured: the generator fuzz of `$ref` pointers next to compositions (4428 docum
 `tsc`) fails on 125 fewer documents (306 before, 181 after; the rest are contradictory schemas,
 such as an `allOf` of an object and a string) and changes no document that compiled; the 1806
 documents of the compat corpus give the same output over seven option sets.
+
+## Amendment (2026-11-14): a type list of one type
+
+Point 3 of the amendment above read the variants of `type: [object, "null"]` as for `type: object`
+only on the typed walk's path (`isMissingComposedKey`). The check whether the original pointer
+compiles (`originalIndexFails`, through `generatedMember`) still read every type list as
+`unknown`, so a list of one type without `null` (`type: [object]` with `properties` and
+`anyOf: [A, B]`) kept `components["schemas"]["Contact"]["owner"]["name"]`, which does not compile
+(TS2339: `A` has no `owner`); with `ref-pointers` it was already `string`.
+
+`multipleTypes` types each listed type as the schema with that type alone, so a list of one type
+is that type's schema, and a list of one type and `null` adds `null` to it. The member reading
+(`memberAt`) now reads a list of one type as that type (`withVariantsOfListedType`), after a
+nullable schema has been read as `T | null`. The rule covers every type, not only `object`:
+`[string]` and `[array]` are typed as `string` and `array` too, so their pointers now get the
+output that the same schema with `type: string` or `type: array` gets, under the rules above (a
+pointer that does not compile, or reads `never` or another type's index signature, is typed
+in place; any other pointer stays).
+
+Measured: the shape sweep of `$ref`s next to variants (252 documents) fails on none, against 18
+(every `type: [object]` shape without `--fix`), and changes no other document. The pointer fuzz
+with one-type lists (400 documents, OpenAPI 3.1 and 3.0) fails on 92 and 99 documents, against 134
+and 148, and on no document that compiled before. In the documents that compiled before, every
+changed pointer read `never` (7, now typed in place as `never`) or a type other than its target's
+(74, of which 49 now have the target's type). With `ref-pointers` one document changes (it did
+not compile before); with `all` none. The 1806 documents of the compat corpus give the same
+output over ten option sets.
