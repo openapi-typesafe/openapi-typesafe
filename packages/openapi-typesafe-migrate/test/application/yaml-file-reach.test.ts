@@ -183,4 +183,47 @@ describe("migrateProject and the YAML files that reach others", () => {
 
     expect(files.map((file) => file.path)).toEqual(["ci/openapi.yml"]);
   });
+
+  it.each([
+    [
+      "Taskfile.yml",
+      lines(
+        "version: '3'",
+        "includes: { gen: ./tasks/gen.yml }",
+        "vars: { GEN: npx openapi-typescript }",
+      ),
+      "tasks/gen.yml",
+      lines("tasks: { a: { cmds: ['{{.GEN}} c.yaml -it'] } }"),
+    ],
+    [
+      "Taskfile.yml",
+      lines(
+        "version: '3'",
+        "includes: { gen: ./tasks/Taskfile.yml }",
+        "vars: { GEN: npx openapi-typescript }",
+      ),
+      "tasks/Taskfile.yml",
+      lines("tasks: { a: { cmds: ['{{.GEN}} c.yaml -it'] } }"),
+    ],
+    [
+      "azure-pipelines.yml",
+      lines("variables: { gen: npx openapi-typescript }", "steps: [{ template: templates/t.yml }]"),
+      "templates/t.yml",
+      lines("steps: [{ script: '$(gen) a.yaml -it' }]"),
+    ],
+  ])(
+    "migrateProject reports the flags after a %s variable in an included file",
+    async (...files) => {
+      const [root, rootText, included, includedText] = files;
+      const dependencies = setUp({ [root]: rootText, [included]: includedText });
+
+      const { files: migrated } = await migrateProject(dependencies, {
+        version: "1.0.0",
+        isWrite: false,
+      });
+
+      const steps = migrated.find((file) => file.path === included)?.manualSteps ?? [];
+      expect(steps.map((step) => step.kind)).toEqual(["variable-not-only-generator"]);
+    },
+  );
 });

@@ -18,6 +18,8 @@ const OLD_NAME_IN_COMMAND_NOTE =
 const SCRIPT_NOT_SHELL_NOTE =
   "so the tool does not read it as commands: migrate the old package names in it by hand";
 const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; change it to";
+const SPLIT_FLAG_NOTE =
+  "is an old flag of the generator that quotes split where it is written, so it was kept: rename";
 
 function pinnedPackageMessage(step: Extract<ManualStep, { kind: "pinned-package" }>): string {
   const successor = PACKAGE_RENAMES.get(step.name) ?? step.name;
@@ -52,6 +54,7 @@ type CommandStep = Extract<
       | "pinned-package"
       | "old-package-file"
       | "old-name-in-command"
+      | "split-flag"
       | "script-not-shell"
       | "command-string";
   }
@@ -64,6 +67,7 @@ const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "pinned-package",
   "old-package-file",
   "old-name-in-command",
+  "split-flag",
   "script-not-shell",
   "command-string",
 ]);
@@ -85,6 +89,8 @@ export function commandStepMessage(step: CommandStep): string {
       return `${step.location}: ${step.path} ${OLD_FILE_NOTE}`;
     case "old-name-in-command":
       return `${step.location}: "${step.word}" ${OLD_NAME_IN_COMMAND_NOTE}`;
+    case "split-flag":
+      return `${step.location}: ${step.flag} ${SPLIT_FLAG_NOTE} ${flagRenames([step.flag])}`;
     case "script-not-shell":
       return `${step.location}: the script runs with ${step.shell}, ${SCRIPT_NOT_SHELL_NOTE}`;
     case "command-string":

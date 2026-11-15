@@ -1,6 +1,7 @@
-import { commandRoles, withoutWindowsSuffix } from "./command-roles.js";
+import { commandRoles } from "./command-roles.js";
 import { packageReference } from "./old-package-words.js";
 import { GENERATOR_COMMAND } from "./package-names.js";
+import { programPath } from "./program-paths.js";
 import type { ShellCommand, ShellWord } from "./shell-words.js";
 import type { VariableProgram } from "./variable-programs.js";
 
@@ -54,6 +55,22 @@ export const NO_VARIABLES: FileVariables = {
   referenceAt: () => undefined,
 };
 
+const PATH_SEPARATOR = "/";
+const BIN_FOLDER = "/.bin/";
+
+/**
+ * Whether a program word names the generator by its old name: the name, or the bin of the
+ * package (`node_modules/.bin/openapi-typescript`), which the migration renames as it renames the
+ * name. Another path (`/usr/local/bin/openapi-typescript`) keeps the old program.
+ */
+function namesGenerator(word: ShellWord): boolean {
+  const { path, suffix } = programPath(word);
+  if (path.includes(PATH_SEPARATOR)) {
+    return path.endsWith(`${BIN_FOLDER}${GENERATOR_COMMAND}${suffix}`);
+  }
+  return packageReference(path.slice(0, path.length - suffix.length)).name === GENERATOR_COMMAND;
+}
+
 /**
  * Whether a command runs the generator by its old name, so a variable set to it holds the
  * generator command.
@@ -62,8 +79,5 @@ export function runsGenerator(command: ShellCommand): boolean {
   const words = withoutRecipePrefix(command);
   const { program } = commandRoles(words);
   const word = program === undefined ? undefined : words[program];
-  return (
-    word !== undefined &&
-    packageReference(withoutWindowsSuffix(word.value)).name === GENERATOR_COMMAND
-  );
+  return word !== undefined && namesGenerator(word);
 }

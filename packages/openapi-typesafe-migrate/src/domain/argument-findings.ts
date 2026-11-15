@@ -4,6 +4,7 @@ import { unmigratedWordFindings } from "./old-package-words.js";
 import { FLAG_RENAMES } from "./package-names.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import type { TextEdit } from "./text-edits.js";
+import { placedSpan, unquotedRawText } from "./word-places.js";
 
 /**
  * The findings of the words that a program gets as arguments: renamed flags of the generator, old
@@ -22,25 +23,37 @@ export interface Finding {
   readonly manualStep?: ManualStep;
 }
 
-/** A renamed flag of the generator, alone (`-it`) or with its value (`--redoc=r.yaml`). */
+/** The flag that a word passes before any `=`, as the program gets it: `"-it"` passes `-it`. */
+const passedFlag = (text: string): string => text.split("=", 1)[0] as string;
+
+/**
+ * A renamed flag of the generator, alone (`-it`) or with its value (`--redoc=r.yaml`), as the
+ * program gets it after quote removal (`"-it"`). A flag whose characters quotes split where the
+ * file writes it (`-i't'`, word-places.ts) has no place to edit, so it is a step that names it.
+ */
 function flagFindings(word: ShellWord, locate: Locate): Finding[] {
-  const flag = word.raw.split("=", 1)[0] as string;
+  const passed = unquotedRawText(word, 0);
+  const flag = passedFlag(passed.text);
   const to = FLAG_RENAMES.get(flag);
   if (to === undefined) {
     return [];
   }
   const offset = word.start;
-  const edit: TextEdit = { start: offset, end: offset + flag.length, text: to };
-  return [
-    { offset, edit, change: { kind: "flag-renamed", location: locate(offset), from: flag, to } },
-  ];
+  const location = locate(offset);
+  const span = placedSpan(passed, flag.length);
+  if (span === undefined) {
+    const manualStep: ManualStep = { kind: "split-flag", location, flag };
+    return [{ offset, manualStep }];
+  }
+  const edit: TextEdit = { ...span, text: to };
+  return [{ offset, edit, change: { kind: "flag-renamed", location, from: flag, to } }];
 }
 
 /** The flags of a variable's value that the generator renamed, each once. */
 function renamedFlags(value: string): string[] {
   const flags = shellCommands(value)
     .flat()
-    .map((word) => word.raw.split("=", 1)[0] as string);
+    .map((word) => passedFlag(word.value));
   return [...new Set(flags.filter((flag) => FLAG_RENAMES.has(flag)))];
 }
 

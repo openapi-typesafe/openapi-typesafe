@@ -1,7 +1,9 @@
 import { type Finding, type Locate, programArgumentFindings } from "./argument-findings.js";
 import { commandWordFindings } from "./command-migration.js";
+import { commandRoles } from "./command-roles.js";
 import { NO_VARIABLES, runsGenerator } from "./file-variables.js";
-import type { ShellCommand } from "./shell-words.js";
+import { shellScript } from "./shell-scripts.js";
+import type { ShellCommand, ShellWord } from "./shell-words.js";
 import { shellCommands } from "./shell-words.js";
 import type { VariableProgram } from "./variable-programs.js";
 
@@ -14,39 +16,51 @@ import type { VariableProgram } from "./variable-programs.js";
  */
 
 /**
- * Shells whose `-c` option takes a command line, as `SHELL`, the shell form and the exec forms of
- * Dockerfiles and YAML files use them.
+ * The words of a script that run its arguments as a command: `"$@"`, also after `exec`, with or
+ * without braces and quotes. Compose and Kubernetes give `$$` to the container as one `$`, so
+ * `"$$@"` is the same word there.
  */
-const SHELLS: ReadonlySet<string> = new Set(["sh", "bash", "dash", "ash", "zsh"]);
-const OPTION_PREFIX = "-";
-const LONG_OPTION_PREFIX = "--";
-const COMMAND_OPTION = "c";
-const SET_OPTION = "-o";
-const PATH_SEPARATOR = "/";
+const ARGUMENTS_WORDS: ReadonlySet<string> = new Set(
+  ["$", "$$"].flatMap((dollar) =>
+    ["@", "{@}"].flatMap((name) => ["", '"'].map((quote) => `${quote}${dollar}${name}${quote}`)),
+  ),
+);
+
+/** Whether a shell script runs its arguments as a command (`exec "$@"`). */
+function runsArguments(script: string): boolean {
+  return shellCommands(script).some((words) => {
+    const { program } = commandRoles(words);
+    return program !== undefined && ARGUMENTS_WORDS.has(words[program]?.raw ?? "");
+  });
+}
 
 /**
- * The command line of `["sh", "-c", "…"]` (also `/bin/bash -o pipefail -ec`): the word after the
- * first short option that holds `c`, before any word that is not an option.
+ * Whether an entrypoint runs the command it gets as a command: any program but a shell script
+ * that does not run its arguments (`["sh", "-c", "grep -it x \"$@\"", "--"]`), which may give
+ * them to another program.
  */
-export function shellScript<Word extends { readonly value: string }>(
-  words: readonly Word[],
-): Word | undefined {
-  const program = words[0]?.value.split(PATH_SEPARATOR).at(-1) ?? "";
-  if (!SHELLS.has(program)) {
-    return undefined;
-  }
-  let index = 1;
-  for (let option = words[index]?.value; option !== undefined; option = words[index]?.value) {
-    if (!option.startsWith(OPTION_PREFIX)) {
-      return undefined;
-    }
-    if (!option.startsWith(LONG_OPTION_PREFIX) && option.includes(COMMAND_OPTION)) {
-      return words[index + 1];
-    }
-    // `-o pipefail` names a shell option in the next word.
-    index += option === SET_OPTION ? 2 : 1;
-  }
-  return undefined;
+function runsItsCommand(entrypoint: ShellCommand): boolean {
+  const script = shellScript(entrypoint);
+  return script === undefined || runsArguments(script.value);
+}
+
+/**
+ * The commands that a container runs from its exec-form entrypoint and command. A command that
+ * runs the generator itself is read as its own command, as Docker reads each exec form of a
+ * Dockerfile, after an entrypoint that runs it (`["tini", "--"]`, `["docker-entrypoint.sh"]`,
+ * `["sh", "-c", "exec \"$@\"", "--"]`). Any other command is the arguments of the entrypoint,
+ * so the items of both, the entrypoint first, are one command: a launcher or an init program
+ * (`["npx"]`, `["tini", "--", "npx"]`) runs the generator the command names, a generator
+ * entrypoint gets the command's flags, and an old name after a script that may give it to
+ * another program is reported.
+ */
+export function containerCommand<Word extends ShellWord>(
+  entrypoint: readonly Word[],
+  command: readonly Word[],
+): (readonly Word[])[] {
+  return runsGenerator(command) && runsItsCommand(entrypoint)
+    ? [entrypoint, command]
+    : [[...entrypoint, ...command]];
 }
 
 /**

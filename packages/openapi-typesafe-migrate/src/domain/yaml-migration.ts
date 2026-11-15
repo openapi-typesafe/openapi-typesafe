@@ -175,6 +175,17 @@ export function appliedFindings(
 }
 
 /**
+ * How a YAML file is read: its kind, and the variables that the other YAML files of the project
+ * set to the generator, which reach the files they include (a Taskfile include, an Azure
+ * template), so a reference to one there (`{{.GEN}}`, `$(gen)`) is read as `$GEN`.
+ */
+export interface YamlFileReading extends YamlCommandFile {
+  readonly outsideVariables?: ReadonlySet<string>;
+}
+
+const NO_NAMES: ReadonlySet<string> = new Set();
+
+/**
  * Migrate the commands of a YAML file (CI workflows, Compose files, hook configs). Edits replace
  * words only, never the blanks between them, so they apply to the value as written even where a
  * folded scalar was read with spaces for its line breaks.
@@ -183,20 +194,23 @@ export function migrateYamlCommands(
   text: string,
   file: string,
   strings: readonly DocumentString[],
-  { commandKeys, environment, parameters }: YamlCommandFile = DEFAULT_YAML_FILE,
+  reading: YamlFileReading = DEFAULT_YAML_FILE,
 ): CommandMigration {
+  const { commandKeys, environment, parameters, outsideVariables = NO_NAMES } = reading;
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const shellOf = stepShells(strings);
   const values = valuesOf(strings, commandKeys).filter((value) => shellOf(value) === undefined);
-  const commandValues = new Set(values.filter((value) => !isContainerListItem(value)));
-  const { findings, scripts } = containerCommands(text, strings, locate);
+  const { findings, scripts, commandStrings } = containerCommands(text, strings, locate);
+  const isOwnCommand = (value: DocumentString): boolean =>
+    !isContainerListItem(value) && !commandStrings.has(value.start);
+  const commandValues = new Set(values.filter(isOwnCommand));
   const entries = environmentEntries(strings, environment);
   const defaults = parameterDefaults(strings, parameters);
   const isShellText = (value: DocumentString): boolean =>
     commandValues.has(value) || scripts.has(value) || entries.has(value) || defaults.has(value);
   const shellValues = oncePerPlace(strings.filter(isShellText));
-  const names = new Set([...entries.values()].map((entry) => entry.name));
+  const names = new Set([...[...entries.values()].map((entry) => entry.name), ...outsideVariables]);
   const references = { environment, names, parameters };
   const inputs = inputValues(defaults);
   const variablesAt = scopedVariables({ text, entries, inputs, references });

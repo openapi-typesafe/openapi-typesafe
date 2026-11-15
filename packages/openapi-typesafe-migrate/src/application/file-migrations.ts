@@ -149,8 +149,13 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
   {
     matches: (path) => TASKFILE_NAMES.has(baseName(path)),
     migrate: whenNamed(
-      yamlConfig((_context, path) => [
-        usedStringsStep((text, strings) => migrateYamlCommands(text, path, strings, TASKFILE)),
+      yamlConfig((context, path) => [
+        usedStringsStep((text, strings) =>
+          migrateYamlCommands(text, path, strings, {
+            ...TASKFILE,
+            outsideVariables: context.yamlReach.generatorVariables,
+          }),
+        ),
       ]),
     ),
   },
@@ -176,7 +181,10 @@ const yamlCommandsStep =
     return apiDescriptionParts.has(path) || isApi
       ? unchanged(text)
       : usedStringsStep((current, strings) =>
-          migrateYamlCommands(current, path, strings, yamlKindOf(yamlReach, path)),
+          migrateYamlCommands(current, path, strings, {
+            ...yamlKindOf(yamlReach, path),
+            outsideVariables: yamlReach.generatorVariables,
+          }),
         )(text, read);
   };
 

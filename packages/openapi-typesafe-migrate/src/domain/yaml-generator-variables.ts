@@ -2,7 +2,7 @@ import type { DocumentString } from "./config-documents.js";
 import { runsGenerator } from "./file-variables.js";
 import { shellCommands } from "./shell-words.js";
 import { environmentEntries } from "./yaml-environment-entries.js";
-import type { YamlCommandFile } from "./yaml-environments.js";
+import { referencedVariables, type YamlCommandFile } from "./yaml-environments.js";
 import { shellText } from "./yaml-shell-text.js";
 
 /**
@@ -28,7 +28,8 @@ const SPECIAL_CHARACTERS_RE = /[.*+?^${}()|[\]\\]/g;
 
 /**
  * Whether a text expands one of the variables `names`, as a shell (`$GEN`, `${GEN}`), make
- * (`$(GEN)`), cmd.exe (`%GEN%`) or PowerShell (`$env:GEN`) reads it.
+ * (`$(GEN)`), cmd.exe (`%GEN%`) or PowerShell (`$env:GEN`) reads it, or as the tool of a YAML
+ * file kind replaces it (`{{.GEN}}`, an Azure `$(gen)`, `${{ env.GEN }}`, yaml-environments.ts).
  */
 export function usesVariable(text: string, names: ReadonlySet<string>): boolean {
   if (names.size === 0) {
@@ -37,5 +38,7 @@ export function usesVariable(text: string, names: ReadonlySet<string>): boolean 
   const alternatives = [...names].map((name) => name.replace(SPECIAL_CHARACTERS_RE, "\\$&"));
   const name = `(?:${alternatives.join("|")})`;
   const expansion = `\\$(?:\\{|\\(|env:)?${name}${NAME_END}|%${name}%`;
-  return new RegExp(expansion).test(text);
+  return (
+    new RegExp(expansion).test(text) || referencedVariables(text).some((found) => names.has(found))
+  );
 }

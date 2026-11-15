@@ -1,4 +1,5 @@
-import { type ShellCommand, type ShellWord, unquotedText } from "./shell-word-parts.js";
+import type { ShellCommand, ShellWord } from "./shell-word-parts.js";
+import { type PlacedText, rawText, unquotedRawText } from "./word-places.js";
 
 /**
  * The variables a shell text sets itself: `GEN="npx openapi-typescript"` alone or before a
@@ -39,9 +40,16 @@ function leadingAssignments(command: ShellCommand): number {
   return index === -1 ? command.length : index;
 }
 
-/** The assignment that a word is written as, or none. */
-function assignmentOf(word: ShellWord): ShellAssignment[] {
-  const match = ASSIGNMENT_RE.exec(word.raw);
+/**
+ * A word after a program written as an assignment: `NAME=value`, and the other operators of make
+ * (`NAME:=value`, `::=`, `:::=`, `?=`, `!=`, `+=`), which reads every argument with one of them as
+ * a variable it sets (`$(MAKE) -C api GEN:="npx openapi-typescript"`), with the names make allows.
+ */
+const ARGUMENT_ASSIGNMENT_RE = /^([A-Za-z_][A-Za-z0-9_.-]*)(:::=|::=|:=|\?=|!=|\+?=)/;
+
+/** The assignment that a word is written as by `pattern`, or none. */
+function assignmentOf(word: ShellWord, pattern: RegExp = ASSIGNMENT_RE): ShellAssignment[] {
+  const match = pattern.exec(word.raw);
   const name = match?.[1];
   if (match === null || name === undefined) {
     return [];
@@ -56,7 +64,7 @@ export function shellAssignments(command: ShellCommand): ShellAssignment[] {
   const count = leadingAssignments(command);
   const isDeclaration = DECLARATION_BUILTINS.has(command[count]?.value ?? "");
   const words = [...command.slice(0, count), ...(isDeclaration ? command.slice(count + 1) : [])];
-  return words.flatMap(assignmentOf);
+  return words.flatMap((word) => assignmentOf(word));
 }
 
 /**
@@ -70,7 +78,7 @@ export function argumentAssignments(command: ShellCommand): ShellAssignment[] {
   return command
     .slice(leadingAssignments(command))
     .filter((word) => !own.has(word))
-    .flatMap(assignmentOf);
+    .flatMap((word) => assignmentOf(word, ARGUMENT_ASSIGNMENT_RE));
 }
 
 /** A value with a blank or a command separator in it, which only a command line has. */
@@ -95,43 +103,15 @@ export const isArrayAssignment = (assignment: ShellAssignment): boolean =>
 
 /**
  * The value of an assignment as the shell reads it (`GEN=npx\ a`, `GEN="npx "a` and `GEN="npx a"`
- * are all `npx a`), and how to move a word read from it onto the text as written. A later `$GEN`
- * splits that value into words, so the value is read as a command line, the same text that
- * says which program the variable runs (shell-variables.ts), and each word is placed where its
- * characters are written. The items of an array are read as written.
+ * are all `npx a`), each character placed where it is written. A later `$GEN` splits that value
+ * into words, so the value is read as a command line, the same text that says which program the
+ * variable runs (shell-variables.ts). The items of an array are read as written, between its
+ * parentheses: a word is an array assignment only up to the `)` that closes it
+ * (shell-word-parts.ts).
  */
-export interface AssignmentValue {
-  readonly text: string;
-  readonly place: (word: ShellWord) => ShellWord;
-}
-
-/**
- * The items of an array assignment as written, between its parentheses: a word is an array
- * assignment only up to the `)` that closes it (shell-word-parts.ts).
- */
-function arrayValue({ word, head }: ShellAssignment): AssignmentValue {
-  const start = word.start + head + 1;
-  const place = (found: ShellWord): ShellWord => ({
-    ...found,
-    start: found.start + start,
-    end: found.end + start,
-  });
-  return { text: word.raw.slice(head + 1, -1), place };
-}
-
-/** The value of an assignment as a command line, with the places of its words. */
-export function assignmentValue(assignment: ShellAssignment): AssignmentValue {
-  if (isArrayAssignment(assignment)) {
-    return arrayValue(assignment);
-  }
+export function assignmentValue(assignment: ShellAssignment): PlacedText {
   const { word, head } = assignment;
-  const { value, offsets } = unquotedText(word.raw.slice(head));
-  const written = (index: number): number => head + (offsets[index] as number);
-  const place = (found: ShellWord): ShellWord => {
-    const first = written(found.start);
-    const end = written(found.end - 1) + 1;
-    const raw = word.raw.slice(first, end);
-    return { ...found, start: word.start + first, end: word.start + end, raw };
-  };
-  return { text: value, place };
+  return isArrayAssignment(assignment)
+    ? rawText(word, head + 1, word.raw.slice(head + 1, -1))
+    : unquotedRawText(word, head);
 }

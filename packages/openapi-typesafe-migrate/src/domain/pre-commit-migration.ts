@@ -10,6 +10,7 @@ import { PACKAGE_RENAMES } from "./package-names.js";
 import type { ShellCommand, ShellWord } from "./shell-word-parts.js";
 import { shellCommands } from "./shell-words.js";
 import type { TextEdit } from "./text-edits.js";
+import { movedWord } from "./word-places.js";
 import { appliedFindings } from "./yaml-migration.js";
 import { shellText } from "./yaml-shell-text.js";
 
@@ -43,7 +44,7 @@ function entryWords(text: string, entry: DocumentString): ShellWord[] {
   const { start } = entry.content;
   return shellCommands(shellText(text, entry))
     .flat()
-    .map((word) => ({ ...word, start: word.start + start, end: word.end + start }));
+    .map((word) => movedWord(word, start));
 }
 
 const itemWord = (text: string, item: DocumentString): ShellWord => {

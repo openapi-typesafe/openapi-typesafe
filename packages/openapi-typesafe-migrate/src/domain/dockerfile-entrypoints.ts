@@ -1,5 +1,6 @@
 import type { Finding, Locate } from "./argument-findings.js";
 import { entrypointArgumentFindings } from "./entrypoint-arguments.js";
+import { shellScript } from "./shell-scripts.js";
 import type { ShellWord } from "./shell-words.js";
 
 /**
@@ -74,20 +75,31 @@ function entrypointOf(stages: readonly Stage[], index: number): Instruction | un
   return own ?? (base === -1 ? undefined : entrypointOf(stages, base));
 }
 
-/**
- * The old flags in the exec-form `CMD` of each stage whose exec-form entrypoint runs the
- * generator: `ENTRYPOINT ["openapi-typescript"]` with `CMD ["api.yaml", "-it"]`.
- */
-export function entrypointCommandFindings(
-  text: string,
-  forms: readonly ExecForm[],
-  locate: Locate,
-): Finding[] {
+/** An exec-form entrypoint of a stage and the exec-form command that it gets as arguments. */
+export interface ExecPair {
+  readonly entrypoint: ExecForm;
+  readonly command: ExecForm;
+}
+
+/** The exec-form command of each stage with the exec-form entrypoint it runs with. */
+export function entrypointPairs(text: string, forms: readonly ExecForm[]): ExecPair[] {
   const stages = dockerStages(text, forms);
   return stages.flatMap((stage, index) => {
     const entrypoint = entrypointOf(stages, index)?.form;
     const command = stage.command?.form;
-    if (entrypoint === undefined || command === undefined) {
+    return entrypoint === undefined || command === undefined ? [] : [{ entrypoint, command }];
+  });
+}
+
+/**
+ * The old flags in the exec-form `CMD` of each stage whose entrypoint is a shell script that may
+ * pass them on (`ENTRYPOINT ["sh", "-c", "npx openapi-typescript \"$@\"", "--"]`). The command
+ * that the items of both make is read as one (entrypoint-arguments.ts), so the flags after an
+ * entrypoint that runs the generator are found there.
+ */
+export function entrypointCommandFindings(pairs: readonly ExecPair[], locate: Locate): Finding[] {
+  return pairs.flatMap(({ entrypoint, command }) => {
+    if (shellScript(entrypoint.words) === undefined) {
       return [];
     }
     const pair = { entrypoint: entrypoint.words, command: command.words };

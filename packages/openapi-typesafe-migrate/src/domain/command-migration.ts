@@ -25,6 +25,7 @@ import {
 } from "./shell-variables.js";
 import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
+import { writtenSpan } from "./word-places.js";
 
 export type { AppendedValue, Locate } from "./argument-findings.js";
 
@@ -43,7 +44,7 @@ const OLD_PACKAGE_FOLDER = `node_modules/${GENERATOR_COMMAND}/`;
 /**
  * The edit that renames `name` at the end of a word (`x`, `"x"`, `npm:x`, `.bin/x`), before the
  * Windows `suffix` of a program (`x.cmd`), or undefined when the word is quoted in a way that
- * does not keep `name` in one piece.
+ * does not keep `name` in one piece, also where the file writes it (word-places.ts).
  */
 function renameAtEnd(word: ShellWord, name: string, to: string, suffix = ""): TextEdit | undefined {
   const at = word.raw.lastIndexOf(name);
@@ -53,7 +54,8 @@ function renameAtEnd(word: ShellWord, name: string, to: string, suffix = ""): Te
   if (at === -1 || (quote !== "" && !QUOTES.has(quote))) {
     return undefined;
   }
-  return { start: word.start + at, end: word.start + at + name.length, text: to };
+  const span = writtenSpan(word, at, name.length);
+  return span === undefined ? undefined : { ...span, text: to };
 }
 
 /** A word of an install command or a `--package` option that names an original package. */
@@ -194,9 +196,24 @@ export function commandWordFindings(
   ]);
 }
 
+/**
+ * Each finding once. A place that two commands hold is read in both: the entrypoint of a
+ * container that several commands (Dockerfile stages, YAML merge keys) are joined to gives the
+ * same finding for each, which is one change of the text.
+ */
+function uniqueFindings(found: readonly Finding[]): Finding[] {
+  const seen = new Set<string>();
+  return found.filter((finding) => {
+    const key = JSON.stringify(finding);
+    const isNew = !seen.has(key);
+    seen.add(key);
+    return isNew;
+  });
+}
+
 /** Findings as the edits, changes and steps of a text, in the order of their offsets. */
 export function textFindings(found: readonly Finding[]): ShellTextFindings {
-  const findings = [...found].sort((left, right) => left.offset - right.offset);
+  const findings = uniqueFindings(found).sort((left, right) => left.offset - right.offset);
   return {
     edits: findings.flatMap((finding) => (finding.edit === undefined ? [] : [finding.edit])),
     changes: findings.flatMap((finding) => (finding.change === undefined ? [] : [finding.change])),
