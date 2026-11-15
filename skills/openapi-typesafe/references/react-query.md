@@ -91,8 +91,12 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
   Records that are class instances are read like object literals. An `undefined` array item in
   params is `{ "(undefined)": true }`, in a body `null`. Plain `headers` values are the text
   `Headers` sends (`new Number(5)` is `"5"`, a `Date` its local text), and header names are lower
-  case, a later name in another case winning as in `Headers`. Functions (`fetch`, serializers,
-  middleware hooks) and values that throw when read are left out of the key. Filters such as
+  case, a later name in another case winning as in `Headers`. A `Map` or `Set` (body or params)
+  is keyed by its contents, `{ "entries()": [...] }` or `{ "values()": [...] }`, since a custom
+  serializer may send them; other iterables by their own members only. One rule reads body,
+  params and headers: functions (`fetch`, serializers, middleware hooks, a function inside a
+  body), circular references and values that throw when read (getters, `toJSON`, revoked
+  `Proxy`, header pairs with an item that is no pair) are left out of the key. Filters such as
   `setQueriesData({ queryKey })` match only that value's query, also after `hydrate`.
   `undefined` fields, params and headers, and the `params` records they leave empty, are left
   out; `[method, path]` when nothing is left (no init, no `baseUrl`).
