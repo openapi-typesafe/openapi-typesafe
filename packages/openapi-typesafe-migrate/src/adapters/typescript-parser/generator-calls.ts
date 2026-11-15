@@ -120,13 +120,29 @@ function optionsOf(argument: ts.Expression, bindings: FileBindings): GeneratorOp
     : { kind: "unknown", expression: argument };
 }
 
+const UNDEFINED = "undefined";
+
+/**
+ * Whether an argument passes no options: `undefined` that the file does not declare, or a
+ * `void` expression, which the generator reads as no options, as an argument left out.
+ */
+function isNoValue(argument: ts.Expression, bindings: FileBindings): boolean {
+  const { value } = unwrapped(argument);
+  const isUndefined =
+    ts.isIdentifier(value) &&
+    value.text === UNDEFINED &&
+    bindings.declarationOf(value) === undefined;
+  return isUndefined || ts.isVoidExpression(value);
+}
+
 /** Every generator call of the file, in source order. */
 export function generatorCalls(file: ts.SourceFile, bindings: FileBindings): GeneratorCall[] {
   const calls: GeneratorCall[] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isCallExpression(node) && isGenerator(node.expression, bindings)) {
       const argument = node.arguments[1];
-      const options = argument === undefined ? undefined : optionsOf(argument, bindings);
+      const isOmitted = argument === undefined || isNoValue(argument, bindings);
+      const options = isOmitted ? undefined : optionsOf(argument, bindings);
       calls.push({ call: node, options });
     }
     ts.forEachChild(node, visit);
