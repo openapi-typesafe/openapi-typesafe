@@ -2,6 +2,39 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.12
+
+### Patch Changes
+
+- [#141](https://github.com/openapi-typesafe/openapi-typesafe/pull/141) [`20b2ee8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/20b2ee8a4083023d7f0ffcd0e210ff4f7805c004) Thanks [@fedorello](https://github.com/fedorello)! - `--enum` and `--enum-values`: when two tuples ask for the same enum name (a tuple property `sort`
+  of `Order` and a tuple schema `OrderSort`, or `Tup` and `tup`), the elements are numbered tuple by
+  tuple, in the order of the document: `OrderSort`, `OrderSort_2` for the first tuple, then
+  `OrderSort_3`, `OrderSort_4`. Before, the elements of both tuples were numbered together by
+  position, and a `$ref` to an element anywhere in the document could swap two names. With
+  `--dedupe-enums --fix dedupe-enum-names`, an enum that two tuples share is numbered at its
+  position in the tuple whose name it takes, so the order of the tuples in the document no longer
+  changes the names.
+
+- [#139](https://github.com/openapi-typesafe/openapi-typesafe/pull/139) [`ea2a1af`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ea2a1af15932ccded93283dafe32d223f77bf715) Thanks [@fedorello](https://github.com/fedorello)! - `local-ref-root: "file:"` in `redocly.yaml` now means the folder of `redocly.yaml`, as `""` does;
+  it named `redocly.yaml` itself, so every local `$ref` was refused. Locations in `redocly.yaml`
+  resolve against its folder. A local `$ref` root that is a file (`--local-ref-root api.yaml`, or
+  `localRefRoot` in the Node API) now fails with `CLI_FLAG_INVALID`, `CLI_CONFIG_INVALID` or
+  `OPTION_INVALID` before anything loads, instead of refusing every local `$ref`.
+
+- [#141](https://github.com/openapi-typesafe/openapi-typesafe/pull/141) [`20b2ee8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/20b2ee8a4083023d7f0ffcd0e210ff4f7805c004) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` into a property of a schema with `type: [object]` (a list of one type) next to `anyOf` or
+  `oneOf` variants is now typed as for `type: object`: where a variant misses the property, the
+  `$ref` gets the property's type instead of an index that does not compile (TS2339).
+
+- [#139](https://github.com/openapi-typesafe/openapi-typesafe/pull/139) [`ea2a1af`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ea2a1af15932ccded93283dafe32d223f77bf715) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` that is a `file:` URL (`file:///specs/pet.yaml`, `file:pet.yaml`) now loads the file it
+  names, checked against `--local-ref-root` as a path is. A `$ref` that is a URL of another scheme
+  (`s3://bucket/pet.yaml`) fails with `SCHEMA_REF_FORBIDDEN` (`reason: "unsupported-url"`). Both
+  used to be read as paths below the document's folder, such as `./s3:/bucket/pet.yaml`.
+
+- [#139](https://github.com/openapi-typesafe/openapi-typesafe/pull/139) [`ea2a1af`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ea2a1af15932ccded93283dafe32d223f77bf715) Thanks [@fedorello](https://github.com/fedorello)! - A schema or `root` that is a URL of a scheme other than `file:`, `http:` and `https:`
+  (`openapi-typesafe s3://bucket/api.yaml`, or `openapiTS(new URL("s3://bucket/api.yaml"))`) now
+  fails with `SCHEMA_SOURCE_INVALID` before anything is read. It used to read the local file
+  `./s3:/bucket/api.yaml`, and `-o s3:/bucket/api.yaml` then overwrote that file with the types.
+
 ## 1.0.0-rc.11
 
 ### Patch Changes

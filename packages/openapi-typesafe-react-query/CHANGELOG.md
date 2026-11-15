@@ -2,6 +2,33 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.12
+
+### Patch Changes
+
+- [#137](https://github.com/openapi-typesafe/openapi-typesafe/pull/137) [`f9af3e5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f9af3e532983952cce222e09ea26dd216d122626) Thanks [@fedorello](https://github.com/fedorello)! - Query keys read `params` and its `query`, `path` and `header` records by their members also when
+  they are class instances, as the fetch client sends them. Such a record with `NaN` no longer
+  shares a cache entry with `null`, a bigint in it no longer crashes the component, and
+  `setQueriesData` with the key of one date no longer writes into the queries of other dates.
+
+- [#137](https://github.com/openapi-typesafe/openapi-typesafe/pull/137) [`f9af3e5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f9af3e532983952cce222e09ea26dd216d122626) Thanks [@fedorello](https://github.com/fedorello)! - Query keys write header names in lower case and in their order, as `Headers` sends them, so
+  `{ "X-A": "1", "x-a": "2" }` and the same headers in reverse order, which send different values,
+  no longer share a cache entry. Header names in keys are now always lower case.
+
+- [#137](https://github.com/openapi-typesafe/openapi-typesafe/pull/137) [`f9af3e5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f9af3e532983952cce222e09ea26dd216d122626) Thanks [@fedorello](https://github.com/fedorello)! - Query keys leave out functions in the init (`fetch`, serializers, the hooks of a `middleware`).
+  With an inline function, `invalidateQueries`, `setQueriesData` and `getQueriesData` with the key
+  of a later render, or after `hydrate`, missed the query.
+
+- [#137](https://github.com/openapi-typesafe/openapi-typesafe/pull/137) [`f9af3e5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f9af3e532983952cce222e09ea26dd216d122626) Thanks [@fedorello](https://github.com/fedorello)! - An `undefined` item in a parameter array (`[1, undefined]`) has a query key of its own, apart
+  from `[1, null]`, which a `qs` serializer sends differently. Keys with such an item, also in a
+  body, now stay the same after `dehydrate` and `hydrate`, so filters still find their queries.
+
+- [#137](https://github.com/openapi-typesafe/openapi-typesafe/pull/137) [`f9af3e5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f9af3e532983952cce222e09ea26dd216d122626) Thanks [@fedorello](https://github.com/fedorello)! - A parameter or header value whose `toJSON`, `toString`, `toISOString` or getter throws, or that
+  refers back to itself, no longer crashes the component while it renders: the key leaves that
+  part out, and the request reports the error as a query error.
+- Updated dependencies [[`68ce29a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/68ce29ad4b8f8490d38990af62bbc830b54df015), [`68ce29a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/68ce29ad4b8f8490d38990af62bbc830b54df015)]:
+  - openapi-typesafe-fetch@1.0.0-rc.12
+
 ## 1.0.0-rc.11
 
 ### Patch Changes
