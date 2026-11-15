@@ -401,9 +401,13 @@ type WithAnyKeys<Init> = Init & { [key: string]: unknown };
  * constraint with TS2344 (upstream #2267), so TypeScript does not know `Method` is a key. For a
  * union of paths or methods, the union of their operations; a method a path lacks (`put?: never`)
  * adds none.
+ * `NonNullable` (`& {}`) changes no operation, but gives the checked type a constraint while
+ * `Paths` is generic too: `FilterKeys` of a path of `Paths extends {}` has none, so TypeScript
+ * found no constraint for the response types of the operation and related them to any type (a
+ * library generic in `Paths` could assign `data` and `error` to a `number`).
  */
 export type PathOperation<Paths, Path, Method> = Extract<
-  FilterKeys<PathItem<Paths, Path>, Method>,
+  NonNullable<FilterKeys<PathItem<Paths, Path>, Method>>,
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   Record<string | number, any>
 >;
