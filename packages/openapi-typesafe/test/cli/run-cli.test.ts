@@ -102,6 +102,35 @@ describe("runCli: help, version and flags", () => {
     expect(cli.logger.messages("error")).toEqual(["Redocly config not found at: missing.yaml (CLI_CONFIG_NOT_FOUND)"]);
   });
 
+  it.each([
+    ["file:redocly.yaml", "/work/redocly.yaml"],
+    [fakeUrl("/work/redocly.yaml"), "/work/redocly.yaml"],
+    ["file:my%20redocly.yaml", "/work/my redocly.yaml"],
+  ])(
+    "runCli with --redocly %s as a file: URL reads the config file it names",
+    async (location, file) => {
+      const cli = createFakeCli();
+      const config = fakeRedoclyConfig({});
+      cli.redoclyConfigs.configs.set(fakePath(file), config);
+
+      expect(await runCli(["a.yaml", "--redocly", location], cli.deps)).toBe(0);
+
+      expect(cli.generator.calls[0]?.options.redocly).toBe(config);
+    },
+  );
+
+  it.each(["https://example.com/redocly.yaml", "file:///a%2Fb/redocly.yaml", "http://[::1/redocly.yaml"])(
+    "runCli with --redocly %s that names no local file exits with 2",
+    async (location) => {
+      const cli = createFakeCli();
+      cli.redoclyConfigs.configs.set(location, fakeRedoclyConfig({}));
+
+      expect(await runCli(["a.yaml", "--redocly", location], cli.deps)).toBe(2);
+
+      expect(cli.logger.messages("error")).toEqual([`Redocly config not found at: ${location} (CLI_CONFIG_NOT_FOUND)`]);
+    },
+  );
+
   it("runCli with an unexpected failure exits with 70 and prints the stack", async () => {
     const cli = createFakeCli();
     cli.generator.failures.set(fakeUrl("/work/a.yaml"), new Error("boom"));
