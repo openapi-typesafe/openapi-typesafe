@@ -158,8 +158,13 @@ export interface SchemaCallbacks {
  * a `$ref` whose type surely does not compile gets its target's type in the next pass.
  */
 export interface RefPointerChecks {
-  /** Whether an earlier pass found the type of this `$ref` to be an error. */
+  /** Whether an earlier pass found the type of this `$ref` to be an error, or to have no value. */
   isInPlace(ref: string): boolean;
+  /**
+   * Whether the `$ref` is typed in place only because its type has no value: a target with no
+   * value either (a `false` schema) keeps that type.
+   */
+  isNeverRead(ref: string): boolean;
   /** The type this pass wrote for the `$ref`. */
   record(ref: string, type: IrType): void;
 }

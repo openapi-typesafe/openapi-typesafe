@@ -139,6 +139,10 @@ function isCorrected(pointer: RefPointer, request: SchemaRequest): boolean {
   return options.fixes.has(FIX.REF_POINTERS) || originalIndexFails({ pointer, options, refs });
 }
 
+function isNeverKeyword(type: IrType): boolean {
+  return type.kind === "keyword" && type.keyword === "never";
+}
+
 /** The type of a schema `$ref`. Throws InvalidRefError when the `$ref` has no pointer. */
 export function schemaRefType(
   ref: string,
@@ -151,8 +155,13 @@ export function schemaRefType(
   }
   const checks = request.context.pointerChecks;
   if (checks?.isInPlace(ref)) {
-    // An earlier pass found this pointer type to be an error (`RefPointerChecks`).
-    return targetType(ref, pointer, request, seen) ?? refType(ref);
+    // An earlier pass found this pointer type to be an error or to have no value. A target
+    // without a value either (a `false` schema) keeps the type written before.
+    const inPlace = targetType(ref, pointer, request, seen);
+    const isNoValueEither = inPlace === null || isNeverKeyword(inPlace);
+    if (!(checks.isNeverRead(ref) && isNoValueEither)) {
+      return inPlace ?? refType(ref);
+    }
   }
   const type = isCorrected(pointer, request)
     ? (correctedType(ref, pointer, request, seen) ?? refType(ref))

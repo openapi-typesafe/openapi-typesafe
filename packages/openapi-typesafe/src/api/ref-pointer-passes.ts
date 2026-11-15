@@ -1,7 +1,12 @@
 import { withTemplatePathRefs } from "../application/transform/document/path-template-refs.js";
+import { readsNever } from "../application/transform/footer/never-reads.js";
 import type { RawKeyTypes } from "../application/transform/footer/signature-index.js";
 import { TypeEvaluator } from "../application/transform/footer/type-evaluation.js";
-import { RecordedPointers } from "../application/transform/ref-pointer/pointer-checks.js";
+import {
+  type PointerRead,
+  type PointersInPlace,
+  RecordedPointers,
+} from "../application/transform/ref-pointer/pointer-checks.js";
 import {
   leadingSegmentsOf,
   refPointerOf,
@@ -79,12 +84,23 @@ function asWritten(type: IrType, templates: ReadonlyMap<string, string>): IrType
   return written?.kind === "typeAlias" ? written.type : type;
 }
 
-/** The `$ref`s of one pass whose written type surely does not compile. */
-function failingRefs(pass: PointerPass, checks: RecordedPointers): string[] {
+/**
+ * The `$ref`s of one pass whose written type surely does not compile, or surely has no value
+ * (`never`, read through a `Record<string, never>` or an owner that has no value).
+ */
+function refsInPlace(pass: PointerPass, checks: RecordedPointers): PointersInPlace {
   const evaluator = new TypeEvaluator(passDeclarations(pass.parts), pass.keyTypes);
-  return checks.failing(
-    (type) => evaluator.evaluate(asWritten(type, pass.templates)).kind === "missing",
-  );
+  return checks.checked((type): PointerRead => {
+    const read = evaluator.evaluate(asWritten(type, pass.templates));
+    if (read.kind !== "type") {
+      return read.kind === "missing" ? "missing" : "other";
+    }
+    return readsNever(evaluator, read) ? "never" : "other";
+  });
+}
+
+function isEmpty(inPlace: PointersInPlace): boolean {
+  return inPlace.missing.size === 0 && inPlace.never.size === 0;
 }
 
 type Transform = (pass: RunContext) => PointerPass;
@@ -93,25 +109,25 @@ type Transform = (pass: RunContext) => PointerPass;
  * The `$ref`s to type in place, from a scratch pass: the run's context already has a footer, of
  * an earlier call on it, which a pass of the run's own would change before it may be dropped.
  */
-function refsFailingInScratch(ctx: RunContext, transform: Transform): ReadonlySet<string> {
-  const checks = new RecordedPointers(new Set());
-  return new Set(failingRefs(transform(scratchContext(ctx, checks)), checks));
+function refsInPlaceOfScratch(ctx: RunContext, transform: Transform): PointersInPlace {
+  const checks = new RecordedPointers();
+  return refsInPlace(transform(scratchContext(ctx, checks)), checks);
 }
 
 /**
  * The run's own pass with its messages held. It is kept where every pointer type may compile;
- * otherwise its footer entries are dropped and the failing `$ref`s are typed in place.
+ * otherwise its footer entries are dropped and the `$ref`s found are typed in place.
  */
 function keptOrRedone(ctx: RunContext, transform: Transform): PointerPass {
-  const checks = new RecordedPointers(new Set());
+  const checks = new RecordedPointers();
   const messages = new HeldMessages();
   const footerLength = ctx.injectFooter.length;
   // Shared with the pass, so a deprecated callback form is reported once over both passes.
   ctx.legacyCallbackWarnings ??= new Set();
   const own: RunContext = { ...ctx, logger: messages, refPointerChecks: checks };
   const pass = transform(own);
-  const failing = failingRefs(pass, checks);
-  if (failing.length === 0) {
+  const inPlace = refsInPlace(pass, checks);
+  if (isEmpty(inPlace)) {
     // A pass always creates its footer (`withRunFooter`); the guard is for the optional type.
     if (own.runFooter !== undefined) {
       ctx.runFooter = own.runFooter;
@@ -120,7 +136,7 @@ function keptOrRedone(ctx: RunContext, transform: Transform): PointerPass {
     return pass;
   }
   ctx.injectFooter.length = footerLength;
-  ctx.refPointerChecks = new RecordedPointers(new Set(failing));
+  ctx.refPointerChecks = new RecordedPointers(inPlace);
   return transform(ctx);
 }
 
@@ -136,6 +152,6 @@ export function checkedPass(
   if (ctx.runFooter === undefined) {
     return keptOrRedone(ctx, transform);
   }
-  ctx.refPointerChecks = new RecordedPointers(refsFailingInScratch(ctx, transform));
+  ctx.refPointerChecks = new RecordedPointers(refsInPlaceOfScratch(ctx, transform));
   return transform(ctx);
 }
