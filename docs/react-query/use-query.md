@@ -28,14 +28,18 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   members also has them in `bodyFields`, as `body` and `bodyType`: JSON sends its JSON form,
   while a form or multipart body sends its members. `NaN`, `Infinity` and `-Infinity` in a body
   are `null`, as JSON sends them, with their text as their kind, since a form or multipart body
-  sends the text. A bigint in a body is its text, with the kind `"bigint"`: a form or multipart
+  sends the text. An `undefined` item of an array body, also a hole, is `null`, which every body
+  sends for it. A bigint in a body is its text, with the kind `"bigint"`: a form or multipart
   body sends the text, and JSON fails for it. The kinds go in `bodyType` beside the body:
   `"URLSearchParams"`, `"FormData"`, `"Blob"`, `"bytes"` or such a text for the whole body, or an
   object of them by member name or index (`{ image: "Blob" }`), so such a body never shares a key
   with a JSON body of the same shape. Parameter values (`params`) are written as the fetch client
   sends them: a valid `Date` (or another value with a `toISOString`) as its ISO text, `NaN`, the
-  infinities and a bigint as their text, an array by its items, and another object by its own
-  members, which the default serializers send. A `querySerializer` or `pathSerializer` set on the
+  infinities and a bigint as their text, an array by its items, with an `undefined` item (also a
+  hole or a function) as `{ "(undefined)": true }`, which a `qs` serializer sends differently
+  from `null`, and another object by its own members, which the default serializers send. The
+  records themselves (`params`, `query`, `path`, `header`) are read the same way when they are
+  not object literals, such as class instance DTOs. A `querySerializer` or `pathSerializer` set on the
   fetch client may send the object's `toJSON` form or its text instead, so the key also holds
   them, when the object has its own, under `"toJSON()"` and `"toString()"`: a `URL` is
   `{ "toJSON()": href, "toString()": href }`, a `Number` object `{ "toString()": "5" }` and an
@@ -43,7 +47,12 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   or value objects with private fields therefore never share an entry. Plain `headers` values
   are written as the text `Headers` sends: `5` and `new Number(5)` as `"5"`, a `URL` as its
   href, a `Date` as its local text (`String(date)`, not the ISO text a header parameter sends),
-  and an array as the text of each item. Fields, parameters and headers set to
+  and an array as the text of each item. Header names, in plain `headers` and in
+  `params.header`, are written in lower case, as `Headers` matches them in any case, and in
+  their order: `{ "X-A": "1", "x-a": "2" }` sends and has the key `{ "x-a": "2" }`. A
+  `toJSON`, `toString`, `toISOString` or getter that throws, and a member that refers back to
+  an object it is in, are left out of the key rather than crash the component; the request
+  reports the error. Fields, parameters and headers set to
   `undefined` are left out, and so are `params`,
   its `query`, `path`, `header` and `cookie` records and `headers` that this leaves empty, since
   they send nothing: `{ params: { query: { cursor: undefined } } }` has the key of no init.
@@ -54,8 +63,11 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   the key from `queryOptions(...).queryKey` for `setQueryData` and `getQueryData` rather than
   writing it out.
 - The request is sent with the `init` of the call. A `fetch`, `middleware` or serializer in it is
-  a function, which a query key cannot hold: two queries that differ only in one of them share
-  a cache entry, so set those on the fetch client, or give the queries different params.
+  a function, which a query key cannot hold. The key leaves functions out, also the hooks of a
+  `middleware` object, so a filter with the key of a later render, which has a new inline
+  function, still finds the query, and so does one after `hydrate`. Two queries that differ only
+  in a function share a cache entry, so set those on the fetch client, or give the queries
+  different params.
 - The request stops when TanStack Query cancels the query, and also when a `signal` of the init
   aborts.
 - With an `initialData` that is never `undefined`, `data` is never `undefined` either, as for

@@ -152,14 +152,20 @@ function rawValueKey(value: object): BodyKey | undefined {
 /**
  * The own enumerable members of an object or an array body, each as `memberKey`, and their kinds
  * by name or index.
- * An empty object or array stays: a JSON `{}` or `[]` is a body, unlike none.
+ * An empty object or array stays: a JSON `{}` or `[]` is a body, unlike none. An `undefined` item
+ * of an array, also a hole, is `null`, which JSON and the form bodies send for it alike: kept as
+ * `undefined`, it turned `null` in a JSON round trip (`hydrate`), and filters missed the query.
  */
 function membersKey(members: object): BodyKey {
-  const body: Record<string, unknown> | unknown[] = Array.isArray(members) ? [] : {};
+  const isList = Array.isArray(members);
+  const body: Record<string, unknown> | unknown[] = isList ? [] : {};
   const kinds: Record<string, BodyKinds> = {};
-  for (const [name, value] of Object.entries(members)) {
+  const entries = isList
+    ? Array.from(members, (item, index) => [index, item])
+    : Object.entries(members);
+  for (const [name, value] of entries) {
     const member = memberKey(value);
-    (body as Record<string, unknown>)[name] = member.body;
+    (body as Record<string, unknown>)[name] = isList ? (member.body ?? null) : member.body;
     if (member.bodyType !== undefined) {
       kinds[name] = member.bodyType;
     }
