@@ -143,9 +143,45 @@ describe("generatedMember", () => {
 
   it("generatedMember counts shapes it does not model as opaque", () => {
     expect(member("Tagged", "kind")).toBe("opaque");
-    expect(member("Enum", "x")).toBe("opaque");
+    expect(member("Enum", "length")).toBe("opaque");
     expect(member("Item", "toString")).toBe("opaque");
     expect(member("List", "0")).toBe("opaque");
+  });
+
+  it("generatedMember reads a const or enum as the literal type the generator writes", () => {
+    const literal = (node: unknown, key: string) =>
+      generatedMember(located(node), key, OPTIONS, REFS).kind;
+
+    expect(member("Enum", "schema")).toBe("missing");
+    expect(literal({ const: "red" }, "oneOf")).toBe("missing");
+    expect(literal({ const: 1 }, "toFixed")).toBe("opaque");
+    expect(literal({ enum: [true, "a"] }, "length")).toBe("missing");
+    expect(literal({ enum: ["a", null] }, "length")).toBe("opaque");
+    expect(literal({ enum: ["a", null] }, "oneOf")).toBe("missing");
+    expect(literal({ const: { a: 1 } }, "a")).toBe("opaque");
+    // The enum rule leaves an object enum to the object rules.
+    expect(literal({ type: "object", enum: [{}], properties: { a: {} } }, "a")).toBe("property");
+  });
+
+  it("generatedMember with a cycle of $refs is opaque", () => {
+    const ring = resolverOf({
+      components: {
+        schemas: {
+          Ring: { $ref: "#/components/schemas/Loop" },
+          Loop: { $ref: "#/components/schemas/Ring" },
+        },
+      },
+    });
+    const node = { $ref: "#/components/schemas/Ring" };
+
+    expect(generatedMember(located(node), "schema", OPTIONS, ring).kind).toBe("opaque");
+  });
+
+  it("generatedMember reads a schema with not by its other keywords", () => {
+    const node = { type: "object", properties: { a: {} }, not: { required: ["a"] } };
+
+    expect(generatedMember(located(node), "a", OPTIONS, REFS).kind).toBe("property");
+    expect(generatedMember(located(node), "not", OPTIONS, REFS).kind).toBe("missing");
   });
 
   it("generatedMember with --read-write-markers reads a property without a marker", () => {
@@ -356,6 +392,7 @@ describe("generatedLocationOf", () => {
     expect(located("#/components/schemas/Map/additionalProperties")).toEqual({
       path: "#/components/schemas/Map",
       recordOwner: { node: DOCUMENT.components.schemas.Map, keyword: "additionalProperties" },
+      isShared: true,
     });
     expect(located("#/components/schemas/Map").recordOwner).toBeNull();
   });
@@ -382,6 +419,31 @@ describe("generatedLocationOf", () => {
       "#/components/schemas/Optional/properties/inner/not",
     );
     expect(located("no pointer").path).toBe("no pointer");
+  });
+
+  it("generatedLocationOf tells a location that other schemas are typed at too", () => {
+    const shared = resolverOf({
+      components: {
+        schemas: {
+          Item: ITEM,
+          Tup: { type: "array", prefixItems: [ITEM] },
+          Wrap: { type: "array", items: { $ref: "#/components/schemas/Item" } },
+        },
+      },
+    });
+    const isShared = (ref: string) => generatedLocationOf(ref, shared).isShared;
+    const isSharedHere = (ref: string) => located(ref).isShared;
+
+    expect(isShared("#/components/schemas/Tup/prefixItems/0/properties/time")).toBe(true);
+    expect(isSharedHere("#/components/schemas/List/items/properties/time")).toBe(true);
+    expect(isSharedHere("#/components/schemas/Pattern/patternProperties/^x/properties/time")).toBe(
+      true,
+    );
+    expect(isSharedHere("#/components/schemas/Both/allOf/0/properties/time")).toBe(false);
+    expect(isSharedHere("#/components/schemas/Union/anyOf/1/properties/other")).toBe(false);
+    // A crossed `$ref` continues at its target's own location.
+    expect(isShared("#/components/schemas/Wrap/items/properties/time")).toBe(false);
+    expect(isShared("no pointer")).toBe(false);
   });
 
   const PARAMETER = { name: "w", in: "header", schema: { type: "string" } };

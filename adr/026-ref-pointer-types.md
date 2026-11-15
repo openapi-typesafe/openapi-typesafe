@@ -319,3 +319,29 @@ changed pointer read `never` (7, now typed in place as `never`) or a type other 
 (74, of which 49 now have the target's type). With `ref-pointers` one document changes (it did
 not compile before); with `all` none. The 1806 documents of the compat corpus give the same
 output over ten option sets.
+
+## Amendment (2026-11-15): literal owners, `not` and `$defs`
+
+`generatedMember` read a schema with `enum`, `const` or `not` as opaque, so `originalIndexFails`
+counted every pointer through one as compiling. The generator types an `enum` or `const` schema
+as a literal union (or an `--enum` enum), which has no member such as `schema`, `oneOf` or
+`allOf`, so these pointers kept an original that does not compile (TS2339): the `schema` of an
+enum parameter or header, a `const` variant of a `oneOf`, an `enum` item of an `allOf`. The typed
+walk also read a `$defs` entry of a schema whose type has no `$defs` member (an enum, an array) as
+if it had one.
+
+1. **A literal owner** (`const`, or a schema the enum rule types) has the members of its values:
+   a key one of its primitive values lacks is missing; a built-in member of all of them (`length`
+   of strings) is opaque, as is any key of an object or array literal. A `null` value is left out,
+   since the `nullable-enums` fix may drop it: it never makes a key missing.
+2. **`not`** adds nothing to the type, so the other keywords of its schema are read as without it.
+3. **`$defs`** is followed by the walk only where the owner's type has a `$defs` member; elsewhere
+   the pointer is typed in place.
+4. Only a `$ref` left after following one (a cycle of `$ref`s) stays opaque.
+
+Changes from rc.12: these pointers, which did not compile, now get their target's type. A pointer
+that compiled keeps its type.
+
+Measured: the pointer fuzz (400 documents, six option sets) fails on 1 to 2 fewer documents per
+set, and on no document that compiled before. The compat corpus (1806 documents, nine option
+sets) gives the same output.

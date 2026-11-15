@@ -27,3 +27,25 @@ export async function getBlob<Path extends GetPath>(
   const { data } = await client.GET(path, init);
   return data;
 }
+
+type ItemPaths = {
+  "/items": {
+    get: {
+      parameters: Record<never, never>;
+      responses: {
+        200: { headers: Record<never, never>; content: { "application/json": string[] } };
+      };
+    };
+  };
+};
+type ItemInit = FetchOptions<FilterKeys<ItemPaths["/items"], "get">>;
+
+const itemClient = createClient<ItemPaths>({ baseUrl: "https://api.example.com" });
+
+/** An init generic in its type may carry any `parseAs` its caller picks, so `data` is any body. */
+export async function getItems<Init extends ItemInit>(init: Init): Promise<unknown> {
+  const { data } = await itemClient.GET("/items", init);
+  // @ts-expect-error a caller may pass parseAs: "text", so data is not only the JSON body
+  const json: string[] | undefined = data;
+  return json;
+}

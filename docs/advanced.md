@@ -439,6 +439,9 @@ compiles (`ReadonlyArray<"available" | "sold">`):
 - the enum is an `additionalProperties` value next to `properties` or `patternProperties`, or,
   with the `unevaluated-properties` fix, an `unevaluatedProperties` value next to `properties`,
   `allOf`, `anyOf` or `oneOf`: the index signature, which `[string]` reads, holds their types too;
+- the enum is an `additionalProperties` value of an `anyOf` / `oneOf` variant next to a variant
+  that is not a record (a `string`, an object without `additionalProperties`): `[string]` cannot
+  read that variant. A variant next to `null` keeps its type;
 - the place surely admits other values too: an `anyOf` / `oneOf` member or a `prefixItems`
   element, whose place is the whole union or tuple (`FlattenedDeepRequired` reads a tuple as the
   union of its elements), next to siblings with other values or of another kind (an object, an
@@ -456,6 +459,10 @@ position in the tuple, also where a `$ref` to a later element comes first in the
 tuples of one name (a tuple property `sort` of `Order` and a tuple schema `OrderSort`) are
 numbered one after the other, in the order of the document: `orderSortValues` and
 `orderSortValues_2` for the first, `orderSortValues_3` and `orderSortValues_4` for the second.
+The same holds for the properties of the elements (`Shape` of two element objects, each with a
+`kind` enum, gives `shapeKindValues` and `shapeKindValues_2`), of the `items` and of the record
+values (`additionalProperties`, `patternProperties`, `unevaluatedProperties`). The numbers do not
+depend on whether a `$ref` points into the schema.
 
 ## JSONSchema $defs caveats
 
@@ -561,8 +568,9 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   directory or below it. A relative path is relative to the working directory; the flag without a
   value means the working directory. Links are followed before the check, so a link inside the directory that
   points outside it is refused too. The root is a path or a `file:` URL of a directory; a URL of
-  another protocol, a `file:` URL that names no local path (`file://host/specs/`) or an existing
-  file (`--local-ref-root api.yaml`, which refused every local `$ref`) fails with `CLI_FLAG_INVALID`
+  another protocol, a `file:` URL that names no local path (`file://host/specs/`), an existing
+  file (`--local-ref-root api.yaml`, which refused every local `$ref`), also written with a
+  trailing slash (`file:api.yaml/`), or a path below a file (`api.yaml/specs/`) fails with `CLI_FLAG_INVALID`
   (`CLI_CONFIG_INVALID` in `redocly.yaml`, `OPTION_INVALID` in the Node API) before anything
   loads, as does a `remoteRefHosts` that is no list of strings.
 - `--remote-ref-hosts` (`remoteRefHosts`): remote `$ref` documents must come from these hosts,
@@ -584,7 +592,10 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   (`file:///…`, or `C:/…`, which a URL base turns into a drive-letter path) is always refused.
 - A `$ref` is a URL by the rule of the schema argument (`http:`, `https:` or `file:`, or another
   scheme followed by `//`); other text before a colon is part of a file name (`out:v2.yaml`,
-  `C:/specs/pet.yaml`). In a local document, a `file:` URL names its file (`file:pet.yaml` is next
+  `C:/specs/pet.yaml`). An `http:` or `https:` `$ref` resolves against its document by the URL
+  standard, as the schema argument resolves against the working directory, so
+  `http:127.0.0.1:8080/pet.yaml` and `HTTPS://host/pet.yaml` are fetched, within
+  `--remote-ref-hosts` (openapi-typescript read them as files below the document's folder). In a local document, a `file:` URL names its file (`file:pet.yaml` is next
   to the document), and a URL of another scheme (`s3://bucket/pet.yaml`) or a `file:` URL that
   names no local path is always refused (`unsupported-url`). openapi-typescript read both as
   paths below the document's folder (`./s3:/bucket/pet.yaml`, `./file:/specs/pet.yaml`).

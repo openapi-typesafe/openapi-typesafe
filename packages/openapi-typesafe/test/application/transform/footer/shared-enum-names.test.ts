@@ -7,7 +7,7 @@ import {
 /** The names of shared `--dedupe-enums` enums (`dedupe-enum-names` fix, upstream #1683). */
 
 function request(name: string, isComponentSchema = false) {
-  return { name, isComponentSchema, values: ["a"], metadata: [] };
+  return { name, isComponentSchema, values: ["a"], metadata: [], walkedAt: `#${name}` };
 }
 
 describe("SharedEnumNameRecorder", () => {
@@ -38,6 +38,17 @@ describe("SharedEnumNameRecorder", () => {
 
     expect(names.nameOf("a", "", request("/x"))).toBe("PetState");
     expect(names.nameOf("b", "", request("/x"))).toBe("PetState");
+  });
+
+  it("chosenNames leaves out a schema only a $ref typed", () => {
+    const recorder = new SharedEnumNameRecorder();
+    recorder.nameOf("k", "", request("/Pet/state"));
+    const { walkedAt: _walked, ...throughRef } = request("/A", true);
+    recorder.nameOf("k", "", throughRef);
+
+    const names = recorder.chosenNames();
+
+    expect(names.nameOf("k", "", request("/x"))).toBe("PetState");
   });
 
   it("chosenNames gives the run's name for a key it did not record", () => {

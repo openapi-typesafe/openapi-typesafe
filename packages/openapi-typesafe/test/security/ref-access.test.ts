@@ -359,6 +359,25 @@ describe("$refs that are URLs of a local document", () => {
   );
 
   it.each([
+    ["without `//`", () => baseURL.replace("http://", "http:")],
+    ["in capitals", () => baseURL.replace("http://", "HTTP://")],
+  ])("a $ref that is an http URL %s is fetched, as the schema argument is", async (_, origin) => {
+    const root = await writeRoot("api/http-without-slashes.json", `${origin()}/person.json`);
+
+    const bundled = await load(root, { localRoot: localRoot(), remoteHosts: ["127.0.0.1"] });
+
+    expect(bundled.components?.schemas?.person).toEqual(JSON.parse(PERSON));
+  });
+
+  it("a $ref that is an http URL without `//` is limited to the listed hosts", async () => {
+    const root = await writeRoot("api/http-other-host.json", `${otherHostURL.replace("http://", "http:")}/person.json`);
+
+    const error = await loadFailure(root, { remoteHosts: ["127.0.0.1"] });
+
+    expect(error).toMatchObject({ code: "SCHEMA_REF_FORBIDDEN", details: { reason: "host-not-allowed" } });
+  });
+
+  it.each([
     ["an absolute file: URL", () => pathToFileURL(path.join(workDir, "api", "shared", "person.json")).href],
     ["a relative file: URL", () => "file:shared/person.json"],
   ])("a $ref that is %s loads the file it names", async (_, ref) => {

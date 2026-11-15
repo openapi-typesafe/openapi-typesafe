@@ -4,7 +4,7 @@ import type { FileCheck } from "../application/ports/file-system.js";
 import type { RefAccess } from "../application/ports/schema-loader.js";
 import { hasUrlScheme, parseUrlLocation } from "../domain/location-text.js";
 import type { GeneratorOptions } from "../types.js";
-import { isLocalFileUrl, NO_LOCAL_PATH_KIND } from "./local-file-url.js";
+import { fileRootKindOf, isLocalFileUrl, NO_LOCAL_PATH_KIND } from "./local-file-url.js";
 import { kindOf, optionInvalid } from "./option-errors.js";
 
 /**
@@ -58,9 +58,10 @@ function localRootKindOf(root: unknown): string {
 }
 
 /**
- * The local root as a `file:` URL that names a local path and no file; the option is set, so it
- * is not undefined. A `file:` URL with a host failed only once a local `$ref` was loaded, and a
- * file as the root refused every local `$ref` as outside it. A root that does not exist yet is
+ * The local root as a `file:` URL that names a local path, with no file at it or above it
+ * (`fileRootKindOf`); the option is set, so it is not undefined. A `file:` URL with a host failed
+ * only once a local `$ref` was loaded, and a file as the root refused every local `$ref` as
+ * outside it. A root that does not exist yet is
  * allowed: no `$ref` can load a file from it.
  */
 function localRootOf(value: unknown, cwd: URL, files: FileCheck): URL {
@@ -68,8 +69,9 @@ function localRootOf(value: unknown, cwd: URL, files: FileCheck): URL {
   if (!(root instanceof URL && isLocalFileUrl(root))) {
     throw optionInvalid("localRefRoot", LOCAL_ROOT_EXPECTED, localRootKindOf(root));
   }
-  if (files.isFile(root)) {
-    throw optionInvalid("localRefRoot", LOCAL_ROOT_EXPECTED, "a file");
+  const fileKind = fileRootKindOf(root, files);
+  if (fileKind !== undefined) {
+    throw optionInvalid("localRefRoot", LOCAL_ROOT_EXPECTED, fileKind);
   }
   return root;
 }

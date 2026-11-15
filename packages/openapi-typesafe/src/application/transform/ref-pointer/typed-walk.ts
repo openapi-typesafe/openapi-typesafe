@@ -2,7 +2,8 @@ import { irIndexedAccess, irKeyword, irReference } from "../../../domain/ir/cons
 import type { IrKeyword, IrType } from "../../../domain/ir/nodes.js";
 import { indexBy, indexKeyword, rootType } from "../ref-type.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
-import { isMissingComposedKey } from "./generated-shape.js";
+import { isMissing } from "./generated-member.js";
+import { generatedMember, isMissingComposedKey } from "./generated-shape.js";
 import {
   childLocation,
   followLocated,
@@ -171,7 +172,10 @@ function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: T
         ? indexEntries(walk, "string", "additionalProperties", input.refs)
         : null;
     case DEFS_KEYWORD:
-      return defsStep(walk, owner, isLast);
+      // Only the object rule writes a `$defs` member: an enum or an array next to it has none.
+      return isMissing(generatedMember(owner, segment, input.options, input.refs))
+        ? null
+        : defsStep(walk, owner, isLast);
     default:
       return null;
   }

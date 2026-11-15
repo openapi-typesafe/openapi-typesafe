@@ -68,6 +68,25 @@ describe("--enum-values arrays of additionalProperties values", () => {
     expect(output).toContain('["Stats"][string]>');
   });
 
+  it.each([
+    ["a string", { type: "string" }],
+    ["an object without a record", { type: "object", properties: { a: { type: "string" } } }],
+  ])("generateDeclarations types a value in a union variant next to %s by its values", async (_other, other) => {
+    const { output } = await run({ Stats: { anyOf: [other, { type: "object", ...VALUE_ONLY }] } });
+
+    expect(output).toContain('export const statsAnyOf1Values: ReadonlyArray<"x" | "y"> = ["x", "y"];');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("generateDeclarations keeps [string] for a value in a union variant next to null", async () => {
+    const nullable = { oneOf: [{ type: "null" }, { type: "object", ...VALUE_ONLY }] };
+
+    const { output } = await run({ Stats: { type: "object", properties: { byKey: nullable } } });
+
+    expect(output).toContain('["Stats"]["byKey"][string]>');
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
   it("generateDeclarations types an inline copy of a $ref to the value by its values", async () => {
     const { output } = await run(
       {

@@ -1,4 +1,6 @@
+import { fileURLToPath } from "node:url";
 import { SOURCE_TEXT_REASONS } from "../adapters/redocly-loader/schema-load-errors.js";
+import { isLocalFileUrl } from "../api/local-file-url.js";
 import type { Logger } from "../application/ports/logger.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
 import { ERROR_CODES, isOpenAPITypesafeError } from "../domain/errors.js";
@@ -15,6 +17,7 @@ import {
   locationInvalidError,
   type OutputFile,
   outputFileOf,
+  parseLocationUrl,
   redoclyConfigFiles,
   resolveLocationUrl,
   writeOutput,
@@ -30,10 +33,35 @@ import { refLimitOptions } from "./ref-limits.js";
  * schema file or URL, or stdin. It has no process access of its own; `main.ts` wires it (ADR-012).
  */
 
+/**
+ * The `--redocly` location as the config port finds it: a path as written, which the port
+ * resolves against the working directory, or the path of a `file:` URL (`file:redocly.yaml`),
+ * read by the rule of every CLI location. The port read a URL as a path, so `file:redocly.yaml`
+ * was not found. Undefined for a URL that names no local file or does not parse: no config is
+ * there.
+ */
+function redoclyConfigLocation(run: CliRun, location: string): string | undefined {
+  if (!hasUrlScheme(location)) {
+    return location;
+  }
+  const url = parseLocationUrl(location, run.deps.cwd);
+  return url !== undefined && isLocalFileUrl(url) ? fileURLToPath(url) : undefined;
+}
+
+/** The Redocly config `--redocly` names; without the flag, the one found from the cwd. */
+function findRedoclyConfig(run: CliRun): string | undefined {
+  const explicitPath = run.args.redocly;
+  if (explicitPath === undefined) {
+    return run.deps.redoclyConfigs.find(undefined);
+  }
+  const location = redoclyConfigLocation(run, explicitPath);
+  return location === undefined ? undefined : run.deps.redoclyConfigs.find(location);
+}
+
 async function loadRedoclyConfig(run: CliRun): Promise<RedoclyConfig> {
   const { redoclyConfigs } = run.deps;
   const explicitPath = run.args.redocly;
-  const configPath = redoclyConfigs.find(explicitPath);
+  const configPath = findRedoclyConfig(run);
   if (explicitPath !== undefined && !configPath) {
     throw cliError("CLI_CONFIG_NOT_FOUND", `Redocly config not found at: ${explicitPath}`);
   }

@@ -191,7 +191,7 @@ describe("RunFooter", () => {
   it("addEnum numbers a tuple element of other values and shares one of the same values", () => {
     const sink = new InMemorySink();
     const footer = new RunFooter(sink, false);
-    const element = { ...STATUS, name: "/Pair", tupleIndex: 0 };
+    const element = { ...STATUS, name: "/Pair", tupleIndex: 0, isAtSharedLocation: true };
 
     const names = [
       footer.addEnum({ ...element, values: ["asc", "desc"] }),
@@ -210,7 +210,7 @@ describe("RunFooter", () => {
       operations: new OperationKeys(),
     };
     const footer = new RunFooter(new InMemorySink(), true, FIRST_SCHEMA_NAMES, names);
-    const element = { ...STATUS, name: "/Tup", values: ["a"] };
+    const element = { ...STATUS, name: "/Tup", values: ["a"], isAtSharedLocation: true };
 
     footer.addEnum({ ...element, tupleIndex: 2 });
     footer.addEnum({ ...element, values: ["b"], tupleIndex: 1 });
@@ -226,7 +226,13 @@ describe("RunFooter", () => {
       operations: new OperationKeys(),
     };
     const footer = new RunFooter(new InMemorySink(), true, FIRST_SCHEMA_NAMES, names);
-    const element = { ...STATUS, name: "/Tup", values: ["a"], walkedAt: TUP };
+    const element = {
+      ...STATUS,
+      name: "/Tup",
+      values: ["a"],
+      walkedAt: TUP,
+      isAtSharedLocation: true,
+    };
 
     footer.addEnum({ ...element, tupleIndex: 1 });
     footer.addEnum({ ...element, values: ["b"], tupleIndex: 0 });
@@ -249,8 +255,20 @@ describe("RunFooter", () => {
     // `dedupe-enum-names` gives the `[a]` that `Sort` and `Pair` share the name `Pair`.
     const shared = { nameOf: (_key: string, name: string) => (name === "Sort" ? "Pair" : name) };
     const footer = new RunFooter(new InMemorySink(), true, shared, names);
-    const sort = { ...STATUS, name: "/Sort", values: ["a"], walkedAt: "#/Sort" };
-    const pair = { ...STATUS, name: "/Pair", values: ["b"], walkedAt: "#/Pair" };
+    const sort = {
+      ...STATUS,
+      name: "/Sort",
+      values: ["a"],
+      walkedAt: "#/Sort",
+      isAtSharedLocation: true,
+    };
+    const pair = {
+      ...STATUS,
+      name: "/Pair",
+      values: ["b"],
+      walkedAt: "#/Pair",
+      isAtSharedLocation: true,
+    };
 
     footer.addEnum({ ...sort, tupleIndex: 0 });
     footer.addEnum({ ...pair, tupleIndex: 0 });
@@ -271,7 +289,13 @@ describe("RunFooter", () => {
       operations: new OperationKeys(),
     };
     const footer = new RunFooter(new InMemorySink(), true, FIRST_SCHEMA_NAMES, names);
-    const element = { ...STATUS, name: "/Tup", values: ["a"], tupleIndex: 0 };
+    const element = {
+      ...STATUS,
+      name: "/Tup",
+      values: ["a"],
+      tupleIndex: 0,
+      isAtSharedLocation: true,
+    };
 
     // A `$ref` to the first element declares its enum before the walk meets the tuple.
     footer.addEnum(element);

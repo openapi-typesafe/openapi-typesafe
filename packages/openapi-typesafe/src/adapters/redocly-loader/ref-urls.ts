@@ -44,6 +44,33 @@ export function fileRefPath(base: string | null, ref: string): string | undefine
   return url === null ? undefined : localPathOf(url);
 }
 
+/** The schemes Redocly fetches, as `urlSchemeOf` writes them. */
+const REMOTE_SCHEMES: ReadonlySet<string> = new Set(["http:", "https:"]);
+
+/** The document's own URL, as the URL standard resolves a `$ref` against it. */
+function documentUrlOf(base: string | null): string | undefined {
+  if (base === null) {
+    return undefined;
+  }
+  return isRemoteRef(base) ? base : pathToFileURL(base).href;
+}
+
+/**
+ * The URL that a `$ref` with an `http:` or `https:` scheme names, in any letter case and also
+ * without `//`, resolved against its document by the URL standard, as the schema argument is
+ * resolved against the working directory (`parseUrlLocation`). Undefined for any other `$ref`.
+ * Redocly takes only `http://` and `https://` for URLs, so it read `http:host/pet.yaml` and
+ * `HTTP://host/pet.yaml` as files below the document's folder, while the same text as the schema
+ * argument was fetched. A `$ref` that does not parse throws the URL parser's own error, which
+ * Redocly reports as the unresolved `$ref`, as it did for `http://[::1/x`.
+ */
+export function remoteRefUrl(base: string | null, ref: string): string | undefined {
+  const scheme = urlSchemeOf(ref);
+  return scheme !== undefined && REMOTE_SCHEMES.has(scheme)
+    ? new URL(ref, documentUrlOf(base)).href
+    : undefined;
+}
+
 /**
  * The refusal of a `$ref` in a local document that is a URL the generator cannot read: a scheme
  * other than `http:`, `https:` and `file:` (`s3:`, `ftp:`), or a `file:` URL that names no local
