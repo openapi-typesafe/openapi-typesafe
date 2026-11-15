@@ -83,7 +83,7 @@ import {
   YAML_MANIFEST_FILES,
   YARNRC_FILE_NAME,
 } from "./project-file-names.js";
-import { outsideVariablesOf, yamlKindOf } from "./yaml-file-reach.js";
+import { outsideServicesOf, outsideVariablesOf, yamlKindOf } from "./yaml-file-reach.js";
 
 const isHuskyHook = (path: string): boolean =>
   (path.startsWith(HUSKY_FOLDER) || path.includes(`/${HUSKY_FOLDER}`)) &&
@@ -183,6 +183,7 @@ const yamlCommandsStep =
           migrateYamlCommands(current, path, values, {
             ...yamlKindOf(yamlReach, path),
             outsideVariables: outsideVariablesOf(yamlReach, path),
+            outsideServices: outsideServicesOf(yamlReach, path),
           }),
         )(text, read);
   };

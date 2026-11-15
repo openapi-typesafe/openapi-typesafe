@@ -73,6 +73,18 @@ const STEPS: readonly ManualStep[] = [
   { kind: "transform-not-rewritten", line: 4, reason: "in-spread" },
   { kind: "legacy-callback", line: 5, callback: "postTransform" },
   {
+    kind: "container-not-known",
+    location: "k8s/job.yaml:9",
+    unknown: "image-program",
+    renames: [{ from: "openapi-typescript", to: "openapi-typesafe" }],
+  },
+  {
+    kind: "container-not-known",
+    location: "compose.yaml:5",
+    unknown: "other-file",
+    renames: [{ from: "-it", to: "--immutable" }],
+  },
+  {
     kind: "package-not-declared",
     line: 1,
     name: "openapi-typesafe-helpers",

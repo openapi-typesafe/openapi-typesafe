@@ -1,3 +1,4 @@
+import { type ComposeServices, serviceOf } from "./compose-services.js";
 import {
   type DocumentPath,
   type DocumentString,
@@ -5,6 +6,7 @@ import {
   isDocumentString,
   ownerKey,
 } from "./config-documents.js";
+import type { ContainerUnknown } from "./migration-findings.js";
 
 /**
  * The containers of a YAML file, as their keys pair in one map: Compose, GitLab and CircleCI
@@ -12,7 +14,9 @@ import {
  * Docker action (`runs`, or the `with` of a `docker://` step) `args` to `entrypoint`, also through
  * a merge key (`<<: *gen`). A key the map sets itself wins over the one a merge key gives, whatever
  * its value: Compose `entrypoint: []`, `entrypoint: null` and `entrypoint: !reset` clear it.
- * yaml-entrypoints.ts reads the commands they run.
+ * A Compose service gets the keys it does not set from the service its `extends` names. A value
+ * that only adds to a command (`args` alone) runs the image's own program, which the file does not
+ * name. yaml-entrypoints.ts reads the commands they run.
  */
 
 /** The key of an entrypoint, and the keys of its arguments in the same map, the first one used. */
@@ -26,6 +30,10 @@ const PAIRED_KEYS: ReadonlySet<string> = new Set([
 ]);
 /** The key of a YAML merge: its alias or list of aliases adds the entries of their maps. */
 const MERGE_KEY = "<<";
+/** The key of the arguments that a container gives the image's own program when it is alone. */
+const IMAGE_ARGUMENTS_KEY = "args";
+/** The keys a Compose service gets from the service it extends. */
+const EXTENDED_KEYS = ["entrypoint", "command"] as const;
 
 /** One value of a paired key: its strings (one scalar, the items of one list, or none). */
 export interface KeyValue {
@@ -106,8 +114,9 @@ function keyValues(values: readonly DocumentValue[]): KeyValue[] {
   return found;
 }
 
-/** The paired values of one map: its own, and those its merge keys give. */
+/** The paired values of one map (its path as text): its own, and those its merge keys give. */
 interface MapValues {
+  readonly map: string;
   readonly own: Map<string, KeyValue>;
   readonly merged: Map<string, KeyValue>;
 }
@@ -122,7 +131,7 @@ function mapValues(values: readonly KeyValue[]): MapValues[] {
   for (const value of values) {
     let map = latest.get(value.map);
     if (map === undefined || (!value.isMerged && map.own.has(value.key))) {
-      map = { own: new Map(), merged: new Map() };
+      map = { map: value.map, own: new Map(), merged: new Map() };
       maps.push(map);
       latest.set(value.map, map);
     }
@@ -138,25 +147,84 @@ function mapValues(values: readonly KeyValue[]): MapValues[] {
 export interface Container {
   readonly entrypoint: KeyValue;
   readonly command: KeyValue | undefined;
+  readonly unknown?: ContainerUnknown;
 }
 
 /** The container of a map: the value of each key that the map's own keys do not override. */
-function containerOf({ own, merged }: MapValues): Container[] {
-  const keyValue = (key: string): KeyValue | undefined => own.get(key) ?? merged.get(key);
+function containerOf(map: MapValues, services: ComposeServices | undefined): Container[] {
+  const keyValue = (key: string): KeyValue | undefined => map.own.get(key) ?? map.merged.get(key);
+  const service = serviceOf(JSON.parse(map.map) as DocumentPath) ?? "";
   for (const [key, argumentKeys] of ARGUMENT_KEYS) {
     const entrypoint = keyValue(key);
     if (entrypoint !== undefined) {
       const argumentKey = argumentKeys.find((found) => keyValue(found) !== undefined);
-      return [
-        { entrypoint, command: argumentKey === undefined ? undefined : keyValue(argumentKey) },
-      ];
+      const command = argumentKey === undefined ? undefined : keyValue(argumentKey);
+      const isUnknown = services?.unknown.has(service) === true;
+      return [{ entrypoint, command, ...(isUnknown ? { unknown: "other-file" } : {}) }];
     }
   }
-  // A value that only adds to a command (`args` alone) runs the image's own program.
-  return [];
+  const imageArguments = keyValue(IMAGE_ARGUMENTS_KEY);
+  return imageArguments === undefined
+    ? []
+    : [{ entrypoint: imageArguments, command: undefined, unknown: "image-program" }];
 }
 
-/** The containers of the maps of a YAML file, from its string and empty values where used. */
-export function yamlContainers(values: readonly DocumentValue[]): Container[] {
-  return mapValues(keyValues(values)).flatMap(containerOf);
+/** The value of a key that a service gets from the services it extends in the same file. */
+function inheritedValue(
+  service: string,
+  key: string,
+  context: ExtendContext,
+): KeyValue | undefined {
+  const extension = context.services.extensions.get(service);
+  const base = extension?.isOtherFile === false ? extension.base : undefined;
+  if (base === undefined || context.seen.has(base)) {
+    return undefined;
+  }
+  const map = context.byService.get(base);
+  const seen = new Set([...context.seen, service]);
+  return (
+    map?.own.get(key) ?? map?.merged.get(key) ?? inheritedValue(base, key, { ...context, seen })
+  );
+}
+
+interface ExtendContext {
+  readonly byService: ReadonlyMap<string, MapValues>;
+  readonly services: ComposeServices;
+  readonly seen: ReadonlySet<string>;
+}
+
+/** The maps with the keys that each service gets from the service it extends in the file. */
+function withExtendedKeys(maps: readonly MapValues[], services: ComposeServices): MapValues[] {
+  const byService = new Map<string, MapValues>();
+  for (const map of maps) {
+    const service = serviceOf(JSON.parse(map.map) as DocumentPath);
+    if (service !== undefined) {
+      byService.set(service, map);
+    }
+  }
+  const context: ExtendContext = { byService, services, seen: new Set() };
+  for (const [service, map] of byService) {
+    // A key of the map's own wins over a merged one when the container is read (containerOf).
+    const missing = EXTENDED_KEYS.filter((key) => !map.merged.has(key));
+    for (const key of missing) {
+      const value = inheritedValue(service, key, context);
+      if (value !== undefined) {
+        map.merged.set(key, value);
+      }
+    }
+  }
+  return [...maps];
+}
+
+/**
+ * The containers of the maps of a YAML file, from its string and empty values where used; with
+ * the services of a Compose file, its `extends` are read and its unknown containers marked.
+ */
+export function yamlContainers(
+  values: readonly DocumentValue[],
+  services?: ComposeServices,
+): Container[] {
+  const maps = mapValues(keyValues(values));
+  const read = services === undefined ? maps : withExtendedKeys(maps, services);
+  return read.flatMap((map) => containerOf(map, services));
 }

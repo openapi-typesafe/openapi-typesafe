@@ -17,6 +17,12 @@ export interface WordRename {
   readonly to: string;
 }
 
+/**
+ * Why the program of a container is not known: the image's own program runs its arguments, or
+ * another Compose file may set its entrypoint or command.
+ */
+export type ContainerUnknown = "image-program" | "other-file";
+
 export type Change =
   | {
       readonly kind: "dependency-renamed";
@@ -142,6 +148,16 @@ export type ManualStep =
   | {
       readonly kind: "shared-container-text";
       readonly location: string;
+      readonly renames: readonly WordRename[];
+    }
+  /**
+   * A container whose program the tool cannot see, with the renames that reading it as written
+   * would make.
+   */
+  | {
+      readonly kind: "container-not-known";
+      readonly location: string;
+      readonly unknown: ContainerUnknown;
       readonly renames: readonly WordRename[];
     }
   /** A CI step whose `shell` is a program the tool does not read (`shell: python`). */

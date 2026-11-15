@@ -1,5 +1,5 @@
 import { assertNever } from "../domain/assert-never.js";
-import type { ManualStep } from "../domain/migration-findings.js";
+import type { ContainerUnknown, ManualStep } from "../domain/migration-findings.js";
 import { FLAG_RENAMES, PACKAGE_RENAMES } from "../domain/package-names.js";
 
 /** The user-facing text of the manual steps found in commands (CODING_PRINCIPLES 7.8). */
@@ -21,6 +21,15 @@ const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; c
 const SHARED_CONTAINER_TEXT_NOTE =
   "is given by a YAML anchor to containers that run different programs, so it was kept: where " +
   "it runs the generator, rename";
+const CONTAINER_NOT_KNOWN_NOTES: Readonly<Record<ContainerUnknown, string>> = {
+  "image-program":
+    "gives these arguments to the program of its image, which the file does not name, so they " +
+    "were kept: where they run the generator, rename",
+  "other-file":
+    "is a service whose entrypoint or command another Compose file may set (an override file, " +
+    "a file given with -f, or the file its extends names), so it was kept: where it runs the " +
+    "generator, rename",
+};
 const SPLIT_FLAG_NOTE =
   "is an old flag of the generator that quotes split where it is written, so it was kept: rename";
 
@@ -35,6 +44,13 @@ function pinnedPackageMessage(step: Extract<ManualStep, { kind: "pinned-package"
 /** `-it to --immutable, …`: each old flag with its new name. */
 const flagRenames = (flags: readonly string[]): string =>
   flags.map((flag) => `${flag} to ${FLAG_RENAMES.get(flag) ?? flag}`).join(", ");
+
+function containerNotKnownMessage(
+  step: Extract<ManualStep, { kind: "container-not-known" }>,
+): string {
+  const renames = step.renames.map(({ from, to }) => `${from} to ${to}`).join(", ");
+  return `${step.location}: the container ${CONTAINER_NOT_KNOWN_NOTES[step.unknown]} ${renames}`;
+}
 
 function flagsInVariableMessage(step: Extract<ManualStep, { kind: "flags-in-variable" }>) {
   return `${step.location}: ${step.variable} ${FLAGS_IN_VARIABLE_NOTE} ${flagRenames(step.flags)}`;
@@ -66,6 +82,7 @@ type CommandStep = Extract<
       | "old-name-in-command"
       | "split-flag"
       | "shared-container-text"
+      | "container-not-known"
       | "script-not-shell"
       | "command-string";
   }
@@ -80,6 +97,7 @@ const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "old-name-in-command",
   "split-flag",
   "shared-container-text",
+  "container-not-known",
   "script-not-shell",
   "command-string",
 ]);
@@ -105,6 +123,8 @@ export function commandStepMessage(step: CommandStep): string {
       return `${step.location}: ${step.flag} ${SPLIT_FLAG_NOTE} ${flagRenames([step.flag])}`;
     case "shared-container-text":
       return sharedContainerTextMessage(step);
+    case "container-not-known":
+      return containerNotKnownMessage(step);
     case "script-not-shell":
       return `${step.location}: the script runs with ${step.shell}, ${SCRIPT_NOT_SHELL_NOTE}`;
     case "command-string":

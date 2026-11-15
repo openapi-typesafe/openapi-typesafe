@@ -45,6 +45,8 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "line 4: transform kept (its options take keys from another object (\`...base\`), whose callbacks and type the tool cannot see); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 4: transform kept (it is in an object that the options take keys from (\`...base\`), and the tool rewrites only a transform written in the options); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 5: postTransform receives TypeScript nodes (deprecated). See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
+  "k8s/job.yaml:9: the container gives these arguments to the program of its image, which the file does not name, so they were kept: where they run the generator, rename openapi-typescript to openapi-typesafe",
+  "compose.yaml:5: the container is a service whose entrypoint or command another Compose file may set (an override file, a file given with -f, or the file its extends names), so it was kept: where it runs the generator, rename -it to --immutable",
   "line 1: no package.json or Deno import map at or above this file lists openapi-typesafe-helpers; openapi-fetch and openapi-react-query installed it, the openapi-typesafe packages do not: add it to the dependencies, or import the types from openapi-typesafe-fetch/helpers",
 ]
 `;

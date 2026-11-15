@@ -1,5 +1,10 @@
 import { mayBeApiDescription } from "../domain/api-descriptions.js";
-import { type DocumentString, usedDocumentStrings } from "../domain/config-documents.js";
+import {
+  type DocumentString,
+  type DocumentValue,
+  usedDocumentStrings,
+  usedDocumentValues,
+} from "../domain/config-documents.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
 import { DEFAULT_YAML_FILE, TASKFILE, type YamlCommandFile } from "../domain/yaml-environments.js";
 import {
@@ -7,6 +12,7 @@ import {
   includedGeneratorVariables,
 } from "../domain/yaml-generator-variables.js";
 import { type IncludedFile, includedFiles, NO_INCLUDES } from "../domain/yaml-includes.js";
+import { mergedComposeFiles, outsideComposeServices } from "./compose-file-sets.js";
 import type { DocumentReaders, ProjectFiles } from "./ports.js";
 import {
   baseName,
@@ -21,19 +27,28 @@ import { yamlCommandFileFor } from "./yaml-file-kinds.js";
  * What the YAML files of a project give the other files, read before any file is migrated: the
  * kind of each file that a Taskfile, a GitLab CI file or an Azure pipeline includes under another
  * name, the variables that YAML files set to the old generator, which the scripts their jobs run
- * may expand, and those that reach each included file, whose includes may set them otherwise.
+ * may expand, those that reach each included file, whose includes may set them otherwise, and
+ * the Compose services whose container another Compose file completes (compose-file-sets.ts).
  */
 export interface YamlReach {
   readonly kinds: ReadonlyMap<string, YamlCommandFile>;
   readonly generatorVariables: ReadonlySet<string>;
   readonly includedVariables: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly outsideServices: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
 export const NO_YAML_REACH: YamlReach = {
   kinds: new Map(),
   generatorVariables: new Set(),
   includedVariables: new Map(),
+  outsideServices: new Map(),
 };
+
+const NO_SERVICES: ReadonlySet<string> = new Set();
+
+/** The Compose services of the file at `path` whose container another Compose file completes. */
+export const outsideServicesOf = (reach: YamlReach, path: string): ReadonlySet<string> =>
+  reach.outsideServices.get(path) ?? NO_SERVICES;
 
 /** The variables set to the generator that reach the file at `path` from the project. */
 export const outsideVariablesOf = (reach: YamlReach, path: string): ReadonlySet<string> =>
@@ -62,6 +77,21 @@ async function textOf(path: string, { files }: ReachDependencies): Promise<strin
 function stringsOf(text: string | undefined, { readers }: ReachDependencies): DocumentString[] {
   const parsed = text === undefined ? undefined : readers.yaml.read(text);
   return parsed?.kind === "read" ? usedDocumentStrings(parsed.documents) : [];
+}
+
+/** The values of each Compose file of `paths` that another one may merge, where they are used. */
+async function composeValues(
+  paths: readonly string[],
+  dependencies: ReachDependencies,
+): Promise<Map<string, DocumentValue[]>> {
+  const found = new Map<string, DocumentValue[]>();
+  const composeFiles = paths.filter((one) => namedKindOf(one).hasServices === true);
+  for (const path of mergedComposeFiles(composeFiles)) {
+    const text = await textOf(path, dependencies);
+    const parsed = text === undefined ? undefined : dependencies.readers.yaml.read(text);
+    found.set(path, parsed?.kind === "read" ? usedDocumentValues(parsed.documents) : []);
+  }
+  return found;
 }
 
 const ANY_FOLDERS_WILDCARD = "**";
@@ -147,5 +177,6 @@ export async function planYamlReach(
   const includedVariables = new Map(
     [...variables].map(([path, sets]) => [path, includedGeneratorVariables(names, sets)]),
   );
-  return { kinds, generatorVariables: names, includedVariables };
+  const outsideServices = outsideComposeServices(await composeValues(yamlPaths, dependencies));
+  return { kinds, generatorVariables: names, includedVariables, outsideServices };
 }
