@@ -89,7 +89,10 @@ describe("queryKeyInit objects in parameters", () => {
     expect(keyOf({ params: { query: { q: new Stamped() } } })).toEqual({
       params: {
         query: {
-          q: { id: 1, "toJSON()": { at: "1970-01-01T00:00:00.000Z", list: ["NaN"] } },
+          q: {
+            id: 1,
+            "toJSON()": { at: "1970-01-01T00:00:00.000Z", list: [{ "(number)": "NaN" }] },
+          },
         },
       },
     });
@@ -115,9 +118,9 @@ describe("queryKeyInit objects in parameters", () => {
     });
   });
 
-  it("queryKeyInit with a bigint query param keys it by the text that is sent", () => {
+  it("queryKeyInit with a bigint query param keys its text apart from a string", () => {
     expect(keyOf({ params: { query: { limit: PAGE_SIZE } } })).toEqual({
-      params: { query: { limit: "5" } },
+      params: { query: { limit: { "(number)": "5" } } },
     });
   });
 });

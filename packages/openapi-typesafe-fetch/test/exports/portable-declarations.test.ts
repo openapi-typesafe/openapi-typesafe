@@ -55,18 +55,26 @@ export function getGeneric<P extends "/items">(path: P, init?: MaybeOptionalInit
 `;
 
 /**
- * A generic wrapper that types the client's result with names of the `helpers` entry. Both entries
- * must load one declaration of the helper types; with two, the same names are unrelated types and
- * the return fails with TS2322.
+ * A generic wrapper that passes a path typed with a name of the `helpers` entry to the client,
+ * whose call checks it against the same name imported by the main entry. Both entries must load
+ * one declaration of the helper types.
  */
 const HELPERS_CONSUMER_SOURCE = `
-import type { FetchResponse } from "openapi-typesafe-fetch";
-import type { ErrorResponse, MediaType, Readable, ResponseObjectMap } from "openapi-typesafe-fetch/helpers";
+import type { Client, FetchResponse, MaybeOptionalInit, PathOperation } from "openapi-typesafe-fetch";
+import type { MediaType, PathsWithMethod } from "openapi-typesafe-fetch/helpers";
 
-export function failure<T extends Record<string | number, unknown>, M extends MediaType>(
-  error: Readable<ErrorResponse<ResponseObjectMap<T>, M>>,
-): FetchResponse<T, {}, M> {
-  return { error, response: new Response() };
+type GetInit<Paths, Path extends keyof Paths> = MaybeOptionalInit<Paths[Path], "get">;
+
+export function get<
+  Paths extends {},
+  Media extends MediaType,
+  Path extends PathsWithMethod<Paths, "get">,
+>(
+  client: Client<Paths, Media>,
+  path: Path,
+  init: GetInit<Paths, Path>,
+): Promise<FetchResponse<PathOperation<Paths, Path, "get">, GetInit<Paths, Path>, Media>> {
+  return client.GET<Path, GetInit<Paths, Path>>(path, init as never);
 }
 `;
 

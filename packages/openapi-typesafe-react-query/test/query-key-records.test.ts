@@ -60,14 +60,14 @@ describe("queryKeyInit records that are not object literals", () => {
     const withNull = { params: { query: new Filters({ n: null }) } };
 
     expect(initHash(withNaN)).not.toBe(initHash(withNull));
-    expect(keyOf(withNaN)).toEqual({ params: { query: { n: "NaN" } } });
+    expect(keyOf(withNaN)).toEqual({ params: { query: { n: { "(number)": "NaN" } } } });
   });
 
-  it("queryKeyInit with a class instance query keys a bigint as its text", () => {
+  it("queryKeyInit with a class instance query keys a bigint by its text", () => {
     const init = { params: { query: new Filters({ size: PAGE_SIZE }) } };
 
     expect(() => initHash(init)).not.toThrow();
-    expect(keyOf(init)).toEqual({ params: { query: { size: "5" } } });
+    expect(keyOf(init)).toEqual({ params: { query: { size: { "(number)": "5" } } } });
   });
 
   it("queryKeyInit with a class instance path keys a date as its ISO text", () => {
@@ -79,7 +79,7 @@ describe("queryKeyInit records that are not object literals", () => {
   it("queryKeyInit with class instance params keys them as an object literal", () => {
     const params = new Filters({ query: { n: Number.POSITIVE_INFINITY } });
 
-    expect(keyOf({ params })).toEqual({ params: { query: { n: "Infinity" } } });
+    expect(keyOf({ params })).toEqual({ params: { query: { n: { "(number)": "Infinity" } } } });
   });
 
   it("queryKeyInit with a class instance query of no members has the key of no init", () => {
@@ -89,7 +89,7 @@ describe("queryKeyInit records that are not object literals", () => {
   it("queryKeyInit with a class instance header record keys its values as sent", () => {
     const init = { params: { header: new Filters({ "x-n": Number.NaN }) } };
 
-    expect(keyOf(init)).toEqual({ params: { header: { "x-n": "NaN" } } });
+    expect(keyOf(init)).toEqual({ params: { header: { "x-n": { "(number)": "NaN" } } } });
   });
 });
 

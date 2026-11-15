@@ -32,9 +32,20 @@ describe("queryKeyInit numbers JSON cannot hold in parameters", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it("queryKeyInit with NaN and its text in a query param gives one key", () => {
-    expect(queryHash(Number.NaN)).toBe(queryHash("NaN"));
-    expect(queryHash(Number.NEGATIVE_INFINITY)).toBe(queryHash("-Infinity"));
+  it("queryKeyInit with NaN and its text in a query param gives other keys", () => {
+    expect(queryHash(Number.NaN)).not.toBe(queryHash("NaN"));
+    expect(queryHash(Number.POSITIVE_INFINITY)).not.toBe(queryHash("Infinity"));
+    expect(queryHash(Number.NEGATIVE_INFINITY)).not.toBe(queryHash("-Infinity"));
+  });
+
+  it("queryKeyInit with a bigint and its text in a query param gives other keys", () => {
+    expect(queryHash(BigInt(1))).not.toBe(queryHash("1"));
+  });
+
+  it("queryKeyInit with NaN in a query param keeps its key through a JSON round trip", () => {
+    const key = queryKeyInit({ params: { query: { n: Number.NaN } } }, NO_BASE_URL);
+
+    expect(JSON.parse(JSON.stringify(key))).toStrictEqual(key);
   });
 
   it("queryKeyInit with a finite number in a query param keeps it as it is", () => {
@@ -43,8 +54,9 @@ describe("queryKeyInit numbers JSON cannot hold in parameters", () => {
     });
   });
 
-  it("queryKeyInit with NaN in an array query param keys the item by its text", () => {
-    expect(queryHash([Number.NaN])).toBe(queryHash(["NaN"]));
+  it("queryKeyInit with NaN in an array query param keys the item apart from its text", () => {
+    expect(queryHash([Number.NaN])).not.toBe(queryHash(["NaN"]));
+    expect(queryHash([Number.NaN])).not.toBe(queryHash([null]));
   });
 
   it("queryKeyInit with Infinity and null path and header params gives other keys", () => {
