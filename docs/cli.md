@@ -1266,6 +1266,15 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
 - `[number]` of a tuple (`prefixItems`) reads its elements and its rest items together, so a
   pointer to the tuple's `items` (or deeper) gets the target's type inline. A plain array keeps
   `[number]`.
+- A nullable schema (`nullable: true`, or a `type` list with `null`) has no keys: `T | null` has
+  none, whatever `T` is, so a pointer through one (`N/allOf/0/properties/x` of a nullable `allOf`,
+  or a keyword next to a nullable `string`) gets the target's type inline.
+- Where the original reads a position of an array (`["0"]` of an `X[]`), it reads an item, as
+  `[number]` does. `Pet/allOf/0/additionalProperties/items`, with Pet's one `allOf` item an
+  object whose `additionalProperties` is an array of an enum, reads `["allOf"]` through that
+  index signature, `["0"]` an item of it, and then a key the enum does not have, so it gets the
+  target's type inline. A position of a tuple is not read. Nested `allOf` items are read to any
+  depth.
 
 A parameter `$ref` to a parameter of another operation or path item
 (`#/paths/~1a/get/parameters/0`) is indexed by the parameter's location and name. When every

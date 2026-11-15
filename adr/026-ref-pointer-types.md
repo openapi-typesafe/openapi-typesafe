@@ -365,13 +365,35 @@ as ADR-021 asks of output that may compile. Three shapes were opaque although th
    `enum: [null]` is `null`; neither has members. Their keys are missing now, and the walk does
    not follow `$defs` through a `never` member, so such pointers are typed in place.
 
-What stays opaque, and why it may compile: a `$ref` cycle or a walk past the expansion limit; the
-discriminator's own key (the discriminator scan may change it); built-in members of literals
-(`length`) and keys of object or array literals; joins the model does not follow (a `nullable`
-next to a composition, an intersection of several properties of one name); and `Blob` bodies.
+4. **Nullable owners.** A nullable schema (`nullable: true`, a `type` list with `null`) that is no
+   object or array schema was opaque, as its type might have been `unknown`. With
+   `strictNullChecks` no key of `T | null` compiles whatever `T` is, and `unknown` has no keys
+   either, so every key of a nullable owner is missing: a `$ref` through a nullable `allOf`, a
+   nullable `anyOf`, a nullable schema without a type or a `type: [string, "null"]` is typed in
+   place. No option drops the `null`.
+5. **Positions of an array.** `X[]["0"]` is an item, as `[number]` reads it; it was opaque, so
+   `Pet/allOf/0/additionalProperties/items` (one `allOf` item whose index signature is an array)
+   kept an original that reads a key of the enum item. A position of a tuple stays opaque: with
+   `--array-length` one past its end has no element.
+6. **Depth.** The walk stopped after eight levels of `allOf` / `anyOf` / `oneOf` and read deeper
+   shapes as opaque, so a `$ref` through ten nested `allOf` items kept an original that does not
+   compile. The limit only guarded against `$ref` cycles; the walk now keeps the schemas it is
+   reading and reads one met again as opaque, so finite nesting is read to any depth.
+
+What stays opaque, and why the original compiles there: a cycle of `$ref`s (the original reads
+the cycle as TypeScript does: `NonNullable<Ring["next"]>["name"]`); the discriminator's own key
+(the discriminator scan may change it); built-in members of literals and arrays (`length`) and
+keys of object or array literals, which TypeScript reads as members of their type; a property
+that several parts of an intersection declare (the original reads their intersection: the
+target's type where the parts agree, fewer values where they do not, as an own enum next to a
+`oneOf` variant's enum of the same name; telling these apart needs the type proof the walk does
+not run); a position of a tuple; and `Blob` bodies, whose members are the DOM library's.
+`test/api/ref-pointer-opaque-shapes.test.ts` shows for each that the default output compiles.
 Each is a type the generator writes after the walk, so keeping the original is the safe choice.
 
-Changes from rc.13: these pointers get their target's type. Measured: the pointer fuzz (400
-documents, five option sets) gives the same error counts; one output changes, a pointer that read
-a union of index types and now reads `number`. The compat sample (452 documents, eight option
-sets) gives the same output for the ref-pointer sets.
+Changes from rc.13: these pointers, whose original reads another type or does not compile, get
+their target's type. Measured: the pointer fuzz (400 documents, five option sets) fails on no
+document that compiled before; with the defaults and with `--enum` 20 of 264 error messages, with
+`ref-pointers` 15 of 113, are gone.
+The compat corpus (1806 documents, ten option sets, against rc.13) gives the same
+pointers in every document.
