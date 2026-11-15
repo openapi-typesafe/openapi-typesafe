@@ -1275,6 +1275,16 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   index signature, `["0"]` an item of it, and then a key the enum does not have, so it gets the
   target's type inline. A position of a tuple is not read. Nested `allOf` items are read to any
   depth.
+- A property that an `allOf`, `anyOf` or `oneOf` part of its owner declares too is read by the
+  original through the join of both, which may have fewer values (`"a" | "c"` next to a variant's
+  `"a"`), so a pointer to it gets the property's own type inline. Where the part's property is the
+  same schema, or a string, number, integer or boolean of the same type with only notes
+  (`description`, `maxLength`, `format`), the original reads the same type and stays.
+- Last, the generator checks each pointer it writes against the types it writes, and types a
+  pointer that surely does not compile in place. This covers owners whose type the steps above do
+  not read, such as an object with a `oneOf` of strings (`string | { … }`), a type list, or a
+  `oneOf` of `null`. A pointer that may compile keeps its type, and this holds with
+  `ref-pointers` too.
 
 A parameter `$ref` to a parameter of another operation or path item
 (`#/paths/~1a/get/parameters/0`) is indexed by the parameter's location and name. When every

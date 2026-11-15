@@ -397,3 +397,58 @@ document that compiled before; with the defaults and with `--enum` 20 of 264 err
 `ref-pointers` 15 of 113, are gone.
 The compat corpus (1806 documents, ten option sets, against rc.13) gives the same
 pointers in every document.
+
+## Amendment (2026-11-15): redeclared properties and pointers checked against the written types
+
+Two gaps were left after the amendments above. The opaque list above kept the original for a
+property that several parts of an intersection declare; and the walk reads only the shapes it
+models, so owners outside them (an object with a `oneOf` of strings, which is typed
+`string | { … }`; `anyOf` next to `oneOf`; a `type` list; a `oneOf` of `null`) kept originals that
+do not compile (TS2339, TS2536).
+
+1. **Redeclared keys** (`redeclared-key.ts`). A property of a composed owner that one of its
+   `allOf` / `anyOf` / `oneOf` parts declares too is read by the original through the join of
+   both declarations: `"a" | "c"` next to a variant's `"a"` reads `"a"`, an object next to an
+   empty object reads more keys or none. The key is now missing, both in the typed walk and in
+   the original's steps, so the pointer is typed in place. It is not missing where the part reads
+   the same type: the part's member is absent, an index signature or `never`; or its schema is the
+   same JSON; or both are primitives (`string`, `number`, `integer`, `boolean`) of one `type`
+   whose part schema only has notes (`description`, `format`, `maxLength`, `pattern`, …), which
+   do not change the type. A part the walk cannot read counts as redeclaring: keeping the original
+   there would rest on a guess. This replaces the "property that several parts of an intersection
+   declare" item of the opaque list above.
+2. **Checked pointers** (`ref-pointer-passes.ts`, `pointer-checks.ts`). Where the document has a
+   schema `$ref` with segments past its component, the generator first runs a scratch pass with
+   the pointers as the rules above write them, then evaluates each written pointer type with the
+   footer's `TypeEvaluator` (ADR-027) over that pass's declarations. A type the evaluator reads as
+   `missing` surely does not compile; in the real pass those `$ref`s are typed in place. A type it
+   cannot read (opaque) keeps its pointer, as ADR-021 asks of output that may compile. One scratch
+   pass is enough: typing a `$ref` in place makes no other pointer missing, since a pointer reads
+   the owner's type, which does not change. A document without such `$ref`s runs one pass, as
+   before. The check runs with and without `ref-pointers`, since a pointer that does not compile
+   is wrong output either way.
+3. **The evaluator outside `FlattenedDeepRequired`.** The check reads the types as TypeScript
+   does, so the evaluator's shallow mode now follows its rules: nested intersections are one list
+   of parts; parts of different primitives (`string & number`, `"a" & number`) are `never`; an
+   intersection with a nullish part is nullish for `NonNullable`; an optional property reads
+   `T | undefined`, so a key through it is missing; `Omit` of a union with `null` is `{}`; and
+   `WithRequired<T, "k">` reads `k` as `NonNullable<T["k"]>`. A non-literal key or a non-object
+   `T` leaves `WithRequired` unchanged.
+4. Two cases moved with the check: a `$ref` through a media type named `content` (the header
+   parameter test) is now typed in place, as its original did not compile; and the
+   discriminator's own key next to a `oneOf` of strings gets `string` in place. A
+   discriminator with only a mapping keeps its pointer.
+
+Changes from rc.13: pointers whose original reads fewer values or does not compile get their
+target's type, by default and with `--fix ref-pointers` / `--fix all`. A pointer that compiled and
+read its target keeps its type.
+
+Measured: the pointer fuzz (400 documents, five option sets) now fails on no document in any
+set, against 74 (defaults), 74 (`--enum`), 44 (`ref-pointers`), 12 (`all`) and 45 (OpenAPI 3.0)
+with rc.13; its pointers that read `never` or another type than the target drop by 23 to 32
+percent. The two-declaration fuzz (600 documents) and the enum fuzz compile with no error.
+The compat corpus (1806 documents, ten option sets, against rc.13) changes three documents.
+gerermesaffaires (1 error) and sinao (12 errors) now compile with `--enum-values`. With
+`--enum-values`, apple sirikit-cloud-media writes its `class` and `method` arrays with their
+literal types instead of pointers: `Intent`, their `allOf` part, declares `class` as its
+discriminator, which the walk reads as opaque. Both types compile and read the same values.
