@@ -439,6 +439,9 @@ compiles (`ReadonlyArray<"available" | "sold">`):
 - the enum is an `additionalProperties` value next to `properties` or `patternProperties`, or,
   with the `unevaluated-properties` fix, an `unevaluatedProperties` value next to `properties`,
   `allOf`, `anyOf` or `oneOf`: the index signature, which `[string]` reads, holds their types too;
+- the enum is an `additionalProperties` value of an `anyOf` / `oneOf` variant next to a variant
+  that is not a record (a `string`, an object without `additionalProperties`): `[string]` cannot
+  read that variant. A variant next to `null` keeps its type;
 - the place surely admits other values too: an `anyOf` / `oneOf` member or a `prefixItems`
   element, whose place is the whole union or tuple (`FlattenedDeepRequired` reads a tuple as the
   union of its elements), next to siblings with other values or of another kind (an object, an

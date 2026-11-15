@@ -265,7 +265,7 @@ function enumValuesType(values: readonly (string | number)[], request: SchemaReq
   const valuesType = refType(ref, { isDeep: true, extractProperties: extract });
   // A record value (`additionalProperties`) is reached by indexing with `string`.
   return request.valueAccess === "string-index"
-    ? irIndexedAccess(valuesType, irReference("string"))
+    ? irIndexedAccess(valuesType, irKeyword("string"))
     : valuesType;
 }
 

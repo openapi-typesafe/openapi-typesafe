@@ -235,9 +235,25 @@ describe("TypeEvaluator", () => {
     expect(evaluated(irReference("Loop"))).toBe("opaque");
   });
 
-  it("evaluate flattens a readonly array and reads arrays by a string key as built-ins", () => {
+  it("evaluate flattens a readonly array and reads arrays by a key as built-ins", () => {
     expect(evaluated(deep(key("schemas"), key("Frozen"), key("tags")))).toBe('"f"');
-    expect(evaluated(irIndexedAccess(irArray(text("a")), irKeyword("string")))).toBe("opaque");
+    expect(evaluated(irIndexedAccess(irArray(text("a")), key("length")))).toBe("opaque");
+    expect(evaluated(irIndexedAccess(irKeyword("string"), irKeyword("number")))).toBe("opaque");
+  });
+
+  it("evaluate misses a string index of a primitive, an array or an object without one", () => {
+    const record = irObject([irStringIndexSignature("key", text("r"))]);
+    const named = irObject([irProperty({ kind: "identifier", text: "a" }, text("a"))]);
+    const byString = (type: IrType) => evaluated(irIndexedAccess(type, irKeyword("string")));
+
+    expect(byString(irArray(text("a")))).toBe("missing");
+    expect(byString(irKeyword("string"))).toBe("missing");
+    expect(byString(text("x"))).toBe("missing");
+    expect(byString(named)).toBe("missing");
+    expect(evaluated(irIndexedAccess(named, irKeyword("number")))).toBe("missing");
+    expect(byString(irUnion([irKeyword("string"), record]))).toBe("missing");
+    expect(byString(irUnion([named, record]))).toBe("missing");
+    expect(byString(irIntersection([named, record]))).toBe('"r"');
   });
 
   it("evaluate leaves a union or an intersection with a type it cannot read opaque", () => {

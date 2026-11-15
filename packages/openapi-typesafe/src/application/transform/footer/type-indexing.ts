@@ -63,9 +63,10 @@ function memberType(
     return OPAQUE;
   }
   if (keys === null) {
-    // `string` or `number`: the generator writes only `[key: string]`, which both read.
+    // `string` or `number`: the generator writes only `[key: string]`, which both read. Without
+    // it neither has a match (TS2537), named properties do not count.
     const signature = members.find((member) => member.kind === "indexSignature");
-    return signature === undefined ? OPAQUE : flattened(types, owner, signature.type);
+    return signature === undefined ? MISSING : flattened(types, owner, signature.type);
   }
   // `T[A | B]` is `T[A] | T[B]`; a key that reads several signatures reads their intersection.
   const found = keys.map((key): Evaluation => {
@@ -167,8 +168,19 @@ function isNumberIndex(index: IrType): boolean {
   return (index.kind === "keyword" && index.keyword === "number") || /^\d+$/.test(key ?? "");
 }
 
-/** A key of a primitive or an array: a built-in member is opaque, any other key is missing. */
+function isStringIndex(index: IrType): boolean {
+  return index.kind === "keyword" && index.keyword === "string";
+}
+
+/**
+ * A key of a primitive or an array: a built-in member is opaque, any other key is missing. They
+ * have no `[key: string]` signature, so `string` has no match either (TS2537); `number` reads the
+ * characters of a string and the items of an array.
+ */
 function builtInIndex(index: IrType): Evaluation {
+  if (isStringIndex(index)) {
+    return MISSING;
+  }
   const key = indexKey(index);
   const isBuiltIn = key === null || key in String.prototype || key in Array.prototype;
   return isBuiltIn || key in Number.prototype ? OPAQUE : MISSING;
