@@ -214,9 +214,19 @@ export type PathItemObject = {
   parameters?: any;
 };
 
-/** Return `responses` for an Operation Object */
-// biome-ignore lint/suspicious/noExplicitAny: the result must meet the `Record` constraints below
-export type ResponseObjectMap<T> = T extends { responses: any } ? T["responses"] : unknown;
+/**
+ * Return `responses` for an Operation Object; `never` for a type without them. The check names
+ * the `Record` constraint of the response types, not `any`: TypeScript reads the map of an
+ * operation generic in its type (`Op extends Record<string | number, any>`) through the true
+ * branch, and `responses: any` there made `SuccessResponse` and `ErrorResponse` of it assignable
+ * to any type (a `number`, `undefined`). `never`, not `unknown`, for a type without them, as
+ * `unknown` does not meet that constraint.
+ */
+export type ResponseObjectMap<T> = T extends { responses: AnyRecord } ? T["responses"] : never;
+
+/** The constraint of a Response Object Map and of an operation, as the response types take it. */
+// biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
+type AnyRecord = Record<string | number, any>;
 
 /** Return `content` for a Response Object */
 // biome-ignore lint/suspicious/noExplicitAny: upstream's type; `unknown` changes generic results
