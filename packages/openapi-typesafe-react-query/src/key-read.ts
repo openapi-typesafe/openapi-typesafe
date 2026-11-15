@@ -68,9 +68,13 @@ const TYPE_TAG_END = -1;
  * values its request sends, and a class of the caller may iterate without end. The names are in
  * band, as `"toJSON()"` is; no request names a member like this.
  */
-const COLLECTION_FORMS: readonly (readonly [className: string, form: string])[] = [
-  ["Map", "entries()"],
-  ["Set", "values()"],
+const COLLECTION_FORMS: readonly (readonly [
+  className: string,
+  form: string,
+  type: abstract new () => object,
+])[] = [
+  ["Map", "entries()", Map],
+  ["Set", "values()", Set],
 ];
 
 /**
@@ -88,21 +92,15 @@ export function attempt<T>(read: () => T): T | undefined {
   }
 }
 
-/** This realm's global class of the name, or undefined when the realm has none. */
-function globalClass(name: string): (abstract new () => object) | undefined {
-  const type = (globalThis as Record<string, unknown>)[name];
-  return typeof type === "function" ? (type as abstract new () => object) : undefined;
-}
-
 /**
  * Whether a value is of the class `name`: an instance of this realm's global class of that name
  * (React Native's classes have no type tag), or a value with its type tag (a class of another
  * realm or of the `undici` package), as the fetch client tells bodies (ADR-030).
  */
 export function isClass(value: object, name: string): boolean {
-  const type = globalClass(name);
+  const type = (globalThis as Record<string, unknown>)[name];
   return (
-    (type !== undefined && value instanceof type) ||
+    (typeof type === "function" && value instanceof type) ||
     Object.prototype.toString.call(value).slice(TYPE_TAG_START, TYPE_TAG_END) === name
   );
 }
@@ -131,12 +129,9 @@ export function readMembers(value: object): (readonly [string, unknown])[] {
   if (collection === undefined) {
     return ownMembers(value);
   }
-  const [className, form] = collection;
+  const [, form, type] = collection;
   const contents = [form, Array.from(value as Iterable<unknown>)] as const;
-  const type = globalClass(className);
-  return type !== undefined && value instanceof type
-    ? [...ownMembers(value), contents]
-    : [contents];
+  return value instanceof type ? [...ownMembers(value), contents] : [contents];
 }
 
 /** The start of a key: no object read yet, and no segment. */

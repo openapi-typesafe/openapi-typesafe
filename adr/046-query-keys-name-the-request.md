@@ -521,9 +521,9 @@ hunt's corpus of 49 inits has the same keys but for the `NaN` and bigint paramet
 | Contents alone for every Map and Set | One rule | A `Map` subclass with fields shares the key of one with other fields, which JSON sends apart |
 | `NaN` as `null` in params | No in-band name | Shares the key of `null`, which `qs` sends differently |
 
-**Size.** The bundle grows from 6.10 kB to 6.83 kB minified (about 2.8 kB gzipped), so the
+**Size.** The bundle grows from 6.10 kB to 6.77 kB minified (about 2.8 kB gzipped), so the
 budget rises to 6.9 kB: the segments (about 450 bytes), the `Ancestors` passed through the header
-and record keys (about 150), the lookalike rule and the number form (about 130). Correctness
+and record keys (about 150), the lookalike rule and the number form (about 70). Correctness
 ranks above size (ADR-013, ADR-030).
 
 ## Review trigger

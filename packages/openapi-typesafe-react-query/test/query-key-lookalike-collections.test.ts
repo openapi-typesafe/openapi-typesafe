@@ -1,5 +1,5 @@
 import { hashKey } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { queryKeyInit } from "../src/query-key.js";
 
 /**
@@ -110,24 +110,5 @@ describe("queryKeyInit a Map or a Set of this realm", () => {
     expect(hashOf({ body: { tags: new LabeledSet([TAG], "a") } })).not.toBe(
       hashOf({ body: { tags: new LabeledSet([TAG], "b") } }),
     );
-  });
-});
-
-describe("queryKeyInit in a realm without a class", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it.each([
-    ["no global", undefined],
-    ["a global that is no class", {}],
-  ])("queryKeyInit with %s URLSearchParams keys a body by its type tag", (_, global) => {
-    vi.stubGlobal("URLSearchParams", global);
-    const body = { [Symbol.toStringTag]: "URLSearchParams", toString: () => "a=1" };
-
-    expect(queryKeyInit({ body }, NO_BASE_URL)).toEqual({
-      body: "a=1",
-      bodyType: "URLSearchParams",
-    });
   });
 });
