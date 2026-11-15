@@ -2,6 +2,7 @@ import { isOwnGeneratorCommand } from "./appended-assignments.js";
 import type { AppendedValue } from "./argument-findings.js";
 import { commandRoles } from "./command-roles.js";
 import { withoutRecipePrefix } from "./file-variables.js";
+import type { IncludedFiles } from "./make-includes.js";
 import { referencedName } from "./make-programs.js";
 import { projectPathFrom } from "./relative-references.js";
 import { argumentAssignments, assignmentValue, type ShellAssignment } from "./shell-assignments.js";
@@ -17,8 +18,8 @@ import type { VariableProgram } from "./variable-programs.js";
  * arguments of the program of the exported value, or of one from outside the file.
  */
 
-/** The Makefiles of the project that a recipe can run. */
-export interface CalledMakefiles {
+/** The Makefiles of the project that a recipe can run, and the files a Makefile can include. */
+export interface CalledMakefiles extends IncludedFiles {
   /**
    * The variables that the Makefile at a project path sets by `override` in place of a value
    * from the command line, or undefined when the project has no file there.
@@ -26,7 +27,10 @@ export interface CalledMakefiles {
   readonly replacedNames: (path: string) => ReadonlySet<string> | undefined;
 }
 
-export const NO_CALLED_MAKEFILES: CalledMakefiles = { replacedNames: () => undefined };
+export const NO_CALLED_MAKEFILES: CalledMakefiles = {
+  replacedNames: () => undefined,
+  includedText: () => undefined,
+};
 
 /** Where a recipe that calls make is, and what its Makefile gives the variables there. */
 export interface MakeCallContext {

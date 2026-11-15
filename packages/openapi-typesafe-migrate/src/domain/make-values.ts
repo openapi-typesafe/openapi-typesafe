@@ -1,4 +1,18 @@
-import type { MakeAssignment, MakeConditional } from "./make-assignments.js";
+import {
+  appliedAll,
+  appliedChain,
+  COMMAND_LINE_VALUE,
+  COMPUTED_CHAIN,
+  endsWith,
+  type IndexedAssignment,
+  type MakeAlternatives,
+  type MakeChain,
+  type MakeState,
+  UNSET_CHAIN,
+  UNSET_VALUE,
+  uniqueChains,
+} from "./make-chains.js";
+import type { MakeAssignment, MakeConditional } from "./make-lines.js";
 import { type MakeTargets, targetMatches } from "./make-rules.js";
 
 /**
@@ -9,95 +23,9 @@ import { type MakeTargets, targetMatches } from "./make-rules.js";
  * `G := npx` and `G += openapi-typescript` are one value, `npx openapi-typescript`. Only the
  * branches of a conditional (`ifeq … else … endif`) and values from outside the file give a
  * variable alternatives. An assignment for some targets (`gen: G += -it`) changes the value in
- * their recipes, and in those of the prerequisites make builds for them.
+ * their recipes, and in those of the prerequisites make builds for them. An `include` of a file
+ * the tool cannot read, and text that `$(eval …)` reads, may set a variable to any value.
  */
-
-/**
- * One part of a value: the text of an assignment, a value from outside the file (the
- * environment, an included file), the output of a shell command (`!=`), or the command line of
- * a sub-make, which is outside the file too.
- */
-export type MakeSegment =
-  | { readonly kind: "piece"; readonly index: number }
-  | { readonly kind: "outside" }
-  | { readonly kind: "computed" }
-  | { readonly kind: "command-line" };
-
-/** One value a variable can have: its parts in order, and whether a plain assignment leaves it. */
-export interface MakeChain {
-  readonly segments: readonly MakeSegment[];
-  readonly isProtected: boolean;
-}
-
-export type MakeAlternatives = readonly MakeChain[];
-type MakeState = ReadonlyMap<string, MakeAlternatives>;
-
-/**
- * The value of a variable that the file does not set: whatever comes from outside. Text appended
- * to it makes a new value, so a value is unset only while it is this one.
- */
-const UNSET_CHAIN: MakeChain = { segments: [{ kind: "outside" }], isProtected: false };
-export const UNSET_VALUE: MakeAlternatives = [UNSET_CHAIN];
-/** A variable that a sub-make gets on its command line, which plain assignments leave. */
-export const COMMAND_LINE_VALUE: MakeAlternatives = [
-  { segments: [{ kind: "command-line" }], isProtected: true },
-];
-
-const APPEND = "+=";
-const CONDITIONAL = "?=";
-const SHELL = "!=";
-
-/**
- * The values that one assignment makes of one value its variable has. Only an override changes
- * a protected value, and the value it makes stays protected.
- */
-function appliedChain(chain: MakeChain, assignment: MakeAssignment, index: number): MakeChain[] {
-  if (chain.isProtected && !assignment.isOverride) {
-    return [chain];
-  }
-  const isProtected = assignment.isOverride;
-  const piece: MakeSegment = { kind: "piece", index };
-  switch (assignment.operator) {
-    case APPEND:
-      return [{ segments: [...chain.segments, piece], isProtected }];
-    case CONDITIONAL:
-      return chain === UNSET_CHAIN ? [{ segments: [piece], isProtected }, chain] : [chain];
-    case SHELL:
-      return [{ segments: [{ kind: "computed" }], isProtected }];
-    default:
-      return [{ segments: [piece], isProtected }];
-  }
-}
-
-const uniqueChains = (chains: readonly MakeChain[]): MakeChain[] => [
-  ...new Map(chains.map((chain) => [JSON.stringify(chain), chain])).values(),
-];
-
-/** An assignment with its place in the file's list, and whether a conditional holds it. */
-interface IndexedAssignment {
-  readonly assignment: MakeAssignment;
-  readonly index: number;
-  readonly isConditional: boolean;
-}
-
-/** The values after `list` is applied in order; each records the values that end with it. */
-function appliedAll(
-  start: MakeAlternatives,
-  list: readonly IndexedAssignment[],
-  endings: Map<number, MakeChain[]>,
-): MakeAlternatives {
-  let values = start;
-  for (const { assignment, index, isConditional } of list) {
-    const applied = values.flatMap((chain) => appliedChain(chain, assignment, index));
-    const ending = applied.filter(({ segments }) => {
-      const last = segments.at(-1);
-      return last?.kind === "piece" && last.index === index;
-    });
-    endings.set(index, uniqueChains([...(endings.get(index) ?? []), ...ending]));
-    values = uniqueChains(isConditional ? [...values, ...applied] : applied);
-  }
-  return values;
-}
 
 /** A conditional block that make is reading: the values before it, and of its closed branches. */
 interface Frame {
@@ -145,15 +73,27 @@ interface ReadFile {
 
 type MakeEvent =
   | { readonly start: number; readonly conditional: MakeConditional }
-  | { readonly start: number; readonly index: number };
+  | { readonly start: number; readonly index: number }
+  | { readonly start: number; readonly include: true };
 
-/** The state after an assignment for all targets; one for some targets leaves it. */
+/**
+ * The state after an assignment for all targets. One for some targets leaves it, and so does one
+ * that `$(eval …)` reads: its text starts a value of its own, read where make expands the call.
+ */
 function withAssignment(
   state: MakeState,
   assignment: MakeAssignment,
   index: number,
   endings: Map<number, MakeChain[]>,
 ): MakeState {
+  if (assignment.isEvaluated) {
+    const applied = appliedChain(UNSET_CHAIN, assignment, index);
+    endings.set(
+      index,
+      applied.filter((chain) => endsWith(chain, index)),
+    );
+    return state;
+  }
   if (assignment.targets !== undefined) {
     return state;
   }
@@ -162,41 +102,37 @@ function withAssignment(
   return new Map(state).set(assignment.name, values);
 }
 
-/** The assignments and conditional directives of a file, in the order make reads them. */
-const fileEvents = (
-  assignments: readonly MakeAssignment[],
-  conditionals: readonly MakeConditional[],
-): MakeEvent[] =>
+/** The state after an `include` of a file the tool cannot read, which may set any variable. */
+const afterUnreadInclude = (state: MakeState): MakeState =>
+  new Map([...state].map(([name, values]) => [name, uniqueChains([...values, UNSET_CHAIN])]));
+
+/** The assignments, conditional directives and unread includes of a file, in make's order. */
+const fileEvents = (file: MakeFile): MakeEvent[] =>
   [
-    ...conditionals.map((conditional) => ({ start: conditional.start, conditional })),
-    ...assignments.map((assignment, index) => ({ start: assignment.start, index })),
+    ...file.conditionals.map((conditional) => ({ start: conditional.start, conditional })),
+    ...file.assignments.map((assignment, index) => ({ start: assignment.start, index })),
+    ...file.unreadIncludes.map(({ start }) => ({ start, include: true as const })),
   ].sort((left, right) => left.start - right.start);
 
 /** Read the assignments for all targets in order, through the conditional blocks. */
-function readFile(
-  assignments: readonly MakeAssignment[],
-  conditionals: readonly MakeConditional[],
-  initial: MakeState,
-): ReadFile {
+function readFile(file: MakeFile, initial: MakeState): ReadFile {
   const before = new Map<number, MakeState>();
   const endings = new Map<number, MakeChain[]>();
   const conditional = new Set<number>();
   const frames: Frame[] = [];
   let state = initial;
-  for (const event of fileEvents(assignments, conditionals)) {
+  for (const event of fileEvents(file)) {
     if ("conditional" in event) {
       state = afterConditional(state, frames, event.conditional);
+    } else if ("include" in event) {
+      state = afterUnreadInclude(state);
     } else {
       before.set(event.index, state);
       if (frames.length > 0) {
         conditional.add(event.index);
       }
-      state = withAssignment(
-        state,
-        assignments[event.index] as MakeAssignment,
-        event.index,
-        endings,
-      );
+      const assignment = file.assignments[event.index] as MakeAssignment;
+      state = withAssignment(state, assignment, event.index, endings);
     }
   }
   for (let frame = frames.pop(); frame !== undefined; frame = frames.pop()) {
@@ -221,11 +157,36 @@ export interface MakeValues {
 export interface MakeFile {
   readonly assignments: readonly MakeAssignment[];
   readonly conditionals: readonly MakeConditional[];
+  /** The `include` lines whose files the tool cannot read. */
+  readonly unreadIncludes: readonly { readonly start: number }[];
   readonly targets: MakeTargets;
 }
 
 /** The values of a variable in the recipes of one target. */
 type TargetValues = (target: string, name: string) => MakeAlternatives;
+
+/**
+ * The assignments of `name` for `target`, without the private ones for a target it is built
+ * for. One whose targets may name it (`$(TARGETS): G = x`) may set the value or not.
+ */
+function assignmentsFor(
+  indexed: readonly IndexedAssignment[],
+  name: string,
+  target: string,
+  isInherited: boolean,
+): IndexedAssignment[] {
+  return indexed.flatMap((entry) => {
+    const { assignment } = entry;
+    const isSkipped = assignment.isEvaluated || (isInherited && assignment.isPrivate);
+    if (assignment.name !== name || isSkipped) {
+      return [];
+    }
+    const matches = (assignment.targets ?? []).map((written) => targetMatches(written, target));
+    const isSure = matches.includes("always");
+    const isApplied = isSure || matches.includes("maybe");
+    return isApplied ? [{ ...entry, isConditional: entry.isConditional || !isSure }] : [];
+  });
+}
 
 /**
  * The values in the recipes of a target: the file's, then its own assignments for it; or, when
@@ -238,17 +199,10 @@ function targetValues(file: MakeFile, read: ReadFile, final: (name: string) => M
     index,
     isConditional: read.conditional.has(index),
   }));
-  const forTarget = (name: string, target: string, isInherited: boolean) =>
-    indexed.filter(
-      ({ assignment }) =>
-        assignment.name === name &&
-        (assignment.targets ?? []).some((written) => targetMatches(written, target)) &&
-        !(isInherited && assignment.isPrivate),
-    );
   const inTarget: TargetValues = (target, name) => {
-    const own = forTarget(name, target, false);
+    const own = assignmentsFor(indexed, name, target, false);
     const inherited = [...file.targets.dependents(target)].map((dependent) => [
-      ...forTarget(name, dependent, true),
+      ...assignmentsFor(indexed, name, dependent, true),
       ...own,
     ]);
     return uniqueChains(
@@ -260,8 +214,16 @@ function targetValues(file: MakeFile, read: ReadFile, final: (name: string) => M
 
 /** The values of the variables of a Makefile; `initial` gives values the file starts with. */
 export function makeValues(file: MakeFile, initial: MakeState = new Map()): MakeValues {
-  const read = readFile(file.assignments, file.conditionals, initial);
-  const final = (name: string): MakeAlternatives => read.state.get(name) ?? UNSET_VALUE;
+  const read = readFile(file, initial);
+  const evaluated = new Set(
+    file.assignments.filter((one) => one.isEvaluated).map(({ name }) => name),
+  );
+  // A variable that evaluated text sets may have that value anywhere: make reads the text where
+  // it expands the call, which can be in a recipe, after the whole file.
+  const withEvaluated = (name: string, values: MakeAlternatives): MakeAlternatives =>
+    evaluated.has(name) ? uniqueChains([...values, COMPUTED_CHAIN]) : values;
+  const final = (name: string): MakeAlternatives =>
+    withEvaluated(name, read.state.get(name) ?? UNSET_VALUE);
   const inTarget = targetValues(file, read, final);
   // Each assignment for some targets is read once in their recipes, so its endings are known.
   for (const assignment of file.assignments) {
@@ -271,7 +233,7 @@ export function makeValues(file: MakeFile, initial: MakeState = new Map()): Make
   }
   return {
     final,
-    before: (index, name) => read.before.get(index)?.get(name) ?? UNSET_VALUE,
+    before: (index, name) => withEvaluated(name, read.before.get(index)?.get(name) ?? UNSET_VALUE),
     inTargets: (targets, name) => uniqueChains(targets.flatMap((target) => inTarget(target, name))),
     ending: (index) => read.endings.get(index) ?? [],
   };

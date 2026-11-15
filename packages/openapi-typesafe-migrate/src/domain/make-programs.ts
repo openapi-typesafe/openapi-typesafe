@@ -1,8 +1,9 @@
 import { commandRoles } from "./command-roles.js";
 import { runsGenerator } from "./file-variables.js";
-import type { MakeAssignment } from "./make-assignments.js";
+import type { MakeAlternatives, MakeChain, MakeSegment } from "./make-chains.js";
+import type { MakeAssignment, MakeLines } from "./make-lines.js";
 import type { MakeTargets } from "./make-rules.js";
-import type { MakeAlternatives, MakeChain, MakeSegment, MakeValues } from "./make-values.js";
+import type { MakeValues } from "./make-values.js";
 import type { ShellCommand } from "./shell-words.js";
 import {
   alternativesProgram,
@@ -47,6 +48,7 @@ export const isComputed = (written: string): boolean =>
 /** What a Makefile's values are read with: the file, its assignments and their commands. */
 export interface MakeReading {
   readonly text: string;
+  readonly lines: MakeLines;
   readonly assignments: readonly MakeAssignment[];
   /** The commands that start in the value of each assignment, by its index, in order. */
   readonly pieces: ReadonlyMap<number, readonly ShellCommand[]>;
@@ -232,9 +234,9 @@ export const alternativesProgramOf = (
     alternatives.map((chain) => chainProgram(chain, reading, deferred, new Set(visiting))),
   );
 
-/** The index of the assignment whose value holds `offset`, or -1. */
+/** The index of the innermost assignment whose value holds `offset`, or -1. */
 const assignmentAt = (reading: MakeReading, offset: number): number =>
-  reading.assignments.findIndex(
+  reading.assignments.findLastIndex(
     ({ valueStart, valueEnd }) => valueStart <= offset && offset < valueEnd,
   );
 
