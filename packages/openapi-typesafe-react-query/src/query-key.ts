@@ -9,7 +9,15 @@
  * component renders.
  */
 import { bodyKey } from "./body-key.js";
-import { attempt, keyOf, readMembers } from "./key-read.js";
+import {
+  type Ancestors,
+  attempt,
+  DEEPER_FORM,
+  deeperKeys,
+  keyOf,
+  readMembers,
+  rootAncestors,
+} from "./key-read.js";
 import { objectKey, sentMembers, textOf } from "./param-key.js";
 
 /** The `params` record the fetch client sends as headers, through no serializer. */
@@ -40,8 +48,8 @@ function definedMembers(record: object): Record<string, unknown> | undefined {
  * a date are their text (a date its local text, not its ISO text), and `5` and `"5"` send one
  * header. An object whose text `String` cannot give is its members: the request fails for it.
  */
-function headerText(value: unknown): unknown {
-  return textOf(value) ?? sentMembers(value as object, []);
+function headerText(value: unknown, ancestors: Ancestors): unknown {
+  return textOf(value) ?? sentMembers(value as object, ancestors);
 }
 
 /**
@@ -49,11 +57,13 @@ function headerText(value: unknown): unknown {
  * appends, any other value as `headerText`. `null`, which removes a header, and `undefined`,
  * which sends nothing, stay.
  */
-function headerValueKey(value: unknown): unknown {
+function headerValueKey(value: unknown, ancestors: Ancestors): unknown {
   if (value === null || value === undefined) {
     return value;
   }
-  return Array.isArray(value) ? value.map(headerText) : headerText(value);
+  return Array.isArray(value)
+    ? value.map((item) => headerText(item, ancestors))
+    : headerText(value, ancestors);
 }
 
 /**
@@ -80,10 +90,10 @@ function foldHeader(sent: Map<string, unknown>, name: string, value: unknown): v
  * are folded to lower case in their order: `{ "X-A": "1", "x-a": "2" }` sends `x-a: 2` and the
  * reverse order `x-a: 1`, and both had one key. A `null` value stays, as it removes the header.
  */
-function plainHeadersKey(headers: object): Record<string, unknown> {
+function plainHeadersKey(headers: object, ancestors: Ancestors): Record<string, unknown> {
   const sent = new Map<string, unknown>();
   for (const [name, value] of readMembers(headers)) {
-    foldHeader(sent, name.toLowerCase(), headerValueKey(value));
+    foldHeader(sent, name.toLowerCase(), headerValueKey(value, ancestors));
   }
   return Object.fromEntries(sent);
 }
@@ -94,12 +104,12 @@ function plainHeadersKey(headers: object): Record<string, unknown> {
  * They are read without `Headers`, which threw for an invalid name or value while the component
  * rendered; the request reports it as a query error.
  */
-function headerPairsKey(headers: Iterable<unknown>): Record<string, unknown> {
+function headerPairsKey(headers: Iterable<unknown>, ancestors: Ancestors): Record<string, unknown> {
   const sent = new Map<string, string>();
   for (const pair of headers) {
     const [name, value] = Array.from(pair as ArrayLike<unknown>);
-    const key = String(headerText(name)).toLowerCase();
-    const text = String(headerText(value));
+    const key = String(headerText(name, ancestors)).toLowerCase();
+    const text = String(headerText(value, ancestors));
     sent.set(key, sent.has(key) ? `${sent.get(key)}, ${text}` : text);
   }
   return Object.fromEntries(sent);
@@ -110,14 +120,14 @@ function headerPairsKey(headers: Iterable<unknown>): Record<string, unknown> {
  * headers it cannot read, such as a pair that is not a list, for `keyOf` to leave them out: the
  * request fails for them too and reports it.
  */
-function headersKey(headers: unknown): unknown {
+function headersKey(headers: unknown, ancestors: Ancestors): unknown {
   if (typeof headers !== "object" || headers === null) {
     return headers;
   }
   return definedMembers(
     Symbol.iterator in headers
-      ? headerPairsKey(headers as Iterable<unknown>)
-      : plainHeadersKey(headers),
+      ? headerPairsKey(headers as Iterable<unknown>, ancestors)
+      : plainHeadersKey(headers, ancestors),
   );
 }
 
@@ -129,14 +139,14 @@ function headersKey(headers: unknown): unknown {
  * to none; its names are folded to lower case, the last value of a name kept, as the client sets
  * them one after the other into `Headers`, which match a name in any letter case.
  */
-function recordKey(location: string, record: unknown): unknown {
+function recordKey(location: string, record: unknown, ancestors: Ancestors): unknown {
   if (typeof record !== "object" || record === null) {
     return record;
   }
   if (location !== HEADER_RECORD) {
-    return definedMembers(objectKey(record, []));
+    return definedMembers(objectKey(record, ancestors));
   }
-  const members = Object.entries(sentMembers(record, []));
+  const members = Object.entries(sentMembers(record, ancestors));
   return definedMembers(
     Object.fromEntries(members.map(([name, value]) => [name.toLowerCase(), value])),
   );
@@ -148,13 +158,13 @@ function recordKey(location: string, record: unknown): unknown {
  * since the fetch client reads a missing record as an empty one. Undefined when no record is
  * left. Any object, also a class instance, is read by its members, as the client reads it.
  */
-function paramsKey(params: unknown): unknown {
+function paramsKey(params: unknown, ancestors: Ancestors): unknown {
   if (typeof params !== "object" || params === null) {
     return params;
   }
   const records = readMembers(params).map(([location, record]) => [
     location,
-    keyOf(record, [], (value) => recordKey(location, value)),
+    keyOf(record, ancestors, (value, inner) => recordKey(location, value, inner)),
   ]);
   return definedMembers(Object.fromEntries(records));
 }
@@ -168,6 +178,7 @@ function paramsKey(params: unknown): unknown {
  * function, missed the query, and so did every filter after `hydrate`, which has none. Undefined
  * when nothing is left, so a call without an init and one with an init that sends nothing more,
  * such as `{}` or `{ params: { query: { cursor: undefined } } }`, have the key `[method, path]`.
+ * The objects nested deeper than one walk reads are under `DEEPER_FORM`, in order.
  */
 export function queryKeyInit(init: unknown, client: KeyClient): object | undefined {
   const {
@@ -179,12 +190,17 @@ export function queryKeyInit(init: unknown, client: KeyClient): object | undefin
   }: { signal?: unknown; params?: unknown; headers?: unknown; body?: unknown } = Object.fromEntries(
     attempt(() => readMembers(init ?? {})) ?? [],
   );
+  const root = rootAncestors();
   const keyInit: Record<string, unknown> = {
-    ...sentMembers(rest, []),
-    params: keyOf(params, [], paramsKey),
-    headers: keyOf(headers, [], headersKey),
-    ...keyOf(body, [], bodyKey),
+    ...sentMembers(rest, root),
+    params: keyOf(params, root, paramsKey),
+    headers: keyOf(headers, root, headersKey),
+    ...keyOf(body, root, bodyKey),
   };
+  const deeper = deeperKeys(root);
+  if (deeper.length > 0) {
+    keyInit[DEEPER_FORM] = deeper;
+  }
   if (client.keyScope !== undefined) {
     keyInit.keyScope = client.keyScope;
   } else if (!(rest as { baseUrl?: unknown }).baseUrl && client.baseUrl) {

@@ -35,7 +35,8 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   object of them by member name or index (`{ image: "Blob" }`), so such a body never shares a key
   with a JSON body of the same shape. Parameter values (`params`) are written as the fetch client
   sends them: a valid `Date` (or another value with a `toISOString`) as its ISO text, `NaN`, the
-  infinities and a bigint as their text, an array by its items, with an `undefined` item (also a
+  infinities and a bigint as their text under a name of its own, `{ "(number)": "NaN" }`, since
+  a JSON `querySerializer` sends `NaN` as `null` and `"NaN"` as a string, an array by its items, with an `undefined` item (also a
   hole or a function) as `{ "(undefined)": true }`, which a `qs` serializer sends differently
   from `null`, and another object by its own members, which the default serializers send. The
   records themselves (`params`, `query`, `path`, `header`) are read the same way when they are
@@ -53,7 +54,12 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   or a `Set`, in a body as in `params`, keeps its contents in none of its members, so JSON and
   the default serializers send `{}` or nothing for it, while a `querySerializer` or
   `bodySerializer` of yours may send the contents: the key holds them in order, a `Set` as
-  `{ "values()": [...] }` and a `Map` as `{ "entries()": [[key, value], ...] }`. Other
+  `{ "values()": [...] }` and a `Map` as `{ "entries()": [[key, value], ...] }`. A value that
+  is a `Map` or a `Set` by its type tag only, such as a MobX observable `Map` or `Set`, is its
+  contents alone: its own members are its state, which MobX changes each time it is read. A
+  `Map` or `Set` subclass keeps its own members beside its contents, as JSON sends them. Any
+  other class instance is keyed by its own members, so an Immutable.js collection is keyed by
+  its inner tree too; pass `toJS()` for a key of its contents alone. Other
   iterables are keyed by their own members only: an iterator would be used up by the key, and a
   class of yours may iterate without end; give such a value a `toJSON`. A `WeakMap`, `WeakSet`
   or `WeakRef` cannot be read by anyone, so it stays `{}`. The body, `params` and `headers` are
@@ -61,8 +67,11 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   item is `null`, as JSON sends it); a `toJSON`, `toString`, `toISOString` or getter that
   throws, a revoked `Proxy`, header pairs with an item that is no pair, and a member that
   refers back to an object it is in (a circular body) are left out of the key rather than crash
-  the component; the request reports the error. Fields, parameters and headers set to
-  `undefined` are left out, and so are `params`,
+  the component; the request reports the error. A value more than 100 objects deep is read in
+  parts, so its key does not depend on the JavaScript stack: an object below that depth is
+  `{ "(deeper)": n }` in place, and the key's init lists those parts in order under
+  `"(deeper)"`; ten thousand objects deep a part is its JSON text. Fields, parameters and
+  headers set to `undefined` are left out, and so are `params`,
   its `query`, `path`, `header` and `cookie` records and `headers` that this leaves empty, since
   they send nothing: `{ params: { query: { cursor: undefined } } }` has the key of no init.
   A `null`, `[]` or `{}` parameter or header value stays, and so does an empty JSON body. The
