@@ -144,15 +144,22 @@ export type ParseAs = keyof BodyType;
  * wrapper that passes on `parseAs?: "text"` gets `string | T`, not `T` only. Options without
  * `parseAs`, or whose `parseAs` may be any value (the declared init type, as for a call without
  * options), give `T`, as in openapi-fetch; each member of a union of options gives its own data.
- * No `infer`: TypeScript relates a type to a deferred conditional type through both of its
- * branches only when it infers nothing, and generic hooks return the data of a call as this type.
- * It distributes over `Options`, as openapi-fetch's does, so the options of a generic call (a
- * wrapper's `FetchOptions` of a generic path with `parseAs: "text"`) give the data of their
- * constraint: TypeScript reads a deferred distributive type through its check type's constraint.
+ * It distributes over `Options`, as openapi-fetch's does: TypeScript reads a deferred
+ * distributive type through the constraint of its check type, so the options of a generic call
+ * whose `parseAs` is known (a wrapper's `FetchOptions` of a generic path with `parseAs: "text"`)
+ * give that body. Options that are a type parameter (`Init extends FetchOptions<…>`) may be any
+ * subtype of their constraint, also one that sets `parseAs: "text"`, and TypeScript reads the
+ * first branch too when such a subtype fits the check: so options that always have a `parseAs`
+ * are checked first, and a generic init gives every body its `parseAs` may pick, not `T` only.
+ * The extends type infers the options instead of naming them: `RequiredParseAs` alone fits no
+ * subtype of an init with required parameters, and TypeScript relates two of these types (a
+ * wrapper's declared response, ADR-030) only when their extends types are the same, which a
+ * type parameter in it would break. The `infer` costs no relation: TypeScript relates a type to
+ * a conditional type through its branches only when they do not use its check type, and these do.
  */
-export type ParseAsResponse<T, Options> = Options extends unknown
-  ? BodyType<T>[ParseAsKey<Options>]
-  : never;
+export type ParseAsResponse<T, Options> = Options extends RequiredParseAs & infer _Options
+  ? BodyType<T>[ParseAsValue<ParseAsValues<Options>>]
+  : BodyType<T>[ParseAsKey<Options>];
 
 /**
  * The key of `BodyType` that the options `Options` read the body with. A conditional type of its
@@ -401,9 +408,13 @@ type WithAnyKeys<Init> = Init & { [key: string]: unknown };
  * constraint with TS2344 (upstream #2267), so TypeScript does not know `Method` is a key. For a
  * union of paths or methods, the union of their operations; a method a path lacks (`put?: never`)
  * adds none.
+ * `NonNullable` (`& {}`) changes no operation, but gives the checked type a constraint while
+ * `Paths` is generic too: `FilterKeys` of a path of `Paths extends {}` has none, so TypeScript
+ * found no constraint for the response types of the operation and related them to any type (a
+ * library generic in `Paths` could assign `data` and `error` to a `number`).
  */
 export type PathOperation<Paths, Path, Method> = Extract<
-  FilterKeys<PathItem<Paths, Path>, Method>,
+  NonNullable<FilterKeys<PathItem<Paths, Path>, Method>>,
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   Record<string | number, any>
 >;
