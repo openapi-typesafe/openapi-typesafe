@@ -31,8 +31,10 @@ export async function getBlob<Path extends GetPath>(
 type ItemPaths = {
   "/items": {
     get: {
-      parameters: {};
-      responses: { 200: { headers: {}; content: { "application/json": string[] } } };
+      parameters: Record<never, never>;
+      responses: {
+        200: { headers: Record<never, never>; content: { "application/json": string[] } };
+      };
     };
   };
 };
