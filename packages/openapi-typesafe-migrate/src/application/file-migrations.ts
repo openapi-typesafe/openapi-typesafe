@@ -47,7 +47,7 @@ import {
   jsonConfig,
   type MigrationContext,
   stringsStep,
-  usedStringsStep,
+  usedValuesStep,
   whenNamed,
   withSteps,
   yamlConfig,
@@ -150,8 +150,8 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
     matches: (path) => TASKFILE_NAMES.has(baseName(path)),
     migrate: whenNamed(
       yamlConfig((context, path) => [
-        usedStringsStep((text, strings) =>
-          migrateYamlCommands(text, path, strings, {
+        usedValuesStep((text, values) =>
+          migrateYamlCommands(text, path, values, {
             ...TASKFILE,
             outsideVariables: context.yamlReach.generatorVariables,
           }),
@@ -180,8 +180,8 @@ const yamlCommandsStep =
     const isApi = !isCiFile && read.kind === "read" && isApiDescription(read.documents);
     return apiDescriptionParts.has(path) || isApi
       ? unchanged(text)
-      : usedStringsStep((current, strings) =>
-          migrateYamlCommands(current, path, strings, {
+      : usedValuesStep((current, values) =>
+          migrateYamlCommands(current, path, values, {
             ...yamlKindOf(yamlReach, path),
             outsideVariables: yamlReach.generatorVariables,
           }),

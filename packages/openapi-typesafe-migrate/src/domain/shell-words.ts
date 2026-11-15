@@ -246,6 +246,17 @@ function innerCommands(command: ShellCommand): ShellCommand[] {
 }
 
 /**
+ * The simple commands that `text` itself holds, without those that its words or here-documents
+ * hold: whether a text is one command line is a matter of its own operators, so a quoted word
+ * with a blank in it (`-o "${{ github.workspace }}/a.ts"`) keeps it one.
+ */
+export function ownCommands(text: string): ShellCommand[] {
+  return topLevelCommands(text, 0)
+    .commands.map(simpleCommand)
+    .filter((command) => command.length > 0);
+}
+
+/**
  * The commands of `text`, in order of their first word. A quoted word that holds a command line
  * is read as commands too, so `sh -c "openapi-typescript a.yaml"` and `concurrently "…"` count.
  * `indent` is the number of spaces at the start of each line that the shell does not see, such as

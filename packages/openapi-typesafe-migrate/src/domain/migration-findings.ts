@@ -11,6 +11,12 @@ export interface TextPosition {
   readonly column: number;
 }
 
+/** A word as written and the word it would become. */
+export interface WordRename {
+  readonly from: string;
+  readonly to: string;
+}
+
 export type Change =
   | {
       readonly kind: "dependency-renamed";
@@ -129,6 +135,15 @@ export type ManualStep =
   | { readonly kind: "old-name-in-command"; readonly location: string; readonly word: string }
   /** An old flag of the generator whose characters quotes split where it is written. */
   | { readonly kind: "split-flag"; readonly location: string; readonly flag: string }
+  /**
+   * Text that a YAML anchor gives to containers that run it differently (one runs the generator,
+   * another a program of its own), with the renames the generator's reading would make.
+   */
+  | {
+      readonly kind: "shared-container-text";
+      readonly location: string;
+      readonly renames: readonly WordRename[];
+    }
   /** A CI step whose `shell` is a program the tool does not read (`shell: python`). */
   | { readonly kind: "script-not-shell"; readonly location: string; readonly shell: string }
   | { readonly kind: "command-string"; readonly line: number; readonly to: string }

@@ -5,12 +5,17 @@ import {
   type ShellTextFindings,
 } from "./command-migration.js";
 import { type CommandPathPattern, isCommandPath } from "./command-paths.js";
-import { type DocumentString, ownerKey } from "./config-documents.js";
+import {
+  type DocumentString,
+  type DocumentValue,
+  isDocumentString,
+  ownerKey,
+} from "./config-documents.js";
 import type { FileVariables } from "./file-variables.js";
 import { inputValues } from "./input-defaults.js";
 import { type Change, lineLocator } from "./migration-findings.js";
 import { PACKAGE_RENAMES } from "./package-names.js";
-import { type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
+import { ownCommands, type ShellCommand, type ShellWord, shellCommands } from "./shell-words.js";
 import { otherShellFindings, stepShells } from "./step-shells.js";
 import { applyTextEdits, type TextEdit } from "./text-edits.js";
 import { containerCommands, isContainerListItem } from "./yaml-entrypoints.js";
@@ -80,6 +85,11 @@ interface ValueContext {
   readonly locate: Locate;
   readonly variables?: FileVariables;
   readonly references?: VariableReferences;
+  /**
+   * Whether a container reads the value's own words (yaml-entrypoints.ts), so only the command
+   * lines that its quoted words hold (`sh -c "…"`) are read here.
+   */
+  readonly isNestedOnly?: boolean;
 }
 
 /**
@@ -149,7 +159,8 @@ function valueFindings(value: DocumentString, context: ValueContext): ShellTextF
   const { text, locate, variables, references } = context;
   const { start } = value.content;
   const shell = shellText(text, value, references);
-  const commands = shellCommands(shell, blockIndent(shell));
+  const all = shellCommands(shell, blockIndent(shell));
+  const commands = context.isNestedOnly === true ? all.slice(ownCommands(shell).length) : all;
   const findings = commandWordFindings(commands, (offset) => locate(start + offset), variables);
   const written = text.slice(start, value.content.end);
   const found = withWrittenWords(findings, commands, { read: shell, written });
@@ -193,22 +204,24 @@ const NO_NAMES: ReadonlySet<string> = new Set();
 export function migrateYamlCommands(
   text: string,
   file: string,
-  strings: readonly DocumentString[],
+  documentValues: readonly DocumentValue[],
   reading: YamlFileReading = DEFAULT_YAML_FILE,
 ): CommandMigration {
+  const strings = documentValues.filter(isDocumentString);
   const { commandKeys, environment, parameters, outsideVariables = NO_NAMES } = reading;
   const lineOf = lineLocator(text);
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const shellOf = stepShells(strings);
   const values = valuesOf(strings, commandKeys).filter((value) => shellOf(value) === undefined);
-  const { findings, scripts, commandStrings } = containerCommands(text, strings, locate);
+  const { findings, scripts, commandStrings } = containerCommands(text, documentValues, locate);
   const isOwnCommand = (value: DocumentString): boolean =>
     !isContainerListItem(value) && !commandStrings.has(value.start);
   const commandValues = new Set(values.filter(isOwnCommand));
   const entries = environmentEntries(strings, environment);
   const defaults = parameterDefaults(strings, parameters);
   const isShellText = (value: DocumentString): boolean =>
-    commandValues.has(value) || scripts.has(value) || entries.has(value) || defaults.has(value);
+    [commandValues, scripts, entries, defaults].some((found) => found.has(value)) ||
+    commandStrings.has(value.start);
   const shellValues = oncePerPlace(strings.filter(isShellText));
   const names = new Set([...[...entries.values()].map((entry) => entry.name), ...outsideVariables]);
   const references = { environment, names, parameters };
@@ -217,6 +230,7 @@ export function migrateYamlCommands(
   const contextOf = (value: DocumentString): ValueContext => ({
     ...{ text, locate, references },
     variables: variablesAt(value),
+    isNestedOnly: commandStrings.has(value.start),
   });
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(value, contextOf(value))),

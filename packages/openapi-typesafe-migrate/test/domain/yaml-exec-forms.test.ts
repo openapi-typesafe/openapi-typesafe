@@ -41,6 +41,8 @@ describe("migrateYamlCommands and exec-form shells", () => {
       "  gen:",
       "    environment: { GEN: npx openapi-typescript }",
       `    command: ["sh", "-c", "${ESCAPED_GEN} a.yaml -it"]`,
+      "  other:",
+      "    environment: { GEN: npx openapi-typescript }",
       `    entrypoint: sh -c '${["$${", "GEN}"].join("")} b.yaml -it'`,
     );
 
