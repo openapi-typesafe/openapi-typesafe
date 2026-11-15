@@ -1,3 +1,4 @@
+import type { ComposeIncludeReading } from "./compose-includes.js";
 import { type DocumentPath, type DocumentValue, isDocumentString } from "./config-documents.js";
 
 /**
@@ -70,7 +71,7 @@ export function serviceExtensions(
 }
 
 /** How a YAML file's kind reads its services: Compose files have them. */
-export interface ComposeReading {
+export interface ComposeReading extends ComposeIncludeReading {
   readonly hasServices?: boolean;
   /** The services whose entrypoint or command another file of the folder sets. */
   readonly outsideServices?: ReadonlySet<string>;
@@ -86,7 +87,7 @@ export interface ComposeServices {
 /** Whether a service's container keys may come from another file, also through its bases. */
 function isUnknown(name: string, context: UnknownContext, seen: ReadonlySet<string>): boolean {
   const extension = context.extensions.get(name);
-  if (context.outside.has(name)) {
+  if (context.outside.has(name) || context.included.has(name)) {
     return true;
   }
   if (extension === undefined || context.setsBoth(name)) {
@@ -100,6 +101,8 @@ function isUnknown(name: string, context: UnknownContext, seen: ReadonlySet<stri
 interface UnknownContext {
   readonly extensions: ReadonlyMap<string, ServiceExtension>;
   readonly outside: ReadonlySet<string>;
+  /** The services an included file defines: one defined again is a Compose error. */
+  readonly included: ReadonlySet<string>;
   readonly services: ReadonlySet<string>;
   readonly setsBoth: (name: string) => boolean;
 }
@@ -117,14 +120,16 @@ function servicesSettingBoth(values: readonly DocumentValue[]): (name: string) =
   return (name) => keys.get(name)?.size === CONTAINER_KEYS.size;
 }
 
+const NO_SERVICES: ReadonlySet<string> = new Set();
+
 /**
  * The services of a Compose file and those whose container is not known: another file of its
- * folder sets their entrypoint or command (`outside`), or they get one from a service of another
- * file, or of none, through `extends`.
+ * folder sets their entrypoint or command (`outside`), an included file defines them too, or they
+ * get one from a service of another file, or of none, through `extends`.
  */
 export function composeServices(
   values: readonly DocumentValue[],
-  outside: ReadonlySet<string>,
+  reading: ComposeReading,
 ): ComposeServices {
   const extensions = serviceExtensions(values);
   const services = values.flatMap(({ path }) =>
@@ -132,7 +137,8 @@ export function composeServices(
   );
   const context: UnknownContext = {
     extensions,
-    outside,
+    outside: reading.outsideServices ?? NO_SERVICES,
+    included: reading.includedServices ?? NO_SERVICES,
     services: new Set(services),
     setsBoth: servicesSettingBoth(values),
   };

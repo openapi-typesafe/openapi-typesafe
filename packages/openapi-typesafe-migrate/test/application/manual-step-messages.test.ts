@@ -85,6 +85,19 @@ const STEPS: readonly ManualStep[] = [
     renames: [{ from: "-it", to: "--immutable" }],
   },
   {
+    kind: "compose-include-not-read",
+    location: "compose.yaml:2",
+    path: "a.yaml",
+    problem: "not-in-project",
+  },
+  {
+    kind: "compose-include-not-read",
+    location: "compose.yaml:3",
+    path: "b.yaml",
+    problem: "cycle",
+  },
+  { kind: "compose-service-conflict", location: "compose.yaml:5", service: "gen" },
+  {
     kind: "package-not-declared",
     line: 1,
     name: "openapi-typesafe-helpers",

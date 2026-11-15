@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createJsonTextReader } from "../../src/adapters/json-text/json-text.js";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { migrateProject } from "../../src/application/migrate-project.js";
-import { outsideServicesOf, planYamlReach } from "../../src/application/yaml-file-reach.js";
+import { composeReadingOf, planYamlReach } from "../../src/application/yaml-file-reach.js";
 import { InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
@@ -25,7 +25,7 @@ async function outsideOf(files: Readonly<Record<string, string>>, path: string) 
     files: new InMemoryProjectFiles(files),
     readers,
   });
-  return [...outsideServicesOf(reach, path)];
+  return [...(composeReadingOf(reach, path).outsideServices ?? [])];
 }
 
 describe("planYamlReach and Compose files that merge", () => {

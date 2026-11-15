@@ -23,6 +23,12 @@ export interface WordRename {
  */
 export type ContainerUnknown = "image-program" | "other-file";
 
+/**
+ * Why a Compose include was not read: its file is missing, outside the project, remote or named
+ * by a variable, or it includes the file again (a cycle, which Compose rejects).
+ */
+export type IncludeProblem = "not-in-project" | "cycle";
+
 export type Change =
   | {
       readonly kind: "dependency-renamed";
@@ -159,6 +165,19 @@ export type ManualStep =
       readonly location: string;
       readonly unknown: ContainerUnknown;
       readonly renames: readonly WordRename[];
+    }
+  /** A Compose `include` path whose file the tool did not read. */
+  | {
+      readonly kind: "compose-include-not-read";
+      readonly location: string;
+      readonly path: string;
+      readonly problem: IncludeProblem;
+    }
+  /** A Compose service that a file the Compose file includes defines too. */
+  | {
+      readonly kind: "compose-service-conflict";
+      readonly location: string;
+      readonly service: string;
     }
   /** A CI step whose `shell` is a program the tool does not read (`shell: python`). */
   | { readonly kind: "script-not-shell"; readonly location: string; readonly shell: string }

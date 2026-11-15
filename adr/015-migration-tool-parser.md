@@ -893,6 +893,19 @@ not compile, so it is on by default (ADR-021).
   that reading them as written gives, with the old flags of the generator when another file may
   give the entrypoint. Args alone that rename nothing (`["api.yaml", "-it"]`) are not reported:
   the image's program is not ours to guess.
+- **Compose includes are read.** The files that a top-level `include` names (a path, or the
+  `path` of the long form, one file or a list; `project_directory` and `env_file` change neither
+  which files are read nor their containers) are read before any file is migrated
+  (`application/compose-file-sets.ts`), relative to the including file, through nested includes,
+  and get the Compose kind whatever their name. An included file merges with the file that
+  includes it and with the files that file merges, and the files of one `path` list merge with
+  each other; a service that two merged files give an `entrypoint` or `command` is not known.
+  A service that a file defines again after a file it includes is a Compose error: a
+  `compose-service-conflict` step, and its container is not edited. An include whose file is not
+  in the project (missing, outside, remote, or named by a variable) or that leads back to a file
+  on the way (a cycle, reported at each include of it) is a `compose-include-not-read` step
+  (`domain/compose-includes.ts`). As every finding of a file, the steps come only from a file
+  that names an old package or a generator variable: a file that does not is never read.
 
 ## Review trigger
 

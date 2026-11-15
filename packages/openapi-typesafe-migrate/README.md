@@ -64,6 +64,12 @@ names in the same file. A container whose program the file does not show is repo
 changed: a service that another Compose file of its folder (`compose.override.yaml`, a file given
 with `-f`) also gives an `entrypoint` or `command`, a service whose `extends` names another file,
 and `args` alone (Kubernetes, a `docker://` step's `with`), which the image's own program runs.
+The files that a Compose file's top-level `include` names (a path, or the `path` of the long form,
+one file or a list) are read as Compose files, relative to the file that includes them, and
+merge with it: an included service that another merged file also gives an `entrypoint` or
+`command` is reported, and so is a service that a file defines again after a file it includes
+(Compose rejects it). An include whose file is missing, outside the project, remote or named by a
+variable, or that includes a file again (a cycle), is reported.
 After an init program or an entrypoint script that runs its
 command (`["tini", "--"]`, `["dumb-init", "--"]`, `["docker-entrypoint.sh"]`), a command that
 runs the generator itself is migrated as its own command. A

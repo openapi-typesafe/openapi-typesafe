@@ -4,6 +4,7 @@ import {
   type ShellTextFindings,
   textFindings,
 } from "./command-migration.js";
+import { composeIncludeFindings } from "./compose-includes.js";
 import { type ComposeReading, composeServices } from "./compose-services.js";
 import { type DocumentString, type DocumentValue, isDocumentString } from "./config-documents.js";
 import { containerCommand, entrypointArgumentFindings } from "./entrypoint-arguments.js";
@@ -34,7 +35,6 @@ export { isContainerListItem } from "./yaml-container-keys.js";
  */
 
 const LINE_BREAK = "\n";
-const NO_SERVICES: ReadonlySet<string> = new Set();
 
 /** Whether a scalar's text as written is its value, so its words can be edited in place. */
 const isPlaceable = (string: DocumentString, text: string): boolean =>
@@ -215,16 +215,19 @@ export function containerCommands(
   locate: Locate,
   reading: ComposeReading = {},
 ): ContainerCommands {
-  const services =
-    reading.hasServices === true
-      ? composeServices(values, reading.outsideServices ?? NO_SERVICES)
-      : undefined;
+  const hasServices = reading.hasServices === true;
+  const services = hasServices ? composeServices(values, reading) : undefined;
   const readings = yamlContainers(values, services).map((found) =>
     containerReading(found, text, locate),
   );
   const written = writtenStrings(values);
   return {
-    findings: [textFindings(sharedPlaceFindings(readings, { text, locate, written }))],
+    findings: [
+      textFindings([
+        ...sharedPlaceFindings(readings, { text, locate, written }),
+        ...(hasServices ? composeIncludeFindings(values, reading, locate) : []),
+      ]),
+    ],
     scripts: new Set(readings.flatMap((reading) => reading.scripts)),
     commandStrings: new Set(readings.flatMap(({ scalars }) => scalars.map(({ start }) => start))),
   };
