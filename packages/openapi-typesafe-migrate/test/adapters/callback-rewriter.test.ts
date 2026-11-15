@@ -550,6 +550,20 @@ describe("TypescriptCallbackRewriter", () => {
     ]);
   });
 
+  it("rewrite reports options that a spread argument may hold", () => {
+    const text = lines(
+      ...HEADER,
+      "await openapiTS(...[a, { transform: () => ts.factory.createTypeReferenceNode('A') }]);",
+      "await openapiTS(b, ...rest);",
+      "await openapiTS(c, {}, ...rest);",
+    );
+
+    expect(rewriter.rewrite(text, "gen.ts").manualSteps).toEqual([
+      { kind: "options-not-inspected", line: 3 },
+      { kind: "options-not-inspected", line: 4 },
+    ]);
+  });
+
   it("rewrite finds the generator through a namespace import and a named default import", () => {
     const text = lines(
       'import ts from "typescript";',
