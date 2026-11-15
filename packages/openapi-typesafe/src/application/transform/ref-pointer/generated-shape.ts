@@ -1,8 +1,15 @@
 import { isRawBinarySchema } from "../../../domain/openapi/binary-content.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { enumRule, isTsEnum } from "../schema/enum-rule.js";
+import { isTsEnum } from "../schema/enum-rule.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import { unevaluatedSchemaOf } from "../schema/unevaluated-schema.js";
+import {
+  arrayMember,
+  isBuiltInMember,
+  literalMember,
+  literalValuesOf,
+  primitiveMember,
+} from "./builtin-members.js";
 import {
   type GeneratedMember,
   intersectionMember,
@@ -52,9 +59,6 @@ import {
 /** A `$ref` left after following one is a cycle of `$ref`s, whose type is not read here. */
 const REF_KEYWORD = "$ref";
 const DEFS_KEYWORD = "$defs";
-/** How deep `allOf`/`anyOf`/`oneOf` members are read; deeper shapes count as opaque. */
-const MAX_DEPTH = 8;
-const INDEX_RE = /^\d+$/;
 
 /**
  * A key of an object schema without object keywords. With a `type` it is `Record<string, never>`:
@@ -63,63 +67,6 @@ const INDEX_RE = /^\d+$/;
  */
 function emptyObjectMember(node: JsonObject, options: SchemaOptions): GeneratedMember {
   return node.type !== undefined && !options.emptyObjectsUnknown ? NEVER_VALUES : MISSING;
-}
-
-/** Whether a key the object has no property for is still a member: `toString`, `length`, `0`. */
-function isBuiltInMember(key: string, prototype: object): boolean {
-  return key in prototype;
-}
-
-/**
- * The values of the literal type the generator writes for a `const` or for an `enum` its enum
- * rule types (`SHAPE_RULES`: a union of the values, or a TypeScript enum of them, whose members
- * have the members of their primitive); null for any other schema. `not` is not typed, so a
- * schema with it is read by its other keywords.
- */
-function literalValuesOf(node: JsonObject): readonly unknown[] | null {
-  if (node.const !== undefined) {
-    return [node.const];
-  }
-  return enumRule.matches(node as SchemaObject) ? (node.enum as readonly unknown[]) : null;
-}
-
-/** The value whose members a primitive literal has: `"a".length`; undefined for an object. */
-function literalPrototypeOf(value: unknown): object | undefined {
-  switch (typeof value) {
-    case "string":
-      return String.prototype;
-    case "number":
-      return Number.prototype;
-    case "boolean":
-      return Boolean.prototype;
-    default:
-      return undefined;
-  }
-}
-
-/**
- * A key of a literal type: missing where one of its primitive values has no such member (the
- * `oneOf` of `"red" | "green"`). A `null` value is left out: the `nullable-enums` fix may drop it.
- * An object or array literal is opaque. Without values the type is `never`, whose every key is
- * `never` too, or with `--enum` an enum without members, which has no key; `null` alone has none.
- */
-function literalMember(
-  values: readonly unknown[],
-  key: string,
-  isTypeScriptEnum: boolean,
-): GeneratedMember {
-  if (values.length === 0) {
-    return isTypeScriptEnum ? MISSING : NEVER_VALUES;
-  }
-  if (values.every((value) => value === null)) {
-    return MISSING;
-  }
-  const prototypes = values.filter((value) => value !== null).map(literalPrototypeOf);
-  if (prototypes.some((prototype) => prototype === undefined)) {
-    return OPAQUE;
-  }
-  const isMissingKey = prototypes.some((prototype) => !isBuiltInMember(key, prototype as object));
-  return isMissingKey ? MISSING : OPAQUE;
 }
 
 function objectMember(
@@ -206,7 +153,7 @@ function unevaluatedMember(
   if (!isComposed(rest) && !hasObjectKeywords(rest)) {
     return index;
   }
-  const member = memberAt({ ...owner, node: rest }, key, { ...input, depth: input.depth + 1 });
+  const member = memberAt({ ...owner, node: rest }, key, input);
   if (isMissing(member)) {
     return index;
   }
@@ -216,25 +163,28 @@ function unevaluatedMember(
 interface MemberInput {
   readonly options: SchemaOptions;
   readonly refs: RefResolver;
-  readonly depth: number;
+  /** The schemas being read, outer first: one met again is a cycle of `$ref`s. */
+  readonly path: ReadonlySet<unknown>;
 }
 
 function memberAt(schema: LocatedNode, key: string, input: MemberInput): GeneratedMember {
   const followed = followLocated(schema, input.refs);
   const { node } = followed;
-  if (!isJsonObject(node) || REF_KEYWORD in node || input.depth > MAX_DEPTH) {
+  if (!isJsonObject(node) || REF_KEYWORD in node || input.path.has(node)) {
     return OPAQUE;
   }
+  const inner: MemberInput = { ...input, path: new Set([...input.path, node]) };
   const literals = literalValuesOf(node);
   if (literals !== null) {
     return literalMember(literals, key, isTsEnum(node as SchemaObject, input.options));
   }
   if (isNullableSchema(node)) {
-    // Every key of `T | null` is an error, unless `T` is unknown (then the type is `unknown`).
-    return isObjectShape(node) || isArrayShape(node) ? MISSING : OPAQUE;
+    // Every key of `T | null` is an error, also where `T` is a composition or `unknown`, which
+    // has no keys either (`unknown | null` is `unknown`).
+    return MISSING;
   }
   // A `type` list of one type (`[object]`) joins its variants as that type alone does.
-  return shapedMember({ ...followed, node: withVariantsOfListedType(node) }, key, input);
+  return shapedMember({ ...followed, node: withVariantsOfListedType(node) }, key, inner);
 }
 
 /** The member `key` of a schema that is no `$ref` and not nullable, by its shape. */
@@ -252,39 +202,18 @@ function shapedMember(
     return MISSING;
   }
   if (isComposed(node)) {
-    return composedMember(owner, key, { ...input, depth: input.depth + 1 });
+    return composedMember(owner, key, input);
   }
   if (isObjectShape(node)) {
     return objectMember(owner, key, input);
   }
   if (isArrayShape(node)) {
-    return INDEX_RE.test(key) || isBuiltInMember(key, []) ? OPAQUE : MISSING;
+    return arrayMember(owner, key);
   }
   // `--binary-as-blob` types raw binary strings as `Blob`, which has members of its own.
   return input.options.binaryAsBlob && isRawBinarySchema(node as never)
     ? OPAQUE
     : primitiveMember(node, key);
-}
-
-/** The JavaScript value whose members a primitive `type` has: `"".length`, `(0).toFixed`. */
-const PRIMITIVE_PROTOTYPES: Readonly<Record<string, object>> = {
-  string: String.prototype,
-  number: Number.prototype,
-  integer: Number.prototype,
-  boolean: Boolean.prototype,
-};
-
-/**
- * A key of a schema with one primitive `type`: missing unless the primitive has it. Object and
- * array keywords next to that `type` do not change the type (`isObjectShape`). Without a `type`
- * and object keywords the schema is `unknown` (`objectType` writes nothing), which has no keys.
- */
-function primitiveMember(node: JsonObject, key: string): GeneratedMember {
-  if (node.type === undefined) {
-    return hasObjectKeywords(node) ? OPAQUE : MISSING;
-  }
-  const prototype = typeof node.type === "string" ? PRIMITIVE_PROTOTYPES[node.type] : undefined;
-  return prototype !== undefined && !isBuiltInMember(key, prototype) ? MISSING : OPAQUE;
 }
 
 /**
@@ -307,7 +236,7 @@ export function isMissingComposedKey(
     isJsonObject(node) &&
     isComposed(node) &&
     unevaluatedSchemaOf(node as SchemaObject, options) === null;
-  const input = { options, refs, depth: 0 };
+  const input = { options, refs, path: new Set() };
   return isComposedOnly && isMissing(composedMember({ ...followed, node }, key, input));
 }
 
@@ -318,5 +247,5 @@ export function generatedMember(
   options: SchemaOptions,
   refs: RefResolver,
 ): GeneratedMember {
-  return memberAt(schema, key, { options, refs, depth: 0 });
+  return memberAt(schema, key, { options, refs, path: new Set() });
 }
