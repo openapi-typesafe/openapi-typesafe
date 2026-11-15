@@ -1,20 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
-import { type DocumentString, usedDocumentStrings } from "../../src/domain/config-documents.js";
+import { type DocumentValue, usedDocumentValues } from "../../src/domain/config-documents.js";
 import { COMPOSE_FILE } from "../../src/domain/yaml-environments.js";
 import { migrateYamlCommands } from "../../src/domain/yaml-migration.js";
 
 const yaml = createYamlTextReader();
-function stringsOf(text: string): DocumentString[] {
+function valuesOf(text: string): DocumentValue[] {
   const read = yaml.read(text);
-  return read.kind === "read" ? usedDocumentStrings(read.documents) : [];
+  return read.kind === "read" ? usedDocumentValues(read.documents) : [];
 }
 
 const lines = (...parts: string[]): string => `${parts.join("\n")}\n`;
+/** A workflow expression whose value has blanks in it. */
+const WORKSPACE = ["$", "{{ github.workspace }}"].join("");
 const migrateCompose = (text: string) =>
-  migrateYamlCommands(text, "compose.yaml", stringsOf(text), COMPOSE_FILE);
-const migrateYaml = (text: string, file: string) =>
-  migrateYamlCommands(text, file, stringsOf(text));
+  migrateYamlCommands(text, "compose.yaml", valuesOf(text), COMPOSE_FILE);
+const migrateYaml = (text: string, file: string) => migrateYamlCommands(text, file, valuesOf(text));
 const renamed = (text: string): string =>
   text.replaceAll("openapi-typescript", "openapi-typesafe").replaceAll("-it", "--immutable");
 
@@ -110,9 +111,86 @@ describe("migrateYamlCommands and merge keys", () => {
 
     expect(migrateCompose(text).text).toBe(renamed(text));
   });
+
+  it.each([
+    ["an empty list", "entrypoint: []"],
+    ["null", "entrypoint: null"],
+    ["no value", "entrypoint:"],
+    ["!reset", "entrypoint: !reset []"],
+    ["an empty map", "entrypoint: {}"],
+    ["an empty string", 'entrypoint: ""'],
+  ])("migrateYamlCommands lets an own entrypoint of %s override a merged one", (_, entrypoint) => {
+    const text = lines(
+      "x-gen: &gen",
+      '  entrypoint: ["npx", "openapi-typescript"]',
+      "services:",
+      "  search:",
+      "    <<: *gen",
+      `    ${entrypoint}`,
+      '    command: ["grep", "-it", "todo", "src"]',
+    );
+
+    const migrated = migrateCompose(text);
+
+    expect(migrated.text).toContain('command: ["grep", "-it", "todo", "src"]');
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migrateYamlCommands lets an own empty command override a merged one", () => {
+    const text = lines(
+      "x-args: &args",
+      '  command: ["-it", "a.txt"]',
+      "services:",
+      "  gen:",
+      "    <<: *args",
+      '    entrypoint: ["npx", "openapi-typesafe"]',
+      "    command: []",
+    );
+
+    expect(migrateCompose(text).text).toBe(text);
+  });
 });
 
 describe("migrateYamlCommands and Docker action arguments", () => {
+  it("migrateYamlCommands renames the args of a docker:// step with a quoted blank in them", () => {
+    const text = lines(
+      "on: push",
+      "jobs:",
+      "  a:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - uses: docker://node:22",
+      "        with:",
+      "          entrypoint: npx",
+      `          args: openapi-typescript api.yaml -it -o "${WORKSPACE}/a.ts"`,
+    );
+
+    expect(migrateYaml(text, "ci.yml").text).toBe(renamed(text));
+  });
+
+  it("migrateYamlCommands reads a quoted command line in the args of a shell entrypoint", () => {
+    const text = lines(
+      "runs:",
+      "  using: docker",
+      "  image: docker://node:22",
+      "  entrypoint: sh",
+      '  args: -c "npx openapi-typescript api.yaml -it"',
+    );
+
+    expect(migrateYaml(text, "action.yml").text).toBe(renamed(text));
+  });
+
+  it("migrateYamlCommands reads a string command with a quoted blank after its entrypoint", () => {
+    const text = lines(
+      "services:",
+      "  echo:",
+      '    entrypoint: ["sh", "-c", "echo \\"$0\\""]',
+      '    command: openapi-typescript -it "a b.txt"',
+    );
+
+    expect(migrateCompose(text).text).toBe(text);
+  });
+
   it("migrateYamlCommands renames the args of a Docker action after its entrypoint", () => {
     const text = lines(
       "name: gen",

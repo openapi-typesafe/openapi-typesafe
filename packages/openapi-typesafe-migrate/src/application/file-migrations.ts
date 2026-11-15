@@ -40,6 +40,7 @@ import {
   migrateYamlCommands,
   migrateYamlPathCommands,
 } from "../domain/yaml-migration.js";
+import { isMakefilePath } from "./called-makefiles.js";
 import {
   type ConfigStep,
   chain,
@@ -47,7 +48,7 @@ import {
   jsonConfig,
   type MigrationContext,
   stringsStep,
-  usedStringsStep,
+  usedValuesStep,
   whenNamed,
   withSteps,
   yamlConfig,
@@ -69,8 +70,6 @@ import {
   LINT_STAGED_JSON_FILE,
   LINT_STAGED_YAML_FILES,
   LOCK_FILES,
-  MAKEFILE_EXTENSION,
-  MAKEFILE_NAMES,
   MANIFEST_FILE,
   NX_PROJECT_FILE,
   NX_WORKSPACE_FILE,
@@ -84,7 +83,7 @@ import {
   YAML_MANIFEST_FILES,
   YARNRC_FILE_NAME,
 } from "./project-file-names.js";
-import { yamlKindOf } from "./yaml-file-reach.js";
+import { outsideVariablesOf, yamlKindOf } from "./yaml-file-reach.js";
 
 const isHuskyHook = (path: string): boolean =>
   (path.startsWith(HUSKY_FOLDER) || path.includes(`/${HUSKY_FOLDER}`)) &&
@@ -150,10 +149,10 @@ const COMMAND_CONFIG_KINDS: readonly FileKind[] = [
     matches: (path) => TASKFILE_NAMES.has(baseName(path)),
     migrate: whenNamed(
       yamlConfig((context, path) => [
-        usedStringsStep((text, strings) =>
-          migrateYamlCommands(text, path, strings, {
+        usedValuesStep((text, values) =>
+          migrateYamlCommands(text, path, values, {
             ...TASKFILE,
-            outsideVariables: context.yamlReach.generatorVariables,
+            outsideVariables: outsideVariablesOf(context.yamlReach, path),
           }),
         ),
       ]),
@@ -180,10 +179,10 @@ const yamlCommandsStep =
     const isApi = !isCiFile && read.kind === "read" && isApiDescription(read.documents);
     return apiDescriptionParts.has(path) || isApi
       ? unchanged(text)
-      : usedStringsStep((current, strings) =>
-          migrateYamlCommands(current, path, strings, {
+      : usedValuesStep((current, values) =>
+          migrateYamlCommands(current, path, values, {
             ...yamlKindOf(yamlReach, path),
-            outsideVariables: yamlReach.generatorVariables,
+            outsideVariables: outsideVariablesOf(yamlReach, path),
           }),
         )(text, read);
   };
@@ -274,9 +273,10 @@ const FILE_KINDS: readonly FileKind[] = [
     migrate: whenNamed((text, path) => migrateDockerfile(text, path)),
   },
   {
-    matches: (path) =>
-      MAKEFILE_NAMES.has(baseName(path)) || extensionOf(path) === MAKEFILE_EXTENSION,
-    migrate: whenNamed((text, path) => migrateMakefile(text, path)),
+    matches: isMakefilePath,
+    migrate: whenNamed((text, path, context) =>
+      migrateMakefile(text, path, context.calledMakefiles),
+    ),
   },
   {
     matches: (path) => JUSTFILE_NAMES.has(baseName(path)),

@@ -5,6 +5,8 @@ import { environmentEntries } from "./yaml-environment-entries.js";
 import { referencedVariables, type YamlCommandFile } from "./yaml-environments.js";
 import { shellText } from "./yaml-shell-text.js";
 
+const runsGeneratorValue = (value: string): boolean => shellCommands(value).some(runsGenerator);
+
 /**
  * The variables that a YAML file sets to the old generator in its variable maps (a GitLab
  * `variables`, a Compose `environment`, a workflow `env`). Its tool gives them to every program a
@@ -19,8 +21,26 @@ export function generatorVariables(
   const entries = environmentEntries(strings, environment);
   return [...entries].flatMap(([value, entry]) => {
     const shell = value.isEscaped ? value.value : shellText(text, value);
-    return shellCommands(shell.slice(entry.head)).some(runsGenerator) ? [entry.name] : [];
+    return runsGeneratorValue(shell.slice(entry.head)) ? [entry.name] : [];
   });
+}
+
+/**
+ * The variables set to the generator that reach a file which the project's includes name, from
+ * the variables of each include of it (Task's `includes.<name>.vars`). A variable that an include
+ * gives the file is the value that include sets, so a variable of the project reaches the file
+ * only through an include that leaves it unset; one that an include sets to the generator
+ * reaches it too.
+ */
+export function includedGeneratorVariables(
+  projectVariables: ReadonlySet<string>,
+  includes: readonly ReadonlyMap<string, string>[],
+): Set<string> {
+  const unset = [...projectVariables].filter((name) => includes.some((set) => !set.has(name)));
+  const generators = includes.flatMap((set) =>
+    [...set].filter(([, value]) => runsGeneratorValue(value)).map(([name]) => name),
+  );
+  return new Set([...unset, ...generators]);
 }
 
 const NAME_END = "(?![A-Za-z0-9_])";

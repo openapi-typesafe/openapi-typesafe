@@ -18,6 +18,9 @@ const OLD_NAME_IN_COMMAND_NOTE =
 const SCRIPT_NOT_SHELL_NOTE =
   "so the tool does not read it as commands: migrate the old package names in it by hand";
 const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; change it to";
+const SHARED_CONTAINER_TEXT_NOTE =
+  "is given by a YAML anchor to containers that run different programs, so it was kept: where " +
+  "it runs the generator, rename";
 const SPLIT_FLAG_NOTE =
   "is an old flag of the generator that quotes split where it is written, so it was kept: rename";
 
@@ -43,6 +46,13 @@ function notOnlyGeneratorMessage(
   return `${step.location}: ${step.variable} ${NOT_ONLY_GENERATOR_NOTE} ${flagRenames(step.flags)}`;
 }
 
+function sharedContainerTextMessage(
+  step: Extract<ManualStep, { kind: "shared-container-text" }>,
+): string {
+  const renames = step.renames.map(({ from, to }) => `${from} to ${to}`).join(", ");
+  return `${step.location}: the text ${SHARED_CONTAINER_TEXT_NOTE} ${renames}`;
+}
+
 /** The manual steps found in commands: scripts, shell files, CI files and command strings. */
 type CommandStep = Extract<
   ManualStep,
@@ -55,6 +65,7 @@ type CommandStep = Extract<
       | "old-package-file"
       | "old-name-in-command"
       | "split-flag"
+      | "shared-container-text"
       | "script-not-shell"
       | "command-string";
   }
@@ -68,6 +79,7 @@ const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "old-package-file",
   "old-name-in-command",
   "split-flag",
+  "shared-container-text",
   "script-not-shell",
   "command-string",
 ]);
@@ -91,6 +103,8 @@ export function commandStepMessage(step: CommandStep): string {
       return `${step.location}: "${step.word}" ${OLD_NAME_IN_COMMAND_NOTE}`;
     case "split-flag":
       return `${step.location}: ${step.flag} ${SPLIT_FLAG_NOTE} ${flagRenames([step.flag])}`;
+    case "shared-container-text":
+      return sharedContainerTextMessage(step);
     case "script-not-shell":
       return `${step.location}: the script runs with ${step.shell}, ${SCRIPT_NOT_SHELL_NOTE}`;
     case "command-string":

@@ -2,11 +2,13 @@ import type { CatalogPlan } from "../domain/catalog-plan.js";
 import {
   type DocumentRead,
   type DocumentString,
+  type DocumentValue,
   documentStrings,
   unreadableConfig,
-  usedDocumentStrings,
+  usedDocumentValues,
 } from "../domain/config-documents.js";
 import type { ManifestDeclarations } from "../domain/declared-packages.js";
+import type { CalledMakefiles } from "../domain/make-calls.js";
 import {
   type Change,
   type FileMigration,
@@ -38,6 +40,8 @@ export interface MigrationContext {
   readonly apiDescriptionParts: ApiDescriptionParts;
   /** What the YAML files give the others: the kinds of included files, generator variables. */
   readonly yamlReach: YamlReach;
+  /** The Makefiles that recipes can run, with what they set by `override` (make-calls.ts). */
+  readonly calledMakefiles: CalledMakefiles;
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
   readonly readers: DocumentReaders;
@@ -97,13 +101,16 @@ export const stringsStep =
       ? unreadableConfig(text, read.offset)
       : migrate(text, documentStrings(read.documents));
 
-/** A step that reads the string values where they are used: YAML aliases give theirs again. */
-export const usedStringsStep =
-  (migrate: (text: string, strings: readonly DocumentString[]) => FileMigration): ConfigStep =>
+/**
+ * A step that reads the string and empty values where they are used: YAML aliases give theirs
+ * again.
+ */
+export const usedValuesStep =
+  (migrate: (text: string, values: readonly DocumentValue[]) => FileMigration): ConfigStep =>
   (text, read) =>
     read.kind === "unreadable"
       ? unreadableConfig(text, read.offset)
-      : migrate(text, usedDocumentStrings(read.documents));
+      : migrate(text, usedDocumentValues(read.documents));
 
 /** A JSON config migrated by `steps`, which also get its path. */
 export const jsonConfig =

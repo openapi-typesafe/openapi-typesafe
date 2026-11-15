@@ -772,6 +772,71 @@ migrate, or report; and never rename the flags of a program that is not ours.
 - **Options with no value.** `openapiTS(spec, undefined)` and `openapiTS(spec, void 0)` pass no
   options, as a call without them does, unless the file declares its own `undefined`.
 
+## Amendment (2026-11-15): the eleventh review of the migration tool
+
+The rc.12 hunt found container keys that the tool paired otherwise than Compose and Docker do,
+Dockerfile instructions it read line by line, and variables that a Taskfile include sets for its
+file. The rule holds: migrate, or report; and never rename the flags of a program that is not
+ours.
+
+- **One command line is one by its own operators.** A container scalar is read as one command
+  line when the text has at most one top-level simple command (`ownCommands`,
+  `domain/shell-words.ts`); `;`, `&&` or a blank inside a quoted word does not split it, so
+  `args: "-c 'a; b'"` is joined to its entrypoint. The command lines nested in quoted words
+  (`sh -c '…'`) are read by the YAML migration itself, once.
+- **An explicit key wins, also when it is empty.** `entrypoint: []`, `entrypoint: null` and
+  `!reset` clear the key; they are read as an empty value
+  (`DocumentEmptyValue`, `domain/config-documents.ts`) and paired like any value
+  (`domain/yaml-container-keys.ts`), so a merged entrypoint no longer reaches the command.
+- **A place that several containers read.** A YAML anchor or merge key gives one written text to
+  several containers (`domain/shared-container-places.ts`). A reading that holds only a part of
+  the written text is not a container of its own. When the whole containers that read the place
+  would change it differently, no edit is made there and a new `shared-container-text` step
+  names the place and the renames each reading gives; when they agree, the place is changed once.
+- **Dockerfile instructions are joined first.** `domain/dockerfile-instructions.ts` joins the
+  continued lines of an instruction by the file's escape character (`# escape=`), drops the empty
+  and comment lines inside a continuation, and appends the heredoc bodies of `RUN`, `COPY` and
+  `ADD`, as BuildKit reads them. Variables, stages and entrypoints are then read from whole
+  instructions; only `CMD` and `ENTRYPOINT` set a stage's entrypoint pair.
+- **A Taskfile include gives its file variables.** `includes.<name>.vars` sets variables of the
+  included file (`includedFiles`, `domain/yaml-includes.ts`). A project variable set to the
+  generator reaches the file only through an include that leaves it unset; one that an include
+  sets to the generator reaches it too (`includedGeneratorVariables`).
+- **Spread arguments.** A spread before the options place (`openapiTS(...args)`) may hold the
+  options, so the call gets the `options-not-inspected` step.
+- **A make variable is the value its assignments build.** Make reads the whole Makefile before
+  it runs a recipe, so a variable no longer has one alternative program per line
+  (`variablePrograms`). `domain/make-values.ts` follows make's order: `=`, `:=`, `::=`, `:::=`
+  set a value, `+=` appends to it, `?=` sets one only while the file has none (the environment
+  may still give one, so that is two values), `!=` is computed, and a plain assignment leaves a
+  value that `override` set. `G := npx` then `G += openapi-typescript` is one value, read as one
+  command whose words stay where they are written (`domain/make-variables.ts`), so the name in
+  the second line is renamed and the flags after `$(G)` are migrated. A reference that starts a
+  value (`$(NPX) openapi-typescript`, `G := $(G) openapi-typescript`) is expanded where make
+  expands it: where it reads an immediate assignment, where the value is used for a recursive
+  one (`domain/make-programs.ts`). Only these give a variable several values: the branches of
+  `ifeq`/`ifdef` blocks (a block without `else` keeps the value before it), a value from outside
+  the file, and an assignment for some targets (`gen: G += -it`, also `%` patterns), which is
+  the value in their recipes and in those of the prerequisites make builds for them, unless it
+  is `private` (`domain/make-rules.ts`). When the values that end with one assignment's text
+  run different programs, that text is reported. So a later `G := mytool` now wins over an
+  earlier generator value, and the flags after `$(G)` are kept, not reported.
+- **Text a recipe appends on a sub-make's command line.** `$(MAKE) -C api GEN+=-it`, `make -f
+  gen.mk`, `--directory=`, `--file=` and `--makefile=` are read (`domain/make-calls.ts`). GNU make
+  (checked with make 3.81, the same in 4.x) reads a command-line `NAME+=text` before the called
+  Makefile: the text is appended to the sub-make's environment value, and the called file's
+  plain assignments of the name are ignored; only an `override` there changes it, and one that
+  sets the name anew drops the text. It is not appended to the called Makefile's own value. So
+  the appended words are arguments of what the calling Makefile exports (`export`, a bare
+  `export`, `.EXPORT_ALL_VARIABLES`, not taken back by `unexport`), or of a value from outside.
+  The project's Makefiles (`Makefile`, `makefile`, `GNUmakefile`, `*.mk`) are read once before
+  any file is migrated (`application/called-makefiles.ts`) for the names they replace by
+  `override`; `-C` and `-f` are resolved from the calling file's folder, with make's order of
+  default names. Exported generator and a called file of the project that keeps the text: the
+  flags are renamed. A called file that drops it: nothing changes. A file that is not in the
+  project, or a value from outside: the old flags are reported. A `-f` file with another name
+  is not read, so it is reported.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

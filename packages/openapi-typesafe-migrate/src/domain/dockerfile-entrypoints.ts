@@ -1,4 +1,5 @@
 import type { Finding, Locate } from "./argument-findings.js";
+import type { DockerInstruction } from "./dockerfile-instructions.js";
 import { entrypointArgumentFindings } from "./entrypoint-arguments.js";
 import { shellScript } from "./shell-scripts.js";
 import type { ShellWord } from "./shell-words.js";
@@ -10,23 +11,21 @@ import type { ShellWord } from "./shell-words.js";
  * entrypoint ignores the command, and a shell-form command would give `/bin/sh -c …` as arguments.
  */
 
-/**
- * One exec-form array: where its instruction line starts, where the array starts (at the `[`)
- * and ends, and its words.
- */
+/** The words of one exec-form array, each placed where it is written. */
 export interface ExecForm {
-  readonly lineStart: number;
-  readonly start: number;
-  readonly end: number;
   readonly words: readonly ShellWord[];
 }
 
-/** The instructions that set stages, entrypoints and commands, at the start of a line. */
-const STAGE_INSTRUCTION_RE = /^[ \t]*(FROM|CMD|ENTRYPOINT)\b(.*)$/gm;
+/** An instruction of a Dockerfile, and its exec-form array when it has one. */
+export interface FormInstruction extends DockerInstruction {
+  readonly form: ExecForm | undefined;
+}
+
 /** `FROM [--platform=…] image [AS name]`; a stage name is matched without regard to case. */
-const FROM_RE = /^[ \t]+(?:--\S+[ \t]+)*(\S+)(?:[ \t]+AS[ \t]+(\S+))?/i;
+const FROM_RE = /^[ \t]*FROM[ \t]+(?:--\S+[ \t]+)*(\S+)(?:[ \t]+AS[ \t]+(\S+))?/i;
 const FROM = "FROM";
 const CMD = "CMD";
+const ENTRYPOINT = "ENTRYPOINT";
 /** How the report names an entrypoint whose script may pass its arguments on. */
 const ENTRYPOINT_WRITTEN = "ENTRYPOINT";
 
@@ -44,19 +43,16 @@ interface Stage {
 }
 
 /** The stages of a Dockerfile with the last entrypoint and command each sets. */
-function dockerStages(text: string, forms: readonly ExecForm[]): Stage[] {
-  const formAt = new Map(forms.map((form) => [form.lineStart, form]));
+function dockerStages(instructions: readonly FormInstruction[]): Stage[] {
   const stages: Stage[] = [];
-  for (const match of text.matchAll(STAGE_INSTRUCTION_RE)) {
-    const [, keyword, rest] = match;
+  for (const { keyword, text, form } of instructions) {
     const stage = stages.at(-1);
     if (keyword === FROM) {
-      const from = FROM_RE.exec(rest ?? "");
+      const from = FROM_RE.exec(text.text);
       const name = from?.[2]?.toLowerCase();
       stages.push({ base: from?.[1] ?? "", name, entrypoint: undefined, command: undefined });
-    } else if (stage !== undefined) {
-      const instruction = { form: formAt.get(match.index) };
-      stage[keyword === CMD ? "command" : "entrypoint"] = instruction;
+    } else if (stage !== undefined && (keyword === CMD || keyword === ENTRYPOINT)) {
+      stage[keyword === CMD ? "command" : "entrypoint"] = { form };
     }
   }
   return stages;
@@ -82,8 +78,8 @@ export interface ExecPair {
 }
 
 /** The exec-form command of each stage with the exec-form entrypoint it runs with. */
-export function entrypointPairs(text: string, forms: readonly ExecForm[]): ExecPair[] {
-  const stages = dockerStages(text, forms);
+export function entrypointPairs(instructions: readonly FormInstruction[]): ExecPair[] {
+  const stages = dockerStages(instructions);
   return stages.flatMap((stage, index) => {
     const entrypoint = entrypointOf(stages, index)?.form;
     const command = stage.command?.form;

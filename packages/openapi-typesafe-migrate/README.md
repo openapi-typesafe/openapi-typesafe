@@ -45,7 +45,9 @@ them (quotes, `\` line continuations, comments, `&&`, `|`,
 own flags are renamed, and a script name (`npm run openapi-typescript`) is never changed. A
 Dockerfile's exec form (`RUN ["npx",
 "openapi-typescript", …]`, also after `RUN --mount=…`) is read word by word, and the command line of
-`["sh", "-c", "…"]` as shell text. The items of an exec-form `CMD` are the arguments of the
+`["sh", "-c", "…"]` as shell text. An instruction is read whole, as BuildKit reads it: its lines
+joined by the file's escape character (`# escape=` too), and with the here-document bodies of
+`RUN`. The items of an exec-form `CMD` are the arguments of the
 exec-form `ENTRYPOINT` of its stage (or of the stage it starts `FROM`), so after
 `ENTRYPOINT ["openapi-typescript"]` the old flags of `CMD ["api.yaml", "-it"]` are renamed, and an
 entrypoint script that may pass them on is reported. A YAML `command` after an `entrypoint` of
@@ -54,7 +56,10 @@ same way; when both are lists, they are one exec-form command, the entrypoint fi
 (`entrypoint: ["npx"]` with `command: ["openapi-typescript", "-it"]`, or `command: ["/bin/sh",
 "-c"]` with its script in `args`), and Compose's `$$GEN` there is the container's `$GEN`. A
 GitHub Docker action's `args` after its `entrypoint` are read the same way, and so are keys that
-a merge key (`<<: *gen`) gives. After an init program or an entrypoint script that runs its
+a merge key (`<<: *gen`) gives; a key of the map itself wins, also an empty one
+(`entrypoint: []`, `null` or `!reset`). A text that an anchor gives several containers is
+changed once when they would all change it the same way, and reported when they would not.
+After an init program or an entrypoint script that runs its
 command (`["tini", "--"]`, `["dumb-init", "--"]`, `["docker-entrypoint.sh"]`), a command that
 runs the generator itself is migrated as its own command. A
 Makefile variable that holds the generator (`OAT :=
@@ -100,11 +105,18 @@ flags after it are reported; the arguments that `$(or …)`, `$(and …)` and `$
 the text of `$(strip …)`, are read as command lines where they are written, so the old name in
 them is renamed. A call of any other make function whose arguments name an old package
 (`$(firstword npx openapi-typescript)`, `$(filter-out …)`, `$(call …)`, `$(shell …)`) is
-reported. A Makefile
+reported. A Makefile variable is read as the value its lines build in make's order: `G := npx`
+then `G += openapi-typescript` is one command, and a later `G := mytool` replaces the earlier
+value; `override`, an assignment for some targets (`gen: G += -it`, which their prerequisites
+get too) and an `ifeq`/`ifdef` block (each branch is one possible value) count as make counts
+them. Text a recipe appends on a sub-make's command line (`$(MAKE) -C api GEN+=-it`) is added
+by make to the value the calling Makefile exports, not to the called file's value, so its flags
+are renamed when that value runs the generator, left when the called Makefile replaces the
+variable by `override`, and reported when the called Makefile is not in the project. A Makefile
 variable set with `?=` (the environment can override it) or to a value that make computes is
-reported the same way where it runs. The flags change only when every definition of the variable
-in the file sets it to the generator: a variable that another Dockerfile stage, a step `env` or a
-later Makefile line or shell assignment sets to another program is reported with its old flags. So is a
+reported the same way where it runs. The flags change only when every value of the variable
+sets it to the generator: a variable that another Dockerfile stage, a step `env`, a Makefile
+branch or a shell assignment sets to another program is reported with its old flags. So is a
 variable that runs a command but that no definition the tool reads sets: one set by another
 `script` item or step (`echo "GEN=…" >> "$GITHUB_ENV"`), a Makefile recipe's `$$GEN`, a bash
 array (`GEN=(npx openapi-typescript)`, whose items are renamed, run as `"${GEN[@]}"`), or one
@@ -119,7 +131,7 @@ is reported, not changed. A GitLab variable's `options` are values of the variab
 (`<< parameters.gen >>`), GitLab `spec: inputs` (`$[[ inputs.gen ]]`) and Azure Pipelines
 `parameters` (`${{ parameters.gen }}`) are read as input defaults are. A file that a Taskfile
 `includes`, a GitLab local `include` (also with `*` and `**`) or an Azure `template` names is read
-as a file of that kind. A variable that a YAML variable map sets to the generator may run it in
+as a file of that kind, with the `vars` that a Taskfile include gives it. A variable that a YAML variable map sets to the generator may run it in
 any file the tool reads (a script that a CI job runs), so the flags after `$GEN` there are
 reported. YAML files are changed only in command
 keys (`run`, `script`, `command`, `entrypoint`, …), in the values of the variable maps above and in input
@@ -252,7 +264,7 @@ The report lists each of these with the file and line:
   `OpenAPITSOptions`, such as `Partial<OpenAPITSOptions>`, or when the type declared for them
   names another type, such as a local alias), and `postTransform` /
   `transformProperty`, also in options that other code shares, and `openapiTS()` calls whose options it cannot see (a
-  parameter, a function call). Options that take keys from another object (`{ ...base }`) are read
+  parameter, a function call, a spread argument such as `openapiTS(...args)`). Options that take keys from another object (`{ ...base }`) are read
   through it when the file writes it (`...{ … }` or a `const` with an object), so its callbacks are
   reported and a `transform` in it is kept; a spread of anything else (an import, a call, a `let`)
   is reported, since it may bring callbacks the tool cannot see. They keep working with a

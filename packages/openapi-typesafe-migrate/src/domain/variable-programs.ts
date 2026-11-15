@@ -1,9 +1,11 @@
 /**
  * Which program a variable runs where a command starts with it (`$GEN …`, `$(GEN) …`). A file can
- * set one name in several places: two Dockerfile stages, a workflow and one of its steps, a
- * Makefile line and a later one that make reads before it runs any recipe. The tool does not
- * follow which definition reaches which command, so it changes the flags after a variable only
- * when every definition of the name runs the generator.
+ * set one name in several places: two Dockerfile stages, a workflow and one of its steps. Where
+ * the tool does not follow which definition reaches which command, it changes the flags after a
+ * variable only when every definition of the name runs the generator (`variablePrograms`). Make
+ * reads a whole Makefile before it runs a recipe, so there a variable has the value that its
+ * chain of definitions builds, in make's order (make-values.ts); only the branches of a
+ * conditional, or a value from outside the file, give it alternatives (`alternativesProgram`).
  */
 
 import { assertNever } from "./assert-never.js";
@@ -112,4 +114,20 @@ export function variablePrograms(
     return others.has(name) ? "generator-or-other" : "generator";
   };
   return new Map([...defined].map((name) => [name, programOf(name)]));
+}
+
+/**
+ * What one value that a variable can have runs: the generator, another program, or what only the
+ * run decides (a value from outside the file, or one that make computes), which can be either.
+ */
+export type ValueProgram = "generator" | "other" | "run-time";
+
+/** The program of a variable from what each of its alternative values runs. */
+export function alternativesProgram(programs: readonly ValueProgram[]): VariableProgram {
+  const canRunGenerator = programs.some((program) => program !== "other");
+  const canRunOther = programs.some((program) => program !== "generator");
+  if (!canRunGenerator) {
+    return "other";
+  }
+  return canRunOther ? "generator-or-other" : "generator";
 }

@@ -111,29 +111,52 @@ type AliasTarget = (alias: TreeOther) => TreeNode | undefined;
 const NO_ALIASES: AliasTarget = () => undefined;
 
 /**
- * The string values below `node` in document order; none below a key that is not text. An alias
- * gives the strings of the node it uses at its own path, with the offsets where they are written.
+ * A value that holds no string: an empty list or map, `null`, an empty value (`entrypoint:`). A
+ * key set to one is still set: Compose `entrypoint: []` clears the entrypoint a merge key gives.
  */
-function stringsBelow(node: TreeNode, path: DocumentPath, targetOf: AliasTarget): DocumentString[] {
+export interface DocumentEmptyValue extends Span {
+  readonly kind: "empty";
+  readonly path: DocumentPath;
+}
+
+/** A value of a document with its key path: a string, or a value that holds none. */
+export type DocumentValue = DocumentString | DocumentEmptyValue;
+
+export const isDocumentString = (value: DocumentValue): value is DocumentString =>
+  value.kind === "scalar";
+
+/**
+ * The string and empty values below `node` in document order; none below a key that is not
+ * text. An alias gives the values of the node it uses at its own path, with the offsets where
+ * they are written.
+ */
+function valuesBelow(node: TreeNode, path: DocumentPath, targetOf: AliasTarget): DocumentValue[] {
+  const empty: DocumentEmptyValue = { kind: "empty", path, start: node.start, end: node.end };
   switch (node.kind) {
     case "scalar":
       return [{ ...node, path }];
     case "list":
-      return node.items.flatMap((item, index) => stringsBelow(item, [...path, index], targetOf));
+      return node.items.length === 0
+        ? [empty]
+        : node.items.flatMap((item, index) => valuesBelow(item, [...path, index], targetOf));
     case "map":
-      return textEntries(node).flatMap(({ key, value }) =>
-        stringsBelow(value, [...path, key.value], targetOf),
-      );
+      return node.entries.length === 0
+        ? [empty]
+        : textEntries(node).flatMap(({ key, value }) =>
+            valuesBelow(value, [...path, key.value], targetOf),
+          );
     default: {
       const target = targetOf(node);
-      return target === undefined ? [] : stringsBelow(target, path, targetOf);
+      return target === undefined ? [empty] : valuesBelow(target, path, targetOf);
     }
   }
 }
 
 /** Every string value of the documents (not the keys), with its key path, in document order. */
 export function documentStrings(documents: readonly TreeNode[]): DocumentString[] {
-  return documents.flatMap((document) => stringsBelow(document, [], NO_ALIASES));
+  return documents
+    .flatMap((document) => valuesBelow(document, [], NO_ALIASES))
+    .filter(isDocumentString);
 }
 
 /** `node` and every node below it, in document order. */
@@ -163,11 +186,16 @@ function aliasTargets(document: TreeNode): AliasTarget {
 }
 
 /**
- * Every string value of the documents where it is used: once where it is written, and again at
- * the path of each alias that uses it (`script: [*gen_scripts]`), with the same offsets.
+ * Every string and empty value of the documents where it is used: once where it is written, and
+ * again at the path of each alias that uses it (`script: [*gen_scripts]`), with the same offsets.
  */
+export function usedDocumentValues(documents: readonly TreeNode[]): DocumentValue[] {
+  return documents.flatMap((document) => valuesBelow(document, [], aliasTargets(document)));
+}
+
+/** Every string value of the documents where it is used (`usedDocumentValues`). */
 export function usedDocumentStrings(documents: readonly TreeNode[]): DocumentString[] {
-  return documents.flatMap((document) => stringsBelow(document, [], aliasTargets(document)));
+  return usedDocumentValues(documents).filter(isDocumentString);
 }
 
 /**

@@ -135,15 +135,32 @@ function isNoValue(argument: ts.Expression, bindings: FileBindings): boolean {
   return isUndefined || ts.isVoidExpression(value);
 }
 
+/** The place of the options among a generator call's arguments. */
+const OPTIONS_INDEX = 1;
+
+/**
+ * The options of a generator call. A spread argument before the options place
+ * (`openapiTS(...args)`) may hold them, so the call's options are not known.
+ */
+function callOptions(
+  call: ts.CallExpression,
+  bindings: FileBindings,
+): GeneratorOptions | undefined {
+  const spread = call.arguments.slice(0, OPTIONS_INDEX).find(ts.isSpreadElement);
+  if (spread !== undefined) {
+    return { kind: "unknown", expression: spread };
+  }
+  const argument = call.arguments[OPTIONS_INDEX];
+  const isOmitted = argument === undefined || isNoValue(argument, bindings);
+  return isOmitted ? undefined : optionsOf(argument, bindings);
+}
+
 /** Every generator call of the file, in source order. */
 export function generatorCalls(file: ts.SourceFile, bindings: FileBindings): GeneratorCall[] {
   const calls: GeneratorCall[] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isCallExpression(node) && isGenerator(node.expression, bindings)) {
-      const argument = node.arguments[1];
-      const isOmitted = argument === undefined || isNoValue(argument, bindings);
-      const options = isOmitted ? undefined : optionsOf(argument, bindings);
-      calls.push({ call: node, options });
+      calls.push({ call: node, options: callOptions(node, bindings) });
     }
     ts.forEachChild(node, visit);
   };

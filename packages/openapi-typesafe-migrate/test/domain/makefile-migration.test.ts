@@ -8,9 +8,28 @@ const reference = (open: string, name: string, close: string): string =>
   ["$", open, name, close].join("");
 
 describe("migrateMakefile", () => {
-  it("migrateMakefile reports the flags after a variable that a later line sets to another tool", () => {
+  it("migrateMakefile keeps the flags after a variable that a later line sets to another tool", () => {
     const g = reference("(", "G", ")");
     const text = lines("G := openapi-typescript", "gen:", `\t${g} build -it`, "G := mytool");
+
+    const migrated = migrateMakefile(text, "Makefile");
+
+    expect(migrated.text).toBe(text.replace("G := openapi-typescript", "G := openapi-typesafe"));
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it("migrateMakefile reports the flags after a variable that a branch sets to another tool", () => {
+    const g = reference("(", "G", ")");
+    const text = lines(
+      "G := openapi-typescript",
+      "ifeq ($(CI),1)",
+      "G := mytool",
+      "else ifdef LOCAL",
+      "G := other",
+      "endif",
+      "gen:",
+      `\t${g} build -it`,
+    );
 
     const migrated = migrateMakefile(text, "Makefile");
 
@@ -18,7 +37,7 @@ describe("migrateMakefile", () => {
     expect(migrated.manualSteps).toEqual([
       {
         kind: "variable-not-only-generator",
-        location: "Makefile:3",
+        location: "Makefile:8",
         variable: g,
         flags: ["-it"],
       },

@@ -176,24 +176,34 @@ export function shellTextFindings(text: string, locate: Locate): ShellTextFindin
 }
 
 /**
- * Find what to migrate in commands already split into words, as an exec-form list is. Text that
- * the file appends to a variable's value (`GEN += -it` of a Makefile) is read after the program
- * of that value, as is the text that a shell text appends itself (`G+=" -it"`).
+ * What to migrate in commands already split into words, as an exec-form list is, one finding at
+ * a time. Text that the file appends to a variable's value (`GEN += -it` of a Makefile) is read
+ * after the program of that value, as is the text that a shell text appends itself (`G+=" -it"`).
  */
+export function commandWordFindingList(
+  commands: readonly ShellCommand[],
+  locate: Locate,
+  variables: FileVariables = NO_VARIABLES,
+  appended: readonly AppendedValue[] = [],
+): Finding[] {
+  const known = withUnreadVariables(withWordExpansions(withShellAssignments(commands, variables)));
+  const shell = shellAppends(commands, known);
+  return [
+    ...shell.commands.flatMap((words) => commandFindings(words, locate, known)),
+    ...[...appended, ...shell.appended].flatMap((value) =>
+      appendedValueFindings(value, locate, known),
+    ),
+  ];
+}
+
+/** Find what to migrate in commands already split into words (`commandWordFindingList`). */
 export function commandWordFindings(
   commands: readonly ShellCommand[],
   locate: Locate,
   variables: FileVariables = NO_VARIABLES,
   appended: readonly AppendedValue[] = [],
 ): ShellTextFindings {
-  const known = withUnreadVariables(withWordExpansions(withShellAssignments(commands, variables)));
-  const shell = shellAppends(commands, known);
-  return textFindings([
-    ...shell.commands.flatMap((words) => commandFindings(words, locate, known)),
-    ...[...appended, ...shell.appended].flatMap((value) =>
-      appendedValueFindings(value, locate, known),
-    ),
-  ]);
+  return textFindings(commandWordFindingList(commands, locate, variables, appended));
 }
 
 /**

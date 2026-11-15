@@ -50,7 +50,9 @@ describe("migrateMakefile and appended values", () => {
   it("migrateMakefile reports flags appended to a variable that may run another program", () => {
     const text = lines(
       "GEN := openapi-typescript",
+      "ifdef CI",
       "GEN := mytool",
+      "endif",
       "GEN += -it",
       "a:",
       `\t${make("GEN")} a.yaml`,
@@ -59,7 +61,22 @@ describe("migrateMakefile and appended values", () => {
     const migrated = migrateMakefile(text, "Makefile");
 
     expect(migrated.text).toContain("GEN += -it");
-    expect(migrated.manualSteps).toEqual([keptStep("Makefile:3", make("GEN"), ["-it"])]);
+    expect(migrated.manualSteps).toEqual([keptStep("Makefile:5", make("GEN"), ["-it"])]);
+  });
+
+  it("migrateMakefile keeps flags appended to a value that a later line sets to another tool", () => {
+    const text = lines(
+      "GEN := openapi-typescript",
+      "GEN := mytool",
+      "GEN += -it",
+      "a:",
+      "\t$(GEN)",
+    );
+
+    const migrated = migrateMakefile(text, "Makefile");
+
+    expect(migrated.text).toBe(text.replace("= openapi-typescript", "= openapi-typesafe"));
+    expect(migrated.manualSteps).toEqual([]);
   });
 
   it("migrateMakefile reports flags appended to a value from outside the file", () => {

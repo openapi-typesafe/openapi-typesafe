@@ -130,6 +130,27 @@ describe("planYamlReach and generator variables", () => {
     expect(parsed).toEqual([files[".gitlab-ci.yml"], files[".gitlab-ci.yml"]]);
   });
 
+  it("planYamlReach gives an included file the variables that its includes set", async () => {
+    const reach = await reachOf({
+      "Taskfile.yml": lines(
+        "vars: { GEN: npx openapi-typescript, G2: npx openapi-typescript }",
+        "includes:",
+        "  a:",
+        "    taskfile: ./tasks/a.yml",
+        "    vars: { GEN: grep, G2: { sh: echo hi }, G3: npx openapi-typescript }",
+        "  b: { taskfile: ./tasks/b.yml, vars: { GEN: grep } }",
+        "  c: { taskfile: ./tasks/b.yml }",
+      ),
+      "tasks/a.yml": lines("tasks: {}"),
+      "tasks/b.yml": lines("tasks: {}"),
+    });
+
+    const sorted = (path: string): string[] =>
+      [...(reach.includedVariables.get(path) ?? [])].sort();
+    expect(sorted("tasks/a.yml")).toEqual(["G2", "G3"]);
+    expect(sorted("tasks/b.yml")).toEqual(["G2", "G3", "GEN"]);
+  });
+
   it("planYamlReach leaves an API description unread", async () => {
     const reach = await reachOf({
       "openapi.yaml": lines("openapi: 3.1.0", "env: { GEN: openapi-typescript }"),
@@ -166,6 +187,24 @@ describe("migrateProject and the YAML files that reach others", () => {
     expect(dependencies.files.files.get("tasks/gen.yml")).toBe(
       lines("tasks: { a: { cmds: [npx openapi-typesafe a.yaml --immutable] } }"),
     );
+  });
+
+  it("migrateProject leaves a variable that a Taskfile include sets to another program", async () => {
+    const included = lines("tasks: { a: { cmds: ['{{.GEN}} -it c.txt'] } }");
+    const dependencies = setUp({
+      "Taskfile.yml": lines(
+        "version: '3'",
+        "includes: { other: { taskfile: ./tasks/other.yml, vars: { GEN: grep } } }",
+        "vars: { GEN: npx openapi-typescript }",
+        "tasks: { t: { cmds: ['{{.GEN}} root.yaml -it'] } }",
+      ),
+      "tasks/other.yml": included,
+    });
+
+    const { files } = await migrateProject(dependencies, { version: "1.0.0", isWrite: true });
+
+    expect(files.map((file) => file.path)).toEqual(["Taskfile.yml"]);
+    expect(dependencies.files.files.get("tasks/other.yml")).toBe(included);
   });
 
   it("migrateProject reads an included file as a CI file even when it looks like an API", async () => {
