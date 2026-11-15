@@ -526,7 +526,7 @@ describe("runCli: $ref limits", () => {
     expect(cli.generator.calls).toEqual([]);
   });
 
-  it.each(["a.yaml", "file:a.yaml"])(
+  it.each(["a.yaml", "file:a.yaml", "file:a.yaml/", "a.yaml/specs/"])(
     "runCli with --local-ref-root %s that names a file exits with 2 before generating",
     async (root) => {
       const cli = createFakeCli();
