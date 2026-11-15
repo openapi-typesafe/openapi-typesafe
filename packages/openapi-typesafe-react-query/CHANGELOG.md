@@ -2,6 +2,25 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.13
+
+### Patch Changes
+
+- [#146](https://github.com/openapi-typesafe/openapi-typesafe/pull/146) [`94a3836`](https://github.com/openapi-typesafe/openapi-typesafe/commit/94a383676781ef64637b3ee7157dadc83f6c847d) Thanks [@fedorello](https://github.com/fedorello)! - A function inside a request body, such as an arrow function field of a class, is no longer part of
+  the query key. `invalidateQueries`, `getQueriesData` and `setQueriesData` with the key of a later
+  render, or after `hydrate`, now find the query.
+
+- [#146](https://github.com/openapi-typesafe/openapi-typesafe/pull/146) [`94a3836`](https://github.com/openapi-typesafe/openapi-typesafe/commit/94a383676781ef64637b3ee7157dadc83f6c847d) Thanks [@fedorello](https://github.com/fedorello)! - A `Map` or `Set` in a body or in `params` is part of the query key by its contents, so requests
+  with different `Map`s or `Set`s, which a custom `querySerializer` or `bodySerializer` sends
+  differently, no longer share one cache entry.
+
+- [#146](https://github.com/openapi-typesafe/openapi-typesafe/pull/146) [`94a3836`](https://github.com/openapi-typesafe/openapi-typesafe/commit/94a383676781ef64637b3ee7157dadc83f6c847d) Thanks [@fedorello](https://github.com/fedorello)! - A query key no longer throws while the component renders for a value it cannot read: a circular
+  body, a body member whose `toJSON` or getter throws, a revoked `Proxy`, a `toJSON` or `toISOString`
+  getter that throws, or header pairs with an item that is no pair. Such a value is left out of the
+  key, and the request reports the error as the query error.
+- Updated dependencies [[`d539f22`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d539f227cad586e0946793c4dab552544a27a00a), [`d539f22`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d539f227cad586e0946793c4dab552544a27a00a), [`d539f22`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d539f227cad586e0946793c4dab552544a27a00a)]:
+  - openapi-typesafe-fetch@1.0.0-rc.13
+
 ## 1.0.0-rc.12
 
 ### Patch Changes

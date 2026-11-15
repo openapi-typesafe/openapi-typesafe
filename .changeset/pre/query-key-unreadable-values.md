@@ -2,6 +2,7 @@
 "openapi-typesafe-react-query": patch
 ---
 
-A parameter or header value whose `toJSON`, `toString`, `toISOString` or getter throws, or that
-refers back to itself, no longer crashes the component while it renders: the key leaves that
-part out, and the request reports the error as a query error.
+A query key no longer throws while the component renders for a value it cannot read: a circular
+body, a body member whose `toJSON` or getter throws, a revoked `Proxy`, a `toJSON` or `toISOString`
+getter that throws, or header pairs with an item that is no pair. Such a value is left out of the
+key, and the request reports the error as the query error.
