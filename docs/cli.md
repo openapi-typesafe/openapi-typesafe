@@ -527,7 +527,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `path-param-type-names` | With `--path-params-as-types`, a path parameter named `number`, `string` or `boolean` gets its placeholder, instead of the `$` and the `{name}` text the original leaves when it replaces that name inside an earlier placeholder; needs `--path-params-as-types` | none (found in our own tests) | 1.0 |
 | `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
 | `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
-| `ref-pointers` | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`; where the original does not compile, this is the default | none (found in the compat corpus) | 1.0 |
+| `ref-pointers` | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`, and a pointer to an optional property leaves out the `undefined` it adds (`Exclude<…, undefined>`); where the original does not compile, this is the default | none (found in the compat corpus) | 1.0 |
 | `ref-siblings` | OpenAPI 3.1 and 3.2: keywords next to a `$ref` (`required`, `properties`, `enum`) apply, as JSON Schema 2020-12 says, instead of being dropped; OpenAPI 3.0 ignores them, as its spec says | none (found in the rc.4 review) | 1.0 |
 | `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
@@ -1284,7 +1284,12 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   pointer that surely does not compile in place. This covers owners whose type the steps above do
   not read, such as an object with a `oneOf` of strings (`string | { … }`), a type list, or a
   `oneOf` of `null`. A pointer that may compile keeps its type, and this holds with
-  `ref-pointers` too.
+  `ref-pointers` too. A pointer type that compiles but has no value (`never`, as through an
+  owner whose `allOf` makes it `null`) is typed in place the same way; a pointer to a `false`
+  schema keeps it.
+- `Owner["key"]` of an optional property is `T | undefined`, though the property's schema is
+  `T`. Without the fix the pointer stays, as upstream writes it; with `ref-pointers` it is
+  `Exclude<Owner["key"], undefined>`, which is `T`.
 
 A parameter `$ref` to a parameter of another operation or path item
 (`#/paths/~1a/get/parameters/0`) is indexed by the parameter's location and name. When every

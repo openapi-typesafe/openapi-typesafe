@@ -452,3 +452,61 @@ gerermesaffaires (1 error) and sinao (12 errors) now compile with `--enum-values
 `--enum-values`, apple sirikit-cloud-media writes its `class` and `method` arrays with their
 literal types instead of pointers: `Intent`, their `allOf` part, declares `class` as its
 discriminator, which the walk reads as opaque. Both types compile and read the same values.
+
+## Amendment (2026-11-15): one pass where pointers compile, `never` reads, optional targets
+
+1. **No extra pass where every pointer compiles.** The amendment above ran a scratch pass for
+   every document with a `$ref` past a component, which cost 12 to 30 percent of the generation
+   time of such documents (codat accounting 80 → 104 ms, linode 87 → 112 ms, rebilly
+   167 → 200 ms). The run's own pass now records the pointer types it writes, with its messages
+   held (`HeldMessages`). Where the evaluator finds nothing to type in place, that pass is the
+   output: its footer stays on the context and its messages are written. Otherwise its footer
+   entries are dropped and the pass runs again with those `$ref`s in place. A context that holds
+   a footer of an earlier call keeps the scratch pass, since its own pass would change that
+   footer before it could be dropped. A `$ref` whose target would be written inside itself
+   (`hasInlineCycle`) is not recorded: it keeps the original type in any pass, so it needs none.
+   Measured on the corpus: no document runs a second pass, with the defaults and with
+   `--fix all`, and the whole corpus takes the same time as with rc.13 (62.4 s against 63.6 s
+   with the defaults, 64.3 s against 61.9 s with `--fix all`, within the noise of one run). The
+   largest documents (Microsoft Graph, Cloudflare, GitHub, Stripe) have no such `$ref` and run
+   one pass as before.
+2. **A pointer type that has no value** (`readsNever`: every member `never`, or an intersection
+   TypeScript reduces to `never`, also one with a `never` part) is typed in place too, as the
+   `Record<string, never>` rule of
+   the amendments above: such a type compiles but admits no value. The owners are contradictory
+   compositions, such as `type: [object]` with `allOf: [{ type: [null] }]`, whose type is
+   `X & null`. A target without a value either (a `false` schema) keeps the type written before.
+3. **Optional targets with `ref-pointers`.** `Owner["key"]` of an optional property reads
+   `T | undefined`, which TypeScript adds to every optional property, though the target's own
+   type is `T`. The output compiles and admits every value of the target, and upstream writes
+   this type for every `$ref` to an optional property, so the default keeps it (ADR-021). With
+   the `ref-pointers` fix the type is `Exclude<Owner["key"], undefined>`
+   (`withoutOptionalUndefined`); a schema type has no `undefined` of its own, so that is the
+   target's type. A nullable property keeps its `null`. The evaluator reads
+   `Exclude<T, undefined>`, so the checks above see through it.
+4. **What stays.** A `$ref` whose target is written inside itself keeps an original that may not
+   compile: an inline type cannot name itself, so only a named declaration could hold it. The
+   corpus has one, codat accounting's
+   `#/components/schemas/PushOption/definitions/pushOptionProperty`, used inside that same
+   definition; the minimal case is a schema `Tree` with
+   `definitions: { item: { properties: { children: { additionalProperties:
+   { $ref: "#/components/schemas/Tree/definitions/item" } } } } }` and a property that
+   `$ref`s the item. It is the same output as rc.13 and upstream.
+
+The pointer fuzz (400 documents per option set) checks each pointer type against a copy of its
+target (`Same<R, D>`). Mismatches with the defaults went from 743 to 519, with `ref-pointers`
+from 664 to 5, with `all` from 820 to 8. What is left falls into these classes:
+
+- An optional property's `| undefined` (point 3): 513 with the defaults, 473 with `--enum`, 506
+  with OpenAPI 3.0; none with `ref-pointers` or `all`.
+- With `--enum`, 159 where the copy declares a TypeScript enum of its own (`Dir0Owner`), which
+  is not assignable to the target's enum of the same values (`ContactOwner`). This is an
+  artefact of the copy, not of the pointer.
+- At most 8 per set through contradictory compositions three levels deep, such as a nullable
+  `type: [null, object]` owner whose `allOf` and `oneOf` parts are `null` or `false`. The
+  evaluator reads them as opaque, so the pointer stays (ADR-021: it may compile and be right).
+
+The compat corpus (1806 documents, ten option sets, against rc.13) gives the same output with
+the defaults, `--enum`, `--enum-values` and the naming sets, apart from the three documents of
+the amendment above. With `ref-pointers` (and `all`) 11 documents change, every changed line an
+`Exclude<…, undefined>` of point 3, and each compiles as before.
