@@ -45,7 +45,9 @@ them (quotes, `\` line continuations, comments, `&&`, `|`,
 own flags are renamed, and a script name (`npm run openapi-typescript`) is never changed. A
 Dockerfile's exec form (`RUN ["npx",
 "openapi-typescript", …]`, also after `RUN --mount=…`) is read word by word, and the command line of
-`["sh", "-c", "…"]` as shell text. The items of an exec-form `CMD` are the arguments of the
+`["sh", "-c", "…"]` as shell text. An instruction is read whole, as BuildKit reads it: its lines
+joined by the file's escape character (`# escape=` too), and with the here-document bodies of
+`RUN`. The items of an exec-form `CMD` are the arguments of the
 exec-form `ENTRYPOINT` of its stage (or of the stage it starts `FROM`), so after
 `ENTRYPOINT ["openapi-typescript"]` the old flags of `CMD ["api.yaml", "-it"]` are renamed, and an
 entrypoint script that may pass them on is reported. A YAML `command` after an `entrypoint` of
@@ -54,7 +56,10 @@ same way; when both are lists, they are one exec-form command, the entrypoint fi
 (`entrypoint: ["npx"]` with `command: ["openapi-typescript", "-it"]`, or `command: ["/bin/sh",
 "-c"]` with its script in `args`), and Compose's `$$GEN` there is the container's `$GEN`. A
 GitHub Docker action's `args` after its `entrypoint` are read the same way, and so are keys that
-a merge key (`<<: *gen`) gives. After an init program or an entrypoint script that runs its
+a merge key (`<<: *gen`) gives; a key of the map itself wins, also an empty one
+(`entrypoint: []`, `null` or `!reset`). A text that an anchor gives several containers is
+changed once when they would all change it the same way, and reported when they would not.
+After an init program or an entrypoint script that runs its
 command (`["tini", "--"]`, `["dumb-init", "--"]`, `["docker-entrypoint.sh"]`), a command that
 runs the generator itself is migrated as its own command. A
 Makefile variable that holds the generator (`OAT :=
@@ -119,7 +124,7 @@ is reported, not changed. A GitLab variable's `options` are values of the variab
 (`<< parameters.gen >>`), GitLab `spec: inputs` (`$[[ inputs.gen ]]`) and Azure Pipelines
 `parameters` (`${{ parameters.gen }}`) are read as input defaults are. A file that a Taskfile
 `includes`, a GitLab local `include` (also with `*` and `**`) or an Azure `template` names is read
-as a file of that kind. A variable that a YAML variable map sets to the generator may run it in
+as a file of that kind, with the `vars` that a Taskfile include gives it. A variable that a YAML variable map sets to the generator may run it in
 any file the tool reads (a script that a CI job runs), so the flags after `$GEN` there are
 reported. YAML files are changed only in command
 keys (`run`, `script`, `command`, `entrypoint`, …), in the values of the variable maps above and in input
@@ -252,7 +257,7 @@ The report lists each of these with the file and line:
   `OpenAPITSOptions`, such as `Partial<OpenAPITSOptions>`, or when the type declared for them
   names another type, such as a local alias), and `postTransform` /
   `transformProperty`, also in options that other code shares, and `openapiTS()` calls whose options it cannot see (a
-  parameter, a function call). Options that take keys from another object (`{ ...base }`) are read
+  parameter, a function call, a spread argument such as `openapiTS(...args)`). Options that take keys from another object (`{ ...base }`) are read
   through it when the file writes it (`...{ … }` or a `const` with an object), so its callbacks are
   reported and a `transform` in it is kept; a spread of anything else (an import, a call, a `let`)
   is reported, since it may bring callbacks the tool cannot see. They keep working with a

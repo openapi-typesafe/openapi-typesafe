@@ -772,6 +772,44 @@ migrate, or report; and never rename the flags of a program that is not ours.
 - **Options with no value.** `openapiTS(spec, undefined)` and `openapiTS(spec, void 0)` pass no
   options, as a call without them does, unless the file declares its own `undefined`.
 
+## Amendment (2026-11-15): the eleventh review of the migration tool
+
+The rc.12 hunt found container keys that the tool paired otherwise than Compose and Docker do,
+Dockerfile instructions it read line by line, and variables that a Taskfile include sets for its
+file. The rule holds: migrate, or report; and never rename the flags of a program that is not
+ours.
+
+- **One command line is one by its own operators.** A container scalar is read as one command
+  line when the text has at most one top-level simple command (`ownCommands`,
+  `domain/shell-words.ts`); `;`, `&&` or a blank inside a quoted word does not split it, so
+  `args: "-c 'a; b'"` is joined to its entrypoint. The command lines nested in quoted words
+  (`sh -c '…'`) are read by the YAML migration itself, once.
+- **An explicit key wins, also when it is empty.** `entrypoint: []`, `entrypoint: null` and
+  `!reset` clear the key; they are read as an empty value
+  (`DocumentEmptyValue`, `domain/config-documents.ts`) and paired like any value
+  (`domain/yaml-container-keys.ts`), so a merged entrypoint no longer reaches the command.
+- **A place that several containers read.** A YAML anchor or merge key gives one written text to
+  several containers (`domain/shared-container-places.ts`). A reading that holds only a part of
+  the written text is not a container of its own. When the whole containers that read the place
+  would change it differently, no edit is made there and a new `shared-container-text` step
+  names the place and the renames each reading gives; when they agree, the place is changed once.
+- **Dockerfile instructions are joined first.** `domain/dockerfile-instructions.ts` joins the
+  continued lines of an instruction by the file's escape character (`# escape=`), drops the empty
+  and comment lines inside a continuation, and appends the heredoc bodies of `RUN`, `COPY` and
+  `ADD`, as BuildKit reads them. Variables, stages and entrypoints are then read from whole
+  instructions; only `CMD` and `ENTRYPOINT` set a stage's entrypoint pair.
+- **A Taskfile include gives its file variables.** `includes.<name>.vars` sets variables of the
+  included file (`includedFiles`, `domain/yaml-includes.ts`). A project variable set to the
+  generator reaches the file only through an include that leaves it unset; one that an include
+  sets to the generator reaches it too (`includedGeneratorVariables`).
+- **Spread arguments.** A spread before the options place (`openapiTS(...args)`) may hold the
+  options, so the call gets the `options-not-inspected` step.
+- **Not changed: make append chains.** Make reads `GEN := npx` then `GEN += openapi-typescript`
+  as one value, and `$(MAKE) -C sub GEN+=-it` as an argument appended to a variable of another
+  Makefile. The make variable model reads each definition as an alternative program
+  (`domain/variable-programs.ts`); reading a chain of appends as one value, and a program by name
+  across Makefiles, needs a change of that model. Until then such a chain is read as before.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.
