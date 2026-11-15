@@ -215,14 +215,14 @@ export type PathItemObject = {
 };
 
 /**
- * Return `responses` for an Operation Object; `never` for a type without them. The check names
- * the `Record` constraint of the response types, not `any`: TypeScript reads the map of an
- * operation generic in its type (`Op extends Record<string | number, any>`) through the true
- * branch, and `responses: any` there made `SuccessResponse` and `ErrorResponse` of it assignable
- * to any type (a `number`, `undefined`). `never`, not `unknown`, for a type without them, as
- * `unknown` does not meet that constraint.
+ * Return `responses` for an Operation Object, without `undefined` and `null`, so `responses` that
+ * may be left out give the map they hold; `never` for a type without them, as `unknown` does not
+ * meet the `Record` constraint of the response types. An `any` operation gives `any`, which the
+ * response types read by the rule of `IsAny`.
  */
-export type ResponseObjectMap<T> = T extends { responses: AnyRecord } ? T["responses"] : never;
+export type ResponseObjectMap<T> = T extends { responses?: unknown }
+  ? Extract<T["responses"], AnyRecord>
+  : never;
 
 /** The constraint of a Response Object Map and of an operation, as the response types take it. */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
@@ -266,9 +266,20 @@ type SuccessStatus<T> = [SuccessStatusKey<T>] extends [never]
 
 /**
  * `true` for `any`: a conditional type on `any` takes both branches, so `any` is checked first.
- * The response types check it inside `T extends unknown`: TypeScript relates a conditional type
- * on a type parameter through the one with the parameter's constraint put in, while one on
- * `IsAny<T>` relates through both branches, which for a generic path added the whole map.
+ *
+ * The response types read a type parameter by one rule (ADR-041): the result is never narrower
+ * than what a type that meets its constraint gives, so `data` and `error` in generic code fit no
+ * unrelated type. TypeScript reads a response type of a type parameter through its constraint, and
+ * an `any` there (`Op extends { responses: any }`, `Paths extends Record<string, any>`) fits every
+ * type, while a concrete `any` operation (`createClient<any>()`) must give `any`. So each response
+ * type reads its map in two steps:
+ * 1. `IsAny<Map> extends true ? any`: an `any` map gives `any`. The check type is not a type
+ *    parameter, so for one TypeScript reads only the other branch: it leaves out a branch that
+ *    is `any` itself.
+ * 2. The bodies (`SuccessMapBodies`, `ErrorMapBodies`), with an `any` map read as `unknown`: step 1
+ *    caught every concrete `any` map, so only a read through a constraint still has one.
+ * A concrete map that is not `any` gives its bodies, as before. A constraint that names statuses
+ * (`{ responses: { 200: any } }`) gives their bodies as it declares them.
  */
 type IsAny<T> = 0 extends 1 & T ? true : false;
 
@@ -278,28 +289,50 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
  * union is only the shared statuses, so one map of them lost the body of every path that did not
  * share its statuses, and a `default`-only path typed the data `undefined` (upstream). An `any`
  * map (`createClient<any>()`) gives `any`: no key of `keyof any` is a status, which gave `never`.
+ * A map that is a type parameter is read by the rule of `IsAny`.
  */
 export type SuccessResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = T extends unknown
+> =
+  IsAny<T> extends true
+    ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
+      any
+    : SuccessMapBodies<T, Media>;
+
+/**
+ * @internal Exported for the client's declarations only; not part of the API (ADR-034).
+ * The success bodies of the maps `T`, with an `any` map as `unknown` (step 2 of `IsAny`'s rule).
+ */
+export type SuccessMapBodies<T extends AnyRecord, Media> = T extends unknown
   ? IsAny<T> extends true
-    ? T
+    ? unknown
     : SuccessBodies<T, Media, SuccessStatus<T>>
   : never;
 
 /**
  * Return all 1XX, 3XX, 4XX, 5XX and `default` responses from a Response Object Map; for a union
- * of maps, the union of each map's responses, as `SuccessResponse`. An `any` map gives `any`.
+ * of maps, the union of each map's responses, as `SuccessResponse`. An `any` map gives `any`;
+ * a map that is a type parameter is read by the rule of `IsAny`.
  */
 export type ErrorResponse<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
-> = T extends unknown
+> =
+  IsAny<T> extends true
+    ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
+      any
+    : ErrorMapBodies<T, Media>;
+
+/**
+ * @internal Exported for the client's declarations only; not part of the API (ADR-034).
+ * The error bodies of the maps `T`, with an `any` map as `unknown`, as `SuccessMapBodies`.
+ */
+export type ErrorMapBodies<T extends AnyRecord, Media> = T extends unknown
   ? IsAny<T> extends true
-    ? T
+    ? unknown
     : ErrorBodies<T, Media, ErrorStatusKey<T>>
   : never;
 
@@ -466,23 +499,32 @@ type IsJSONMediaType<Key> = Key extends string
 
 /**
  * Return first JSON-like 2XX response from a path + HTTP method; for a union of operations, the
- * union of each one's.
+ * union of each one's. An operation that is a type parameter is read by the rule of `IsAny`.
  */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type SuccessResponseJSON<PathMethod extends Record<string | number, any>> =
-  PathMethod extends unknown
-    ? SuccessResponse<ResponseObjectMap<PathMethod>, JSONMediaKeys<ResponseObjectMap<PathMethod>>>
-    : never;
+  IsAny<ResponseObjectMap<PathMethod>> extends true
+    ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
+      any
+    : PathMethod extends unknown
+      ? SuccessMapBodies<
+          ResponseObjectMap<PathMethod>,
+          JSONMediaKeys<ResponseObjectMap<PathMethod>>
+        >
+      : never;
 
 /**
  * Return JSON-like 1XX, 3XX, 4XX, 5XX and `default` responses from a path + HTTP method; for a
- * union of operations, the union of each one's.
+ * union of operations, the union of each one's, as `SuccessResponseJSON`.
  */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type ErrorResponseJSON<PathMethod extends Record<string | number, any>> =
-  PathMethod extends unknown
-    ? ErrorResponse<ResponseObjectMap<PathMethod>, JSONMediaKeys<ResponseObjectMap<PathMethod>>>
-    : never;
+  IsAny<ResponseObjectMap<PathMethod>> extends true
+    ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
+      any
+    : PathMethod extends unknown
+      ? ErrorMapBodies<ResponseObjectMap<PathMethod>, JSONMediaKeys<ResponseObjectMap<PathMethod>>>
+      : never;
 
 /**
  * The media types of the responses `T` (of one operation) that may hold JSON (`IsJSONMediaType`),

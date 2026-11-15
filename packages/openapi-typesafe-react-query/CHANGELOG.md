@@ -18,6 +18,11 @@ This package is a fork of `openapi-react-query`. The entries above `0.5.4` are r
   body, a body member whose `toJSON` or getter throws, a revoked `Proxy`, a `toJSON` or `toISOString`
   getter that throws, or header pairs with an item that is no pair. Such a value is left out of the
   key, and the request reports the error as the query error.
+
+- The query key of a whole body with its own `toJSON` holds the body's own members in
+  `bodyFields`, as a form or multipart body sends them, with a function member left out:
+  `{ x: 1, toJSON: () => "j" }` has the `bodyFields` `{ x: 1 }` instead of `"j"`. This changed
+  in this release without an entry of its own.
 - Updated dependencies [[`d539f22`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d539f227cad586e0946793c4dab552544a27a00a), [`d539f22`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d539f227cad586e0946793c4dab552544a27a00a), [`d539f22`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d539f227cad586e0946793c4dab552544a27a00a)]:
   - openapi-typesafe-fetch@1.0.0-rc.13
 

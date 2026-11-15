@@ -603,7 +603,11 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   `C:/specs/pet.yaml`). An `http:` or `https:` `$ref` resolves against its document by the URL
   standard, as the schema argument resolves against the working directory, so
   `http:127.0.0.1:8080/pet.yaml` and `HTTPS://host/pet.yaml` are fetched, within
-  `--remote-ref-hosts` (openapi-typescript read them as files below the document's folder). In a local document, a `file:` URL names its file (`file:pet.yaml` is next
+  `--remote-ref-hosts` (openapi-typescript read them as files below the document's folder). A
+  `$ref` that starts with `http://` or `https://` keeps its text as the document's name, as in
+  `redocly lint` (`http://LOCALHOST/x/../pet.yaml`), so the entries of
+  `.redocly.lint-ignore.yaml` apply to it; the same document written two ways is linted twice,
+  as `redocly lint` lints it, and bundled once. In a local document, a `file:` URL names its file (`file:pet.yaml` is next
   to the document), and a URL of another scheme (`s3://bucket/pet.yaml`) or a `file:` URL that
   names no local path is always refused (`unsupported-url`). openapi-typescript read both as
   paths below the document's folder (`./s3:/bucket/pet.yaml`, `./file:/specs/pet.yaml`).

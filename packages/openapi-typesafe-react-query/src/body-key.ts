@@ -5,7 +5,7 @@
  * by its content and names its kind beside the body, so the key names what is sent. Values are
  * read by the rule of `key-read.ts`, which parameters and headers share.
  */
-import { type Ancestors, attempt, isClass, keyOf, walkMembers } from "./key-read.js";
+import { type Ancestors, attempt, inside, isClass, keyOf, walkMembers } from "./key-read.js";
 
 /**
  * The classes of `Number`, `Boolean` and `String` objects (`new Number(1)`). JSON writes such an
@@ -69,7 +69,7 @@ function hasJsonForm(value: object): boolean {
 function jsonFormKey(value: object, ancestors: Ancestors): BodyKey | undefined {
   const { toJSON } = value as { toJSON?: unknown };
   const form: unknown = typeof toJSON === "function" ? toJSON.call(value) : value.valueOf();
-  const inner = [...ancestors, value];
+  const inner = inside(ancestors, value);
   return typeof form === "object" && form !== null
     ? membersKey(form, inner)
     : keyOf(form, inner, memberKey);
@@ -205,14 +205,14 @@ function memberKey(value: unknown, ancestors: Ancestors): BodyKey | undefined {
  * The caller reads the body with `keyOf`, which leaves out a function body (JSON sends it as no
  * body) and a body that throws while it is read; the request reports the error.
  */
-export function bodyKey(body: unknown): BodyKey | undefined {
+export function bodyKey(body: unknown, ancestors: Ancestors): BodyKey | undefined {
   if (typeof body !== "object" || body === null) {
-    return memberKey(body, []);
+    return memberKey(body, ancestors);
   }
   return (
     bytesKey(body) ??
     (hasJsonForm(body) && Object.keys(body).length > 0
-      ? { ...attempt(() => jsonFormKey(body, [])), bodyFields: membersKey(body, []) }
-      : memberKey(body, []))
+      ? { ...attempt(() => jsonFormKey(body, ancestors)), bodyFields: membersKey(body, ancestors) }
+      : memberKey(body, ancestors))
   );
 }
