@@ -193,7 +193,10 @@ describe("TypeEvaluator", () => {
     const index = (type: IrType) => evaluated(irIndexedAccess(type, key("kind")));
 
     expect(index(irIntersection([kind("a"), kind("b")]))).toBe("never");
-    expect(index(irIntersection([kind("a", true), kind("b", true)]))).toBe('"a" & "b"');
+    // Optional, each may be `undefined` outside `FlattenedDeepRequired`.
+    expect(index(irIntersection([kind("a", true), kind("b", true)]))).toBe(
+      '("a" | undefined) & ("b" | undefined)',
+    );
     expect(index(irIntersection([kind("a"), kind("a")]))).toBe('"a" & "a"');
   });
 

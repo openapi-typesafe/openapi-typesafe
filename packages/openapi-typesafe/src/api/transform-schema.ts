@@ -26,6 +26,7 @@ import {
   type SharedEnumNames,
 } from "../application/transform/footer/shared-enum-names.js";
 import type { RawKeyTypes } from "../application/transform/footer/signature-index.js";
+import { RecordedPointers } from "../application/transform/ref-pointer/pointer-checks.js";
 import type { IrDeclaration, IrEnumDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
 import { schemaDialectOf } from "../domain/openapi/schema-dialect.js";
@@ -36,6 +37,7 @@ import { documentDeclarations, type TransformedDocument } from "./document-decla
 import { excludedValuesWarning } from "./enum-values-warnings.js";
 import { type FooterEntry, isIrDeclaration } from "./footer-entry.js";
 import { ContextFooterSink } from "./footer-sink.js";
+import { type PointerPass, refsTypedInPlace } from "./ref-pointer-passes.js";
 import type { RunContext } from "./run-context.js";
 import { createTransformContext } from "./transform-context.js";
 
@@ -187,10 +189,8 @@ function withTemplateRefs(
   );
 }
 
-/** @internal Root types, the footer, then the closing declarations (Phase 5, step 6). */
-export function transformDocument(schema: OpenAPI3, ctx: RunContext): TransformedDocument {
-  const document = schema as DocumentObject;
-  ctx.schemaDialect = schemaDialectOf(document.openapi);
+/** One pass over the document: root types, the footer, then the closing declarations. */
+function transformPass(document: DocumentObject, ctx: RunContext): PointerPass {
   const names: RunFooterNames = {
     enums: new EnumNameClaims(NAMES_THE_OUTPUT_MAY_NEED, componentEnumNames(document)),
     owners: new EnumOwners(),
@@ -214,7 +214,21 @@ export function transformDocument(schema: OpenAPI3, ctx: RunContext): Transforme
     names,
   );
   const footer = parts.footer.filter(isIrDeclaration);
-  return { ...parts, body: renameTakenAliases(parts.body, footer, parts.closing) };
+  const renamed = { ...parts, body: renameTakenAliases(parts.body, footer, parts.closing) };
+  return { parts: renamed, keyTypes, templates };
+}
+
+/**
+ * @internal Root types, the footer, then the closing declarations (Phase 5, step 6). A `$ref`
+ * into a schema whose type an earlier pass found not to compile is typed in place
+ * (`refsTypedInPlace`).
+ */
+export function transformDocument(schema: OpenAPI3, ctx: RunContext): TransformedDocument {
+  const document = schema as DocumentObject;
+  ctx.schemaDialect = schemaDialectOf(document.openapi);
+  const inPlace = refsTypedInPlace(document, ctx, (pass) => transformPass(document, pass));
+  ctx.refPointerChecks = new RecordedPointers(inPlace);
+  return transformPass(document, ctx).parts;
 }
 
 /**

@@ -133,10 +133,19 @@ export function schemaRefType(
   seen: readonly string[] = [],
 ): IrType {
   const pointer = pointerOf(ref);
-  if (pointer.segments.length <= leadingSegmentsOf(pointer) || !isCorrected(pointer, request)) {
+  if (pointer.segments.length <= leadingSegmentsOf(pointer)) {
     return refType(ref);
   }
-  return correctedType(ref, pointer, request, seen) ?? refType(ref);
+  const checks = request.context.pointerChecks;
+  if (checks?.isInPlace(ref)) {
+    // An earlier pass found this pointer type to be an error (`RefPointerChecks`).
+    return targetType(ref, pointer, request, seen) ?? refType(ref);
+  }
+  const type = isCorrected(pointer, request)
+    ? (correctedType(ref, pointer, request, seen) ?? refType(ref))
+    : refType(ref);
+  checks?.record(ref, type);
+  return type;
 }
 
 /**

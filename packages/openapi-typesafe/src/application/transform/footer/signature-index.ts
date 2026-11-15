@@ -16,7 +16,12 @@ export type RawKeyTypes = ReadonlyMap<string, readonly TemplateShape[]>;
 
 /** What a key reads: the types of the members it reads, or why it reads none. */
 export type MemberRead =
-  | { readonly kind: "types"; readonly types: readonly IrType[] }
+  | {
+      readonly kind: "types";
+      readonly types: readonly IrType[];
+      /** An optional property, whose value outside `FlattenedDeepRequired` may be `undefined`. */
+      readonly isOptional?: boolean;
+    }
   | { readonly kind: "missing" }
   | { readonly kind: "opaque" };
 
@@ -81,8 +86,8 @@ export function memberRead(
   const property = members.find(
     (member) => member.kind === "property" && propertyKey(member.name) === text,
   );
-  if (property !== undefined) {
-    return { kind: "types", types: [property.type] };
+  if (property?.kind === "property") {
+    return { kind: "types", types: [property.type], isOptional: property.isOptional };
   }
   const read = signatureRead(members, key, keyTypes);
   return read.kind === "missing" && text in {} ? OPAQUE_READ : read;

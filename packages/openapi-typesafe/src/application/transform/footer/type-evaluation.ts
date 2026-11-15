@@ -1,17 +1,25 @@
-import { irObject, irStringIndexSignature } from "../../../domain/ir/constructors.js";
+import {
+  irIndexedAccess,
+  irIntersection,
+  irObject,
+  irProperty,
+  irReference,
+  irStringIndexSignature,
+} from "../../../domain/ir/constructors.js";
 import type { IrDeclaration, IrTupleType, IrType } from "../../../domain/ir/nodes.js";
+import { toPropertyName } from "../../../domain/ir/property-name.js";
 import {
   absorbed,
   type Evaluated,
   type Evaluation,
   intersectionType,
-  isNullish,
   OPAQUE,
   propertyKey,
   tupleAsArray,
   UNKNOWN,
   unionType,
 } from "./evaluation.js";
+import { isNullishMember } from "./intersection-parts.js";
 import type { RawKeyTypes } from "./signature-index.js";
 import { indexType } from "./type-indexing.js";
 import { extracted, markerObject, omitted } from "./type-rules.js";
@@ -136,6 +144,7 @@ export class TypeEvaluator {
       case "NonNullable":
         return this.withoutNullish(argument);
       case "WithRequired":
+        return second === undefined ? argument : this.withRequired(argument, second);
       case "Readonly":
         return argument;
       case "Partial":
@@ -190,8 +199,33 @@ export class TypeEvaluator {
     if (members.some((member) => member.kind !== "type")) {
       return OPAQUE;
     }
-    const kept = (members as Evaluated[]).filter((member) => !isNullish(member.type));
+    const kept = (members as Evaluated[]).filter((member) => !isNullishMember(this, member));
     return { ...value, type: unionType(kept.map((member) => member.type)) };
+  }
+
+  /**
+   * `WithRequired<T, K>` is `T & { [P in K]-?: T[P] }`: each key of `K` is required, so outside
+   * `FlattenedDeepRequired` its value is not `undefined`. `NonNullable` stands in for `-?`, which
+   * also drops `null`: the evaluator then reads a key as present that may be `null`, never one as
+   * missing that is not. Keys other than string literals, or a `T` that is no object, leave `T`
+   * as it is.
+   */
+  private withRequired(value: Evaluated, keys: IrType): Evaluation {
+    const members = this.membersOf({ ...value, type: keys });
+    const names = members.flatMap((member) =>
+      member.kind === "type" && member.type.kind === "stringLiteral" ? [member.type] : [],
+    );
+    const isObject = value.type.kind === "object" || value.type.kind === "intersection";
+    if (names.length !== members.length || !isObject) {
+      return value;
+    }
+    const required = names.map((name) =>
+      irProperty(
+        toPropertyName(name.value),
+        irReference("NonNullable", [irIndexedAccess(value.type, name)]),
+      ),
+    );
+    return { ...value, type: irIntersection([value.type, irObject(required)]) };
   }
 
   /** `Extract<T, { key: unknown }>` keeps the members that have `key`; other probes are opaque. */

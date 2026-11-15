@@ -75,11 +75,6 @@ function aliasOf(output: string, name: string): string | undefined {
   return new RegExp(`^ {8}${name}: (.+);$`, "m").exec(output)?.[1];
 }
 
-/** Every alias except `NamedContent`, whose original type is kept (see the last test). */
-function compilingPart(output: string): string {
-  return output.replace(/^ {8}NamedContent: .+$/m, "");
-}
-
 describe("$refs into the content of a header or parameter", () => {
   it("openapiTS indexes each media type member of a header", async () => {
     const output = await generate();
@@ -90,7 +85,7 @@ describe("$refs into the content of a header or parameter", () => {
     expect(aliasOf(output, "HeaderProperty")).toBe('components["headers"]["H"]["text/plain"]["n"]');
     expect(aliasOf(output, "HeaderSchema")).toBe('components["headers"]["H"]["text/plain"]');
     expect(aliasOf(output, "HeaderContent")).toBe('components["headers"]["H"]');
-    expect(typeErrorsOf(compilingPart(output))).toEqual([]);
+    expect(typeErrorsOf(output)).toEqual([]);
   });
 
   it("openapiTS types a property of a string parameter's content in place", async () => {
@@ -109,7 +104,7 @@ describe("$refs into the content of a header or parameter", () => {
     expect(aliasOf(output, "HeaderProperty")).toBe('components["headers"]["H"]["n"]');
     expect(aliasOf(output, "HeaderSchema")).toBe('components["headers"]["H"]');
     expect(aliasOf(output, "ParameterProperty")).toBe('components["parameters"]["P"]["n"]');
-    expect(typeErrorsOf(compilingPart(output))).toEqual([]);
+    expect(typeErrorsOf(output)).toEqual([]);
   });
 
   it("openapiTS with parameter-header-content types another media type and the map in place", async () => {
@@ -132,9 +127,11 @@ describe("$refs into the content of a header or parameter", () => {
     expect(aliasOf(output, "IgnoredContent")).toBe("number");
   });
 
-  it("openapiTS keeps the original type where a media type is named content", async () => {
+  it("openapiTS types a $ref through a media type named content in place", async () => {
     const output = await generate();
 
-    expect(aliasOf(output, "NamedContent")).toBe('components["headers"]["Named"]["content"]["content"]["schema"]["n"]');
+    // The shape model does not read this map; the original type is checked against the
+    // generated types, and `["schema"]` of the media type's type is no member of it.
+    expect(aliasOf(output, "NamedContent")).toBe("number");
   });
 });

@@ -39,10 +39,9 @@ describe("schema $refs through opaque shapes keep a pointer that compiles", () =
         Pet: {
           ...objectOf({ kind: STRING }),
           required: ["kind"],
-          discriminator: { propertyName: "kind" },
-          oneOf: [ref("Cat")],
+          discriminator: { propertyName: "kind", mapping: { cat: "#/components/schemas/Cat" } },
         },
-        Cat: objectOf({ kind: STRING }),
+        Cat: { allOf: [ref("Pet"), objectOf({ lives: { type: "integer" } })] },
         H: holder("Pet/properties/kind"),
       },
       'components["schemas"]["Pet"]["kind"]',
@@ -84,6 +83,25 @@ describe("schema $refs through opaque shapes keep a pointer that compiles", () =
     expect(type).toBe('components["schemas"]["File"]["size"]');
     // The DOM library declares `Blob`; the checker of the tests loads no library of it.
     expect(typeErrorsOf(`declare class Blob { readonly size: number; }\n${output}`)).toEqual([]);
+  });
+
+  it("openapiTS types the discriminator's own property next to its oneOf in place", async () => {
+    // The discriminator scan gives `Cat` its own `kind`, so `Pet["kind"]` reads `"Cat"`.
+    const schemas = {
+      Pet: {
+        ...objectOf({ kind: STRING }),
+        required: ["kind"],
+        discriminator: { propertyName: "kind" },
+        oneOf: [ref("Cat")],
+      },
+      Cat: objectOf({ kind: STRING }),
+      H: holder("Pet/properties/kind"),
+    };
+
+    const { output, type } = await holderType(documentOf(schemas));
+
+    expect(type).toBe("string");
+    expect(typeErrorsOf(output)).toEqual([]);
   });
 
   it("openapiTS types a $ref into a tuple position in place", async () => {

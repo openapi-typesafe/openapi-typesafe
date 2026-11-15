@@ -11,6 +11,10 @@ import {
   tupleAsArray,
   unionType,
 } from "./evaluation.js";
+import { flatParts, hasDisjointPrimitives } from "./intersection-parts.js";
+
+const UNDEFINED: IrType = { kind: "keyword", keyword: "undefined" };
+
 import { memberRead, type RawKeyTypes } from "./signature-index.js";
 import { declaredFirst, isNeverIntersection, type TypeExpansion } from "./type-rules.js";
 
@@ -74,7 +78,13 @@ function memberType(
   // `T[A | B]` is `T[A] | T[B]`; a key that reads several signatures reads their intersection.
   const found = keys.map((key): Evaluation => {
     const read = memberRead(members, key, types.keyTypes);
-    return read.kind === "types" ? flattened(types, owner, intersectionType(read.types)) : read;
+    if (read.kind !== "types") {
+      return read;
+    }
+    // Without `exactOptionalPropertyTypes` an optional property may be `undefined` too, which
+    // `FlattenedDeepRequired` drops again.
+    const type = intersectionType(read.types);
+    return flattened(types, owner, read.isOptional === true ? unionType([type, UNDEFINED]) : type);
   });
   const failed = found.find((member) => member.kind !== "type");
   if (failed !== undefined) {
@@ -103,10 +113,11 @@ function keyShapesOf(
 function partsIndex(
   types: IndexedTypes,
   owner: Evaluated,
-  parts: readonly IrType[],
+  written: readonly IrType[],
   index: IrType,
 ): Evaluation {
-  if (isNeverIntersection(types, owner, parts)) {
+  const parts = flatParts(types, owner, written);
+  if (hasDisjointPrimitives(types, owner, parts) || isNeverIntersection(types, owner, parts)) {
     return { ...owner, type: NEVER };
   }
   const found = parts.map((type) => types.index({ ...owner, type }, index));
@@ -143,13 +154,20 @@ function isArrayMix(
   const shallow: Evaluated = { ...owner, deep: false };
   const read = parts.map((type) => ({ type, found: types.index({ ...shallow, type }, index) }));
   const shapes = declaredFirst(types, shallow, indexKey(index), read).flatMap((found) =>
-    found.kind === "type" && !isUnknown(found.type) ? [arrayShape(types, found)] : [],
+    found.kind === "type" && !isUnknown(types, found) ? [arrayShape(types, found)] : [],
   );
   return shapes.includes("arrays") && (shapes.includes("mixed") || shapes.includes("none"));
 }
 
-function isUnknown(type: IrType): boolean {
-  return type.kind === "keyword" && type.keyword === "unknown";
+/** `unknown`, also as an optional value: `unknown | undefined` is `unknown`. */
+function isUnknown(types: IndexedTypes, value: Evaluated): boolean {
+  const [only, ...more] = types.membersOf(value);
+  return (
+    more.length === 0 &&
+    only?.kind === "type" &&
+    only.type.kind === "keyword" &&
+    only.type.keyword === "unknown"
+  );
 }
 
 function arrayShape(types: IndexedTypes, value: Evaluated): ArrayShape {
