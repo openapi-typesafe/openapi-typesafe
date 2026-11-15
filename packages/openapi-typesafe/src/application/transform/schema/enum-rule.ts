@@ -60,11 +60,12 @@ function tsEnumEntries(schema: SchemaObject, options: SchemaOptions): [unknown, 
 }
 
 /**
- * `--enum`: string and number enums become TypeScript enums. The original meant to allow `null`
- * too, but tested `typeof value` against `null`, so an enum containing null stays a union; the
- * `nullable-enums` fix declares its other values.
+ * Whether `--enum` types the schema as a TypeScript enum, not as a union of its values: string
+ * and number enums. The original meant to allow `null` too, but tested `typeof value` against
+ * `null`, so an enum containing null stays a union; the `nullable-enums` fix declares its other
+ * values.
  */
-function isTsEnum(schema: SchemaObject, options: SchemaOptions): boolean {
+export function isTsEnum(schema: SchemaObject, options: SchemaOptions): boolean {
   if (!options.enum || !schema.enum) {
     return false;
   }

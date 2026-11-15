@@ -2,7 +2,7 @@ import { irIndexedAccess, irKeyword, irReference } from "../../../domain/ir/cons
 import type { IrKeyword, IrType } from "../../../domain/ir/nodes.js";
 import { indexBy, indexKeyword, rootType } from "../ref-type.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
-import { isMissing } from "./generated-member.js";
+import { type GeneratedMember, isMissing } from "./generated-member.js";
 import { generatedMember, isMissingComposedKey } from "./generated-shape.js";
 import {
   childLocation,
@@ -156,6 +156,19 @@ function hasKeywordMember(owner: unknown, segment: string): boolean {
   return segment === "items" ? isArrayShape(owner) : isObjectShape(owner);
 }
 
+function hasNoDefsMember(member: GeneratedMember): boolean {
+  return isMissing(member) || member.kind === "never";
+}
+
+/** Whether an array schema is typed as a tuple: `prefixItems`, or a list of `items`. */
+function hasTupleElements(owner: unknown): boolean {
+  if (!isJsonObject(owner)) {
+    return false;
+  }
+  const { prefixItems, items } = owner;
+  return (Array.isArray(prefixItems) && prefixItems.length > 0) || Array.isArray(items);
+}
+
 function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: TypedWalkInput) {
   const owner = followLocated(walk, input.refs);
   if (!hasKeywordMember(owner.node, segment)) {
@@ -165,15 +178,19 @@ function keywordStep(walk: TypedWalk, segment: string, isLast: boolean, input: T
     case "properties":
       return { ...walk, isName: true, namesLocation: childLocation(owner.location, segment) };
     case "items":
-      return indexEntries(walk, "number", "items", input.refs);
+      // A tuple's `[number]` is the union of its elements and rest items, not the items' type.
+      return hasTupleElements(owner.node)
+        ? null
+        : indexEntries(walk, "number", "items", input.refs);
     case "additionalProperties":
       // Otherwise the walk stops, and the target is typed in place.
       return isIndexedByValue(owner.node, input.options, input.refs)
         ? indexEntries(walk, "string", "additionalProperties", input.refs)
         : null;
     case DEFS_KEYWORD:
-      // Only the object rule writes a `$defs` member: an enum or an array next to it has none.
-      return isMissing(generatedMember(owner, segment, input.options, input.refs))
+      // Only the object rule writes a `$defs` member: an enum or an array next to it has none,
+      // and the `never` of an empty enum has every key, but as `never`.
+      return hasNoDefsMember(generatedMember(owner, segment, input.options, input.refs))
         ? null
         : defsStep(walk, owner, isLast);
     default:

@@ -190,6 +190,19 @@ describe("unionMember", () => {
     expect(unionMember([])).toBe(OPAQUE);
   });
 
+  it("unionMember reads several index signatures as no one schema's type", () => {
+    const index = (node: unknown) =>
+      ({ kind: "index", node, location: "#/x", isOtherType: false }) as const;
+    const first = index({ type: "string" });
+
+    expect(unionMember([first, index({ type: "string" })])).toEqual({
+      ...first,
+      isOtherType: true,
+    });
+    expect(unionMember([property(true), first])).toEqual({ ...first, isOtherType: true });
+    expect(unionMember([first, first])).toBe(first);
+  });
+
   it("unionMember is missing where one member misses the key", () => {
     expect(unionMember([NEVER_VALUES, property(true), MISSING])).toBe(MISSING);
   });

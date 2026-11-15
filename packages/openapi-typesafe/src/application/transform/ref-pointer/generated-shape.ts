@@ -1,6 +1,6 @@
 import { isRawBinarySchema } from "../../../domain/openapi/binary-content.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { enumRule } from "../schema/enum-rule.js";
+import { enumRule, isTsEnum } from "../schema/enum-rule.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import { unevaluatedSchemaOf } from "../schema/unevaluated-schema.js";
 import {
@@ -100,9 +100,20 @@ function literalPrototypeOf(value: unknown): object | undefined {
 /**
  * A key of a literal type: missing where one of its primitive values has no such member (the
  * `oneOf` of `"red" | "green"`). A `null` value is left out: the `nullable-enums` fix may drop it.
- * An object or array literal is opaque.
+ * An object or array literal is opaque. Without values the type is `never`, whose every key is
+ * `never` too, or with `--enum` an enum without members, which has no key; `null` alone has none.
  */
-function literalMember(values: readonly unknown[], key: string): GeneratedMember {
+function literalMember(
+  values: readonly unknown[],
+  key: string,
+  isTypeScriptEnum: boolean,
+): GeneratedMember {
+  if (values.length === 0) {
+    return isTypeScriptEnum ? MISSING : NEVER_VALUES;
+  }
+  if (values.every((value) => value === null)) {
+    return MISSING;
+  }
   const prototypes = values.filter((value) => value !== null).map(literalPrototypeOf);
   if (prototypes.some((prototype) => prototype === undefined)) {
     return OPAQUE;
@@ -216,7 +227,7 @@ function memberAt(schema: LocatedNode, key: string, input: MemberInput): Generat
   }
   const literals = literalValuesOf(node);
   if (literals !== null) {
-    return literalMember(literals, key);
+    return literalMember(literals, key, isTsEnum(node as SchemaObject, input.options));
   }
   if (isNullableSchema(node)) {
     // Every key of `T | null` is an error, unless `T` is unknown (then the type is `unknown`).
