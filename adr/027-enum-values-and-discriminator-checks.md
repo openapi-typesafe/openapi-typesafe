@@ -165,3 +165,16 @@ which no `--enum-values` array lists (its values are strings and numbers), so ea
 `"a" | "b" | { x?: string }`. Such a member now counts as another value too, `readonly` arrays
 and `Record<string, never>` included. The compat rule `enum-values-widened-location` counts every
 object type of the TypeScript checker the same way.
+
+## Amendment (2026-11-15): a record value in a union variant
+
+`FlattenedDeepRequired<…>["Stats"][string]` of an `additionalProperties` enum in an `anyOf` /
+`oneOf` variant: the location is the whole union, and `[string]` of a union needs every member to
+have a `string` index signature. Next to a member without one (a `string`, an object without a
+record), the index does not compile (TS2537), but the evaluator read a key with no matching
+signature as opaque, so the array kept that type. A `string` or `number` key that no signature of
+an object admits, and a `string` key of a primitive or an array, are now missing, so such an array
+is typed by its own values. Next to `null` the type keeps `[string]`: `FlattenedDeepRequired`
+drops `null`, so the index compiles. The `[string]` index is a keyword type now, as it is printed.
+
+Changes from rc.12: these arrays, which did not compile, are typed by their values.

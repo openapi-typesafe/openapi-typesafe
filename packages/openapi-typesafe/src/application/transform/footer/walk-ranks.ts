@@ -1,6 +1,6 @@
 /**
  * Where the generator's walk of the document meets the owners of enum names, which orders the
- * owners that ask for one name (`inNamingOrder`). The walk visits every location once, in the
+ * owners that ask for one name (`inNamingOrder`). The walk visits every schema once, in the
  * order of the document, whatever `$ref`s point into it; a `$ref` that types a schema elsewhere
  * (`SchemaRequest.isThroughRef`) is no place in the walk, so it changes no rank.
  */
@@ -13,8 +13,13 @@ export interface ClaimPlace {
   readonly position?: number | undefined;
 }
 
-/** The rank of a place: when the walk first met its location, then the position there. */
-export type WalkRank = readonly [location: number, position: number];
+/**
+ * The rank of a place: when the walk first met its location, then the position there, then when
+ * the walk made the request. Schemas typed at one location and position (the second element of
+ * an inner tuple and of its outer one, `[[a, b], c]`; the elements of two `allOf` tuples) are
+ * ranked by the walk too, so no two places tie and no order of requests decides a name.
+ */
+export type WalkRank = readonly [location: number, position: number, request: number];
 
 /** A schema that is no tuple element ranks before the elements of a tuple at its location. */
 const NO_POSITION = -1;
@@ -24,7 +29,7 @@ export function compareRanks(left: WalkRank | undefined, right: WalkRank | undef
   if (left === undefined || right === undefined) {
     return Number(left === undefined) - Number(right === undefined);
   }
-  return left[0] - right[0] || left[1] - right[1];
+  return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
 }
 
 /** The earlier of two ranks of one owner: elements of the same values share one owner. */
@@ -38,6 +43,8 @@ export function earlierRank(
 /** The ranks of the walked locations of one run, in the order the walk first met them. */
 export class WalkRanks {
   private readonly locations = new Map<string, number>();
+  /** The walk's requests so far: the walk makes them in the order of the document. */
+  private walkedRequests = 0;
 
   /** The rank of a place; undefined for a request the walk did not make. */
   rankOf(place: ClaimPlace): WalkRank | undefined {
@@ -46,6 +53,7 @@ export class WalkRanks {
     }
     const location = this.locations.get(place.walkedAt) ?? this.locations.size;
     this.locations.set(place.walkedAt, location);
-    return [location, place.position ?? NO_POSITION];
+    const request = this.walkedRequests++;
+    return [location, place.position ?? NO_POSITION, request];
   }
 }

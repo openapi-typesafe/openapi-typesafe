@@ -5,7 +5,7 @@ import { declaredValueTypes } from "../declared-value-types.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { unionOf } from "../type-combinators.js";
 import { recordValueAccess } from "./object-type.js";
-import type { SchemaRequest } from "./schema-rule.js";
+import { AT_SHARED_LOCATION, type SchemaRequest } from "./schema-rule.js";
 import { unevaluatedSchemaOf } from "./unevaluated-schema.js";
 
 /**
@@ -42,6 +42,7 @@ export function unevaluatedPropertiesType(
     ? [UNKNOWN_TYPE]
     : [
         request.transformNested(unevaluated, request.location, {
+          ...AT_SHARED_LOCATION,
           valueAccess: recordValueAccess(schema, "unevaluatedProperties", request),
         }),
         ...(composed === null ? [] : declaredValueTypes(composed, request.context.footer)),

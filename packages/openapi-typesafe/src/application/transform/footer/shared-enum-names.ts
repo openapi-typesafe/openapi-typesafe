@@ -51,6 +51,12 @@ export class SharedEnumNameRecorder implements SharedEnumNames {
   private readonly candidatesByKey = new Map<string, NameCandidate[]>();
 
   nameOf(key: string, name: string, request: EnumDeclarationRequest): string {
+    // Only a schema the walk of the document types names the enum: a `$ref` that types its
+    // target elsewhere (`walkedAt` undefined), such as one into a `$defs` entry of an enum
+    // schema, which the walk does not type, changes no name.
+    if (request.walkedAt === undefined) {
+      return name;
+    }
     // A fresh naming state: the run's state depends on the names built before (EnumNaming).
     const candidate = {
       name: new EnumNaming().enumName(request.name),

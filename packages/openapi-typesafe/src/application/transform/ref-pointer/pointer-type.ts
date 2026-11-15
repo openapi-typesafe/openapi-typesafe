@@ -74,6 +74,7 @@ function targetType(
       valueAccess: valueAccessOf(location.recordOwner, request),
       parent: tupleHolderOf(pointer, request.context.refs),
       isThroughRef: true,
+      isAtSharedLocation: location.isShared,
     },
   );
 }

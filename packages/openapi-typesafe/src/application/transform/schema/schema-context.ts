@@ -92,11 +92,16 @@ export interface EnumDeclarationRequest {
    */
   readonly isOwnerReference?: boolean;
   /**
-   * The schema is a `prefixItems` (or `items` list) element, typed at its tuple's location, so
-   * the elements of one tuple share `name`; elements with other values are other enums. The
-   * element's position in the tuple, which orders the numbers of their names.
+   * The schema is a `prefixItems` (or `items` list) element, typed at its tuple's location: its
+   * position in the tuple, which orders the numbers of the names of the tuple's enums.
    */
   readonly tupleIndex?: number;
+  /**
+   * The schema shares its location, and so `name`, with other schemas that are neither it nor
+   * intersected with it (`SchemaRequest.isAtSharedLocation`): an enum with other values there is
+   * another enum.
+   */
+  readonly isAtSharedLocation?: boolean;
   /**
    * The location the generator's walk of the document types the schema at (a tuple element's is
    * its tuple's), which orders the owners of one name (`WalkRanks`). Undefined where a `$ref`

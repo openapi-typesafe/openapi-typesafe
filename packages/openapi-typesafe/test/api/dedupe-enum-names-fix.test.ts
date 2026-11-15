@@ -94,6 +94,16 @@ describe("dedupe-enum-names fix", () => {
     expect(enumNames(output)).toEqual(["PetState", "OwnerState"]);
   });
 
+  it("openapiTS with the fix leaves out a schema only a $ref types", async () => {
+    const defs = { type: "object", definitions: { A: { type: "string", enum: VALUES } } };
+    const schemas = { LongOwnerName: holder("status"), Defs: defs };
+
+    const withRef = await fixed({ ...schemas, Ref: { $ref: "#/components/schemas/Defs/definitions/A" } });
+
+    expect(enumNames(withRef)).toEqual(["LongOwnerNameStatus"]);
+    expect(withRef).toContain("Ref: LongOwnerNameStatus;");
+  });
+
   it("openapiTS with the fix changes nothing without --dedupe-enums", async () => {
     const schemas = { Pet: holder("state"), Owner: holder("status") };
 

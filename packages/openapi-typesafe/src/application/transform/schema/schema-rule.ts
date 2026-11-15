@@ -21,7 +21,18 @@ export interface NestedCall {
   readonly parent?: SchemaObject | undefined;
   /** It is typed for a `$ref` that points into it (`SchemaRequest.isThroughRef`). */
   readonly isThroughRef?: boolean;
+  /**
+   * It shares its location with other schemas (`SchemaRequest.isAtSharedLocation`); the holder's
+   * by default, since a location that a nested schema appends to is shared too.
+   */
+  readonly isAtSharedLocation?: boolean;
 }
+
+/**
+ * The call of a schema typed at its holder's location next to other schemas: an array's elements
+ * and items, an object's record values (`SchemaRequest.isAtSharedLocation`).
+ */
+export const AT_SHARED_LOCATION: NestedCall = { isAtSharedLocation: true };
 
 /** Transform a nested schema, with `postTransform` applied (the recursion entry point). */
 export type TransformNested = (
@@ -45,6 +56,13 @@ export interface SchemaRequest {
    * a schema: the generator's walk of the document meets it elsewhere. False for a walked schema.
    */
   readonly isThroughRef: boolean;
+  /**
+   * The schema is typed at a location that other schemas, neither it nor intersected with it,
+   * are typed at too: the elements and items of an array, the record values of an object, and
+   * every schema nested in them (`Shape/kind` for the `kind` of each element of `Shape`). Their
+   * `--enum` declarations are told apart by their values (`enumOwner`).
+   */
+  readonly isAtSharedLocation: boolean;
   readonly transformNested: TransformNested;
 }
 
