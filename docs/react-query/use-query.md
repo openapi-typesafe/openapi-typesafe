@@ -49,10 +49,19 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   href, a `Date` as its local text (`String(date)`, not the ISO text a header parameter sends),
   and an array as the text of each item. Header names, in plain `headers` and in
   `params.header`, are written in lower case, as `Headers` matches them in any case, and in
-  their order: `{ "X-A": "1", "x-a": "2" }` sends and has the key `{ "x-a": "2" }`. A
-  `toJSON`, `toString`, `toISOString` or getter that throws, and a member that refers back to
-  an object it is in, are left out of the key rather than crash the component; the request
-  reports the error. Fields, parameters and headers set to
+  their order: `{ "X-A": "1", "x-a": "2" }` sends and has the key `{ "x-a": "2" }`. A `Map`
+  or a `Set`, in a body as in `params`, keeps its contents in none of its members, so JSON and
+  the default serializers send `{}` or nothing for it, while a `querySerializer` or
+  `bodySerializer` of yours may send the contents: the key holds them in order, a `Set` as
+  `{ "values()": [...] }` and a `Map` as `{ "entries()": [[key, value], ...] }`. Other
+  iterables are keyed by their own members only: an iterator would be used up by the key, and a
+  class of yours may iterate without end; give such a value a `toJSON`. A `WeakMap`, `WeakSet`
+  or `WeakRef` cannot be read by anyone, so it stays `{}`. The body, `params` and `headers` are
+  read by one rule: a function is left out, in a body as JSON leaves it out (a function array
+  item is `null`, as JSON sends it); a `toJSON`, `toString`, `toISOString` or getter that
+  throws, a revoked `Proxy`, header pairs with an item that is no pair, and a member that
+  refers back to an object it is in (a circular body) are left out of the key rather than crash
+  the component; the request reports the error. Fields, parameters and headers set to
   `undefined` are left out, and so are `params`,
   its `query`, `path`, `header` and `cookie` records and `headers` that this leaves empty, since
   they send nothing: `{ params: { query: { cursor: undefined } } }` has the key of no init.
@@ -64,8 +73,9 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   writing it out.
 - The request is sent with the `init` of the call. A `fetch`, `middleware` or serializer in it is
   a function, which a query key cannot hold. The key leaves functions out, also the hooks of a
-  `middleware` object, so a filter with the key of a later render, which has a new inline
-  function, still finds the query, and so does one after `hydrate`. Two queries that differ only
+  `middleware` object and a function member of a body, so a filter with the key of a later
+  render, which has a new inline function, still finds the query, and so does one after
+  `hydrate`. Two queries that differ only
   in a function share a cache entry, so set those on the fetch client, or give the queries
   different params.
 - The request stops when TanStack Query cancels the query, and also when a `signal` of the init

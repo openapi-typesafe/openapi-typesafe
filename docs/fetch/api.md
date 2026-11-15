@@ -107,7 +107,13 @@ the default `"json"`: `string` or the JSON body. Options whose `parseAs` may be 
 `parseAs?: ParseAs` of the declared options type) type `data` as the JSON body, as in
 openapi-fetch. This holds for `client.request(method, path, init)` as for `client.GET()`, for
 each member of a union of options, and for a wrapper generic in the path that sets `parseAs`
-(`client.GET(path, { ...init, parseAs: "text" })` gives `string` data).
+(`client.GET(path, { ...init, parseAs: "text" })` gives `string` data). Options whose type the
+wrapper does not know (an init generic in its type, `Init extends FetchOptions<…>`, or the
+declared `FetchOptions<…>` of a generic path) may carry any `parseAs` its caller picks, so they
+type `data` as every body that `parseAs` may pick (the JSON body, `string`, `Blob`, …), not the
+JSON body only. Generic code over the paths themselves (a function that takes any
+`Client<Paths>`) gets `data` and `error` as types it cannot assign elsewhere until a caller names
+its paths.
 
 An error response (`4xx`, `5xx`) never throws for its body, and `parseAs` does not apply to it.
 Its `Content-Type` decides: a JSON media type (`json` or a `+json` suffix, with or without

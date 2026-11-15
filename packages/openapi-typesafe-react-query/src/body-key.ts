@@ -2,12 +2,10 @@
  * The body part of a query key (ADR-046). TanStack Query hashes a key as JSON, which writes a
  * FormData, a Blob, an ArrayBuffer or a URLSearchParams as `{}`, as the whole body or as a field
  * of an object body (a multipart body written as `{ image: file }`). The key holds each such value
- * by its content and names its kind beside the body, so the key names what is sent.
+ * by its content and names its kind beside the body, so the key names what is sent. Values are
+ * read by the rule of `key-read.ts`, which parameters and headers share.
  */
-
-/** `[object Name]`: the type tag is between these indexes of `Object.prototype.toString`. */
-const TYPE_TAG_START = "[object ".length;
-const TYPE_TAG_END = -1;
+import { type Ancestors, attempt, isClass, keyOf, walkMembers } from "./key-read.js";
 
 /**
  * The classes of `Number`, `Boolean` and `String` objects (`new Number(1)`). JSON writes such an
@@ -39,32 +37,22 @@ type BodyKinds = RawKind | { readonly [member: string]: BodyKinds };
 
 /** A body as a value TanStack Query hashes, and the kinds of the values JSON cannot hold in it. */
 export interface BodyKey {
-  readonly body: unknown;
+  /** The body as plain values; absent when its JSON form throws. */
+  readonly body?: unknown;
   readonly bodyType?: BodyKinds;
   /** The members a form or multipart body sends, for a body with its own JSON form. */
   readonly bodyFields?: BodyKey;
 }
 
 /**
- * Whether a value is of the class `name`: an instance of this realm's global class of that name
- * (React Native's classes have no type tag), or a value with its type tag (a class of another
- * realm or of the `undici` package), as the fetch client tells bodies (ADR-030).
- */
-function isClass(value: object, name: string): boolean {
-  const type = (globalThis as Record<string, unknown>)[name];
-  return (
-    (typeof type === "function" && value instanceof type) ||
-    Object.prototype.toString.call(value).slice(TYPE_TAG_START, TYPE_TAG_END) === name
-  );
-}
-
-/**
  * Whether JSON writes a value by its own JSON form rather than by its members: an object with a
- * `toJSON` (a Date), or a `Number`, `Boolean` or `String` object of any realm.
+ * `toJSON` (a Date), or a `Number`, `Boolean` or `String` object of any realm. A `toJSON` getter
+ * that throws gives no form: JSON fails for the value, while a form or multipart body sends its
+ * members.
  */
 function hasJsonForm(value: object): boolean {
   return (
-    typeof (value as { toJSON?: unknown }).toJSON === "function" ||
+    attempt(() => typeof (value as { toJSON?: unknown }).toJSON === "function") === true ||
     BOXED_PRIMITIVE_CLASSES.some((name) => isClass(value, name))
   );
 }
@@ -75,12 +63,16 @@ function hasJsonForm(value: object): boolean {
  * is not kept: TanStack Query's filters match an object by its own members, and a Date or a
  * `Number` object has none, so `setQueriesData` with one value wrote into the queries of every
  * other value. An object form is walked by its members, as JSON writes it without calling a
- * `toJSON` again.
+ * `toJSON` again, which also ends a `toJSON` that returns its own object. Throws when the
+ * `toJSON` does, for `keyOf` to leave the value out.
  */
-function jsonFormKey(value: object): BodyKey {
+function jsonFormKey(value: object, ancestors: Ancestors): BodyKey | undefined {
   const { toJSON } = value as { toJSON?: unknown };
   const form: unknown = typeof toJSON === "function" ? toJSON.call(value) : value.valueOf();
-  return typeof form === "object" && form !== null ? membersKey(form) : memberKey(form);
+  const inner = [...ancestors, value];
+  return typeof form === "object" && form !== null
+    ? membersKey(form, inner)
+    : keyOf(form, inner, memberKey);
 }
 
 /**
@@ -150,23 +142,20 @@ function rawValueKey(value: object): BodyKey | undefined {
 }
 
 /**
- * The own enumerable members of an object or an array body, each as `memberKey`, and their kinds
- * by name or index.
- * An empty object or array stays: a JSON `{}` or `[]` is a body, unlike none. An `undefined` item
- * of an array, also a hole, is `null`, which JSON and the form bodies send for it alike: kept as
- * `undefined`, it turned `null` in a JSON round trip (`hydrate`), and filters missed the query.
+ * The members of an object or an array body as `readMembers` reads them, each as `memberKey`,
+ * and their kinds by name or index. A member `keyOf` leaves out is `undefined`, which the hash
+ * leaves out, as JSON does. An empty object or array stays: a JSON `{}` or `[]` is a body,
+ * unlike none. An item left out, also `undefined` and a hole, is `null`, which JSON and the form
+ * bodies send for it alike: kept as `undefined`, it turned `null` in a JSON round trip
+ * (`hydrate`), and filters missed the query.
  */
-function membersKey(members: object): BodyKey {
+function membersKey(members: object, ancestors: Ancestors): BodyKey {
   const isList = Array.isArray(members);
   const body: Record<string, unknown> | unknown[] = isList ? [] : {};
   const kinds: Record<string, BodyKinds> = {};
-  const entries = isList
-    ? Array.from(members, (item, index) => [index, item])
-    : Object.entries(members);
-  for (const [name, value] of entries) {
-    const member = memberKey(value);
-    (body as Record<string, unknown>)[name] = isList ? (member.body ?? null) : member.body;
-    if (member.bodyType !== undefined) {
+  for (const [name, member] of walkMembers(members, ancestors, memberKey)) {
+    (body as Record<string, unknown>)[name] = isList ? (member?.body ?? null) : member?.body;
+    if (member?.bodyType !== undefined) {
       kinds[name] = member.bodyType;
     }
   }
@@ -182,9 +171,9 @@ function membersKey(members: object): BodyKey {
  * are walked by their members like any other object, which writes them as JSON sends them, a
  * `Uint16Array` as `{ "0": 256 }` and an ArrayBuffer as `{}`; their bytes would name `[0, 1]` for
  * it, as for a `Uint8Array` of 0 and 1. A form or multipart body rejects such a member, so JSON is
- * the only body that sends one.
+ * the only body that sends one. Only reached through `keyOf`, which leaves a function out.
  */
-function memberKey(value: unknown): BodyKey {
+function memberKey(value: unknown, ancestors: Ancestors): BodyKey | undefined {
   if (typeof value === "number" && !Number.isFinite(value)) {
     return { body: null, bodyType: String(value) as RawKind };
   }
@@ -194,7 +183,9 @@ function memberKey(value: unknown): BodyKey {
   if (typeof value !== "object" || value === null) {
     return { body: value };
   }
-  return hasJsonForm(value) ? jsonFormKey(value) : (rawValueKey(value) ?? membersKey(value));
+  return hasJsonForm(value)
+    ? jsonFormKey(value, ancestors)
+    : (rawValueKey(value) ?? membersKey(value, ancestors));
 }
 
 /**
@@ -208,16 +199,20 @@ function memberKey(value: unknown): BodyKey {
  * A whole body of its own JSON form is sent as that form as JSON, and by its own members as a
  * form or multipart body. The key cannot see a `Content-Type` or a `bodySerializer` set on the
  * fetch client, so it holds both: the form as `body` and the members as `bodyFields`, when there
- * are some. A Date has none, so its key is its JSON form alone.
+ * are some. A Date has none, so its key is its JSON form alone. A `toJSON` that throws leaves
+ * the members alone, which a form or multipart body still sends.
+ *
+ * The caller reads the body with `keyOf`, which leaves out a function body (JSON sends it as no
+ * body) and a body that throws while it is read; the request reports the error.
  */
-export function bodyKey(body: unknown): BodyKey {
+export function bodyKey(body: unknown): BodyKey | undefined {
   if (typeof body !== "object" || body === null) {
-    return memberKey(body);
+    return memberKey(body, []);
   }
   return (
     bytesKey(body) ??
     (hasJsonForm(body) && Object.keys(body).length > 0
-      ? { ...jsonFormKey(body), bodyFields: membersKey(body) }
-      : memberKey(body))
+      ? { ...attempt(() => jsonFormKey(body, [])), bodyFields: membersKey(body, []) }
+      : memberKey(body, []))
   );
 }
