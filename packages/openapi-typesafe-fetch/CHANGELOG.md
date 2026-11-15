@@ -2,6 +2,25 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.13
+
+### Patch Changes
+
+- [#145](https://github.com/openapi-typesafe/openapi-typesafe/pull/145) [`d539f22`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d539f227cad586e0946793c4dab552544a27a00a) Thanks [@fedorello](https://github.com/fedorello)! - The package description gives the size the docs give: about 11 kB minified, 4 kB gzipped.
+
+- [#145](https://github.com/openapi-typesafe/openapi-typesafe/pull/145) [`d539f22`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d539f227cad586e0946793c4dab552544a27a00a) Thanks [@fedorello](https://github.com/fedorello)! - A wrapper generic in its init (`Init extends FetchOptions<…>`, passed on to `client.GET`) no
+  longer types `data` as the JSON body only: a caller may pass `{ parseAs: "text" }`, so `data` is
+  every body that `parseAs` may pick, as in openapi-fetch. The same holds for an init typed
+  `FetchOptions<…>` of a generic path. Options that set `parseAs` keep the body of that `parseAs`,
+  and a call or a wrapper with a known init keeps its exact `data`.
+
+- [#145](https://github.com/openapi-typesafe/openapi-typesafe/pull/145) [`d539f22`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d539f227cad586e0946793c4dab552544a27a00a) Thanks [@fedorello](https://github.com/fedorello)! - The response types of an operation that is a type parameter are checked again. In code generic
+  in the paths (a function that takes any `Client<Paths>`), `data` and `error` of a call could be
+  assigned to any type, such as a `number`, and an annotated result became `undefined` for every
+  caller. `SuccessResponse`, `ErrorResponse`, `SuccessResponseJSON` and `ErrorResponseJSON` of a
+  generic operation could be assigned to any type too. Callers still get the bodies of their
+  paths. `ResponseObjectMap` of a type without `responses` is now `never` instead of `unknown`.
+
 ## 1.0.0-rc.12
 
 ### Patch Changes

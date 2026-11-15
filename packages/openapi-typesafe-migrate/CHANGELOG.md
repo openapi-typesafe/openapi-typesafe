@@ -1,5 +1,50 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.13
+
+### Patch Changes
+
+- [#150](https://github.com/openapi-typesafe/openapi-typesafe/pull/150) [`9fe9d48`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9fe9d4843e193c15e52b9f776e486bdb08f020a1) Thanks [@fedorello](https://github.com/fedorello)! - A Compose service that clears an entrypoint it merges (`entrypoint: []`, `entrypoint: null`,
+  `entrypoint: !reset []`) no longer gets the merged generator's flags renamed in its own
+  command: `grep -it todo src` stays as written.
+
+- [#150](https://github.com/openapi-typesafe/openapi-typesafe/pull/150) [`9fe9d48`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9fe9d4843e193c15e52b9f776e486bdb08f020a1) Thanks [@fedorello](https://github.com/fedorello)! - The `args` of a `docker://` step or a Docker action, and a string `command` after an
+  `entrypoint`, are migrated when a quoted part of them holds a blank
+  (`-o "${{ github.workspace }}/schema.d.ts"`). Before, the old name and flags in them were left
+  without a word.
+
+- [#150](https://github.com/openapi-typesafe/openapi-typesafe/pull/150) [`9fe9d48`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9fe9d4843e193c15e52b9f776e486bdb08f020a1) Thanks [@fedorello](https://github.com/fedorello)! - A Dockerfile instruction continued on the next line is read as Docker reads it, with the escape
+  character that `# escape=` sets: a `RUN`, `CMD` or `ENTRYPOINT` continued with a backtick is
+  migrated, a value that ends in `\` under a backtick escape (`ENV DIR=C:\app\`) no longer hides
+  the next instruction, and a comment line inside a continued instruction no longer cuts it.
+
+- [#150](https://github.com/openapi-typesafe/openapi-typesafe/pull/150) [`9fe9d48`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9fe9d4843e193c15e52b9f776e486bdb08f020a1) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile variable is now read as the value its lines build, in the order make reads them.
+  `GEN := npx` followed by `GEN += openapi-typescript` is one command, so the old package name is
+  renamed and the old flags after `$(GEN)` are migrated. A later plain assignment replaces an
+  earlier value, `override` protects a value as it does in make, and values set for some targets
+  apply in their recipes and in the prerequisites make builds for them. Only the branches of an
+  `ifeq`/`ifdef` block, `?=` and values make computes are read as several possible values.
+
+- [#150](https://github.com/openapi-typesafe/openapi-typesafe/pull/150) [`9fe9d48`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9fe9d4843e193c15e52b9f776e486bdb08f020a1) Thanks [@fedorello](https://github.com/fedorello)! - A container command that a YAML anchor gives to several containers (`<<: *args` or
+  `command: *args`) is renamed only when all of them run it the same way. When one runs the
+  generator and another runs a program of its own, the flags are kept and reported, so the other
+  container keeps working.
+
+- [#150](https://github.com/openapi-typesafe/openapi-typesafe/pull/150) [`9fe9d48`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9fe9d4843e193c15e52b9f776e486bdb08f020a1) Thanks [@fedorello](https://github.com/fedorello)! - A generator call that spreads its arguments (`openapiTS(...args)`) now gets the step to check its
+  options by hand, as a call whose options come from a function or a parameter does, instead of
+  being read as a call with no options.
+
+- [#150](https://github.com/openapi-typesafe/openapi-typesafe/pull/150) [`9fe9d48`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9fe9d4843e193c15e52b9f776e486bdb08f020a1) Thanks [@fedorello](https://github.com/fedorello)! - Text a recipe appends to a variable on a sub-make's command line (`$(MAKE) -C api GEN+=-it`,
+  also with `-f`, `--directory=` and `--file=`) is now read the way make reads it: it is added to
+  the value the calling Makefile exports. Its old flags are renamed when that value runs the
+  generator, left alone when the called Makefile replaces the variable with `override`, and
+  reported when the called Makefile is not part of the project.
+
+- [#150](https://github.com/openapi-typesafe/openapi-typesafe/pull/150) [`9fe9d48`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9fe9d4843e193c15e52b9f776e486bdb08f020a1) Thanks [@fedorello](https://github.com/fedorello)! - A Taskfile include that sets a variable for the file it includes
+  (`includes: { other: { taskfile: ./other.yml, vars: { GEN: grep } } }`) is read: when it sets
+  the variable to another program, `{{.GEN}} -it` in that file is no longer reported as a possible
+  generator command.
+
 ## 1.0.0-rc.12
 
 ### Patch Changes

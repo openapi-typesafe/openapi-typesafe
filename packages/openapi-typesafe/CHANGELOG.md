@@ -2,6 +2,38 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.13
+
+### Patch Changes
+
+- [#149](https://github.com/openapi-typesafe/openapi-typesafe/pull/149) [`320790a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/320790a3cac172ebd09171d966507fa34c6d09ab) Thanks [@fedorello](https://github.com/fedorello)! - `--dedupe-enums --fix dedupe-enum-names`: a schema typed only for a `$ref` into it (such as a
+  `definitions` entry) no longer names a shared enum, so adding or removing such a `$ref` does not
+  rename the enum.
+
+- [#149](https://github.com/openapi-typesafe/openapi-typesafe/pull/149) [`320790a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/320790a3cac172ebd09171d966507fa34c6d09ab) Thanks [@fedorello](https://github.com/fedorello)! - `--enum`: properties of tuple elements, of array `items` and of record values
+  (`additionalProperties`, `patternProperties`, `unevaluatedProperties`) got one enum per name, so
+  an enum with other values was merged into the first one and each property accepted the values of
+  the other. Such an enum now gets a number (`ShapeKind_2`, `SettingsMode_2`); enums with the same
+  values still share one enum.
+
+- [#149](https://github.com/openapi-typesafe/openapi-typesafe/pull/149) [`320790a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/320790a3cac172ebd09171d966507fa34c6d09ab) Thanks [@fedorello](https://github.com/fedorello)! - `--enum` and `--enum-values`: the enums of a tuple nested in a tuple, or of tuples in one `allOf`,
+  are numbered in the order of the document. A `$ref` to one of their elements decided the numbers.
+
+- [#149](https://github.com/openapi-typesafe/openapi-typesafe/pull/149) [`320790a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/320790a3cac172ebd09171d966507fa34c6d09ab) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values`: the array of an `additionalProperties` enum in an `anyOf` / `oneOf` variant next
+  to a variant that is not a record (a `string`, an object without `additionalProperties`) is typed
+  by its own values. Its `[string]` type did not compile.
+
+- [#148](https://github.com/openapi-typesafe/openapi-typesafe/pull/148) [`3244555`](https://github.com/openapi-typesafe/openapi-typesafe/commit/3244555d76617f6d92eaa70265e6e6b87bb125f0) Thanks [@fedorello](https://github.com/fedorello)! - A `$ref` written as an `http:` or `https:` URL without `//` (`http:127.0.0.1:8080/pet.yaml`) is now fetched as that URL, as the same text is as the schema argument, and is checked against `--remote-ref-hosts`. It used to be read as a local file below the document's folder.
+
+- [#148](https://github.com/openapi-typesafe/openapi-typesafe/pull/148) [`3244555`](https://github.com/openapi-typesafe/openapi-typesafe/commit/3244555d76617f6d92eaa70265e6e6b87bb125f0) Thanks [@fedorello](https://github.com/fedorello)! - A local `$ref` root that is a file is now refused also when it is written with a trailing slash (`--local-ref-root file:api.yaml/`, `localRefRoot: new URL("api.yaml/", base)`, `local-ref-root: "file:../specs/api.yaml/"`) or names a path below a file (`api.yaml/specs/`). It fails with `CLI_FLAG_INVALID`, `CLI_CONFIG_INVALID` or `OPTION_INVALID` before anything loads, instead of refusing every local `$ref` as outside the root.
+
+- [#148](https://github.com/openapi-typesafe/openapi-typesafe/pull/148) [`3244555`](https://github.com/openapi-typesafe/openapi-typesafe/commit/3244555d76617f6d92eaa70265e6e6b87bb125f0) Thanks [@fedorello](https://github.com/fedorello)! - `--redocly` now accepts a `file:` URL (`--redocly file:redocly.yaml`), as the other path flags do. It used to fail with `CLI_CONFIG_NOT_FOUND`.
+
+- [#149](https://github.com/openapi-typesafe/openapi-typesafe/pull/149) [`320790a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/320790a3cac172ebd09171d966507fa34c6d09ab) Thanks [@fedorello](https://github.com/fedorello)! - A schema `$ref` through an `enum` or `const` schema (the `schema` of an enum parameter or header,
+  a `const` variant of a `oneOf`, an `enum` item of an `allOf`) or through `$defs` of an enum or
+  array schema is typed as the schema it points at. The index it had did not compile. A `not` next
+  to other keywords no longer hides them from this check.
+
 ## 1.0.0-rc.12
 
 ### Patch Changes
