@@ -804,11 +804,38 @@ ours.
   sets to the generator reaches it too (`includedGeneratorVariables`).
 - **Spread arguments.** A spread before the options place (`openapiTS(...args)`) may hold the
   options, so the call gets the `options-not-inspected` step.
-- **Not changed: make append chains.** Make reads `GEN := npx` then `GEN += openapi-typescript`
-  as one value, and `$(MAKE) -C sub GEN+=-it` as an argument appended to a variable of another
-  Makefile. The make variable model reads each definition as an alternative program
-  (`domain/variable-programs.ts`); reading a chain of appends as one value, and a program by name
-  across Makefiles, needs a change of that model. Until then such a chain is read as before.
+- **A make variable is the value its assignments build.** Make reads the whole Makefile before
+  it runs a recipe, so a variable no longer has one alternative program per line
+  (`variablePrograms`). `domain/make-values.ts` follows make's order: `=`, `:=`, `::=`, `:::=`
+  set a value, `+=` appends to it, `?=` sets one only while the file has none (the environment
+  may still give one, so that is two values), `!=` is computed, and a plain assignment leaves a
+  value that `override` set. `G := npx` then `G += openapi-typescript` is one value, read as one
+  command whose words stay where they are written (`domain/make-variables.ts`), so the name in
+  the second line is renamed and the flags after `$(G)` are migrated. A reference that starts a
+  value (`$(NPX) openapi-typescript`, `G := $(G) openapi-typescript`) is expanded where make
+  expands it: where it reads an immediate assignment, where the value is used for a recursive
+  one (`domain/make-programs.ts`). Only these give a variable several values: the branches of
+  `ifeq`/`ifdef` blocks (a block without `else` keeps the value before it), a value from outside
+  the file, and an assignment for some targets (`gen: G += -it`, also `%` patterns), which is
+  the value in their recipes and in those of the prerequisites make builds for them, unless it
+  is `private` (`domain/make-rules.ts`). When the values that end with one assignment's text
+  run different programs, that text is reported. So a later `G := mytool` now wins over an
+  earlier generator value, and the flags after `$(G)` are kept, not reported.
+- **Text a recipe appends on a sub-make's command line.** `$(MAKE) -C api GEN+=-it`, `make -f
+  gen.mk`, `--directory=`, `--file=` and `--makefile=` are read (`domain/make-calls.ts`). GNU make
+  (checked with make 3.81, the same in 4.x) reads a command-line `NAME+=text` before the called
+  Makefile: the text is appended to the sub-make's environment value, and the called file's
+  plain assignments of the name are ignored; only an `override` there changes it, and one that
+  sets the name anew drops the text. It is not appended to the called Makefile's own value. So
+  the appended words are arguments of what the calling Makefile exports (`export`, a bare
+  `export`, `.EXPORT_ALL_VARIABLES`, not taken back by `unexport`), or of a value from outside.
+  The project's Makefiles (`Makefile`, `makefile`, `GNUmakefile`, `*.mk`) are read once before
+  any file is migrated (`application/called-makefiles.ts`) for the names they replace by
+  `override`; `-C` and `-f` are resolved from the calling file's folder, with make's order of
+  default names. Exported generator and a called file of the project that keeps the text: the
+  flags are renamed. A called file that drops it: nothing changes. A file that is not in the
+  project, or a value from outside: the old flags are reported. A `-f` file with another name
+  is not read, so it is reported.
 
 ## Review trigger
 
