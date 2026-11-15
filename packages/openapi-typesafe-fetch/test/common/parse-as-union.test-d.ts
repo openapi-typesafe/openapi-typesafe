@@ -54,7 +54,6 @@ describe("ParseAsResponse", () => {
     expectTypeOf<
       ParseAsResponse<Pet, { parseAs?: ParseAs | undefined } | undefined>
     >().toEqualTypeOf<Pet>();
-    expectTypeOf<ParseAsResponse<Pet, { parseAs: ParseAs } | undefined>>().toEqualTypeOf<Pet>();
   });
 
   it("ParseAsResponse of a required parseAs of any value is every body", () => {
@@ -68,6 +67,12 @@ describe("ParseAsResponse", () => {
       string | Pet
     >();
     expectTypeOf<ParseAsResponse<Pet, { parseAs: "json" }>>().toEqualTypeOf<Pet>();
+  });
+
+  it("ParseAsResponse of a required parseAs of any value or no options is every body", () => {
+    expectTypeOf<ParseAsResponse<Pet, { parseAs: ParseAs } | undefined>>().toEqualTypeOf<
+      Pet | string | Blob | ArrayBuffer | Response["body"]
+    >();
   });
 
   it("ParseAsResponse of options or no options is their body or the JSON body", () => {
