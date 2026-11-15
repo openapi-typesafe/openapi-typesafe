@@ -5,7 +5,9 @@ import createClient, { type FetchOptions } from "../../src/index.js";
 /**
  * A wrapper generic in the path that always reads the body with one `parseAs` gets that body as
  * `data`, as in openapi-fetch: TypeScript reads the data of the generic call through the
- * constraint of its options, whose `parseAs` is known, not as every JSON body of the paths.
+ * constraint of its options, whose `parseAs` is known, not as every JSON body of the paths. Options
+ * whose `parseAs` the wrapper does not know (its declared init, or an init generic in its type)
+ * may read any body, so `data` is every body they may pick, not the JSON body only.
  */
 
 type Json<Body> = { headers: {}; content: { "application/json": Body } };
@@ -17,6 +19,10 @@ type Paths = {
 };
 type GetPath = PathsWithMethod<Paths, "get">;
 type GetInit<Path extends GetPath> = FetchOptions<FilterKeys<Paths[Path], "get">>;
+type JSONBody = string[] | { name: string };
+/** The bodies of the other `parseAs` values. */
+type OtherBody = string | Blob | ArrayBuffer | Response["body"];
+type AnyBody = JSONBody | OtherBody;
 
 const client = createClient<Paths>({ baseUrl: "https://api.example.com" });
 
@@ -44,15 +50,44 @@ describe("generic wrapper parseAs", () => {
     expectTypeOf(getBlob<"/items">).returns.resolves.toEqualTypeOf<Blob | undefined>();
   });
 
-  it("GET of a generic path with its declared init types data as the JSON bodies", () => {
-    async function getJSON<Path extends GetPath>(path: Path, init: GetInit<Path>) {
+  it("GET of a generic path with its declared init types data as every body", () => {
+    async function getBody<Path extends GetPath>(path: Path, init: GetInit<Path>) {
       const { data } = await client.GET(path, init);
-      const body: string[] | { name: string } | undefined = data;
-      return body;
+      // @ts-expect-error the init may set parseAs, so data may be a string
+      const json: JSONBody | undefined = data;
+      const body: AnyBody | undefined = data;
+      return [json, body];
     }
 
-    expectTypeOf(getJSON<"/items">).returns.resolves.toEqualTypeOf<
-      string[] | { name: string } | undefined
+    expectTypeOf(getBody<"/items">).returns.resolves.toEqualTypeOf<(AnyBody | undefined)[]>();
+  });
+
+  it("GET of a generic path with an init generic in its type types data as every body", () => {
+    async function getBody<Path extends GetPath, Init extends GetInit<Path>>(
+      path: Path,
+      init: Init,
+    ) {
+      const { data } = await client.GET(path, init);
+      // @ts-expect-error the init may set parseAs, so data may be a string
+      const json: JSONBody | undefined = data;
+      const body: AnyBody | undefined = data;
+      return [json, body];
+    }
+
+    expectTypeOf(getBody<"/items", {}>).returns.resolves.toEqualTypeOf<(AnyBody | undefined)[]>();
+  });
+
+  it("GET of a path with required parameters and a generic init types data as every body", () => {
+    async function getPet<Init extends GetInit<"/pets/{id}">>(init: Init) {
+      const { data } = await client.GET("/pets/{id}", init);
+      // @ts-expect-error the init may set parseAs, so data may be a string
+      const json: { name: string } | undefined = data;
+      const body: OtherBody | { name: string } | undefined = data;
+      return [json, body];
+    }
+
+    expectTypeOf(getPet).returns.resolves.toEqualTypeOf<
+      (OtherBody | { name: string } | undefined)[]
     >();
   });
 });
