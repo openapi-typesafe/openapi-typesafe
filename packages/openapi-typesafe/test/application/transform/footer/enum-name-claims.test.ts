@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { EnumNameClaims } from "../../../../src/application/transform/footer/enum-name-claims.js";
 
+const TUP = "#/components/schemas/Tup";
+const SORT = "#/components/schemas/Holder/properties/sort";
+
 describe("EnumNameClaims", () => {
   it("nameFor gives the first owner its name and a later owner the next number", () => {
     const claims = new EnumNameClaims();
@@ -74,10 +77,10 @@ describe("EnumNameClaims", () => {
   it("finalNames moves a number off the name a later location asks for", () => {
     const claims = new EnumNameClaims(new Set(), new Set(["HolderSort_3"]));
     const elements = [0, 1].map((position) =>
-      claims.nameFor("HolderSort", `/Holder/sort/${position}`, position),
+      claims.nameFor("HolderSort", `/Holder/sort/${position}`, { walkedAt: SORT, position }),
     );
-    const property = claims.nameFor("HolderSort_2", "/Holder/sort_2");
-    const other = claims.nameFor("HolderSort_2", "/Holder/Sort_2");
+    const property = claims.nameFor("HolderSort_2", "/Holder/sort_2", { walkedAt: `${SORT}_2` });
+    const other = claims.nameFor("HolderSort_2", "/Holder/Sort_2", { walkedAt: `${SORT}_3` });
 
     const renames = claims.finalNames(new Set());
 
@@ -96,35 +99,78 @@ describe("EnumNameClaims", () => {
 
   it("finalNames numbers tuple elements by position, not by the order they asked", () => {
     const claims = new EnumNameClaims();
-    claims.nameFor("Tup", "/Tup/1", 1);
-    claims.nameFor("Tup", "/Tup/0", 0);
+    // A `$ref` to the second element types it first; the walk then meets both in order.
+    claims.nameFor("Tup", "/Tup/1");
+    claims.nameFor("Tup", "/Tup/0", { walkedAt: TUP, position: 0 });
+    claims.nameFor("Tup", "/Tup/1", { walkedAt: TUP, position: 1 });
 
-    expect([...claims.finalNames(new Set())]).toEqual([
-      ["Tup_2", "Tup"],
-      ["Tup", "Tup_2"],
-    ]);
+    expect(claims.finalNames(new Set())).toEqual(
+      new Map([
+        ["Tup", "Tup_2"],
+        ["Tup_2", "Tup"],
+      ]),
+    );
   });
 
   it("finalNames orders an owner by its lowest position in the tuple", () => {
     const claims = new EnumNameClaims();
-    claims.nameFor("Tup", "/Tup/a", 2);
-    claims.nameFor("Tup", "/Tup/b", 1);
-    claims.nameFor("Tup", "/Tup/a", 0);
+    claims.nameFor("Tup", "/Tup/a", { walkedAt: TUP, position: 2 });
+    claims.nameFor("Tup", "/Tup/b", { walkedAt: TUP, position: 1 });
+    claims.nameFor("Tup", "/Tup/a", { walkedAt: TUP, position: 0 });
     claims.nameFor("Tup", "/Tup/a");
 
     expect([...claims.finalNames(new Set())]).toEqual([]);
   });
 
-  it("finalNames ranks a tuple where its first element asked, among other owners", () => {
+  it("finalNames numbers the elements of two tuples of one name tuple by tuple", () => {
     const claims = new EnumNameClaims();
-    claims.nameFor("Sort", "/Sort/1", 1);
-    claims.nameFor("Sort", "/sort");
-    claims.nameFor("Sort", "/Sort/0", 0);
+    const order = "#/components/schemas/Order/properties/sort";
+    const orderSort = "#/components/schemas/OrderSort";
+    // A `$ref` to `OrderSort/prefixItems/1` comes before the walk.
+    claims.nameFor("OrderSort", "up");
+    const asked = [
+      ["name", order, 0],
+      ["asc", order, 1],
+      ["id", orderSort, 0],
+      ["up", orderSort, 1],
+    ] as const;
+    for (const [owner, walkedAt, position] of asked) {
+      claims.nameFor("OrderSort", owner, { walkedAt, position });
+    }
 
-    expect([...claims.finalNames(new Set())]).toEqual([
-      ["Sort_3", "Sort"],
-      ["Sort", "Sort_2"],
-      ["Sort_2", "Sort_3"],
+    const renames = claims.finalNames(new Set());
+    const finalOf = (owner: string) => {
+      const given = claims.nameFor("OrderSort", owner);
+      return renames.get(given) ?? given;
+    };
+
+    expect(["name", "asc", "id", "up"].map(finalOf)).toEqual([
+      "OrderSort",
+      "OrderSort_2",
+      "OrderSort_3",
+      "OrderSort_4",
     ]);
+  });
+
+  it("finalNames ranks a location the walk meets first before a later one", () => {
+    const claims = new EnumNameClaims();
+    claims.nameFor("Sort", "/sort", { walkedAt: `${SORT}_property` });
+    claims.nameFor("Sort", "/Sort/0", { walkedAt: SORT, position: 0 });
+    claims.nameFor("Sort", "/Sort/1", { walkedAt: SORT, position: 1 });
+
+    expect([...claims.finalNames(new Set())]).toEqual([]);
+  });
+
+  it("finalNames ranks an owner that only a $ref typed after the walked ones", () => {
+    const claims = new EnumNameClaims();
+    claims.nameFor("Sort", "/elsewhere");
+    claims.nameFor("Sort", "/sort", { walkedAt: SORT });
+
+    expect(claims.finalNames(new Set())).toEqual(
+      new Map([
+        ["Sort", "Sort_2"],
+        ["Sort_2", "Sort"],
+      ]),
+    );
   });
 });

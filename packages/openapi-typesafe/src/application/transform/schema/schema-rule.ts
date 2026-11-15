@@ -13,15 +13,21 @@ export type ValueAccess = "location" | "string-index" | "none";
 /** A schema typed at its own location. */
 export const AT_LOCATION: ValueAccess = "location";
 
-/**
- * Transform a nested schema, with `postTransform` applied (the recursion entry point). `parent`
- * is the schema that holds it, the current one by default (a `$ref` target's own holder).
- */
+/** How a nested schema is transformed; a part left out has the default of a walked schema. */
+export interface NestedCall {
+  /** Where its type is read in its location's type; `AT_LOCATION` by default. */
+  readonly valueAccess?: ValueAccess;
+  /** The schema that holds it, the current one by default (a `$ref` target's own holder). */
+  readonly parent?: SchemaObject | undefined;
+  /** It is typed for a `$ref` that points into it (`SchemaRequest.isThroughRef`). */
+  readonly isThroughRef?: boolean;
+}
+
+/** Transform a nested schema, with `postTransform` applied (the recursion entry point). */
 export type TransformNested = (
   schema: Schema,
   location: SchemaLocation,
-  valueAccess?: ValueAccess,
-  parent?: SchemaObject,
+  call?: NestedCall,
 ) => IrType;
 
 /** One call of the schema transformer. */
@@ -34,6 +40,11 @@ export interface SchemaRequest {
    * elements); undefined for a schema the document transforms itself.
    */
   readonly parent?: SchemaObject | undefined;
+  /**
+   * The schema is typed for a `$ref` that points into it (`schemaRefType`), or is nested in such
+   * a schema: the generator's walk of the document meets it elsewhere. False for a walked schema.
+   */
+  readonly isThroughRef: boolean;
   readonly transformNested: TransformNested;
 }
 

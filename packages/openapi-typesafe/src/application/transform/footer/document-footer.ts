@@ -22,6 +22,7 @@ import {
 import { EnumValuesNames } from "./enum-values-names.js";
 import { OperationKeys } from "./operation-keys.js";
 import { FIRST_SCHEMA_NAMES, type SharedEnumNames } from "./shared-enum-names.js";
+import type { ClaimPlace } from "./walk-ranks.js";
 
 /** Where footer declarations go, in order: the run's `ctx.injectFooter`, open to user code. */
 export interface FooterSink {
@@ -79,6 +80,21 @@ function enumOwner(request: EnumDeclarationRequest): string {
     return request.name;
   }
   return JSON.stringify([request.name, [...request.values].sort(compareAsStrings)]);
+}
+
+/** Where the walk of the document met a request (`WalkRanks`). */
+function placeOf(request: EnumDeclarationRequest | EnumValuesRequest): ClaimPlace {
+  return { walkedAt: request.walkedAt, position: request.tupleIndex };
+}
+
+/**
+ * The place a request gives the claim of `asked`: its own place where its location gives that
+ * name (`ownName`), none where it only shares the enum of another name (`--dedupe-enums`). With
+ * `Sort: [a]` and `Pair: [b], [a]` sharing `[a]` as `Pair`, `[a]` ranks at its position in
+ * `Pair`, not at the one in `Sort`, so the order of `Sort` and `Pair` changes no name.
+ */
+function placeAsking(request: EnumDeclarationRequest, ownName: string, asked: string): ClaimPlace {
+  return ownName === asked ? placeOf(request) : {};
 }
 
 /** The whole declaration: an equal key means the same enum, member for member. */
@@ -148,11 +164,15 @@ export class RunFooter implements DocumentFooter {
     const sharedName = key === null ? ownName : this.sharedNames.nameOf(key, ownName, request);
     const known = key === null ? undefined : this.enumsByKey.get(key);
     if (known !== undefined) {
-      return this.dedupedName(known, request);
+      return this.dedupedName(known, ownName, request);
     }
     // Requests of one owner share one enum, with `--dedupe-enums` too.
     const owner = enumOwner(request);
-    const name = this.names.enums.nameFor(sharedName, owner, request.tupleIndex);
+    const name = this.names.enums.nameFor(
+      sharedName,
+      owner,
+      placeAsking(request, ownName, sharedName),
+    );
     // Only a repeated member fails to compile; two empty declarations merge, so they stay.
     const declared = request.values.length > 0 ? declarationKey(name, request) : null;
     if (declared !== null && this.declaredEnums.has(declared)) {
@@ -173,14 +193,16 @@ export class RunFooter implements DocumentFooter {
   }
 
   /**
-   * The name of an enum `--dedupe-enums` declared already. A tuple element of the owner that
-   * declared it still reports its position: the elements of a tuple are numbered by their lowest
-   * position, so the name does not depend on which element (or `$ref` to one) came first.
+   * The name of an enum `--dedupe-enums` declared already. Its claim still gets the place of a
+   * request whose location gives the enum's name, whichever schema declared the enum or came
+   * first (a `$ref`'s), so the enum ranks where the document asks for its name (`placeAsking`).
    */
-  private dedupedName(known: DedupedEnum, request: EnumDeclarationRequest): string {
-    if (enumOwner(request) === known.owner) {
-      this.names.enums.nameFor(known.asked, known.owner, request.tupleIndex);
-    }
+  private dedupedName(
+    known: DedupedEnum,
+    ownName: string,
+    request: EnumDeclarationRequest,
+  ): string {
+    this.names.enums.nameFor(known.asked, known.owner, placeAsking(request, ownName, known.asked));
     return known.name;
   }
 
@@ -217,7 +239,7 @@ export class RunFooter implements DocumentFooter {
     const baseName = this.naming.arrayName(request.name);
     // The same array twice fails with "Cannot redeclare"; a schema typed twice adds it twice.
     const key = JSON.stringify([baseName, request.type, request.values]);
-    const { name, isNew } = this.names.enumValues.nameFor(key, baseName, request.tupleIndex);
+    const { name, isNew } = this.names.enumValues.nameFor(key, baseName, placeOf(request));
     if (!isNew) {
       return;
     }

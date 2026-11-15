@@ -97,6 +97,12 @@ export interface EnumDeclarationRequest {
    * element's position in the tuple, which orders the numbers of their names.
    */
   readonly tupleIndex?: number;
+  /**
+   * The location the generator's walk of the document types the schema at (a tuple element's is
+   * its tuple's), which orders the owners of one name (`WalkRanks`). Undefined where a `$ref`
+   * types the schema (`SchemaRequest.isThroughRef`) or the request only refers to the enum.
+   */
+  readonly walkedAt?: string;
 }
 
 export interface EnumValuesRequest {
@@ -105,6 +111,8 @@ export interface EnumValuesRequest {
   readonly values: readonly (string | number)[];
   /** A tuple element's position in its tuple (`EnumDeclarationRequest.tupleIndex`). */
   readonly tupleIndex?: number;
+  /** Where the walk of the document types the schema (`EnumDeclarationRequest.walkedAt`). */
+  readonly walkedAt?: string;
 }
 
 /** Declarations the transformer adds once per file, after the main interfaces. */

@@ -452,7 +452,10 @@ Every other array keeps its type.
 
 Arrays of one name are numbered: the elements of a `prefixItems` tuple share the tuple's place, so
 a tuple `Pair` of two enums gives `pairValues` and `pairValues_2`. The numbers follow the
-position in the tuple, also where a `$ref` to a later element comes first in the document.
+position in the tuple, also where a `$ref` to a later element comes first in the document. Two
+tuples of one name (a tuple property `sort` of `Order` and a tuple schema `OrderSort`) are
+numbered one after the other, in the order of the document: `orderSortValues` and
+`orderSortValues_2` for the first, `orderSortValues_3` and `orderSortValues_4` for the second.
 
 ## JSONSchema $defs caveats
 
