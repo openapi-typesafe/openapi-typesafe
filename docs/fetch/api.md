@@ -615,8 +615,19 @@ client therefore types an `application/problem+json` error too), an error body o
 type gives a `string` (the client returns the text), and a success body of any other media type
 gives nothing, since the default `parseAs: "json"` rejects it. With a JSON 200 and a `text/html`
 500, `ErrorResponseJSON` is a `string`, and with a JSON 404 next to it, the 404 body or a `string`.
-`parseAs` types the `data` by itself: with `parseAs: "text"` it is a `string`. A client made with
-`createClient<any>()` types `data` and `error` as `any`.
+`parseAs` types the `data` by itself: with `parseAs: "text"` it is a `string`, and a `parseAs`
+typed `any` gives `any`. A client made with `createClient<any>()` types `data` and `error` as
+`any`. An operation whose `responses` may be `undefined` or left out gives the bodies of the map
+it holds.
+
+In code generic in its operation or its paths, the response types are read through the
+constraint of the type parameter. A constraint that leaves the responses open
+(`Op extends { responses: any }`, `Op extends OperationObject`, `Paths extends Record<string, any>`,
+`Paths extends Record<string, Record<HttpMethod, {}>>`) gives `unknown`, so the code checks the
+value before it uses it; its callers still get the bodies of their operations. A constraint that
+names statuses (`{ responses: { 200: any } }`) gives them as it declares them. In such code, name
+the types of a result by `FetchResponse<…>["data"]` and `FetchResponse<…>["error"]`: they do not
+relate to `SuccessResponse` or `ErrorResponse` of a generic operation.
 
 `defaultBodySerializer` returns by the body type:
 

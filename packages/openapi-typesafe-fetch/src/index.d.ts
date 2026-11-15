@@ -3,7 +3,7 @@
 // build copies it into the published declarations (build.config.ts).
 /// <reference lib="es2018.asynciterable" />
 import type {
-  ErrorResponse,
+  ErrorMapBodies,
   FilterKeys,
   HttpMethod,
   IsOperationRequestBodyOptional,
@@ -13,7 +13,7 @@ import type {
   Readable,
   RequiredKeysOf,
   ResponseObjectMap,
-  SuccessResponse,
+  SuccessMapBodies,
   Writable,
 } from "./helpers.js";
 
@@ -176,18 +176,23 @@ type ParseAsKey<Options> = [MissingParseAsValues<Options>] extends [never]
  * conditional type, not a union: `BodyType<T>` indexed by a union of generic keys is read as the
  * intersection of their bodies when another type is checked against it. `any` options give `any`,
  * so their data is `any`, as in openapi-fetch: a caller that passes an `any` init (as the generic
- * hooks of openapi-typesafe-react-query do) returns it as the data type it declares. The branch
- * is `any` itself, not `Options`: a type parameter there stops TypeScript relating the data of a
- * generic call to a wrapper's (ADR-030).
+ * hooks of openapi-typesafe-react-query do) returns it as the data type it declares. A `parseAs`
+ * that is `any` (read from an untyped config) gives `any` too: it fits every value check below,
+ * so it gave no value, and the data was `never`, while the client returns the parsed body. The
+ * branch is `any` itself, not `Options`: a type parameter there stops TypeScript relating the data
+ * of a generic call to a wrapper's (ADR-030).
  */
 type ParseAsValues<Options> = Options extends unknown
-  ? IsAny<Options> extends true
+  ? IsAny<Options | ParseAsMember<Options>> extends true
     ? // biome-ignore lint/suspicious/noExplicitAny: any options give any data, as in openapi-fetch
       any
     :
         | (Options extends RequiredParseAs ? never : undefined)
         | { [Value in ParseAs]: Options extends WithoutParseAs<Value> ? never : Value }[ParseAs]
   : never;
+
+/** The type of the `parseAs` of `Options`; `unknown` for options without one, `never` for none. */
+type ParseAsMember<Options> = Options extends { parseAs?: infer Value } ? Value : never;
 
 /**
  * The `parseAs` values that the options `Options` (one member of a union) cannot have, as
@@ -269,15 +274,47 @@ export type FetchResponse<
   Media extends MediaType,
 > =
   | {
-      data: ParseAsResponse<Readable<SuccessResponse<ResponseObjectMap<T>, Media>>, Options>;
+      data: ParseAsResponse<SuccessData<T, Media>, Options>;
       error?: never;
       response: Response;
     }
   | {
       data?: never;
-      error: Readable<ErrorResponse<ResponseObjectMap<T>, Media>>;
+      error: ErrorData<T, Media>;
       response: Response;
     };
+
+/**
+ * The data of a success response of the operation `T`, read by the rule of `IsAny`
+ * (`openapi-typesafe-fetch/helpers`): `any` for an `any` operation, the bodies of a concrete one,
+ * `unknown` for an operation that a constraint leaves open. Not openapi-fetch's
+ * `Readable<SuccessResponse<ResponseObjectMap<T>, Media>>`: with that shape the data and the error
+ * of a generic path of generic paths (`Paths extends Record<string, Record<HttpMethod, {}>>`, as
+ * openapi-react-query has) fit a `number`. So generic code types them by `FetchResponse`, not by
+ * `SuccessResponse` or `ErrorResponse`.
+ * The check `T extends never` is for a generic `T` only: no operation fits it, and `never` gives
+ * `never` in both branches. While `T` is generic the check is deferred, and TypeScript reads a
+ * deferred conditional type as the union of its branches, so its `unknown` ends the comparison of
+ * a generic path of generic paths. Without it, `Readable` and `ParseAsResponse` around the bodies
+ * took that comparison past ten levels, which TypeScript takes as related, and `error` fit a
+ * `number`.
+ */
+type SuccessData<T, Media extends MediaType> =
+  IsAny<ResponseObjectMap<T>> extends true
+    ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
+      any
+    : T extends never
+      ? unknown
+      : Readable<SuccessMapBodies<ResponseObjectMap<T>, Media>>;
+
+/** The error of the operation `T`, read as `SuccessData`. */
+type ErrorData<T, Media extends MediaType> =
+  IsAny<ResponseObjectMap<T>> extends true
+    ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
+      any
+    : T extends never
+      ? unknown
+      : Readable<ErrorMapBodies<ResponseObjectMap<T>, Media>>;
 
 export type RequestOptions<T> = OperationRequestOptions<T> & SharedRequestOptions;
 
