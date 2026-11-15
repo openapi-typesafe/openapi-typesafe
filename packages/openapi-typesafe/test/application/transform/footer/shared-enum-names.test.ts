@@ -29,15 +29,56 @@ describe("SharedEnumNameRecorder", () => {
     expect(names.nameOf("j", "First", request("/x"))).toBe("CatState");
   });
 
-  it("chosenNames keeps the best name when every name is taken by an earlier key", () => {
+  it("chosenNames numbers the best name of a later key when every name is taken", () => {
     const recorder = new SharedEnumNameRecorder();
-    recorder.nameOf("a", "", request("/Pet/state"));
     recorder.nameOf("b", "", request("/Pet/state"));
+    recorder.nameOf("a", "", request("/Pet/state"));
 
     const names = recorder.chosenNames();
 
     expect(names.nameOf("a", "", request("/x"))).toBe("PetState");
+    expect(names.nameOf("b", "", request("/x"))).toBe("PetState_2");
+  });
+
+  it("chosenNames skips a number that a schema gives as its own name", () => {
+    const recorder = new SharedEnumNameRecorder();
+    recorder.nameOf("c", "", request("/Pet/state"));
+    recorder.nameOf("b", "", request("/Pet/state"));
+    recorder.nameOf("a", "", request("/PetState_2", true));
+    recorder.nameOf("a", "", request("/Pet/state"));
+
+    const names = recorder.chosenNames();
+
+    expect(names.nameOf("a", "", request("/x"))).toBe("PetState_2");
     expect(names.nameOf("b", "", request("/x"))).toBe("PetState");
+    expect(names.nameOf("c", "", request("/x"))).toBe("PetState_3");
+  });
+
+  it("chosenNames skips a number that a later key's schema gives as its own name", () => {
+    const recorder = new SharedEnumNameRecorder();
+    recorder.nameOf("a", "", request("/Pet/state"));
+    recorder.nameOf("b", "", request("/Pet/state"));
+    recorder.nameOf("c", "", request("/PetState_2", true));
+
+    const names = recorder.chosenNames();
+
+    expect(names.nameOf("b", "", request("/x"))).toBe("PetState_3");
+    expect(names.nameOf("c", "", request("/x"))).toBe("PetState_2");
+  });
+
+  it("chosenNames gives each later key of one best name its own number", () => {
+    const recorder = new SharedEnumNameRecorder();
+    for (const key of ["a", "b", "c"]) {
+      recorder.nameOf(key, "", request("/Pet/state"));
+    }
+
+    const names = recorder.chosenNames();
+
+    expect(["a", "b", "c"].map((key) => names.nameOf(key, "", request("/x")))).toEqual([
+      "PetState",
+      "PetState_2",
+      "PetState_3",
+    ]);
   });
 
   it("chosenNames leaves out a schema only a $ref typed", () => {

@@ -773,7 +773,9 @@ export enum PetState { // [!code ++]
 - No step depends on the document order. A new schema changes the name only when it ranks first,
   for example a new component schema with these values.
 - Two enums with other members whose best names are the same (`Pet` and `Pet-` both give
-  `PetState`) are resolved in the order of their values: the later one takes its next name.
+  `PetState`) are resolved in the order of their values: the later one takes its next name, or
+  else the next number of its best name that no schema gives (`PetState_2`), wherever the two
+  are in the document.
 - The names are built as without the fix (`PetState` for `Pet.state`).
 - The schemas are known only at the end, so the document is transformed twice; `transform`,
   `transformProperty` and `postTransform` callbacks run in both passes.
