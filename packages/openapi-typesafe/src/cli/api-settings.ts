@@ -1,4 +1,5 @@
 import { kebabCase } from "scule";
+import type { FileCheck } from "../application/ports/file-system.js";
 import type { OutputFixName } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import { GENERATOR_FLAGS, type GeneratorFlags, hostList } from "./cli-arguments.js";
@@ -136,17 +137,29 @@ export function apiFixNames(
   }
 }
 
+/** Where the locations of an API's settings resolve, and how a root is checked to be no file. */
+export interface SettingsBase {
+  /** The folder of the config file (a directory URL). */
+  readonly configRoot: URL;
+  readonly files: FileCheck;
+}
+
 /**
- * `local-ref-root: dir`, relative to the config file; empty means the config file's directory. A
- * value that is no text, a URL of another protocol or a `file:` URL that names no local path fails
- * with `CLI_CONFIG_INVALID`.
+ * `local-ref-root: dir`, relative to the config file's folder; empty means that folder. A value
+ * that is no text, a URL of another protocol, a `file:` URL that names no local path or a file
+ * fails with `CLI_CONFIG_INVALID`.
  */
-function localRefRootOf(apiName: string, settings: ApiSettings, configRoot: URL): RefLimitOptions {
+function localRefRootOf(
+  apiName: string,
+  settings: ApiSettings,
+  base: SettingsBase,
+): RefLimitOptions {
   if (!hasSetting(settings, LOCAL_REF_ROOT_SETTING)) {
     return {};
   }
   const value = settingValue(settings, LOCAL_REF_ROOT_SETTING) ?? "";
-  const localRoot = typeof value === "string" ? localRootUrl(value, configRoot) : undefined;
+  const localRoot =
+    typeof value === "string" ? localRootUrl(value, base.configRoot, base.files) : undefined;
   if (localRoot === undefined) {
     throw invalidSetting(apiName, settings, LOCAL_REF_ROOT_SETTING, LOCAL_ROOT_EXPECTED);
   }
@@ -174,10 +187,10 @@ function remoteRefHostsOf(apiName: string, settings: ApiSettings): RefLimitOptio
 export function apiRefLimitOptions(
   apiName: string,
   settings: ApiSettings,
-  configRoot: URL,
+  base: SettingsBase,
 ): RefLimitOptions {
   return {
-    ...localRefRootOf(apiName, settings, configRoot),
+    ...localRefRootOf(apiName, settings, base),
     ...remoteRefHostsOf(apiName, settings),
   };
 }

@@ -147,6 +147,7 @@ describe("local $ref root (R1)", () => {
   it.each([
     ["an absolute path", () => path.join(workDir, "secrets", "person.json")],
     ["a `..` after a directory inside the root", () => "shared/../../secrets/person.json"],
+    ["a file: URL", () => pathToFileURL(path.join(workDir, "secrets", "person.json")).href],
   ])("%s that leads outside the root is refused", async (_, ref) => {
     const root = await writeRoot("api/escape.json", ref());
 
@@ -155,13 +156,10 @@ describe("local $ref root (R1)", () => {
     expect(error.code).toBe("SCHEMA_REF_FORBIDDEN");
   });
 
-  // Redocly reads both as plain relative file names, so they name missing files inside the root
-  // and never reach `secrets/`.
-  it.each([
-    ["a file: URL", () => pathToFileURL(path.join(workDir, "secrets", "person.json")).href],
-    ["a percent-encoded `..`", () => "%2e%2e/secrets/person.json"],
-  ])("%s is read as a file name inside the root", async (_, ref) => {
-    const root = await writeRoot("api/literal.json", ref());
+  // Redocly reads it as a plain relative file name, so it names a missing file inside the root
+  // and never reaches `secrets/`.
+  it("a percent-encoded `..` is read as a file name inside the root", async () => {
+    const root = await writeRoot("api/literal.json", "%2e%2e/secrets/person.json");
 
     const error = await loadFailure(root, { localRoot: localRoot() });
 
@@ -341,6 +339,34 @@ describe("local files from a remote document (T3)", () => {
       details: { reason: "local-ref-from-remote" },
     });
     expect(error.message).toMatch(/^Refused to load .*: it is not an http\(s\) URL, and the \$ref is in /);
+  });
+});
+
+describe("$refs that are URLs of a local document", () => {
+  // Redocly joined every `$ref` that is no http(s) URL to the folder of its document as a path.
+  it.each(["s3://bucket/person.json", "ftp://host/person.json"])(
+    "a $ref %s is refused before anything is read, without any limits set",
+    async (ref) => {
+      const root = await writeRoot("api/other-scheme.json", ref);
+
+      const error = await loadFailure(root, {});
+
+      expect(error).toMatchObject({
+        code: "SCHEMA_REF_FORBIDDEN",
+        details: { ref, reason: "unsupported-url" },
+      });
+    },
+  );
+
+  it.each([
+    ["an absolute file: URL", () => pathToFileURL(path.join(workDir, "api", "shared", "person.json")).href],
+    ["a relative file: URL", () => "file:shared/person.json"],
+  ])("a $ref that is %s loads the file it names", async (_, ref) => {
+    const root = await writeRoot("api/file-url-ref.json", ref());
+
+    const bundled = await load(root, { localRoot: localRoot() });
+
+    expect(bundled.components?.schemas?.person).toEqual(JSON.parse(PERSON));
   });
 });
 

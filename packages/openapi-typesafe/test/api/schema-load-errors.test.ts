@@ -187,6 +187,7 @@ const REFUSALS: Readonly<Record<RefRefusalDetails["reason"], RefRefusalDetails>>
   "outside-local-root": { reason: "outside-local-root", localRoot: "file:///root/" },
   "host-not-allowed": { reason: "host-not-allowed", allowedHosts: [] },
   "local-ref-from-remote": { reason: "local-ref-from-remote", base: "https://a.test/a.yaml" },
+  "unsupported-url": { reason: "unsupported-url" },
   "too-many-remote-documents": { reason: "too-many-remote-documents", maxDocuments: 1 },
   "remote-document-too-large": { reason: "remote-document-too-large", maxDocumentBytes: 1 },
   "remote-documents-too-large": { reason: "remote-documents-too-large", maxTotalBytes: 1 },

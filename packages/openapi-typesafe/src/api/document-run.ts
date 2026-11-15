@@ -1,6 +1,7 @@
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import { sourceEmptyError } from "../adapters/redocly-loader/schema-load-errors.js";
 import type { DeprecationReporter } from "../application/ports/deprecation-reporter.js";
+import type { FileCheck } from "../application/ports/file-system.js";
 import type { Logger } from "../application/ports/logger.js";
 import type { SchemaLoader } from "../application/ports/schema-loader.js";
 import { withStackOverflowReported } from "../application/stack-overflow.js";
@@ -31,6 +32,8 @@ export interface GeneratorPorts {
   readonly redoc: RedoclyConfig;
   /** A monotonic time in milliseconds, for debug durations. */
   readonly now: () => number;
+  /** Whether a location is a file: a `localRefRoot` must not be one. */
+  readonly files: FileCheck;
 }
 
 /** A validated, bundled document, the local files it was read from, and the run's context. */
@@ -136,7 +139,7 @@ export async function createDocumentRun(
     source,
     cwd,
     shouldLint: options.lint ?? true,
-    refAccess: refAccessOf(options, cwd),
+    refAccess: refAccessOf(options, cwd, ports.files),
   });
   warnAboutDocument(schema, fix, logger);
   const ctx: RunContext = {

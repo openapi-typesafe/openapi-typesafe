@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import type { FileCheck } from "../application/ports/file-system.js";
 import type { RefAccess } from "../application/ports/schema-loader.js";
 import { hasUrlScheme, parseUrlLocation } from "../domain/location-text.js";
 import type { GeneratorOptions } from "../types.js";
@@ -57,15 +58,20 @@ function localRootKindOf(root: unknown): string {
 }
 
 /**
- * The local root as a `file:` URL that names a local path; the option is set, so it is not
- * undefined. A `file:` URL with a host failed only once a local `$ref` was loaded.
+ * The local root as a `file:` URL that names a local path and no file; the option is set, so it
+ * is not undefined. A `file:` URL with a host failed only once a local `$ref` was loaded, and a
+ * file as the root refused every local `$ref` as outside it. A root that does not exist yet is
+ * allowed: no `$ref` can load a file from it.
  */
-function localRootOf(value: unknown, cwd: URL): URL {
+function localRootOf(value: unknown, cwd: URL, files: FileCheck): URL {
   const root = typeof value === "string" ? localRootUrlOf(value, cwd) : value;
-  if (root instanceof URL && isLocalFileUrl(root)) {
-    return root;
+  if (!(root instanceof URL && isLocalFileUrl(root))) {
+    throw optionInvalid("localRefRoot", LOCAL_ROOT_EXPECTED, localRootKindOf(root));
   }
-  throw optionInvalid("localRefRoot", LOCAL_ROOT_EXPECTED, localRootKindOf(root));
+  if (files.isFile(root)) {
+    throw optionInvalid("localRefRoot", LOCAL_ROOT_EXPECTED, "a file");
+  }
+  return root;
 }
 
 function remoteHostsOf(value: unknown): readonly string[] {
@@ -79,11 +85,14 @@ function remoteHostsOf(value: unknown): readonly string[] {
   return value;
 }
 
-/** The limits of the options; fails with `OPTION_INVALID` for a value of another type. */
-export function refAccessOf(options: GeneratorOptions, cwd: URL): RefAccess {
+/**
+ * The limits of the options; fails with `OPTION_INVALID` for a value of another type or a local
+ * root that is a file.
+ */
+export function refAccessOf(options: GeneratorOptions, cwd: URL, files: FileCheck): RefAccess {
   const { localRefRoot, remoteRefHosts } = options;
   return {
-    ...(localRefRoot === undefined ? {} : { localRoot: localRootOf(localRefRoot, cwd) }),
+    ...(localRefRoot === undefined ? {} : { localRoot: localRootOf(localRefRoot, cwd, files) }),
     ...(remoteRefHosts === undefined ? {} : { remoteHosts: remoteHostsOf(remoteRefHosts) }),
   };
 }

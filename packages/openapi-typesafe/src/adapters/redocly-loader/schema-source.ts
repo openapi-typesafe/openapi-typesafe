@@ -12,7 +12,7 @@ import {
 import parseJson from "parse-json";
 import type { SchemaLoadRequest } from "../../application/ports/schema-loader.js";
 import { assertNever } from "../../domain/assert-never.js";
-import { locationInText, parseUrlLocation } from "../../domain/location-text.js";
+import { isReadScheme, locationInText, parseUrlLocation } from "../../domain/location-text.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
 import {
   loadFailedError,
@@ -22,6 +22,7 @@ import {
   sourceEmptyError,
   sourceInvalidError,
   type TextOrigin,
+  unsupportedSchemeError,
   urlInvalidError,
 } from "./schema-load-errors.js";
 
@@ -147,9 +148,19 @@ function resolveSchemaText({ text, origin, cwd }: SchemaText): ResolvedSource {
 
 /**
  * Read the text of a stream or buffer, and turn text that is a location into its URL. `cwd` is
- * the base of a relative location, and names a stream that fails to read.
+ * the base of a relative location, and names a stream that fails to read. A URL of a scheme the
+ * generator does not read (`s3:`), as a `URL` or as text, fails with `SCHEMA_SOURCE_INVALID`
+ * before anything is read.
  */
 export async function resolveSchemaSource(schema: unknown, cwd: URL): Promise<ResolvedSource> {
+  const source = await readSchemaSource(schema, cwd);
+  if (source.kind === "url" && !isReadScheme(source.url.protocol)) {
+    throw unsupportedSchemeError(source.url);
+  }
+  return source;
+}
+
+async function readSchemaSource(schema: unknown, cwd: URL): Promise<ResolvedSource> {
   if (!schema) {
     throw sourceEmptyError(EMPTY_SOURCE_MESSAGE);
   }

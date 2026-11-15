@@ -29,8 +29,8 @@ describe("queryKeyInit", () => {
     });
   });
 
-  it("queryKeyInit keeps a plain headers object, whose null and array values mean more", () => {
-    const headers = { "X-A": ["1", "2"], "X-B": null };
+  it("queryKeyInit keeps the null and array values of plain headers, which mean more", () => {
+    const headers = { "x-a": ["1", "2"], "x-b": null };
 
     expect(queryKeyInit({ headers }, NO_BASE_URL)).toEqual({ headers });
   });

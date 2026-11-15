@@ -72,6 +72,21 @@ describe("RedoclySchemaLoader: local files read", () => {
     expect(files).toEqual([pathToFileURL(path.join(workDir, "models.yaml")).href]);
   });
 
+  it("localFilesRead lists a document with a relative name as the file it names in the cwd", async () => {
+    const relative = path.join("s3:", "bucket", "a.yaml");
+    const root = { source: { absoluteRef: relative }, parsed: {} } as Document;
+    const cache = new Map<string, Promise<unknown>>([
+      [
+        "https://example.com/b.yaml",
+        Promise.resolve({ source: { absoluteRef: "https://example.com/b.yaml" }, parsed: {} }),
+      ],
+    ]);
+
+    const files = await localFilesRead(root, { cache } as unknown as BaseResolver, true);
+
+    expect(files.map((file) => file.href)).toEqual([pathToFileURL(path.resolve(relative)).href]);
+  });
+
   it("localFilesRead skips a $ref that failed to load and lists the others", async () => {
     const failed = Promise.reject(new Error("401 Unauthorized"));
     failed.catch(() => undefined);
