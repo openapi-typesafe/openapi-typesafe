@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { runCli } from "../../src/cli/run-cli.js";
 import { createFakeCli, fakePath, fakeRedoclyConfig, fakeUrl } from "../fakes/cli-dependencies.js";
@@ -59,6 +61,47 @@ describe("x-openapi-ts settings", () => {
     expect(cli.generator.calls[0]?.options).toMatchObject({
       localRefRoot: new URL(fakeUrl("/work/api")),
     });
+  });
+
+  it.each(["file:", "file:?x", "file:#x"])(
+    "runCli with local-ref-root %j limits refs to the config file's folder, not the file",
+    async (localRefRoot) => {
+      const cli = cliWithApi({ localRefRoot });
+
+      await runCli([], cli.deps);
+
+      const root = cli.generator.calls[0]?.options.localRefRoot;
+      expect(root instanceof URL ? fileURLToPath(root) : root).toBe(`${fakePath("/work/api")}${path.sep}`);
+    },
+  );
+
+  it.each(["redocly.yaml", "file:redocly.yaml"])(
+    "runCli with local-ref-root %j that names a file fails with CLI_CONFIG_INVALID",
+    async (localRefRoot) => {
+      const cli = cliWithApi({ localRefRoot });
+      cli.files.files.set(CONFIG_PATH, "apis: {}");
+
+      expect(await runCli([], cli.deps)).toBe(2);
+
+      expect(cli.logger.messages("error")).toEqual([
+        "API api: `localRefRoot` in x-openapi-ts must be a directory path or a file: URL of a local directory (CLI_CONFIG_INVALID)",
+      ]);
+      expect(cli.generator.calls).toEqual([]);
+    },
+  );
+
+  it("runCli resolves a root and output of file: with an empty path to the config file's folder", async () => {
+    const cli = createFakeCli();
+    const apis = { api: { root: "file:", "x-openapi-ts": { output: "file:?x" } } };
+    cli.redoclyConfigs.configs.set(CONFIG_PATH, fakeRedoclyConfig(apis, CONFIG_PATH));
+    cli.redoclyConfigs.found = CONFIG_PATH;
+    cli.files.files.set(CONFIG_PATH, "apis: {}");
+
+    expect(await runCli([], cli.deps)).toBe(2);
+
+    expect(cli.logger.messages("error")).toEqual([
+      "API api: The output file:?x is a directory. Name the file to write the types to in it. (CLI_OUTPUT_INVALID)",
+    ]);
   });
 
   it("runCli takes an API's remote-ref-hosts list or comma string over the flag", async () => {

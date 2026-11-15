@@ -526,6 +526,22 @@ describe("runCli: $ref limits", () => {
     expect(cli.generator.calls).toEqual([]);
   });
 
+  it.each(["a.yaml", "file:a.yaml"])(
+    "runCli with --local-ref-root %s that names a file exits with 2 before generating",
+    async (root) => {
+      const cli = createFakeCli();
+      cli.files.files.set(fakePath("/work/a.yaml"), "openapi: 3.1.0");
+
+      const exitCode = await runCli(["a.yaml", "--local-ref-root", root], cli.deps);
+
+      expect(exitCode).toBe(2);
+      expect(cli.logger.messages("error")).toEqual([
+        `--local-ref-root ${root}: a directory path or a file: URL of a local directory. (CLI_FLAG_INVALID)`,
+      ]);
+      expect(cli.generator.calls).toEqual([]);
+    },
+  );
+
   it("runCli passes a file: URL --local-ref-root as it is", async () => {
     const cli = createFakeCli();
     const root = fakeUrl("/specs/");

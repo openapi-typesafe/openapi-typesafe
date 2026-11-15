@@ -50,9 +50,14 @@ export function hasRedoclyApis(redocly: RedoclyConfig): boolean {
   return Object.keys(redocly.apis ?? {}).length > 0;
 }
 
-/** Paths in the config are relative to the config file; without a file, to the working dir. */
+/**
+ * The folder that locations in the config are relative to: the folder of the config file, or
+ * the working directory without one. The folder, not the file, so that a `file:` URL with an
+ * empty path (`file:`, `file:?x`) names that folder, as `""` and `file:.` do; against the file
+ * URL it named `redocly.yaml` itself.
+ */
 function configRootOf(redocly: RedoclyConfig, cwd: URL): URL {
-  return redocly.configFile ? resolveLocationUrl(redocly.configFile, cwd) : cwd;
+  return redocly.configFile ? new URL(".", resolveLocationUrl(redocly.configFile, cwd)) : cwd;
 }
 
 /** An API whose root and settings are usable, and the directory its paths are relative to. */
@@ -119,7 +124,7 @@ function apiOptions(run: CliRun, apiRun: ApiRun, target: ApiTarget): GeneratorOp
   return {
     ...flags,
     ...apiRun.refLimits,
-    ...apiRefLimitOptions(name, settings, configRoot),
+    ...apiRefLimitOptions(name, settings, { configRoot, files: run.deps.files }),
     ...fixOption(apiFixNames(name, settings) ?? run.args.fix),
     redocly: run.deps.redoclyConfigs.forApi(apiRun.redocly, name),
   };
@@ -230,7 +235,7 @@ async function settledInTurn<T, R>(
 export async function generateRedoclyApis(run: CliRun, redocly: RedoclyConfig): Promise<unknown[]> {
   const apis = redoclyApisOf(redocly);
   const { configRoot, files } = configFilesOf(run, redocly, apis);
-  const apiRun = { redocly, files, refLimits: refLimitOptions(run.args, run.deps.cwd) };
+  const apiRun = { redocly, files, refLimits: refLimitOptions(run) };
   const results = await settledInTurn(apis, (api) =>
     generateApi(run, apiRun, apiTarget(api, configRoot)),
   );
