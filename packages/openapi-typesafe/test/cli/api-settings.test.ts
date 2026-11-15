@@ -75,7 +75,7 @@ describe("x-openapi-ts settings", () => {
     },
   );
 
-  it.each(["redocly.yaml", "file:redocly.yaml"])(
+  it.each(["redocly.yaml", "file:redocly.yaml", "file:redocly.yaml/", "redocly.yaml/specs/"])(
     "runCli with local-ref-root %j that names a file fails with CLI_CONFIG_INVALID",
     async (localRefRoot) => {
       const cli = cliWithApi({ localRefRoot });
