@@ -20,6 +20,8 @@ import { documentWith } from "./defensive-helpers.js";
 
 const SECRET = "URL-SECRET";
 const QUERY = `?key=se cret'${SECRET}`;
+/** The loop document redirects to itself: a fixed location, not one read from the request. */
+const LOOP_LOCATION = encodeURI(`/my 'loop.json${QUERY}`);
 const LOAD_TIMEOUT_MS = 10_000;
 const SHORT_TIMEOUT_MS = 200;
 const REDIRECT = 302;
@@ -60,7 +62,7 @@ function answer(request: IncomingMessage, response: ServerResponse): void {
   const url = request.url ?? "";
   const route = decodeURIComponent(url.split("?")[0] ?? "");
   if (route === "/my 'loop.json") {
-    response.writeHead(REDIRECT, { location: url }).end();
+    response.writeHead(REDIRECT, { location: LOOP_LOCATION }).end();
     return;
   }
   if (!BODIES.has(route)) {
