@@ -158,6 +158,20 @@ describe("queryKeyInit params and headers it cannot read", () => {
     expect(keyOf({ headers: [["x-a", "1"], null] })).toBeUndefined();
   });
 
+  it.each([
+    ["a string", "xy"],
+    ["a number", 1],
+    ["a list of one item", ["x"]],
+    ["a list of three items", ["x", "y", "z"]],
+    ["a list-like object that is not iterable", { 0: "x", 1: "y", length: 2 }],
+  ])("queryKeyInit leaves header pairs with %s for a pair out", (_name, pair) => {
+    expect(keyOf({ headers: [pair] })).toBeUndefined();
+  });
+
+  it("queryKeyInit keeps header pairs given as iterable lists of two", () => {
+    expect(keyOf({ headers: [new Set(["x-a", "1"])] })).toStrictEqual({ headers: { "x-a": "1" } });
+  });
+
   it("queryKeyInit leaves a revoked Proxy query record out", () => {
     expect(keyOf({ params: { query: revokedProxy(), path: { id: ITEM_ID } } })).toStrictEqual({
       params: { path: { id: ITEM_ID } },

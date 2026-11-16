@@ -22,6 +22,8 @@ import { objectKey, sentMembers, textOf } from "./param-key.js";
 
 /** The `params` record the fetch client sends as headers, through no serializer. */
 const HEADER_RECORD = "header";
+/** A header pair holds a name and a value, no more and no fewer, or `Headers` throws for it. */
+const HEADER_PAIR_LENGTH = 2;
 
 /** What the key takes from the fetch client and the options of `createClient`. */
 export interface KeyClient {
@@ -107,12 +109,27 @@ function plainHeadersKey(headers: object, ancestors: Ancestors): Record<string, 
 function headerPairsKey(headers: Iterable<unknown>, ancestors: Ancestors): Record<string, unknown> {
   const sent = new Map<string, string>();
   for (const pair of headers) {
-    const [name, value] = Array.from(pair as ArrayLike<unknown>);
+    const [name, value] = headerPair(pair);
     const key = String(headerText(name, ancestors)).toLowerCase();
     const text = String(headerText(value, ancestors));
     sent.set(key, sent.has(key) ? `${sent.get(key)}, ${text}` : text);
   }
   return Object.fromEntries(sent);
+}
+
+/**
+ * The name and value of a header pair. Throws, as `Headers` does, for an item that is no list of
+ * two, such as a string, a number or a list of one or three items.
+ */
+function headerPair(pair: unknown): unknown[] {
+  const items =
+    typeof pair === "object" && pair !== null && Symbol.iterator in pair
+      ? Array.from(pair as Iterable<unknown>)
+      : [];
+  if (items.length !== HEADER_PAIR_LENGTH) {
+    throw new TypeError("A header pair is a list of a name and a value");
+  }
+  return items;
 }
 
 /**
