@@ -33,9 +33,9 @@ function narrowedType(
   listed: readonly EnumValue[],
   members: ReadonlyMap<EnumValue, string>,
 ): IrType {
-  const values = [...new Set(listed)];
-  const names = values.map((value) => members.get(value));
-  const isWhole = [...members.keys()].every((value) => values.includes(value));
+  const values = new Set(listed);
+  const names = [...values].map((value) => members.get(value));
+  const isWhole = [...members.keys()].every((value) => values.has(value));
   if (isWhole || names.some((member) => member === undefined)) {
     return irReference(name);
   }
@@ -53,17 +53,22 @@ function narrowedNode(
   return narrowedType(name, node.enumValues as EnumValue[], members.get(name) ?? new Map());
 }
 
+/** Narrows the `--enum` references of declarations; see `enumReferenceNarrowing`. */
+export type EnumReferenceNarrowing = <T extends IrDeclaration>(declarations: readonly T[]) => T[];
+
 /**
- * The declarations with each `--enum` reference typed by the values its schema lists
+ * Types each `--enum` reference of the declarations it is given by the values its schema lists
  * (`IrReferenceType.enumValues`), once `enums` holds every member of the run's enums. Requests
  * of one owner share one enum (a property and an inline `allOf` item of one schema), which has
  * the values of all of them, so a request of fewer values admits only its own: `Mode.a`, not
- * `Mode`. Which requests have fewer values is known only at the end of the run.
+ * `Mode`. Which requests have fewer values is known only at the end of the run. The members are
+ * read once, so narrowing each declaration of a large document on its own stays linear.
  */
-export function withEnumReferencesNarrowed<T extends IrDeclaration>(
-  declarations: readonly T[],
+export function enumReferenceNarrowing(
   enums: readonly IrEnumDeclaration[],
-): T[] {
+): EnumReferenceNarrowing {
   const members = memberNames(enums);
-  return [...(mappedIrNodes(declarations, (node) => narrowedNode(node, members)) as T[])];
+  return <T extends IrDeclaration>(declarations: readonly T[]): T[] => [
+    ...(mappedIrNodes(declarations, (node) => narrowedNode(node, members)) as T[]),
+  ];
 }
