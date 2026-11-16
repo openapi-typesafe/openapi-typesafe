@@ -14,6 +14,8 @@ import {
   attempt,
   DEEPER_FORM,
   deeperKeys,
+  hasSlotsOf,
+  isClass,
   keyOf,
   readMembers,
   rootAncestors,
@@ -24,6 +26,8 @@ import { objectKey, sentMembers, textOf } from "./param-key.js";
 const HEADER_RECORD = "header";
 /** A header pair holds a name and a value, no more and no fewer, or `Headers` throws for it. */
 const HEADER_PAIR_LENGTH = 2;
+/** Classes besides Map and Set whose every read gives a new iterator. */
+const REREADABLE_CLASSES = ["Headers", "URLSearchParams", "FormData"] as const;
 
 /** What the key takes from the fetch client and the options of `createClient`. */
 export interface KeyClient {
@@ -88,29 +92,38 @@ function foldHeader(sent: Map<string, unknown>, name: string, value: unknown): v
 }
 
 /**
- * Plain headers by the headers they send. `Headers` matches a name in any letter case, so names
- * are folded to lower case in their order: `{ "X-A": "1", "x-a": "2" }` sends `x-a: 2` and the
- * reverse order `x-a: 1`, and both had one key. A `null` value stays, as it removes the header.
+ * Header entries by the headers they send, as the fetch client's `mergeHeaders` sets them one
+ * after the other. `Headers` matches a name in any letter case, so names are folded to lower case
+ * in their order: `{ "X-A": "1", "x-a": "2" }` sends `x-a: 2` and the reverse order `x-a: 1`, and
+ * both had one key. A `null` value stays, as it removes the header.
  */
-function plainHeadersKey(headers: object, ancestors: Ancestors): Record<string, unknown> {
+function foldedHeadersKey(
+  entries: Iterable<readonly unknown[]>,
+  ancestors: Ancestors,
+): Record<string, unknown> {
   const sent = new Map<string, unknown>();
-  for (const [name, value] of readMembers(headers)) {
-    foldHeader(sent, name.toLowerCase(), headerValueKey(value, ancestors));
+  for (const [name, value] of entries) {
+    foldHeader(sent, headerName(name, ancestors), headerValueKey(value, ancestors));
   }
   return Object.fromEntries(sent);
 }
 
+/** A header name as `Headers` matches it: its text in lower case. */
+function headerName(name: unknown, ancestors: Ancestors): string {
+  return String(headerText(name, ancestors)).toLowerCase();
+}
+
 /**
- * A `Headers` object or a list of pairs, which are both iterable, by the names and values the
- * request sends: names in lowercase, a repeated one joined with `, `, as `Headers` writes them.
- * They are read without `Headers`, which threw for an invalid name or value while the component
- * rendered; the request reports it as a query error.
+ * A list of header pairs, or a `Set` of them, by the names and values the request sends: the
+ * fetch client reads them through `Headers`, which sends the text of each value, also of `null`,
+ * and joins a repeated name with `, `. They are read without `Headers`, which threw for an
+ * invalid name or value while the component rendered; the request reports it as a query error.
  */
 function headerPairsKey(headers: Iterable<unknown>, ancestors: Ancestors): Record<string, unknown> {
   const sent = new Map<string, string>();
   for (const pair of headers) {
     const [name, value] = headerPair(pair);
-    const key = String(headerText(name, ancestors)).toLowerCase();
+    const key = headerName(name, ancestors);
     const text = String(headerText(value, ancestors));
     sent.set(key, sent.has(key) ? `${sent.get(key)}, ${text}` : text);
   }
@@ -119,13 +132,11 @@ function headerPairsKey(headers: Iterable<unknown>, ancestors: Ancestors): Recor
 
 /**
  * The name and value of a header pair. Throws, as `Headers` does, for an item that is no list of
- * two, such as a string, a number or a list of one or three items.
+ * two, such as a string, a number or a list of one or three items, and for an item that is no
+ * collection, such as an iterator, which reading would use up for the request.
  */
 function headerPair(pair: unknown): unknown[] {
-  const items =
-    typeof pair === "object" && pair !== null && Symbol.iterator in pair
-      ? Array.from(pair as Iterable<unknown>)
-      : [];
+  const items = isCollection(pair) ? Array.from(pair as Iterable<unknown>) : [];
   if (items.length !== HEADER_PAIR_LENGTH) {
     throw new TypeError("A header pair is a list of a name and a value");
   }
@@ -133,19 +144,49 @@ function headerPair(pair: unknown): unknown[] {
 }
 
 /**
- * The headers of an init by the headers they send, or undefined when they set none. Throws for
- * headers it cannot read, such as a pair that is not a list, for `keyOf` to leave them out: the
- * request fails for them too and reports it.
+ * Whether a value can be read without using it up: an array, a Map or a Set of any realm, or a
+ * `Headers`, `URLSearchParams` or `FormData`, each of which gives a new iterator on every read.
+ * An iterator, a generator or another iterable of the caller may give its items only once: the
+ * key would take them from the request.
+ */
+function isCollection(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  return (
+    Array.isArray(value) ||
+    hasSlotsOf(value, Map) ||
+    hasSlotsOf(value, Set) ||
+    REREADABLE_CLASSES.some((name) => isClass(value, name))
+  );
+}
+
+/**
+ * The headers of an init by the headers they send, read by the branches of the fetch client's
+ * `mergeHeaders`, in its order: a value with a `get` method (`Headers` of any realm, a `Map`) by
+ * its `entries()`, whose raw values it sets as plain headers (`null` removes one, `undefined`
+ * sends nothing); any other iterable (a list of pairs) through `Headers`; any other object by its
+ * own members, as plain headers; anything else is skipped. Headers that are no collection, such
+ * as `map.entries()`, are left out of the key, which must not use them up: one request more,
+ * while the request keeps every header. Undefined when they set none. Throws for headers it
+ * cannot read, such as a pair that is not a list, for `keyOf` to leave them out: the request
+ * fails for them too and reports it.
  */
 function headersKey(headers: unknown, ancestors: Ancestors): unknown {
   if (typeof headers !== "object" || headers === null) {
-    return headers;
+    return undefined;
   }
-  return definedMembers(
-    Symbol.iterator in headers
-      ? headerPairsKey(headers as Iterable<unknown>, ancestors)
-      : plainHeadersKey(headers, ancestors),
-  );
+  if (typeof (headers as { get?: unknown }).get === "function") {
+    return isCollection(headers)
+      ? definedMembers(foldedHeadersKey((headers as Map<unknown, unknown>).entries(), ancestors))
+      : undefined;
+  }
+  if (Symbol.iterator in headers) {
+    return isCollection(headers)
+      ? definedMembers(headerPairsKey(headers as Iterable<unknown>, ancestors))
+      : undefined;
+  }
+  return definedMembers(foldedHeadersKey(readMembers(headers), ancestors));
 }
 
 /**
