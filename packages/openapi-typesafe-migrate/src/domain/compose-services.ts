@@ -18,6 +18,8 @@ const MERGE_KEY = "<<";
 /** The keys of a Compose container: the entrypoint, and the command it gets as arguments. */
 const CONTAINER_KEYS: ReadonlySet<string> = new Set(["entrypoint", "command"]);
 const SERVICE_PATH_LENGTH = 2;
+/** A field of an extends map: `services.<name>.extends.file`. */
+const FIELD_PATH_LENGTH = 4;
 
 /** The service of a Compose map path (`services.gen`), or undefined for another map. */
 export function serviceOf(path: DocumentPath): string | undefined {
@@ -68,6 +70,30 @@ export function serviceExtensions(
     }
   }
   return found;
+}
+
+/** A service of another file that a service extends: the file as written, and the service. */
+export interface FileExtension {
+  /** The service that extends. */
+  readonly name: string;
+  readonly file: string;
+  readonly service: string | undefined;
+}
+
+/** The `extends` of the services that name another file (`extends: { file: common.yml }`). */
+export function fileExtensions(values: readonly DocumentValue[]): FileExtension[] {
+  const fields = new Map<string, Map<string, string>>();
+  for (const { path, value } of values.filter(isDocumentString)) {
+    const [services, name, key, field] = path;
+    if (services === SERVICES_KEY && key === EXTENDS_KEY && path.length === FIELD_PATH_LENGTH) {
+      const found = fields.get(String(name)) ?? new Map<string, string>();
+      fields.set(String(name), found.set(String(field), value));
+    }
+  }
+  return [...fields].flatMap(([name, found]) => {
+    const file = found.get(FILE_KEY);
+    return file === undefined ? [] : [{ name, file, service: found.get(SERVICE_KEY) }];
+  });
 }
 
 /** How a YAML file's kind reads its services: Compose files have them. */

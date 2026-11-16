@@ -19,8 +19,14 @@ const SCRIPT_NOT_SHELL_NOTE =
   "so the tool does not read it as commands: migrate the old package names in it by hand";
 const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; change it to";
 const SHARED_CONTAINER_TEXT_NOTE =
-  "is given by a YAML anchor to containers that run different programs, so it was kept: where " +
-  "it runs the generator, rename";
+  "is shared by containers that run different programs (through a YAML anchor or a Compose " +
+  "extends), so it was kept: where it runs the generator, rename";
+const INCLUDED_TEXT_DIFFERS_NOTE =
+  "read this line with different values (it may run openapi-typescript in one and another " +
+  "program in another), so it was kept: where it runs the generator, rename";
+const COMMAND_LINE_IN_ITEM_NOTE =
+  "a list item holds a whole command line, which no shell splits in exec form, so it was kept: " +
+  "where a shell runs it, rename";
 const CONTAINER_NOT_KNOWN_NOTES: Readonly<Record<ContainerUnknown, string>> = {
   "image-program":
     "gives these arguments to the program of its image, which the file does not name, so they " +
@@ -74,11 +80,37 @@ function notOnlyGeneratorMessage(
   return `${step.location}: ${step.variable} ${NOT_ONLY_GENERATOR_NOTE} ${flagRenames(step.flags)}`;
 }
 
-function sharedContainerTextMessage(
-  step: Extract<ManualStep, { kind: "shared-container-text" }>,
-): string {
+/** The steps that keep a text which some of its readers run as the generator, with renames. */
+type RenameStep = Extract<
+  ManualStep,
+  { kind: "shared-container-text" | "included-text-differs" | "command-line-in-item" }
+>;
+
+/** Why a rename step's text was kept. */
+function keptReason(step: RenameStep): string {
+  switch (step.kind) {
+    case "shared-container-text":
+      return `the text ${SHARED_CONTAINER_TEXT_NOTE}`;
+    case "included-text-differs":
+      return `the Makefiles ${step.readers.join(", ")} ${INCLUDED_TEXT_DIFFERS_NOTE}`;
+    case "command-line-in-item":
+      return COMMAND_LINE_IN_ITEM_NOTE;
+    default:
+      return assertNever(step);
+  }
+}
+
+function renameStepMessage(step: RenameStep): string {
   const renames = step.renames.map(({ from, to }) => `${from} to ${to}`).join(", ");
-  return `${step.location}: the text ${SHARED_CONTAINER_TEXT_NOTE} ${renames}`;
+  return `${step.location}: ${keptReason(step)} ${renames}`;
+}
+
+function composeStepMessage(
+  step: Extract<ManualStep, { kind: "compose-include-not-read" | "compose-service-conflict" }>,
+): string {
+  return step.kind === "compose-include-not-read"
+    ? `${step.location}: the file includes ${step.path}, ${includeNote(step.problem)}`
+    : `${step.location}: the service ${step.service} ${SERVICE_CONFLICT_NOTE}`;
 }
 
 /** The manual steps found in commands: scripts, shell files, CI files and command strings. */
@@ -94,6 +126,8 @@ type CommandStep = Extract<
       | "old-name-in-command"
       | "split-flag"
       | "shared-container-text"
+      | "included-text-differs"
+      | "command-line-in-item"
       | "container-not-known"
       | "compose-include-not-read"
       | "compose-service-conflict"
@@ -111,6 +145,8 @@ const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "old-name-in-command",
   "split-flag",
   "shared-container-text",
+  "included-text-differs",
+  "command-line-in-item",
   "container-not-known",
   "compose-include-not-read",
   "compose-service-conflict",
@@ -138,13 +174,14 @@ export function commandStepMessage(step: CommandStep): string {
     case "split-flag":
       return `${step.location}: ${step.flag} ${SPLIT_FLAG_NOTE} ${flagRenames([step.flag])}`;
     case "shared-container-text":
-      return sharedContainerTextMessage(step);
+    case "included-text-differs":
+    case "command-line-in-item":
+      return renameStepMessage(step);
     case "container-not-known":
       return containerNotKnownMessage(step);
     case "compose-include-not-read":
-      return `${step.location}: the file includes ${step.path}, ${includeNote(step.problem)}`;
     case "compose-service-conflict":
-      return `${step.location}: the service ${step.service} ${SERVICE_CONFLICT_NOTE}`;
+      return composeStepMessage(step);
     case "script-not-shell":
       return `${step.location}: the script runs with ${step.shell}, ${SCRIPT_NOT_SHELL_NOTE}`;
     case "command-string":

@@ -25,11 +25,17 @@ export interface CalledMakefiles extends IncludedFiles {
    * from the command line, or undefined when the project has no file there.
    */
   readonly replacedNames: (path: string) => ReadonlySet<string> | undefined;
+  /**
+   * The Makefiles that make runs and that read the file at a project path: the file itself when
+   * make runs it, and those that include it, however deep. Empty when no Makefile includes it.
+   */
+  readonly readersOf: (path: string) => readonly string[];
 }
 
 export const NO_CALLED_MAKEFILES: CalledMakefiles = {
   replacedNames: () => undefined,
   includedText: () => undefined,
+  readersOf: () => [],
 };
 
 /** Where a recipe that calls make is, and what its Makefile gives the variables there. */

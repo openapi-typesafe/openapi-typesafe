@@ -1,4 +1,5 @@
 import { EVAL, type FunctionCall, functionArguments } from "./make-expansions.js";
+import type { TextRange } from "./make-line-text.js";
 import { type MakeLines, readMakeLines } from "./make-lines.js";
 
 /**
@@ -7,15 +8,36 @@ import { type MakeLines, readMakeLines } from "./make-lines.js";
  * `$(eval $(RULE))` or `$(eval $(call RULE,x))`). The assignments in it are Makefile
  * assignments, marked as evaluated: make runs them where it expands the call, which the tool
  * does not follow, so the variables they set may have their values anywhere (make-values.ts).
+ * Make expands that text once before eval reads it, which turns `$$` into `$`: `$$(GEN)` in a
+ * template is a reference to `GEN` in the text eval reads. A `$(value NAME)` gives the value
+ * unexpanded, so its `$$` stays.
  */
 
 /** A reference in an eval argument: `$(NAME)`, `${NAME}`, `$(call NAME,…)`, `$(value NAME)`. */
-const REFERENCED_NAME_RE = /\$[({](?:(?:call|value)[ \t]+)?([^\s:#=$(){},]+)/g;
+const REFERENCED_NAME_RE = /\$[({](?:(call|value)[ \t]+)?([^\s:#=$(){},]+)/g;
+const VALUE_FUNCTION = "value";
+/** Make's escape of `$`, and how the text eval reads holds it: a blank keeps the offsets. */
+const ESCAPED_DOLLAR_RE = /\$\$/g;
+const EXPANDED_DOLLAR = " $";
 
 /** What `$(eval …)` reads: the call arguments, and the lines of all evaluated text. */
 export interface EvaluatedText {
   readonly calls: readonly FunctionCall[];
   readonly lines: Pick<MakeLines, "assignments" | "hidden">;
+  /** Where make expands the evaluated text before eval reads it. */
+  readonly expanded: readonly TextRange[];
+}
+
+/** The names that eval arguments reference, and whether each is expanded (not `value`). */
+function referencedNames(plain: string, calls: readonly FunctionCall[]): Map<string, boolean> {
+  const names = new Map<string, boolean>();
+  for (const { start, end } of calls) {
+    for (const [, function_, name] of plain.slice(start, end).matchAll(REFERENCED_NAME_RE)) {
+      const isExpanded = function_ !== VALUE_FUNCTION;
+      names.set(name as string, (names.get(name as string) ?? false) || isExpanded);
+    }
+  }
+  return names;
 }
 
 /**
@@ -24,22 +46,30 @@ export interface EvaluatedText {
  */
 export function evaluatedText(text: string, plain: string, lines: MakeLines): EvaluatedText {
   const calls = functionArguments(plain, EVAL);
-  const names = new Set(
-    calls.flatMap(({ start, end }) =>
-      [...plain.slice(start, end).matchAll(REFERENCED_NAME_RE)].map((match) => match[1] as string),
-    ),
-  );
+  const names = referencedNames(plain, calls);
   const values = lines.assignments
     .filter((assignment) => names.has(assignment.name))
-    .map(({ valueStart, valueEnd }) => ({ start: valueStart, end: valueEnd }));
+    .map(({ name, valueStart, valueEnd }) => ({ name, start: valueStart, end: valueEnd }));
   const read = [...calls, ...values].map(({ start, end }) =>
     readMakeLines(text, { from: start, to: end, isEvaluated: true }),
   );
+  const expandedValues = values.filter(({ name }) => names.get(name) === true);
   return {
     calls,
     lines: {
       assignments: read.flatMap(({ assignments }) => assignments),
       hidden: read.flatMap(({ hidden }) => hidden),
     },
+    expanded: [...calls, ...expandedValues].map(({ start, end }) => ({ start, end })),
   };
+}
+
+/** The text with each `$$` in `ranges` as the `$` that make's expansion leaves there. */
+export function withExpandedEscapes(text: string, ranges: readonly TextRange[]): string {
+  let expanded = text;
+  for (const { start, end } of ranges) {
+    const range = expanded.slice(start, end).replace(ESCAPED_DOLLAR_RE, EXPANDED_DOLLAR);
+    expanded = `${expanded.slice(0, start)}${range}${expanded.slice(end)}`;
+  }
+  return expanded;
 }

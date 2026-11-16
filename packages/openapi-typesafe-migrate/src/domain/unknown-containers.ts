@@ -1,5 +1,5 @@
 import type { Finding, Locate } from "./argument-findings.js";
-import { shellTextFindings } from "./command-migration.js";
+import { commandLineRenames } from "./command-line-items.js";
 import type { DocumentString } from "./config-documents.js";
 import type { ContainerUnknown, ManualStep, WordRename } from "./migration-findings.js";
 import { FLAG_RENAMES } from "./package-names.js";
@@ -19,19 +19,13 @@ export interface UnknownContainerRun {
   readonly unknown: ContainerUnknown;
   readonly findings: readonly Finding[];
   readonly words: readonly ShellWord[];
-  /** The shell scripts it would start (`["sh", "-c", "…"]`), read for their renames. */
+  /**
+   * The shell scripts it would start (`["sh", "-c", "…"]`) and its items that hold a command line
+   * (command-line-items.ts), read for their renames.
+   */
   readonly scripts: readonly DocumentString[];
   /** The offset of the container's first string, where the step is reported. */
   readonly start: number;
-}
-
-/** The renames of a script's commands, in its value. */
-function scriptRenames(script: DocumentString, locate: Locate): WordRename[] {
-  const { edits } = shellTextFindings(script.value, locate);
-  return renamesOf(
-    edits.map((edit) => ({ offset: edit.start, edit })),
-    script.value,
-  );
 }
 
 /** The old flags of the generator among the words, each with its new name. */
@@ -49,7 +43,7 @@ export function unknownContainerFindings(
 ): Finding[] {
   const found = [
     ...renamesOf(run.findings, text),
-    ...run.scripts.flatMap((script) => scriptRenames(script, locate)),
+    ...run.scripts.flatMap((script) => commandLineRenames(script, locate)),
     ...(run.unknown === "other-file" ? flagRenames(run.words) : []),
   ];
   const renames = [...new Map(found.map((rename) => [JSON.stringify(rename), rename])).values()];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CalledMakefiles } from "../../src/domain/make-calls.js";
-import { commandLineReplacements, migrateMakefile } from "../../src/domain/makefile-migration.js";
+import { migrateMakefile } from "../../src/domain/makefile-migration.js";
+import { commandLineReplacements } from "../../src/domain/makefile-reading.js";
 
 const lines = (...parts: string[]): string => `${parts.join("\n")}\n`;
 
@@ -14,6 +15,7 @@ const calledFiles = (files: Readonly<Record<string, readonly string[]>>): Called
     return names === undefined ? undefined : new Set(names);
   },
   includedText: () => undefined,
+  readersOf: () => [],
 });
 
 const PROJECT = calledFiles({

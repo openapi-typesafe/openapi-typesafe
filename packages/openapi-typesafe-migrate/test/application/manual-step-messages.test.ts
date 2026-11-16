@@ -98,6 +98,25 @@ const STEPS: readonly ManualStep[] = [
   },
   { kind: "compose-service-conflict", location: "compose.yaml:5", service: "gen" },
   {
+    kind: "shared-container-text",
+    location: "compose.yaml:4",
+    renames: [{ from: "openapi-typescript", to: "openapi-typesafe" }],
+  },
+  {
+    kind: "included-text-differs",
+    location: "mk/gen.mk:2",
+    readers: ["Makefile", "api/Makefile"],
+    renames: [{ from: "-it", to: "--immutable" }],
+  },
+  {
+    kind: "command-line-in-item",
+    location: "k8s/job.yaml:7",
+    renames: [
+      { from: "openapi-typescript", to: "openapi-typesafe" },
+      { from: "-it", to: "--immutable" },
+    ],
+  },
+  {
     kind: "package-not-declared",
     line: 1,
     name: "openapi-typesafe-helpers",

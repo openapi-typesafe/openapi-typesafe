@@ -50,7 +50,7 @@ export const NO_YAML_REACH: YamlReach = {
   kinds: new Map(),
   generatorVariables: new Set(),
   includedVariables: new Map(),
-  compose: { readings: new Map(), includedFiles: new Set() },
+  compose: { readings: new Map(), includedFiles: new Set(), links: [] },
 };
 
 /** What the other Compose files of the project give the file at `path`; nothing for no file. */
@@ -86,7 +86,8 @@ function stringsOf(text: string | undefined, { readers }: ReachDependencies): Do
   return parsed?.kind === "read" ? usedDocumentStrings(parsed.documents) : [];
 }
 
-const INCLUDE_KEY_RE = /^include\s*:/m;
+/** A top-level `include`, or an `extends` of a service, which may name another file. */
+const LINK_KEY_RE = /^include\s*:|\bextends\b/m;
 
 /** How the Compose planner reads the files of the project. */
 function composeSource(paths: readonly string[], dependencies: ReachDependencies): ComposeSource {
@@ -97,7 +98,7 @@ function composeSource(paths: readonly string[], dependencies: ReachDependencies
       const parsed = text === undefined ? undefined : dependencies.readers.yaml.read(text);
       return parsed?.kind === "read" ? usedDocumentValues(parsed.documents) : [];
     },
-    mayInclude: async (path) => INCLUDE_KEY_RE.test((await textOf(path, dependencies)) ?? ""),
+    mayLink: async (path) => LINK_KEY_RE.test((await textOf(path, dependencies)) ?? ""),
   };
 }
 

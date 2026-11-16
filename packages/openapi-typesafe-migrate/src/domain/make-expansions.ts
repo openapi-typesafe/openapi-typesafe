@@ -216,15 +216,16 @@ export function functionCommands(text: string, offset = 0): ShellCommand[] {
  * A call of a function that computes a new text from arguments that name an old package
  * (`$(firstword npx openapi-typescript)`): the tool does not read what it gives, so it is reported.
  */
+export const oldNameCalls = (text: string): UnreadCall[] =>
+  unreadCalls(text).filter((call) => namesOriginalPackage(call.written));
+
+/** The steps of the calls that `oldNameCalls` gives. */
 export const unreadCallSteps = (
-  text: string,
+  calls: readonly UnreadCall[],
   locate: (offset: number) => string,
-  isOwn: (offset: number) => boolean = () => true,
 ): ManualStep[] =>
-  unreadCalls(text)
-    .filter((call) => namesOriginalPackage(call.written) && isOwn(call.start))
-    .map(({ written, start }) => ({
-      kind: "old-name-in-command",
-      location: locate(start),
-      word: written,
-    }));
+  calls.map(({ written, start }) => ({
+    kind: "old-name-in-command",
+    location: locate(start),
+    word: written,
+  }));

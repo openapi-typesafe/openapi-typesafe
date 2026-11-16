@@ -6,6 +6,7 @@ import { migrateProject } from "../../src/application/migrate-project.js";
 import { NO_YAML_REACH } from "../../src/application/yaml-file-reach.js";
 import { NO_CATALOG_PLAN } from "../../src/domain/catalog-plan.js";
 import { NO_CALLED_MAKEFILES } from "../../src/domain/make-calls.js";
+import { makefileMigrator } from "../../src/domain/makefile-migration.js";
 import { InMemoryProjectFiles } from "../fakes/in-memory-project-files.js";
 import { QuotedStringScanner } from "../fakes/quoted-string-scanner.js";
 import { RecordingLogger } from "../fakes/recording-logger.js";
@@ -18,7 +19,8 @@ const context = {
   aliases: [],
   apiDescriptionParts: new Set<string>(),
   yamlReach: NO_YAML_REACH,
-  calledMakefiles: NO_CALLED_MAKEFILES,
+  makefiles: makefileMigrator(NO_CALLED_MAKEFILES),
+  linkedFiles: new Set<string>(),
   rewriter: new StubCallbackRewriter(),
   scanner: new QuotedStringScanner(),
   readers: { json: createJsonTextReader(), yaml: createYamlTextReader() },

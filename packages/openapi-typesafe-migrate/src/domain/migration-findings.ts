@@ -157,6 +157,26 @@ export type ManualStep =
       readonly renames: readonly WordRename[];
     }
   /**
+   * A line of a file that several Makefiles include (or run) and read with different values, so
+   * that one runs the generator there and another not, with the renames the generator's reading
+   * would make.
+   */
+  | {
+      readonly kind: "included-text-differs";
+      readonly location: string;
+      readonly readers: readonly string[];
+      readonly renames: readonly WordRename[];
+    }
+  /**
+   * An item of a container's exec-form list that holds a whole command line of the generator,
+   * which no shell splits, with the renames that reading it as one would make.
+   */
+  | {
+      readonly kind: "command-line-in-item";
+      readonly location: string;
+      readonly renames: readonly WordRename[];
+    }
+  /**
    * A container whose program the tool cannot see, with the renames that reading it as written
    * would make.
    */

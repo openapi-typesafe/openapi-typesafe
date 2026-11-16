@@ -62,8 +62,12 @@ changed once when they would all change it the same way, and reported when they 
 Compose service gets the `entrypoint` and `command` it does not set from the service its `extends`
 names in the same file. A container whose program the file does not show is reported, not
 changed: a service that another Compose file of its folder (`compose.override.yaml`, a file given
-with `-f`) also gives an `entrypoint` or `command`, a service whose `extends` names another file,
-and `args` alone (Kubernetes, a `docker://` step's `with`), which the image's own program runs.
+with `-f`) also gives an `entrypoint` or `command`, in both files, a service whose `extends` names
+another file, the service of that file it extends when the extending service sets an `entrypoint`
+or `command`, and `args` alone (Kubernetes, a `docker://` step's `with`), which the image's own
+program runs. A list item that holds a whole command line of the generator
+(`command: ["npx openapi-typescript api.yaml -it"]`) is one word that no shell splits, so it is
+reported, not changed, unless a shell of the container runs it (`["sh", "-c"]` before it).
 The files that a Compose file's top-level `include` names (a path, or the `path` of the long form,
 one file or a list) are read as Compose files, relative to the file that includes them, and
 merge with it: an included service that another merged file also gives an `entrypoint` or
@@ -124,9 +128,14 @@ them. Make's own lines are read as make reads them: the body of a `define` is th
 value, a comment ends at the line end that no backslash continues, an assignment may be indented
 (with a tab only before the first rule), a target or a value for some targets whose name holds a
 variable (`$(T): GEN = …`) may apply to any target, and the text that `$(eval …)` gets is read as
-Makefile lines. The files that `include`, `-include` and `sinclude` name are read where they are
+Makefile lines, after the expansion make gives it first (`$$(GEN)` in a template is `$(GEN)`
+there). The files that `include`, `-include` and `sinclude` name are read where they are
 in the project; one that is missing, outside it, or named by a variable or a wildcard may set
-any variable, so the flags after a variable are reported then. Text a recipe appends on a
+any variable, so the flags after a variable are reported then. A file that a Makefile includes
+is migrated as a Makefile whatever its name (`config.make`, `.env`), with the values of each
+Makefile that includes it: `$(GEN) api.yaml -it` in `mk/gen.mk` is renamed when the including
+Makefile sets `GEN` to the generator, and reported when the Makefiles that include it (or make
+running it alone) give that line different programs. Text a recipe appends on a
 sub-make's command line (`$(MAKE) -C api GEN+=-it`) is added
 by make to the value the calling Makefile exports, not to the called file's value, so its flags
 are renamed when that value runs the generator, left when the called Makefile replaces the
@@ -167,10 +176,13 @@ a CI config such as `.gitlab-ci.yml` or a workflow never is one, so a GitLab job
 is migrated) is data, so it is never changed, not even an
 example `command`, and neither is a YAML file that such a document (YAML or JSON) reaches by
 `$ref`, directly or through other such files (a split layout's `components/schemas/Job.yaml`); a
-YAML file that names no old package is not even parsed. A config that cannot be parsed and names an old package is reported with the
+YAML file that names no old package is not even parsed, unless make or Compose reads it with a
+file that does: a Makefile and the files it includes, Compose files of one folder, a Compose
+`include` or `extends` and the file it names, through any chain of them. A config that cannot be parsed and names an old package is reported with the
 line and column, not changed. `Makefile`, `justfile` and `Dockerfile` are read only under the names
 make, just and docker look for (also `makefile`, `GNUmakefile`, `Justfile`, `.justfile`,
-`Containerfile` and `*.mk`), so `Dockerfile.dev` is not changed.
+`Containerfile` and `*.mk`, and any file a Makefile includes), so `Dockerfile.dev` is not
+changed.
 
 A range keeps its style: `^` and `>=` give `^1.0.0`, `~` gives `~1.0.0`, an exact version stays
 exact, and a partial version keeps what it fixes (`7`, `7.x` and `0.x` give `^1.0.0`; `0.13` and

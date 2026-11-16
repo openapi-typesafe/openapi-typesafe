@@ -6,8 +6,10 @@ import { projectPathFrom } from "./relative-references.js";
  * included file in place of the directive, so its assignments come between those before and
  * after it. The tool reads a Makefile with the text of each file it includes put after the
  * directive, also of the files those include, as one text; the parts of the Makefile itself
- * keep their offsets through `ownOffset`. Make looks for a relative path in the folder it runs
- * in, the folder of the Makefile it was given, for nested includes too. A path with a reference
+ * keep their offsets through `ownOffset`, and each read of an included file through `readsOf`,
+ * so that file is migrated with the values of the Makefile that includes it. Make looks for a
+ * relative path in the folder it runs in, the folder of the Makefile it was given, for nested
+ * includes too. A path with a reference
  * or a wildcard, outside the project, or of a file the project does not have is not read: such
  * a file may set any variable, so the values after it may come from outside (make-values.ts).
  */
@@ -39,17 +41,22 @@ export const includedPaths = (text: string, folder: string): string[] =>
     paths.flatMap(({ text: written }) => includedPath(folder, written) ?? []),
   );
 
-/** A part of the joined text: from the Makefile itself at `ownStart`, or from another file. */
+/** A part of the joined text: from the Makefile itself, or from a file it includes. */
 interface TextPart {
   readonly text: string;
-  readonly ownStart: number | undefined;
+  /** Where the part starts in the text of the file it comes from. */
+  readonly originStart: number;
   /** The file the part comes from: the Makefile is `""`. */
   readonly origin: string;
+  /** Which read of a file the part belongs to: a file included twice is read twice. */
+  readonly read: number;
 }
 
 interface SpliceContext {
   readonly folder: string;
   readonly files: IncludedFiles;
+  /** The number of included files read so far; the Makefile itself is read 0. */
+  readonly reads: { count: number };
 }
 
 /** The texts an include line reads, or undefined when one of its files is not read. */
@@ -66,10 +73,12 @@ function includedTexts(include: MakeInclude, context: SpliceContext, seen: reado
 /** The parts of a text with its read includes put in; `seen` stops a file including itself. */
 function splicedParts(text: string, context: SpliceContext, seen: readonly string[]): TextPart[] {
   const origin = seen.at(-1) ?? "";
+  const read = seen.length === 0 ? 0 : ++context.reads.count;
   const own = (start: number, end: number, written = text.slice(start, end)): TextPart => ({
     text: written,
-    ownStart: seen.length === 0 ? start : undefined,
+    originStart: start,
     origin,
+    read,
   });
   const parts: TextPart[] = [];
   let copiedUpTo = 0;
@@ -90,13 +99,40 @@ function splicedParts(text: string, context: SpliceContext, seen: readonly strin
   return [...parts, own(copiedUpTo, text.length)];
 }
 
-/** A Makefile read with the files it includes: the joined text, and where its own parts are. */
+/** The offset in one read of a file of an offset of the joined text, or undefined. */
+export type OffsetIn = (offset: number) => number | undefined;
+
+/** A Makefile read with the files it includes: the joined text, and where each file's parts are. */
 export interface MakefileSource {
   readonly text: string;
   /** Where the text of another file starts, or the Makefile's own text goes on. */
   readonly fileStarts: ReadonlySet<number>;
   /** The offset in the Makefile itself of an offset of the joined text, or undefined. */
-  readonly ownOffset: (offset: number) => number | undefined;
+  readonly ownOffset: OffsetIn;
+  /** Each read of the included file at a project path, as the offsets of its text. */
+  readonly readsOf: (path: string) => readonly OffsetIn[];
+}
+
+/** Where a part is in the joined text. */
+interface Segment {
+  readonly start: number;
+  readonly end: number;
+  readonly part: TextPart;
+}
+
+/** The offsets that the segments of one read give, in the text of the file it reads. */
+function offsetsOfRead(segments: readonly Segment[], read: number): OffsetIn {
+  const ofRead = segments.filter(({ part }) => part.read === read);
+  return (at) => {
+    const found = ofRead.find(({ start, end }) => start <= at && at < end);
+    return found === undefined ? undefined : found.part.originStart + at - found.start;
+  };
+}
+
+/** The reads of the file at `path` among the segments, each as its offsets. */
+function readsOf(segments: readonly Segment[], path: string): OffsetIn[] {
+  const reads = new Set(segments.flatMap(({ part }) => (part.origin === path ? [part.read] : [])));
+  return [...reads].map((read) => offsetsOfRead(segments, read));
 }
 
 /** A Makefile at the project path `file` with the files it includes put in. */
@@ -105,22 +141,21 @@ export function withIncludedFiles(
   file: string,
   files: IncludedFiles,
 ): MakefileSource {
-  const parts = splicedParts(text, { folder: folderOf(file), files }, []);
+  const parts = splicedParts(text, { folder: folderOf(file), files, reads: { count: 0 } }, []);
   const fileStarts = new Set<number>();
-  const segments: Array<{ start: number; end: number; ownStart: number }> = [];
+  const segments: Segment[] = [];
   let offset = 0;
   parts.forEach((part, index) => {
     if (index > 0 && parts[index - 1]?.origin !== part.origin) {
       fileStarts.add(offset);
     }
-    if (part.ownStart !== undefined) {
-      segments.push({ start: offset, end: offset + part.text.length, ownStart: part.ownStart });
-    }
+    segments.push({ start: offset, end: offset + part.text.length, part });
     offset += part.text.length;
   });
-  const ownOffset = (at: number): number | undefined => {
-    const segment = segments.find(({ start, end }) => start <= at && at < end);
-    return segment === undefined ? undefined : segment.ownStart + at - segment.start;
+  return {
+    text: parts.map((part) => part.text).join(""),
+    fileStarts,
+    ownOffset: offsetsOfRead(segments, 0),
+    readsOf: (path) => readsOf(segments, path),
   };
-  return { text: parts.map((part) => part.text).join(""), fileStarts, ownOffset };
 }

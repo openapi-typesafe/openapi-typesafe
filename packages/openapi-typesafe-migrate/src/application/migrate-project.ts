@@ -101,7 +101,8 @@ async function planFile(
   dependencies: MigrateProjectDependencies,
   target: ProjectTarget,
 ): Promise<FilePlan> {
-  const migrate = fileMigrationFor(path, target.importMaps);
+  const includedMakefiles = target.calledMakefiles.includedFiles;
+  const migrate = fileMigrationFor(path, { importMaps: target.importMaps, includedMakefiles });
   if (migrate === undefined) {
     return { kind: "not-migrated" };
   }
@@ -111,9 +112,10 @@ async function planFile(
   }
   const { rewriter, scanner, readers } = dependencies;
   const { version, catalogs, manifests, aliases, apiDescriptionParts } = target;
-  const { yamlReach, calledMakefiles } = target;
+  const { yamlReach, makefiles, linkedFiles } = target;
   const context: MigrationContext = {
-    ...{ version, catalogs, manifests, aliases, apiDescriptionParts, yamlReach, calledMakefiles },
+    ...{ version, catalogs, manifests, aliases, apiDescriptionParts, yamlReach, makefiles },
+    linkedFiles,
     ...{ rewriter, scanner, readers },
   };
   const attempt = attemptMigration(() => migrate(read.text, path, context));
