@@ -192,6 +192,8 @@ export function appliedFindings(
  */
 export interface YamlFileReading extends YamlCommandFile {
   readonly outsideVariables?: ReadonlySet<string>;
+  /** The Compose services whose entrypoint or command another file of the folder sets. */
+  readonly outsideServices?: ReadonlySet<string>;
 }
 
 const NO_NAMES: ReadonlySet<string> = new Set();
@@ -213,15 +215,15 @@ export function migrateYamlCommands(
   const locate = (offset: number): string => `${file}:${lineOf(offset)}`;
   const shellOf = stepShells(strings);
   const values = valuesOf(strings, commandKeys).filter((value) => shellOf(value) === undefined);
-  const { findings, scripts, commandStrings } = containerCommands(text, documentValues, locate);
+  const containers = containerCommands(text, documentValues, locate, reading);
   const isOwnCommand = (value: DocumentString): boolean =>
-    !isContainerListItem(value) && !commandStrings.has(value.start);
+    !isContainerListItem(value) && !containers.commandStrings.has(value.start);
   const commandValues = new Set(values.filter(isOwnCommand));
   const entries = environmentEntries(strings, environment);
   const defaults = parameterDefaults(strings, parameters);
   const isShellText = (value: DocumentString): boolean =>
-    [commandValues, scripts, entries, defaults].some((found) => found.has(value)) ||
-    commandStrings.has(value.start);
+    [commandValues, containers.scripts, entries, defaults].some((found) => found.has(value)) ||
+    containers.commandStrings.has(value.start);
   const shellValues = oncePerPlace(strings.filter(isShellText));
   const names = new Set([...[...entries.values()].map((entry) => entry.name), ...outsideVariables]);
   const references = { environment, names, parameters };
@@ -230,11 +232,11 @@ export function migrateYamlCommands(
   const contextOf = (value: DocumentString): ValueContext => ({
     ...{ text, locate, references },
     variables: variablesAt(value),
-    isNestedOnly: commandStrings.has(value.start),
+    isNestedOnly: containers.commandStrings.has(value.start),
   });
   return appliedFindings(text, [
     ...shellValues.map((value) => valueFindings(value, contextOf(value))),
-    ...findings,
+    ...containers.findings,
     otherShellFindings(valuesOf(strings, commandKeys), shellOf, locate),
     { edits: [], changes: [], manualSteps: environmentItemSteps(strings, entries, locate) },
   ]);

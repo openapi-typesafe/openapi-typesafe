@@ -37,6 +37,30 @@ describe("planCalledMakefiles", () => {
   });
 });
 
+describe("planCalledMakefiles and included files", () => {
+  it("planCalledMakefiles reads the project files a Makefile includes, from its folder", async () => {
+    const files = new InMemoryProjectFiles({
+      "api/Makefile": lines("include mk/vars", "-include ../outside.mk", "include missing.mk"),
+      "api/mk/vars": lines("include mk/flags", "override GEN := x"),
+      "api/mk/flags": lines("FLAGS = -x"),
+      "outside.mk": lines("A = 1"),
+      "notes.txt": lines("B = 2"),
+    });
+
+    const called = await planCalledMakefiles(
+      ["api/Makefile", "api/mk/vars", "api/mk/flags", "outside.mk", "notes.txt"],
+      files,
+    );
+
+    expect(called.includedText("api/mk/vars")).toBe(lines("include mk/flags", "override GEN := x"));
+    expect(called.includedText("api/mk/flags")).toBe(lines("FLAGS = -x"));
+    expect(called.includedText("outside.mk")).toBe(lines("A = 1"));
+    expect(called.includedText("notes.txt")).toBeUndefined();
+    expect(called.includedText("api/missing.mk")).toBeUndefined();
+    expect([...(called.replacedNames("api/Makefile") ?? [])]).toEqual(["GEN"]);
+  });
+});
+
 describe("migrateProject and sub-makes", () => {
   it("migrateProject renames flags a recipe appends for a Makefile of the project", async () => {
     const files = new InMemoryProjectFiles({

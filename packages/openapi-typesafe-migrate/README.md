@@ -58,7 +58,18 @@ same way; when both are lists, they are one exec-form command, the entrypoint fi
 GitHub Docker action's `args` after its `entrypoint` are read the same way, and so are keys that
 a merge key (`<<: *gen`) gives; a key of the map itself wins, also an empty one
 (`entrypoint: []`, `null` or `!reset`). A text that an anchor gives several containers is
-changed once when they would all change it the same way, and reported when they would not.
+changed once when they would all change it the same way, and reported when they would not. A
+Compose service gets the `entrypoint` and `command` it does not set from the service its `extends`
+names in the same file. A container whose program the file does not show is reported, not
+changed: a service that another Compose file of its folder (`compose.override.yaml`, a file given
+with `-f`) also gives an `entrypoint` or `command`, a service whose `extends` names another file,
+and `args` alone (Kubernetes, a `docker://` step's `with`), which the image's own program runs.
+The files that a Compose file's top-level `include` names (a path, or the `path` of the long form,
+one file or a list) are read as Compose files, relative to the file that includes them, and
+merge with it: an included service that another merged file also gives an `entrypoint` or
+`command` is reported, and so is a service that a file defines again after a file it includes
+(Compose rejects it). An include whose file is missing, outside the project, remote or named by a
+variable, or that includes a file again (a cycle), is reported.
 After an init program or an entrypoint script that runs its
 command (`["tini", "--"]`, `["dumb-init", "--"]`, `["docker-entrypoint.sh"]`), a command that
 runs the generator itself is migrated as its own command. A
@@ -109,7 +120,14 @@ reported. A Makefile variable is read as the value its lines build in make's ord
 then `G += openapi-typescript` is one command, and a later `G := mytool` replaces the earlier
 value; `override`, an assignment for some targets (`gen: G += -it`, which their prerequisites
 get too) and an `ifeq`/`ifdef` block (each branch is one possible value) count as make counts
-them. Text a recipe appends on a sub-make's command line (`$(MAKE) -C api GEN+=-it`) is added
+them. Make's own lines are read as make reads them: the body of a `define` is the variable's
+value, a comment ends at the line end that no backslash continues, an assignment may be indented
+(with a tab only before the first rule), a target or a value for some targets whose name holds a
+variable (`$(T): GEN = …`) may apply to any target, and the text that `$(eval …)` gets is read as
+Makefile lines. The files that `include`, `-include` and `sinclude` name are read where they are
+in the project; one that is missing, outside it, or named by a variable or a wildcard may set
+any variable, so the flags after a variable are reported then. Text a recipe appends on a
+sub-make's command line (`$(MAKE) -C api GEN+=-it`) is added
 by make to the value the calling Makefile exports, not to the called file's value, so its flags
 are renamed when that value runs the generator, left when the called Makefile replaces the
 variable by `override`, and reported when the called Makefile is not in the project. A Makefile

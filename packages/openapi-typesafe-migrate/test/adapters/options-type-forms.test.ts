@@ -42,6 +42,45 @@ describe("TypescriptCallbackRewriter and options typed through a type of the fil
     expect(migration.manualSteps).toEqual(kept(text.split("\n").indexOf("  transform() {") + 1));
   });
 
+  it.each([
+    ["the generator's parameters", [GENERATOR], "Parameters<typeof openapiTS>[1]"],
+    [
+      "a namespace's generator",
+      [GENERATOR, 'import * as gen from "openapi-typesafe";'],
+      "Parameters<typeof gen.default>[1]",
+    ],
+    [
+      "an import type's generator",
+      [GENERATOR],
+      'Parameters<typeof import("openapi-typesafe").default>[1]',
+    ],
+    [
+      "an alias of the parameters",
+      [GENERATOR, "type Args = Parameters<typeof openapiTS>;"],
+      "Args[1]",
+    ],
+  ])("rewrite keeps a transform whose options type is built from %s", (_, before, type) => {
+    const text = optionsFile(before, `const options: ${type} = {`);
+
+    const migration = rewriter.rewrite(text, "gen.ts");
+
+    expect(migration.text).toBe(text);
+    expect(migration.manualSteps).toEqual(kept(text.split("\n").indexOf("  transform() {") + 1));
+  });
+
+  it.each([
+    ['import * as gen from "openapi-typesafe";', "Parameters<typeof gen.other>[1]"],
+    ['import other from "other";', "Parameters<typeof other>[1]"],
+    ['import * as other from "other";', "Parameters<typeof other.default>[1]"],
+    ["", 'Parameters<typeof import("other").default>[1]'],
+    ["", 'Parameters<typeof import("openapi-typesafe").other>[1]'],
+    ["", 'Parameters<import("openapi-typesafe").default>[1]'],
+  ])("rewrite rewrites options typed from the parameters of %s %s", (imports, type) => {
+    const text = optionsFile([GENERATOR, imports], `const options: ${type} = {`);
+
+    expect(rewriter.rewrite(text, "gen.ts").text).toContain(REWRITTEN_LINES.join("\n"));
+  });
+
   it("rewrite keeps a transform whose options type passes OpenAPITSOptions to a type", () => {
     const imports = [
       'import openapiTS, { type OpenAPITSOptions } from "openapi-typesafe";',

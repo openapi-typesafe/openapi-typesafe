@@ -57,7 +57,7 @@ interface SharedOutcome {
 }
 
 /** The renames that the edits of some readings make at a place, each once. */
-function renamesOf(findings: readonly Finding[], text: string): WordRename[] {
+export function renamesOf(findings: readonly Finding[], text: string): WordRename[] {
   const renames = findings.flatMap(({ edit }) =>
     edit === undefined ? [] : [{ from: text.slice(edit.start, edit.end), to: edit.text }],
   );

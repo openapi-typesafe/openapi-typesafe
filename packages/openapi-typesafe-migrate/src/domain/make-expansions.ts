@@ -1,3 +1,4 @@
+import type { TextRange } from "./make-line-text.js";
 import type { ManualStep } from "./migration-findings.js";
 import { namesOriginalPackage } from "./package-names.js";
 import { type ShellCommand, shellCommandsAt } from "./shell-words.js";
@@ -8,12 +9,15 @@ import { type ShellCommand, shellCommandsAt } from "./shell-words.js";
  * functions that give one of their arguments as their value (`$(or $(GEN),npx
  * openapi-typescript)`, `$(strip …)`) have command text in those arguments, read where it is
  * written. Any other function computes a new text from its arguments (`$(firstword …)`,
- * `$(call …)`, `$(shell …)`), so a call of one that names an old package is reported.
+ * `$(call …)`, `$(shell …)`), so a call of one that names an old package is reported. The text
+ * of `$(eval …)` is Makefile text, read as such (make-evaluations.ts).
  */
 
 const DOLLAR = "$";
 const CLOSING: Readonly<Record<string, string>> = { "(": ")", "{": "}" };
 const MASK = "_";
+const BLANK = " ";
+const LINE_BREAK = "\n";
 const ARGUMENT_SEPARATOR = ",";
 
 /** Where the make expansion that starts with the `$` at `start` ends, or undefined for none. */
@@ -57,11 +61,8 @@ function expansionsOf(text: string): Expansion[] {
   return found;
 }
 
-/**
- * The text with each `$(…)` and `${…}` expansion turned into one word of the same length, so the
- * shell reads it as make passes it on.
- */
-export function maskExpansions(text: string): string {
+/** The text with each expansion turned into one word of the same length. */
+function maskedAll(text: string): string {
   const parts: string[] = [];
   let copiedUpTo = 0;
   for (const { start, end } of expansionsOf(text)) {
@@ -70,6 +71,45 @@ export function maskExpansions(text: string): string {
   }
   parts.push(text.slice(copiedUpTo));
   return parts.join("");
+}
+
+/** A call of a function: where its argument text is, and where the whole call is. */
+export interface FunctionCall extends TextRange {
+  readonly call: TextRange;
+}
+
+/**
+ * The text with each `$(…)` and `${…}` expansion turned into one word of the same length, so the
+ * shell reads it as make passes it on. A call of `$(eval …)` (`evaluated`, apart from one
+ * another) holds Makefile text, which make reads apart from the text around it and expands to
+ * nothing: its head and closing parenthesis become line breaks, so the shell reads its argument
+ * apart too, and the argument keeps its text, with its own expansions masked.
+ */
+export function maskExpansions(text: string, evaluated: readonly FunctionCall[] = []): string {
+  let masked = maskedAll(text);
+  for (const { start, end, call } of evaluated) {
+    const head = `${LINE_BREAK}${BLANK.repeat(start - call.start - 1)}`;
+    const close = `${LINE_BREAK}${BLANK.repeat(call.end - end - 1)}`;
+    const argument = maskedAll(text.slice(start, end));
+    masked = `${masked.slice(0, call.start)}${head}${argument}${close}${masked.slice(call.end)}`;
+  }
+  return masked;
+}
+
+/**
+ * Each call of the function `name` in `text` (which starts at `offset` of the whole text), also
+ * in other expansions, but not in the argument of such a call.
+ */
+export function functionArguments(text: string, name: string, offset = 0): FunctionCall[] {
+  return expansionsOf(text).flatMap(({ start, end }) => {
+    const head = FUNCTION_HEAD_RE.exec(text.slice(start, end));
+    if (head?.[1] === name) {
+      const call = { start: offset + start, end: offset + end };
+      return [{ start: call.start + head[0].length, end: call.end - 1, call }];
+    }
+    const innerStart = start + 2;
+    return functionArguments(text.slice(innerStart, end - 1), name, offset + innerStart);
+  });
 }
 
 /**
@@ -90,6 +130,8 @@ const WHOLE_TEXT_FUNCTIONS: ReadonlySet<string> = new Set(["strip"]);
  * some functions with a hyphen (`filter-out`).
  */
 const FUNCTION_HEAD_RE = /^\$[({]([a-z]+(?:-[a-z]+)*)[ \t]+/;
+/** The function whose argument make reads as Makefile text (make-evaluations.ts). */
+export const EVAL = "eval";
 const OPENING: ReadonlySet<string> = new Set(Object.keys(CLOSING));
 const CLOSINGS: ReadonlySet<string> = new Set(Object.values(CLOSING));
 
@@ -130,7 +172,8 @@ function valueArguments(text: string, { start, end }: Expansion): Argument[] {
 /** Whether an expansion calls a function whose value the tool does not read. */
 function isUnreadCall(text: string, { start, end }: Expansion): boolean {
   const name = FUNCTION_HEAD_RE.exec(text.slice(start, end))?.[1];
-  return name !== undefined && !VALUE_ARGUMENTS.has(name) && !WHOLE_TEXT_FUNCTIONS.has(name);
+  const isRead = VALUE_ARGUMENTS.has(name ?? "") || WHOLE_TEXT_FUNCTIONS.has(name ?? "");
+  return name !== undefined && !isRead;
 }
 
 /** A call of a function that computes a new text, as written, and where it starts. */
@@ -173,9 +216,13 @@ export function functionCommands(text: string, offset = 0): ShellCommand[] {
  * A call of a function that computes a new text from arguments that name an old package
  * (`$(firstword npx openapi-typescript)`): the tool does not read what it gives, so it is reported.
  */
-export const unreadCallSteps = (text: string, locate: (offset: number) => string): ManualStep[] =>
+export const unreadCallSteps = (
+  text: string,
+  locate: (offset: number) => string,
+  isOwn: (offset: number) => boolean = () => true,
+): ManualStep[] =>
   unreadCalls(text)
-    .filter((call) => namesOriginalPackage(call.written))
+    .filter((call) => namesOriginalPackage(call.written) && isOwn(call.start))
     .map(({ written, start }) => ({
       kind: "old-name-in-command",
       location: locate(start),

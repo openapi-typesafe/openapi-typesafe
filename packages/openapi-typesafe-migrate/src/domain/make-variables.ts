@@ -2,6 +2,7 @@ import { isOwnGeneratorCommand } from "./appended-assignments.js";
 import type { AppendedValue } from "./argument-findings.js";
 import type { FileVariables } from "./file-variables.js";
 import { isExported } from "./make-assignments.js";
+import type { MakeChain } from "./make-chains.js";
 import {
   alternativesProgramOf,
   chainCommands,
@@ -12,7 +13,6 @@ import {
   type MakeReading,
   referencedName,
 } from "./make-programs.js";
-import type { MakeChain } from "./make-values.js";
 import type { ShellCommand, ShellWord } from "./shell-words.js";
 import type { ValueProgram, VariableProgram } from "./variable-programs.js";
 
@@ -49,9 +49,7 @@ export const exportedProgram = (
   name: string,
   offset: number,
 ): VariableProgram | undefined =>
-  isExported(reading.text, reading.assignments, name)
-    ? programIn(reading, name, offset)
-    : undefined;
+  isExported(reading.lines, name) ? programIn(reading, name, offset) : undefined;
 
 /** The variables of a Makefile, read from the values its assignments build. */
 export function makefileVariables(reading: MakeReading): FileVariables {

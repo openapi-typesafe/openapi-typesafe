@@ -15,8 +15,8 @@ const KEEP_REASONS: Readonly<Record<TransformKeepReason, string>> = {
   "shared-options": "its options object is used elsewhere too",
   "unknown-return": "a return value is not a plain ts.factory type",
   "typed-options":
-    "its options are declared with a type built from OpenAPITSOptions, which the tool cannot " +
-    "change to OpenAPITSIrOptions",
+    "its options are declared with a type built from OpenAPITSOptions or from the parameters of " +
+    "openapiTS, which the tool cannot change to OpenAPITSIrOptions",
   "spread-options":
     "its options take keys from another object (`...base`), whose callbacks and type the tool " +
     "cannot see",

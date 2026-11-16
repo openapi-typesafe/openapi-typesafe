@@ -1,5 +1,5 @@
 import { assertNever } from "../domain/assert-never.js";
-import type { ManualStep } from "../domain/migration-findings.js";
+import type { ContainerUnknown, IncludeProblem, ManualStep } from "../domain/migration-findings.js";
 import { FLAG_RENAMES, PACKAGE_RENAMES } from "../domain/package-names.js";
 
 /** The user-facing text of the manual steps found in commands (CODING_PRINCIPLES 7.8). */
@@ -21,6 +21,27 @@ const COMMAND_STRING_NOTE = "a string runs openapi-typescript, so it was kept; c
 const SHARED_CONTAINER_TEXT_NOTE =
   "is given by a YAML anchor to containers that run different programs, so it was kept: where " +
   "it runs the generator, rename";
+const CONTAINER_NOT_KNOWN_NOTES: Readonly<Record<ContainerUnknown, string>> = {
+  "image-program":
+    "gives these arguments to the program of its image, which the file does not name, so they " +
+    "were kept: where they run the generator, rename",
+  "other-file":
+    "is a service whose entrypoint or command another Compose file may set (an override file, " +
+    "a file given with -f, or the file its extends names), so it was kept: where it runs the " +
+    "generator, rename",
+};
+const INCLUDE_NOT_READ_NOTES: Readonly<Record<IncludeProblem, string>> = {
+  "not-in-project":
+    "which the tool cannot read (it is missing, outside the project, remote or named by a " +
+    "variable): migrate the old package names in it by hand",
+  cycle:
+    "which includes this file again, a cycle that Compose rejects: remove one of the includes, " +
+    "then run the tool again",
+};
+const includeNote = (problem: IncludeProblem): string => INCLUDE_NOT_READ_NOTES[problem];
+const SERVICE_CONFLICT_NOTE =
+  "is also defined by a file that this Compose file includes, which Compose rejects, so its " +
+  "container was kept: keep one of them, then run the tool again";
 const SPLIT_FLAG_NOTE =
   "is an old flag of the generator that quotes split where it is written, so it was kept: rename";
 
@@ -35,6 +56,13 @@ function pinnedPackageMessage(step: Extract<ManualStep, { kind: "pinned-package"
 /** `-it to --immutable, …`: each old flag with its new name. */
 const flagRenames = (flags: readonly string[]): string =>
   flags.map((flag) => `${flag} to ${FLAG_RENAMES.get(flag) ?? flag}`).join(", ");
+
+function containerNotKnownMessage(
+  step: Extract<ManualStep, { kind: "container-not-known" }>,
+): string {
+  const renames = step.renames.map(({ from, to }) => `${from} to ${to}`).join(", ");
+  return `${step.location}: the container ${CONTAINER_NOT_KNOWN_NOTES[step.unknown]} ${renames}`;
+}
 
 function flagsInVariableMessage(step: Extract<ManualStep, { kind: "flags-in-variable" }>) {
   return `${step.location}: ${step.variable} ${FLAGS_IN_VARIABLE_NOTE} ${flagRenames(step.flags)}`;
@@ -66,6 +94,9 @@ type CommandStep = Extract<
       | "old-name-in-command"
       | "split-flag"
       | "shared-container-text"
+      | "container-not-known"
+      | "compose-include-not-read"
+      | "compose-service-conflict"
       | "script-not-shell"
       | "command-string";
   }
@@ -80,6 +111,9 @@ const COMMAND_STEP_KINDS: ReadonlySet<ManualStep["kind"]> = new Set([
   "old-name-in-command",
   "split-flag",
   "shared-container-text",
+  "container-not-known",
+  "compose-include-not-read",
+  "compose-service-conflict",
   "script-not-shell",
   "command-string",
 ]);
@@ -105,6 +139,12 @@ export function commandStepMessage(step: CommandStep): string {
       return `${step.location}: ${step.flag} ${SPLIT_FLAG_NOTE} ${flagRenames([step.flag])}`;
     case "shared-container-text":
       return sharedContainerTextMessage(step);
+    case "container-not-known":
+      return containerNotKnownMessage(step);
+    case "compose-include-not-read":
+      return `${step.location}: the file includes ${step.path}, ${includeNote(step.problem)}`;
+    case "compose-service-conflict":
+      return `${step.location}: the service ${step.service} ${SERVICE_CONFLICT_NOTE}`;
     case "script-not-shell":
       return `${step.location}: the script runs with ${step.shell}, ${SCRIPT_NOT_SHELL_NOTE}`;
     case "command-string":

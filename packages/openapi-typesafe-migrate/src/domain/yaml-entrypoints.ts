@@ -4,11 +4,15 @@ import {
   type ShellTextFindings,
   textFindings,
 } from "./command-migration.js";
+import { composeIncludeFindings } from "./compose-includes.js";
+import { type ComposeReading, composeServices } from "./compose-services.js";
 import { type DocumentString, type DocumentValue, isDocumentString } from "./config-documents.js";
 import { containerCommand, entrypointArgumentFindings } from "./entrypoint-arguments.js";
+import type { ContainerUnknown } from "./migration-findings.js";
 import { type PlaceReading, sharedPlaceFindings } from "./shared-container-places.js";
 import { shellScript } from "./shell-scripts.js";
 import { ownCommands, type ShellWord } from "./shell-words.js";
+import { unknownContainerFindings } from "./unknown-containers.js";
 import { movedWord } from "./word-places.js";
 import {
   type Container,
@@ -99,13 +103,15 @@ const isJoinable = (words: ValueWords): boolean => words.isPlaced && words.isWho
  * entrypoint rule; a command whose text is not its value as written is reported, not edited.
  */
 function containerRun(
-  { entrypoint, command }: Container,
+  { entrypoint, command, unknown }: Container,
   text: string,
   locate: Locate,
 ): ContainerRun {
   const first = valueWords(entrypoint, text);
   if (command === undefined) {
-    return { commands: isList(entrypoint) ? [first.words] : [], flags: [], scalars: [] };
+    // A string alone is read as a command value, unless the container is not known.
+    const isRead = isList(entrypoint) || unknown !== undefined;
+    return { commands: isRead ? [first.words] : [], flags: [], scalars: [] };
   }
   const args = valueWords(command, text);
   const pair = { entrypoint: first.words, command: args.words, written: entrypoint.key };
@@ -132,14 +138,46 @@ interface ContainerReading extends PlaceReading {
 
 function containerReading(container: Container, text: string, locate: Locate): ContainerReading {
   const { commands, flags, scalars } = containerRun(container, text, locate);
-  const parts = [container.entrypoint, container.command ?? { strings: [] }];
-  return {
+  const parts = [
+    container.entrypoint,
+    ...(container.command === undefined ? [] : [container.command]),
+  ];
+  const reading = {
     findings: [...commandWordFindingList(commands, locate), ...flags],
     places: parts.flatMap((part) => part.strings),
     isPaired: container.command !== undefined,
     scripts: commands.flatMap((words) => shellScript(words)?.item ?? []),
     scalars,
   };
+  const { unknown } = container;
+  return unknown === undefined
+    ? reading
+    : unknownReading({ unknown, parts, reading }, text, locate);
+}
+
+/**
+ * The reading of a container whose program is not known: one step for its renames. Its strings
+ * are read here only, so the reading of command values elsewhere does not edit them.
+ */
+function unknownReading(
+  { unknown, parts, reading }: UnknownParts,
+  text: string,
+  locate: Locate,
+): ContainerReading {
+  const words = parts.flatMap((part) => valueWords(part, text).words);
+  // The step names the line of the command, which a service writes itself when it extends one.
+  const starts = parts.flatMap((part) => part.strings[0]?.start ?? []);
+  const { findings: found, scripts } = reading;
+  const run = { unknown, findings: found, words, scripts, start: starts.at(-1) ?? 0 };
+  const scalars = parts.filter((part) => !isList(part)).flatMap((part) => part.strings);
+  const findings = unknownContainerFindings(run, text, locate);
+  return { ...reading, findings, scripts: [], scalars };
+}
+
+interface UnknownParts {
+  readonly unknown: ContainerUnknown;
+  readonly parts: readonly KeyValue[];
+  readonly reading: ContainerReading;
 }
 
 /** What the commands of the containers in a YAML file give. */
@@ -166,16 +204,30 @@ function writtenStrings(values: readonly DocumentValue[]): Set<DocumentString> {
   return new Set(first.values());
 }
 
-/** The commands of the containers in a YAML file: their findings and their shell scripts. */
+/**
+ * The commands of the containers in a YAML file: their findings and their shell scripts. A
+ * Compose file (`hasServices`) reads the `extends` of its services and reports the containers
+ * that other files complete.
+ */
 export function containerCommands(
   text: string,
   values: readonly DocumentValue[],
   locate: Locate,
+  reading: ComposeReading = {},
 ): ContainerCommands {
-  const readings = yamlContainers(values).map((found) => containerReading(found, text, locate));
+  const hasServices = reading.hasServices === true;
+  const services = hasServices ? composeServices(values, reading) : undefined;
+  const readings = yamlContainers(values, services).map((found) =>
+    containerReading(found, text, locate),
+  );
   const written = writtenStrings(values);
   return {
-    findings: [textFindings(sharedPlaceFindings(readings, { text, locate, written }))],
+    findings: [
+      textFindings([
+        ...sharedPlaceFindings(readings, { text, locate, written }),
+        ...(hasServices ? composeIncludeFindings(values, reading, locate) : []),
+      ]),
+    ],
     scripts: new Set(readings.flatMap((reading) => reading.scripts)),
     commandStrings: new Set(readings.flatMap(({ scalars }) => scalars.map(({ start }) => start))),
   };

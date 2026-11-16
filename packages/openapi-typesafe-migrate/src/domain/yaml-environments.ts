@@ -51,6 +51,8 @@ export interface YamlCommandFile {
   readonly environment: YamlEnvironment;
   readonly parameters: YamlParameters;
   readonly includes: YamlIncludes;
+  /** Whether the file holds Compose `services`, which `extends` and other files complete. */
+  readonly hasServices?: boolean;
 }
 
 export const ENV_KEY = "env";
@@ -114,6 +116,7 @@ export const COMPOSE_FILE: YamlCommandFile = {
   },
   parameters: NO_PARAMETERS,
   includes: NO_INCLUDES,
+  hasServices: true,
 };
 
 /**

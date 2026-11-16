@@ -13,6 +13,7 @@ const calledFiles = (files: Readonly<Record<string, readonly string[]>>): Called
     const names = files[path];
     return names === undefined ? undefined : new Set(names);
   },
+  includedText: () => undefined,
 });
 
 const PROJECT = calledFiles({
@@ -161,6 +162,6 @@ describe("commandLineReplacements", () => {
       "override F += y",
     );
 
-    expect([...commandLineReplacements(text)].sort()).toEqual(["A", "F"]);
+    expect([...commandLineReplacements(text, "Makefile")].sort()).toEqual(["A", "F"]);
   });
 });

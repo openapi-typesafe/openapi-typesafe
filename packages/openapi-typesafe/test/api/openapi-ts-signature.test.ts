@@ -31,7 +31,7 @@ function isConsumerFile(file: string): boolean {
 function consumerErrors(body: string): string[] {
   const source = [
     'import type ts from "typescript";',
-    `import openapiTS, { type GeneratorOptions, type IrType } from ${JSON.stringify(PACKAGE_INDEX)};`,
+    `import openapiTS, { type GeneratorOptions, type IrDeclaration, type IrType, type OpenAPITSOptions, type SchemaSource } from ${JSON.stringify(PACKAGE_INDEX)};`,
     body,
   ].join("\n");
   const host = ts.createCompilerHost(COMPILER_OPTIONS);
@@ -77,7 +77,57 @@ describe("openapiTS signature", () => {
           "const gen = async (options: Options) => openapiTS('x', options);",
           "await gen({ postTransform: (type) => { const node: ts.TypeNode = type; return node; } });",
           "await gen({ transformProperty: (property) => { const node: ts.PropertySignature = property; return node; } });",
-          "await gen({ irCallbacks: true, postTransform: (type) => { const ir: IrType = type; return ir; } });",
+        ].join("\n"),
+      );
+
+      expect(errors).toEqual([]);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    "openapiTS typed from Parameters takes the source alone and undefined options",
+    () => {
+      const errors = consumerErrors(
+        [
+          "const generate = async (...args: Parameters<typeof openapiTS>) => openapiTS(...args);",
+          "await generate('x');",
+          "await generate('x', { postTransform: (type) => { const node: ts.TypeNode = type; return node; } });",
+          "const none: Parameters<typeof openapiTS>[1] = undefined;",
+          "await openapiTS('x', none);",
+        ].join("\n"),
+      );
+
+      expect(errors).toEqual([]);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    "openapiTS Parameters and ReturnType are those of openapi-typescript's signature",
+    () => {
+      const errors = consumerErrors(
+        [
+          "type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;",
+          "const parameters: Same<Parameters<typeof openapiTS>, [source: SchemaSource, options?: OpenAPITSOptions]> = true;",
+          "const returned: Same<ReturnType<typeof openapiTS>, Promise<IrDeclaration[]>> = true;",
+          "export { parameters, returned };",
+        ].join("\n"),
+      );
+
+      expect(errors).toEqual([]);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    "openapiTS options typed as GeneratorOptions type the inline callbacks of either form",
+    () => {
+      const errors = consumerErrors(
+        [
+          "const gen = async (source: SchemaSource, options: GeneratorOptions) => openapiTS(source, options);",
+          "await gen('x', { postTransform: (type) => { const node: ts.TypeNode = type; return node; } });",
+          "await gen('x', { irCallbacks: true, postTransform: (type) => { const ir: IrType = type; return ir; } });",
         ].join("\n"),
       );
 

@@ -1,12 +1,27 @@
 import { mayBeApiDescription } from "../domain/api-descriptions.js";
-import { type DocumentString, usedDocumentStrings } from "../domain/config-documents.js";
+import {
+  type DocumentString,
+  usedDocumentStrings,
+  usedDocumentValues,
+} from "../domain/config-documents.js";
 import { namesOriginalPackage } from "../domain/package-names.js";
-import { DEFAULT_YAML_FILE, TASKFILE, type YamlCommandFile } from "../domain/yaml-environments.js";
+import {
+  COMPOSE_FILE,
+  DEFAULT_YAML_FILE,
+  TASKFILE,
+  type YamlCommandFile,
+} from "../domain/yaml-environments.js";
 import {
   generatorVariables,
   includedGeneratorVariables,
 } from "../domain/yaml-generator-variables.js";
 import { type IncludedFile, includedFiles, NO_INCLUDES } from "../domain/yaml-includes.js";
+import {
+  type ComposeFileReading,
+  type ComposeReach,
+  type ComposeSource,
+  planComposeReach,
+} from "./compose-file-sets.js";
 import type { DocumentReaders, ProjectFiles } from "./ports.js";
 import {
   baseName,
@@ -21,19 +36,26 @@ import { yamlCommandFileFor } from "./yaml-file-kinds.js";
  * What the YAML files of a project give the other files, read before any file is migrated: the
  * kind of each file that a Taskfile, a GitLab CI file or an Azure pipeline includes under another
  * name, the variables that YAML files set to the old generator, which the scripts their jobs run
- * may expand, and those that reach each included file, whose includes may set them otherwise.
+ * may expand, those that reach each included file, whose includes may set them otherwise, and
+ * the Compose services whose container another Compose file completes (compose-file-sets.ts).
  */
 export interface YamlReach {
   readonly kinds: ReadonlyMap<string, YamlCommandFile>;
   readonly generatorVariables: ReadonlySet<string>;
   readonly includedVariables: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly compose: ComposeReach;
 }
 
 export const NO_YAML_REACH: YamlReach = {
   kinds: new Map(),
   generatorVariables: new Set(),
   includedVariables: new Map(),
+  compose: { readings: new Map(), includedFiles: new Set() },
 };
+
+/** What the other Compose files of the project give the file at `path`; nothing for no file. */
+export const composeReadingOf = (reach: YamlReach, path: string): Partial<ComposeFileReading> =>
+  reach.compose.readings.get(path) ?? {};
 
 /** The variables set to the generator that reach the file at `path` from the project. */
 export const outsideVariablesOf = (reach: YamlReach, path: string): ReadonlySet<string> =>
@@ -62,6 +84,37 @@ async function textOf(path: string, { files }: ReachDependencies): Promise<strin
 function stringsOf(text: string | undefined, { readers }: ReachDependencies): DocumentString[] {
   const parsed = text === undefined ? undefined : readers.yaml.read(text);
   return parsed?.kind === "read" ? usedDocumentStrings(parsed.documents) : [];
+}
+
+const INCLUDE_KEY_RE = /^include\s*:/m;
+
+/** How the Compose planner reads the files of the project. */
+function composeSource(paths: readonly string[], dependencies: ReachDependencies): ComposeSource {
+  return {
+    listed: new Set(paths),
+    valuesOf: async (path) => {
+      const text = await textOf(path, dependencies);
+      const parsed = text === undefined ? undefined : dependencies.readers.yaml.read(text);
+      return parsed?.kind === "read" ? usedDocumentValues(parsed.documents) : [];
+    },
+    mayInclude: async (path) => INCLUDE_KEY_RE.test((await textOf(path, dependencies)) ?? ""),
+  };
+}
+
+/** The Compose files of the project and what they give each other; included files get the kind. */
+async function composeReach(
+  paths: readonly string[],
+  kinds: Map<string, YamlCommandFile>,
+  dependencies: ReachDependencies,
+): Promise<ComposeReach> {
+  const composePaths = paths.filter((path) => namedKindOf(path).hasServices === true);
+  const reach = await planComposeReach(composePaths, composeSource(paths, dependencies));
+  for (const path of reach.includedFiles) {
+    if (!kinds.has(path) && namedKindOf(path) === DEFAULT_YAML_FILE) {
+      kinds.set(path, COMPOSE_FILE);
+    }
+  }
+  return reach;
 }
 
 const ANY_FOLDERS_WILDCARD = "**";
@@ -147,5 +200,6 @@ export async function planYamlReach(
   const includedVariables = new Map(
     [...variables].map(([path, sets]) => [path, includedGeneratorVariables(names, sets)]),
   );
-  return { kinds, generatorVariables: names, includedVariables };
+  const compose = await composeReach(paths, kinds, dependencies);
+  return { kinds, generatorVariables: names, includedVariables, compose };
 }

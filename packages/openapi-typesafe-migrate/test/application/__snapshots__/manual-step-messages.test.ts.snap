@@ -41,10 +41,15 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "line 4: transform kept (the function it names is used elsewhere too); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 4: transform kept (its options object is used elsewhere too); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 4: transform kept (a return value is not a plain ts.factory type); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
-  "line 4: transform kept (its options are declared with a type built from OpenAPITSOptions, which the tool cannot change to OpenAPITSIrOptions); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
+  "line 4: transform kept (its options are declared with a type built from OpenAPITSOptions or from the parameters of openapiTS, which the tool cannot change to OpenAPITSIrOptions); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 4: transform kept (its options take keys from another object (\`...base\`), whose callbacks and type the tool cannot see); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 4: transform kept (it is in an object that the options take keys from (\`...base\`), and the tool rewrites only a transform written in the options); it works, with a deprecation warning. See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
   "line 5: postTransform receives TypeScript nodes (deprecated). See https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks",
+  "k8s/job.yaml:9: the container gives these arguments to the program of its image, which the file does not name, so they were kept: where they run the generator, rename openapi-typescript to openapi-typesafe",
+  "compose.yaml:5: the container is a service whose entrypoint or command another Compose file may set (an override file, a file given with -f, or the file its extends names), so it was kept: where it runs the generator, rename -it to --immutable",
+  "compose.yaml:2: the file includes a.yaml, which the tool cannot read (it is missing, outside the project, remote or named by a variable): migrate the old package names in it by hand",
+  "compose.yaml:3: the file includes b.yaml, which includes this file again, a cycle that Compose rejects: remove one of the includes, then run the tool again",
+  "compose.yaml:5: the service gen is also defined by a file that this Compose file includes, which Compose rejects, so its container was kept: keep one of them, then run the tool again",
   "line 1: no package.json or Deno import map at or above this file lists openapi-typesafe-helpers; openapi-fetch and openapi-react-query installed it, the openapi-typesafe packages do not: add it to the dependencies, or import the types from openapi-typesafe-fetch/helpers",
 ]
 `;
