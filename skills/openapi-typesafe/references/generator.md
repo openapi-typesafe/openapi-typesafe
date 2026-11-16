@@ -14,9 +14,9 @@ Common flags (all default to off unless noted):
 | :-- | :-- |
 | `-o, --output <file>` | Write to a file instead of stdout |
 | `--check` | Exit `1` if the file on disk differs from what would be generated |
-| `--enum` | Real TS `enum`s instead of string unions |
+| `--enum` | Real TS `enum`s instead of string unions; an `allOf` item that narrows an inherited enum (`[a]` of `Pet.mode: [a, b, c]`) gets the base enum's members (`PetMode.a`), and values the base does not list warn `ENUM_VALUES_NOT_INHERITED` |
 | `--enum-values` | Also export the enum values as arrays |
-| `--dedupe-enums` | Dedupe enums (with `--enum`) |
+| `--dedupe-enums` | Dedupe enums (with `--enum`): one enum for schema locations whose whole enums (a property and its inline `allOf` items together) have the same members |
 | `--root-types` | Export `components` as root aliases such as `SchemaPet` |
 | `--root-types-no-schema-prefix` | Root aliases without the `Schema` prefix |
 | `-t, --export-type` | `type` instead of `interface` |
@@ -102,7 +102,9 @@ const ast = await openapiTS(source, {
 - Callbacks without `irCallbacks: true` that build `ts.factory` nodes are deprecated and need the
   TypeScript JavaScript API (see [migration.md](migration.md)). They, and `stringToAST()`, emit a
   Node.js `DeprecationWarning` with an `OPENAPI_TYPESAFE_DEP_*` code (`DEPRECATION_CODES`), once
-  per process; `silent` does not hide it, `node --no-deprecation` does.
+  per process; `silent` does not hide it, `node --no-deprecation` does. Type text returned by a
+  `transform` without `irCallbacks: true` is ignored (the generated type stays), with one
+  `CALLBACK_RESULT_IGNORED` warning per run.
 - Type an options object as `GeneratorOptions` (either callback form, and the 2.0 name);
   `OpenAPITSOptions` and `OpenAPITSIrOptions` are compatibility names.
 

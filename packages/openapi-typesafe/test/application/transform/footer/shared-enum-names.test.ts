@@ -1,106 +1,121 @@
 import { describe, expect, it } from "vitest";
+import type { OwnedRequest } from "../../../../src/application/transform/footer/enum-owners.js";
 import {
+  BEST_SCHEMA_NAMES,
+  FIRST_DECLARING_SCHEMA_NAMES,
   FIRST_SCHEMA_NAMES,
-  SharedEnumNameRecorder,
+  type SharedEnum,
 } from "../../../../src/application/transform/footer/shared-enum-names.js";
 
-/** The names of shared `--dedupe-enums` enums (`dedupe-enum-names` fix, upstream #1683). */
+/** The names of shared `--dedupe-enums` enums at the end of a run (ADR-021, upstream #1683). */
 
-function request(name: string, isComponentSchema = false) {
-  return { name, isComponentSchema, values: ["a"], metadata: [], walkedAt: `#${name}` };
+function owned(name: string, extra: Partial<OwnedRequest["request"]> = {}): OwnedRequest {
+  const request = {
+    name,
+    isComponentSchema: false,
+    values: ["a"],
+    metadata: [],
+    walkedAt: `#${name}`,
+    ...extra,
+  };
+  return { owner: name, ownName: `Run${name.replaceAll("/", "")}`, request };
 }
 
-describe("SharedEnumNameRecorder", () => {
-  it("nameOf keeps the run's own name in the first pass", () => {
-    expect(new SharedEnumNameRecorder().nameOf("k", "Own", request("/Pet/state"))).toBe("Own");
+const component = (name: string) => owned(name, { isComponentSchema: true });
+
+/** A request that only a `$ref` typed: the walk did not meet it. */
+function throughRef(item: OwnedRequest): OwnedRequest {
+  const { walkedAt: _walked, ...request } = item.request;
+  return { ...item, request };
+}
+
+function shared(key: string, ...requests: OwnedRequest[]): SharedEnum {
+  return { key, requests };
+}
+
+describe("BEST_SCHEMA_NAMES", () => {
+  it("namesOf ranks a component schema, then length, then code-unit order", () => {
+    const names = BEST_SCHEMA_NAMES.namesOf([
+      shared("k", owned("/Pet/state"), component("/LongerName")),
+      shared("j", owned("/Pet/state"), owned("/Cat/state"), owned("/Cat/state")),
+    ]);
+
+    expect(names.get("k")).toBe("LongerName");
+    expect(names.get("j")).toBe("CatState");
   });
 
-  it("chosenNames ranks a component schema, then length, then code-unit order", () => {
-    const recorder = new SharedEnumNameRecorder();
-    recorder.nameOf("k", "", request("/Pet/state"));
-    recorder.nameOf("k", "", request("/LongerName", true));
-    recorder.nameOf("j", "", request("/Pet/state"));
-    recorder.nameOf("j", "", request("/Cat/state"));
-    recorder.nameOf("j", "", request("/Cat/state"));
+  it("namesOf numbers the best name of a later key when every name is taken", () => {
+    const names = BEST_SCHEMA_NAMES.namesOf([
+      shared("b", owned("/Pet/state")),
+      shared("a", owned("/Pet/state")),
+    ]);
 
-    const names = recorder.chosenNames();
-
-    expect(names.nameOf("k", "First", request("/x"))).toBe("LongerName");
-    expect(names.nameOf("j", "First", request("/x"))).toBe("CatState");
+    expect([names.get("a"), names.get("b")]).toEqual(["PetState", "PetState_2"]);
   });
 
-  it("chosenNames numbers the best name of a later key when every name is taken", () => {
-    const recorder = new SharedEnumNameRecorder();
-    recorder.nameOf("b", "", request("/Pet/state"));
-    recorder.nameOf("a", "", request("/Pet/state"));
+  it("namesOf skips a number that a schema gives as its own name", () => {
+    const names = BEST_SCHEMA_NAMES.namesOf([
+      shared("c", owned("/Pet/state")),
+      shared("b", owned("/Pet/state")),
+      shared("a", component("/PetState_2"), owned("/Pet/state")),
+    ]);
 
-    const names = recorder.chosenNames();
-
-    expect(names.nameOf("a", "", request("/x"))).toBe("PetState");
-    expect(names.nameOf("b", "", request("/x"))).toBe("PetState_2");
-  });
-
-  it("chosenNames skips a number that a schema gives as its own name", () => {
-    const recorder = new SharedEnumNameRecorder();
-    recorder.nameOf("c", "", request("/Pet/state"));
-    recorder.nameOf("b", "", request("/Pet/state"));
-    recorder.nameOf("a", "", request("/PetState_2", true));
-    recorder.nameOf("a", "", request("/Pet/state"));
-
-    const names = recorder.chosenNames();
-
-    expect(names.nameOf("a", "", request("/x"))).toBe("PetState_2");
-    expect(names.nameOf("b", "", request("/x"))).toBe("PetState");
-    expect(names.nameOf("c", "", request("/x"))).toBe("PetState_3");
-  });
-
-  it("chosenNames skips a number that a later key's schema gives as its own name", () => {
-    const recorder = new SharedEnumNameRecorder();
-    recorder.nameOf("a", "", request("/Pet/state"));
-    recorder.nameOf("b", "", request("/Pet/state"));
-    recorder.nameOf("c", "", request("/PetState_2", true));
-
-    const names = recorder.chosenNames();
-
-    expect(names.nameOf("b", "", request("/x"))).toBe("PetState_3");
-    expect(names.nameOf("c", "", request("/x"))).toBe("PetState_2");
-  });
-
-  it("chosenNames gives each later key of one best name its own number", () => {
-    const recorder = new SharedEnumNameRecorder();
-    for (const key of ["a", "b", "c"]) {
-      recorder.nameOf(key, "", request("/Pet/state"));
-    }
-
-    const names = recorder.chosenNames();
-
-    expect(["a", "b", "c"].map((key) => names.nameOf(key, "", request("/x")))).toEqual([
-      "PetState",
+    expect([names.get("a"), names.get("b"), names.get("c")]).toEqual([
       "PetState_2",
+      "PetState",
       "PetState_3",
     ]);
   });
 
-  it("chosenNames leaves out a schema only a $ref typed", () => {
-    const recorder = new SharedEnumNameRecorder();
-    recorder.nameOf("k", "", request("/Pet/state"));
-    const { walkedAt: _walked, ...throughRef } = request("/A", true);
-    recorder.nameOf("k", "", throughRef);
+  it("namesOf skips a number that a later key's schema gives as its own name", () => {
+    const names = BEST_SCHEMA_NAMES.namesOf([
+      shared("a", owned("/Pet/state")),
+      shared("b", owned("/Pet/state")),
+      shared("c", component("/PetState_2")),
+    ]);
 
-    const names = recorder.chosenNames();
-
-    expect(names.nameOf("k", "", request("/x"))).toBe("PetState");
+    expect([names.get("b"), names.get("c")]).toEqual(["PetState_3", "PetState_2"]);
   });
 
-  it("chosenNames gives the run's name for a key it did not record", () => {
-    expect(new SharedEnumNameRecorder().chosenNames().nameOf("k", "Own", request("/x"))).toBe(
-      "Own",
-    );
+  it("namesOf leaves out a schema only a $ref typed", () => {
+    const names = BEST_SCHEMA_NAMES.namesOf([
+      shared("k", owned("/Pet/state"), throughRef(component("/A"))),
+    ]);
+
+    expect(names.get("k")).toBe("PetState");
+  });
+
+  it("namesOf gives an enum that only $refs typed its first request's name", () => {
+    const names = BEST_SCHEMA_NAMES.namesOf([shared("k", throughRef(owned("/A")))]);
+
+    expect(names.get("k")).toBe("RunA");
   });
 });
 
 describe("FIRST_SCHEMA_NAMES", () => {
-  it("nameOf gives the first schema's name, as the original", () => {
-    expect(FIRST_SCHEMA_NAMES.nameOf("k", "Own", request("/x"))).toBe("Own");
+  it("namesOf gives the first schema's name, as the original", () => {
+    const names = FIRST_SCHEMA_NAMES.namesOf([
+      shared("k", owned("/Pet/kind", { isOwnerReference: true }), owned("/Other")),
+    ]);
+
+    expect(names.get("k")).toBe("RunPetkind");
+  });
+});
+
+describe("FIRST_DECLARING_SCHEMA_NAMES", () => {
+  it("namesOf gives the first declaring schema's name, not a reference's", () => {
+    const names = FIRST_DECLARING_SCHEMA_NAMES.namesOf([
+      shared("k", owned("/Pet/kind", { isOwnerReference: true }), owned("/Other"), owned("/Later")),
+    ]);
+
+    expect(names.get("k")).toBe("RunOther");
+  });
+
+  it("namesOf gives an enum of references only its first request's name", () => {
+    const names = FIRST_DECLARING_SCHEMA_NAMES.namesOf([
+      shared("k", owned("/Pet/kind", { isOwnerReference: true })),
+    ]);
+
+    expect(names.get("k")).toBe("RunPetkind");
   });
 });

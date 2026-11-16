@@ -5,89 +5,24 @@ import {
   irReference,
 } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
-import { parseRefPointer } from "../../../domain/openapi/json-pointer.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { FIX } from "../../../domain/output-fixes.js";
 import { enumMemberType } from "../enum-member-type.js";
 import { literalType } from "../literal-type.js";
 import { refType } from "../ref-type.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
+import { baseEnumType } from "./base-enum-type.js";
+import { enumRequest, isTsEnum, nameFromPath, tsEnumEntries } from "./enum-declaration.js";
 import { enumValuesPointer } from "./enum-values-pointer.js";
 import type {
   DiscriminatorEnumParent,
   EnumDeclarationRequest,
-  EnumMemberMetadata,
   FooterDeclarations,
-  SchemaOptions,
 } from "./schema-context.js";
 import type { SchemaRequest, SchemaRule } from "./schema-rule.js";
 
-/** Removed from generated names, so `#/components/schemas/Status` gives `Status`. */
-const COMPONENT_SCHEMAS_PREFIX = "components/schemas";
-
 function hasAdditionalProperties(schema: SchemaObject): boolean {
   return "additionalProperties" in schema && Boolean(schema.additionalProperties);
-}
-
-/** A name from the schema's pointer: `#/components/schemas/Pet/status` → `/Pet/status`. */
-function nameFromPath(path: string | undefined): string {
-  return parseRefPointer(path ?? "")
-    .join("/")
-    .replace(COMPONENT_SCHEMAS_PREFIX, "");
-}
-
-/** `#/components/schemas/Name`, and no deeper pointer. */
-const COMPONENT_SCHEMA_RE = /^#\/components\/schemas\/[^/]+$/;
-
-function hasEnumMetadata(schema: SchemaObject): boolean {
-  return [
-    schema["x-enum-varnames"],
-    schema["x-enumNames"],
-    schema["x-enum-descriptions"],
-    schema["x-enumDescriptions"],
-  ].some(Array.isArray);
-}
-
-/**
- * The values a TypeScript enum declares, with their positions in `enum`. With the
- * `nullable-enums` fix a `null` value is left out (upstream #1872): an enum member cannot be
- * `null`, so the type adds it as `| null` instead (`tsEnumType`).
- */
-function tsEnumEntries(schema: SchemaObject, options: SchemaOptions): [unknown, number][] {
-  const entries = (schema.enum ?? []).map((value, index): [unknown, number] => [value, index]);
-  return options.fixes.has(FIX.NULLABLE_ENUMS)
-    ? entries.filter(([value]) => value !== null)
-    : entries;
-}
-
-/**
- * Whether `--enum` types the schema as a TypeScript enum, not as a union of its values: string
- * and number enums. The original meant to allow `null` too, but tested `typeof value` against
- * `null`, so an enum containing null stays a union; the `nullable-enums` fix declares its other
- * values.
- */
-export function isTsEnum(schema: SchemaObject, options: SchemaOptions): boolean {
-  if (!options.enum || !schema.enum) {
-    return false;
-  }
-  const entries = tsEnumEntries(schema, options);
-  // An empty `enum` stays an empty TypeScript enum, as the original made it; an enum of only
-  // `null` has no member left once the fix drops `null`, so it stays a union.
-  const isOnlyNull = entries.length === 0 && schema.enum.length > 0;
-  const isSupported =
-    !isOnlyNull && entries.every(([value]) => ["string", "number"].includes(typeof value));
-  // `--conditional-enums` converts only enums that carry x-enum-* metadata.
-  return isSupported && (!options.conditionalEnums || hasEnumMetadata(schema));
-}
-
-function enumMetadata(
-  schema: SchemaObject,
-  entries: readonly [unknown, number][],
-): EnumMemberMetadata[] {
-  return entries.map(([, index]) => ({
-    name: schema["x-enum-varnames"]?.[index] ?? schema["x-enumNames"]?.[index],
-    description: schema["x-enum-descriptions"]?.[index] ?? schema["x-enumDescriptions"]?.[index],
-  }));
 }
 
 /**
@@ -112,21 +47,6 @@ function withOtherStrings(type: IrType, schema: SchemaObject): IrType {
     return type;
   }
   return unionOf([type, intersectionOf([irKeyword("string"), irObject([])])]);
-}
-
-/** The enum declaration of `schema` typed at `path`; its values are strings and numbers. */
-function enumRequest(
-  schema: SchemaObject,
-  path: string | undefined,
-  options: SchemaOptions,
-): EnumDeclarationRequest {
-  const entries = tsEnumEntries(schema, options);
-  return {
-    name: nameFromPath(path),
-    isComponentSchema: COMPONENT_SCHEMA_RE.test(path ?? ""),
-    values: entries.map(([value]) => value as string | number),
-    metadata: enumMetadata(schema, entries),
-  };
 }
 
 /**
@@ -186,19 +106,32 @@ function enumReference(footer: FooterDeclarations, request: EnumDeclarationReque
   return { ...irReference(footer.addEnum(request)), enumValues: request.values };
 }
 
+/**
+ * The schema's own enum, or the enum of a base the `allOf` intersects it with (`baseEnumType`).
+ * The own enum is declared either way, so code that names it keeps compiling.
+ */
+function ownOrBaseEnumType(
+  values: readonly unknown[],
+  declaration: EnumDeclarationRequest,
+  request: SchemaRequest,
+): IrType {
+  const own = enumReference(request.context.footer, declaration);
+  return baseEnumType(values as (string | number)[], request) ?? own;
+}
+
 function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
-  const { options, footer } = request.context;
+  const { options } = request.context;
   // `isTsEnum` admits only strings and numbers, and the fix leaves `null` out of the members.
   const values = tsEnumEntries(schema, options).map(([value]) => value);
   const declaration = enumRequest(schema, request.location.path, options);
   const element = {
     ...tupleElement(schema, request),
     ...walkedLocation(request),
-    isAtSharedLocation: request.isAtSharedLocation,
+    sharedSlot: request.sharedSlot,
   };
   const type =
     ownerEnumMembersType(schema, values, request) ??
-    withOtherStrings(enumReference(footer, { ...declaration, ...element }), schema);
+    withOtherStrings(ownOrBaseEnumType(values, { ...declaration, ...element }, request), schema);
   return options.fixes.has(FIX.NULLABLE_ENUMS) && isNullAllowed(schema)
     ? unionOf([type, irKeyword("null")])
     : type;

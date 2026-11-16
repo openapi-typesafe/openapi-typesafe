@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { printNodes } from "../../../../src/application/print/print-nodes.js";
 import { InvalidRefError } from "../../../../src/application/transform/ref-type.js";
-import { InvalidPropertyError } from "../../../../src/application/transform/schema/object-type.js";
+import { InvalidPropertyError } from "../../../../src/application/transform/schema/invalid-property-error.js";
 import {
   InvalidSchemaError,
   transformSchema,
@@ -143,7 +143,7 @@ describe("transformSchema", () => {
           { name: undefined, description: undefined },
         ],
         walkedAt: ROOT.path,
-        isAtSharedLocation: false,
+        sharedSlot: "",
       },
     ]);
   });

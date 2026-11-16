@@ -3,11 +3,16 @@ import {
   type FooterSink,
   RunFooter,
 } from "../../../../src/application/transform/footer/document-footer.js";
+import { enumGrouping } from "../../../../src/application/transform/footer/enum-groups.js";
 import { EnumNameClaims } from "../../../../src/application/transform/footer/enum-name-claims.js";
 import { EnumOwners } from "../../../../src/application/transform/footer/enum-owners.js";
 import { EnumValuesNames } from "../../../../src/application/transform/footer/enum-values-names.js";
 import { OperationKeys } from "../../../../src/application/transform/footer/operation-keys.js";
-import { FIRST_SCHEMA_NAMES } from "../../../../src/application/transform/footer/shared-enum-names.js";
+import {
+  BEST_SCHEMA_NAMES,
+  FIRST_SCHEMA_NAMES,
+  type SharedEnumNames,
+} from "../../../../src/application/transform/footer/shared-enum-names.js";
 import { irProperty, irReference } from "../../../../src/domain/ir/constructors.js";
 import type { IrDeclaration, IrPropertySignature } from "../../../../src/domain/ir/nodes.js";
 
@@ -39,6 +44,29 @@ class InMemorySink implements FooterSink {
 
 const STATUS = { name: "status", isComponentSchema: false, values: ["a", "b"], metadata: [] };
 const TUP = "#/components/schemas/Tup";
+
+/** The slot of a tuple element (`sharedStepCall`). */
+const elementSlot = (index: number) => JSON.stringify(["", null, ["prefixItems", index]]);
+
+/** The naming state of a run, which a footer in a run shares. */
+function runNames() {
+  return {
+    enums: new EnumNameClaims(),
+    owners: new EnumOwners(),
+    enumValues: new EnumValuesNames(),
+    operations: new OperationKeys(),
+  };
+}
+
+/** The final name of each name the run gave, after the renames at its end. */
+function finalNamesOf(given: readonly string[], finals: ReadonlyMap<string, string>): string[] {
+  return given.map((name) => finals.get(name) ?? name);
+}
+
+/** The renames at the end of a run whose `--dedupe-enums` enums `sharing` names. */
+function finalsOf(names: ReturnType<typeof runNames>, sharing: SharedEnumNames | null) {
+  return names.enums.finalNames(new Set(), enumGrouping(names.owners, sharing));
+}
 
 describe("RunFooter", () => {
   it("addEnum adds an enum and returns its name", () => {
@@ -192,133 +220,115 @@ describe("RunFooter", () => {
   it("addEnum numbers a tuple element of other values and shares one of the same values", () => {
     const sink = new InMemorySink();
     const footer = new RunFooter(sink, false);
-    const element = { ...STATUS, name: "/Pair", tupleIndex: 0, isAtSharedLocation: true };
+    const element = { ...STATUS, name: "/Pair" };
 
     const names = [
-      footer.addEnum({ ...element, values: ["asc", "desc"] }),
-      footer.addEnum({ ...element, values: ["name"] }),
-      footer.addEnum({ ...element, values: ["desc", "asc"] }),
+      footer.addEnum({
+        ...element,
+        values: ["asc", "desc"],
+        tupleIndex: 0,
+        sharedSlot: elementSlot(0),
+      }),
+      footer.addEnum({ ...element, values: ["name"], tupleIndex: 1, sharedSlot: elementSlot(1) }),
+      footer.addEnum({
+        ...element,
+        values: ["desc", "asc"],
+        tupleIndex: 2,
+        sharedSlot: elementSlot(2),
+      }),
     ];
 
     expect(names).toEqual(["Pair", "Pair_2", "Pair"]);
     expect(sink.declarations).toHaveLength(2);
   });
 
-  it("addEnum with --dedupe-enums names tuple elements by position when a later one came first", () => {
-    const names = {
-      enums: new EnumNameClaims(),
-      owners: new EnumOwners(),
-      enumValues: new EnumValuesNames(),
-      operations: new OperationKeys(),
-    };
-    const footer = new RunFooter(new InMemorySink(), true, FIRST_SCHEMA_NAMES, names);
-    const element = { ...STATUS, name: "/Tup", values: ["a"], isAtSharedLocation: true };
+  it("addEnum in a run with --dedupe-enums names tuple elements by position when a later one came first", () => {
+    const names = runNames();
+    const footer = new RunFooter(new InMemorySink(), false, names);
+    const element = { ...STATUS, name: "/Tup", values: ["a"] };
 
-    footer.addEnum({ ...element, tupleIndex: 2 });
-    footer.addEnum({ ...element, values: ["b"], tupleIndex: 1 });
-    footer.addEnum({ ...element, tupleIndex: 0 });
+    const given = [
+      footer.addEnum({ ...element, tupleIndex: 2, sharedSlot: elementSlot(2) }),
+      footer.addEnum({ ...element, values: ["b"], tupleIndex: 1, sharedSlot: elementSlot(1) }),
+      footer.addEnum({ ...element, tupleIndex: 0, sharedSlot: elementSlot(0) }),
+    ];
 
-    expect(names.enums.finalNames(new Set())).toEqual(new Map());
+    expect(finalNamesOf(given, finalsOf(names, FIRST_SCHEMA_NAMES))).toEqual([
+      "Tup",
+      "Tup_2",
+      "Tup",
+    ]);
   });
 
-  it("addEnum with --dedupe-enums ranks an enum at its earliest place in the document", () => {
-    const names = {
-      enums: new EnumNameClaims(),
-      owners: new EnumOwners(),
-      enumValues: new EnumValuesNames(),
-      operations: new OperationKeys(),
-    };
-    const footer = new RunFooter(new InMemorySink(), true, FIRST_SCHEMA_NAMES, names);
-    const element = {
-      ...STATUS,
-      name: "/Tup",
-      values: ["a"],
-      walkedAt: TUP,
-      isAtSharedLocation: true,
-    };
+  it("addEnum in a run with --dedupe-enums ranks an enum at its earliest place in the document", () => {
+    const names = runNames();
+    const footer = new RunFooter(new InMemorySink(), false, names);
+    const element = { ...STATUS, name: "/Tup", values: ["a"], walkedAt: TUP };
+    const lower = { ...element, name: "/tup", tupleIndex: 0, walkedAt: `${TUP}_lower` };
 
-    footer.addEnum({ ...element, tupleIndex: 1 });
-    footer.addEnum({ ...element, values: ["b"], tupleIndex: 0 });
-    footer.addEnum({ ...element, name: "/tup", tupleIndex: 0, walkedAt: `${TUP}_lower` });
+    const given = [
+      footer.addEnum({ ...element, tupleIndex: 1, sharedSlot: elementSlot(1) }),
+      footer.addEnum({ ...element, values: ["b"], tupleIndex: 0, sharedSlot: elementSlot(0) }),
+      footer.addEnum({ ...lower, sharedSlot: elementSlot(0) }),
+    ];
 
-    expect(names.enums.finalNames(new Set())).toEqual(
-      new Map([
-        ["Tup", "Tup_2"],
-        ["Tup_2", "Tup"],
-      ]),
-    );
+    // `[b]` is the first element of `Tup`; `[a]` of `Tup` and of `tup` share one enum.
+    expect(finalNamesOf(given, finalsOf(names, FIRST_SCHEMA_NAMES))).toEqual([
+      "Tup_2",
+      "Tup",
+      "Tup_2",
+    ]);
   });
 
-  it("addEnum with --dedupe-enums ranks a shared enum where its own location asks the name", () => {
-    const names = {
-      enums: new EnumNameClaims(),
-      owners: new EnumOwners(),
-      enumValues: new EnumValuesNames(),
-      operations: new OperationKeys(),
-    };
+  it("addEnum in a run with dedupe-enum-names ranks a shared enum where its own location asks the name", () => {
+    const names = runNames();
+    const footer = new RunFooter(new InMemorySink(), false, names);
+    const sort = { ...STATUS, name: "/Sort", values: ["a"], walkedAt: "#/Sort" };
+    const pair = { ...STATUS, name: "/Pair", values: ["b"], walkedAt: "#/Pair" };
+
     // `dedupe-enum-names` gives the `[a]` that `Sort` and `Pair` share the name `Pair`.
-    const shared = { nameOf: (_key: string, name: string) => (name === "Sort" ? "Pair" : name) };
-    const footer = new RunFooter(new InMemorySink(), true, shared, names);
-    const sort = {
-      ...STATUS,
-      name: "/Sort",
-      values: ["a"],
-      walkedAt: "#/Sort",
-      isAtSharedLocation: true,
-    };
-    const pair = {
-      ...STATUS,
-      name: "/Pair",
-      values: ["b"],
-      walkedAt: "#/Pair",
-      isAtSharedLocation: true,
-    };
+    const given = [
+      footer.addEnum({ ...sort, tupleIndex: 0, sharedSlot: elementSlot(0) }),
+      footer.addEnum({ ...pair, tupleIndex: 0, sharedSlot: elementSlot(0) }),
+      footer.addEnum({ ...pair, values: ["a"], tupleIndex: 1, sharedSlot: elementSlot(1) }),
+    ];
 
-    footer.addEnum({ ...sort, tupleIndex: 0 });
-    footer.addEnum({ ...pair, tupleIndex: 0 });
-    footer.addEnum({ ...pair, values: ["a"], tupleIndex: 1 });
-
-    expect(names.enums.finalNames(new Set())).toEqual(
-      new Map([
-        ["Pair", "Pair_2"],
-        ["Pair_2", "Pair"],
-      ]),
-    );
+    expect(finalNamesOf(given, finalsOf(names, BEST_SCHEMA_NAMES))).toEqual([
+      "Pair",
+      "Pair_2",
+      "Pair",
+    ]);
   });
 
-  it("addEnum with --dedupe-enums ranks an enum a $ref declared where the walk meets it", () => {
-    const names = {
-      enums: new EnumNameClaims(),
-      owners: new EnumOwners(),
-      enumValues: new EnumValuesNames(),
-      operations: new OperationKeys(),
-    };
-    const footer = new RunFooter(new InMemorySink(), true, FIRST_SCHEMA_NAMES, names);
-    const element = {
-      ...STATUS,
-      name: "/Tup",
-      values: ["a"],
-      tupleIndex: 0,
-      isAtSharedLocation: true,
-    };
+  it("addEnum in a run with --dedupe-enums ranks an enum a $ref declared where the walk meets it", () => {
+    const names = runNames();
+    const footer = new RunFooter(new InMemorySink(), false, names);
+    const element = { ...STATUS, name: "/Tup", values: ["a"], tupleIndex: 0 };
 
     // A `$ref` to the first element declares its enum before the walk meets the tuple.
-    footer.addEnum(element);
-    footer.addEnum({ ...element, values: ["b"], tupleIndex: 1, walkedAt: TUP });
-    footer.addEnum({ ...element, walkedAt: TUP });
+    const given = [
+      footer.addEnum({ ...element, sharedSlot: JSON.stringify(["$ref", `${TUP}/prefixItems/0`]) }),
+      footer.addEnum({
+        ...element,
+        values: ["b"],
+        tupleIndex: 1,
+        sharedSlot: elementSlot(1),
+        walkedAt: TUP,
+      }),
+      footer.addEnum({ ...element, sharedSlot: elementSlot(0), walkedAt: TUP }),
+    ];
 
-    expect(names.enums.finalNames(new Set())).toEqual(new Map());
+    expect(finalNamesOf(given, finalsOf(names, FIRST_SCHEMA_NAMES))).toEqual([
+      "Tup",
+      "Tup_2",
+      "Tup",
+    ]);
   });
 
   it("addEnum gives way to a name the run's claims reserve", () => {
     const sink = new InMemorySink();
-    const names = {
-      enums: new EnumNameClaims(new Set(["Record"])),
-      owners: new EnumOwners(),
-      enumValues: new EnumValuesNames(),
-      operations: new OperationKeys(),
-    };
-    const footer = new RunFooter(sink, false, FIRST_SCHEMA_NAMES, names);
+    const names = { ...runNames(), enums: new EnumNameClaims(new Set(["Record"])) };
+    const footer = new RunFooter(sink, false, names);
 
     expect(footer.addEnum({ ...STATUS, name: "/Record" })).toBe("Record_2");
   });
@@ -375,13 +385,8 @@ describe("RunFooter", () => {
   });
 
   it("addEnumValues names the arrays of tuple elements by position at the end", () => {
-    const names = {
-      enums: new EnumNameClaims(),
-      owners: new EnumOwners(),
-      enumValues: new EnumValuesNames(),
-      operations: new OperationKeys(),
-    };
-    const footer = new RunFooter(new InMemorySink(), false, FIRST_SCHEMA_NAMES, names);
+    const names = runNames();
+    const footer = new RunFooter(new InMemorySink(), false, names);
     const request = { name: "TupValues", type: irReference("T"), values: ["c"], tupleIndex: 1 };
 
     // A `$ref` to the second element comes first; the walk then meets both elements in order.

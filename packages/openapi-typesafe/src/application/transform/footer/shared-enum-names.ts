@@ -1,18 +1,59 @@
 import { freeNumberedName } from "../numbered-names.js";
-import type { EnumDeclarationRequest } from "../schema/schema-context.js";
 import { EnumNaming } from "./enum-naming.js";
+import type { OwnedRequest } from "./enum-owners.js";
 
 /**
- * How `--dedupe-enums` names the one enum that schemas with the same members share. `key` is the
- * dedupe key of the members; `name` is the name the schema gives with the run's naming state.
+ * One enum that `--dedupe-enums` shares at the end of a run: the dedupe key of its members, and
+ * the requests of every owner that shares it, in the order they asked.
  */
-export interface SharedEnumNames {
-  /** Called for every schema of the enum, in document order; returns the name to declare. */
-  nameOf(key: string, name: string, request: EnumDeclarationRequest): string;
+export interface SharedEnum {
+  readonly key: string;
+  readonly requests: readonly OwnedRequest[];
 }
 
-/** The original: the enum takes the name of the first schema in the document. */
-export const FIRST_SCHEMA_NAMES: SharedEnumNames = { nameOf: (_key, name) => name };
+/** How `--dedupe-enums` names the enums it shares, once every request of the run is known. */
+export interface SharedEnumNames {
+  /** The name each enum asks for, by key; an enum left out asks for its first request's name. */
+  namesOf(enums: readonly SharedEnum[]): ReadonlyMap<string, string>;
+}
+
+/** The name of the first request of an enum that `isCounted` counts, else of its first one. */
+function firstNameOf(
+  { requests }: SharedEnum,
+  isCounted: (owned: OwnedRequest) => boolean,
+): string | undefined {
+  return (requests.find(isCounted) ?? requests[0])?.ownName;
+}
+
+function namesByKey(
+  enums: readonly SharedEnum[],
+  isCounted: (owned: OwnedRequest) => boolean,
+): ReadonlyMap<string, string> {
+  const names = new Map<string, string>();
+  for (const shared of enums) {
+    const name = firstNameOf(shared, isCounted);
+    if (name !== undefined) {
+      names.set(shared.key, name);
+    }
+  }
+  return names;
+}
+
+/** The original: the enum takes the name of the first schema that asked for it. */
+export const FIRST_SCHEMA_NAMES: SharedEnumNames = {
+  namesOf: (enums) => namesByKey(enums, () => true),
+};
+
+/**
+ * With `discriminator-values` and `--enum`, a member's value refers to the owner's enum
+ * (`isOwnerReference`), which is then asked for when the member is typed, maybe before the first
+ * schema that declares it; the shared enum would take the owner's name. So only the declaring
+ * schemas count, and each shared enum is named as the document order does (`OtherKind`, not
+ * `PetPetType`).
+ */
+export const FIRST_DECLARING_SCHEMA_NAMES: SharedEnumNames = {
+  namesOf: (enums) => namesByKey(enums, ({ request }) => request.isOwnerReference !== true),
+};
 
 interface NameCandidate {
   readonly name: string;
@@ -45,47 +86,36 @@ function ranked(candidates: readonly NameCandidate[]): NameCandidate[] {
 }
 
 /**
- * The `dedupe-enum-names` fix (ADR-021, upstream #1683), first pass: records every schema of each
- * shared enum and keeps the run's own names. `chosenNames` gives the names for the second pass.
+ * The names an enum's schemas give it. Only a schema the walk of the document types names the
+ * enum: a `$ref` that types its target elsewhere (`walkedAt` undefined), such as one into a
+ * `$defs` entry of an enum schema, which the walk does not type, changes no name. Each name is
+ * built with a fresh naming state: the run's state depends on the names built before
+ * (`EnumNaming`).
  */
-export class SharedEnumNameRecorder implements SharedEnumNames {
-  private readonly candidatesByKey = new Map<string, NameCandidate[]>();
-
-  nameOf(key: string, name: string, request: EnumDeclarationRequest): string {
-    // Only a schema the walk of the document types names the enum: a `$ref` that types its
-    // target elsewhere (`walkedAt` undefined), such as one into a `$defs` entry of an enum
-    // schema, which the walk does not type, changes no name.
-    if (request.walkedAt === undefined) {
-      return name;
-    }
-    // A fresh naming state: the run's state depends on the names built before (EnumNaming).
-    const candidate = {
+function candidatesOf({ requests }: SharedEnum): NameCandidate[] {
+  return requests
+    .filter(({ request }) => request.walkedAt !== undefined)
+    .map(({ request }) => ({
       name: new EnumNaming().enumName(request.name),
       isComponentSchema: request.isComponentSchema,
-    };
-    const candidates = this.candidatesByKey.get(key);
-    if (candidates === undefined) {
-      this.candidatesByKey.set(key, [candidate]);
-    } else {
-      candidates.push(candidate);
-    }
-    return name;
-  }
+    }));
+}
 
-  /**
-   * The best name of each enum. Two enums whose best names are the same (two schemas that give
-   * one name) are resolved in key order, which is the order of their values: the later one takes
-   * its next name that is free, or else a number of its best name that no schema gives
-   * (`PetState_2`). Left to the run, the number would follow the document order.
-   */
-  chosenNames(): SharedEnumNames {
+/**
+ * The `dedupe-enum-names` fix (ADR-021, upstream #1683): each enum takes the best name of all of
+ * its schemas. Two enums whose best names are the same (two schemas that give one name) are
+ * resolved in key order, which is the order of their values: the later one takes its next name
+ * that is free, or else a number of its best name that no schema gives (`PetState_2`). Left to the
+ * run, the number would follow the document order.
+ */
+export const BEST_SCHEMA_NAMES: SharedEnumNames = {
+  namesOf(enums) {
+    const candidatesByKey = new Map(enums.map((shared) => [shared.key, candidatesOf(shared)]));
     const chosen = new Map<string, string>();
-    const candidates = [...this.candidatesByKey.values()].flat().map(({ name }) => name);
-    const unavailable = new Set(candidates);
+    const unavailable = new Set([...candidatesByKey.values()].flat().map(({ name }) => name));
     const taken = new Set<string>();
-    const keys = [...this.candidatesByKey.keys()].sort();
-    for (const key of keys) {
-      const names = ranked(this.candidatesByKey.get(key) ?? []).map(({ name }) => name);
+    for (const key of [...candidatesByKey.keys()].sort()) {
+      const names = ranked(candidatesByKey.get(key) ?? []).map(({ name }) => name);
       const best = names[0];
       const free = names.find((candidate) => !taken.has(candidate));
       const name = free ?? (best === undefined ? undefined : freeNumberedName(best, unavailable));
@@ -95,6 +125,7 @@ export class SharedEnumNameRecorder implements SharedEnumNames {
         unavailable.add(name);
       }
     }
-    return { nameOf: (key, name) => chosen.get(key) ?? name };
-  }
-}
+    const firsts = FIRST_SCHEMA_NAMES.namesOf(enums);
+    return new Map([...firsts, ...chosen]);
+  },
+};

@@ -27,6 +27,8 @@ export interface RunContext extends GlobalContext {
      * it inherits besides `objects[ref]`, which it redefines too.
      */
     readonly otherProperties?: Readonly<Record<string, readonly string[]>>;
+    /** The property schema each enum the scan added replaced in the document, by that enum. */
+    readonly replacedProperties?: ReadonlyMap<object, unknown>;
   };
   /** The schema dialect of the run's document; without it, OpenAPI 3.0 (`schemaDialectOf`). */
   schemaDialect?: SchemaDialect;
@@ -34,6 +36,16 @@ export interface RunContext extends GlobalContext {
   runFooter?: DocumentFooter;
   /** The deprecated callback forms this run has warned about (once each). */
   legacyCallbackWarnings?: Set<LegacyCallbackName>;
+  /**
+   * Whether this pass warned about a `transform` result it ignores (`CALLBACK_RESULT_IGNORED`).
+   * Not shared between passes: a pass whose messages are dropped must not silence the next one.
+   */
+  isIgnoredCallbackResultReported?: boolean;
+  /**
+   * The enums this pass reported values of that an `allOf` base never admits
+   * (`ENUM_VALUES_NOT_INHERITED`), by place and base. Not shared between passes, as above.
+   */
+  reportedNotInheritedEnums?: Set<string>;
   /** Where this run reports warnings and debug output; without it, the terminal. */
   logger?: Logger;
   /** The `$ref` pointer types of this pass, and those typed in place (`RefPointerChecks`). */

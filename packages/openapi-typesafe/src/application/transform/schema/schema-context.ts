@@ -68,6 +68,11 @@ export interface Discriminators {
    * the enum schema the discriminator scan added or by the discriminator object of `objectAt`.
    */
   enumParentOf(schema: object): DiscriminatorEnumParent | undefined;
+  /**
+   * The property schema the document declared where the scan put the enum `schema` of a mapped
+   * schema's discriminator property; undefined for any other schema (or an added property).
+   */
+  replacedPropertyOf(schema: object): unknown;
 }
 
 export interface RefResolver {
@@ -97,11 +102,11 @@ export interface EnumDeclarationRequest {
    */
   readonly tupleIndex?: number;
   /**
-   * The schema shares its location, and so `name`, with other schemas that are neither it nor
-   * intersected with it (`SchemaRequest.isAtSharedLocation`): an enum with other values there is
-   * another enum.
+   * Where the schema is among the schemas of its location (`SchemaRequest.sharedSlot`); a schema
+   * at a shared one has the location, and so `name`, with other schemas that are neither it nor
+   * intersected with it. Empty or undefined: the location's own place.
    */
-  readonly isAtSharedLocation?: boolean;
+  readonly sharedSlot?: string;
   /**
    * The location the generator's walk of the document types the schema at (a tuple element's is
    * its tuple's), which orders the owners of one name (`WalkRanks`). Undefined where a `$ref`
@@ -169,6 +174,25 @@ export interface RefPointerChecks {
   record(ref: string, type: IrType): void;
 }
 
+/**
+ * Values an enum lists that the enum of a base at its place does not list (`baseSchemas`): an
+ * `allOf` intersects the two, so no value of the schema can be one of them.
+ */
+export interface NotInheritedEnumValues {
+  /** The location of the enum's schema. */
+  readonly path: string;
+  /** The pointer of the base's enum. */
+  readonly base: string;
+  readonly values: readonly (string | number)[];
+  /** Both enums list some value, so the schema is typed by those; else its type is `never`. */
+  readonly hasCommonValues: boolean;
+}
+
+/** Where the transformer reports enum values that an `allOf` base never admits. */
+export interface EnumInheritanceReport {
+  reportNotInherited(found: NotInheritedEnumValues): void;
+}
+
 export interface SchemaContext {
   readonly options: SchemaOptions;
   readonly refs: RefResolver;
@@ -177,4 +201,6 @@ export interface SchemaContext {
   readonly callbacks: SchemaCallbacks;
   /** Without it, every pointer type is written as the shape model reads it. */
   readonly pointerChecks?: RefPointerChecks;
+  /** Without it, values an `allOf` base never admits are not reported. */
+  readonly enumInheritance?: EnumInheritanceReport;
 }

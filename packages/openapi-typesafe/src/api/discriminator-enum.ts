@@ -29,18 +29,24 @@ function discriminatorEnum(values: string[], previous?: SchemaObject): SchemaObj
 }
 
 /** An `allOf` schema gets one more item that holds the required enum property. */
-function patchAllOf(allOf: (SchemaObject | ReferenceObject)[], patch: EnumPatch): SchemaObject {
+function patchAllOf(allOf: (SchemaObject | ReferenceObject)[], patch: EnumPatch): AddedEnum {
   const added = discriminatorEnum(patch.values);
   allOf.push({
     type: "object",
     required: [patch.discriminator.propertyName],
     properties: { [patch.discriminator.propertyName]: added },
   });
-  return added;
+  return { added };
+}
+
+/** An added enum, and the property schema it replaced in the document, if there was one. */
+export interface AddedEnum {
+  readonly added: SchemaObject;
+  readonly replaced?: unknown;
 }
 
 /** An object schema gets the enum property, which is always required, added or replaced. */
-function patchObjectSchema(schema: SchemaObject & ObjectSubtype, patch: EnumPatch): SchemaObject {
+function patchObjectSchema(schema: SchemaObject & ObjectSubtype, patch: EnumPatch): AddedEnum {
   const name = patch.discriminator.propertyName;
   if (!schema.properties) {
     schema.properties = {};
@@ -50,9 +56,10 @@ function patchObjectSchema(schema: SchemaObject & ObjectSubtype, patch: EnumPatc
   } else if (!schema.required.includes(name)) {
     schema.required.push(name);
   }
-  const added = discriminatorEnum(patch.values, schema.properties[name] as SchemaObject);
+  const replaced: unknown = schema.properties[name];
+  const added = discriminatorEnum(patch.values, replaced as SchemaObject | undefined);
   schema.properties[name] = added;
-  return added;
+  return replaced === undefined ? { added } : { added, replaced };
 }
 
 function isObjectSchema(schema: unknown): schema is SchemaObject & ObjectSubtype {
@@ -102,12 +109,12 @@ export function declaresValues(schema: SchemaObject | undefined, patch: EnumPatc
 
 /**
  * Add or replace the enum property in `schema`, an `allOf` or object schema. Returns the added
- * enum schema, or null for another kind of schema, which is left as it is.
+ * enum schema and the one it replaced, or null for another kind of schema, which is left as it is.
  */
 export function addEnumProperty(
   schema: SchemaObject | undefined,
   patch: EnumPatch,
-): SchemaObject | null {
+): AddedEnum | null {
   if (schema?.allOf) {
     return patchAllOf(schema.allOf, patch);
   }

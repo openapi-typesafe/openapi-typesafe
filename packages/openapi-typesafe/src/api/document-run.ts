@@ -52,6 +52,8 @@ type ContextFlags = Omit<
   | "resolve"
   | "runFooter"
   | "legacyCallbackWarnings"
+  | "isIgnoredCallbackResultReported"
+  | "reportedNotInheritedEnums"
   | "logger"
   | "deprecations"
   | "fix"

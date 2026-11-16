@@ -1,41 +1,69 @@
 import { freeNumberedName } from "../numbered-names.js";
+import type { EnumGrouping } from "./enum-groups.js";
 import { type EnumNameClaim, finalEnumNames } from "./final-enum-names.js";
-import { type ClaimPlace, earlierRank, WalkRanks } from "./walk-ranks.js";
+import { type ClaimPlace, earlierRank, type WalkRank, WalkRanks } from "./walk-ranks.js";
 
 /** A claim with the owner that made it. */
 interface OwnedClaim extends EnumNameClaim {
   readonly owner: string;
 }
 
-/** The claims with each claim of an owner that joins another (`EnumOwners`) folded into it. */
+/** The claims with the claims of the owners of each enum (`EnumGrouping`) folded into one. */
 interface FoldedClaims {
   readonly claims: readonly EnumNameClaim[];
-  /** The name each folded claim was given, to the name its owner's claim was given. */
+  /** The name each folded claim was given, to the name its enum's claim was given. */
   readonly aliases: ReadonlyMap<string, string>;
 }
 
+/** The claims of each enum, in the order they were made. */
+function claimsByEnum(
+  claims: ReadonlyMap<string, OwnedClaim>,
+  grouping: EnumGrouping,
+): Map<string, OwnedClaim[]> {
+  const byEnum = new Map<string, OwnedClaim[]>();
+  for (const claim of claims.values()) {
+    const group = grouping.enumOf.get(claim.owner) ?? claim.owner;
+    const list = byEnum.get(group);
+    if (list === undefined) {
+      byEnum.set(group, [claim]);
+    } else {
+      list.push(claim);
+    }
+  }
+  return byEnum;
+}
+
 /**
- * Folds the claim of an owner that joins another owner of its name into that owner's claim: one
- * enum, ranked where the walk met either first, so the order of the two changes no name.
+ * The earliest place of the claims that asked for `name`: a claim of another name (another schema
+ * that shares the enum, `--dedupe-enums`) has its place among the owners of that name.
+ */
+function rankAsking(claims: readonly OwnedClaim[], name: string): WalkRank | undefined {
+  return claims
+    .filter((claim) => claim.name === name)
+    .reduce<WalkRank | undefined>((rank, claim) => earlierRank(rank, claim.rank), undefined);
+}
+
+/**
+ * Folds the claims of the owners of each enum into one: the name the enum asks for, ranked where
+ * the walk first met a claim of that name, so the order of the owners changes no name.
  */
 function foldedClaims(
   claims: ReadonlyMap<string, OwnedClaim>,
-  joins: ReadonlyMap<string, string>,
+  grouping: EnumGrouping,
 ): FoldedClaims {
-  const kept = new Map(claims);
+  const folded: EnumNameClaim[] = [];
   const aliases = new Map<string, string>();
-  for (const [key, claim] of claims) {
-    const joined = joins.get(claim.owner);
-    const targetKey = JSON.stringify([claim.name, joined]);
-    const target = joined === undefined ? undefined : kept.get(targetKey);
-    if (target !== undefined) {
-      kept.delete(key);
-      const order = Math.min(target.order, claim.order);
-      kept.set(targetKey, { ...target, order, rank: earlierRank(target.rank, claim.rank) });
-      aliases.set(claim.given, target.given);
+  for (const [group, [first, ...later]] of claimsByEnum(claims, grouping)) {
+    if (first === undefined) {
+      continue;
+    }
+    const name = grouping.names.get(group) ?? first.name;
+    folded.push({ ...first, name, rank: rankAsking([first, ...later], name) });
+    for (const claim of later) {
+      aliases.set(claim.given, first.given);
     }
   }
-  return { claims: [...kept.values()], aliases };
+  return { claims: folded, aliases };
 }
 
 /**
@@ -112,14 +140,14 @@ export class EnumNameClaims {
   /**
    * The enums to rename at the end, from the name the run gave to the final one
    * (`finalEnumNames`); `needed` holds the names the finished output declares or refers to.
-   * `joins`: the owner each owner joins at the end (`EnumOwners.mergedOwners`); the two enums
-   * get one name, and their declarations merge.
+   * `grouping`: the enum of each owner (`enumGrouping`); the owners of one enum get one name, and
+   * their declarations merge. Without it, every owner is an enum of its own.
    */
   finalNames(
     needed: ReadonlySet<string>,
-    joins: ReadonlyMap<string, string> = new Map(),
+    grouping: EnumGrouping = { enumOf: new Map(), names: new Map() },
   ): ReadonlyMap<string, string> {
-    const { claims, aliases } = foldedClaims(this.claims, joins);
+    const { claims, aliases } = foldedClaims(this.claims, grouping);
     const finals = finalEnumNames({
       claims,
       mayBeNeeded: this.mayBeNeeded,

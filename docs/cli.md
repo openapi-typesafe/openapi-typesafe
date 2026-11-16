@@ -180,12 +180,14 @@ A warning does not stop the run: the types are written and the exit code stays `
 
 | Code | Meaning |
 | :--- | :------ |
+| `CALLBACK_RESULT_IGNORED` | Node API: a `transform` without `irCallbacks: true` returned type text or another value that is no TypeScript node and no object; the result is ignored and the schema keeps its generated type. Reported once per run, with the schema path of the first such result. See [IR callbacks](./node.md#ir-callbacks) |
 | `CLI_INPUT_IGNORED` | APIs are listed in `redocly.yaml` and an input is given on the command line; the input is ignored and the APIs are generated. See [Multiple schemas](#multiple-schemas) |
 | `CLI_OUTPUT_IGNORED` | APIs are listed in `redocly.yaml` and `--output` is given; each API is written to its `x-openapi-ts.output`, and the `--output` path is not used. See [Multiple schemas](#multiple-schemas) |
 | `CONFIG_SETTING_UNKNOWN` | An API's `x-openapi-ts` block in `redocly.yaml` has a key that is not an openapi-typesafe setting, for example a misspelled flag; the key is ignored. See [Multiple schemas](#multiple-schemas) |
 | `DISCRIMINATOR_MAPPING_INVALID` | A discriminator `mapping` names a schema that is neither an object schema nor an `allOf`, so the generator cannot add the discriminator property to it. That schema keeps its type |
 | `DISCRIMINATOR_VALUE_NOT_ALLOWED` | A discriminator gives a schema a value that the schema's own discriminator property does not allow, so no value matches. The Discriminator Object requires the value, from `mapping` or the schema name, to be one the property admits; add a `mapping` entry. See [discriminator values](./advanced.md#discriminator-values) |
 | `ENUM_VALUES_EXCLUDED` | `--enum-values`: other keywords exclude some values of an enum (an `allOf` of enums with other values, a discriminator value the enum does not list), so the array is typed by its own values. See [enum values arrays](./advanced.md#enum-values-arrays) |
+| `ENUM_VALUES_NOT_INHERITED` | `--enum`: an enum lists values that the enum at the same place of an `allOf` `$ref` item's schema does not list, so no value can be one of them; the type lists the values both list. See [inherited enums](./advanced.md#inherited-enums) |
 | `FIX_NEEDS_OPTION` | A [fix](#fix) is named without the option it needs (`array-length-tuples` without `--array-length`, `root-type-numbering` without `--root-types`), so it changes nothing |
 | `LINT_PROBLEM` | A Redocly lint rule with severity `warn` found a problem, such as `operation-operationId-unique` ("Every operation must have a unique `operationId`"). The rule is named before the code. Without a `redocly.yaml`, the rules of Redocly's `minimal` config apply, with `operation-operationId-unique` as a warning. Operations with a repeated `operationId` still get distinct keys in `operations`: the first in document order keeps the ID, each later one gets the lowest number from 2 that no other operation has as its ID (`listItems2`, the name `--make-paths-enum` gives it too) |
 | `PATH_TEMPLATES_IDENTICAL` | Paths differ only in their parameter names, such as `/users/{id}` and `/users/{name}`. The OpenAPI Paths Object forbids this: "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical." See [pathParamsAsTypes](#pathparamsastypes) for the output |
@@ -756,7 +758,9 @@ The fix needs `--array-length` and changes nothing without it; naming it without
 
 #### dedupe-enum-names
 
-`--dedupe-enums` declares one enum for schemas with the same members. Without the fix it takes the
+`--dedupe-enums` declares one enum for schemas with the same members (the whole enum of each
+schema location: a property and an inline `allOf` item of one schema count as one, so their
+members together are compared, never one of them alone). Without the fix it takes the
 name of the first of them in the document, so adding a schema before it renames the enum, and code
 that uses it breaks. With the fix the name is chosen from all of them, by this rule:
 
@@ -777,8 +781,9 @@ export enum PetState { // [!code ++]
   else the next number of its best name that no schema gives (`PetState_2`), wherever the two
   are in the document.
 - The names are built as without the fix (`PetState` for `Pet.state`).
-- The schemas are known only at the end, so the document is transformed twice; `transform`,
-  `transformProperty` and `postTransform` callbacks run in both passes.
+- The names are chosen at the end of the run, when every schema of an enum is known; the
+  document is transformed once, so `transform`, `transformProperty` and `postTransform`
+  callbacks run once.
 - It needs `--enum` and `--dedupe-enums` and changes nothing without them; naming it without them
   prints the warning `FIX_NEEDS_OPTION` (`--fix all` does not).
 - An `x-enum-name` extension is not read: no tool of the ecosystem defines it.

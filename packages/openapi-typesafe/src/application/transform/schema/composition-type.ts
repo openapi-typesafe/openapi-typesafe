@@ -13,24 +13,29 @@ import {
   unionOf,
   withRequiredKeys,
 } from "../type-combinators.js";
+import { resolvedPointer } from "./base-schemas.js";
 import { coreType } from "./core-type.js";
 import { unionItemOf, unionOwnKeywords } from "./discriminated-union.js";
 import { allOfMembers } from "./presence-members.js";
 import { requiredVariantsType } from "./required-variants.js";
-import type { SchemaRequest } from "./schema-rule.js";
+import { OWN_SLOT, type SchemaRequest } from "./schema-rule.js";
 import { unevaluatedPropertiesType } from "./unevaluated-properties.js";
 
-/** `anyOf` / `oneOf` variants; the position is part of the path so nested names stay unique. */
+/**
+ * `anyOf` / `oneOf` variants; the position is part of the path so nested names stay unique. A
+ * base intersects the union, so it intersects each variant: the variants keep the bases.
+ */
 function variantTypes(
   variants: readonly Schema[],
   keyword: "anyOf" | "oneOf",
   request: SchemaRequest,
 ): IrType[] {
   return variants.map((variant, index) =>
-    request.transformNested(variant, {
-      ...request.location,
-      path: appendPointer(request.location.path, [keyword, index]),
-    }),
+    request.transformNested(
+      variant,
+      { ...request.location, path: appendPointer(request.location.path, [keyword, index]) },
+      { baseSchemas: request.baseSchemas },
+    ),
   );
 }
 
@@ -92,6 +97,7 @@ function inlineItemType(item: Schema, required: readonly string[], request: Sche
   return request.transformNested(
     { ...(item as SchemaObject), required: [...required, ...own] },
     request.location,
+    { baseSchemas: request.baseSchemas },
   );
 }
 
@@ -102,15 +108,25 @@ function inlineItemType(item: Schema, required: readonly string[], request: Sche
  */
 function ownKeywordsType(own: SchemaObject, ref: string, request: SchemaRequest): IrType | null {
   const location = { ...request.location, path: ref };
-  // Only the enum rule reads `isAtSharedLocation`, from the request each nested call builds, and
-  // `combinedType` applies no rule to `own` itself: the flag is reset on the nested calls.
+  // Only the enum rule reads `sharedSlot`, from the request each nested call builds, and
+  // `combinedType` applies no rule to `own` itself: the slot is reset on the nested calls.
   const atOwnLocation: SchemaRequest = {
     ...request,
     location,
+    sharedSlot: OWN_SLOT,
     transformNested: (nested, nestedLocation, call = {}) =>
-      request.transformNested(nested, nestedLocation, { isAtSharedLocation: false, ...call }),
+      request.transformNested(nested, nestedLocation, { sharedSlot: OWN_SLOT, ...call }),
   };
   return combinedType(own, atOwnLocation);
+}
+
+/** How an `allOf` item is typed (`allOfItemType`). */
+interface AllOfItemShape {
+  readonly ref: string | undefined;
+  /** The item is a discriminated union whose member this schema is: its own keywords. */
+  readonly isOwnKeywords: boolean;
+  /** The keys its type leaves out (`Omit`), which the parent redefines. */
+  readonly omitted: readonly string[];
 }
 
 /**
@@ -120,36 +136,67 @@ function ownKeywordsType(own: SchemaObject, ref: string, request: SchemaRequest)
  * `allof-discriminated-union` it is the union, since `Omit` on a union drops keys (#1464), unless
  * the union's mapping names the schema: then it is a member, as the discriminator scan has it.
  */
-function allOfItemType(
-  item: Schema,
-  required: readonly string[],
-  request: SchemaRequest,
-): IrType | null {
-  const isRef = isRefItem(item);
+function allOfItemShape(item: Schema, request: SchemaRequest): AllOfItemShape {
+  const ref = isRefItem(item) ? item.$ref : undefined;
   const discriminator =
-    (isRef && request.context.discriminators.objectAt(item.$ref)) ||
+    (ref !== undefined && request.context.discriminators.objectAt(ref)) ||
     (item as SchemaObject).discriminator;
   const propertyName = discriminator?.propertyName;
-  const unionItem = isRef && propertyName ? unionItemOf(item.$ref, request) : undefined;
-  if (isRef && propertyName && unionItem?.isMember) {
-    const own = unionOwnKeywords(unionItem.union, propertyName, required);
-    return ownKeywordsType(own, item.$ref, request);
+  const unionItem = ref !== undefined && propertyName ? unionItemOf(ref, request) : undefined;
+  if (propertyName && unionItem?.isMember) {
+    return { ref, isOwnKeywords: true, omitted: [propertyName] };
   }
-  const type = isRef
-    ? refItemType(item, required, request)
-    : inlineItemType(item, required, request);
   const isUnion =
     unionItem !== undefined &&
     !unionItem.isMapped &&
     request.context.options.fixes.has(FIX.ALLOF_DISCRIMINATED_UNION);
   if (!propertyName || isUnion) {
-    return type;
+    return { ref, isOwnKeywords: false, omitted: [] };
   }
   // With `discriminator-values` the schema also redefines the properties of other owners above
   // it, so no item may keep a value of its own for them (a parent mapped as `content`).
   const { path } = request.location;
   const others = path === undefined ? [] : request.context.discriminators.otherPropertiesAt(path);
-  return omitKeys(type, [propertyName, ...others]);
+  return { ref, isOwnKeywords: false, omitted: [propertyName, ...others] };
+}
+
+function allOfItemType(
+  item: Schema,
+  required: readonly string[],
+  request: SchemaRequest,
+): IrType | null {
+  const shape = allOfItemShape(item, request);
+  if (shape.ref !== undefined && shape.isOwnKeywords) {
+    const union = unionItemOf(shape.ref, request)?.union as SchemaObject;
+    const own = unionOwnKeywords(union, shape.omitted[0] as string, required);
+    return ownKeywordsType(own, shape.ref, request);
+  }
+  const type =
+    shape.ref !== undefined
+      ? refItemType({ $ref: shape.ref }, required, request)
+      : inlineItemType(item, required, request);
+  return shape.omitted.length === 0 ? type : omitKeys(type, shape.omitted);
+}
+
+/**
+ * The request for the parts of a schema that its `allOf` `$ref` items are intersected with: its
+ * own keywords and its inline items. Each `$ref` item is a base at their place (`baseSchemas`),
+ * but for the keys its type leaves out; the union's own keywords of a member are no base.
+ */
+function withRefBases(items: readonly Schema[], request: SchemaRequest): SchemaRequest {
+  const bases = items.flatMap((item) => {
+    // A boolean item throws where `allOfItemType` meets it, as in the original, not here.
+    const isRef = typeof item === "object" && item !== null && isRefItem(item);
+    const shape = isRef ? allOfItemShape(item, request) : undefined;
+    const pointer =
+      shape?.ref === undefined || shape.isOwnKeywords
+        ? null
+        : resolvedPointer(shape.ref, request.context.refs);
+    return pointer === null ? [] : [{ pointer, omitted: shape?.omitted ?? [] }];
+  });
+  return bases.length === 0
+    ? request
+    : { ...request, baseSchemas: [...request.baseSchemas, ...bases] };
 }
 
 function allOfTypes(
@@ -207,9 +254,10 @@ function requiredKeys(schema: SchemaObject, presenceKeys: readonly string[]): re
 
 function composedType(schema: SchemaObject, request: SchemaRequest): IrType | null {
   let type: IrType | null = null;
-  const core = coreType(schema, request);
   const { members, required } = allOfMembers(schema.allOf ?? [], request);
-  const allOf = allOfTypes(members, requiredKeys(schema, required), request);
+  const based = withRefBases(members, request);
+  const core = coreType(schema, based);
+  const allOf = allOfTypes(members, requiredKeys(schema, required), based);
   if (core !== null || allOf.length > 0) {
     const allOfType = allOf.length > 0 ? [intersectionOf(allOf)] : [];
     type = intersectionOf([...(core === null ? [] : [core]), ...allOfType]);

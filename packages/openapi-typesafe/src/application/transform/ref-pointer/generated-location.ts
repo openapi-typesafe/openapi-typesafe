@@ -35,7 +35,7 @@ export interface GeneratedLocation {
   /** The owner when the node is a record value, which decides how its type is read. */
   readonly recordOwner: RecordOwner | null;
   /**
-   * Whether other schemas are typed at the location too (`SchemaRequest.isAtSharedLocation`):
+   * Whether other schemas are typed at the location too (`SchemaRequest.sharedSlot` is set):
    * the node is in an array's element or items, or in an object's record value.
    */
   readonly isShared: boolean;
