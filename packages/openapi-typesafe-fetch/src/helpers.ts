@@ -76,12 +76,29 @@ type StatusDigit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
  * The keys of a Response Object Map whose text matches a pattern. A generated map has numeric keys
  * (`200`) and string ones (`"2XX"`, `"default"`), and a numeric literal matches no template
  * literal type, so each key is matched by its text.
+ *
+ * A key of an index signature (`Record<string, X>`, `{ [status: number]: X }`) stands for every
+ * status it covers, so it matches when one status of the pattern is among them: such a map types
+ * both `data` and `error` by its signature, as a map with declared statuses does. Matching only
+ * keys whose whole text is in the pattern gave `never` for both. The check is on wide keys only,
+ * as a literal key covers one status, so the generated maps keep their types and their speed.
  */
 type StatusKeysMatching<Keys, Pattern extends string> = Keys extends string | number
   ? `${Keys}` extends Pattern
     ? Keys
-    : never
+    : IsStatusLiteral<Keys> extends true
+      ? never
+      : [Extract<Pattern, `${Keys}`>] extends [never]
+        ? never
+        : Keys
   : never;
+
+/**
+ * `true` for a key that names one status (`200`, `"2XX"`), `false` for the wide key of an index
+ * signature (`string`, `number`, `` `2${string}` ``): a record of a literal key has a property,
+ * which `{}` lacks, and a record of a wide key has an index signature, which `{}` meets.
+ */
+type IsStatusLiteral<Key extends string | number> = {} extends Record<Key, unknown> ? false : true;
 
 /**
  * The success statuses of a Response Object Map: every 2XX one. A closed list of statuses left out
@@ -273,15 +290,50 @@ type SuccessStatus<T> = [SuccessStatusKey<T>] extends [never]
  * an `any` there (`Op extends { responses: any }`, `Paths extends Record<string, any>`) fits every
  * type, while a concrete `any` operation (`createClient<any>()`) must give `any`. So each response
  * type reads its map in two steps:
- * 1. `IsAny<Map> extends true ? any`: an `any` map gives `any`. The check type is not a type
- *    parameter, so for one TypeScript reads only the other branch: it leaves out a branch that
- *    is `any` itself.
- * 2. The bodies (`SuccessMapBodies`, `ErrorMapBodies`), with an `any` map read as `unknown`: step 1
- *    caught every concrete `any` map, so only a read through a constraint still has one.
+ * 1. `IsAnyResponseMap<Map> extends true ? any`: an `any` map, or one whose index signature
+ *    over statuses has `any` bodies, gives `any`. The check type is not a type parameter, so for
+ *    one TypeScript reads only the other branch: it leaves out a branch that is `any` itself.
+ * 2. The bodies (`SuccessMapBodies`, `ErrorMapBodies`), with such a map read as `unknown`: step 1
+ *    caught every concrete one, so only a read through a constraint still has one.
  * A concrete map that is not `any` gives its bodies, as before. A constraint that names statuses
  * (`{ responses: { 200: any } }`) gives their bodies as it declares them.
  */
 type IsAny<T> = 0 extends 1 & T ? true : false;
+
+/**
+ * @internal Exported for the client's declarations only; not part of the API (ADR-034).
+ * `true` for a Response Object Map that leaves its bodies open: an `any` map, or a map with an
+ * index signature over statuses whose body is `any` (`Record<string, any>`,
+ * `Record<string, { content: any }>`); for a union of maps, when one of them does. The response
+ * types read both by the rule of `IsAny`: `any` for a concrete one, `unknown` through a
+ * constraint. Read as bodies, such a map gave `any` through a constraint too, which fits every
+ * type. A map that names its statuses keeps its bodies, also `any` ones, as before.
+ */
+export type IsAnyResponseMap<T> = true extends AnyResponseMapMembers<T> ? true : false;
+
+/** Whether each member of the maps `T` leaves its bodies open, as `IsAnyResponseMap`. */
+type AnyResponseMapMembers<T> = T extends unknown
+  ? IsAny<T> extends true
+    ? true
+    : IsAny<StatusBodies<T[WideStatusKeys<T>]>>
+  : never;
+
+/** The bodies of the responses `Response`, of each media type; an `any` response is `any`. */
+type StatusBodies<Response> =
+  IsAny<Response> extends true
+    ? Response
+    : Response extends { content?: infer Content }
+      ? NonNullable<Content>[keyof NonNullable<Content>]
+      : never;
+
+/** The keys of `T` that are index signatures over statuses (`IsStatusLiteral`). */
+type WideStatusKeys<T> = keyof T extends infer Key
+  ? Key extends string | number
+    ? IsStatusLiteral<Key> extends true
+      ? never
+      : Key
+    : never
+  : never;
 
 /**
  * Return all 2XX responses from a Response Object Map, or `default` if it declares no 2XX one. For
@@ -296,17 +348,18 @@ export type SuccessResponse<
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
 > =
-  IsAny<T> extends true
+  IsAnyResponseMap<T> extends true
     ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
       any
     : SuccessMapBodies<T, Media>;
 
 /**
  * @internal Exported for the client's declarations only; not part of the API (ADR-034).
- * The success bodies of the maps `T`, with an `any` map as `unknown` (step 2 of `IsAny`'s rule).
+ * The success bodies of the maps `T`, with an open map (`IsAnyResponseMap`) as `unknown` (step 2
+ * of `IsAny`'s rule).
  */
 export type SuccessMapBodies<T extends AnyRecord, Media> = T extends unknown
-  ? IsAny<T> extends true
+  ? IsAnyResponseMap<T> extends true
     ? unknown
     : SuccessBodies<T, Media, SuccessStatus<T>>
   : never;
@@ -321,17 +374,17 @@ export type ErrorResponse<
   T extends Record<string | number, any>,
   Media extends MediaType = MediaType,
 > =
-  IsAny<T> extends true
+  IsAnyResponseMap<T> extends true
     ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
       any
     : ErrorMapBodies<T, Media>;
 
 /**
  * @internal Exported for the client's declarations only; not part of the API (ADR-034).
- * The error bodies of the maps `T`, with an `any` map as `unknown`, as `SuccessMapBodies`.
+ * The error bodies of the maps `T`, with an open map as `unknown`, as `SuccessMapBodies`.
  */
 export type ErrorMapBodies<T extends AnyRecord, Media> = T extends unknown
-  ? IsAny<T> extends true
+  ? IsAnyResponseMap<T> extends true
     ? unknown
     : ErrorBodies<T, Media, ErrorStatusKey<T>>
   : never;
@@ -503,7 +556,7 @@ type IsJSONMediaType<Key> = Key extends string
  */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type SuccessResponseJSON<PathMethod extends Record<string | number, any>> =
-  IsAny<ResponseObjectMap<PathMethod>> extends true
+  IsAnyResponseMap<ResponseObjectMap<PathMethod>> extends true
     ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
       any
     : PathMethod extends unknown
@@ -519,7 +572,7 @@ export type SuccessResponseJSON<PathMethod extends Record<string | number, any>>
  */
 // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
 export type ErrorResponseJSON<PathMethod extends Record<string | number, any>> =
-  IsAny<ResponseObjectMap<PathMethod>> extends true
+  IsAnyResponseMap<ResponseObjectMap<PathMethod>> extends true
     ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
       any
     : PathMethod extends unknown
