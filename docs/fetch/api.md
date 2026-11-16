@@ -627,7 +627,11 @@ constraint of the type parameter. A constraint that leaves the responses open
 value before it uses it; its callers still get the bodies of their operations. A constraint that
 names statuses (`{ responses: { 200: any } }`) gives them as it declares them. In such code, name
 the types of a result by `FetchResponse<…>["data"]` and `FetchResponse<…>["error"]`: they do not
-relate to `SuccessResponse` or `ErrorResponse` of a generic operation.
+relate to `SuccessResponse` or `ErrorResponse` of a generic operation. This holds for
+`MethodResponse` too: it is the `data` without `undefined` (`NonNullable`), which TypeScript cannot
+relate to the `data` of a path that is a type parameter, so a wrapper generic in its path `P` that
+declares `Promise<MethodResponse<typeof client, "get", P> | undefined>` fails with TS2322. Declare
+`Promise<FetchResponse<PathOperation<paths, P, "get">, Init, MediaType>["data"]>` there.
 
 A hand-written response map with only an index signature over statuses
 (`responses: Record<string, X>`, `{ [status: number]: X }`) means that any status may answer with
