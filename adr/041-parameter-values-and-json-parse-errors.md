@@ -588,3 +588,18 @@ named statuses one by one and keeps its rc.14 result (`never` for such a map).
 | A wide key matches the statuses it covers; `any` bodies read as an `any` map (chosen) | Index signatures type both classes; open constraints stay `unknown`; generated output unchanged | Two more internal types |
 | Match wide keys only | Simplest | `Record<string, any>` through a constraint fits every type (regression against rc.14) |
 | Keep `never` | No change | A hand-written `Record<string, X>` map types neither `data` nor `error` |
+
+## Amendment (2026-11-16): headers are read once per request
+
+A request with a body merged its headers twice (once for the body serializer, once for the
+request), and a client merged its own headers at each request. A one-shot iterable given as
+`headers` (`map.entries()`, a generator) is its own iterator, so the first read used it up: a POST
+with a body sent no `authorization`, and client headers went only with the first request. Such an
+iterable is now read into pairs once (at `createClient` for the client's headers, at the start of
+each request for the request's), and both merges read the pairs. Merging once and reusing the
+result was rejected: the merged `Headers` has no `null` left, so a `Content-Type: null` that
+removes a header would no longer remove the JSON `Content-Type` that the second merge adds first.
+Records and `Headers` objects are still read at each request, so later changes to them count.
+
+The bundle grows to 11.43 kB minified; the budget rises from 11.3 kB to 11.45 kB, and the docs
+keep "about 11 kB minified".
