@@ -56,17 +56,23 @@ function documentUrlOf(base: string | null): string | undefined {
 }
 
 /**
- * The URL that a `$ref` with an `http:` or `https:` scheme names, in any letter case and also
- * without `//`, resolved against its document by the URL standard, as the schema argument is
- * resolved against the working directory (`parseUrlLocation`). Undefined for any other `$ref`.
- * Redocly takes only `http://` and `https://` for URLs, so it read `http:host/pet.yaml` and
- * `HTTP://host/pet.yaml` as files below the document's folder, while the same text as the schema
- * argument was fetched. A `$ref` that does not parse throws the URL parser's own error, which
- * Redocly reports as the unresolved `$ref`, as it did for `http://[::1/x`.
+ * The URL that a `$ref` names when Redocly would misread it: an `http:` or `https:` scheme in
+ * another letter case or without `//` (`HTTP://host/pet.yaml`, `http:host/pet.yaml`). Redocly
+ * takes only text that starts with `http://` or `https://` for a URL (`isAbsoluteUrl`) and joins
+ * any other `$ref` in a local document to the document's folder, so it read these as files, while
+ * the same text as the schema argument was fetched. Such a `$ref` is resolved against its document
+ * by the URL standard, as the schema argument is (`parseUrlLocation`). A `$ref` that does not
+ * parse throws the URL parser's own error, which Redocly reports as the unresolved `$ref`.
+ *
+ * Undefined for any other `$ref`, also for one that starts with `http://` or `https://`: Redocly
+ * keeps that as written (`http://LOCALHOST/x/../pet.yaml`), and that text is the document's name
+ * in `redocly lint`, in its lint ignore file and in Redocly's cache, so changing it would drop
+ * the ignore entries. In a remote document Redocly resolves every relative `$ref` by the URL
+ * standard already.
  */
 export function remoteRefUrl(base: string | null, ref: string): string | undefined {
   const scheme = urlSchemeOf(ref);
-  return scheme !== undefined && REMOTE_SCHEMES.has(scheme)
+  return scheme !== undefined && REMOTE_SCHEMES.has(scheme) && !isRemoteRef(ref)
     ? new URL(ref, documentUrlOf(base)).href
     : undefined;
 }

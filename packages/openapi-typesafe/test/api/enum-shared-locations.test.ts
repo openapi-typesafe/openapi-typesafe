@@ -78,6 +78,30 @@ describe("--enum at a location shared by other schemas", () => {
     expect(enumsNamed(output, "SettingsMode")).toEqual(["export enum SettingsMode "]);
   });
 
+  it("openapiTS shares the enum of an inline allOf item's property with a record value's", async () => {
+    const schemas = { Settings: { allOf: [modeOf(["fast", "slow"])], additionalProperties: modeOf(["fast", "slow"]) } };
+    const usage = 'const own: components["schemas"]["Settings"]["mode"] = SettingsMode.fast;';
+
+    const output = await generate(documentWith(schemas));
+
+    expect(enumsNamed(output, "SettingsMode")).toEqual(["export enum SettingsMode "]);
+    expect(typeErrorsOf(`${output}\n${usage}`)).toEqual([]);
+  });
+
+  it("openapiTS keeps a record value's enum apart from an own enum an allOf item widens", async () => {
+    const schemas = {
+      Settings: { ...modeOf(["a"]), additionalProperties: modeOf(["a"]), allOf: [modeOf(["a", "b"])] },
+    };
+    const misuse = 'const value: components["schemas"]["Settings"][string] = { mode: SettingsMode.b };';
+
+    const output = await generate(documentWith(schemas));
+
+    expect(output).toMatch(/export enum SettingsMode_2 \{\n\s+a = "a"\n\s*\}/);
+    expect(output).not.toMatch(/export enum SettingsMode_2 \{\n\s+b/);
+    expect(typeErrorsOf(output)).toEqual([]);
+    expect(typeErrorsOf(`${output}\n${misuse}`)).not.toEqual([]);
+  });
+
   it("openapiTS still shares one enum between a property and its inline allOf item's", async () => {
     const schemas = { Pet: { ...kindOf(["a", "b"]), allOf: [kindOf(["a"])] } };
 

@@ -99,6 +99,7 @@ interface DedupedEnum {
 /** The naming state a run's footer shares with the rest of the run. */
 export interface RunFooterNames {
   readonly enums: EnumNameClaims;
+  readonly owners: EnumOwners;
   readonly enumValues: EnumValuesNames;
   readonly operations: OperationKeys;
 }
@@ -107,6 +108,7 @@ export interface RunFooterNames {
 function freshNames(): RunFooterNames {
   return {
     enums: new EnumNameClaims(),
+    owners: new EnumOwners(),
     enumValues: new EnumValuesNames(),
     operations: new OperationKeys(),
   };
@@ -119,7 +121,6 @@ function freshNames(): RunFooterNames {
  */
 export class RunFooter implements DocumentFooter {
   private readonly naming = new EnumNaming();
-  private readonly owners = new EnumOwners();
   private readonly enumsByKey = new Map<string, DedupedEnum>();
   /** Declarations added already: the same one twice fails with "Duplicate identifier". */
   private readonly declaredEnums = new Set<string>();
@@ -154,8 +155,9 @@ export class RunFooter implements DocumentFooter {
     if (known !== undefined) {
       return this.dedupedName(known, ownName, request);
     }
-    // Requests of one owner share one enum, with `--dedupe-enums` too.
-    const owner = this.owners.ownerOf(request);
+    // Requests of one owner share one enum, with `--dedupe-enums` too. The owner records the
+    // values of the requests its enum declares, so a request that shares another enum has none.
+    const owner = this.names.owners.ownerOf(request);
     const name = this.names.enums.nameFor(
       sharedName,
       owner,

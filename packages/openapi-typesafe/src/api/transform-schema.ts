@@ -3,6 +3,7 @@ import { documentBody, documentClosing } from "../application/transform/document
 import {
   NAMES_THE_OUTPUT_MAY_NEED,
   namesTheOutputNeeds,
+  withEnumDeclarationsMerged,
   withEnumsRenamed,
 } from "../application/transform/document/enum-names-given-back.js";
 import { operationKeysWritten } from "../application/transform/document/operation-keys-written.js";
@@ -15,6 +16,7 @@ import { renameTakenAliases } from "../application/transform/document/root-type-
 import { componentEnumNames } from "../application/transform/footer/component-enum-names.js";
 import { RunFooter, type RunFooterNames } from "../application/transform/footer/document-footer.js";
 import { EnumNameClaims } from "../application/transform/footer/enum-name-claims.js";
+import { EnumOwners } from "../application/transform/footer/enum-owners.js";
 import { checkedEnumValues } from "../application/transform/footer/enum-values-check.js";
 import { EnumValuesNames } from "../application/transform/footer/enum-values-names.js";
 import { OperationKeys } from "../application/transform/footer/operation-keys.js";
@@ -24,7 +26,7 @@ import {
   type SharedEnumNames,
 } from "../application/transform/footer/shared-enum-names.js";
 import type { RawKeyTypes } from "../application/transform/footer/signature-index.js";
-import type { IrDeclaration } from "../domain/ir/nodes.js";
+import type { IrDeclaration, IrEnumDeclaration } from "../domain/ir/nodes.js";
 import type { DocumentObject } from "../domain/openapi/document-object.js";
 import { schemaDialectOf } from "../domain/openapi/schema-dialect.js";
 import { FIX } from "../domain/output-fixes.js";
@@ -34,6 +36,7 @@ import { documentDeclarations, type TransformedDocument } from "./document-decla
 import { excludedValuesWarning } from "./enum-values-warnings.js";
 import { type FooterEntry, isIrDeclaration } from "./footer-entry.js";
 import { ContextFooterSink } from "./footer-sink.js";
+import { checkedPass, type PointerPass } from "./ref-pointer-passes.js";
 import type { RunContext } from "./run-context.js";
 import { createTransformContext } from "./transform-context.js";
 
@@ -109,6 +112,10 @@ function withRunFooter(document: DocumentObject, ctx: RunContext, names: RunFoot
       : new RunFooter(sink, true, shared, names);
 }
 
+function enumDeclarationOf(entry: FooterEntry): IrEnumDeclaration | null {
+  return isIrDeclaration(entry) && entry.kind === "enum" ? entry : null;
+}
+
 /**
  * The document with the enums renamed to their final names (`EnumNameClaims.finalNames`): one that
  * gave way to a name the output turned out not to need gets it back, and a number that another
@@ -119,15 +126,17 @@ function withFinalEnumNames(
   names: RunFooterNames,
 ): TransformedDocument {
   const footer = parts.footer.filter(isIrDeclaration);
-  const renames = names.enums.finalNames(namesTheOutputNeeds({ ...parts, footer }));
+  const needed = namesTheOutputNeeds({ ...parts, footer });
+  const renames = names.enums.finalNames(needed, names.owners.mergedOwners());
   if (renames.size === 0) {
     return parts;
   }
+  const renamed = parts.footer.map((entry) =>
+    isIrDeclaration(entry) ? (withEnumsRenamed([entry], renames)[0] ?? entry) : entry,
+  );
   return {
     body: withEnumsRenamed(parts.body, renames),
-    footer: parts.footer.map((entry) =>
-      isIrDeclaration(entry) ? (withEnumsRenamed([entry], renames)[0] ?? entry) : entry,
-    ),
+    footer: withEnumDeclarationsMerged(renamed, enumDeclarationOf),
     closing: withEnumsRenamed(parts.closing, renames),
   };
 }
@@ -179,12 +188,11 @@ function withTemplateRefs(
   );
 }
 
-/** @internal Root types, the footer, then the closing declarations (Phase 5, step 6). */
-export function transformDocument(schema: OpenAPI3, ctx: RunContext): TransformedDocument {
-  const document = schema as DocumentObject;
-  ctx.schemaDialect = schemaDialectOf(document.openapi);
+/** One pass over the document: root types, the footer, then the closing declarations. */
+function transformPass(document: DocumentObject, ctx: RunContext): PointerPass {
   const names: RunFooterNames = {
     enums: new EnumNameClaims(NAMES_THE_OUTPUT_MAY_NEED, componentEnumNames(document)),
+    owners: new EnumOwners(),
     enumValues: new EnumValuesNames(),
     operations: new OperationKeys(operationKeysWritten(document)),
   };
@@ -205,7 +213,18 @@ export function transformDocument(schema: OpenAPI3, ctx: RunContext): Transforme
     names,
   );
   const footer = parts.footer.filter(isIrDeclaration);
-  return { ...parts, body: renameTakenAliases(parts.body, footer, parts.closing) };
+  const renamed = { ...parts, body: renameTakenAliases(parts.body, footer, parts.closing) };
+  return { parts: renamed, keyTypes, templates };
+}
+
+/**
+ * @internal Root types, the footer, then the closing declarations (Phase 5, step 6). A `$ref`
+ * into a schema whose pointer type does not compile is typed in place (`checkedPass`).
+ */
+export function transformDocument(schema: OpenAPI3, ctx: RunContext): TransformedDocument {
+  const document = schema as DocumentObject;
+  ctx.schemaDialect = schemaDialectOf(document.openapi);
+  return checkedPass(document, ctx, (pass) => transformPass(document, pass)).parts;
 }
 
 /**

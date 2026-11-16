@@ -51,6 +51,10 @@ const SCHEMAS = irObject([
     irObject([irProperty({ kind: "identifier", text: "tags" }, irReadonly(irArray(text("f"))))]),
   ),
   irProperty(
+    { kind: "identifier", text: "Query" },
+    irReference("Partial", [irObject([irProperty({ kind: "identifier", text: "q" }, text("q"))])]),
+  ),
+  irProperty(
     { kind: "identifier", text: "Both" },
     irIntersection([
       irIndexedAccess(irIndexedAccess(irReference("components"), key("schemas")), key("A")),
@@ -101,6 +105,17 @@ describe("TypeEvaluator", () => {
     expect(evaluated(deep(key("schemas"), key("A"), key("x-y"), key("z")))).toBe("missing");
     expect(evaluated(deep(key("schemas"), key("A"), key("nope")))).toBe("missing");
     expect(evaluated(deep(key("schemas"), key("A"), key("tags"), irNumber(0)))).toBe('"t"');
+  });
+
+  it("evaluate reads Partial as its argument inside FlattenedDeepRequired only", () => {
+    const query = irIndexedAccess(
+      irIndexedAccess(irReference("components"), key("schemas")),
+      key("Query"),
+    );
+
+    expect(evaluated(deep(key("schemas"), key("Query"), key("q")))).toBe('"q"');
+    expect(evaluated(deep(key("schemas"), key("Query"), key("filter")))).toBe("missing");
+    expect(evaluated(irIndexedAccess(query, key("q")))).toBe("opaque");
   });
 
   it("evaluate reads helper types and leaves other shapes opaque", () => {
@@ -178,7 +193,10 @@ describe("TypeEvaluator", () => {
     const index = (type: IrType) => evaluated(irIndexedAccess(type, key("kind")));
 
     expect(index(irIntersection([kind("a"), kind("b")]))).toBe("never");
-    expect(index(irIntersection([kind("a", true), kind("b", true)]))).toBe('"a" & "b"');
+    // Optional, each may be `undefined` outside `FlattenedDeepRequired`.
+    expect(index(irIntersection([kind("a", true), kind("b", true)]))).toBe(
+      '("a" | undefined) & ("b" | undefined)',
+    );
     expect(index(irIntersection([kind("a"), kind("a")]))).toBe('"a" & "a"');
   });
 
@@ -305,7 +323,7 @@ describe("checkedEnumValues", () => {
     };
   }
 
-  it("checkedEnumValues retypes only arrays whose location does not hold their values", () => {
+  it("checkedEnumValues retypes the arrays whose location is not shown to hold their values", () => {
     const footer = [
       array("kept", deep(key("schemas"), key("A"), key("status")), ["a", "b"]),
       array("missing", deep(key("schemas"), key("A"), key("nope")), ["a"]),
@@ -323,9 +341,11 @@ describe("checkedEnumValues", () => {
     expect(retyped.map((retype) => [retype.kind, retype.name])).toEqual([
       ["untyped", "missing"],
       ["excluded", "excluded"],
+      ["untyped", "opaque"],
     ]);
     expect(checked[0]).toBe(footer[0]);
-    expect(checked[3]).toBe(footer[3]);
+    expect(checked[3]).toEqual({ ...footer[3], type: irReference("ReadonlyArray", [text("a")]) });
+    expect(checked[4]).toBe(footer[4]);
   });
 
   it("checkedEnumValues reads array, boolean and opaque location types", () => {
@@ -349,14 +369,24 @@ describe("checkedEnumValues", () => {
       ["untyped", "elements"],
       ["excluded", "boolean"],
       ["widened", "someRaw"],
+      ["untyped", "rawFirst"],
     ]);
   });
 
-  it("checkedEnumValues keeps an array of opaque elements and a ReadonlyArray with no argument", () => {
-    const footer = [
-      array("opaqueElements", irArray(irReference("Elsewhere")), ["a"]),
-      { ...array("bare", text("a"), ["a"]), type: irReference("ReadonlyArray") },
-    ];
+  it("checkedEnumValues types an array of opaque elements by its values", () => {
+    const footer = [array("opaqueElements", irArray(irReference("Elsewhere")), ["a"])];
+
+    const { retyped } = checkedEnumValues(
+      footer,
+      DECLARATIONS,
+      (_entry): _entry is IrDeclaration => true,
+    );
+
+    expect(retyped).toEqual([{ kind: "untyped", name: "opaqueElements" }]);
+  });
+
+  it("checkedEnumValues keeps a ReadonlyArray with no argument", () => {
+    const footer = [{ ...array("bare", text("a"), ["a"]), type: irReference("ReadonlyArray") }];
 
     const { footer: checked, retyped } = checkedEnumValues(
       footer,

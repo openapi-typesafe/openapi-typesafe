@@ -6,6 +6,7 @@ import { unionOf } from "../type-combinators.js";
 import { type Evaluated, type Evaluation, NEVER } from "./evaluation.js";
 import type { RawKeyTypes } from "./signature-index.js";
 import { TypeEvaluator } from "./type-evaluation.js";
+import { admission, arrayFit } from "./value-admission.js";
 
 /**
  * `--enum-values` arrays are typed by the location of their schema in the generated types
@@ -15,6 +16,7 @@ import { TypeEvaluator } from "./type-evaluation.js";
  *   property of `unknown`), or
  * - the type there does not admit a listed value (an `allOf` of different enums, a discriminator
  *   value the property enum does not list, an array next to other `anyOf` members).
+ * - the evaluator cannot read the type there (opaque): it cannot show that the type holds them.
  * Everything else stays as it was.
  */
 
@@ -26,47 +28,6 @@ export type EnumValuesRetype =
   | { readonly kind: "untyped"; readonly name: string }
   /** The location's type surely admits other values too; the array is right now. */
   | { readonly kind: "widened"; readonly name: string };
-
-type Admission = "yes" | "no" | "opaque";
-
-function literalAdmission(type: IrType, value: string | number): Admission {
-  switch (type.kind) {
-    case "stringLiteral":
-    case "numberLiteral":
-      return type.value === value ? "yes" : "no";
-    case "booleanLiteral":
-      return "no";
-    case "keyword":
-      if (type.keyword === "unknown") {
-        return "yes";
-      }
-      return type.keyword === typeof value ? "yes" : "no";
-    case "object":
-      // `{}` (as in `string & {}`) admits every value but `null` and `undefined`.
-      return type.members.length === 0 ? "yes" : "no";
-    case "array":
-      return "no";
-    default:
-      return "opaque";
-  }
-}
-
-function admission(evaluator: TypeEvaluator, value: Evaluated, item: string | number): Admission {
-  const { type } = value;
-  if (type.kind === "union" || type.kind === "intersection") {
-    const parts = type.types.map((part) => {
-      const expanded = evaluator.expand({ ...value, type: part });
-      return expanded.kind === "type" ? admission(evaluator, expanded, item) : "opaque";
-    });
-    // A union admits a value one member admits; an intersection excludes one a part excludes.
-    const decisive: Admission = type.kind === "union" ? "yes" : "no";
-    if (parts.includes(decisive)) {
-      return decisive;
-    }
-    return parts.includes("opaque") ? "opaque" : decisive === "yes" ? "no" : "yes";
-  }
-  return literalAdmission(type, item);
-}
 
 /** `ReadonlyArray<T>`: an array type `T` is the array itself, so its elements are checked. */
 function elementOf(evaluator: TypeEvaluator, value: Evaluated): Evaluation {
@@ -146,8 +107,9 @@ function memberAdmitsOtherValues(
       return type.keyword === "unknown" || type.keyword === "boolean";
     case "object":
     case "array":
-      // An object or an array admits values of its own kind, and the listed values are strings
-      // and numbers. The evaluator reads a tuple as an array and `readonly T` as `T` (`expand`).
+    case "tuple":
+      // An object, an array or a tuple admits values of its own kind, and the listed values are
+      // strings and numbers. The evaluator reads `readonly T` as `T` (`expand`).
       return true;
     case "intersection":
       // TypeScript reduces `("a" | "b") & "a"` to `"a"`: the intersection holds the literals of
@@ -186,31 +148,50 @@ function retypeOf(
   declaration: IrConstArrayDeclaration,
 ): EnumValuesRetype | null {
   const location = locationType(declaration);
-  const evaluated = location === null ? null : evaluator.evaluate(location);
-  if (evaluated === null || evaluated.kind === "opaque") {
+  if (location === null) {
     return null;
   }
-  if (evaluated.kind === "missing") {
-    return { kind: "untyped", name: declaration.name };
+  const untyped: EnumValuesRetype = { kind: "untyped", name: declaration.name };
+  // Opaque is a type the evaluator does not read, so it cannot show that the location holds the
+  // values; typed by them, the array surely compiles.
+  const evaluated = evaluator.evaluate(location);
+  if (evaluated.kind !== "type") {
+    return untyped;
+  }
+  const fit = arrayFit(evaluator, evaluated, declaration.values);
+  if (fit !== null) {
+    return fit ? null : untyped;
   }
   const element = elementOf(evaluator, evaluated);
   if (element.kind !== "type") {
-    return element.kind === "missing" ? { kind: "untyped", name: declaration.name } : null;
+    return untyped;
   }
   if (declaration.values.length === 0 && isNever(element.type)) {
     // The `ReadonlyArray` helper of `never` is `never` (`never` extends an array): not even `[]`.
-    return { kind: "untyped", name: declaration.name };
+    return untyped;
   }
-  const results = declaration.values.map((value) => admission(evaluator, element, value));
+  return elementRetype(evaluator, element, declaration);
+}
+
+/** The retype of an array whose element type the evaluator read, or null to keep it. */
+function elementRetype(
+  evaluator: TypeEvaluator,
+  element: Evaluated,
+  declaration: IrConstArrayDeclaration,
+): EnumValuesRetype | null {
+  const { name, values } = declaration;
+  const results = values.map((value) => admission(evaluator, element, value));
   if (!results.includes("no")) {
-    const isWidened = admitsOtherValues(evaluator, element, declaration.values);
-    return isWidened ? { kind: "widened", name: declaration.name } : null;
+    if (admitsOtherValues(evaluator, element, values)) {
+      return { kind: "widened", name };
+    }
+    return results.includes("opaque") ? { kind: "untyped", name } : null;
   }
   if (!isFiniteType(evaluator, element)) {
-    return { kind: "untyped", name: declaration.name };
+    return { kind: "untyped", name };
   }
-  const excluded = declaration.values.filter((_, index) => results[index] === "no");
-  return { kind: "excluded", name: declaration.name, excluded };
+  const excluded = values.filter((_, index) => results[index] === "no");
+  return { kind: "excluded", name, excluded };
 }
 
 function isNever(type: IrType): boolean {

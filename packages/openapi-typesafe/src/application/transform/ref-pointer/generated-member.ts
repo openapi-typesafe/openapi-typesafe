@@ -87,8 +87,10 @@ function isNeverIndex(member: GeneratedMember): boolean {
 /**
  * A key of a union `A | B`: missing if one member misses it. `Record<string, never>` adds
  * nothing to the others (`never | T` is `T`), so the key reads as the other members have it, and
- * as `never` only where every member is such a record. Where several members have it, an optional
- * property may make it `undefined`; else opaque.
+ * as `never` only where every member is such a record. Where several members have it, TypeScript
+ * reads the union of their types: through an index signature that is no one schema's type
+ * (`isOtherType`, as several pattern values of one object); else an optional property may make
+ * it `undefined`, and other properties are opaque.
  */
 export function unionMember(members: readonly GeneratedMember[]): GeneratedMember {
   if (members.some(isMissing)) {
@@ -101,6 +103,10 @@ export function unionMember(members: readonly GeneratedMember[]): GeneratedMembe
   }
   if (typed.every((member) => member === first)) {
     return first;
+  }
+  const index = typed.find((member) => member.kind === "index");
+  if (index !== undefined) {
+    return { ...index, isOtherType: true };
   }
   return typed.find(isOptionalProperty) ?? OPAQUE;
 }

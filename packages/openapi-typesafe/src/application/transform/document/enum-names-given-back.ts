@@ -1,4 +1,5 @@
-import type { IrDeclaration } from "../../../domain/ir/nodes.js";
+import type { IrDeclaration, IrEnumDeclaration } from "../../../domain/ir/nodes.js";
+import { type DeclaredMembers, withoutDeclaredMembers } from "../footer/enum-naming.js";
 import { HELPER_TYPES, READ_WRITE_MARKER_TYPES } from "../helper-types.js";
 import { typeNamesDeclaredBy, typeNamesInText } from "./declared-type-names.js";
 import { OPERATIONS_NAME, ROOT_KEYS } from "./document.js";
@@ -88,4 +89,36 @@ export function withEnumsRenamed<T extends IrDeclaration>(
   renames: ReadonlyMap<string, string>,
 ): T[] {
   return renames.size === 0 ? [...declarations] : (renamedNode(declarations, renames) as T[]);
+}
+
+/**
+ * The declarations with each later declaration of an enum name merged into the earlier ones: two
+ * enums that get one final name (`EnumNameClaims.finalNames` joins two owners) repeat members,
+ * which does not compile (TS2300). A declaration left without members goes; an empty enum's
+ * first declaration stays. `enumOf`: the entry as an enum declaration, null for any other entry.
+ */
+export function withEnumDeclarationsMerged<T>(
+  entries: readonly T[],
+  enumOf: (entry: T) => IrEnumDeclaration | null,
+): (T | IrEnumDeclaration)[] {
+  const declared = new Map<string, DeclaredMembers>();
+  const merged: (T | IrEnumDeclaration)[] = [];
+  for (const entry of entries) {
+    const declaration = enumOf(entry);
+    if (declaration === null) {
+      merged.push(entry);
+      continue;
+    }
+    const earlier = declared.get(declaration.name);
+    const kept = earlier === undefined ? declaration : withoutDeclaredMembers(declaration, earlier);
+    declared.set(declaration.name, new Map([...(earlier ?? []), ...membersOf(kept)]));
+    if (earlier === undefined || kept.members.length > 0) {
+      merged.push(kept);
+    }
+  }
+  return merged;
+}
+
+function membersOf(declaration: IrEnumDeclaration): Map<string, string | number> {
+  return new Map(declaration.members.map((member) => [member.name, member.value]));
 }

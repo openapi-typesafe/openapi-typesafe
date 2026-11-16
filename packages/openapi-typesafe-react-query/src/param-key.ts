@@ -4,7 +4,7 @@
  * alike, also after a JSON round trip (`dehydrate` and `hydrate`). Values are read by the rule
  * of `key-read.ts`, which bodies and headers share.
  */
-import { type Ancestors, attempt, keyOf, walkMembers } from "./key-read.js";
+import { type Ancestors, attempt, inside, keyOf, walkMembers } from "./key-read.js";
 
 /**
  * The names under which the key of an object holds the forms a serializer may send besides its
@@ -22,6 +22,15 @@ const TEXT_FORM = "toString()";
 const UNDEFINED_ITEM = "(undefined)";
 
 /**
+ * The name of the member that stands for a number JSON cannot hold, `NaN`, an infinity or a
+ * bigint, with its text. A serializer may send it as its text (`qs`, the fetch client's own
+ * serializers) or not (JSON writes `null` for `NaN` and fails for a bigint), so keyed as its text
+ * `NaN` shared the key of `"NaN"`, which JSON sends as a string, and keyed as `null` it shared
+ * the key of `null`. The form is a plain object, which JSON keeps as it is.
+ */
+const NUMBER_FORM = "(number)";
+
+/**
  * The text `String` gives a value, as `Headers` and a serializer that writes text send it, or
  * undefined when `String` throws: for an object without a `toString` (`Object.create(null)`) or
  * with one that throws.
@@ -33,14 +42,14 @@ export function textOf(value: unknown): string | undefined {
 /**
  * A parameter value as the fetch client sends it, once `keyOf` has left out a function, a
  * reference back to an object the walk is inside of and a value that throws. `NaN`, the
- * infinities and a bigint are their text, which is sent, while TanStack Query's hash writes the
- * numbers as `null`, which sends nothing, and throws for a bigint. A valid date, which the client
+ * infinities and a bigint are an object of the one member `NUMBER_FORM`, while TanStack Query's
+ * hash writes the numbers as `null` and throws for a bigint. A valid date, which the client
  * tells by its `toISOString`, is its ISO text. An array is its items, and any other object, also
  * an invalid date, `objectKey`.
  */
 function sentValue(value: unknown, ancestors: Ancestors): unknown {
   if (typeof value === "number" || typeof value === "bigint") {
-    return Number.isFinite(value) ? value : String(value);
+    return Number.isFinite(value) ? value : { [NUMBER_FORM]: String(value) };
   }
   if (typeof value !== "object" || value === null) {
     return value;
@@ -82,7 +91,7 @@ export function objectKey(value: object, ancestors: Ancestors): Record<string, u
   if (typeof toJSON === "function") {
     key[JSON_FORM] = jsonFormKey(
       attempt(() => toJSON.call(value)),
-      [...ancestors, value],
+      inside(ancestors, value),
     );
   }
   const text = textOf(value);

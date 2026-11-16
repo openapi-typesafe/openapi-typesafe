@@ -78,7 +78,7 @@ describe("remoteRefUrl", () => {
     ["http:127.0.0.1:8080/pet.yaml", BASE, "http://127.0.0.1:8080/pet.yaml"],
     ["https:pet.yaml", BASE, "https://pet.yaml/"],
     ["HTTPS://Example.com/pet.yaml", BASE, "https://example.com/pet.yaml"],
-    ["https://example.com/pet.yaml#/Pet", BASE, "https://example.com/pet.yaml#/Pet"],
+    ["Http://example.com/pet.yaml#/Pet", BASE, "http://example.com/pet.yaml#/Pet"],
     ["http:pet.yaml", "http://example.com/specs/api.yaml", "http://example.com/specs/pet.yaml"],
     ["http:api.yaml", null, "http://api.yaml/"],
   ])(
@@ -99,7 +99,19 @@ describe("remoteRefUrl", () => {
     expect(remoteRefUrl(BASE, ref)).toBeUndefined();
   });
 
+  // Redocly keeps these as written, and names the document by that text in `redocly lint`.
+  it.each([
+    "http://LOCALHOST:8080/pet.yaml",
+    "http://example.com/x/../pet.yaml",
+    "https://example.com/my pet.yaml",
+    "http://example.com:80/pet.yaml",
+    "http://[::1/pet.yaml",
+  ])("remoteRefUrl with %s, which Redocly reads as a URL, is undefined", (ref) => {
+    expect(remoteRefUrl(BASE, ref)).toBeUndefined();
+    expect(remoteRefUrl(REMOTE_BASE, ref)).toBeUndefined();
+  });
+
   it("remoteRefUrl with an http URL that does not parse throws the URL parser's error", () => {
-    expect(() => remoteRefUrl(BASE, "http://[::1/pet.yaml")).toThrow(TypeError);
+    expect(() => remoteRefUrl(BASE, "HTTP://[::1/pet.yaml")).toThrow(TypeError);
   });
 });

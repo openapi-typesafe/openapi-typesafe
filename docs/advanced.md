@@ -449,7 +449,15 @@ compiles (`ReadonlyArray<"available" | "sold">`):
   that admits a wide type such as `string` keeps its type;
 - the schema contradicts itself: an `allOf` of enums with different values, or a discriminator
   value that the property enum does not list. The type there admits fewer values, or none; this
-  case also prints a warning that names the array and the values.
+  case also prints a warning that names the array and the values;
+- the place is a tuple (`FlattenedDeepRequired` keeps a tuple inside a tuple as a tuple) that the
+  values do not fill one by one: another number of values, or another order;
+- the place is a built-in member of an array or a string (an enum property `sort` of a
+  `prefixItems` element reads the array's `sort` method);
+- the type there is one the check does not read as TypeScript does: an intersection of an object
+  and an array (`allOf` items that type a property as an object in one and an array in another),
+  `Omit` of an intersection with a union, or a tuple with optional or rest elements. Such a type
+  cannot be shown to hold the values, so the array is typed by them.
 
 Every other array keeps its type.
 
@@ -595,7 +603,11 @@ npx openapi-typesafe ./vendor/openapi.yaml -o ./src/api/schema.d.ts \
   `C:/specs/pet.yaml`). An `http:` or `https:` `$ref` resolves against its document by the URL
   standard, as the schema argument resolves against the working directory, so
   `http:127.0.0.1:8080/pet.yaml` and `HTTPS://host/pet.yaml` are fetched, within
-  `--remote-ref-hosts` (openapi-typescript read them as files below the document's folder). In a local document, a `file:` URL names its file (`file:pet.yaml` is next
+  `--remote-ref-hosts` (openapi-typescript read them as files below the document's folder). A
+  `$ref` that starts with `http://` or `https://` keeps its text as the document's name, as in
+  `redocly lint` (`http://LOCALHOST/x/../pet.yaml`), so the entries of
+  `.redocly.lint-ignore.yaml` apply to it; the same document written two ways is linted twice,
+  as `redocly lint` lints it, and bundled once. In a local document, a `file:` URL names its file (`file:pet.yaml` is next
   to the document), and a URL of another scheme (`s3://bucket/pet.yaml`) or a `file:` URL that
   names no local path is always refused (`unsupported-url`). openapi-typescript read both as
   paths below the document's folder (`./s3:/bucket/pet.yaml`, `./file:/specs/pet.yaml`).

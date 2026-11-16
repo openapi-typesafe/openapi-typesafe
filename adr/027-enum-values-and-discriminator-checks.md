@@ -178,3 +178,70 @@ is typed by its own values. Next to `null` the type keeps `[string]`: `Flattened
 drops `null`, so the index compiles. The `[string]` index is a keyword type now, as it is printed.
 
 Changes from rc.12: these arrays, which did not compile, are typed by their values.
+
+## Amendment (2026-11-15): where an exploded parameter's keys are
+
+An exploded `form` query parameter (`style: form`, `explode: true`, an object schema) puts its
+keys on the query object itself, so the `exploded-query-objects` fix types them there. The values
+pointer of an enum inside it still named the parameter (`["query"]["filter"]["status"]`), a key
+the query object does not have (TS2339). A `$ref` to such a parameter from a path or operation
+list read the parameter's own name in the same way, also without `--enum-values`.
+
+1. **The pointer follows the type, not the document.** A schema request carries a
+   `TypePlacement`: the location path where the schema is in the document, and the type path
+   where its type is. The values pointer swaps that prefix (`enumValuesPointer`), so an enum in an
+   exploded parameter reads `["query"]["status"]`. Nested requests keep their caller's placement.
+   The ref-pointer walk gives the same placement to a `$ref` into such a parameter.
+2. **A `$ref` to an exploded parameter** in a parameter list is typed by its schema, as the inline
+   parameter is.
+3. **The evaluator reads `Partial<T>`.** The check that proves a values pointer compiles read
+   `Partial` (the type of an optional query object) as opaque, so a wrong pointer through it
+   passed. Inside `FlattenedDeepRequired` it is now its argument, as TypeScript reads it, and a
+   key the argument lacks is missing; outside, it stays opaque (its values may be `undefined`).
+
+Changes from rc.13: these pointers, which did not compile, name the key where the type puts it.
+In a quarter of the compat corpus (452 documents, eight option sets) only two outputs change,
+both with `exploded-query-objects`: they failed with 1 and 12 errors and now compile.
+
+## Amendment (2026-11-15): what the check cannot read is typed by the values
+
+The check kept an array whose location type the evaluator read as opaque, on the rule that opaque
+never counts as an error. In the enum fuzz such arrays did not compile in several shapes, and in
+other shapes the evaluator read a type that TypeScript does not:
+
+- a tuple inside a tuple: `FlattenedDeepRequired` maps it to a tuple again, so the `ReadonlyArray`
+  helper is the tuple itself (`readonly ["v7", "v7"]`), which `["v7"]` does not fill; the
+  evaluator read every tuple as the array of its items;
+- a built-in member of an array or a string (`sort`, the method, read as opaque);
+- an intersection of an object and an array: `allOf` items that type a property as an object in
+  one and as an array in another. `FlattenedDeepRequired` reads the intersected property as an
+  array, through `[number]` of every part; the evaluator flattened each part on its own;
+- `Omit` of an intersection with a union part, and a large union distributed over `X & unknown`.
+
+The rules:
+
+1. **Opaque is typed by the values.** An array whose location, element or admission of a value
+   is opaque is typed by its own values (`untyped`, no warning). The array type is the values the
+   location would have to hold, so where the pointer was right the array still holds the same
+   values, and where it was not the file now compiles. The `widened` reason keeps its place before
+   this one.
+2. **Tuples stay tuples** inside `FlattenedDeepRequired`: `T[0]` reads the first element, a
+   position past the end of a tuple without a rest element is missing, `T[number]` reads all its
+   items. Where every member of a location is an array or a tuple, the values must fill one member
+   as a whole (`arrayFit`): every value an item of an array member, or one value per element of a
+   tuple, in order. A tuple with optional or rest elements is not read (opaque).
+3. **`X & unknown` is `X`**, as TypeScript reads it: an `allOf` item that only describes no longer
+   makes the evaluator distribute a large enum over the intersection and give up. An array or a
+   tuple keeps its `unknown` part, so rule 4 reads it as opaque: rc.13 typed values arrays under
+   `X[] & unknown` by their values, and that output compiles, so it stays (ADR-021).
+4. **An intersection with an array part is opaque**: a key that is an array in one part and
+   another type in another part (after `declaredFirst`, `unknown` left out), and a property whose
+   own type is such an intersection. Parts that are all arrays read as their elements. A part
+   that is only partly an array (`X | Y[]`) does not make the property an array, so without a part
+   that is all arrays the parts are read one by one, as TypeScript reads them.
+
+Changes from rc.13: arrays at these locations, which did not compile, are typed by their values.
+An array whose location the check now reads (`X & unknown`) keeps its pointer. Measured: the
+literal and enum fuzz (600 documents each, seven option sets) gives no tsc error in a values
+array; rc.13 gave 63 and 46 lines on the first 200. The compat corpus (1806 documents, ten
+option sets, against rc.13) gives the same values arrays in every document.

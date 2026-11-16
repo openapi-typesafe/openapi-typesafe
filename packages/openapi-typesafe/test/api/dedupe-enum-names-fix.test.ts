@@ -94,6 +94,33 @@ describe("dedupe-enum-names fix", () => {
     expect(enumNames(output)).toEqual(["PetState", "OwnerState"]);
   });
 
+  it("openapiTS with the fix names enums of one best name by their values, not their order", async () => {
+    const pet = holder("state", ["b"]);
+    const petDash = holder("state", ["a"]);
+
+    const first = await fixed({ Pet: pet, "Pet-": petDash });
+    const second = await fixed({ "Pet-": petDash, Pet: pet });
+
+    expect(first).toMatch(/export enum PetState \{\n\s+a = "a"/);
+    expect(first).toMatch(/export enum PetState_2 \{\n\s+b = "b"/);
+    expect(second).toMatch(/export enum PetState \{\n\s+a = "a"/);
+    expect(typeErrorsOf(first)).toEqual([]);
+  });
+
+  it("openapiTS with the fix names record values of one location by their values", async () => {
+    const settings = (keys: string[]) => ({
+      type: "object",
+      patternProperties: Object.fromEntries(keys.map((key) => [`^${key}`, holder("mode", [key])])),
+    });
+
+    const first = await fixed({ Settings: settings(["x", "y"]) });
+    const second = await fixed({ Settings: settings(["y", "x"]) });
+
+    expect(first).toMatch(/export enum SettingsMode \{\n\s+x = "x"/);
+    expect(second).toMatch(/export enum SettingsMode \{\n\s+x = "x"/);
+    expect(second).toMatch(/export enum SettingsMode_2 \{\n\s+y = "y"/);
+  });
+
   it("openapiTS with the fix leaves out a schema only a $ref types", async () => {
     const defs = { type: "object", definitions: { A: { type: "string", enum: VALUES } } };
     const schemas = { LongOwnerName: holder("status"), Defs: defs };

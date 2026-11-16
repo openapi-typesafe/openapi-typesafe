@@ -30,20 +30,44 @@ describe("EnumOwners", () => {
     expect(owners.ownerOf(request(["a"], true))).not.toBe(owner);
   });
 
-  it("ownerOf joins a shared-location request to the own enum of exactly its values", () => {
+  it("mergedOwners joins a shared-location owner to the own enum of exactly its values", () => {
     const owners = new EnumOwners();
     owners.ownerOf(request(["on"], false));
+    const same = owners.ownerOf(request(["off", "on"], true));
+    const fewer = owners.ownerOf(request(["on"], true));
+    const more = owners.ownerOf(request(["on", "off", "x"], true));
     owners.ownerOf(request(["off"], false));
 
-    expect(owners.ownerOf(request(["off", "on"], true))).toBe("/Settings/mode");
-    expect(owners.ownerOf(request(["on"], true))).not.toBe("/Settings/mode");
-    expect(owners.ownerOf(request(["on", "off", "x"], true))).not.toBe("/Settings/mode");
+    const merged = owners.mergedOwners();
+
+    expect(merged.get(same)).toBe("/Settings/mode");
+    expect([merged.has(fewer), merged.has(more)]).toEqual([false, false]);
   });
 
-  it("ownerOf keeps a number and a string of one text apart", () => {
+  it("mergedOwners does not depend on the order of own and shared requests", () => {
+    const sharedFirst = new EnumOwners();
+    const owner = sharedFirst.ownerOf(request(["on"], true));
+    sharedFirst.ownerOf(request(["on"], false));
+    const ownFirst = new EnumOwners();
+    ownFirst.ownerOf(request(["on"], false));
+    ownFirst.ownerOf(request(["on"], true));
+
+    expect(sharedFirst.mergedOwners()).toEqual(new Map([[owner, "/Settings/mode"]]));
+    expect(ownFirst.mergedOwners()).toEqual(sharedFirst.mergedOwners());
+  });
+
+  it("mergedOwners joins no shared-location owner where the location has no own enum", () => {
+    const owners = new EnumOwners();
+    owners.ownerOf(request(["on"], true));
+
+    expect(owners.mergedOwners().size).toBe(0);
+  });
+
+  it("mergedOwners keeps a number and a string of one text apart", () => {
     const owners = new EnumOwners();
     owners.ownerOf(request([1], false));
+    owners.ownerOf(request(["1"], true));
 
-    expect(owners.ownerOf(request(["1"], true))).not.toBe("/Settings/mode");
+    expect(owners.mergedOwners().size).toBe(0);
   });
 });

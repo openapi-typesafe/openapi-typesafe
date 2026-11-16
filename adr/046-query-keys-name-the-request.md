@@ -444,7 +444,8 @@ amendment of 2026-11-12 (as JSON sends them); a whole bytes body is keyed by its
 Keys that change against rc.12: a `Map` or `Set` value, in `params` or a body, is its contents
 instead of `{}`; a function in a body, and a function `params`, record or `headers`, is no
 longer in the key (the hash is the same, so the cache entry is the same, but filters now find
-the query); keys that threw now exist. No other key changes.
+the query); keys that threw now exist. (Corrected by the second amendment of 2026-11-15: the
+`bodyFields` of a whole body with its own `toJSON` changed too.)
 
 | Option | Pros | Cons |
 | --- | --- | --- |
@@ -458,6 +459,72 @@ the query); keys that threw now exist. No other key changes.
 budget rises to 6.1 kB: the shared reader with the Map and Set contents (about 150 bytes) and the
 guarded reads of the init, `params`, records, `headers` and bodies (about 100). Correctness ranks
 above size (ADR-013, ADR-030).
+
+## Amendment (2026-11-15, second): deep values, Map and Set lookalikes, `NaN` texts
+
+Three gaps broke the rule of 2026-11-14, and one key change of rc.13 was not listed.
+
+1. **Values deeper than the stack.** The walk of a key is recursive, and `attempt` caught the
+   `RangeError` of a stack overflow at whatever level it came, as if that value could not be
+   read. A body some thousand objects deep, which JSON sends, had a key cut at a depth that
+   changed from call to call while the JIT warmed up (a new key, and a new request, on such a
+   render), and two bodies that differed below the cut shared one key. A stack overflow says
+   nothing about the value, so the key no longer depends on the stack: one walk reads 100
+   objects deep (`WALK_DEPTH`); an object deeper is written as `{ "(deeper)": n }` and read in
+   a walk of its own once the walk above it is done, on as short a stack. The init lists these
+   segments in order under `"(deeper)"`, each as its own walk writes it. An object met again
+   below `WALK_DEPTH` keeps its segment, which ends a reference back that closes that deep (a
+   shorter one ends on the path, as before) and writes an object two members share once. After
+   100 levels of segments, ten thousand objects deep, a segment is its JSON text, which
+   `JSON.stringify` writes without the stack for plain data, as a JSON body sends it; this ends
+   a getter that makes a new object each time it is read. Each part of a key stays within the
+   depth TanStack Query's hash writes (about 5,000 levels on Node's default stack).
+2. **Map and Set lookalikes.** A MobX observable `Set` or `Map` has the type tag of a `Set` or
+   `Map`, is no instance of either, and keeps its contents in own members, one of which notes
+   each reader (`atom_.lastAccessedBy_`). The key read those members beside the contents, so in
+   an `observer` component every render had a new key and sent a new request, without end. A
+   value that is a `Map` or `Set` by its type tag only is now its contents alone. A `Map` or
+   `Set` of this realm keeps its contents where no member is, so its own members are data of
+   the caller, which JSON and the default serializers send; they stay in its key beside the
+   contents. MobX observable arrays (`Array.isArray` holds) and objects (data in own members,
+   state under a symbol) were stable and stay so. Any other class instance is its own enumerable
+   members, which JSON and the default serializers send; a class that keeps changing state in
+   them gets a new key when it changes. An Immutable.js collection, so keyed by its trie, its
+   `toJSON` form and its text, changes key once, when it is first hashed (`__hash`); pass plain
+   values (`toJS()`) for a key of the contents alone.
+3. **`NaN` and its text.** In `params`, `NaN`, the infinities and a bigint were their text, so
+   `NaN` and `"NaN"` shared a key. The text is what `qs` and the fetch client's own serializers
+   send, but a JSON `querySerializer` sends `null` for `NaN` and the string for `"NaN"`, and a
+   serializer of the client may tell a bigint from a string too. Such a value is now
+   `{ "(number)": "NaN" }`, which is no string and no `null`, and stays the same through a JSON
+   round trip. In a body, `bodyType` already tells them apart. Plain `headers` keep the text,
+   which `Headers` sends for either. A `params.header` value is keyed by the parameter rule, so
+   there `NaN` and `"NaN"`, which send one header, now have two keys: one request more, never
+   another request's data.
+4. **An rc.13 key change not listed.** rc.13 reads a whole body with its own `toJSON` through the
+   shared reader, so its `bodyFields` hold its own members, which a form or multipart body sends,
+   with a function member left out: `{ x: 1, toJSON: () => "j" }` has the `bodyFields` `{ x: 1 }`
+   (rc.12: `"j"`) and `{ toJSON: () => ({ a: 1 }) }` has `{}` (rc.12: `{ a: 1 }`). rc.12 wrote
+   the `toJSON` form there, which no form body sends.
+
+Keys that change against rc.13: a body or a parameter value more than 100 objects deep has the
+part below that depth under `"(deeper)"`; a MobX-style `Map` or `Set` is its contents alone;
+`NaN`, an infinity or a bigint in `params` is `{ "(number)": text }`. No other key changes; the
+hunt's corpus of 49 inits has the same keys but for the `NaN` and bigint parameters.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Segments read in their own walks, JSON text below them (chosen) | Every form of a value up to ten thousand objects deep; stable; no stack bound | About 450 bytes; deep keys have a second part |
+| Iterative walk with an explicit stack | One key shape | Every writer rewritten as a state machine; the key's depth then overflows TanStack Query's hash |
+| JSON text below a fixed depth | Small | Loses the `Map`, `NaN` and text forms below it, which a serializer may send |
+| Stop catching `RangeError` | Honest | A deep body crashes the component while it renders |
+| Contents alone for every Map and Set | One rule | A `Map` subclass with fields shares the key of one with other fields, which JSON sends apart |
+| `NaN` as `null` in params | No in-band name | Shares the key of `null`, which `qs` sends differently |
+
+**Size.** The bundle grows from 6.10 kB to 6.77 kB minified (about 2.8 kB gzipped), so the
+budget rises to 6.9 kB: the segments (about 450 bytes), the `Ancestors` passed through the header
+and record keys (about 150), the lookalike rule and the number form (about 70). Correctness
+ranks above size (ADR-013, ADR-030).
 
 ## Review trigger
 

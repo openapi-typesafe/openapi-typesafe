@@ -13,6 +13,16 @@ export type ValueAccess = "location" | "string-index" | "none";
 /** A schema typed at its own location. */
 export const AT_LOCATION: ValueAccess = "location";
 
+/**
+ * Where the generated types hold the schemas under a location, where that is not at the
+ * location's pointer: with `exploded-query-objects` the properties of an exploded object
+ * parameter are keys of `query` (`…/parameters/query/filter/status` is at `…/query/status`).
+ */
+export interface TypePlacement {
+  readonly locationPath: string;
+  readonly typePath: string;
+}
+
 /** How a nested schema is transformed; a part left out has the default of a walked schema. */
 export interface NestedCall {
   /** Where its type is read in its location's type; `AT_LOCATION` by default. */
@@ -26,6 +36,8 @@ export interface NestedCall {
    * by default, since a location that a nested schema appends to is shared too.
    */
   readonly isAtSharedLocation?: boolean;
+  /** Where its type is when not at its location's pointer; the holder's by default. */
+  readonly typePlacement?: TypePlacement | undefined;
 }
 
 /**
@@ -63,6 +75,8 @@ export interface SchemaRequest {
    * `--enum` declarations are told apart by their values (`enumOwner`).
    */
   readonly isAtSharedLocation: boolean;
+  /** Where its type is when not at its location's pointer; nested schemas keep their holder's. */
+  readonly typePlacement?: TypePlacement | undefined;
   readonly transformNested: TransformNested;
 }
 

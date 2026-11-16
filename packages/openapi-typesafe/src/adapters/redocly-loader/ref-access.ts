@@ -10,7 +10,7 @@ import {
 } from "@redocly/openapi-core";
 import type { RefAccess } from "../../application/ports/schema-loader.js";
 import { ERROR_CODES, type OpenAPITypesafeError } from "../../domain/errors.js";
-import { redactUrlSecrets } from "../../domain/url-secrets.js";
+import { redactLocationSecrets } from "../../domain/url-secrets.js";
 import { aliasExpansionFailure } from "./alias-limit.js";
 import { isHostAllowed } from "./allowed-hosts.js";
 import { pointMappingNamesAtSchemas } from "./mapping-schema-names.js";
@@ -91,7 +91,7 @@ function localFromRemoteRefusal(
   if (!isRemoteRef(base) || isRemoteRef(absoluteRef)) {
     return undefined;
   }
-  const shownBase = redactUrlSecrets(base);
+  const shownBase = redactLocationSecrets(base);
   return refForbiddenError(absoluteRef, { reason: "local-ref-from-remote", base: shownBase });
 }
 
@@ -135,9 +135,10 @@ export class RefAccessResolver extends BaseResolver {
    * A `$ref` is a URL by the rule of the schema argument. Redocly takes only `http://` and
    * `https://` as URLs: it read `HTTP://host/x.yaml` and `http:host/x.yaml` as file paths, and its
    * "not found" message showed the user info and the query of the URL, which no longer looked
-   * like one. An `http(s)` `$ref` is resolved by the URL standard first (`remoteRefUrl`), so it
-   * loads as the URL it is, within the same limits, and a `file:` URL in a local document names
-   * its file (`fileRefPath`), not a path below the document's folder.
+   * like one. Such a `$ref` is resolved by the URL standard first (`remoteRefUrl`), so it loads as
+   * the URL it is, within the same limits, and a `file:` URL in a local document names its file
+   * (`fileRefPath`), not a path below the document's folder. Every other `$ref` is named as
+   * Redocly names it, so the lint ignore file of `redocly lint` matches its documents.
    *
    * A redirected document keeps the URL it was requested by as its name, as in `redocly lint`,
    * whose lint ignore file lists its problems by that URL. Its relative `$ref`s resolve against
@@ -223,6 +224,7 @@ export class RefAccessResolver extends BaseResolver {
       if (isRefusal(cause)) {
         this.#refusals.push(cause);
       }
+      hideRefSecrets([error, cause], absoluteRef);
       throw error;
     }
   }
@@ -254,4 +256,18 @@ export class RefAccessResolver extends BaseResolver {
 
 function isRefusal(value: unknown): value is OpenAPITypesafeError {
   return (value as { code?: unknown } | null)?.code === ERROR_CODES.SCHEMA_REF_FORBIDDEN;
+}
+
+/**
+ * Redocly's load errors name the document as the `$ref` wrote it (`Failed to load <ref>: 404`),
+ * which may hold a space or a quote (`http://host/my pet.yaml?key=…`). Those end a URL for the
+ * redaction of free text, so the query after them would show; the known name is hidden whole.
+ */
+function hideRefSecrets(failures: readonly unknown[], absoluteRef: string): void {
+  const shown = redactLocationSecrets(absoluteRef);
+  for (const failure of failures) {
+    if (failure instanceof Error) {
+      failure.message = failure.message.replaceAll(absoluteRef, shown);
+    }
+  }
 }

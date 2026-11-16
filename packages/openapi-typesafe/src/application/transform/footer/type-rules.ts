@@ -9,6 +9,7 @@ import { toPropertyName } from "../../../domain/ir/property-name.js";
 import {
   type Evaluated,
   type Evaluation,
+  isNullish,
   MISSING,
   OPAQUE,
   propertyKey,
@@ -229,10 +230,21 @@ function hasSharedProperty(members: readonly IrMember[]): boolean {
 }
 
 /**
+ * Whether `T` has a member that is `null` or `undefined`: `keyof (A | null)` is `never`, so
+ * `Omit<A | null, K>` picks no key and is `{}`.
+ */
+function hasNullishMember(types: TypeExpansion, value: Evaluated): boolean {
+  return types.membersOf(value).some((member) => member.kind === "type" && isNullish(member.type));
+}
+
+/**
  * `Omit<T, K>` for literal keys `K` over an object or an intersection of objects. A string index
  * signature makes `keyof T` all strings, so only the index signatures are left.
  */
 export function omitted(types: TypeExpansion, value: Evaluated, keys: IrType): Evaluation {
+  if (hasNullishMember(types, value)) {
+    return { ...value, type: { kind: "object", members: [] } };
+  }
   const names = omittedKeys(types, value, keys);
   const objects = objectParts(types, value, [value.type]);
   if (names === null || objects.length === 0 || objects.includes(null)) {

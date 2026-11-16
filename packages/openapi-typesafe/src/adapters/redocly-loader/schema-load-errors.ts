@@ -1,6 +1,10 @@
 import { assertNever } from "../../domain/assert-never.js";
 import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
-import { redactUnparsedUrl, redactUrlSecrets } from "../../domain/url-secrets.js";
+import {
+  redactLocationSecrets,
+  redactUnparsedUrl,
+  redactUrlSecrets,
+} from "../../domain/url-secrets.js";
 
 /**
  * The typed errors of loading, validating and bundling a document (ADR-011). Messages are the
@@ -129,7 +133,7 @@ export function loadFailedError(absoluteRef: string, cause: unknown): OpenAPITyp
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_LOAD_FAILED,
     message: causeMessage(cause),
-    details: { source: redactUrlSecrets(absoluteRef) },
+    details: { source: redactLocationSecrets(absoluteRef) },
     cause,
   });
 }
@@ -143,7 +147,7 @@ export function parseFailedError(
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_PARSE_FAILED,
     message: causeMessage(cause),
-    details: { format, source: redactUrlSecrets(absoluteRef) },
+    details: { format, source: redactLocationSecrets(absoluteRef) },
     cause,
   });
 }
@@ -240,9 +244,10 @@ function limitText(details: RefRefusalDetails): string {
  */
 export function refForbiddenError(ref: string, details: RefRefusalDetails): OpenAPITypesafeError {
   const limit = limitText(details);
+  const shownRef = redactLocationSecrets(ref);
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_REF_FORBIDDEN,
-    message: `Refused to load ${ref}: ${limit}`,
-    details: { ref: redactUrlSecrets(ref), ...details },
+    message: `Refused to load ${shownRef}: ${limit}`,
+    details: { ref: shownRef, ...details },
   });
 }

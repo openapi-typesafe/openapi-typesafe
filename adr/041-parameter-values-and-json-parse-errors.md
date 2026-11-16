@@ -507,3 +507,56 @@ The type hunt on rc.12 found that code generic in its options or in its operatio
 | Non-distributive `ResponseObjectMap` | Sound for generic paths of generic `Paths` | Generic paths of concrete `Paths` lose their bodies |
 
 Types only; the bundle is unchanged.
+
+## Amendment (2026-11-15): response types of open constraints
+
+The type hunt on rc.13 found that point 3 above left holes: a constraint that leaves the responses
+open still gave response types that fit any type. With `Ps extends Record<string, any>` (as
+swr-openapi's users write) or `Record<string, Record<HttpMethod, {}>>` (openapi-react-query), the
+`error` of a generic call fit a `number`; so did the response types of `Op extends
+{ responses: any }` and of `Op extends OperationObject`. A `parseAs` typed `any` gave `never` data,
+and `responses: Map | undefined` (or `responses?: Map`) lost its bodies (rc.12 kept them).
+
+1. **The rule.** A response type gives `any` for a concrete `any`, the declared bodies for a
+   concrete operation, and a type no narrower than `unknown` for a constraint that leaves the
+   responses open. Each response type reads its map in two steps:
+   1. `IsAny<Map> extends true ? any`. The check type is not a type parameter, so for a generic
+      map TypeScript reads only the other branch: it leaves an `any` branch out of the constraint.
+   2. The bodies (`SuccessMapBodies`, `ErrorMapBodies`, internal), which read an `any` map as
+      `unknown`. Step 1 caught every concrete `any` map, so only a read through a constraint still
+      has one.
+   `SuccessResponse`, `ErrorResponse`, `SuccessResponseJSON`, `ErrorResponseJSON` and the `data`
+   and `error` of `FetchResponse` all follow it.
+2. **`ResponseObjectMap`** is `T extends { responses?: unknown } ? Extract<T["responses"],
+   Record<string | number, any>> : never`. `Extract` drops `undefined` from an optional or
+   `| undefined` map, so those keep their bodies; `any` stays `any` (read by step 1); a type
+   without `responses` still gives `never`.
+3. **`FetchResponse` no longer has openapi-fetch's shape.** `data` and `error` were
+   `Readable<SuccessResponse<ResponseObjectMap<T>, Media>>` and its `ErrorResponse` twin. With that
+   shape the `error` of a generic path of `Record<string, Record<HttpMethod, {}>>` paths still fit
+   a `number`, so they are now internal types that apply the rule to the operation and add a
+   deferred `T extends never ? unknown` check. No operation fits it and `never` gives `never` in
+   both branches, but while `T` is generic TypeScript reads it as the union of its branches, and
+   its `unknown` ends the comparison: without it, `Readable` and `ParseAsResponse` around the bodies
+   took that comparison past ten levels, which TypeScript takes as related. A probe operation that
+   only open constraints fit gave the same results and was dropped as needless. Concrete operations
+   give the same types as in rc.13, checked on the big examples (GitHub, Stripe, DigitalOcean).
+   Generic code that builds or reads a `FetchResponse` through `Readable<ErrorResponse<…>>` no
+   longer type-checks (TS2322): it should name `FetchResponse<…>["error"]`.
+4. **`parseAs` typed `any`** gives `any` data, as in openapi-fetch: `ParseAsValues` checks
+   `IsAny` of the options and of their `parseAs` (also an optional one) before its other branches;
+   it gave `never` data.
+
+Known limits: a constraint that names statuses with `any` bodies
+(`Op extends { responses: { 200: any } }`) gives those bodies as declared (`any`), and a chain of
+type parameters (`Q1 extends Q0`, `Q0 extends PathsWithMethod<Ps, "get">`) of generic `Paths` is
+deep enough that TypeScript relates the operation itself to anything, in rc.13 too.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Two steps: `any` first, then bodies with `any` as `unknown` (chosen) | Concrete `any` stays `any`; open constraints give `unknown`; concrete results unchanged | `FetchResponse` is no longer textually openapi-fetch's |
+| Keep openapi-fetch's `FetchResponse` shape | Generic code may use `ErrorResponse` for `error` | The openapi-react-query constraint keeps the hole |
+| `unknown` for every `any` map | Simplest | `createClient<any>()` loses `any` data (rc.13 and openapi-fetch give `any`) |
+| Probe operation `{ responses: { [unique symbol]: true } }` | Same results | More types for no gain |
+
+Types only; the bundle is unchanged.
