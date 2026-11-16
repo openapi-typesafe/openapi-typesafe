@@ -41,6 +41,11 @@ export interface RunContext extends GlobalContext {
    * Not shared between passes: a pass whose messages are dropped must not silence the next one.
    */
   isIgnoredCallbackResultReported?: boolean;
+  /**
+   * The enums this pass reported values of that an `allOf` base never admits
+   * (`ENUM_VALUES_NOT_INHERITED`), by place and base. Not shared between passes, as above.
+   */
+  reportedNotInheritedEnums?: Set<string>;
   /** Where this run reports warnings and debug output; without it, the terminal. */
   logger?: Logger;
   /** The `$ref` pointer types of this pass, and those typed in place (`RefPointerChecks`). */

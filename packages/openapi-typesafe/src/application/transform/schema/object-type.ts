@@ -1,4 +1,3 @@
-import { ERROR_CODES, OpenAPITypesafeError } from "../../../domain/errors.js";
 import {
   irObject,
   irProperty,
@@ -19,22 +18,15 @@ import { type AccessFlags, propertyAccessFlags } from "./access-flags.js";
 import { withPropertyTypes } from "./index-signature-type.js";
 import { discriminatorMember, inheritedDiscriminator } from "./inherited-discriminator.js";
 import { isInputLocation } from "./input-location.js";
+import { InvalidPropertyError } from "./invalid-property-error.js";
 import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
 import type { SchemaOptions } from "./schema-context.js";
-import { type SchemaRequest, sharedStepCall, type ValueAccess } from "./schema-rule.js";
-
-export class InvalidPropertyError extends OpenAPITypesafeError {
-  constructor(path: string | undefined, key: string, value: unknown) {
-    const received = Array.isArray(value) ? "Array" : typeof value;
-    super({
-      code: ERROR_CODES.SCHEMA_PROPERTY_INVALID,
-      message:
-        `${path}: invalid property ${key}. ` + `Expected Schema Object or boolean, got ${received}`,
-      details: { path, property: key, received },
-    });
-    this.name = "InvalidPropertyError";
-  }
-}
+import {
+  propertyCall,
+  type SchemaRequest,
+  sharedStepCall,
+  type ValueAccess,
+} from "./schema-rule.js";
 
 /** `--read-write-markers`: `$Read<T>` / `$Write<T>`, unless the property is both or neither. */
 function withReadWriteMarker(type: IrType, flags: AccessFlags, options: SchemaOptions): IrType {
@@ -127,7 +119,7 @@ function propertyType(
   const ref = plainRef(facts, value, request);
   const type = ref
     ? schemaRefType(ref, request)
-    : request.transformNested(value, { ...request.location, path });
+    : request.transformNested(value, { ...request.location, path }, propertyCall(request, key));
   const custom = request.context.callbacks.transform(value, request.location);
   return custom === null
     ? { type, isOptional: null }

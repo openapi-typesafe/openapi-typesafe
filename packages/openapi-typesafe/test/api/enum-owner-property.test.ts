@@ -50,6 +50,8 @@ interface Case {
   readonly isNullable: boolean;
   readonly others: string[][];
   readonly hasMember: boolean;
+  /** The inherited side is a `$ref` item's schema (`allOf: [$ref: Base, own]`), not inline. */
+  readonly isInheritedByRef: boolean;
 }
 
 const valueSet = fc.subarray([...VALUES], { minLength: 1 });
@@ -63,6 +65,7 @@ const caseArbitrary: fc.Arbitrary<Case> = fc
     isNullable: fc.boolean(),
     others: fc.array(valueSet, { maxLength: 3 }),
     hasMember: fc.boolean(),
+    isInheritedByRef: fc.boolean(),
   })
   .filter((test) => test.own.some((value) => test.inherited.includes(value)));
 
@@ -76,7 +79,9 @@ function wrapped(test: Case, values: string[]): unknown {
 
 function documentOf(test: Case): OpenAPI3 {
   const key = (values: string[]) => ({ type: "object", properties: { key: wrapped(test, values) } });
-  const schemas: Record<string, unknown> = { T: { ...key(test.own), allOf: [key(test.inherited)] } };
+  const schemas: Record<string, unknown> = test.isInheritedByRef
+    ? { Base: key(test.inherited), T: { allOf: [{ $ref: "#/components/schemas/Base" }, key(test.own)] } }
+    : { T: { ...key(test.own), allOf: [key(test.inherited)] } };
   test.others.forEach((values, index) => {
     schemas[`Other${index}`] = key(values);
   });

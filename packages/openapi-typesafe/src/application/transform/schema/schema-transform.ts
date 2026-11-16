@@ -5,6 +5,7 @@ import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object
 import { literalType } from "../literal-type.js";
 import { schemaRefType } from "../ref-pointer/pointer-type.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
+import { type BaseSchema, NO_BASE_SCHEMAS } from "./base-schemas.js";
 import { compositionType } from "./composition-type.js";
 import { enumRule } from "./enum-rule.js";
 import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
@@ -71,10 +72,11 @@ interface TransformCall {
   readonly isThroughRef: boolean;
   readonly sharedSlot: SharedSlot;
   readonly typePlacement?: TypePlacement | undefined;
+  readonly baseSchemas: readonly BaseSchema[];
 }
 
 /** A schema the document transforms itself: walked, at a location of its own. */
-const WALKED_ROOT = { isThroughRef: false, sharedSlot: OWN_SLOT } as const;
+const WALKED_ROOT = { isThroughRef: false, sharedSlot: OWN_SLOT, baseSchemas: NO_BASE_SCHEMAS };
 
 /** The request of `schema`; the schemas it transforms get it as their `parent`. */
 function request(
@@ -91,6 +93,7 @@ function request(
     isThroughRef: call.isThroughRef,
     sharedSlot: call.sharedSlot,
     typePlacement: call.typePlacement,
+    baseSchemas: call.baseSchemas,
     // A schema nested in a `$ref` target is typed for that `$ref` too.
     transformNested: (nested, nestedLocation, nestedCall = {}) =>
       transformWithin(nested, nestedLocation, context, {
@@ -99,6 +102,7 @@ function request(
         isThroughRef: call.isThroughRef || nestedCall.isThroughRef === true,
         sharedSlot: nestedCall.sharedSlot ?? call.sharedSlot,
         typePlacement: nestedCall.typePlacement ?? call.typePlacement,
+        baseSchemas: nestedCall.baseSchemas ?? NO_BASE_SCHEMAS,
       }),
   };
 }

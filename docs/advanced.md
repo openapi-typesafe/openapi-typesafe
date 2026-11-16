@@ -472,6 +472,46 @@ The same holds for the properties of the elements (`Shape` of two element object
 values (`additionalProperties`, `patternProperties`, `unevaluatedProperties`). The numbers do not
 depend on whether a `$ref` points into the schema.
 
+## Inherited enums
+
+A schema often narrows an enum it inherits through `allOf`:
+
+```yaml
+Pet:
+  type: object
+  properties:
+    mode: { type: string, enum: [a, b, c] }
+Cat:
+  allOf:
+    - $ref: "#/components/schemas/Pet"
+    - type: object
+      properties:
+        mode: { type: string, enum: [a] }
+```
+
+With `--enum` each place declares its own TypeScript enum, and two TypeScript enums intersect to
+`never`, so `Cat` was `Pet & { mode?: CatMode }` with no value for `mode`. A property of an
+inline `allOf` item, or of the schema's own keywords next to the `$ref`, whose enum lists values
+of the enum at the same place in the `$ref` item's schema is typed by that enum's members:
+
+```ts
+Cat: components["schemas"]["Pet"] & { mode?: PetMode.a };
+```
+
+The same holds for the array items, record values and tuple elements in such a property, for the
+variants of an `anyOf` / `oneOf` there, and for an enum that the `$ref` item's schema gets
+through a `$ref` (`Status.on`). `CatMode` is still
+declared, so code that imports it keeps compiling, but `Cat` no longer uses it.
+
+When the property lists values the base's enum does not (`enum: [a, d]`), no value of `Cat` can be
+`d`: the type lists the values both enums list (`PetMode.a`), and a warning names the values
+(`ENUM_VALUES_NOT_INHERITED`). Without a common value the type stays `never`, as the document
+says, with the same warning. A property that the `allOf` leaves out of the base (`Omit<Pet,
+"kind">` for a discriminator) keeps its own enum, and so does a base whose property is defined in
+the base's own `allOf`: only the base's `properties`, `items`, `prefixItems`,
+`additionalProperties` and `patternProperties` are read. Without `--enum` the types are unions of
+literals, which intersect as they should, and nothing changes.
+
 ## JSONSchema $defs caveats
 
 [JSONSchema $defs](https://json-schema.org/understanding-json-schema/structuring.html#defs) can be used to provide sub-schema definitions anywhere. However, these won’t always convert cleanly to TypeScript. For example, this works:

@@ -3,7 +3,7 @@ import { TypeScriptNotFoundError } from "../../src/adapters/type-ast-bridge/load
 import { UnreadablePropertyError, UnreadableTypeError } from "../../src/api/schema-callbacks.js";
 import { EmptyEnumNameError } from "../../src/application/transform/footer/enum-naming.js";
 import { InvalidRefError } from "../../src/application/transform/ref-type.js";
-import { InvalidPropertyError } from "../../src/application/transform/schema/object-type.js";
+import { InvalidPropertyError } from "../../src/application/transform/schema/invalid-property-error.js";
 import { InvalidSchemaError } from "../../src/application/transform/schema/schema-transform.js";
 import {
   ERROR_CODES,

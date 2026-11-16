@@ -586,6 +586,39 @@ that lists the values of only one request of another owner gets its own enum (`U
 `TMode.a`), and two owners of the same whole values share one enum named by the same rule as
 before.
 
+## Amendment (2026-11-16): an inherited enum narrowed by an `allOf` item
+
+`Cat: allOf: [{ $ref: Pet }, { properties: { mode: { enum: [a] } } }]` with `Pet.mode: [a, b, c]`
+is a common way to narrow an inherited enum. With `--enum` it gave `Pet & { mode?: CatMode }`:
+two TypeScript enums intersect to `never`, so `Cat` had no value for `mode` (also rc.13 and
+upstream). The output compiled, so the error was silent; it is fixed by default under `--enum`.
+
+The rules:
+
+1. The own keywords and the inline items of an `allOf` get the schemas of its `$ref` items as
+   bases (`SchemaRequest.baseSchemas`), but for the keys the item's type omits (a
+   discriminator's property and the other owners' properties, `Omit<Pet, "kind">`); the own
+   keywords of a discriminated union that a member inherits are no base. Each step into
+   `properties`, `items`, `prefixItems`, `additionalProperties`, `patternProperties`,
+   `unevaluatedItems`, `contains` and `unevaluatedProperties` steps into the base's schema at the
+   same place, every `$ref` on the way followed (`baseSchemasAt`). The variants of an `anyOf` /
+   `oneOf` and the types of a `type` list keep the bases (a base intersects each of them); a
+   `$ref` property, a `$ref` target and `$defs` start without bases, and a base whose property
+   comes from its own `allOf` is not read (no change there).
+2. An `--enum` enum with a base whose schema at that place is a TypeScript enum is typed by the
+   base's enum (declared where the generator types the base, so it is the base's own enum) with
+   the values both list, narrowed at the end of the run like any other reference (`PetMode.a`).
+   Its own enum (`CatMode`) is still declared, so code that imports it keeps compiling; the type
+   no longer uses it.
+3. Values the base's enum does not list can never be valid: the type lists the common values,
+   and the warning `ENUM_VALUES_NOT_INHERITED` names the others once per place and base. With no
+   common value the own enum stays, the type is `never` as the document says, and the warning
+   says so.
+4. Without `--enum` the types are unions of literals, which intersect correctly; nothing changes.
+
+Changes from rc.14, only with `--enum`: in the case above the type is satisfiable
+(`PetMode.a`, not `CatMode`), and a document that adds values to an inherited enum warns.
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

@@ -15,6 +15,7 @@ import { canonicalRef } from "../domain/openapi/json-pointer.js";
 import { SCHEMA_DIALECTS } from "../domain/openapi/schema-dialect.js";
 import type { TransformNodeOptions } from "../types.js";
 import { defaultLogger, monotonicNow } from "./default-ports.js";
+import { enumInheritanceReport } from "./enum-inheritance-warning.js";
 import { ContextFooterSink } from "./footer-sink.js";
 import type { RunContext } from "./run-context.js";
 import { schemaCallbacks } from "./schema-callbacks.js";
@@ -90,6 +91,7 @@ export function createTransformContext(ctx: RunContext): TransformContext {
     footer: runFooter(ctx),
     callbacks: schemaCallbacks(ctx),
     ...(ctx.refPointerChecks === undefined ? {} : { pointerChecks: ctx.refPointerChecks }),
+    enumInheritance: enumInheritanceReport(ctx),
     diagnostics: diagnostics(ctx),
     casing: CASING,
   };

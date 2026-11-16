@@ -1,5 +1,6 @@
 import type { IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
+import { type BaseSchema, baseSchemasAt } from "./base-schemas.js";
 import type { SchemaContext, SchemaLocation } from "./schema-context.js";
 
 /**
@@ -38,6 +39,8 @@ export interface NestedCall {
   readonly sharedSlot?: SharedSlot;
   /** Where its type is when not at its location's pointer; the holder's by default. */
   readonly typePlacement?: TypePlacement | undefined;
+  /** The schemas intersected with it (`SchemaRequest.baseSchemas`); none by default. */
+  readonly baseSchemas?: readonly BaseSchema[];
 }
 
 /**
@@ -60,10 +63,21 @@ export type SharedStep = readonly [string] | readonly [string, string | number];
 /**
  * The call of a schema typed at its holder's location next to other schemas
  * (`SchemaRequest.sharedSlot`). The holder's slot and location path are part of the slot, so the
- * same step from another place (the `kind` of an element of an element) is another slot.
+ * same step from another place (the `kind` of an element of an element) is another slot. The
+ * step is also the pointer step to the bases' schemas at the same place (`baseSchemas`).
  */
 export function sharedStepCall(request: SchemaRequest, step: SharedStep): NestedCall {
-  return { sharedSlot: JSON.stringify([request.sharedSlot, request.location.path ?? null, step]) };
+  return {
+    sharedSlot: JSON.stringify([request.sharedSlot, request.location.path ?? null, step]),
+    baseSchemas: baseSchemasAt(request.baseSchemas, step, request.context.refs),
+  };
+}
+
+/** The call of the schema of property `key`: the bases' schemas of that property. */
+export function propertyCall(request: SchemaRequest, key: string): NestedCall {
+  return {
+    baseSchemas: baseSchemasAt(request.baseSchemas, ["properties", key], request.context.refs),
+  };
 }
 
 /** Transform a nested schema, with `postTransform` applied (the recursion entry point). */
@@ -99,6 +113,14 @@ export interface SchemaRequest {
   readonly sharedSlot: SharedSlot;
   /** Where its type is when not at its location's pointer; nested schemas keep their holder's. */
   readonly typePlacement?: TypePlacement | undefined;
+  /**
+   * The schemas of `$ref` items of an `allOf` at the place of this schema, which TypeScript
+   * intersects with it (`Pet & { mode?: CatMode }`): an enum here that lists values of a base's
+   * enum is typed by that enum's members (`enumRule`). Set for the own keywords and inline items
+   * of such an `allOf`, and for their properties, items and record values; a `$ref` or a union
+   * variant starts with none.
+   */
+  readonly baseSchemas: readonly BaseSchema[];
   readonly transformNested: TransformNested;
 }
 

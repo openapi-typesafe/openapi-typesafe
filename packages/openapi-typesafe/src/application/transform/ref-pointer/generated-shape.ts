@@ -1,6 +1,6 @@
 import { isRawBinarySchema } from "../../../domain/openapi/binary-content.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { isTsEnum } from "../schema/enum-rule.js";
+import { isTsEnum } from "../schema/enum-declaration.js";
 import type { RefResolver, SchemaOptions } from "../schema/schema-context.js";
 import { unevaluatedSchemaOf } from "../schema/unevaluated-schema.js";
 import {
