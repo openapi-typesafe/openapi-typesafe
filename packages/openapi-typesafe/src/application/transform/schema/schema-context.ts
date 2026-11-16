@@ -92,8 +92,9 @@ export interface EnumDeclarationRequest {
   readonly values: readonly (string | number)[];
   readonly metadata: readonly EnumMemberMetadata[];
   /**
-   * The request only refers to the enum, for a discriminator member's value
-   * (`discriminator-values`); the schema at `name` declares it where it is typed itself.
+   * The request only refers to the enum: for an `allOf` item that narrows its base's enum
+   * (`baseEnumType`), or for a discriminator member's value (`discriminator-values`). The schema
+   * at `name` declares it where it is typed itself, so the request names no shared enum.
    */
   readonly isOwnerReference?: boolean;
   /**

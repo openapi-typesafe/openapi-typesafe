@@ -573,9 +573,11 @@ The rules:
    request is known only at the end of the run.
 3. `--dedupe-enums` shares enums at the end of the run, between owners, by the whole members of
    each owner (`enumGrouping`): never one request of an owner with another schema. The first
-   pass that recorded the names before the run is gone; the naming rules (first schema,
-   `discriminator-values`' first declaring schema, `dedupe-enum-names`' best name) read the
-   requests of each shared enum at the end (`SharedEnumNames`).
+   pass that recorded the names before the run is gone; the naming rules (the first schema that
+   declares the values, `dedupe-enum-names`' best name) read the requests of each shared enum at
+   the end (`SharedEnumNames`). A request that only refers to an owner's enum
+   (`isOwnerReference`: a `discriminator-values` member's value, an inherited enum narrowed by an
+   `allOf` item) declares nothing and names no shared enum.
 4. The end of the run merges the declarations of each enum, renames them to their final names,
    and only then narrows each reference to its values (`withWholeEnums` after the rename), so a
    narrowed reference names the final enum.
@@ -630,6 +632,10 @@ The rules:
    common value the own enum stays, the type is `never` as the document says, and the warning
    says so.
 4. Without `--enum` the types are unions of literals, which intersect correctly; nothing changes.
+5. The request for the base's enum only refers to it (`isOwnerReference`): with `--dedupe-enums`
+   it does not name the enum the base shares with other schemas, which keeps the name of the
+   first schema that declares the values, as upstream. A `Cat` before `Kind: [a, b]` and
+   `Pet.mode: [a, b]` gives `Kind.a`, not `PetMode.a` with `Kind` renamed to `PetMode`.
 
 Changes from rc.14, only with `--enum`: in the case above the type is satisfiable
 (`PetMode.a`, not `CatMode`), and a document that adds values to an inherited enum warns.

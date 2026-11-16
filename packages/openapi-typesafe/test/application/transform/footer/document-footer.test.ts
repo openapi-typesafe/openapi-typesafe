@@ -10,7 +10,7 @@ import { EnumValuesNames } from "../../../../src/application/transform/footer/en
 import { OperationKeys } from "../../../../src/application/transform/footer/operation-keys.js";
 import {
   BEST_SCHEMA_NAMES,
-  FIRST_SCHEMA_NAMES,
+  FIRST_DECLARING_SCHEMA_NAMES,
   type SharedEnumNames,
 } from "../../../../src/application/transform/footer/shared-enum-names.js";
 import { irProperty, irReference } from "../../../../src/domain/ir/constructors.js";
@@ -253,7 +253,7 @@ describe("RunFooter", () => {
       footer.addEnum({ ...element, tupleIndex: 0, sharedSlot: elementSlot(0) }),
     ];
 
-    expect(finalNamesOf(given, finalsOf(names, FIRST_SCHEMA_NAMES))).toEqual([
+    expect(finalNamesOf(given, finalsOf(names, FIRST_DECLARING_SCHEMA_NAMES))).toEqual([
       "Tup",
       "Tup_2",
       "Tup",
@@ -273,7 +273,7 @@ describe("RunFooter", () => {
     ];
 
     // `[b]` is the first element of `Tup`; `[a]` of `Tup` and of `tup` share one enum.
-    expect(finalNamesOf(given, finalsOf(names, FIRST_SCHEMA_NAMES))).toEqual([
+    expect(finalNamesOf(given, finalsOf(names, FIRST_DECLARING_SCHEMA_NAMES))).toEqual([
       "Tup_2",
       "Tup",
       "Tup_2",
@@ -318,7 +318,7 @@ describe("RunFooter", () => {
       footer.addEnum({ ...element, sharedSlot: elementSlot(0), walkedAt: TUP }),
     ];
 
-    expect(finalNamesOf(given, finalsOf(names, FIRST_SCHEMA_NAMES))).toEqual([
+    expect(finalNamesOf(given, finalsOf(names, FIRST_DECLARING_SCHEMA_NAMES))).toEqual([
       "Tup",
       "Tup_2",
       "Tup",

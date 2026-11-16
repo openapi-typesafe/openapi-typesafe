@@ -39,17 +39,13 @@ function namesByKey(
   return names;
 }
 
-/** The original: the enum takes the name of the first schema that asked for it. */
-export const FIRST_SCHEMA_NAMES: SharedEnumNames = {
-  namesOf: (enums) => namesByKey(enums, () => true),
-};
-
 /**
- * With `discriminator-values` and `--enum`, a member's value refers to the owner's enum
- * (`isOwnerReference`), which is then asked for when the member is typed, maybe before the first
- * schema that declares it; the shared enum would take the owner's name. So only the declaring
- * schemas count, and each shared enum is named as the document order does (`OtherKind`, not
- * `PetPetType`).
+ * The original: the enum takes the name of the first schema that declares it. A request that only
+ * refers to an owner's enum (`isOwnerReference`) does not count: an `allOf` item that narrows an
+ * inherited enum asks for its base's enum, and with `discriminator-values` a member's value asks
+ * for the owner's, maybe before the first schema that declares the values is typed. Counted, it
+ * would give the shared enum the base's or the owner's name; so each shared enum is named as the
+ * document order does (`Kind`, not `PetMode`; `OtherKind`, not `PetPetType`), as upstream.
  */
 export const FIRST_DECLARING_SCHEMA_NAMES: SharedEnumNames = {
   namesOf: (enums) => namesByKey(enums, ({ request }) => request.isOwnerReference !== true),
@@ -125,7 +121,7 @@ export const BEST_SCHEMA_NAMES: SharedEnumNames = {
         unavailable.add(name);
       }
     }
-    const firsts = FIRST_SCHEMA_NAMES.namesOf(enums);
+    const firsts = FIRST_DECLARING_SCHEMA_NAMES.namesOf(enums);
     return new Map([...firsts, ...chosen]);
   },
 };

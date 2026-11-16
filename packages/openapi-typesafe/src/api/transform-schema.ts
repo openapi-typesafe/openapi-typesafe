@@ -25,7 +25,6 @@ import { OperationKeys } from "../application/transform/footer/operation-keys.js
 import {
   BEST_SCHEMA_NAMES,
   FIRST_DECLARING_SCHEMA_NAMES,
-  FIRST_SCHEMA_NAMES,
   type SharedEnumNames,
 } from "../application/transform/footer/shared-enum-names.js";
 import type { RawKeyTypes } from "../application/transform/footer/signature-index.js";
@@ -55,7 +54,7 @@ function isOperations(entry: FooterEntry): boolean {
 /**
  * How `--dedupe-enums` names the enums it shares at the end of the run; null where the run shares
  * none. The `dedupe-enum-names` fix (ADR-021, upstream #1683) names an enum by all of its schemas;
- * `discriminator-values` keeps the first declaring schema's name.
+ * else it keeps the first declaring schema's name.
  */
 function sharedEnumNamesOf(ctx: GlobalContext): SharedEnumNames | null {
   if (!ctx.enum || !ctx.dedupeEnums) {
@@ -64,9 +63,7 @@ function sharedEnumNamesOf(ctx: GlobalContext): SharedEnumNames | null {
   if (ctx.fix?.includes(FIX.DEDUPE_ENUM_NAMES)) {
     return BEST_SCHEMA_NAMES;
   }
-  return ctx.fix?.includes(FIX.DISCRIMINATOR_VALUES)
-    ? FIRST_DECLARING_SCHEMA_NAMES
-    : FIRST_SCHEMA_NAMES;
+  return FIRST_DECLARING_SCHEMA_NAMES;
 }
 
 /**
