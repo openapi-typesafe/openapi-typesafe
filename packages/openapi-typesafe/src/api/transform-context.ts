@@ -85,6 +85,7 @@ export function createTransformContext(ctx: RunContext): TransformContext {
       otherPropertiesAt: (ref) => ctx.discriminators.otherProperties?.[canonicalRef(ref)] ?? [],
       enumParentOf: (schema) =>
         ctx.discriminators.enumParents?.get(schema) as DiscriminatorEnumParent | undefined,
+      replacedPropertyOf: (schema) => ctx.discriminators.replacedProperties?.get(schema),
     },
     footer: runFooter(ctx),
     callbacks: schemaCallbacks(ctx),

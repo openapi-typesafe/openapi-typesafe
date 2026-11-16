@@ -154,6 +154,7 @@ export function fakeTransformContext(input: FakeContextInput = {}): {
       isHandled: (ref) => input.handledRefs?.includes(ref) ?? false,
       otherPropertiesAt: () => [],
       enumParentOf: () => undefined,
+      replacedPropertyOf: () => undefined,
     },
     footer,
     callbacks: callbacksOf(input.callbacks ?? {}),

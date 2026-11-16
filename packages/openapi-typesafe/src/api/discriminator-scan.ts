@@ -210,6 +210,8 @@ export interface DiscriminatorScan {
   enumParents: ReadonlyMap<object, EnumParent>;
   /** With `discriminator-values`: the properties of the other discriminators a schema inherits. */
   otherProperties: Readonly<Record<string, readonly string[]>>;
+  /** The property schema each added enum replaced in the document (`Discriminators`). */
+  replacedProperties: ReadonlyMap<object, unknown>;
 }
 
 /**
@@ -244,13 +246,14 @@ export function findDiscriminators(
     otherProperties: {},
     declaredKeys: new Set(),
     enumParents: new Map(),
+    replacedProperties: new Map(),
   };
   walkDocument(schema, (value, path) => collectDiscriminator(state, value, path));
   // A second pass, because an `allOf` may name a discriminator that is defined later.
   walkDocument(schema, (value, path) => inheritDiscriminators(state, value, path));
   applyInferredPatches(state);
-  const { objects, refsHandled, enumParents, otherProperties } = state;
-  return { objects, refsHandled, enumParents, otherProperties };
+  const { objects, refsHandled, enumParents, otherProperties, replacedProperties } = state;
+  return { objects, refsHandled, enumParents, otherProperties, replacedProperties };
 }
 
 /**

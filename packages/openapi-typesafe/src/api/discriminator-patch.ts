@@ -43,6 +43,8 @@ export interface ScanState extends DiscriminatorScanOptions {
   readonly declaredKeys: Set<string>;
   /** With `discriminator-values`: the owner's enum of each added enum, by that enum. */
   readonly enumParents: Map<object, EnumParent>;
+  /** The property schema the document declared where an added enum replaced it, by that enum. */
+  readonly replacedProperties: Map<object, unknown>;
 }
 
 /** Whether `discriminator-values` is on: values of two discriminators merge into one enum. */
@@ -84,13 +86,16 @@ export function recordEnumParent(state: ScanState, owner: DiscriminatorOwner, ke
 
 /** The enum the schema at `patch.ref` gets, or null (with a warning) for another kind of schema. */
 function addDiscriminatorEnum(state: ScanState, patch: EnumPatch): SchemaObject | null {
-  const added = addEnumProperty(patchedSchema(state, patch), patch);
-  if (added === null) {
+  const result = addEnumProperty(patchedSchema(state, patch), patch);
+  if (result === null) {
     warnInvalidMapping(patch, state.logger);
-  } else {
-    recordEnumParent(state, patch, added);
+    return null;
   }
-  return added;
+  recordEnumParent(state, patch, result.added);
+  if (result.replaced !== undefined) {
+    state.replacedProperties.set(result.added, result.replaced);
+  }
+  return result.added;
 }
 
 /** One schema and discriminator property; two discriminators of one property share an enum. */

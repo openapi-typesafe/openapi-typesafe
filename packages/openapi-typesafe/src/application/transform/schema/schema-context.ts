@@ -68,6 +68,11 @@ export interface Discriminators {
    * the enum schema the discriminator scan added or by the discriminator object of `objectAt`.
    */
   enumParentOf(schema: object): DiscriminatorEnumParent | undefined;
+  /**
+   * The property schema the document declared where the scan put the enum `schema` of a mapped
+   * schema's discriminator property; undefined for any other schema (or an added property).
+   */
+  replacedPropertyOf(schema: object): unknown;
 }
 
 export interface RefResolver {

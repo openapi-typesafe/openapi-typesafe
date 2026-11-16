@@ -27,6 +27,8 @@ export interface RunContext extends GlobalContext {
      * it inherits besides `objects[ref]`, which it redefines too.
      */
     readonly otherProperties?: Readonly<Record<string, readonly string[]>>;
+    /** The property schema each enum the scan added replaced in the document, by that enum. */
+    readonly replacedProperties?: ReadonlyMap<object, unknown>;
   };
   /** The schema dialect of the run's document; without it, OpenAPI 3.0 (`schemaDialectOf`). */
   schemaDialect?: SchemaDialect;
