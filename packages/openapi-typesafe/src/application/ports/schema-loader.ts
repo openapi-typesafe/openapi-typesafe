@@ -13,6 +13,12 @@ export interface RefAccess {
 
 export interface SchemaLoadRequest {
   readonly source: SchemaSource;
+  /**
+   * The text a `URL` source was written as, when it is known (the CLI's schema argument, `root`
+   * of an API in redocly.yaml). A URL root is named after it as `redocly lint` names it, so the
+   * entries of its lint ignore file match.
+   */
+  readonly writtenSource?: string | undefined;
   /** The base for relative `$ref`s of a source that is not a URL (a directory URL). */
   readonly cwd: URL;
   /** Lint with the Redocly config before bundling; off with the `lint: false` option. */

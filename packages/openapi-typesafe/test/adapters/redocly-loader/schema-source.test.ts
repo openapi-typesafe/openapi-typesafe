@@ -18,7 +18,11 @@ describe("resolveSchemaSource", () => {
     async (_, source) => {
       const resolved = await resolveSchemaSource(source(), CWD);
 
-      expect(resolved).toEqual({ kind: "url", url: new URL("api.yaml", CWD) });
+      expect(resolved).toEqual({
+        kind: "url",
+        url: new URL("api.yaml", CWD),
+        written: RELATIVE_FILE_URL,
+      });
     },
   );
 
@@ -59,6 +63,7 @@ describe("resolveSchemaSource", () => {
       expect(await resolveSchemaSource(location, CWD)).toEqual({
         kind: "url",
         url: new URL(location, CWD),
+        written: location,
       });
     },
   );
@@ -74,5 +79,21 @@ describe("resolveSchemaSource", () => {
       message: "The stream text http://[::1/x starts like a URL but is not a valid URL",
       details: { reason: "url", received: "stream", text: "http://[::1/x" },
     });
+  });
+});
+
+describe("resolveSchemaSource with the text a URL was written as", () => {
+  it("resolveSchemaSource with a URL and its text keeps the text", async () => {
+    const written = "http://example.com/my root.yaml";
+
+    const resolved = await resolveSchemaSource(new URL(written), CWD, written);
+
+    expect(resolved).toEqual({ kind: "url", url: new URL(written), written });
+  });
+
+  it("resolveSchemaSource with a URL alone has no text", async () => {
+    const resolved = await resolveSchemaSource(new URL("http://example.com/a.yaml"), CWD);
+
+    expect(resolved).not.toHaveProperty("written");
   });
 });

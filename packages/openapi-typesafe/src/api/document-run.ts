@@ -121,12 +121,14 @@ function warnAboutDocument(schema: OpenAPI3, fix: readonly OutputFix[], logger: 
 
 /**
  * Load the source through the ports, then build the run's context from the options. The fix names
- * are checked first, so a typo fails before the document is read.
+ * are checked first, so a typo fails before the document is read. `writtenSource` is the text a
+ * `URL` source was written as, when the caller knows it (the CLI), which names the root.
  */
 export async function createDocumentRun(
   source: SchemaSource,
   options: GeneratorOptions,
   ports: GeneratorPorts,
+  writtenSource?: string,
 ): Promise<DocumentRun> {
   if (!source) {
     throw sourceEmptyError("Empty schema. Please specify a URL, file path, or Redocly Config");
@@ -137,6 +139,7 @@ export async function createDocumentRun(
   const cwd = sourceCwdOf(options);
   const { document: schema, localFiles } = await ports.loader.load({
     source,
+    writtenSource,
     cwd,
     shouldLint: options.lint ?? true,
     refAccess: refAccessOf(options, cwd, ports.files),
