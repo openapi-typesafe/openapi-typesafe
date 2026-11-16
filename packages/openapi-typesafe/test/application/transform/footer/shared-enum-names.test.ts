@@ -23,6 +23,12 @@ function owned(name: string, extra: Partial<OwnedRequest["request"]> = {}): Owne
 
 const component = (name: string) => owned(name, { isComponentSchema: true });
 
+/** A request that only a `$ref` typed: the walk did not meet it. */
+function throughRef(item: OwnedRequest): OwnedRequest {
+  const { walkedAt: _walked, ...request } = item.request;
+  return { ...item, request };
+}
+
 function shared(key: string, ...requests: OwnedRequest[]): SharedEnum {
   return { key, requests };
 }
@@ -73,18 +79,14 @@ describe("BEST_SCHEMA_NAMES", () => {
 
   it("namesOf leaves out a schema only a $ref typed", () => {
     const names = BEST_SCHEMA_NAMES.namesOf([
-      shared(
-        "k",
-        owned("/Pet/state"),
-        owned("/A", { isComponentSchema: true, walkedAt: undefined }),
-      ),
+      shared("k", owned("/Pet/state"), throughRef(component("/A"))),
     ]);
 
     expect(names.get("k")).toBe("PetState");
   });
 
   it("namesOf gives an enum that only $refs typed its first request's name", () => {
-    const names = BEST_SCHEMA_NAMES.namesOf([shared("k", owned("/A", { walkedAt: undefined }))]);
+    const names = BEST_SCHEMA_NAMES.namesOf([shared("k", throughRef(owned("/A")))]);
 
     expect(names.get("k")).toBe("RunA");
   });
