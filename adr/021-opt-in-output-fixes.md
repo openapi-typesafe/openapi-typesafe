@@ -493,6 +493,56 @@ Changes from rc.13: the first case gets one `SettingsMode` again (rc.12's output
 gives the record value `SettingsMode_2 { a }`; with `dedupe-enum-names` the tie names follow the
 values in both orders (behind the fix, so the names may change).
 
+## Amendment (2026-11-15): one declaration per owner, requests narrowed to their values
+
+The requests of one owner share one enum (rule 1 above), but the footer wrote a declaration for
+each value set, with the members an earlier one had left out. TypeScript merges declarations of
+one name, so every request accepted the values of all of them: `T` with an own `mode: [a]` and an
+inline `allOf` item `mode: [a, b]` gave `enum TMode { a }` and `enum TMode { b }`, and the own
+`mode` accepted `TMode.b`. The output compiled, so the error was silent (fixed by default).
+
+The rules:
+
+1. One enum name has one declaration (`withEnumDeclarationsMerged`): the first, with the members
+   of every later declaration of the name appended in the order they were asked for. Members keep
+   their names and numbering as before (`withoutDeclaredMembers`). This covers the requests of one
+   owner and two owners joined at the end. No output declares an enum name twice.
+2. Each `--enum` reference carries the values its schema lists (`IrReferenceType.enumValues`, set
+   by the generator, gone from the output). The run's end (`withEnumReferencesNarrowed`) types a
+   reference whose values are fewer than its enum's by the union of their members (`TMode.a`,
+   `TMode.a | TMode.c`; the first member of a value names it, a quoted one is read by index), and
+   one with every value by the enum. The intersection with the `allOf` item stays satisfiable
+   (`TMode.a & TMode` is `TMode.a`); two requests without a common value intersect to `never`,
+   which is what the schema says. Values are known only at the end, so no order of typing
+   decides a type, and the narrowing reads the finished declarations, not run state.
+3. The values ride on the reference, so a callback that hands the reference back (in a union, or
+   spread) keeps the narrowing, and one that writes the reference's name as type text gets the
+   whole enum, which compiles. The deprecated TypeScript-node callbacks convert the type to a
+   compiler node and back, which drops the values: those references stay the whole enum (rc.13's
+   type). A name placeholder resolved at the end was rejected: callbacks see it, and a callback
+   result with an unknown name fails (`CALLBACK_RESULT_UNREADABLE`) or does not compile.
+4. `--enum-values` writes no arrays for TypeScript enums, `--dedupe-enums` shares an enum only
+   between requests of the same values, and `dedupe-enum-names` names those value sets, so all
+   three agree with one declaration; a request that shares another owner's enum is narrowed by
+   its own values the same way (`U: { mode: [a] }` sharing `TMode` gets `TMode.a`).
+5. Outside a run (the exported legacy transformers) there is no end: the references stay the
+   whole enum and the declarations are written as before.
+
+Changes from rc.13, only where one owner's requests list other values: one declaration instead
+of several, and the requests of fewer values typed by their members. Code that used a member a
+request does not list for that request no longer compiles; that is the fix.
+
+Measured: the compat corpus (1806 documents) declares no enum name twice, before or after, in
+nine option sets (the defaults, `--enum`, `--enum --enum-values`, `--dedupe-enums` with and
+without `dedupe-enum-names`, `discriminator-values`, `--alphabetize --root-types`, `all`,
+`--enum-values` alone): rc.13 dropped a later declaration whose members were all declared already,
+so its request silently got the whole enum. Output changes in 8 documents (the GitHub
+descriptions) with `--enum`, `--enum-values`, `discriminator-values`, `--alphabetize` and `all`,
+and only by narrowing: a webhook's `allOf` item that lists fewer `state` values than its
+`discussion` / `alert` gets their members (`…DiscussionState.open | …converting |
+…transferring`, not the enum with `locked`; 5 references per document, 1 in `github.ae`). The
+defaults, `--dedupe-enums` and `--enum-values` alone do not change; the changed output compiles.
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

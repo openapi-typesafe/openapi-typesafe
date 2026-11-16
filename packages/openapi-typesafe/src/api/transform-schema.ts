@@ -6,6 +6,7 @@ import {
   withEnumDeclarationsMerged,
   withEnumsRenamed,
 } from "../application/transform/document/enum-names-given-back.js";
+import { withEnumReferencesNarrowed } from "../application/transform/document/enum-narrowing.js";
 import { operationKeysWritten } from "../application/transform/document/operation-keys-written.js";
 import {
   templateKeyTypes,
@@ -116,15 +117,41 @@ function enumDeclarationOf(entry: FooterEntry): IrEnumDeclaration | null {
   return isIrDeclaration(entry) && entry.kind === "enum" ? entry : null;
 }
 
+function isEnumDeclaration(entry: IrEnumDeclaration | null): entry is IrEnumDeclaration {
+  return entry !== null;
+}
+
+/**
+ * The document with one declaration of each enum, and each enum reference typed by the values
+ * its schema lists (`withEnumReferencesNarrowed`): every value of an enum is known only now.
+ */
+function withWholeEnums(parts: TransformedDocument): TransformedDocument {
+  const footer = withEnumDeclarationsMerged(parts.footer, enumDeclarationOf);
+  const enums = footer.map(enumDeclarationOf).filter(isEnumDeclaration);
+  if (enums.length === 0) {
+    return parts;
+  }
+  const narrowed = <T extends IrDeclaration>(declarations: readonly T[]): T[] =>
+    withEnumReferencesNarrowed(declarations, enums);
+  return {
+    body: narrowed(parts.body),
+    footer: footer.map((entry) =>
+      isIrDeclaration(entry) ? (narrowed([entry])[0] ?? entry) : entry,
+    ),
+    closing: narrowed(parts.closing),
+  };
+}
+
 /**
  * The document with the enums renamed to their final names (`EnumNameClaims.finalNames`): one that
  * gave way to a name the output turned out not to need gets it back, and a number that another
  * location's name asked for moves on.
  */
 function withFinalEnumNames(
-  parts: TransformedDocument,
+  written: TransformedDocument,
   names: RunFooterNames,
 ): TransformedDocument {
+  const parts = withWholeEnums(written);
   const footer = parts.footer.filter(isIrDeclaration);
   const needed = namesTheOutputNeeds({ ...parts, footer });
   const renames = names.enums.finalNames(needed, names.owners.mergedOwners());

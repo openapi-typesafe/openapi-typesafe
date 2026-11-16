@@ -57,6 +57,13 @@ export interface IrReferenceType {
   readonly kind: "reference";
   readonly name: string;
   readonly typeArguments: readonly IrType[];
+  /**
+   * @internal A `--enum` enum's reference during a run: the values its schema lists. Requests of
+   * one owner share one enum, and the run's end narrows a reference of fewer values than its
+   * enum to their members (`Mode.a`). Set by the generator only, gone from the run's output;
+   * the printer ignores it.
+   */
+  readonly enumValues?: readonly (string | number)[];
 }
 
 export interface IrArrayType {
