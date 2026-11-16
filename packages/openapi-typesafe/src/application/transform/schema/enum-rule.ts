@@ -180,7 +180,7 @@ function walkedLocation(request: SchemaRequest): { walkedAt?: string } {
 
 /**
  * The reference to the enum of a request, for the values it lists. Other requests of the enum's
- * owner may add values to it, so the run's end narrows it to these (`withEnumReferencesNarrowed`).
+ * owner may add values to it, so the run's end narrows it to these (`enumReferenceNarrowing`).
  */
 function enumReference(footer: FooterDeclarations, request: EnumDeclarationRequest): IrType {
   return { ...irReference(footer.addEnum(request)), enumValues: request.values };

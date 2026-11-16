@@ -6,7 +6,7 @@ import {
   withEnumDeclarationsMerged,
   withEnumsRenamed,
 } from "../application/transform/document/enum-names-given-back.js";
-import { withEnumReferencesNarrowed } from "../application/transform/document/enum-narrowing.js";
+import { enumReferenceNarrowing } from "../application/transform/document/enum-narrowing.js";
 import { operationKeysWritten } from "../application/transform/document/operation-keys-written.js";
 import {
   templateKeyTypes,
@@ -123,7 +123,7 @@ function isEnumDeclaration(entry: IrEnumDeclaration | null): entry is IrEnumDecl
 
 /**
  * The document with one declaration of each enum, and each enum reference typed by the values
- * its schema lists (`withEnumReferencesNarrowed`): every value of an enum is known only now.
+ * its schema lists (`enumReferenceNarrowing`): every value of an enum is known only now.
  */
 function withWholeEnums(parts: TransformedDocument): TransformedDocument {
   const footer = withEnumDeclarationsMerged(parts.footer, enumDeclarationOf);
@@ -131,8 +131,7 @@ function withWholeEnums(parts: TransformedDocument): TransformedDocument {
   if (enums.length === 0) {
     return parts;
   }
-  const narrowed = <T extends IrDeclaration>(declarations: readonly T[]): T[] =>
-    withEnumReferencesNarrowed(declarations, enums);
+  const narrowed = enumReferenceNarrowing(enums);
   return {
     body: narrowed(parts.body),
     footer: footer.map((entry) =>
