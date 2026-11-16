@@ -510,3 +510,23 @@ The compat corpus (1806 documents, ten option sets, against rc.13) gives the sam
 the defaults, `--enum`, `--enum-values` and the naming sets, apart from the three documents of
 the amendment above. With `ref-pointers` (and `all`) 11 documents change, every changed line an
 `Exclude<…, undefined>` of point 3, and each compiles as before.
+
+## Amendment (2026-11-16): a pointer to a discriminator property of a member
+
+The discriminator scan gives a mapped member the injected literal of its value: `Dog` with
+`kind: { type: string }` and `Pet`'s mapping `dog: Dog` is typed `kind: "dog"`. The scan replaces
+the property schema in its copy of the document, so a `$ref` to `Dog/properties/kind` read the
+injected enum and was typed `Dog["kind"]`, the literal `"dog"`, though the property's schema
+admits every string (also upstream). The shape model saw only the node's own discriminator, so
+it did not know the property had been replaced.
+
+The rule: a pointer gets the type its target schema declares. The scan records each property it
+replaced (`Discriminators.replacedPropertyOf`), and `schemaRefType` types a pointer to a replaced
+property by the schema the document wrote, in place (`string`), as for the redeclared properties
+above. The injected literal belongs to the member's type, not to the property schema. A property
+whose own `enum` lists exactly the injected values is the same type either way and keeps its
+pointer (`Dog["kind"]`).
+
+Changes from rc.14: such pointers are typed by their schema (`string`, a wider enum's union)
+instead of the member's literal. Code that relied on the literal for such a pointer now sees the
+wider type, which is what the schema says. No other pointer changes.
