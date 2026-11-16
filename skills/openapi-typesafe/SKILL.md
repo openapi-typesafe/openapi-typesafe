@@ -193,7 +193,9 @@ type ListPetsQuery = operations["listPets"]["parameters"]["query"];
 From `openapi-typesafe-helpers`: `PathsWithMethod<paths, "get">` (paths that have a GET),
 `SuccessResponseJSON<Op>`, `ErrorResponseJSON<Op>`, `RequestBodyJSON<Op>`.
 From `openapi-typesafe-fetch`: `MethodResponse<typeof client, "get", "/pets">` (the `data` type of
-a call), `ClientPathsWithMethod<typeof client, "get">`.
+a call), `ClientPathsWithMethod<typeof client, "get">`. A wrapper generic in its path `P` declares
+`FetchResponse<PathOperation<paths, P, "get">, Init, MediaType>["data"]`, not `MethodResponse`
+(TS2322).
 
 ## 7. Testing code that calls the client
 

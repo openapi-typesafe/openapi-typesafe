@@ -87,6 +87,7 @@ export default function createClient(clientOptions) {
     requestInitExt = undefined,
     ...baseOptions
   } = { ...clientOptions };
+  baseHeaders = readHeadersOnce(baseHeaders);
   requestInitExt = supportsRequestInitExt() ? requestInitExt : undefined;
   baseUrl = removeTrailingSlash(baseUrl);
   const globalMiddlewares = [];
@@ -130,6 +131,7 @@ export default function createClient(clientOptions) {
 
     const pathSerializer = requestPathSerializer || globalPathSerializer || defaultPathSerializer;
     const headerParams = serializeHeaderParams(params.header);
+    const requestHeaders = readHeadersOnce(headers);
 
     const serializedBody =
       body === undefined
@@ -142,7 +144,7 @@ export default function createClient(clientOptions) {
             // content-type header. So we re-merge below, setting the content-type at the very
             // beginning to be overwritten. Lastly, based on the way headers work, it’s not a simple
             // “present-or-not” check because null intentionally un-sets headers.
-            mergeHeaders(baseHeaders, headers, headerParams),
+            mergeHeaders(baseHeaders, requestHeaders, headerParams),
           );
     const requestBody = isFormData(serializedBody)
       ? asFormDataOf(CustomFormData, serializedBody)
@@ -157,7 +159,7 @@ export default function createClient(clientOptions) {
             [CONTENT_TYPE]: "application/json",
           },
       baseHeaders,
-      headers,
+      requestHeaders,
       headerParams,
     );
     if (isFormData(requestBody)) {
@@ -1178,6 +1180,25 @@ export function createFinalURL(pathname, options) {
   const beforeFragment = finalURL.slice(0, fragmentStart);
   const joiner = beforeFragment.includes("?") ? "&" : "?";
   return `${beforeFragment}${joiner}${search}${finalURL.slice(fragmentStart)}`;
+}
+
+/**
+ * The headers `headers` as they can be read more than once. A one-shot iterable (an iterator,
+ * such as `map.entries()` or a generator) is its own iterator, so the first read used it up: the
+ * headers are merged once for the body serializer and once for the request, and a client's headers
+ * once per request, so a POST with a body sent none of them. It is read into pairs once; any other
+ * value is kept as it is, so an object the caller changes later is still read at each request.
+ */
+function readHeadersOnce(headers) {
+  if (
+    headers &&
+    typeof headers === "object" &&
+    typeof headers[Symbol.iterator] === "function" &&
+    headers[Symbol.iterator]() === headers
+  ) {
+    return [...headers];
+  }
+  return headers;
 }
 
 /**

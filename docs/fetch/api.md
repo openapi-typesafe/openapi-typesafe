@@ -143,7 +143,11 @@ operation's response type (`FetchResponse<paths[P]["head"], …>`) stay assignab
 `headers` can be set on the client, on a request, and as `params.header`; for the same name the
 request wins over the client, and `params.header` over both. They can be a `Headers` object, a
 list of `[name, value]` pairs or a record. A record value can be a string, a number, a boolean or
-an array of them (each item is appended), and `null` removes a header set at a lower level.
+an array of them (each item is appended), and `null` removes a header set at a lower level. An
+iterable of pairs that can be read only once (`map.entries()`, a generator) is read once, when the
+client is made or the request starts, so its headers go with every request of the client and with
+a request that has a body; a record or a `Headers` object is read at each request, so later
+changes to it count.
 
 `params.header` values are written in the `simple` style, the only style OpenAPI has for headers,
 as a `simple` path parameter but not percent-encoded:
@@ -627,7 +631,17 @@ constraint of the type parameter. A constraint that leaves the responses open
 value before it uses it; its callers still get the bodies of their operations. A constraint that
 names statuses (`{ responses: { 200: any } }`) gives them as it declares them. In such code, name
 the types of a result by `FetchResponse<…>["data"]` and `FetchResponse<…>["error"]`: they do not
-relate to `SuccessResponse` or `ErrorResponse` of a generic operation.
+relate to `SuccessResponse` or `ErrorResponse` of a generic operation. This holds for
+`MethodResponse` too: it is the `data` without `undefined` (`NonNullable`), which TypeScript cannot
+relate to the `data` of a path that is a type parameter, so a wrapper generic in its path `P` that
+declares `Promise<MethodResponse<typeof client, "get", P> | undefined>` fails with TS2322. Declare
+`Promise<FetchResponse<PathOperation<paths, P, "get">, Init, MediaType>["data"]>` there.
+
+A hand-written response map with only an index signature over statuses
+(`responses: Record<string, X>`, `{ [status: number]: X }`) means that any status may answer with
+`X`, so `X` types both `data` and `error`; `Record<string, any>` gives `any`, as
+`createClient<any>()` does, and `unknown` through a constraint. A generated map always names its
+statuses.
 
 `defaultBodySerializer` returns by the body type:
 
