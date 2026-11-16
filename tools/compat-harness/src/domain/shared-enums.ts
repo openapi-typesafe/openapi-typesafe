@@ -5,37 +5,7 @@
  * at it, which changes types of output that compiles.
  */
 
-/** The first line of an enum declaration, as both generators print it. */
-const ENUM_START_RE = /^export (?:const |declare )*enum ([\p{ID_Start}_$][\p{ID_Continue}$]*) \{/u;
-const ENUM_END = "}";
-
-/** An enum declaration: its name, its member lines and the line numbers it spans. */
-interface EnumBlock {
-  readonly name: string;
-  readonly members: string;
-  readonly firstLine: number;
-  readonly lastLine: number;
-}
-
-function enumBlockAt(lines: readonly string[], firstLine: number): EnumBlock | undefined {
-  const name = ENUM_START_RE.exec(lines[firstLine] ?? "")?.[1];
-  if (name === undefined) {
-    return undefined;
-  }
-  const end = lines.indexOf(ENUM_END, firstLine);
-  const lastLine = end === -1 ? lines.length - 1 : end;
-  const members = lines
-    .slice(firstLine + 1, lastLine)
-    .map((line) => line.trim())
-    .join("\n");
-  return { name, members, firstLine, lastLine };
-}
-
-/** The enum declarations of the text by name. */
-function enumBlocks(lines: readonly string[]): Map<string, EnumBlock> {
-  const blocks = lines.flatMap((_, index) => enumBlockAt(lines, index) ?? []);
-  return new Map(blocks.map((block) => [block.name, block]));
-}
+import { type EnumBlock, enumBlocks, wholeNameReference } from "./enum-declarations.ts";
 
 function withoutBlocks(lines: readonly string[], blocks: readonly EnumBlock[]): string[] {
   const dropped = new Set<number>();
@@ -47,8 +17,6 @@ function withoutBlocks(lines: readonly string[], blocks: readonly EnumBlock[]): 
   return lines.filter((_, index) => !dropped.has(index));
 }
 
-const escapeName = (name: string): string => name.replaceAll("$", "\\$");
-
 /** Whether `candidate` is `golden` with one reference to a golden enum switched to an added one. */
 function isEnumSwitched(
   golden: string,
@@ -57,10 +25,7 @@ function isEnumSwitched(
   added: readonly EnumBlock[],
 ): boolean {
   for (const [name, shared] of goldenEnums) {
-    const reference = new RegExp(
-      `(?<![\\p{ID_Continue}$])${escapeName(name)}(?![\\p{ID_Continue}$])`,
-      "u",
-    );
+    const reference = wholeNameReference(name);
     if (!reference.test(golden)) {
       continue;
     }

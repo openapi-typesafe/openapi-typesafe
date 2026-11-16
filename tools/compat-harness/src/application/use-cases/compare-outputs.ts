@@ -1,4 +1,5 @@
 import type { IntentionalDifference } from "../../domain/intentional-differences.ts";
+import { isIntersectedEnumUnified } from "../../domain/intersected-enums.ts";
 import { isEnumMergeFixed } from "../../domain/merged-enums.ts";
 import {
   type ComparisonResult,
@@ -48,7 +49,8 @@ type TypeVerdict = Pick<ComparisonResult, "status" | "differentTypeNames">;
 
 /**
  * The output files of one case, and whether the candidate stops schemas sharing an enum the way the
- * golden did: by merging two enums of one name, or by reusing an enum of other values.
+ * golden did: by merging two enums of one name, by reusing an enum of other values, or by
+ * intersecting two enums of one property to `never`.
  */
 interface CasePaths {
   readonly goldenPath: string;
@@ -58,8 +60,9 @@ interface CasePaths {
 
 /**
  * A changed golden type is a fix when the golden file does not compile, or lets schemas share an
- * enum that ours keeps apart (RC4 G8, RC5 G1), and ours is no worse. A file TypeScript stops on counts as
- * worse than any error count, so ours may stop only where it does.
+ * enum that ours keeps apart (RC4 G8, RC5 G1), or intersects two enums that ours unifies (ADR-021,
+ * 2026-11-16), and ours is no worse. A file TypeScript stops on counts as worse than any error
+ * count, so ours may stop only where it does.
  */
 async function changedTypesStatus(
   dependencies: CompareOutputsDependencies,
@@ -157,7 +160,8 @@ async function compareCase(
       ),
       isEnumSharingFixed:
         isEnumMergeFixed(goldenText, candidateText) ||
-        isSharedEnumSplit(texts.golden, texts.candidate),
+        isSharedEnumSplit(texts.golden, texts.candidate) ||
+        isIntersectedEnumUnified(texts.golden, texts.candidate),
     },
   );
   return { ...base, ...lines, ...verdict };
