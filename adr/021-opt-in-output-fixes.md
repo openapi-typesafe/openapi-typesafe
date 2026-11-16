@@ -586,6 +586,21 @@ that lists the values of only one request of another owner gets its own enum (`U
 `TMode.a`), and two owners of the same whole values share one enum named by the same rule as
 before.
 
+Measured: a property test (random schemas of own properties, inline `allOf` items, items, record
+values, pattern properties, tuples, nested properties, `$ref` bases, members and `null`, under
+`--enum`, `--enum-values`, `--dedupe-enums`, `dedupe-enum-names` and `all`; 2000 cases) finds no
+`never` where both sides list a value, no admitted value the schema forbids, and no enum name
+declared twice. The compat corpus (1820 documents, against rc.14): the defaults and `all` do not
+change. With `--dedupe-enums` (also with `dedupe-enum-names` and `all`) the 8 GitHub descriptions
+change: a webhook's `allOf` item `state` that shared another schema's enum
+(`{ state: DiscussionState } & { state: WebhookDiscussionCreatedDiscussionState }`, `never`) now
+gets its owner's members (`DiscussionState.open | …`); with `all`, openai.com's members
+`FunctionToolCall` and `FunctionToolCallOutput` get one enum for their `type`. With `--enum`,
+sendgrid.com's `events` items intersect `bounce_type` of `bounced | blocked | expired` with one of
+`soft | hard`: one enum and both narrowed (`never` as the document says, as without `--enum`).
+Every changed output compiles as before. Speed on the Microsoft Graph descriptions is unchanged
+(within the noise of two runs), and `dedupe-enum-names` no longer types the document twice.
+
 ## Amendment (2026-11-16): an inherited enum narrowed by an `allOf` item
 
 `Cat: allOf: [{ $ref: Pet }, { properties: { mode: { enum: [a] } } }]` with `Pet.mode: [a, b, c]`
@@ -618,6 +633,15 @@ The rules:
 
 Changes from rc.14, only with `--enum`: in the case above the type is satisfiable
 (`PetMode.a`, not `CatMode`), and a document that adds values to an inherited enum warns.
+
+Measured: the compat corpus with `--enum` and `--enum --enum-values` changes 9 documents
+(influxdata.com, ix-api.net, just-eat.co.uk, microcks.local, motaword.com, two nexmo.com,
+sendgrid.com, cloudflare.com), each by narrowing: a member such as `HTTPNotificationEndpoint`
+that lists its `type` of its base's enum gets `NotificationEndpointType.http` instead of an enum
+of its own, which made the member `never`. The changed outputs compile as before (cloudflare.com
+keeps its 4 errors of rc.14). Two `$ref` items whose schemas have other TypeScript enums at one
+place still intersect to `never` (rc.14 too): that is a conflict between the bases, not one the
+inline item can narrow.
 
 ## Review trigger
 

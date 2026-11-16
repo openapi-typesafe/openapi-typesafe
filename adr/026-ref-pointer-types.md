@@ -530,3 +530,6 @@ pointer (`Dog["kind"]`).
 Changes from rc.14: such pointers are typed by their schema (`string`, a wider enum's union)
 instead of the member's literal. Code that relied on the literal for such a pointer now sees the
 wider type, which is what the schema says. No other pointer changes.
+
+Measured: the compat corpus (1820 documents, the defaults and `all`) has no such pointer; its
+output does not change.
