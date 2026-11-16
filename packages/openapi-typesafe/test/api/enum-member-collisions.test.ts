@@ -72,27 +72,37 @@ describe("--enum declarations of one name", () => {
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
-  it("openapiTS adds only the new members to a later declaration of the name", async () => {
+  it("openapiTS declares one enum with the values of every request of its owner", async () => {
     const output = await generate(documentWith(issueWith(["open", "closed"], ["closed", "draft"])));
 
-    expect(output).toContain('export enum IssueState {\n    open = "open",\n    closed = "closed"\n}');
-    expect(output).toContain('export enum IssueState {\n    draft = "draft"\n}');
+    expect(output).toContain(
+      'export enum IssueState {\n    open = "open",\n    closed = "closed",\n    draft = "draft"\n}',
+    );
+    expect(output.match(/export enum IssueState /g)).toHaveLength(1);
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
-  it("openapiTS numbers a member whose name an earlier declaration gives another value", async () => {
+  it("openapiTS types a request of fewer values than its enum by its members", async () => {
+    const output = await generate(documentWith(issueWith(["open", "closed"], ["closed", "draft"])));
+
+    expect(output).toContain("state?: IssueState.open | IssueState.closed;");
+    expect(output).toContain("state?: IssueState.closed | IssueState.draft;");
+  });
+
+  it("openapiTS numbers a member whose name an earlier request gives another value", async () => {
     const output = await generate(documentWith(issueWith(["a-b"], ["a b"])));
 
-    expect(output).toContain('export enum IssueState {\n    a_b_2 = "a b"\n}');
+    expect(output).toContain('export enum IssueState {\n    a_b = "a-b",\n    a_b_2 = "a b"\n}');
+    expect(output).toContain("state?: IssueState.a_b_2;");
     expect(typeErrorsOf(output)).toEqual([]);
   });
 
-  it("openapiTS keeps later declarations whose members do not repeat", async () => {
+  it("openapiTS types requests of no common value by their own members", async () => {
     const output = await generate(documentWith(issueWith(["open"], ["closed"])));
 
-    expect(output).toContain(
-      'export enum IssueState {\n    open = "open"\n}\nexport enum IssueState {\n    closed = "closed"\n}',
-    );
+    expect(output).toContain('export enum IssueState {\n    open = "open",\n    closed = "closed"\n}');
+    expect(output).toContain("state?: IssueState.open;");
+    expect(output).toContain("state?: IssueState.closed;");
   });
 });
 

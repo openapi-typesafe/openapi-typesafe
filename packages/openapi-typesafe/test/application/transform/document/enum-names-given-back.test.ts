@@ -104,7 +104,7 @@ describe("withEnumDeclarationsMerged", () => {
   });
   const enumOf = (entry: IrDeclaration) => (entry.kind === "enum" ? entry : null);
 
-  it("withEnumDeclarationsMerged drops the members a declaration of the name has already", () => {
+  it("withEnumDeclarationsMerged adds the new members to the first declaration of the name", () => {
     const declarations = [
       modeOf(["a", "a"]),
       aliasOf("X", irReference("Y")),
@@ -113,20 +113,24 @@ describe("withEnumDeclarationsMerged", () => {
 
     const merged = withEnumDeclarationsMerged(declarations, enumOf);
 
-    expect(merged).toEqual([
-      modeOf(["a", "a"]),
-      aliasOf("X", irReference("Y")),
-      modeOf(["b", "b"]),
-    ]);
+    expect(merged).toEqual([modeOf(["a", "a"], ["b", "b"]), aliasOf("X", irReference("Y"))]);
   });
 
   it("withEnumDeclarationsMerged drops the members of every earlier declaration of the name", () => {
     const merged = withEnumDeclarationsMerged(
-      [modeOf(["a", "a"]), modeOf(["b", "b"]), modeOf(["a", "a"])],
+      [modeOf(["a", "a"]), modeOf(["b", "b"]), modeOf(["a", "a"], ["c", "c"])],
       enumOf,
     );
 
-    expect(merged).toEqual([modeOf(["a", "a"]), modeOf(["b", "b"])]);
+    expect(merged).toEqual([modeOf(["a", "a"], ["b", "b"], ["c", "c"])]);
+  });
+
+  it("withEnumDeclarationsMerged keeps the first declaration's comments", () => {
+    const first = { ...modeOf(["a", "a"]), comments: [{ kind: "line" as const, text: "first" }] };
+
+    const merged = withEnumDeclarationsMerged([first, modeOf(["b", "b"])], enumOf);
+
+    expect(merged).toEqual([{ ...modeOf(["a", "a"], ["b", "b"]), comments: first.comments }]);
   });
 
   it("withEnumDeclarationsMerged drops a later declaration left without members", () => {
@@ -138,7 +142,7 @@ describe("withEnumDeclarationsMerged", () => {
   it("withEnumDeclarationsMerged numbers a member whose name another value has", () => {
     const merged = withEnumDeclarationsMerged([modeOf(["a", "a"]), modeOf(["a", "A"])], enumOf);
 
-    expect(merged).toEqual([modeOf(["a", "a"]), modeOf(["a_2", "A"])]);
+    expect(merged).toEqual([modeOf(["a", "a"], ["a_2", "A"])]);
   });
 
   it("withEnumDeclarationsMerged keeps the first declaration of an empty enum", () => {

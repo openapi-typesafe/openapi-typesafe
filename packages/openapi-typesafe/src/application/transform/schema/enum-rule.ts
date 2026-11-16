@@ -3,12 +3,12 @@ import {
   irKeyword,
   irObject,
   irReference,
-  irString,
 } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import { parseRefPointer } from "../../../domain/openapi/json-pointer.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { FIX } from "../../../domain/output-fixes.js";
+import { enumMemberType } from "../enum-member-type.js";
 import { literalType } from "../literal-type.js";
 import { refType } from "../ref-type.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
@@ -17,6 +17,7 @@ import type {
   DiscriminatorEnumParent,
   EnumDeclarationRequest,
   EnumMemberMetadata,
+  FooterDeclarations,
   SchemaOptions,
 } from "./schema-context.js";
 import type { SchemaRequest, SchemaRule } from "./schema-rule.js";
@@ -128,13 +129,6 @@ function enumRequest(
   };
 }
 
-/** One member's type; a quoted member cannot follow a dot, `typeof E["+"]` is the same type. */
-function enumMemberType(enumName: string, member: string): IrType {
-  return member.startsWith('"')
-    ? irIndexedAccess(irReference(`typeof ${enumName}`), irString(JSON.parse(member), "escaped"))
-    : irReference(`${enumName}.${member}`);
-}
-
 /**
  * The `discriminator-values` fix: a member's discriminator value is typed with members of
  * the owner's enum (`PetType.Cat`), so the member is one of the owner's type (#1700). `key` is the
@@ -184,6 +178,14 @@ function walkedLocation(request: SchemaRequest): { walkedAt?: string } {
   return request.isThroughRef ? {} : { walkedAt: request.location.path ?? "" };
 }
 
+/**
+ * The reference to the enum of a request, for the values it lists. Other requests of the enum's
+ * owner may add values to it, so the run's end narrows it to these (`withEnumReferencesNarrowed`).
+ */
+function enumReference(footer: FooterDeclarations, request: EnumDeclarationRequest): IrType {
+  return { ...irReference(footer.addEnum(request)), enumValues: request.values };
+}
+
 function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
   const { options, footer } = request.context;
   // `isTsEnum` admits only strings and numbers, and the fix leaves `null` out of the members.
@@ -196,7 +198,7 @@ function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
   };
   const type =
     ownerEnumMembersType(schema, values, request) ??
-    withOtherStrings(irReference(footer.addEnum({ ...declaration, ...element })), schema);
+    withOtherStrings(enumReference(footer, { ...declaration, ...element }), schema);
   return options.fixes.has(FIX.NULLABLE_ENUMS) && isNullAllowed(schema)
     ? unionOf([type, irKeyword("null")])
     : type;
