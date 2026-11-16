@@ -345,3 +345,168 @@ that compiled keeps its type.
 Measured: the pointer fuzz (400 documents, six option sets) fails on 1 to 2 fewer documents per
 set, and on no document that compiled before. The compat corpus (1806 documents, nine option
 sets) gives the same output.
+
+## Amendment (2026-11-15): record unions, tuple rest items, empty enums
+
+Opaque means "the walk cannot tell", and `originalIndexFails` keeps the original pointer there,
+as ADR-021 asks of output that may compile. Three shapes were opaque although the walk can tell:
+
+1. **A union of records.** `unionMember` read an `anyOf` / `oneOf` whose typed members are
+   several records as opaque, so `Mixed/oneOf/1/additionalProperties` kept
+   `Mixed["additionalProperties"]`, which reads the union of every member's value type. Several
+   distinct typed members with an index member are now `isOtherType`: the corrected type is the
+   one variant's value, written inline. One record (`Numbers/additionalProperties`) keeps its
+   original.
+2. **The rest items of a tuple.** `[number]` of a `prefixItems` tuple is the union of its elements
+   and its rest items, so a `$ref` to `Tuple/items` (and deeper) did not name the target's type.
+   Where the owner has tuple elements (`prefixItems`, or an `items` array) the `items` step stops
+   and the target is typed in place. A plain array keeps `[number]`.
+3. **Empty and null-only enums.** An `enum: []` is typed `never` (or an empty `--enum` enum), an
+   `enum: [null]` is `null`; neither has members. Their keys are missing now, and the walk does
+   not follow `$defs` through a `never` member, so such pointers are typed in place.
+
+4. **Nullable owners.** A nullable schema (`nullable: true`, a `type` list with `null`) that is no
+   object or array schema was opaque, as its type might have been `unknown`. With
+   `strictNullChecks` no key of `T | null` compiles whatever `T` is, and `unknown` has no keys
+   either, so every key of a nullable owner is missing: a `$ref` through a nullable `allOf`, a
+   nullable `anyOf`, a nullable schema without a type or a `type: [string, "null"]` is typed in
+   place. No option drops the `null`.
+5. **Positions of an array.** `X[]["0"]` is an item, as `[number]` reads it; it was opaque, so
+   `Pet/allOf/0/additionalProperties/items` (one `allOf` item whose index signature is an array)
+   kept an original that reads a key of the enum item. A position of a tuple stays opaque: with
+   `--array-length` one past its end has no element.
+6. **Depth.** The walk stopped after eight levels of `allOf` / `anyOf` / `oneOf` and read deeper
+   shapes as opaque, so a `$ref` through ten nested `allOf` items kept an original that does not
+   compile. The limit only guarded against `$ref` cycles; the walk now keeps the schemas it is
+   reading and reads one met again as opaque, so finite nesting is read to any depth.
+
+What stays opaque, and why the original compiles there: a cycle of `$ref`s (the original reads
+the cycle as TypeScript does: `NonNullable<Ring["next"]>["name"]`); the discriminator's own key
+(the discriminator scan may change it); built-in members of literals and arrays (`length`) and
+keys of object or array literals, which TypeScript reads as members of their type; a property
+that several parts of an intersection declare (the original reads their intersection: the
+target's type where the parts agree, fewer values where they do not, as an own enum next to a
+`oneOf` variant's enum of the same name; telling these apart needs the type proof the walk does
+not run); a position of a tuple; and `Blob` bodies, whose members are the DOM library's.
+`test/api/ref-pointer-opaque-shapes.test.ts` shows for each that the default output compiles.
+Each is a type the generator writes after the walk, so keeping the original is the safe choice.
+
+Changes from rc.13: these pointers, whose original reads another type or does not compile, get
+their target's type. Measured: the pointer fuzz (400 documents, five option sets) fails on no
+document that compiled before; with the defaults and with `--enum` 20 of 264 error messages, with
+`ref-pointers` 15 of 113, are gone.
+The compat corpus (1806 documents, ten option sets, against rc.13) gives the same
+pointers in every document.
+
+## Amendment (2026-11-15): redeclared properties and pointers checked against the written types
+
+Two gaps were left after the amendments above. The opaque list above kept the original for a
+property that several parts of an intersection declare; and the walk reads only the shapes it
+models, so owners outside them (an object with a `oneOf` of strings, which is typed
+`string | { … }`; `anyOf` next to `oneOf`; a `type` list; a `oneOf` of `null`) kept originals that
+do not compile (TS2339, TS2536).
+
+1. **Redeclared keys** (`redeclared-key.ts`). A property of a composed owner that one of its
+   `allOf` / `anyOf` / `oneOf` parts declares too is read by the original through the join of
+   both declarations: `"a" | "c"` next to a variant's `"a"` reads `"a"`, an object next to an
+   empty object reads more keys or none. The key is now missing, both in the typed walk and in
+   the original's steps, so the pointer is typed in place. It is not missing where the part reads
+   the same type: the part's member is absent, an index signature or `never`; or its schema is the
+   same JSON; or both are primitives (`string`, `number`, `integer`, `boolean`) of one `type`
+   whose part schema only has notes (`description`, `format`, `maxLength`, `pattern`, …), which
+   do not change the type. A part the walk cannot read counts as redeclaring: keeping the original
+   there would rest on a guess. This replaces the "property that several parts of an intersection
+   declare" item of the opaque list above.
+2. **Checked pointers** (`ref-pointer-passes.ts`, `pointer-checks.ts`). Where the document has a
+   schema `$ref` with segments past its component, the generator first runs a scratch pass with
+   the pointers as the rules above write them, then evaluates each written pointer type with the
+   footer's `TypeEvaluator` (ADR-027) over that pass's declarations. A type the evaluator reads as
+   `missing` surely does not compile; in the real pass those `$ref`s are typed in place. A type it
+   cannot read (opaque) keeps its pointer, as ADR-021 asks of output that may compile. One scratch
+   pass is enough: typing a `$ref` in place makes no other pointer missing, since a pointer reads
+   the owner's type, which does not change. A document without such `$ref`s runs one pass, as
+   before. The check runs with and without `ref-pointers`, since a pointer that does not compile
+   is wrong output either way.
+3. **The evaluator outside `FlattenedDeepRequired`.** The check reads the types as TypeScript
+   does, so the evaluator's shallow mode now follows its rules: nested intersections are one list
+   of parts; parts of different primitives (`string & number`, `"a" & number`) are `never`; an
+   intersection with a nullish part is nullish for `NonNullable`; an optional property reads
+   `T | undefined`, so a key through it is missing; `Omit` of a union with `null` is `{}`; and
+   `WithRequired<T, "k">` reads `k` as `NonNullable<T["k"]>`. A non-literal key or a non-object
+   `T` leaves `WithRequired` unchanged.
+4. Two cases moved with the check: a `$ref` through a media type named `content` (the header
+   parameter test) is now typed in place, as its original did not compile; and the
+   discriminator's own key next to a `oneOf` of strings gets `string` in place. A
+   discriminator with only a mapping keeps its pointer.
+
+Changes from rc.13: pointers whose original reads fewer values or does not compile get their
+target's type, by default and with `--fix ref-pointers` / `--fix all`. A pointer that compiled and
+read its target keeps its type.
+
+Measured: the pointer fuzz (400 documents, five option sets) now fails on no document in any
+set, against 74 (defaults), 74 (`--enum`), 44 (`ref-pointers`), 12 (`all`) and 45 (OpenAPI 3.0)
+with rc.13; its pointers that read `never` or another type than the target drop by 23 to 32
+percent. The two-declaration fuzz (600 documents) and the enum fuzz compile with no error.
+The compat corpus (1806 documents, ten option sets, against rc.13) changes three documents.
+gerermesaffaires (1 error) and sinao (12 errors) now compile with `--enum-values`. With
+`--enum-values`, apple sirikit-cloud-media writes its `class` and `method` arrays with their
+literal types instead of pointers: `Intent`, their `allOf` part, declares `class` as its
+discriminator, which the walk reads as opaque. Both types compile and read the same values.
+
+## Amendment (2026-11-15): one pass where pointers compile, `never` reads, optional targets
+
+1. **No extra pass where every pointer compiles.** The amendment above ran a scratch pass for
+   every document with a `$ref` past a component, which cost 12 to 30 percent of the generation
+   time of such documents (codat accounting 80 → 104 ms, linode 87 → 112 ms, rebilly
+   167 → 200 ms). The run's own pass now records the pointer types it writes, with its messages
+   held (`HeldMessages`). Where the evaluator finds nothing to type in place, that pass is the
+   output: its footer stays on the context and its messages are written. Otherwise its footer
+   entries are dropped and the pass runs again with those `$ref`s in place. A context that holds
+   a footer of an earlier call keeps the scratch pass, since its own pass would change that
+   footer before it could be dropped. A `$ref` whose target would be written inside itself
+   (`hasInlineCycle`) is not recorded: it keeps the original type in any pass, so it needs none.
+   Measured on the corpus: no document runs a second pass, with the defaults and with
+   `--fix all`, and the whole corpus takes the same time as with rc.13 (62.4 s against 63.6 s
+   with the defaults, 64.3 s against 61.9 s with `--fix all`, within the noise of one run). The
+   largest documents (Microsoft Graph, Cloudflare, GitHub, Stripe) have no such `$ref` and run
+   one pass as before.
+2. **A pointer type that has no value** (`readsNever`: every member `never`, or an intersection
+   TypeScript reduces to `never`, also one with a `never` part) is typed in place too, as the
+   `Record<string, never>` rule of
+   the amendments above: such a type compiles but admits no value. The owners are contradictory
+   compositions, such as `type: [object]` with `allOf: [{ type: [null] }]`, whose type is
+   `X & null`. A target without a value either (a `false` schema) keeps the type written before.
+3. **Optional targets with `ref-pointers`.** `Owner["key"]` of an optional property reads
+   `T | undefined`, which TypeScript adds to every optional property, though the target's own
+   type is `T`. The output compiles and admits every value of the target, and upstream writes
+   this type for every `$ref` to an optional property, so the default keeps it (ADR-021). With
+   the `ref-pointers` fix the type is `Exclude<Owner["key"], undefined>`
+   (`withoutOptionalUndefined`); a schema type has no `undefined` of its own, so that is the
+   target's type. A nullable property keeps its `null`. The evaluator reads
+   `Exclude<T, undefined>`, so the checks above see through it.
+4. **What stays.** A `$ref` whose target is written inside itself keeps an original that may not
+   compile: an inline type cannot name itself, so only a named declaration could hold it. The
+   corpus has one, codat accounting's
+   `#/components/schemas/PushOption/definitions/pushOptionProperty`, used inside that same
+   definition; the minimal case is a schema `Tree` with
+   `definitions: { item: { properties: { children: { additionalProperties:
+   { $ref: "#/components/schemas/Tree/definitions/item" } } } } }` and a property that
+   `$ref`s the item. It is the same output as rc.13 and upstream.
+
+The pointer fuzz (400 documents per option set) checks each pointer type against a copy of its
+target (`Same<R, D>`). Mismatches with the defaults went from 743 to 519, with `ref-pointers`
+from 664 to 5, with `all` from 820 to 8. What is left falls into these classes:
+
+- An optional property's `| undefined` (point 3): 513 with the defaults, 473 with `--enum`, 506
+  with OpenAPI 3.0; none with `ref-pointers` or `all`.
+- With `--enum`, 159 where the copy declares a TypeScript enum of its own (`Dir0Owner`), which
+  is not assignable to the target's enum of the same values (`ContactOwner`). This is an
+  artefact of the copy, not of the pointer.
+- At most 8 per set through contradictory compositions three levels deep, such as a nullable
+  `type: [null, object]` owner whose `allOf` and `oneOf` parts are `null` or `false`. The
+  evaluator reads them as opaque, so the pointer stays (ADR-021: it may compile and be right).
+
+The compat corpus (1806 documents, ten option sets, against rc.13) gives the same output with
+the defaults, `--enum`, `--enum-values` and the naming sets, apart from the three documents of
+the amendment above. With `ref-pointers` (and `all`) 11 documents change, every changed line an
+`Exclude<…, undefined>` of point 3, and each compiles as before.

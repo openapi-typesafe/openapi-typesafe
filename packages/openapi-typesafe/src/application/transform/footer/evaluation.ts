@@ -1,4 +1,4 @@
-import type { IrPropertyName, IrTupleType, IrType } from "../../../domain/ir/nodes.js";
+import type { IrArrayType, IrPropertyName, IrTupleType, IrType } from "../../../domain/ir/nodes.js";
 
 /** The values the evaluator of the `--enum-values` check works with (ADR-027). */
 
@@ -15,6 +15,7 @@ export const MISSING: Evaluation = { kind: "missing" };
 export const OPAQUE: Evaluation = { kind: "opaque" };
 
 export const NEVER: IrType = { kind: "keyword", keyword: "never" };
+export const UNKNOWN: IrType = { kind: "keyword", keyword: "unknown" };
 
 export function unionType(types: readonly IrType[]): IrType {
   if (types.length === 1) {
@@ -41,7 +42,7 @@ const UNDEFINED: IrType = { kind: "keyword", keyword: "undefined" };
  * only through `[number]`, so inside it this is the same type. Null for a rest element whose type
  * is not an array type.
  */
-export function tupleAsArray(tuple: IrTupleType): IrType | null {
+export function tupleAsArray(tuple: IrTupleType): IrArrayType | null {
   const items: IrType[] = [];
   for (const element of tuple.elements) {
     if (element.isRest && element.type.kind !== "array") {

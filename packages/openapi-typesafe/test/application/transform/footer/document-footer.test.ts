@@ -4,6 +4,7 @@ import {
   RunFooter,
 } from "../../../../src/application/transform/footer/document-footer.js";
 import { EnumNameClaims } from "../../../../src/application/transform/footer/enum-name-claims.js";
+import { EnumOwners } from "../../../../src/application/transform/footer/enum-owners.js";
 import { EnumValuesNames } from "../../../../src/application/transform/footer/enum-values-names.js";
 import { OperationKeys } from "../../../../src/application/transform/footer/operation-keys.js";
 import { FIRST_SCHEMA_NAMES } from "../../../../src/application/transform/footer/shared-enum-names.js";
@@ -206,6 +207,7 @@ describe("RunFooter", () => {
   it("addEnum with --dedupe-enums names tuple elements by position when a later one came first", () => {
     const names = {
       enums: new EnumNameClaims(),
+      owners: new EnumOwners(),
       enumValues: new EnumValuesNames(),
       operations: new OperationKeys(),
     };
@@ -222,6 +224,7 @@ describe("RunFooter", () => {
   it("addEnum with --dedupe-enums ranks an enum at its earliest place in the document", () => {
     const names = {
       enums: new EnumNameClaims(),
+      owners: new EnumOwners(),
       enumValues: new EnumValuesNames(),
       operations: new OperationKeys(),
     };
@@ -249,6 +252,7 @@ describe("RunFooter", () => {
   it("addEnum with --dedupe-enums ranks a shared enum where its own location asks the name", () => {
     const names = {
       enums: new EnumNameClaims(),
+      owners: new EnumOwners(),
       enumValues: new EnumValuesNames(),
       operations: new OperationKeys(),
     };
@@ -285,6 +289,7 @@ describe("RunFooter", () => {
   it("addEnum with --dedupe-enums ranks an enum a $ref declared where the walk meets it", () => {
     const names = {
       enums: new EnumNameClaims(),
+      owners: new EnumOwners(),
       enumValues: new EnumValuesNames(),
       operations: new OperationKeys(),
     };
@@ -309,6 +314,7 @@ describe("RunFooter", () => {
     const sink = new InMemorySink();
     const names = {
       enums: new EnumNameClaims(new Set(["Record"])),
+      owners: new EnumOwners(),
       enumValues: new EnumValuesNames(),
       operations: new OperationKeys(),
     };
@@ -371,6 +377,7 @@ describe("RunFooter", () => {
   it("addEnumValues names the arrays of tuple elements by position at the end", () => {
     const names = {
       enums: new EnumNameClaims(),
+      owners: new EnumOwners(),
       enumValues: new EnumValuesNames(),
       operations: new OperationKeys(),
     };

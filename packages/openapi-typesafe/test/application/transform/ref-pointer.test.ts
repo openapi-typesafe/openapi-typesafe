@@ -145,7 +145,29 @@ describe("generatedMember", () => {
     expect(member("Tagged", "kind")).toBe("opaque");
     expect(member("Enum", "length")).toBe("opaque");
     expect(member("Item", "toString")).toBe("opaque");
-    expect(member("List", "0")).toBe("opaque");
+    expect(member("List", "length")).toBe("opaque");
+  });
+
+  it("generatedMember reads a position of an array as an item and of a tuple as opaque", () => {
+    const array = (node: unknown, key: string) =>
+      generatedMember(located(node), key, OPTIONS, REFS);
+    const items = { type: "string" };
+
+    expect(member("List", "0")).toBe("index");
+    expect(array({ type: "array", items }, "0")).toEqual({
+      kind: "index",
+      node: items,
+      location: undefined,
+      isOtherType: false,
+    });
+    expect(array({ type: "array" }, "1")).toMatchObject({ kind: "index", node: undefined });
+    expect(array({ type: "array", items: true }, "1")).toMatchObject({ kind: "index" });
+    expect(array({ type: "array", items: false }, "0").kind).toBe("opaque");
+    expect(array({ type: "array", prefixItems: [items] }, "0").kind).toBe("opaque");
+    expect(array({ type: "array", items: [items] }, "0").kind).toBe("opaque");
+    expect(array({ type: "array", prefixItems: [], items }, "0").kind).toBe("index");
+    expect(array({ type: "array", items }, "sort").kind).toBe("opaque");
+    expect(array({ type: "array", items }, "nope").kind).toBe("missing");
   });
 
   it("generatedMember reads a const or enum as the literal type the generator writes", () => {
@@ -175,6 +197,21 @@ describe("generatedMember", () => {
     const node = { $ref: "#/components/schemas/Ring" };
 
     expect(generatedMember(located(node), "schema", OPTIONS, ring).kind).toBe("opaque");
+  });
+
+  it("generatedMember with a cycle through allOf is opaque, and reads deep nesting", () => {
+    const self = resolverOf({
+      components: {
+        schemas: { Self: { allOf: [{ $ref: "#/components/schemas/Self" }] } },
+      },
+    });
+    const node = { $ref: "#/components/schemas/Self" };
+    const nesting = (depth: number): unknown =>
+      depth === 0 ? { type: "object", properties: { a: {} } } : { allOf: [nesting(depth - 1)] };
+
+    expect(generatedMember(located(node), "a", OPTIONS, self).kind).toBe("opaque");
+    expect(generatedMember(located(nesting(12)), "a", OPTIONS, REFS).kind).toBe("property");
+    expect(generatedMember(located(nesting(12)), "b", OPTIONS, REFS).kind).toBe("missing");
   });
 
   it("generatedMember reads a schema with not by its other keywords", () => {
@@ -304,11 +341,13 @@ describe("edge shapes", () => {
     expect(fails("#/components/schemas/Defaults/properties/size/properties/n")).toBe(false);
   });
 
-  it("generatedMember reads allOf with own properties and a nullable scalar", () => {
+  it("generatedMember reads allOf with own properties and misses every key of a nullable scalar", () => {
     expect(member("Own", "id")).toBe("property");
     expect(member("Own", "time")).toBe("property");
     expect(member("Own", "other")).toBe("missing");
-    expect(member("Text", "length")).toBe("opaque");
+    // `(string | null)["length"]` fails: `null` has no members.
+    expect(member("Text", "length")).toBe("missing");
+    expect(member("Text", "toString")).toBe("missing");
     expect(member("Str", "schema")).toBe("missing");
     expect(member("Str", "length")).toBe("opaque");
     expect(member("Bin", "schema")).toBe("missing");

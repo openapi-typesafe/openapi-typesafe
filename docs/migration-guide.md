@@ -216,7 +216,8 @@ These are off by default, so the output does not change until you turn one on.
   `prefix-items` makes a `prefixItems` tuple open, with the elements after `minItems` optional.
   `read-write-refs` makes a property `readonly` when the schema it references is `readOnly`.
   `ref-pointers` gives a `$ref` into another schema's keywords the type it points at also where
-  an index signature made the original compile as `unknown`.
+  an index signature made the original compile as `unknown`, and leaves out the `undefined`
+  that a `$ref` to an optional property adds.
   `parameter-header-content` types a parameter or a header with `content` (a JSON query
   parameter) by the schema of its media type, instead of `string` or a map of media types.
   `ref-siblings` applies the keywords next to a `$ref` in OpenAPI 3.1 and 3.2 documents

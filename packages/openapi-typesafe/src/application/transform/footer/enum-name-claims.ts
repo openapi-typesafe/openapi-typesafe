@@ -2,6 +2,42 @@ import { freeNumberedName } from "../numbered-names.js";
 import { type EnumNameClaim, finalEnumNames } from "./final-enum-names.js";
 import { type ClaimPlace, earlierRank, WalkRanks } from "./walk-ranks.js";
 
+/** A claim with the owner that made it. */
+interface OwnedClaim extends EnumNameClaim {
+  readonly owner: string;
+}
+
+/** The claims with each claim of an owner that joins another (`EnumOwners`) folded into it. */
+interface FoldedClaims {
+  readonly claims: readonly EnumNameClaim[];
+  /** The name each folded claim was given, to the name its owner's claim was given. */
+  readonly aliases: ReadonlyMap<string, string>;
+}
+
+/**
+ * Folds the claim of an owner that joins another owner of its name into that owner's claim: one
+ * enum, ranked where the walk met either first, so the order of the two changes no name.
+ */
+function foldedClaims(
+  claims: ReadonlyMap<string, OwnedClaim>,
+  joins: ReadonlyMap<string, string>,
+): FoldedClaims {
+  const kept = new Map(claims);
+  const aliases = new Map<string, string>();
+  for (const [key, claim] of claims) {
+    const joined = joins.get(claim.owner);
+    const targetKey = JSON.stringify([claim.name, joined]);
+    const target = joined === undefined ? undefined : kept.get(targetKey);
+    if (target !== undefined) {
+      kept.delete(key);
+      const order = Math.min(target.order, claim.order);
+      kept.set(targetKey, { ...target, order, rank: earlierRank(target.rank, claim.rank) });
+      aliases.set(claim.given, target.given);
+    }
+  }
+  return { claims: [...kept.values()], aliases };
+}
+
 /**
  * The names of the `--enum` declarations of one run, unique across the enums and apart from the
  * names the rest of the output may need.
@@ -30,7 +66,7 @@ export class EnumNameClaims {
   /** The first owner of each name an enum asked for. */
   private readonly owners = new Map<string, string>();
   /** The claim of each owner, by name asked for and owner. */
-  private readonly claims = new Map<string, EnumNameClaim>();
+  private readonly claims = new Map<string, OwnedClaim>();
   /** Every name given, and every name the output may need. */
   private readonly taken: Set<string>;
   /** Every name a number skips: the names taken, and the names of the component enums. */
@@ -69,21 +105,30 @@ export class EnumNameClaims {
     const given = isFree ? name : freeNumberedName(name, this.unavailable);
     this.taken.add(given);
     this.unavailable.add(given);
-    this.claims.set(key, { name, given, order: this.claims.size, rank });
+    this.claims.set(key, { name, given, order: this.claims.size, rank, owner });
     return given;
   }
 
   /**
    * The enums to rename at the end, from the name the run gave to the final one
    * (`finalEnumNames`); `needed` holds the names the finished output declares or refers to.
+   * `joins`: the owner each owner joins at the end (`EnumOwners.mergedOwners`); the two enums
+   * get one name, and their declarations merge.
    */
-  finalNames(needed: ReadonlySet<string>): ReadonlyMap<string, string> {
+  finalNames(
+    needed: ReadonlySet<string>,
+    joins: ReadonlyMap<string, string> = new Map(),
+  ): ReadonlyMap<string, string> {
+    const { claims, aliases } = foldedClaims(this.claims, joins);
     const finals = finalEnumNames({
-      claims: [...this.claims.values()],
+      claims,
       mayBeNeeded: this.mayBeNeeded,
       componentNames: this.componentNames,
       needed,
     });
+    for (const [given, target] of aliases) {
+      finals.set(given, finals.get(target) ?? target);
+    }
     return new Map([...finals].filter(([given, final]) => given !== final));
   }
 }

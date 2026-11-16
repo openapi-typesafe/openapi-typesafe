@@ -1,13 +1,20 @@
 import { irReference } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
+import type { ParameterObject } from "../../../domain/openapi/parameter-object.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { FIX } from "../../../domain/output-fixes.js";
+import { isExplodedQueryObject } from "../document/exploded-query.js";
 import { InvalidRefError, refType } from "../ref-type.js";
 import type { RefResolver } from "../schema/schema-context.js";
 import { AT_LOCATION, type SchemaRequest, type ValueAccess } from "../schema/schema-rule.js";
-import { generatedLocationOf, type RecordOwner } from "./generated-location.js";
+import {
+  generatedLocationOf,
+  type IsExplodedParameter,
+  type RecordOwner,
+} from "./generated-location.js";
 import { hasInlineCycle } from "./inline-cycles.js";
 import { followRefs, isJsonObject } from "./located-node.js";
+import { withoutOptionalUndefined } from "./optional-target.js";
 import { originalIndexFails } from "./original-index.js";
 import { leadingSegmentsOf, pointerNode, type RefPointer, refPointerOf } from "./pointer-walk.js";
 import { isWidenedRecordValue } from "./property-shape.js";
@@ -51,6 +58,19 @@ function tupleHolderOf(pointer: RefPointer, refs: RefResolver): SchemaObject | u
   return isJsonObject(holder) ? (holder as SchemaObject) : undefined;
 }
 
+/**
+ * Whether the target can be written in place: a `$ref`, or a schema that is not written inside
+ * itself (`hasInlineCycle`). The others keep the original type, which no check changes.
+ */
+function hasInlineType(ref: string, pointer: RefPointer, request: SchemaRequest): boolean {
+  const { options, refs } = request.context;
+  const target = pointerNode(pointer, refs);
+  if (isJsonObject(target) && typeof target.$ref === "string") {
+    return true;
+  }
+  return target !== undefined && !hasInlineCycle(ref, options, refs);
+}
+
 /** The target of a pointer that crosses a segment with no type: its `$ref`, or its own type. */
 function targetType(
   ref: string,
@@ -66,7 +86,7 @@ function targetType(
     return null;
   }
   // Typed where the generator types the node, so it shares the node's enum (`--enum`).
-  const location = generatedLocationOf(ref, request.context.refs);
+  const location = generatedLocationOf(ref, request.context.refs, explodedParameters(request));
   return request.transformNested(
     target as never,
     { path: location.path, schema: target },
@@ -75,8 +95,23 @@ function targetType(
       parent: tupleHolderOf(pointer, request.context.refs),
       isThroughRef: true,
       isAtSharedLocation: location.isShared,
+      typePlacement: location.typePlacement,
     },
   );
+}
+
+/** The parameters whose keys are keys of `query` in this run (`exploded-query-objects`). */
+function explodedParameters({ context }: SchemaRequest): IsExplodedParameter {
+  if (!context.options.fixes.has(FIX.EXPLODED_QUERY_OBJECTS)) {
+    return () => false;
+  }
+  return (parameter) =>
+    isParameterObject(parameter) && isExplodedQueryObject(parameter, context.refs);
+}
+
+/** A parameter object as far as `isExplodedQueryObject` reads it; a `$ref` is none. */
+function isParameterObject(node: unknown): node is ParameterObject {
+  return isJsonObject(node) && typeof node.in === "string" && typeof node.name === "string";
 }
 
 /** How a target's type is read at its location, as `objectType` passes it down. */
@@ -97,12 +132,21 @@ function correctedType(
 ) {
   const { options, refs } = request.context;
   const result = typedWalk({ pointer, options, refs });
-  return result.kind === "typed" ? result.walk.type : targetType(ref, pointer, request, seen);
+  if (result.kind !== "typed") {
+    return targetType(ref, pointer, request, seen);
+  }
+  return options.fixes.has(FIX.REF_POINTERS)
+    ? withoutOptionalUndefined(result.walk.type, pointer, options, refs)
+    : result.walk.type;
 }
 
 function isCorrected(pointer: RefPointer, request: SchemaRequest): boolean {
   const { options, refs } = request.context;
   return options.fixes.has(FIX.REF_POINTERS) || originalIndexFails({ pointer, options, refs });
+}
+
+function isNeverKeyword(type: IrType): boolean {
+  return type.kind === "keyword" && type.keyword === "never";
 }
 
 /** The type of a schema `$ref`. Throws InvalidRefError when the `$ref` has no pointer. */
@@ -112,10 +156,26 @@ export function schemaRefType(
   seen: readonly string[] = [],
 ): IrType {
   const pointer = pointerOf(ref);
-  if (pointer.segments.length <= leadingSegmentsOf(pointer) || !isCorrected(pointer, request)) {
+  if (pointer.segments.length <= leadingSegmentsOf(pointer)) {
     return refType(ref);
   }
-  return correctedType(ref, pointer, request, seen) ?? refType(ref);
+  const checks = request.context.pointerChecks;
+  if (checks?.isInPlace(ref)) {
+    // An earlier pass found this pointer type to be an error or to have no value. A target
+    // without a value either (a `false` schema) keeps the type written before.
+    const inPlace = targetType(ref, pointer, request, seen);
+    const isNoValueEither = inPlace === null || isNeverKeyword(inPlace);
+    if (!(checks.isNeverRead(ref) && isNoValueEither)) {
+      return inPlace ?? refType(ref);
+    }
+  }
+  const type = isCorrected(pointer, request)
+    ? (correctedType(ref, pointer, request, seen) ?? refType(ref))
+    : refType(ref);
+  if (checks !== undefined && hasInlineType(ref, pointer, request)) {
+    checks.record(ref, type);
+  }
+  return type;
 }
 
 /**

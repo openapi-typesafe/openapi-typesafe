@@ -1,3 +1,4 @@
+import { freeNumberedName } from "../numbered-names.js";
 import type { EnumDeclarationRequest } from "../schema/schema-context.js";
 import { EnumNaming } from "./enum-naming.js";
 
@@ -73,18 +74,25 @@ export class SharedEnumNameRecorder implements SharedEnumNames {
 
   /**
    * The best name of each enum. Two enums whose best names are the same (two schemas that give
-   * one name) are resolved in key order: the later one takes its next name that is free.
+   * one name) are resolved in key order, which is the order of their values: the later one takes
+   * its next name that is free, or else a number of its best name that no schema gives
+   * (`PetState_2`). Left to the run, the number would follow the document order.
    */
   chosenNames(): SharedEnumNames {
     const chosen = new Map<string, string>();
+    const candidates = [...this.candidatesByKey.values()].flat().map(({ name }) => name);
+    const unavailable = new Set(candidates);
     const taken = new Set<string>();
     const keys = [...this.candidatesByKey.keys()].sort();
     for (const key of keys) {
       const names = ranked(this.candidatesByKey.get(key) ?? []).map(({ name }) => name);
-      const name = names.find((candidate) => !taken.has(candidate)) ?? names[0];
+      const best = names[0];
+      const free = names.find((candidate) => !taken.has(candidate));
+      const name = free ?? (best === undefined ? undefined : freeNumberedName(best, unavailable));
       if (name !== undefined) {
         chosen.set(key, name);
         taken.add(name);
+        unavailable.add(name);
       }
     }
     return { nameOf: (key, name) => chosen.get(key) ?? name };

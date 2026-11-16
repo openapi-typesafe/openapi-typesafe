@@ -460,6 +460,39 @@ documents per set). The compat corpus (1806 documents; the defaults, `--enum`, `
 `--dedupe-enums` and `--alphabetize`) and, with `dedupe-enum-names`, one document whose shared
 enums took the names of `definitions` entries only `$ref`s typed (`codat.io_accounting`).
 
+## Amendment (2026-11-15): owners joined at the end, ties by values
+
+Rule 2 of the amendment above assumed that an object types its own properties before its record
+values. An inline `allOf` item is typed after them, so the decision depended on the typing order:
+
+- `Settings: { allOf: [{ mode: [fast, slow] }], additionalProperties: { mode: [fast, slow] } }`
+  gave `SettingsMode` (the record value) and `SettingsMode_2` (the own property) with the same
+  members. rc.12 gave one enum, so code that compiled with rc.12 failed (TS2322). A regression.
+- An own `mode: [a]`, a record value `mode: [a]` and an `allOf` item `mode: [a, b]`: the record
+  value shared the own enum while it held `{a}`, then the `allOf` item added `b`, so the record
+  value accepted `b` (rc.12 too).
+- With `dedupe-enum-names`, two enums of other values whose best names are the same (`Pet` and
+  `Pet-` both give `PetState`, or two `patternProperties` of one object) both asked for that
+  name; the run numbered them in document order, so swapping the schemas swapped the names,
+  against the documented rule.
+
+The rules:
+
+1. During the run an enum at a shared location has the owner of its location and values, never
+   the own location's (`EnumOwners.ownerOf`), whatever was typed before. At the end
+   (`EnumOwners.mergedOwners`) such an owner joins the location's own owner when the own enum's
+   values, collected from every own request whose enum the run declares, are exactly its values.
+   The joined claims are one enum (`EnumNameClaims.finalNames`): named where the walk met either
+   first, and its declarations merge (`withEnumDeclarationsMerged`, repeated members dropped).
+   Other values stay apart, never merged.
+2. `dedupe-enum-names` resolves a tie in key order (the order of the values): the later key takes
+   its next free name, or else the next number of its best name that no schema gives as its own
+   (`PetState_2`), so the run never numbers two keys of one name by document order.
+
+Changes from rc.13: the first case gets one `SettingsMode` again (rc.12's output); the second
+gives the record value `SettingsMode_2 { a }`; with `dedupe-enum-names` the tie names follow the
+values in both orders (behind the fix, so the names may change).
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

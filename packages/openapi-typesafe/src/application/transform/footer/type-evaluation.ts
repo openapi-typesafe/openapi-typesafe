@@ -1,16 +1,25 @@
-import { irObject, irStringIndexSignature } from "../../../domain/ir/constructors.js";
+import {
+  irIndexedAccess,
+  irIntersection,
+  irObject,
+  irProperty,
+  irReference,
+  irStringIndexSignature,
+} from "../../../domain/ir/constructors.js";
 import type { IrDeclaration, IrTupleType, IrType } from "../../../domain/ir/nodes.js";
+import { toPropertyName } from "../../../domain/ir/property-name.js";
 import {
   absorbed,
   type Evaluated,
   type Evaluation,
   intersectionType,
-  isNullish,
   OPAQUE,
   propertyKey,
   tupleAsArray,
+  UNKNOWN,
   unionType,
 } from "./evaluation.js";
+import { isNullishMember } from "./intersection-parts.js";
 import type { RawKeyTypes } from "./signature-index.js";
 import { indexType } from "./type-indexing.js";
 import { extracted, markerObject, omitted } from "./type-rules.js";
@@ -18,9 +27,9 @@ import { extracted, markerObject, omitted } from "./type-rules.js";
 /**
  * A small evaluator of the generated types, as TypeScript reads them, for the `--enum-values`
  * check (ADR-027). It follows the declarations of the document and the helper types the generator
- * writes (`NonNullable`, `Extract`, `WithRequired`, `Omit`, `Record`, `FlattenedDeepRequired`). Its
- * answers are sure: a key is `missing` only where TypeScript reports it, and every type it does
- * not model is `opaque`, which never counts as an error.
+ * writes (`NonNullable`, `Extract`, `WithRequired`, `Omit`, `Record`, `Partial`,
+ * `FlattenedDeepRequired`). Its answers are sure: a key is `missing` only where TypeScript
+ * reports it, and every type it does not model is `opaque`, which never counts as an error.
  */
 
 /** How many references one evaluation expands; a deeper one is opaque. */
@@ -28,6 +37,10 @@ const MAX_EXPANSIONS = 200;
 const DEEP_HELPER = "FlattenedDeepRequired";
 /** How many members distributing an intersection may give; more is opaque. */
 const MAX_DISTRIBUTED = 64;
+
+function isUndefinedKeyword(type: IrType | undefined): boolean {
+  return type?.kind === "keyword" && type.keyword === "undefined";
+}
 
 /** Without templated paths no raw key has known key types. */
 const NO_RAW_KEY_TYPES: RawKeyTypes = new Map();
@@ -66,6 +79,8 @@ export class TypeEvaluator {
         return this.reference(value, type.name, type.typeArguments);
       case "tuple":
         return this.deepTuple(value, type);
+      case "intersection":
+        return this.withoutUnknownParts(value, type.types);
       case "raw":
         return OPAQUE;
       default:
@@ -73,10 +88,29 @@ export class TypeEvaluator {
     }
   }
 
-  /** A tuple inside `FlattenedDeepRequired` is read as the array of its items; else opaque. */
+  /**
+   * A tuple inside `FlattenedDeepRequired`, which maps it to a tuple again: indexing and the
+   * `--enum-values` element read it as the array of its items (`tupleAsArray`). Outside it, or
+   * with a rest element that is not an array type, it is opaque.
+   */
   private deepTuple(value: Evaluated, tuple: IrTupleType): Evaluation {
-    const array = value.deep ? tupleAsArray(tuple) : null;
-    return array === null ? OPAQUE : { ...value, type: array };
+    return value.deep && tupleAsArray(tuple) !== null ? value : OPAQUE;
+  }
+
+  /**
+   * `X & unknown` is `X`, as TypeScript reads it: an `allOf` item that only describes. An array
+   * or a tuple stays in its intersection, which indexing does not model (`hasArrayPart`): read
+   * as `X[]`, a values array there would get a pointer type where it is typed by its values.
+   */
+  private withoutUnknownParts(value: Evaluated, parts: readonly IrType[]): Evaluation {
+    const kept = parts.filter((part) => !(part.kind === "keyword" && part.keyword === "unknown"));
+    if (kept.length === parts.length) {
+      return value;
+    }
+    const rest = kept.length === 0 ? UNKNOWN : intersectionType(kept);
+    const expanded = this.expand({ ...value, type: rest });
+    const isArray = expanded.kind === "type" && ["array", "tuple"].includes(expanded.type.kind);
+    return isArray ? value : expanded;
   }
 
   private indexedAccess(value: Evaluated, object: IrType, index: IrType): Evaluation {
@@ -114,10 +148,17 @@ export class TypeEvaluator {
       case "NonNullable":
         return this.withoutNullish(argument);
       case "WithRequired":
+        return second === undefined ? argument : this.withRequired(argument, second);
       case "Readonly":
         return argument;
+      case "Partial":
+        // `FlattenedDeepRequired` makes every key required and its value non-null again, so
+        // inside it `Partial<T>` is `T`; outside it each value may also be `undefined`.
+        return argument.deep ? argument : OPAQUE;
       case "Extract":
         return second === undefined ? OPAQUE : this.extract(argument, second);
+      case "Exclude":
+        return isUndefinedKeyword(second) ? this.withoutUndefined(argument) : OPAQUE;
       case "Record":
         return second === undefined ? OPAQUE : stringRecord(argument, second);
       case "Omit":
@@ -159,13 +200,48 @@ export class TypeEvaluator {
     return combinations.map((types) => ({ ...value, type: intersectionType(types) }));
   }
 
+  /** `Exclude<T, undefined>`, which a `$ref` to an optional property gets (ADR-026). */
+  private withoutUndefined(value: Evaluated): Evaluation {
+    const members = this.membersOf(value);
+    if (members.some((member) => member.kind !== "type")) {
+      return OPAQUE;
+    }
+    const kept = (members as Evaluated[]).filter((member) => !isUndefinedKeyword(member.type));
+    return { ...value, type: unionType(kept.map((member) => member.type)) };
+  }
+
   private withoutNullish(value: Evaluated): Evaluation {
     const members = this.membersOf(value);
     if (members.some((member) => member.kind !== "type")) {
       return OPAQUE;
     }
-    const kept = (members as Evaluated[]).filter((member) => !isNullish(member.type));
+    const kept = (members as Evaluated[]).filter((member) => !isNullishMember(this, member));
     return { ...value, type: unionType(kept.map((member) => member.type)) };
+  }
+
+  /**
+   * `WithRequired<T, K>` is `T & { [P in K]-?: T[P] }`: each key of `K` is required, so outside
+   * `FlattenedDeepRequired` its value is not `undefined`. `NonNullable` stands in for `-?`, which
+   * also drops `null`: the evaluator then reads a key as present that may be `null`, never one as
+   * missing that is not. Keys other than string literals, or a `T` that is no object, leave `T`
+   * as it is.
+   */
+  private withRequired(value: Evaluated, keys: IrType): Evaluation {
+    const members = this.membersOf({ ...value, type: keys });
+    const names = members.flatMap((member) =>
+      member.kind === "type" && member.type.kind === "stringLiteral" ? [member.type] : [],
+    );
+    const isObject = value.type.kind === "object" || value.type.kind === "intersection";
+    if (names.length !== members.length || !isObject) {
+      return value;
+    }
+    const required = names.map((name) =>
+      irProperty(
+        toPropertyName(name.value),
+        irReference("NonNullable", [irIndexedAccess(value.type, name)]),
+      ),
+    );
+    return { ...value, type: irIntersection([value.type, irObject(required)]) };
   }
 
   /** `Extract<T, { key: unknown }>` keeps the members that have `key`; other probes are opaque. */

@@ -18,6 +18,7 @@ import {
 import { FIX } from "../../../domain/output-fixes.js";
 import { declaredValueTypes } from "../declared-value-types.js";
 import type { SchemaLocation } from "../schema/schema-context.js";
+import { transformPlacedSchema } from "../schema/schema-transform.js";
 import { withSchemaComment } from "../schema-comment.js";
 import type { TransformContext } from "../transform-context.js";
 import { isExplodedQueryObject } from "./exploded-query.js";
@@ -128,6 +129,27 @@ function isExplodedEntry(entry: ResolvedEntry, context: TransformContext): boole
   );
 }
 
+/**
+ * The type of an exploded parameter. Its keys are keys of `query`, so the generated types hold
+ * the schemas in it under `query`, not under the parameter's name (`TypePlacement`).
+ */
+function explodedEntryType(
+  entry: ResolvedEntry,
+  location: SchemaLocation,
+  context: TransformContext,
+): IrType {
+  const { original, resolved } = entry;
+  if ("$ref" in original) {
+    return entryType(entry, location, context);
+  }
+  const path = appendPointer(location.path, ["parameters", resolved.in, resolved.name]);
+  const typePath = appendPointer(location.path, ["parameters", resolved.in]);
+  return transformPlacedSchema(resolved.schema, { ...location, path }, context, {
+    locationPath: path,
+    typePath,
+  });
+}
+
 /** An exploded object parameter with its type, typed in document order. */
 interface ExplodedEntry {
   readonly entry: ResolvedEntry;
@@ -192,7 +214,7 @@ function locationParts(
   let isOptional = true;
   for (const entry of entries) {
     if (isExplodedEntry(entry, context)) {
-      exploded.push({ entry, type: entryType(entry, location, context) });
+      exploded.push({ entry, type: explodedEntryType(entry, location, context) });
       isOptional &&= !entry.resolved.required;
       continue;
     }

@@ -6,16 +6,13 @@ import {
   irString,
 } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
-import {
-  appendPointer,
-  parseRefPointer,
-  ROOT_POINTER,
-} from "../../../domain/openapi/json-pointer.js";
+import { parseRefPointer } from "../../../domain/openapi/json-pointer.js";
 import type { SchemaObject } from "../../../domain/openapi/schema-object.js";
 import { FIX } from "../../../domain/output-fixes.js";
 import { literalType } from "../literal-type.js";
 import { refType } from "../ref-type.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
+import { enumValuesPointer } from "./enum-values-pointer.js";
 import type {
   DiscriminatorEnumParent,
   EnumDeclarationRequest,
@@ -26,8 +23,6 @@ import type { SchemaRequest, SchemaRule } from "./schema-rule.js";
 
 /** Removed from generated names, so `#/components/schemas/Status` gives `Status`. */
 const COMPONENT_SCHEMAS_PREFIX = "components/schemas";
-const UNION_KEYWORDS: ReadonlySet<string> = new Set(["anyOf", "oneOf"]);
-const INDEX_RE = /^\d+$/;
 
 function hasAdditionalProperties(schema: SchemaObject): boolean {
   return "additionalProperties" in schema && Boolean(schema.additionalProperties);
@@ -65,11 +60,12 @@ function tsEnumEntries(schema: SchemaObject, options: SchemaOptions): [unknown, 
 }
 
 /**
- * `--enum`: string and number enums become TypeScript enums. The original meant to allow `null`
- * too, but tested `typeof value` against `null`, so an enum containing null stays a union; the
- * `nullable-enums` fix declares its other values.
+ * Whether `--enum` types the schema as a TypeScript enum, not as a union of its values: string
+ * and number enums. The original meant to allow `null` too, but tested `typeof value` against
+ * `null`, so an enum containing null stays a union; the `nullable-enums` fix declares its other
+ * values.
  */
-function isTsEnum(schema: SchemaObject, options: SchemaOptions): boolean {
+export function isTsEnum(schema: SchemaObject, options: SchemaOptions): boolean {
   if (!options.enum || !schema.enum) {
     return false;
   }
@@ -206,66 +202,13 @@ function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
     : type;
 }
 
-function isUnionPosition(pointer: readonly string[], index: number): boolean {
-  const next = pointer[index + 1];
-  return UNION_KEYWORDS.has(pointer[index] as string) && next !== undefined && INDEX_RE.test(next);
-}
-
-const PARAMETERS = "parameters";
-
-/** Where the `parameters` of a path item sit in its pointer: `paths/<key>/…`, `components/…`. */
-function pathItemParametersIndex(pointer: readonly string[]): number | null {
-  if (pointer[0] === "paths" || pointer[0] === "webhooks") {
-    return 2;
-  }
-  return pointer[0] === "components" && pointer[1] === "pathItems" ? 3 : null;
-}
-
-/**
- * The location of a path item parameter repeats `parameters` (`paths/~1a/parameters/parameters/
- * path/id`), which keeps the generated names as they were. The generated type has the segment
- * once: `paths["/a"]["parameters"]["path"]["id"]`.
- */
-function withSingleParametersSegment(pointer: readonly string[]): readonly string[] {
-  const index = pathItemParametersIndex(pointer);
-  const isRepeated =
-    index !== null && pointer[index] === PARAMETERS && pointer[index + 1] === PARAMETERS;
-  return isRepeated ? [...pointer.slice(0, index), ...pointer.slice(index + 1)] : pointer;
-}
-
-/**
- * The pointer of `--enum-values` arrays without union positions (`anyOf/0`), so names stay
- * stable. Every property after the first union position is narrowed with `Extract`: a no-op where
- * all variants have it, and the needed narrowing where only some do.
- */
-function enumValuesPointer(path: string | undefined): { ref: string; extract: string[] } {
-  const pointer = withSingleParametersSegment(parseRefPointer(path ?? ""));
-  const kept: string[] = [];
-  let firstVariantStart: number | null = null;
-  for (let index = 0; index < pointer.length; index++) {
-    if (isUnionPosition(pointer, index)) {
-      firstVariantStart ??= index + 2;
-      index++;
-      continue;
-    }
-    kept.push(pointer[index] as string);
-  }
-  const extract =
-    firstVariantStart === null
-      ? []
-      : pointer
-          .slice(firstVariantStart)
-          .filter((segment) => !UNION_KEYWORDS.has(segment) && !INDEX_RE.test(segment));
-  return { ref: appendPointer(ROOT_POINTER, kept), extract };
-}
-
 /** The item type of an `--enum-values` array: its schema's place in the generated types. */
 function enumValuesType(values: readonly (string | number)[], request: SchemaRequest): IrType {
   if (request.valueAccess === "none") {
     // No place has this schema's type alone; the location check keeps this type.
     return unionOf(values.map(literalType));
   }
-  const { ref, extract } = enumValuesPointer(request.location.path);
+  const { ref, extract } = enumValuesPointer(request.location.path, request.typePlacement);
   const valuesType = refType(ref, { isDeep: true, extractProperties: extract });
   // A record value (`additionalProperties`) is reached by indexing with `string`.
   return request.valueAccess === "string-index"

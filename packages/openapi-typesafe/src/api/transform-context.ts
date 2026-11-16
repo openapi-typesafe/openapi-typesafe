@@ -88,6 +88,7 @@ export function createTransformContext(ctx: RunContext): TransformContext {
     },
     footer: runFooter(ctx),
     callbacks: schemaCallbacks(ctx),
+    ...(ctx.refPointerChecks === undefined ? {} : { pointerChecks: ctx.refPointerChecks }),
     diagnostics: diagnostics(ctx),
     casing: CASING,
   };

@@ -87,6 +87,7 @@ describe("memberRead", () => {
     expect(memberRead([...members, ...PATHS], literal("/orders/5"), KEY_TYPES)).toEqual({
       kind: "types",
       types: [irKeyword("number")],
+      isOptional: false,
     });
   });
 

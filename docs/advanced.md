@@ -449,7 +449,15 @@ compiles (`ReadonlyArray<"available" | "sold">`):
   that admits a wide type such as `string` keeps its type;
 - the schema contradicts itself: an `allOf` of enums with different values, or a discriminator
   value that the property enum does not list. The type there admits fewer values, or none; this
-  case also prints a warning that names the array and the values.
+  case also prints a warning that names the array and the values;
+- the place is a tuple (`FlattenedDeepRequired` keeps a tuple inside a tuple as a tuple) that the
+  values do not fill one by one: another number of values, or another order;
+- the place is a built-in member of an array or a string (an enum property `sort` of a
+  `prefixItems` element reads the array's `sort` method);
+- the type there is one the check does not read as TypeScript does: an intersection of an object
+  and an array (`allOf` items that type a property as an object in one and an array in another),
+  `Omit` of an intersection with a union, or a tuple with optional or rest elements. Such a type
+  cannot be shown to hold the values, so the array is typed by them.
 
 Every other array keeps its type.
 

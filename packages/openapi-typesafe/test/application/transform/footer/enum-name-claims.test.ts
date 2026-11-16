@@ -173,4 +173,42 @@ describe("EnumNameClaims", () => {
       ]),
     );
   });
+
+  it("finalNames gives an owner that joins another the other owner's final name", () => {
+    const claims = new EnumNameClaims();
+    const shared = claims.nameFor("SettingsMode", "shared", { walkedAt: "/a" });
+    const own = claims.nameFor("SettingsMode", "/Settings/mode", { walkedAt: "/b" });
+    claims.nameFor("SettingsMode", "other", { walkedAt: "/c" });
+
+    const finals = claims.finalNames(new Set(), new Map([["shared", "/Settings/mode"]]));
+
+    expect([shared, own]).toEqual(["SettingsMode", "SettingsMode_2"]);
+    expect(finals).toEqual(
+      new Map([
+        ["SettingsMode_2", "SettingsMode"],
+        ["SettingsMode_3", "SettingsMode_2"],
+      ]),
+    );
+  });
+
+  it("finalNames ranks a joined enum where the walk met either owner first", () => {
+    const claims = new EnumNameClaims();
+    claims.nameFor("Mode", "shared", { walkedAt: "/a" });
+    claims.nameFor("Mode", "other", { walkedAt: "/b" });
+    claims.nameFor("Mode", "/own", { walkedAt: "/c" });
+
+    const finals = claims.finalNames(new Set(), new Map([["shared", "/own"]]));
+
+    expect(finals).toEqual(new Map([["Mode_3", "Mode"]]));
+  });
+
+  it("finalNames joins no owner to an owner that did not claim the name", () => {
+    const claims = new EnumNameClaims();
+    claims.nameFor("Mode", "shared", { walkedAt: "/a" });
+    claims.nameFor("Mode", "/own", { walkedAt: "/b" });
+
+    const finals = claims.finalNames(new Set(), new Map([["shared", "/elsewhere"]]));
+
+    expect(finals.size).toBe(0);
+  });
 });

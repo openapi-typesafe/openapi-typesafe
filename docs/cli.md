@@ -527,7 +527,7 @@ const ast = await openapiTS(schema, { fix: ["allof-required"] });
 | `path-param-type-names` | With `--path-params-as-types`, a path parameter named `number`, `string` or `boolean` gets its placeholder, instead of the `$` and the `{name}` text the original leaves when it replaces that name inside an earlier placeholder; needs `--path-params-as-types` | none (found in our own tests) | 1.0 |
 | `prefix-items` | A `prefixItems` tuple is open and its elements after `minItems` are optional, as in JSON Schema 2020-12, unless `items` or `unevaluatedItems` closes it | [#1892](https://github.com/openapi-ts/openapi-typescript/issues/1892) | 1.0 |
 | `read-write-refs` | `readOnly` and `writeOnly` of a schema that a property references with `$ref` or `allOf` make the property `readonly`, and count for `--read-write-markers` | [#1938](https://github.com/openapi-ts/openapi-typescript/issues/1938) | 1.0 |
-| `ref-pointers` | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`; where the original does not compile, this is the default | none (found in the compat corpus) | 1.0 |
+| `ref-pointers` | A schema `$ref` into another schema's keywords (`content/<type>/schema`, `items`, `allOf/0`) gets the type it points at also where the original type compiles through an index signature (`--additional-properties`, `additionalProperties: true`), where it is `unknown`, and a pointer to an optional property leaves out the `undefined` it adds (`Exclude<…, undefined>`); where the original does not compile, this is the default | none (found in the compat corpus) | 1.0 |
 | `ref-siblings` | OpenAPI 3.1 and 3.2: keywords next to a `$ref` (`required`, `properties`, `enum`) apply, as JSON Schema 2020-12 says, instead of being dropped; OpenAPI 3.0 ignores them, as its spec says | none (found in the rc.4 review) | 1.0 |
 | `root-type-numbering` | With `--root-types --root-types-no-schema-prefix`, schemas of one root name (`PetStore`, `pet_store`) each get an alias: the later keeps the name, the earlier get `PetStore_2`, … instead of none; needs both flags | none (found in our own tests) | 1.0 |
 | `unevaluated-properties` | `unevaluatedProperties` types the keys that no other keyword declares, with an index signature, instead of being ignored | [#2839](https://github.com/openapi-ts/openapi-typescript/issues/2839), [#2880](https://github.com/openapi-ts/openapi-typescript/pull/2880) | 1.0 |
@@ -773,7 +773,9 @@ export enum PetState { // [!code ++]
 - No step depends on the document order. A new schema changes the name only when it ranks first,
   for example a new component schema with these values.
 - Two enums with other members whose best names are the same (`Pet` and `Pet-` both give
-  `PetState`) are resolved in the order of their values: the later one takes its next name.
+  `PetState`) are resolved in the order of their values: the later one takes its next name, or
+  else the next number of its best name that no schema gives (`PetState_2`), wherever the two
+  are in the document.
 - The names are built as without the fix (`PetState` for `Pet.state`).
 - The schemas are known only at the end, so the document is transformed twice; `transform`,
   `transformProperty` and `postTransform` callbacks run in both passes.
@@ -1064,6 +1066,10 @@ query?: Partial<components["schemas"]["GetPosts"]>; // [!code ++]
 - A schema is an object when its `type` is `object` (also with `null`), when it has object keywords
   and no `type`, or when every `allOf`, `anyOf` or `oneOf` member is one; `$ref`s are followed.
 - `style: deepObject`, `explode: false`, other styles and other locations keep the name.
+- What reads the parameter in the generated types reads it there too: an `--enum-values` array of
+  its schema is typed by `…["parameters"]["query"]["status"]`, and a `$ref` to the parameter in an
+  operation's or path item's list is typed by the parameter's schema (the list's `query` holds
+  its keys, not the parameter).
 - The default `querySerializer` of `openapi-typesafe-fetch` sends top-level primitive values as
   `key=value`, which is this format, so the client needs no other option.
 
@@ -1252,6 +1258,38 @@ bag?: paths["/a"]["get"]["responses"]["200"]["content"]["application/json"]; // 
   `const` variant of a `oneOf`, an `enum` item of an `allOf`) gets the target's type. A `$defs`
   entry of a schema with no `$defs` member in its type (an enum, an array) gets the target's type
   inline too. `not` is ignored: it adds nothing to the type, so it does not hide the other keywords.
+- An `enum: []` (typed `never`) and an `enum: [null]` have no keys, so a pointer through one, its
+  `$defs` included, gets the target's type inline.
+- In an `anyOf` / `oneOf` of several records, `[string]` reads the union of every variant's value
+  type, so a pointer to one variant's `additionalProperties` gets that variant's type inline. A
+  single record keeps `[string]`.
+- `[number]` of a tuple (`prefixItems`) reads its elements and its rest items together, so a
+  pointer to the tuple's `items` (or deeper) gets the target's type inline. A plain array keeps
+  `[number]`.
+- A nullable schema (`nullable: true`, or a `type` list with `null`) has no keys: `T | null` has
+  none, whatever `T` is, so a pointer through one (`N/allOf/0/properties/x` of a nullable `allOf`,
+  or a keyword next to a nullable `string`) gets the target's type inline.
+- Where the original reads a position of an array (`["0"]` of an `X[]`), it reads an item, as
+  `[number]` does. `Pet/allOf/0/additionalProperties/items`, with Pet's one `allOf` item an
+  object whose `additionalProperties` is an array of an enum, reads `["allOf"]` through that
+  index signature, `["0"]` an item of it, and then a key the enum does not have, so it gets the
+  target's type inline. A position of a tuple is not read. Nested `allOf` items are read to any
+  depth.
+- A property that an `allOf`, `anyOf` or `oneOf` part of its owner declares too is read by the
+  original through the join of both, which may have fewer values (`"a" | "c"` next to a variant's
+  `"a"`), so a pointer to it gets the property's own type inline. Where the part's property is the
+  same schema, or a string, number, integer or boolean of the same type with only notes
+  (`description`, `maxLength`, `format`), the original reads the same type and stays.
+- Last, the generator checks each pointer it writes against the types it writes, and types a
+  pointer that surely does not compile in place. This covers owners whose type the steps above do
+  not read, such as an object with a `oneOf` of strings (`string | { … }`), a type list, or a
+  `oneOf` of `null`. A pointer that may compile keeps its type, and this holds with
+  `ref-pointers` too. A pointer type that compiles but has no value (`never`, as through an
+  owner whose `allOf` makes it `null`) is typed in place the same way; a pointer to a `false`
+  schema keeps it.
+- `Owner["key"]` of an optional property is `T | undefined`, though the property's schema is
+  `T`. Without the fix the pointer stays, as upstream writes it; with `ref-pointers` it is
+  `Exclude<Owner["key"], undefined>`, which is `T`.
 
 A parameter `$ref` to a parameter of another operation or path item
 (`#/paths/~1a/get/parameters/0`) is indexed by the parameter's location and name. When every

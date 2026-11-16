@@ -1,5 +1,6 @@
 import { appendPointer, ROOT_POINTER } from "../../../domain/openapi/json-pointer.js";
 import type { RefResolver } from "../schema/schema-context.js";
+import type { TypePlacement } from "../schema/schema-rule.js";
 import { isJsonObject } from "./located-node.js";
 import {
   leadingSegmentsOf,
@@ -17,7 +18,8 @@ import {
  * The path follows the generator: `properties` is skipped; `allOf/N`, `items`, `prefixItems/N`,
  * `patternProperties/P` and `additionalProperties` type their schema at the parent's location;
  * the `schema` of a parameter, header or media type is typed at the container's; a positional
- * parameter is named by `in` and `name`. A `$ref` crossed on the way continues at its target's
+ * parameter is named by `in` and `name`, and an exploded one's schemas are typed under `query`
+ * (`TypePlacement`). A `$ref` crossed on the way continues at its target's
  * location. A node under a schema keyword the generator does not type (`definitions/A`, `not`) is
  * typed nowhere else, so it keeps its pointer as its location.
  */
@@ -37,7 +39,17 @@ export interface GeneratedLocation {
    * the node is in an array's element or items, or in an object's record value.
    */
   readonly isShared: boolean;
+  /** Where the generated types hold the node, when not at `path` (`SchemaRequest`). */
+  readonly typePlacement: TypePlacement | undefined;
 }
+
+/**
+ * Whether a parameter object is an exploded query object whose keys are keys of `query`
+ * (`exploded-query-objects`).
+ */
+export type IsExplodedParameter = (parameter: unknown) => boolean;
+
+const NO_EXPLODED_PARAMETERS: IsExplodedParameter = () => false;
 
 interface LocationWalk {
   readonly path: readonly string[];
@@ -45,6 +57,7 @@ interface LocationWalk {
   readonly isSchema: boolean;
   readonly recordOwner: RecordOwner | null;
   readonly isShared: boolean;
+  readonly typePlacement: TypePlacement | undefined;
 }
 
 /** One step: the segments it adds to the path, the node it moves to, the segments it reads. */
@@ -56,6 +69,8 @@ interface Step {
   readonly recordOwner?: RecordOwner;
   /** The step goes into a schema typed next to others at the parent's location. */
   readonly isShared?: boolean;
+  /** The step goes into an exploded parameter: its keys are keys of the parent's `query`. */
+  readonly isExploded?: boolean;
 }
 
 /**
@@ -124,14 +139,34 @@ function isPathItem(path: readonly string[]): boolean {
 }
 
 /** `parameters/N`: the parameter is named by `in` and `name` (a `$ref` one is crossed later). */
-function parameterStep(walk: LocationWalk, next: string): Step {
+function parameterStep(walk: LocationWalk, next: string, isExploded: IsExplodedParameter): Step {
   const entry = childOf(childOf(walk.node, "parameters"), next);
   const where = isJsonObject(entry) ? [String(entry.in), String(entry.name)] : [];
   const prefix = isPathItem(walk.path) ? ["parameters"] : [];
-  return { path: [...prefix, "parameters", ...where], child: entry, length: 2, isSchema: false };
+  const path = [...prefix, "parameters", ...where];
+  return { path, child: entry, length: 2, isSchema: false, isExploded: isExploded(entry) };
 }
 
-function documentStep(walk: LocationWalk, segments: readonly string[], index: number): Step {
+/** The placement of an exploded parameter's schemas: under its location's member (`query`). */
+function explodedPlacement(path: readonly string[]): TypePlacement {
+  return {
+    locationPath: appendPointer(ROOT_POINTER, path),
+    typePath: appendPointer(ROOT_POINTER, path.slice(0, -1)),
+  };
+}
+
+/** What the walk reads besides the pointer: the document, and which parameters are exploded. */
+interface LocationContext {
+  readonly refs: RefResolver;
+  readonly isExploded: IsExplodedParameter;
+}
+
+function documentStep(
+  walk: LocationWalk,
+  segments: readonly string[],
+  index: number,
+  context: LocationContext,
+): Step {
   const segment = segments[index] as string;
   const next = segments[index + 1];
   const value = childOf(walk.node, segment);
@@ -139,7 +174,7 @@ function documentStep(walk: LocationWalk, segments: readonly string[], index: nu
     return { path: [], child: value, length: 1, isSchema: true };
   }
   if (segment === "parameters" && next !== undefined && INDEX_RE.test(next)) {
-    return parameterStep(walk, next);
+    return parameterStep(walk, next, context.isExploded);
   }
   // A header's `content` entries are typed at `headers/<name>/<media type>` (`headerType`).
   if (segment === "content" && segments[index - 2] === "headers") {
@@ -149,7 +184,12 @@ function documentStep(walk: LocationWalk, segments: readonly string[], index: nu
   return { path: [segment], child: value, length: 1, isSchema: false };
 }
 
-function stepAt(walk: LocationWalk, pointer: RefPointer, index: number): Step | null {
+function stepAt(
+  walk: LocationWalk,
+  pointer: RefPointer,
+  index: number,
+  context: LocationContext,
+): Step | null {
   const { segments } = pointer;
   const segment = segments[index] as string;
   if (index < leadingSegmentsOf(pointer)) {
@@ -158,7 +198,7 @@ function stepAt(walk: LocationWalk, pointer: RefPointer, index: number): Step | 
   }
   return walk.isSchema
     ? schemaStep(walk.node, segment, segments[index + 1])
-    : documentStep(walk, segments, index);
+    : documentStep(walk, segments, index, context);
 }
 
 function refOf(node: unknown): string | null {
@@ -172,18 +212,37 @@ function refOf(node: unknown): string | null {
 function crossed(
   walk: LocationWalk,
   ref: string,
-  refs: RefResolver,
+  context: LocationContext,
   seen: readonly string[],
 ): LocationWalk | null {
   if (seen.includes(ref)) {
     return { ...walk, node: undefined };
   }
-  const target = walkTo(ref, refs, seen);
+  const target = walkTo(ref, context, seen);
   const inner = refOf(target?.node);
-  return target === null || inner === null ? target : crossed(target, inner, refs, [...seen, ref]);
+  return target === null || inner === null
+    ? target
+    : crossed(target, inner, context, [...seen, ref]);
 }
 
-function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): LocationWalk | null {
+/** The walk after one step: an exploded parameter's schemas are placed under its `query`. */
+function stepped(walk: LocationWalk, step: Step): LocationWalk {
+  const path = [...walk.path, ...step.path];
+  return {
+    path,
+    node: step.child,
+    isSchema: step.isSchema,
+    recordOwner: step.recordOwner ?? null,
+    isShared: walk.isShared || step.isShared === true,
+    typePlacement: step.isExploded === true ? explodedPlacement(path) : walk.typePlacement,
+  };
+}
+
+function walkTo(
+  ref: string,
+  context: LocationContext,
+  seen: readonly string[],
+): LocationWalk | null {
   const pointer = refPointerOf(ref);
   if (pointer === null || seen.includes(ref)) {
     return null;
@@ -191,27 +250,22 @@ function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): Locati
   const root = pointer.rootSegment;
   let walk: LocationWalk = {
     path: [root],
-    node: refs.resolve(`#/${root}`),
+    node: context.refs.resolve(`#/${root}`),
     isSchema: false,
     recordOwner: null,
     isShared: false,
+    typePlacement: undefined,
   };
   for (let index = 0; index < pointer.segments.length; ) {
-    const step = stepAt(walk, pointer, index);
+    const step = stepAt(walk, pointer, index, context);
     if (step === null) {
       return null;
     }
     index += step.length;
-    walk = {
-      path: [...walk.path, ...step.path],
-      node: step.child,
-      isSchema: step.isSchema,
-      recordOwner: step.recordOwner ?? null,
-      isShared: walk.isShared || step.isShared === true,
-    };
+    walk = stepped(walk, step);
     const inner = refOf(walk.node);
     const target = inner !== null && index < pointer.segments.length;
-    const next = target ? crossed(walk, inner, refs, [...seen, ref]) : walk;
+    const next = target ? crossed(walk, inner, context, [...seen, ref]) : walk;
     if (next === null) {
       return null;
     }
@@ -220,12 +274,20 @@ function walkTo(ref: string, refs: RefResolver, seen: readonly string[]): Locati
   return walk;
 }
 
-/** The location the generator types the node at `ref` with; see the module comment. */
-export function generatedLocationOf(ref: string, refs: RefResolver): GeneratedLocation {
-  const walk = walkTo(ref, refs, []);
+/**
+ * The location the generator types the node at `ref` with; see the module comment.
+ * `isExploded`: which parameters `exploded-query-objects` explodes; none by default.
+ */
+export function generatedLocationOf(
+  ref: string,
+  refs: RefResolver,
+  isExploded: IsExplodedParameter = NO_EXPLODED_PARAMETERS,
+): GeneratedLocation {
+  const walk = walkTo(ref, { refs, isExploded }, []);
   return {
     path: walk === null ? ref : appendPointer(ROOT_POINTER, walk.path),
     recordOwner: walk?.recordOwner ?? null,
     isShared: walk?.isShared ?? false,
+    typePlacement: walk?.typePlacement,
   };
 }
