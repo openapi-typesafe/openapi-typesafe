@@ -2,6 +2,42 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.14
+
+### Patch Changes
+
+- [#156](https://github.com/openapi-typesafe/openapi-typesafe/pull/156) [`e9534c6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e9534c6018f40614bf2750428265199d8bfde44f) Thanks [@fedorello](https://github.com/fedorello)! - `--fix dedupe-enum-names`: two enums with other values whose best names are the same (`Pet` and `Pet-` both give `PetState`) now get their names by their values, as documented: moving the schemas in the document no longer swaps `PetState` and `PetState_2`.
+
+- [#159](https://github.com/openapi-typesafe/openapi-typesafe/pull/159) [`0e4b9a1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/0e4b9a1fbeb897fefffc204a1873c4c5a91ac6a4) Thanks [@fedorello](https://github.com/fedorello)! - `--enum`: a property and an inline `allOf` item of one schema that list other enum values (`mode: [a]` next to an `allOf` item with `mode: [a, b]`) share one enum, which is now declared once with every value (`enum TMode { a, b }`). The one that lists fewer values, the property or the `allOf` item, is typed by its own members (`TMode.a`), so it no longer accepts `TMode.b`; before, the enum was declared twice and TypeScript merged the two, or the later declaration was left out, so both accepted every value.
+
+- [#156](https://github.com/openapi-typesafe/openapi-typesafe/pull/156) [`e9534c6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e9534c6018f40614bf2750428265199d8bfde44f) Thanks [@fedorello](https://github.com/fedorello)! - `--enum-values` arrays that did not compile are now typed by their own values: an array at a tuple inside a tuple that its values do not fill, at a built-in member of an array (an enum property named `sort` of a `prefixItems` element), under `allOf` items that type a property as an object in one and as an array in another, or read through `Omit` of an intersection with a union. Any array whose place the generator cannot read is typed by its values, so the file compiles. An enum next to an `allOf` item that only has a `description` keeps its pointer type.
+
+- [#156](https://github.com/openapi-typesafe/openapi-typesafe/pull/156) [`e9534c6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e9534c6018f40614bf2750428265199d8bfde44f) Thanks [@fedorello](https://github.com/fedorello)! - `--fix exploded-query-objects`: the `--enum-values` arrays of an exploded object parameter read their type under `query`, where its keys are, and a `$ref` to an operation's or path item's exploded parameter is typed by the parameter's schema. Both pointed at the parameter's name inside `query` before and did not compile.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - `Parameters<typeof openapiTS>` and `ReturnType<typeof openapiTS>` are again those of
+  openapi-typescript 7: `[source, options?: OpenAPITSOptions]` and a promise of the declarations. A
+  wrapper typed `(...args: Parameters<typeof openapiTS>)` takes the source alone and `undefined`
+  options again. A wrapper that takes `irCallbacks: true` types its options as `GeneratorOptions`.
+
+- [#156](https://github.com/openapi-typesafe/openapi-typesafe/pull/156) [`e9534c6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e9534c6018f40614bf2750428265199d8bfde44f) Thanks [@fedorello](https://github.com/fedorello)! - `--enum`: a record value's property (`additionalProperties`, `patternProperties`) and the object's own property of the same name share one enum again when their values are the same, also when the own property comes from an inline `allOf` item. A record value's property whose values differ from the own property's now gets its own enum (`SettingsMode_2`), so it no longer accepts the values that only the own property lists.
+
+- [#156](https://github.com/openapi-typesafe/openapi-typesafe/pull/156) [`e9534c6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e9534c6018f40614bf2750428265199d8bfde44f) Thanks [@fedorello](https://github.com/fedorello)! - A schema `$ref` into another schema now gets the type it points at wherever the old type did not compile, also in shapes the generator could not read before: an object with a `oneOf` of strings, a schema with both `anyOf` and `oneOf`, a `type` list, a `oneOf` of `null`, and a property of a media type named `content`. The generator checks each such type against the types it writes. This holds with `--fix ref-pointers` and `--fix all` too. A type that compiles stays as it was.
+
+- [#156](https://github.com/openapi-typesafe/openapi-typesafe/pull/156) [`e9534c6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e9534c6018f40614bf2750428265199d8bfde44f) Thanks [@fedorello](https://github.com/fedorello)! - A schema `$ref` whose type compiled but had no value (`never`) now gets the type it points at. This happens where the owner of the target can have no value, such as an object whose `allOf` makes it `null`. A `$ref` to a `false` schema keeps its type.
+
+- [#156](https://github.com/openapi-typesafe/openapi-typesafe/pull/156) [`e9534c6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e9534c6018f40614bf2750428265199d8bfde44f) Thanks [@fedorello](https://github.com/fedorello)! - A schema `$ref` now gets the type it points at in more places where the old type did not compile: through a nullable schema that is not an object or array (a nullable `allOf` or `anyOf`, a nullable schema without a `type`, `type: [string, "null"]`), through more than eight nested `allOf` items, and through a position of an array (such as `Pet/allOf/0/additionalProperties/items`, where Pet's one `allOf` item has an array of an enum as its `additionalProperties`).
+
+- [#156](https://github.com/openapi-typesafe/openapi-typesafe/pull/156) [`e9534c6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e9534c6018f40614bf2750428265199d8bfde44f) Thanks [@fedorello](https://github.com/fedorello)! - A schema `$ref` to a property that an `allOf`, `anyOf` or `oneOf` part of its owner also declares now gets the property's own type. Before, the type read both declarations together, which could have fewer values than the property (`"a"` instead of `"a" | "c"`) or not compile at all. Where the part declares the same schema, or a plain string, number, integer or boolean, the type stays as it was.
+
+- [#156](https://github.com/openapi-typesafe/openapi-typesafe/pull/156) [`e9534c6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e9534c6018f40614bf2750428265199d8bfde44f) Thanks [@fedorello](https://github.com/fedorello)! - A schema `$ref` now gets the type it points at in three more places where the old type did not compile or was not the target's: into a variant of an `anyOf` / `oneOf` whose variants are records (`additionalProperties`), into the `items` of a `prefixItems` tuple (its rest items, which `[number]` mixed with the tuple's elements), and through the `$defs` of an empty `enum`.
+
+- [#156](https://github.com/openapi-typesafe/openapi-typesafe/pull/156) [`e9534c6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/e9534c6018f40614bf2750428265199d8bfde44f) Thanks [@fedorello](https://github.com/fedorello)! - With `--fix ref-pointers`, a schema `$ref` to an optional property no longer adds `undefined` to the property's type: it is written as `Exclude<Owner["key"], undefined>`. Without the fix the type stays as before.
+
+- [#155](https://github.com/openapi-typesafe/openapi-typesafe/pull/155) [`f818986`](https://github.com/openapi-typesafe/openapi-typesafe/commit/f8189863bcf5632bc20b95a093f98b82e0afeb6a) Thanks [@fedorello](https://github.com/fedorello)! - Entries of `.redocly.lint-ignore.yaml` apply again to remote `$ref` documents whose URL is written
+  in a form other than the URL parser's own, such as `http://LOCALHOST:8080/pet.yaml`,
+  `http://host/x/../pet.yaml` or `http://host/my pet.yaml`: such a document keeps the name
+  `redocly lint` gives it. A query in such a URL stays hidden in messages also after a space.
+
 ## 1.0.0-rc.13
 
 ### Patch Changes

@@ -2,6 +2,25 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.14
+
+### Patch Changes
+
+- [#152](https://github.com/openapi-typesafe/openapi-typesafe/pull/152) [`d5ab7b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d5ab7b5df23c305ce1049a37c4be45c0482e3e59) Thanks [@fedorello](https://github.com/fedorello)! - Code generic in its paths or its operation no longer gets `data` and `error` that fit any type.
+  With `Paths extends Record<string, any>`, `Paths extends Record<string, Record<HttpMethod, {}>>`,
+  `Op extends { responses: any }` or `Op extends OperationObject`, the response types are `unknown`
+  inside such code, so it must check a value before it uses it; its callers still get the bodies of
+  their operations. Generic code should name a result's types by `FetchResponse<…>["data"]` and
+  `FetchResponse<…>["error"]`, as `Readable<ErrorResponse<ResponseObjectMap<Op>>>` no longer relates
+  to them.
+
+- [#152](https://github.com/openapi-typesafe/openapi-typesafe/pull/152) [`d5ab7b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d5ab7b5df23c305ce1049a37c4be45c0482e3e59) Thanks [@fedorello](https://github.com/fedorello)! - An operation whose `responses` may be `undefined` or is optional (`responses?: …`), as hand-written
+  types may have, keeps the bodies of its responses: `data` was `undefined`. `ResponseObjectMap` of
+  it is the map without `undefined`.
+
+- [#152](https://github.com/openapi-typesafe/openapi-typesafe/pull/152) [`d5ab7b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d5ab7b5df23c305ce1049a37c4be45c0482e3e59) Thanks [@fedorello](https://github.com/fedorello)! - A `parseAs` typed `any`, for example one read from an untyped config, types `data` as `any`, as
+  in openapi-fetch; it was `never`.
+
 ## 1.0.0-rc.13
 
 ### Patch Changes

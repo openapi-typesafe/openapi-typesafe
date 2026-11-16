@@ -1,5 +1,56 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.14
+
+### Patch Changes
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - A Compose service now gets the `entrypoint` and `command` it does not set from the service its
+  `extends` names in the same file, so the old flags of a `command` after an inherited generator
+  entrypoint are renamed. A service whose `extends` names another file is reported instead.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - The files that a Compose file's top-level `include` names are now read as Compose files, relative
+  to the including file and through nested includes. A service that another merged file also gives
+  an `entrypoint` or `command`, a service defined again after a file that includes it (which Compose
+  rejects), and an include whose file is missing, outside the project, remote or part of a cycle are
+  reported instead of being changed or skipped.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - A Compose service that another Compose file of the same folder also gives an `entrypoint` or a
+  `command` (`compose.override.yaml`, or a file given with `-f`) is now reported instead of changed:
+  the container it runs depends on the files that `docker compose` merges, which the tool cannot
+  tell.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - A container with `args` alone (Kubernetes, or the `with` of a `docker://` step) is now reported
+  when its arguments run the old generator: the image's own program runs them, which the file does
+  not name, so the tool keeps them and lists the renames to make where they run the generator.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile comment that ends with a backslash now goes on over the next line, as make reads it. A
+  command on that next line is part of the comment, so it is no longer renamed or reported.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile `define` block is now read as the value of its variable. A command written in the body
+  of `define GEN … endef` gets the new package name and its old flags are migrated where `$(GEN)`
+  runs, and lines of the body are no longer read as rules or recipes of the Makefile.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - Text that a Makefile passes to `$(eval …)` is now read as Makefile lines. A command in it gets
+  the new package name instead of being reported, and values it sets for a variable make the tool
+  report the old flags of that variable's commands.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile now reads the files it includes (`include`, `-include`, `sinclude`) when they are in the
+  project, so a command set in an included file is migrated where the Makefile runs it. When an
+  included file is missing, outside the project or named by a variable or a wildcard, the tool
+  reports the old flags of the commands that it may change instead of migrating them.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile assignment indented with spaces, or with a tab before the first rule, is now read as an
+  assignment, as make reads it. A command set there gets the new package name, and its old flags
+  are migrated or reported where the variable runs.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile target or target-specific value whose name holds a variable (`$(TARGET): GEN = …`)
+  may apply to any target, so the tool now reads it as one of the possible values of every recipe and
+  reports the flags it cannot be sure of, instead of reading the recipe with the value of the file.
+
+- [#157](https://github.com/openapi-typesafe/openapi-typesafe/pull/157) [`b1ce9e6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/b1ce9e610c0ccf79ed87219b3887a3618f392edd) Thanks [@fedorello](https://github.com/fedorello)! - Options typed from the generator's parameters (`Parameters<typeof openapiTS>[1]`) keep their
+  `transform` and get a note, as options typed with `OpenAPITSOptions` do: that type takes the
+  TypeScript-node callbacks only, so the rewritten callbacks would not compile there.
+
 ## 1.0.0-rc.13
 
 ### Patch Changes

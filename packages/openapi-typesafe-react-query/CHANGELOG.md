@@ -2,6 +2,31 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.14
+
+### Patch Changes
+
+- [#153](https://github.com/openapi-typesafe/openapi-typesafe/pull/153) [`d62ac4f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d62ac4f3695dabbae2184fc79a181796af1d91e4) Thanks [@fedorello](https://github.com/fedorello)! - A query key of a body or a parameter value nested thousands of objects deep no longer depends on
+  the JavaScript stack. Such a key was cut at a depth that changed from call to call, so the same
+  body could get a new key and a new request, and two bodies that differed deep down shared one
+  cache entry. The part of a value more than 100 objects deep is now listed under `"(deeper)"` in
+  the key.
+
+- [#158](https://github.com/openapi-typesafe/openapi-typesafe/pull/158) [`589fcc6`](https://github.com/openapi-typesafe/openapi-typesafe/commit/589fcc6d40ca7a4d783435305629fc2d23088e37) Thanks [@fedorello](https://github.com/fedorello)! - A header pair in a query key must be a list of exactly a name and a value, as `Headers` requires.
+  A string, a number, or a list of one or three items is no pair: the headers are left out of the
+  key, as the docs say, and no longer share a key with a valid pair.
+
+- [#153](https://github.com/openapi-typesafe/openapi-typesafe/pull/153) [`d62ac4f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d62ac4f3695dabbae2184fc79a181796af1d91e4) Thanks [@fedorello](https://github.com/fedorello)! - `NaN` and the string `"NaN"` in `params` no longer share a cache entry, and neither do the
+  infinities and a bigint with their text: a JSON `querySerializer` sends them differently. Such a
+  number is now `{ "(number)": "NaN" }` in the query key.
+
+- [#153](https://github.com/openapi-typesafe/openapi-typesafe/pull/153) [`d62ac4f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d62ac4f3695dabbae2184fc79a181796af1d91e4) Thanks [@fedorello](https://github.com/fedorello)! - A MobX observable `Set` or `Map` in `params` or a body no longer sends requests without end from
+  an `observer` component. Its query key read the collection's own state, which MobX changes each
+  time the collection is read, so every render had a new key. A value that is a `Map` or a `Set`
+  by its type tag only is now keyed by its contents alone.
+- Updated dependencies [[`d5ab7b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d5ab7b5df23c305ce1049a37c4be45c0482e3e59), [`d5ab7b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d5ab7b5df23c305ce1049a37c4be45c0482e3e59), [`d5ab7b5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/d5ab7b5df23c305ce1049a37c4be45c0482e3e59)]:
+  - openapi-typesafe-fetch@1.0.0-rc.14
+
 ## 1.0.0-rc.13
 
 ### Patch Changes
