@@ -143,7 +143,7 @@ describe("transformSchema", () => {
           { name: undefined, description: undefined },
         ],
         walkedAt: ROOT.path,
-        isAtSharedLocation: false,
+        sharedSlot: "",
       },
     ]);
   });

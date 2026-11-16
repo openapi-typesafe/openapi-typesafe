@@ -102,11 +102,11 @@ export interface EnumDeclarationRequest {
    */
   readonly tupleIndex?: number;
   /**
-   * The schema shares its location, and so `name`, with other schemas that are neither it nor
-   * intersected with it (`SchemaRequest.isAtSharedLocation`): an enum with other values there is
-   * another enum.
+   * Where the schema is among the schemas of its location (`SchemaRequest.sharedSlot`); a schema
+   * at a shared one has the location, and so `name`, with other schemas that are neither it nor
+   * intersected with it. Empty or undefined: the location's own place.
    */
-  readonly isAtSharedLocation?: boolean;
+  readonly sharedSlot?: string;
   /**
    * The location the generator's walk of the document types the schema at (a tuple element's is
    * its tuple's), which orders the owners of one name (`WalkRanks`). Undefined where a `$ref`

@@ -32,19 +32,39 @@ export interface NestedCall {
   /** It is typed for a `$ref` that points into it (`SchemaRequest.isThroughRef`). */
   readonly isThroughRef?: boolean;
   /**
-   * It shares its location with other schemas (`SchemaRequest.isAtSharedLocation`); the holder's
-   * by default, since a location that a nested schema appends to is shared too.
+   * Where it is among the schemas of its location (`SchemaRequest.sharedSlot`); the holder's by
+   * default, since a location that a nested schema appends to is shared too.
    */
-  readonly isAtSharedLocation?: boolean;
+  readonly sharedSlot?: SharedSlot;
   /** Where its type is when not at its location's pointer; the holder's by default. */
   readonly typePlacement?: TypePlacement | undefined;
 }
 
 /**
- * The call of a schema typed at its holder's location next to other schemas: an array's elements
- * and items, an object's record values (`SchemaRequest.isAtSharedLocation`).
+ * Where a schema is among the schemas typed at its location (`SchemaRequest.sharedSlot`): at the
+ * location's own place (`OWN_SLOT`), or at the steps that led from the location's own schema into
+ * an element, the items or a record value (`sharedStepCall`), each with the path it was taken at.
  */
-export const AT_SHARED_LOCATION: NestedCall = { isAtSharedLocation: true };
+export type SharedSlot = string;
+
+/** The place of a schema typed at a location of its own: the location's schema and its parts. */
+export const OWN_SLOT: SharedSlot = "";
+
+/**
+ * The step into a schema typed at its holder's location next to other schemas, as JSON: an
+ * array's elements (`["prefixItems", 1]`), items and other item keywords, an object's record
+ * values (`["patternProperties", "^x"]`), each kept apart from the others.
+ */
+export type SharedStep = readonly [string] | readonly [string, string | number];
+
+/**
+ * The call of a schema typed at its holder's location next to other schemas
+ * (`SchemaRequest.sharedSlot`). The holder's slot and location path are part of the slot, so the
+ * same step from another place (the `kind` of an element of an element) is another slot.
+ */
+export function sharedStepCall(request: SchemaRequest, step: SharedStep): NestedCall {
+  return { sharedSlot: JSON.stringify([request.sharedSlot, request.location.path ?? null, step]) };
+}
 
 /** Transform a nested schema, with `postTransform` applied (the recursion entry point). */
 export type TransformNested = (
@@ -69,12 +89,14 @@ export interface SchemaRequest {
    */
   readonly isThroughRef: boolean;
   /**
-   * The schema is typed at a location that other schemas, neither it nor intersected with it,
-   * are typed at too: the elements and items of an array, the record values of an object, and
-   * every schema nested in them (`Shape/kind` for the `kind` of each element of `Shape`). Their
-   * `--enum` declarations are told apart by their values (`enumOwner`).
+   * Where the schema is among the schemas typed at its location. Other schemas, neither it nor
+   * intersected with it, are typed at its location too where it is in the elements or items of an
+   * array or the record values of an object (`Shape/kind` for the `kind` of each element of
+   * `Shape`): its slot is the steps into them (`sharedStepCall`). A property and an inline
+   * `allOf` item of one schema are intersected, so their parts share each slot; `OWN_SLOT` is the
+   * place of the location's own schema. The `--enum` owners read it (`EnumOwners`).
    */
-  readonly isAtSharedLocation: boolean;
+  readonly sharedSlot: SharedSlot;
   /** Where its type is when not at its location's pointer; nested schemas keep their holder's. */
   readonly typePlacement?: TypePlacement | undefined;
   readonly transformNested: TransformNested;

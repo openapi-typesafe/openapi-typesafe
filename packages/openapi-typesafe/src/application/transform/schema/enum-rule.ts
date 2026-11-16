@@ -194,7 +194,7 @@ function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
   const element = {
     ...tupleElement(schema, request),
     ...walkedLocation(request),
-    isAtSharedLocation: request.isAtSharedLocation,
+    sharedSlot: request.sharedSlot,
   };
   const type =
     ownerEnumMembersType(schema, values, request) ??

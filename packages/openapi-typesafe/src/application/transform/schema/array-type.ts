@@ -10,7 +10,7 @@ import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object
 import { FIX } from "../../../domain/output-fixes.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
 import { unionOf } from "../type-combinators.js";
-import { AT_SHARED_LOCATION, type SchemaRequest } from "./schema-rule.js";
+import { type SchemaRequest, type SharedStep, sharedStepCall } from "./schema-rule.js";
 
 /**
  * `--array-length` writes tuples only while the estimated number of tuple elements stays below
@@ -31,17 +31,28 @@ function prefixTupleType(schema: SchemaObject, request: SchemaRequest): IrType |
     return null;
   }
   const prefixItems = schema.prefixItems ?? (items as SchemaObject[]);
-  return irTuple(prefixItems.map((item) => irTupleElement(elementType(item, request))));
+  return irTuple(
+    prefixItems.map((item, index) =>
+      irTupleElement(elementType(item, [PREFIX_ITEMS, index], request)),
+    ),
+  );
 }
 
-/** An element or the items of the array, typed at the array's location next to the others. */
-function elementType(schema: Schema, request: SchemaRequest): IrType {
-  return request.transformNested(schema, request.location, AT_SHARED_LOCATION);
+/** The keyword of a tuple element's step: an `items` list is a tuple like `prefixItems`. */
+const PREFIX_ITEMS = "prefixItems";
+const ITEMS_STEP: SharedStep = ["items"];
+
+/**
+ * An element or the items of the array, typed at the array's location next to the others; `step`
+ * tells them apart (`sharedStepCall`).
+ */
+function elementType(schema: Schema, step: SharedStep, request: SchemaRequest): IrType {
+  return request.transformNested(schema, request.location, sharedStepCall(request, step));
 }
 
 /** The type of the items after the prefix, or null when there may be none (`false`). */
-function restItemType(schema: Schema, request: SchemaRequest): IrType | null {
-  return schema === false ? null : elementType(schema, request);
+function restItemType(schema: Schema, step: SharedStep, request: SchemaRequest): IrType | null {
+  return schema === false ? null : elementType(schema, step, request);
 }
 
 /**
@@ -52,13 +63,13 @@ function restItemType(schema: Schema, request: SchemaRequest): IrType | null {
 function prefixRestType(schema: SchemaObject, request: SchemaRequest): IrType | null {
   const { items, unevaluatedItems, contains } = schema;
   if (items !== undefined && !Array.isArray(items)) {
-    return restItemType(items as Schema, request);
+    return restItemType(items as Schema, ITEMS_STEP, request);
   }
   if (unevaluatedItems === undefined || items !== undefined) {
     return UNKNOWN_TYPE;
   }
-  const unevaluated = restItemType(unevaluatedItems, request);
-  const matched = contains === undefined ? null : restItemType(contains, request);
+  const unevaluated = restItemType(unevaluatedItems, ["unevaluatedItems"], request);
+  const matched = contains === undefined ? null : restItemType(contains, ["contains"], request);
   const types = [unevaluated, matched].filter((type): type is IrType => type !== null);
   return types.length === 0 ? null : unionOf(types);
 }
@@ -74,7 +85,7 @@ function prefixItemsTupleType(
 ): IrType {
   const { min } = lengthBounds(schema);
   const elements = prefixItems.map((item, index): IrTupleElement => {
-    const type = elementType(item, request);
+    const type = elementType(item, [PREFIX_ITEMS, index], request);
     return index < min ? irTupleElement(type) : irOptionalTupleElement(type);
   });
   const rest = prefixRestType(schema, request);
@@ -88,7 +99,7 @@ function isPrefixItemsFixed(schema: SchemaObject, request: SchemaRequest): boole
 /** The type of one item; `unknown` without `items`. */
 function singleItemType(schema: SchemaObject, request: SchemaRequest): IrType {
   const { items } = schema;
-  return items ? elementType(items as SchemaObject, request) : UNKNOWN_TYPE;
+  return items ? elementType(items as SchemaObject, ITEMS_STEP, request) : UNKNOWN_TYPE;
 }
 
 /**

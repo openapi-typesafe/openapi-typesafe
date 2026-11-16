@@ -17,7 +17,7 @@ import { coreType } from "./core-type.js";
 import { unionItemOf, unionOwnKeywords } from "./discriminated-union.js";
 import { allOfMembers } from "./presence-members.js";
 import { requiredVariantsType } from "./required-variants.js";
-import type { SchemaRequest } from "./schema-rule.js";
+import { OWN_SLOT, type SchemaRequest } from "./schema-rule.js";
 import { unevaluatedPropertiesType } from "./unevaluated-properties.js";
 
 /** `anyOf` / `oneOf` variants; the position is part of the path so nested names stay unique. */
@@ -102,13 +102,14 @@ function inlineItemType(item: Schema, required: readonly string[], request: Sche
  */
 function ownKeywordsType(own: SchemaObject, ref: string, request: SchemaRequest): IrType | null {
   const location = { ...request.location, path: ref };
-  // Only the enum rule reads `isAtSharedLocation`, from the request each nested call builds, and
-  // `combinedType` applies no rule to `own` itself: the flag is reset on the nested calls.
+  // Only the enum rule reads `sharedSlot`, from the request each nested call builds, and
+  // `combinedType` applies no rule to `own` itself: the slot is reset on the nested calls.
   const atOwnLocation: SchemaRequest = {
     ...request,
     location,
+    sharedSlot: OWN_SLOT,
     transformNested: (nested, nestedLocation, call = {}) =>
-      request.transformNested(nested, nestedLocation, { isAtSharedLocation: false, ...call }),
+      request.transformNested(nested, nestedLocation, { sharedSlot: OWN_SLOT, ...call }),
   };
   return combinedType(own, atOwnLocation);
 }

@@ -757,7 +757,9 @@ The fix needs `--array-length` and changes nothing without it; naming it without
 
 #### dedupe-enum-names
 
-`--dedupe-enums` declares one enum for schemas with the same members. Without the fix it takes the
+`--dedupe-enums` declares one enum for schemas with the same members (the whole enum of each
+schema location: a property and an inline `allOf` item of one schema count as one, so their
+members together are compared, never one of them alone). Without the fix it takes the
 name of the first of them in the document, so adding a schema before it renames the enum, and code
 that uses it breaks. With the fix the name is chosen from all of them, by this rule:
 
@@ -778,8 +780,9 @@ export enum PetState { // [!code ++]
   else the next number of its best name that no schema gives (`PetState_2`), wherever the two
   are in the document.
 - The names are built as without the fix (`PetState` for `Pet.state`).
-- The schemas are known only at the end, so the document is transformed twice; `transform`,
-  `transformProperty` and `postTransform` callbacks run in both passes.
+- The names are chosen at the end of the run, when every schema of an enum is known; the
+  document is transformed once, so `transform`, `transformProperty` and `postTransform`
+  callbacks run once.
 - It needs `--enum` and `--dedupe-enums` and changes nothing without them; naming it without them
   prints the warning `FIX_NEEDS_OPTION` (`--fix all` does not).
 - An `x-enum-name` extension is not read: no tool of the ecosystem defines it.

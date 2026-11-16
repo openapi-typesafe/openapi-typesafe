@@ -16,7 +16,7 @@ Common flags (all default to off unless noted):
 | `--check` | Exit `1` if the file on disk differs from what would be generated |
 | `--enum` | Real TS `enum`s instead of string unions |
 | `--enum-values` | Also export the enum values as arrays |
-| `--dedupe-enums` | Dedupe enums (with `--enum`) |
+| `--dedupe-enums` | Dedupe enums (with `--enum`): one enum for schema locations whose whole enums (a property and its inline `allOf` items together) have the same members |
 | `--root-types` | Export `components` as root aliases such as `SchemaPet` |
 | `--root-types-no-schema-prefix` | Root aliases without the `Schema` prefix |
 | `-t, --export-type` | `type` instead of `interface` |

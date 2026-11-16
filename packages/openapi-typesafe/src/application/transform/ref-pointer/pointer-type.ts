@@ -6,7 +6,12 @@ import { FIX } from "../../../domain/output-fixes.js";
 import { isExplodedQueryObject } from "../document/exploded-query.js";
 import { InvalidRefError, refType } from "../ref-type.js";
 import type { RefResolver } from "../schema/schema-context.js";
-import { AT_LOCATION, type SchemaRequest, type ValueAccess } from "../schema/schema-rule.js";
+import {
+  AT_LOCATION,
+  OWN_SLOT,
+  type SchemaRequest,
+  type ValueAccess,
+} from "../schema/schema-rule.js";
 import {
   generatedLocationOf,
   type IsExplodedParameter,
@@ -113,7 +118,9 @@ function pointedSchemaType(
       valueAccess: valueAccessOf(location.recordOwner, request),
       parent: tupleHolderOf(pointer, request.context.refs),
       isThroughRef: true,
-      isAtSharedLocation: location.isShared,
+      // A slot of its own: the walk's slot of the node is not known here. Enums of the same values
+      // at the location share one owner all the same (`EnumOwners`).
+      sharedSlot: location.isShared ? JSON.stringify(["$ref", ref]) : OWN_SLOT,
       typePlacement: location.typePlacement,
     },
   );

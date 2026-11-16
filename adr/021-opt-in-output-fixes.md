@@ -543,6 +543,49 @@ and only by narrowing: a webhook's `allOf` item that lists fewer `state` values 
 …transferring`, not the enum with `locked`; 5 references per document, 1 in `github.ae`). The
 defaults, `--dedupe-enums` and `--enum-values` alone do not change; the changed output compiles.
 
+## Amendment (2026-11-16): one owner for everything TypeScript intersects
+
+The owners above joined a property and an inline `allOf` item of one schema, but not what is
+inside them, and `--dedupe-enums` shared enums per request before the owners were known:
+
+- `T: { mode: [a], allOf: [{ mode: [a, b] }] }` next to a schema `U: { mode: [a] }` gave, with
+  `--enum --dedupe-enums` (rc.13 and upstream too) and with `dedupe-enum-names` or `all`,
+  `{ mode?: TMode_2 } & { mode?: TMode }`: the request `[a]` shared `U`'s enum, the request
+  `[a, b]` got another, and the intersection was `never`. With a discriminator, the union and its
+  members were `never` too. The output compiled, so the error was silent.
+- The items, record values, tuple elements and nested properties of a property and of an inline
+  `allOf` item got two enums (`TList.a[] & TList_2[]`, `TRec & TRec_2`): each was a shared
+  location of its own.
+
+The rules:
+
+1. A schema typed at its holder's location next to other schemas has a slot
+   (`SchemaRequest.sharedSlot`): the steps from the location's schema into it (`["items"]`,
+   `["prefixItems", 1]`, `["additionalProperties"]`, `["patternProperties", "^x"]`,
+   `["unevaluatedProperties"]`), with the holder's slot and path. A property and an inline
+   `allOf` item of one schema are typed at one location with the same slots, so their parts meet
+   in one slot; the own keywords of a discriminated union start again at their own place. A
+   pointer into a shared location has a slot of its own (`["$ref", ref]`).
+2. Requests of one slot share one owner whatever their values (they are intersected); requests of
+   the same values at a location share one owner whatever their slot (as before). Both rules join
+   groups (`EnumOwners`, a union-find; the group that asked first keeps its key), and a group
+   still joins the location's own enum when the values are exactly its values. The owner of a
+   request is known only at the end of the run.
+3. `--dedupe-enums` shares enums at the end of the run, between owners, by the whole members of
+   each owner (`enumGrouping`): never one request of an owner with another schema. The first
+   pass that recorded the names before the run is gone; the naming rules (first schema,
+   `discriminator-values`' first declaring schema, `dedupe-enum-names`' best name) read the
+   requests of each shared enum at the end (`SharedEnumNames`).
+4. The end of the run merges the declarations of each enum, renames them to their final names,
+   and only then narrows each reference to its values (`withWholeEnums` after the rename), so a
+   narrowed reference names the final enum.
+
+Changes from rc.14, only with `--enum`: the cases above get one enum (`TMode.a & TMode`,
+`TList.a[] & TList[]`), so their types are satisfiable again. With `--dedupe-enums`, a schema
+that lists the values of only one request of another owner gets its own enum (`U: UMode`, not
+`TMode.a`), and two owners of the same whole values share one enum named by the same rule as
+before.
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow
