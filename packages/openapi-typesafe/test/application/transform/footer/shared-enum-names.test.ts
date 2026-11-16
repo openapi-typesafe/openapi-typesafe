@@ -3,7 +3,6 @@ import type { OwnedRequest } from "../../../../src/application/transform/footer/
 import {
   BEST_SCHEMA_NAMES,
   FIRST_DECLARING_SCHEMA_NAMES,
-  FIRST_SCHEMA_NAMES,
   type SharedEnum,
 } from "../../../../src/application/transform/footer/shared-enum-names.js";
 
@@ -85,20 +84,17 @@ describe("BEST_SCHEMA_NAMES", () => {
     expect(names.get("k")).toBe("PetState");
   });
 
+  it("namesOf gives an enum that only $refs typed its first declaring request's name", () => {
+    const reference = throughRef(owned("/Pet/kind", { isOwnerReference: true }));
+    const names = BEST_SCHEMA_NAMES.namesOf([shared("k", reference, throughRef(owned("/A")))]);
+
+    expect(names.get("k")).toBe("RunA");
+  });
+
   it("namesOf gives an enum that only $refs typed its first request's name", () => {
     const names = BEST_SCHEMA_NAMES.namesOf([shared("k", throughRef(owned("/A")))]);
 
     expect(names.get("k")).toBe("RunA");
-  });
-});
-
-describe("FIRST_SCHEMA_NAMES", () => {
-  it("namesOf gives the first schema's name, as the original", () => {
-    const names = FIRST_SCHEMA_NAMES.namesOf([
-      shared("k", owned("/Pet/kind", { isOwnerReference: true }), owned("/Other")),
-    ]);
-
-    expect(names.get("k")).toBe("RunPetkind");
   });
 });
 
