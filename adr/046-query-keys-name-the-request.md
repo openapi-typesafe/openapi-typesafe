@@ -526,6 +526,9 @@ budget rises to 6.9 kB: the segments (about 450 bytes), the `Ancestors` passed t
 and record keys (about 150), the lookalike rule and the number form (about 70). Correctness
 ranks above size (ADR-013, ADR-030).
 
+The check that a header pair is a list of exactly a name and a value, as `Headers` requires,
+adds about 30 bytes: 6.93 kB, budget 6.95 kB.
+
 ## Review trigger
 
 A report of two queries that share an entry while their requests differ in something a key can
