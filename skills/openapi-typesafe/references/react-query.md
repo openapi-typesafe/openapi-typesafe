@@ -94,8 +94,13 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
   `Headers` sends (`new Number(5)` is `"5"`, a `Date` its local text), and header names are lower
   case, a later name in another case winning as in `Headers`. A `Map` or `Set` (body or params)
   is keyed by its contents, `{ "entries()": [...] }` or `{ "values()": [...] }`, since a custom
-  serializer may send them; a MobX-style `Map` / `Set` (its type tag only) by its contents alone,
-  a subclass also by its own members; other iterables by their own members only. A value more
+  serializer may send them; a `Map` / `Set` is told by its internal slots, so one of another
+  realm or a subclass is also keyed by its own members; a value with only the type tag by its
+  own members, except one that iterates and has a `toJSON` (MobX observable `Map` / `Set`): its
+  contents alone; other iterables by their own members only. `headers` are read by the fetch
+  client's `mergeHeaders` rule: a `Map` (anything with `get`) by its raw values, so `null`
+  removes a header; pairs through `Headers`. Headers given as an iterator (`map.entries()`) or
+  another non-collection are left out of the key, which must not use them up. A value more
   than 100 objects deep is keyed in parts under `"(deeper)"`, so the key is stable. One rule
   reads body, params and headers: functions (`fetch`, serializers, middleware hooks, a function inside a
   body), circular references and values that throw when read (getters, `toJSON`, revoked

@@ -50,14 +50,25 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   href, a `Date` as its local text (`String(date)`, not the ISO text a header parameter sends),
   and an array as the text of each item. Header names, in plain `headers` and in
   `params.header`, are written in lower case, as `Headers` matches them in any case, and in
-  their order: `{ "X-A": "1", "x-a": "2" }` sends and has the key `{ "x-a": "2" }`. A `Map`
+  their order: `{ "X-A": "1", "x-a": "2" }` sends and has the key `{ "x-a": "2" }`. `headers`
+  are read by the fetch client's own rule, in its order: a value with a `get` method (`Headers`,
+  a `Map`) by its entries and their raw values, so a `null` value removes the header and
+  `undefined` sends nothing, as in plain headers; a list of pairs, or a `Set` of them, through
+  `Headers`, which sends the text of each value; any other object by its own members. The key
+  reads only headers it cannot use up: an array, a `Map`, a `Set`, `Headers`,
+  `URLSearchParams` or `FormData`. Headers given as an iterator (`map.entries()`), a generator
+  or another object with a `get` method or an iterator are left out of the key, so the request
+  keeps them all; pass a `Headers`, a `Map` or a plain object for a key of them. A `Map`
   or a `Set`, in a body as in `params`, keeps its contents in none of its members, so JSON and
   the default serializers send `{}` or nothing for it, while a `querySerializer` or
   `bodySerializer` of yours may send the contents: the key holds them in order, a `Set` as
-  `{ "values()": [...] }` and a `Map` as `{ "entries()": [[key, value], ...] }`. A value that
-  is a `Map` or a `Set` by its type tag only, such as a MobX observable `Map` or `Set`, is its
-  contents alone: its own members are its state, which MobX changes each time it is read. A
-  `Map` or `Set` subclass keeps its own members beside its contents, as JSON sends them. Any
+  `{ "values()": [...] }` and a `Map` as `{ "entries()": [[key, value], ...] }`. A `Map` or a
+  `Set` is told by its internal slots, so one of another realm (an iframe, `vm`, a Jest
+  environment) and a subclass keep their own members beside their contents, as JSON sends them.
+  A value that is a `Map` or a `Set` by its type tag only is keyed by its own members, as JSON
+  sends it, unless it iterates its contents and has its own `toJSON`, as a MobX observable
+  `Map` or `Set` does: then it is its contents alone, since JSON sends its `toJSON` form and its
+  own members are its state, which MobX changes each time it is read. Any
   other class instance is keyed by its own members, so an Immutable.js collection is keyed by
   its inner tree too; pass `toJS()` for a key of its contents alone. Other
   iterables are keyed by their own members only: an iterator would be used up by the key, and a
