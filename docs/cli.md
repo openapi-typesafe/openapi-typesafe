@@ -180,6 +180,7 @@ A warning does not stop the run: the types are written and the exit code stays `
 
 | Code | Meaning |
 | :--- | :------ |
+| `CALLBACK_RESULT_IGNORED` | Node API: a `transform` without `irCallbacks: true` returned type text or another value that is no TypeScript node and no object; the result is ignored and the schema keeps its generated type. Reported once per run, with the schema path of the first such result. See [IR callbacks](./node.md#ir-callbacks) |
 | `CLI_INPUT_IGNORED` | APIs are listed in `redocly.yaml` and an input is given on the command line; the input is ignored and the APIs are generated. See [Multiple schemas](#multiple-schemas) |
 | `CLI_OUTPUT_IGNORED` | APIs are listed in `redocly.yaml` and `--output` is given; each API is written to its `x-openapi-ts.output`, and the `--output` path is not used. See [Multiple schemas](#multiple-schemas) |
 | `CONFIG_SETTING_UNKNOWN` | An API's `x-openapi-ts` block in `redocly.yaml` has a key that is not an openapi-typesafe setting, for example a misspelled flag; the key is ignored. See [Multiple schemas](#multiple-schemas) |

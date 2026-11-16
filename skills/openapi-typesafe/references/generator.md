@@ -102,7 +102,9 @@ const ast = await openapiTS(source, {
 - Callbacks without `irCallbacks: true` that build `ts.factory` nodes are deprecated and need the
   TypeScript JavaScript API (see [migration.md](migration.md)). They, and `stringToAST()`, emit a
   Node.js `DeprecationWarning` with an `OPENAPI_TYPESAFE_DEP_*` code (`DEPRECATION_CODES`), once
-  per process; `silent` does not hide it, `node --no-deprecation` does.
+  per process; `silent` does not hide it, `node --no-deprecation` does. Type text returned by a
+  `transform` without `irCallbacks: true` is ignored (the generated type stays), with one
+  `CALLBACK_RESULT_IGNORED` warning per run.
 - Type an options object as `GeneratorOptions` (either callback form, and the 2.0 name);
   `OpenAPITSOptions` and `OpenAPITSIrOptions` are compatibility names.
 

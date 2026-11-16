@@ -52,6 +52,7 @@ type ContextFlags = Omit<
   | "resolve"
   | "runFooter"
   | "legacyCallbackWarnings"
+  | "isIgnoredCallbackResultReported"
   | "logger"
   | "deprecations"
   | "fix"

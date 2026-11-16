@@ -34,6 +34,11 @@ export interface RunContext extends GlobalContext {
   runFooter?: DocumentFooter;
   /** The deprecated callback forms this run has warned about (once each). */
   legacyCallbackWarnings?: Set<LegacyCallbackName>;
+  /**
+   * Whether this pass warned about a `transform` result it ignores (`CALLBACK_RESULT_IGNORED`).
+   * Not shared between passes: a pass whose messages are dropped must not silence the next one.
+   */
+  isIgnoredCallbackResultReported?: boolean;
   /** Where this run reports warnings and debug output; without it, the terminal. */
   logger?: Logger;
   /** The `$ref` pointer types of this pass, and those typed in place (`RefPointerChecks`). */

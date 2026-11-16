@@ -186,6 +186,8 @@ const generate = (source: SchemaSource, options: GeneratorOptions) => openapiTS(
 
 With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, emits a Node.js `DeprecationWarning` (see [Deprecations](#deprecations)), and is removed in 2.0. The examples below use the IR form.
 
+Without `irCallbacks: true`, a `transform` result that is neither a TypeScript node nor an object, such as type text (`"Date"`) or a number, is ignored as in openapi-typescript 7: the schema keeps its generated type. The run then warns once with `CALLBACK_RESULT_IGNORED`, naming the schema path of the first such result. To return type text, set `irCallbacks: true`.
+
 - A type result is an IR type (from the helpers, such as `tsUnion([STRING, NULL])`) or a string of TypeScript type text, printed as written.
 - `transform` may also return `{ schema, questionToken: true }` to make the property optional.
 - `postTransform(type, options)` receives the generated IR type.
