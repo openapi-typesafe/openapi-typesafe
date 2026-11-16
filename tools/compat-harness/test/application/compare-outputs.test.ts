@@ -198,6 +198,32 @@ describe("compareOutputs", () => {
     ]);
   });
 
+  it("compareOutputs calls an intersected enum unified with its base a fix", async () => {
+    const enums = 'export enum Own {\n    a = "a"\n}\nexport enum Base {\n    a = "a"\n}\n';
+    const golden = `type T = Base & {\n    mode: Own;\n};\n${enums}`;
+    const cache = setUp({
+      unified: { golden, candidate: golden.replace("mode: Own", "mode: Base.a") },
+      other: { golden, candidate: golden.replace("mode: Own", "kind: Base.a") },
+    });
+    const path = (label: string, id: string) =>
+      cache.resolve(outputPath(label, "default", id as CorpusEntryId));
+    const typeChecker = new FakeTypeIdentityChecker({
+      [path("candidate", "unified")]: { changed: ["T"] },
+      [path("candidate", "other")]: { changed: ["T"] },
+    });
+    const outputCompiler = new FakeOutputCompiler({});
+
+    const results = await compareOutputs(
+      { cache, logger: new RecordingLogger(), typeChecker, outputCompiler },
+      OPTIONS,
+    );
+
+    expect(results.map((r) => [r.entryId, r.status])).toEqual([
+      ["unified", ComparisonStatus.GoldenInvalid],
+      ["other", ComparisonStatus.Different],
+    ]);
+  });
+
   it("compareOutputs counts a file TypeScript stops on as worse than any error count", async () => {
     const cache = setUp({
       both: { golden: "a", candidate: "b" },

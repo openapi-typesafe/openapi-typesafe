@@ -649,6 +649,14 @@ keeps its 4 errors of rc.14). Two `$ref` items whose schemas have other TypeScri
 place still intersect to `never` (rc.14 too): that is a conflict between the bases, not one the
 inline item can narrow.
 
+The golden output of these documents compiles, so the compat harness counted them as changed
+types. It counts a golden file as a fix of invalid output (`golden-invalid`) when ours differs only
+by this fix and compiles no worse (`isIntersectedEnumUnified`): each changed line is a property in
+an object literal opened by ` & {` whose own enum is replaced by another golden enum, its member or
+a union of its members, all values of the own enum; enum declarations may only be dropped (an own
+enum nothing references any more) or reordered. So the release gate still fails on any other
+change of compiling output.
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

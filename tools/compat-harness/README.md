@@ -91,7 +91,13 @@ arguments.
   the candidate has no more errors: a fix of invalid output, which the backlog policy ships by
   default. With more errors it stays `different`. A golden file that declares two enums of one name
   counts as invalid too when the candidate declares none twice: TypeScript merges them without an
-  error, so each schema accepts the other's values (RC4 G8, ADR-021).
+  error, so each schema accepts the other's values (RC4 G8, ADR-021). So does a golden file that
+  gives a schema the enum of other values that another schema has (RC5 G1), when the candidate only
+  declares an enum of the schema's own values for it, and one that types a property of an
+  intersected object literal (`Base & { mode: OwnMode }`) by an enum of its own while the base types
+  it by another enum, when the candidate only points the property at the base's enum, narrowed to
+  values of its own enum, and drops or reorders enum declarations: two TypeScript enums intersect
+  to `never` (ADR-021, 2026-11-16).
 - Cases where the golden generator fails or its output does not compile are excluded from the
   identity rates.
 - **Opt-in flags** (`--binary-as-blob`, ...): flags the golden generators do not have, off by

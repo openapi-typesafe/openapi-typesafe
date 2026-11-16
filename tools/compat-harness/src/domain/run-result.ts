@@ -34,9 +34,10 @@ export const ComparisonStatus = {
   /** The golden run failed too, so the case is not comparable. */
   GoldenFailed: "golden-failed",
   /**
-   * Types differ, but the golden output does not compile, or merges two enums of one name that the
-   * candidate keeps apart (RC4 G8), and the candidate has no more errors: a fix of invalid output,
-   * which the backlog policy ships by default (ADR-021). Not comparable either.
+   * Types differ, but the golden output does not compile, or lets schemas share an enum that the
+   * candidate keeps apart (RC4 G8, RC5 G1), or intersects two enums to `never` where the candidate
+   * uses one, and the candidate has no more errors: a fix of invalid output, which the backlog
+   * policy ships by default (ADR-021). Not comparable either.
    */
   GoldenInvalid: "golden-invalid",
   /** The golden run succeeded and the candidate run failed. */
