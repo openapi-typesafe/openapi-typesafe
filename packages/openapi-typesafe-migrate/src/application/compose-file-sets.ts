@@ -1,8 +1,9 @@
 import { composeIncludes, serviceValues } from "../domain/compose-includes.js";
-import { containerServices } from "../domain/compose-services.js";
+import { containerServices, fileExtensions } from "../domain/compose-services.js";
 import type { DocumentValue } from "../domain/config-documents.js";
 import type { IncludeProblem } from "../domain/migration-findings.js";
 import { referencedProjectPath } from "../domain/relative-references.js";
+import type { FileLink } from "./linked-files.js";
 import { baseName } from "./project-file-names.js";
 
 /**
@@ -12,6 +13,8 @@ import { baseName } from "./project-file-names.js";
  * list merges. The tool does not know which files a command merges, so each Compose file may be
  * merged with every other one of its folder, and with the files they include. A service that two
  * merged files give an entrypoint or a command runs a container that neither file shows alone.
+ * The file that a service's `extends` names gives it keys too: it is linked to the file, and read
+ * as a Compose file whatever its name.
  */
 
 /** What a Compose file is read with: the services others complete, and its includes. */
@@ -23,8 +26,10 @@ export interface ComposeFileReading {
 
 export interface ComposeReach {
   readonly readings: ReadonlyMap<string, ComposeFileReading>;
-  /** The files that an include reads, which are Compose files whatever their name. */
+  /** The files that an include or an `extends` reads: Compose files whatever their name. */
   readonly includedFiles: ReadonlySet<string>;
+  /** The files that one `docker compose` run may read together (linked-files.ts). */
+  readonly links: readonly FileLink[];
 }
 
 /** How the planner reads the project's files. */
@@ -32,8 +37,8 @@ export interface ComposeSource {
   readonly listed: ReadonlySet<string>;
   /** The values of a YAML file where they are used; none when it does not parse. */
   valuesOf(path: string): Promise<readonly DocumentValue[]>;
-  /** Whether the text of a file may have a top-level `include`, before it is parsed. */
-  mayInclude(path: string): Promise<boolean>;
+  /** Whether the text of a file may have a top-level `include` or an `extends`, unparsed. */
+  mayLink(path: string): Promise<boolean>;
 }
 
 /** One include of a file: the path as written, and the project file it names. */
@@ -49,6 +54,13 @@ interface ReadFiles {
   readonly unread: Map<string, Map<string, IncludeProblem>>;
   /** The files of each include whose `path` lists several, which Compose merges. */
   readonly groups: string[][];
+  /** The project files that the `extends` of each file's services name. */
+  readonly extended: Map<string, string[]>;
+  /**
+   * The services of each file that a service of another file extends and gives an entrypoint or
+   * a command: their containers run with keys of both files, as merged ones do.
+   */
+  readonly extendedServices: Map<string, Set<string>>;
 }
 
 const folderOf = (path: string): string => path.slice(0, path.length - baseName(path).length);
@@ -87,14 +99,35 @@ function readIncludes(path: string, found: ReadFiles, listed: ReadonlySet<string
   return edges.map(({ target }) => target);
 }
 
-/** The Compose files of `roots` and every file their includes reach, each read once. */
+/** The project files that the `extends` of a file's services name. */
+function readExtends(path: string, found: ReadFiles, listed: ReadonlySet<string>): string[] {
+  const targets: string[] = [];
+  const values = found.values.get(path) ?? [];
+  const completing = containerServices(values);
+  for (const { name, file, service } of fileExtensions(values)) {
+    const target = includedPath(path, file, listed);
+    targets.push(...(target === undefined ? [] : [target]));
+    if (target !== undefined && service !== undefined && completing.has(name)) {
+      const services = found.extendedServices.get(target) ?? new Set<string>();
+      found.extendedServices.set(target, services.add(service));
+    }
+  }
+  found.extended.set(path, targets);
+  return targets;
+}
+
+/** The Compose files of `roots` and every file their includes and `extends` reach, read once. */
 async function readFiles(roots: readonly string[], source: ComposeSource): Promise<ReadFiles> {
-  const found: ReadFiles = { values: new Map(), edges: new Map(), unread: new Map(), groups: [] };
+  const found: ReadFiles = {
+    ...{ values: new Map(), edges: new Map(), unread: new Map() },
+    ...{ groups: [], extended: new Map(), extendedServices: new Map() },
+  };
   const pending = [...roots];
   for (let path = pending.pop(); path !== undefined; path = pending.pop()) {
     if (!found.values.has(path)) {
       found.values.set(path, await source.valuesOf(path));
       pending.push(...readIncludes(path, found, source.listed));
+      pending.push(...readExtends(path, found, source.listed));
     }
   }
   return found;
@@ -149,7 +182,25 @@ function outsideServices(path: string, sets: readonly Set<string>[], found: Read
     .filter((set) => set.has(path))
     .flatMap((set) => [...set].filter((other) => other !== path))
     .map(servicesOf);
-  return new Set([...servicesOf(path)].filter((name) => others.some((set) => set.has(name))));
+  const extended = found.extendedServices.get(path) ?? new Set<string>();
+  const isOutside = (name: string): boolean =>
+    extended.has(name) || others.some((set) => set.has(name));
+  return new Set([...servicesOf(path)].filter(isOutside));
+}
+
+/** The files that one run may read together: a merged set, an include, an `extends`. */
+function composeLinks(sets: readonly Set<string>[], found: ReadFiles): FileLink[] {
+  const merged = sets.flatMap((set) => {
+    const [first, ...others] = [...set];
+    return others.map((other): FileLink => [first as string, other]);
+  });
+  const included = [...found.edges].flatMap(([path, edges]) =>
+    edges.map(({ target }): FileLink => [path, target]),
+  );
+  const extended = [...found.extended].flatMap(([path, targets]) =>
+    targets.map((target): FileLink => [path, target]),
+  );
+  return [...merged, ...included, ...extended];
 }
 
 /** What the Compose files of a project give each other. */
@@ -159,7 +210,7 @@ export async function planComposeReach(
 ): Promise<ComposeReach> {
   const including: string[] = [];
   for (const path of composePaths) {
-    including.push(...((await source.mayInclude(path)) ? [path] : []));
+    including.push(...((await source.mayLink(path)) ? [path] : []));
   }
   const roots = [...new Set([...mergedComposeFiles(composePaths), ...including])];
   const found = await readFiles(roots, source);
@@ -174,5 +225,5 @@ export async function planComposeReach(
     });
   }
   const reached = [...found.values.keys()].filter((path) => !composePaths.includes(path));
-  return { readings, includedFiles: new Set(reached) };
+  return { readings, includedFiles: new Set(reached), links: composeLinks(sets, found) };
 }

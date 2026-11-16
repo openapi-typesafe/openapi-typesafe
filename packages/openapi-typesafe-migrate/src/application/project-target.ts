@@ -8,11 +8,12 @@ import {
   namesUninstalledPackage,
 } from "../domain/declared-packages.js";
 import { importMapNames } from "../domain/import-map-migration.js";
-import type { CalledMakefiles } from "../domain/make-calls.js";
+import { type MakefileMigrator, makefileMigrator } from "../domain/makefile-migration.js";
 import { namesOriginalPackage, WORKSPACES_FIELD } from "../domain/package-names.js";
 import { type SuccessorAliases, successorAliasedPackages } from "../domain/successor-aliases.js";
 import { type ApiDescriptionParts, apiDescriptionParts } from "./api-description-parts.js";
-import { planCalledMakefiles } from "./called-makefiles.js";
+import { type ProjectMakefiles, planCalledMakefiles } from "./called-makefiles.js";
+import { filesLinkedToOldNames, makefileLinks } from "./linked-files.js";
 import { type NamedImportMaps, namedImportMaps, withNamedImportMaps } from "./named-import-maps.js";
 import { type PlanSource, planSourceOf } from "./plan-sources.js";
 import type { DocumentReaders, ProjectFiles } from "./ports.js";
@@ -46,8 +47,12 @@ export interface ProjectTarget {
   readonly apiDescriptionParts: ApiDescriptionParts;
   /** What the YAML files give the others: the kinds of included files, generator variables. */
   readonly yamlReach: YamlReach;
-  /** The Makefiles that recipes can run, with what they set by `override`. */
-  readonly calledMakefiles: CalledMakefiles;
+  /** The Makefiles that recipes can run, with what they set by `override`, and their includes. */
+  readonly calledMakefiles: ProjectMakefiles;
+  /** The migration of those Makefiles, which reads each one that includes others once. */
+  readonly makefiles: MakefileMigrator;
+  /** The files linked to a file that names an old package (linked-files.ts). */
+  readonly linkedFiles: ReadonlySet<string>;
 }
 
 /**
@@ -158,8 +163,11 @@ export async function planProjectTarget(
   const parts = await apiDescriptionParts(paths, dependencies);
   const yamlReach = await planYamlReach(paths, dependencies);
   const calledMakefiles = await planCalledMakefiles(paths, dependencies.files);
+  const links = [...makefileLinks(calledMakefiles), ...yamlReach.compose.links];
+  const linkedFiles = await filesLinkedToOldNames(links, dependencies.files);
   return {
     ...{ version, catalogs, manifests: declarations, aliases, importMaps },
-    ...{ apiDescriptionParts: parts, yamlReach, calledMakefiles },
+    ...{ apiDescriptionParts: parts, yamlReach, calledMakefiles, linkedFiles },
+    makefiles: makefileMigrator(calledMakefiles),
   };
 }

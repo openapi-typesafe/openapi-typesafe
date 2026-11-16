@@ -50,6 +50,9 @@ exports[`manualStepMessage > manualStepMessage describes every kind of manual st
   "compose.yaml:2: the file includes a.yaml, which the tool cannot read (it is missing, outside the project, remote or named by a variable): migrate the old package names in it by hand",
   "compose.yaml:3: the file includes b.yaml, which includes this file again, a cycle that Compose rejects: remove one of the includes, then run the tool again",
   "compose.yaml:5: the service gen is also defined by a file that this Compose file includes, which Compose rejects, so its container was kept: keep one of them, then run the tool again",
+  "compose.yaml:4: the text is shared by containers that run different programs (through a YAML anchor or a Compose extends), so it was kept: where it runs the generator, rename openapi-typescript to openapi-typesafe",
+  "mk/gen.mk:2: the Makefiles Makefile, api/Makefile read this line with different values (it may run openapi-typescript in one and another program in another), so it was kept: where it runs the generator, rename -it to --immutable",
+  "k8s/job.yaml:7: a list item holds a whole command line, which no shell splits in exec form, so it was kept: where a shell runs it, rename openapi-typescript to openapi-typesafe, -it to --immutable",
   "line 1: no package.json or Deno import map at or above this file lists openapi-typesafe-helpers; openapi-fetch and openapi-react-query installed it, the openapi-typesafe packages do not: add it to the dependencies, or import the types from openapi-typesafe-fetch/helpers",
 ]
 `;

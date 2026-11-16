@@ -907,6 +907,57 @@ not compile, so it is on by default (ADR-021).
   (`domain/compose-includes.ts`). As every finding of a file, the steps come only from a file
   that names an old package or a generator variable: a file that does not is never read.
 
+## Amendment (2026-11-16): the thirteenth review of the migration tool
+
+The rc.14 hunt found files that make or Compose reads together with a file that names the
+generator, and that the tool left unread because their own text names no old package: a Makefile
+whose included file sets `GEN`, a recipe in an included file that runs the includer's `GEN`, an
+included file with another name than make's (`config.make`), a Compose file whose `extends`
+names a file with the generator, and override files whose base gives the entrypoint. Each was
+silently half migrated. Each fix makes wrong output correct, so it is on by default (ADR-021).
+
+- **The migration is planned over the links between files, not per file.** Before any file is
+  migrated, the tool builds the links that one make or `docker compose` run reads together
+  (`application/linked-files.ts`): a Makefile that make runs and each file it includes, however
+  deep; the Compose files of one folder (a base and its override files, files given with `-f`);
+  a Compose `include` and the file it names; a service's `extends` and the file it names. A file
+  is read when it, or any file it is linked to through a chain of links, names an old package.
+  This replaces the last sentence of the twelfth review: a file that names no old package is
+  still read when a linked file does. A file is changed only where its own text is known to run
+  the generator, as before; otherwise a manual step names its `file:line`.
+- **A file that make includes is a Makefile.** It is migrated as one whatever its name
+  (`config.make`, `Makefile.common`, `.env`; `application/called-makefiles.ts`).
+- **An included file is read with the values of the Makefiles that include it.** Make reads an
+  included file in place of the directive, with the variables of the Makefile it runs. So the
+  file is read in each Makefile that make runs and that includes it (one that no other Makefile
+  includes, or one of a name make runs in its folder, such as `api/Makefile`), at its own
+  offsets (`domain/make-includes.ts` keeps where each read of a file lies in the joined text),
+  and alone when make also runs it or nothing includes it. An edit is made only where every read
+  makes it; an edit that some reads make and others do not is an `included-text-differs` step
+  per line, naming the Makefiles (`domain/makefile-reads.ts`). Each Makefile that includes others
+  is read once for all of them (`domain/makefile-migration.ts`), so a project with hundreds of
+  included files reads as fast as one Makefile of the same text. The rejected alternative, to
+  report every recipe of an included file, would leave the common `include tools.mk` layout
+  unmigrated.
+- **A base service that a service of another file extends is completed by that file.** When the
+  extending service sets an `entrypoint` or `command`, the base service's container runs with
+  keys of both files, as merged files do, so it is a `container-not-known` step too
+  (`application/compose-file-sets.ts`). The file `extends` names is read as a Compose file.
+- **A list item that holds a whole command line is reported.** An exec-form item is one word
+  that no shell splits: `args: ["npx openapi-typescript api.yaml -it"]` gives the image's program
+  one argument, which is a command line only where a shell reads it. An item whose first command
+  has several words and runs the generator is a new `command-line-in-item` step, or part of the
+  `container-not-known` step of a container whose program the file does not show
+  (`domain/command-line-items.ts`). A script that `sh -c` before it reads is still migrated, and
+  interpreter code (`node -e`) is still `script-not-shell`.
+- **Make expands evaluated text before eval reads it.** In the text that `$(eval …)` gets from a
+  call or a reference (`$(eval $(call TPL,a))`), `$$` is `$`, so `$$(GEN)` in a template is a
+  reference to `GEN` and the flags after it are the generator's; a `$(value TPL)` keeps `$$`
+  (`domain/make-evaluations.ts`). The step that named `$(1).yaml` as the program is gone.
+- **A step's words say where shared text comes from.** `shared-container-text` now says the text
+  is shared through a YAML anchor or a Compose `extends`, as both give one place to several
+  containers.
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

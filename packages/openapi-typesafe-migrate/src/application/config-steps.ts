@@ -8,7 +8,7 @@ import {
   usedDocumentValues,
 } from "../domain/config-documents.js";
 import type { ManifestDeclarations } from "../domain/declared-packages.js";
-import type { CalledMakefiles } from "../domain/make-calls.js";
+import type { MakefileMigrator } from "../domain/makefile-migration.js";
 import {
   type Change,
   type FileMigration,
@@ -40,8 +40,10 @@ export interface MigrationContext {
   readonly apiDescriptionParts: ApiDescriptionParts;
   /** What the YAML files give the others: the kinds of included files, generator variables. */
   readonly yamlReach: YamlReach;
-  /** The Makefiles that recipes can run, with what they set by `override` (make-calls.ts). */
-  readonly calledMakefiles: CalledMakefiles;
+  /** The migration of the project's Makefiles, read with the files they include. */
+  readonly makefiles: MakefileMigrator;
+  /** The files linked to a file that names an old package, read whatever they name. */
+  readonly linkedFiles: ReadonlySet<string>;
   readonly rewriter: CallbackRewriter;
   readonly scanner: SourceStringScanner;
   readonly readers: DocumentReaders;
@@ -133,11 +135,14 @@ export const yamlConfig =
  * the files whose findings all start at an old name: commands and Dependabot names. Any YAML file
  * matches the command kind, and an OpenAPI document of megabytes is read in seconds, for nothing.
  * A text that expands a variable which a YAML file sets to the old generator is read too: the
- * flags after `$GEN` in a script that a job runs are the generator's.
+ * flags after `$GEN` in a script that a job runs are the generator's. So is a file that make or
+ * Compose reads with one that names an old package (linked-files.ts).
  */
 export const whenNamed =
   (migrate: FileKind["migrate"]): FileKind["migrate"] =>
   (text, path, context) =>
-    namesOriginalPackage(text) || usesVariable(text, context.yamlReach.generatorVariables)
+    namesOriginalPackage(text) ||
+    usesVariable(text, context.yamlReach.generatorVariables) ||
+    context.linkedFiles.has(path)
       ? migrate(text, path, context)
       : unchanged(text);

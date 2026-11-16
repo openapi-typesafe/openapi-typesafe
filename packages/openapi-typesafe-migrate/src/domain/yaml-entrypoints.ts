@@ -1,4 +1,5 @@
 import type { Finding, Locate } from "./argument-findings.js";
+import { commandLineItemFindings, commandLineItems } from "./command-line-items.js";
 import {
   commandWordFindingList,
   type ShellTextFindings,
@@ -8,6 +9,7 @@ import { composeIncludeFindings } from "./compose-includes.js";
 import { type ComposeReading, composeServices } from "./compose-services.js";
 import { type DocumentString, type DocumentValue, isDocumentString } from "./config-documents.js";
 import { containerCommand, entrypointArgumentFindings } from "./entrypoint-arguments.js";
+import { inlineCode } from "./inline-code.js";
 import type { ContainerUnknown } from "./migration-findings.js";
 import { type PlaceReading, sharedPlaceFindings } from "./shared-container-places.js";
 import { shellScript } from "./shell-scripts.js";
@@ -142,14 +144,23 @@ function containerReading(container: Container, text: string, locate: Locate): C
     container.entrypoint,
     ...(container.command === undefined ? [] : [container.command]),
   ];
+  const scripts = commands.flatMap((words) => shellScript(words)?.item ?? []);
+  const code = new Set(commands.flatMap((words) => inlineCode(words)?.code.start ?? []));
+  const isReadOtherwise = (item: DocumentString): boolean =>
+    scripts.includes(item) || code.has(item.content.start);
+  const items = commandLineItems(parts, isReadOtherwise, locate);
+  const { unknown } = container;
   const reading = {
-    findings: [...commandWordFindingList(commands, locate), ...flags],
+    findings: [
+      ...commandWordFindingList(commands, locate),
+      ...flags,
+      ...(unknown === undefined ? commandLineItemFindings(items, locate) : []),
+    ],
     places: parts.flatMap((part) => part.strings),
     isPaired: container.command !== undefined,
-    scripts: commands.flatMap((words) => shellScript(words)?.item ?? []),
+    scripts: unknown === undefined ? scripts : [...scripts, ...items],
     scalars,
   };
-  const { unknown } = container;
   return unknown === undefined
     ? reading
     : unknownReading({ unknown, parts, reading }, text, locate);
