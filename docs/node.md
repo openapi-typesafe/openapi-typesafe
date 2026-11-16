@@ -168,11 +168,12 @@ and `OpenAPITSIrOptions` (the IR form) are compatibility names; in 2.0 both beco
 of `GeneratorOptions`. In 2.0 `irCallbacks: true` is still accepted and does nothing, with a
 deprecation warning, so code that set it in 1.x keeps compiling; it is removed in 3.0.
 
-`Parameters<typeof openapiTS>` and `ReturnType<typeof openapiTS>` are those of openapi-typescript 7:
-`[source, options?: OpenAPITSOptions]` and `Promise` of the declarations, so a wrapper typed from
-them takes the TypeScript-node form only. A wrapper that takes the IR form (`irCallbacks: true`)
-types its options as `GeneratorOptions`. Make the parameter required: TypeScript does not pick the
-callback form of an optional one (`options?: GeneratorOptions`) by the keys of the object, so
+`Parameters<typeof openapiTS>` is that of openapi-typescript 7, `[source, options?:
+OpenAPITSOptions]`, so a wrapper typed from it takes the TypeScript-node form only.
+`ReturnType<typeof openapiTS>` is `Promise<IrDeclaration[]>`, not openapi-typescript 7's
+`Promise<ts.Node[]>`: the declarations are IR objects (see [Usage](#usage)).
+A wrapper that takes the IR form (`irCallbacks: true`) types its options as `GeneratorOptions`.
+Make the parameter required: TypeScript does not pick the callback form of an optional one (`options?: GeneratorOptions`) by the keys of the object, so
 inline callbacks there have implicit `any` parameters.
 
 ```ts
