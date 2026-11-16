@@ -1,3 +1,4 @@
+import { runInNewContext } from "node:vm";
 import { hashKey } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { queryKeyInit } from "../src/query-key.js";
@@ -13,7 +14,10 @@ const NO_BASE_URL = { baseUrl: "" };
 const TAG = "cat";
 const OTHER_TAG = "dog";
 
-/** Like MobX's ObservableSet: the type tag of a Set, its state in own members, read counts. */
+/**
+ * Like MobX's ObservableSet: the type tag of a Set, its state in own members, read counts, and a
+ * `toJSON` of its values.
+ */
 class TrackedSet {
   readonly data_: Set<string>;
   readonly atom_ = { lastAccessedBy_: 0 };
@@ -36,7 +40,10 @@ class TrackedSet {
   }
 }
 
-/** Like MobX's ObservableMap: the type tag of a Map, its state in own members, read counts. */
+/**
+ * Like MobX's ObservableMap: the type tag of a Map, its state in own members, read counts, and a
+ * `toJSON` of its entries.
+ */
 class TrackedMap {
   readonly data_: Map<string, number>;
   readonly keysAtom_ = { lastAccessedBy_: 0 };
@@ -52,6 +59,10 @@ class TrackedMap {
   *[Symbol.iterator](): IterableIterator<[string, number]> {
     this.keysAtom_.lastAccessedBy_ += 1;
     yield* this.data_;
+  }
+
+  toJSON(): [string, number][] {
+    return Array.from(this);
   }
 }
 
@@ -94,7 +105,7 @@ describe("queryKeyInit values that are a Map or a Set by their type tag", () => 
 
     expect(hashOf({ body: { counts } })).toBe(hashOf({ body: { counts } }));
     expect(queryKeyInit({ body: { counts } }, NO_BASE_URL)).toEqual({
-      body: { counts: { "entries()": [[TAG, 1]] } },
+      body: { counts: [[TAG, 1]] },
     });
   });
 
@@ -110,5 +121,109 @@ describe("queryKeyInit a Map or a Set of this realm", () => {
     expect(hashOf({ body: { tags: new LabeledSet([TAG], "a") } })).not.toBe(
       hashOf({ body: { tags: new LabeledSet([TAG], "b") } }),
     );
+  });
+});
+
+/** A DTO with the type tag of a Set that keeps its data in own members, as JSON sends it. */
+class TaggedSelection {
+  readonly ids: string;
+
+  constructor(ids: string) {
+    this.ids = ids;
+  }
+
+  get [Symbol.toStringTag](): string {
+    return "Set";
+  }
+}
+
+/** Like `TaggedSelection`, iterable, without a `toJSON`: JSON still sends its own members. */
+class IterableSelection extends TaggedSelection {
+  *[Symbol.iterator](): IterableIterator<string> {
+    yield TAG;
+  }
+}
+
+/** A value made in a realm of its own, as an iframe or a Jest environment makes it. */
+function inOtherRealm(code: string): object {
+  return runInNewContext(code) as object;
+}
+
+describe("queryKeyInit values with the type tag of a Map or a Set and no contents", () => {
+  it("queryKeyInit with tag-only Set query params of other members gives other keys", () => {
+    expect(hashOf({ params: { query: { sel: new TaggedSelection("1") } } })).not.toBe(
+      hashOf({ params: { query: { sel: new TaggedSelection("2") } } }),
+    );
+  });
+
+  it("queryKeyInit with a tag-only Set in a body keys its own members", () => {
+    expect(queryKeyInit({ body: { sel: new TaggedSelection("1") } }, NO_BASE_URL)).toEqual({
+      body: { sel: { ids: "1" } },
+    });
+  });
+
+  it("queryKeyInit with iterable tag-only Sets without toJSON keys their own members", () => {
+    expect(hashOf({ body: new IterableSelection("1") })).not.toBe(
+      hashOf({ body: new IterableSelection("2") }),
+    );
+  });
+
+  it("queryKeyInit with a tag-only Set with a toJSON and no iterator keys its members", () => {
+    const sel = Object.assign(new TaggedSelection("1"), { toJSON: (): string => TAG });
+
+    expect(queryKeyInit({ params: { query: { sel } } }, NO_BASE_URL)).toEqual({
+      params: { query: { sel: { ids: "1", "toJSON()": TAG } } },
+    });
+  });
+
+  it("queryKeyInit with an iterable with a toJSON and no collection tag keys its members", () => {
+    const list = { ids: "1", toJSON: (): string => TAG, *[Symbol.iterator]() {} };
+
+    expect(queryKeyInit({ params: { query: { list } } }, NO_BASE_URL)).toEqual({
+      params: { query: { list: { ids: "1", "toJSON()": TAG } } },
+    });
+  });
+
+  it("queryKeyInit with an object of the Map prototype and no slots keys its own members", () => {
+    const fake = Object.assign(Object.create(Map.prototype) as object, { label: "a" });
+
+    expect(queryKeyInit({ body: { fake } }, NO_BASE_URL)).toEqual({
+      body: { fake: { label: "a" } },
+    });
+  });
+});
+
+describe("queryKeyInit a Map or a Set of another realm", () => {
+  it("queryKeyInit with Maps of another realm and other own members gives other keys", () => {
+    const labeled = (label: string): object =>
+      inOtherRealm(`const m = new Map([["a", 1]]); m.label = "${label}"; m`);
+
+    expect(hashOf({ body: { m: labeled("x") } })).not.toBe(hashOf({ body: { m: labeled("y") } }));
+  });
+
+  it("queryKeyInit with a Set of another realm keys its own members and values", () => {
+    const set = inOtherRealm(`const s = new Set(["${TAG}"]); s.label = "x"; s`);
+
+    expect(queryKeyInit({ params: { query: { set } } }, NO_BASE_URL)).toEqual({
+      params: { query: { set: { label: "x", "values()": [TAG] } } },
+    });
+  });
+
+  it("queryKeyInit with a Map whose type tag says Set keeps its entries", () => {
+    const map = new Map([[TAG, 1]]);
+    Object.defineProperty(map, Symbol.toStringTag, { value: "Set" });
+
+    expect(queryKeyInit({ body: { map } }, NO_BASE_URL)).toEqual({
+      body: { map: { "entries()": [[TAG, 1]] } },
+    });
+  });
+
+  it("queryKeyInit with a Set whose type tag says Map keeps its values", () => {
+    const set = new Set([TAG]);
+    Object.defineProperty(set, Symbol.toStringTag, { value: "Map" });
+
+    expect(queryKeyInit({ body: { set } }, NO_BASE_URL)).toEqual({
+      body: { set: { "values()": [TAG] } },
+    });
   });
 });

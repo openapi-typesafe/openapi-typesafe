@@ -6,6 +6,7 @@ import type {
   ErrorMapBodies,
   FilterKeys,
   HttpMethod,
+  IsAnyResponseMap,
   IsOperationRequestBodyOptional,
   MediaType,
   OperationRequestBodyContent,
@@ -300,7 +301,7 @@ export type FetchResponse<
  * `number`.
  */
 type SuccessData<T, Media extends MediaType> =
-  IsAny<ResponseObjectMap<T>> extends true
+  IsAnyResponseMap<ResponseObjectMap<T>> extends true
     ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
       any
     : T extends never
@@ -309,7 +310,7 @@ type SuccessData<T, Media extends MediaType> =
 
 /** The error of the operation `T`, read as `SuccessData`. */
 type ErrorData<T, Media extends MediaType> =
-  IsAny<ResponseObjectMap<T>> extends true
+  IsAnyResponseMap<ResponseObjectMap<T>> extends true
     ? // biome-ignore lint/suspicious/noExplicitAny: an any map gives any (createClient<any>)
       any
     : T extends never
