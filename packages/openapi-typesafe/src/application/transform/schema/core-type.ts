@@ -45,7 +45,9 @@ function multipleTypes(schema: SchemaObject, request: SchemaRequest): IrType {
     members.push(
       typeName === "null" || typeName === null
         ? irKeyword("null")
-        : request.transformNested(variant as Schema, request.location),
+        : request.transformNested(variant as Schema, request.location, {
+            baseSchemas: request.baseSchemas,
+          }),
     );
   }
   return unionOf(members);

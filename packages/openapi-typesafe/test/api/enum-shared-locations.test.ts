@@ -187,15 +187,24 @@ describe("--enum names of tuple elements at one location and position", () => {
     ],
   };
 
-  it.each([
-    ["a nested tuple", nested, "#/components/schemas/Tup/prefixItems/1", 'Tup_3 {\n    c = "c"'],
-    ["allOf tuples", inAllOf, "#/components/schemas/Tup/allOf/1/prefixItems/0", 'Tup_2 {\n    b = "b"'],
-  ])("openapiTS names %s in the document's order whatever a $ref meets first", async (_shape, tuple, ref, last) => {
-    const withRef = await generate(documentWith({ AAA: { $ref: ref }, Tup: tuple }));
-    const withoutRef = await generate(documentWith({ Tup: tuple }));
+  it("openapiTS names a nested tuple in the document's order whatever a $ref meets first", async () => {
+    const ref = "#/components/schemas/Tup/prefixItems/1";
+    const withRef = await generate(documentWith({ AAA: { $ref: ref }, Tup: nested }));
+    const withoutRef = await generate(documentWith({ Tup: nested }));
 
-    expect(withRef).toContain(`export enum ${last}`);
-    expect(withoutRef).toContain(`export enum ${last}`);
+    expect(withRef).toContain('export enum Tup_3 {\n    c = "c"');
+    expect(withoutRef).toContain('export enum Tup_3 {\n    c = "c"');
+  });
+
+  it("openapiTS gives the intersected elements of allOf tuples one enum whatever a $ref meets first", async () => {
+    const ref = "#/components/schemas/Tup/allOf/1/prefixItems/0";
+    const withRef = await generate(documentWith({ AAA: { $ref: ref }, Tup: inAllOf }));
+    const withoutRef = await generate(documentWith({ Tup: inAllOf }));
+
+    for (const output of [withRef, withoutRef]) {
+      expect(output).toMatch(/Tup: \[\n\s+Tup\.a\n\s+\] & \[\n\s+Tup\.b\n\s+\];/);
+      expect(enumsNamed(output, "Tup")).toEqual(["export enum Tup "]);
+    }
   });
 
   it("openapiTS with --enum-values names a nested tuple's arrays in the document's order", async () => {

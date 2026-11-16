@@ -39,7 +39,7 @@ The Node.js API accepts either a `URL`, `string`, or JSON object as input:
 | `string` | Read dynamic YAML or JSON   | `await openapiTS('openapi: "3.1" … ')`                                                                                           |
 |  `JSON`  | Read dynamic JSON           | `await openapiTS({ openapi: '3.1', … })`                                                                                         |
 
-A string that is only a location is loaded exactly like that `URL`, by the rule the CLI applies to its schema argument: after trimming, it is one word (no whitespace) that starts with `file:`, `http:` or `https:`, or with another scheme and `//`. A relative `file:` URL such as `file:api.yaml` or `file:../api.yaml` names that file from `cwd`; with an `http:` or `https:` `cwd` it names no file and fails with `SCHEMA_SOURCE_INVALID` (it used to read `/api.yaml` from the file system root). A `file:` URL is relative, as the URL standard reads it, unless the text after `file:` starts with a slash, a backslash or a Windows drive (`file:/specs/api.yaml`, `file:C:/specs/api.yaml`). It fails the same way as the `URL` (a `file:` URL that names no local path, such as `file://host/a.yaml`, fails with `SCHEMA_LOAD_FAILED`, and a URL of a scheme other than `file:`, `http:` and `https:`, such as `s3://bucket/a.yaml`, fails with `SCHEMA_SOURCE_INVALID` and `details.reason: "unsupported-scheme"` before anything is read; openapi-typescript read it as the file `./s3:/bucket/a.yaml`), and its redirects are not limited by `remoteRefHosts`, as the root's are not. A location that does not parse as a URL (`http://[::1/x`) fails with `SCHEMA_SOURCE_INVALID`. Any other string, a file path included, is parsed as YAML or JSON; a string with whitespace is always a document, so YAML whose first key looks like a URL (`http://host/a: b`) is parsed as YAML. To load a file by its path, pass `pathToFileURL(path)` from `node:url`.
+A string that is only a location is loaded exactly like that `URL`, by the rule the CLI applies to its schema argument: after trimming, it is one word (no whitespace) that starts with `file:`, `http:` or `https:`, or with another scheme and `//`. A relative `file:` URL such as `file:api.yaml` or `file:../api.yaml` names that file from `cwd`; with an `http:` or `https:` `cwd` it names no file and fails with `SCHEMA_SOURCE_INVALID` (it used to read `/api.yaml` from the file system root). A `file:` URL is relative, as the URL standard reads it, unless the text after `file:` starts with a slash, a backslash or a Windows drive (`file:/specs/api.yaml`, `file:C:/specs/api.yaml`). It fails the same way as the `URL` (a `file:` URL that names no local path, such as `file://host/a.yaml`, fails with `SCHEMA_LOAD_FAILED`, and a URL of a scheme other than `file:`, `http:` and `https:`, such as `s3://bucket/a.yaml`, fails with `SCHEMA_SOURCE_INVALID` and `details.reason: "unsupported-scheme"` before anything is read; openapi-typescript read it as the file `./s3:/bucket/a.yaml`), and its redirects are not limited by `remoteRefHosts`, as the root's are not. A remote root given this way is named as `redocly lint` names it: a string that starts with `http://` or `https://` keeps its text (`http://LOCALHOST/x/../api.yaml`), so the entries of `.redocly.lint-ignore.yaml` written for it apply; a `URL` has only its normal form (`url.href`). A location that does not parse as a URL (`http://[::1/x`) fails with `SCHEMA_SOURCE_INVALID`. Any other string, a file path included, is parsed as YAML or JSON; a string with whitespace is always a document, so YAML whose first key looks like a URL (`http://host/a: b`) is parsed as YAML. To load a file by its path, pass `pathToFileURL(path)` from `node:url`.
 
 It also accepts `Readable` streams and `Buffer` types that are resolved and treated as strings (validation, bundling, and type generation can’t really happen without the whole document), so a stream or buffer that holds only a location is loaded like that URL too, by the same rule.
 
@@ -168,11 +168,12 @@ and `OpenAPITSIrOptions` (the IR form) are compatibility names; in 2.0 both beco
 of `GeneratorOptions`. In 2.0 `irCallbacks: true` is still accepted and does nothing, with a
 deprecation warning, so code that set it in 1.x keeps compiling; it is removed in 3.0.
 
-`Parameters<typeof openapiTS>` and `ReturnType<typeof openapiTS>` are those of openapi-typescript 7:
-`[source, options?: OpenAPITSOptions]` and `Promise` of the declarations, so a wrapper typed from
-them takes the TypeScript-node form only. A wrapper that takes the IR form (`irCallbacks: true`)
-types its options as `GeneratorOptions`. Make the parameter required: TypeScript does not pick the
-callback form of an optional one (`options?: GeneratorOptions`) by the keys of the object, so
+`Parameters<typeof openapiTS>` is that of openapi-typescript 7, `[source, options?:
+OpenAPITSOptions]`, so a wrapper typed from it takes the TypeScript-node form only.
+`ReturnType<typeof openapiTS>` is `Promise<IrDeclaration[]>`, not openapi-typescript 7's
+`Promise<ts.Node[]>`: the declarations are IR objects (see [Usage](#usage)).
+A wrapper that takes the IR form (`irCallbacks: true`) types its options as `GeneratorOptions`.
+Make the parameter required: TypeScript does not pick the callback form of an optional one (`options?: GeneratorOptions`) by the keys of the object, so
 inline callbacks there have implicit `any` parameters.
 
 ```ts
@@ -184,6 +185,8 @@ const generate = (source: SchemaSource, options: GeneratorOptions) => openapiTS(
 ### IR callbacks
 
 With `irCallbacks: true`, `transform`, `postTransform` and `transformProperty` work on the generator’s own type nodes (IR) instead of TypeScript compiler nodes, and you don’t need the `typescript` package. The TypeScript-node form (`transform` returning a TypeScript node, `postTransform` and `transformProperty` without `irCallbacks`) still works in 1.x, emits a Node.js `DeprecationWarning` (see [Deprecations](#deprecations)), and is removed in 2.0. The examples below use the IR form.
+
+Without `irCallbacks: true`, a `transform` result that is neither a TypeScript node nor an object, such as type text (`"Date"`) or a number, is ignored as in openapi-typescript 7: the schema keeps its generated type. The run then warns once with `CALLBACK_RESULT_IGNORED`, naming the schema path of the first such result. To return type text, set `irCallbacks: true`.
 
 - A type result is an IR type (from the helpers, such as `tsUnion([STRING, NULL])`) or a string of TypeScript type text, printed as written.
 - `transform` may also return `{ schema, questionToken: true }` to make the property optional.

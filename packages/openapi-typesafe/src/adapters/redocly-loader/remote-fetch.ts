@@ -1,5 +1,6 @@
 import type { Config as RedoclyConfig } from "@redocly/openapi-core";
 import type { RefAccess } from "../../application/ports/schema-loader.js";
+import { redactLocationSecrets } from "../../domain/url-secrets.js";
 import { isHostAllowed } from "./allowed-hosts.js";
 import { type ConfiguredHeader, headersFor } from "./configured-headers.js";
 import { RemoteBodyLimit, type RemoteBodyLimits } from "./remote-body-limit.js";
@@ -99,7 +100,10 @@ function fetchWithTimeout(timeoutMs: number, bodyLimit: RemoteBodyLimit): Remote
       return await bufferedResponse(response, input, bodyLimit);
     } catch (cause) {
       const isTimeout = cause instanceof Error && cause.name === "TimeoutError";
-      throw isTimeout ? new Error(`Timed out after ${timeoutMs} ms loading ${input}`) : cause;
+      if (!isTimeout) {
+        throw cause;
+      }
+      throw new Error(`Timed out after ${timeoutMs} ms loading ${redactLocationSecrets(input)}`);
     }
   };
 }
@@ -176,7 +180,7 @@ export function fetchWithCheckedRedirects(
       }
       url = new URL(location, url);
     }
-    throw new Error(`More than ${MAX_REDIRECTS} redirects loading ${input}`);
+    throw new Error(`More than ${MAX_REDIRECTS} redirects loading ${redactLocationSecrets(input)}`);
   };
 }
 

@@ -20,6 +20,7 @@ import type {
   SchemaObject,
   TransformNodeOptions,
 } from "../types.js";
+import { warnIgnoredCallbackResult } from "./ignored-callback-result-warning.js";
 import { warnLegacyCallback } from "./legacy-callback-warning.js";
 import { toIrType } from "./type-helpers.js";
 
@@ -177,7 +178,11 @@ function legacyCustomType(
   result: ReturnType<LegacyTransform>,
   location: SchemaLocation,
 ): CustomType | null {
-  if (!result || typeof result !== "object") {
+  if (!result) {
+    return null;
+  }
+  if (typeof result !== "object") {
+    warnIgnoredCallbackResult(ctx, location.path, result);
     return null;
   }
   if ("schema" in result) {

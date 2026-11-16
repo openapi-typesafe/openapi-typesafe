@@ -13,6 +13,7 @@ import openapiTS, {
   type OpenAPITSOptions,
   tsUnion,
 } from "../../src/index.js";
+import { RecordingLogger } from "../fakes/cli-dependencies.js";
 import { RecordingDeprecations } from "../fakes/recording-deprecations.js";
 
 const DOCUMENT: OpenAPI3 = {
@@ -194,6 +195,42 @@ describe("legacy callbacks", () => {
     });
 
     expect(warnings).toEqual([]);
+  });
+});
+
+/** The warnings of a run, and the type of `Item.updatedAt`. */
+async function ignoredResultRun(options: GeneratorOptions) {
+  const logger = new RecordingLogger();
+  const ports = { ...(await defaultGeneratorPorts(options, logger)), deprecations: new RecordingDeprecations() };
+  const { schema, ctx } = await createDocumentRun(DOCUMENT, options, ports);
+  const output = astToString(transformSchema(schema, ctx));
+  return { warnings: logger.messages("warn"), updatedAt: /updatedAt: ([^;]*);/.exec(output)?.[1] };
+}
+
+describe("legacy transform results the generator ignores", () => {
+  it("transform returning type text without irCallbacks warns once with CALLBACK_RESULT_IGNORED", async () => {
+    const run = await ignoredResultRun({ transform: (schema) => (schema.format ? "Date" : undefined) as never });
+
+    expect(run.updatedAt).toBe("string");
+    expect(run.warnings).toEqual([
+      "transform at #/components/schemas/Item/updatedAt returned a string, which is " +
+        "ignored without irCallbacks: true: the schema keeps its generated type (later results " +
+        "like it are not reported). Set irCallbacks: true to return type text: " +
+        "https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/node.md#ir-callbacks" +
+        " (CALLBACK_RESULT_IGNORED)",
+    ]);
+  });
+
+  it("transform returning a number without irCallbacks names the number in the warning", async () => {
+    const run = await ignoredResultRun({ transform: (schema) => (schema.format ? 1 : undefined) as never });
+
+    expect(run.warnings).toHaveLength(1);
+    expect(run.warnings[0]).toContain("returned a number");
+  });
+
+  it("transform returning nothing or an empty string without irCallbacks does not warn", async () => {
+    expect((await ignoredResultRun({ transform: () => undefined })).warnings).toEqual([]);
+    expect((await ignoredResultRun({ transform: () => "" as never })).warnings).toEqual([]);
   });
 });
 

@@ -6,12 +6,9 @@ import type {
   IrType,
 } from "../../../domain/ir/nodes.js";
 import { HELPER_TYPES, type HelperType } from "../helper-types.js";
-import type {
-  EnumDeclarationRequest,
-  EnumMemberMetadata,
-  EnumValuesRequest,
-} from "../schema/schema-context.js";
+import type { EnumDeclarationRequest, EnumValuesRequest } from "../schema/schema-context.js";
 import type { DocumentFooter } from "../transform-context.js";
+import { dedupeKey } from "./enum-dedupe-key.js";
 import { EnumNameClaims } from "./enum-name-claims.js";
 import {
   type DeclaredMembers,
@@ -22,7 +19,6 @@ import {
 import { EnumOwners } from "./enum-owners.js";
 import { EnumValuesNames } from "./enum-values-names.js";
 import { OperationKeys } from "./operation-keys.js";
-import { FIRST_SCHEMA_NAMES, type SharedEnumNames } from "./shared-enum-names.js";
 import type { ClaimPlace } from "./walk-ranks.js";
 
 /** Where footer declarations go, in order: the run's `ctx.injectFooter`, open to user code. */
@@ -34,66 +30,14 @@ export interface FooterSink {
   addOperation(build: () => IrPropertySignature): void;
 }
 
-/**
- * The `--dedupe-enums` key. Two enums share a declaration only when the original shares it and
- * each value has the same name and description in both. The original key pairs the values in
- * default sort order with the metadata at the sorted position, not with the value's own metadata,
- * so `[desc, asc]` and `[asc, desc]`, both named `[Desc, Asc]`, shared one declaration, and one of
- * them typed `asc` as `Desc = "desc"`. The original also joined `name:description` texts with
- * `,`, and a member name stood in for its value, so enums with other values (`"1"` and `1`, `A`
- * and `1` both named `Active`, `["a", "b"]` and `["a:,b"]`) shared one key. As JSON, an equal key
- * means the same values and metadata; enums the original kept apart still are.
- */
-function dedupeKey(request: EnumDeclarationRequest): string {
-  const sorted = [...request.values].sort(compareAsStrings);
-  const originalPairs = sorted.map((value, index) => memberKey(value, request.metadata[index]));
-  const ownPairs = request.values
-    .map((value, index) => ({ value, member: memberKey(value, request.metadata[index]) }))
-    .sort((left, right) => compareAsStrings(left.value, right.value))
-    .map(({ member }) => member);
-  return JSON.stringify([originalPairs, ownPairs]);
-}
-
-/** `Array.prototype.sort` without a comparator: compares the values as strings. */
-function compareAsStrings(left: string | number, right: string | number): number {
-  const leftText = String(left);
-  const rightText = String(right);
-  if (leftText === rightText) {
-    return 0;
-  }
-  return leftText < rightText ? -1 : 1;
-}
-
-/** One member: the value (JSON keeps `"1"` and `1` apart), its name and its description. */
-function memberKey(value: string | number, metadata: EnumMemberMetadata | undefined) {
-  return [value, metadata?.name ?? null, metadata?.description || null];
-}
-
 /** Where the walk of the document met a request (`WalkRanks`). */
 function placeOf(request: EnumDeclarationRequest | EnumValuesRequest): ClaimPlace {
   return { walkedAt: request.walkedAt, position: request.tupleIndex };
 }
 
-/**
- * The place a request gives the claim of `asked`: its own place where its location gives that
- * name (`ownName`), none where it only shares the enum of another name (`--dedupe-enums`). With
- * `Sort: [a]` and `Pair: [b], [a]` sharing `[a]` as `Pair`, `[a]` ranks at its position in
- * `Pair`, not at the one in `Sort`, so the order of `Sort` and `Pair` changes no name.
- */
-function placeAsking(request: EnumDeclarationRequest, ownName: string, asked: string): ClaimPlace {
-  return ownName === asked ? placeOf(request) : {};
-}
-
 /** The whole declaration: an equal key means the same enum, member for member. */
 function declarationKey(name: string, request: EnumDeclarationRequest): string {
   return JSON.stringify([name, request.values, request.metadata]);
-}
-
-/** A `--dedupe-enums` enum: its name and the claim that gave it (`EnumNameClaims.nameFor`). */
-interface DedupedEnum {
-  readonly name: string;
-  readonly asked: string;
-  readonly owner: string;
 }
 
 /** The naming state a run's footer shares with the rest of the run. */
@@ -115,13 +59,21 @@ function freshNames(): RunFooterNames {
 }
 
 /**
- * The footer of one run: enums (deduplicated with `--dedupe-enums`), `--enum-values` arrays, the
- * helper types they need, and the `operations` interface. Replaces the original's module-level
- * `enumCache`, so runs no longer share enums (research/legacy-bugs.md, item 3).
+ * The footer of one run: enums, `--enum-values` arrays, the helper types they need, and the
+ * `operations` interface. Replaces the original's module-level `enumCache`, so runs no longer
+ * share enums (research/legacy-bugs.md, item 3).
+ *
+ * `--dedupe-enums` shares one enum between owners of the same members. A run shares them at its
+ * end (`enumGrouping`), once each owner's members are known: an owner's requests may list other
+ * values (a property and an inline `allOf` item), and sharing one of them would split the owner's
+ * enum. Outside a run (the exported per-object transformers) there is no end, so the footer shares
+ * an enum between requests of the same members as they come (`isDedupingEachRequest`), as the
+ * original did.
  */
 export class RunFooter implements DocumentFooter {
   private readonly naming = new EnumNaming();
-  private readonly enumsByKey = new Map<string, DedupedEnum>();
+  /** The name of the enum of each dedupe key, outside a run. */
+  private readonly enumsByKey = new Map<string, string>();
   /** Declarations added already: the same one twice fails with "Duplicate identifier". */
   private readonly declaredEnums = new Set<string>();
   /** The member names of each declared enum, by value. */
@@ -129,40 +81,31 @@ export class RunFooter implements DocumentFooter {
   /** The members of each declared enum name, by member name. */
   private readonly declaredMembers = new Map<string, Map<string, string | number>>();
   private readonly sink: FooterSink;
-  private readonly isDedupingEnums: boolean;
-  private readonly sharedNames: SharedEnumNames;
+  private readonly isDedupingEachRequest: boolean;
   private readonly names: RunFooterNames;
 
+  /** `isDedupingEachRequest`: `--dedupe-enums` outside a run, which has no end to share at. */
   constructor(
     sink: FooterSink,
-    isDedupingEnums: boolean,
-    sharedNames: SharedEnumNames = FIRST_SCHEMA_NAMES,
+    isDedupingEachRequest: boolean,
     names: RunFooterNames = freshNames(),
   ) {
     this.sink = sink;
-    this.isDedupingEnums = isDedupingEnums;
-    this.sharedNames = sharedNames;
+    this.isDedupingEachRequest = isDedupingEachRequest;
     this.names = names;
   }
 
   addEnum(request: EnumDeclarationRequest): string {
     // The name is built before the cache lookup: it advances the naming state either way.
     const ownName = this.naming.enumName(request.name);
-    const key = this.isDedupingEnums ? dedupeKey(request) : null;
-    // Every schema of a shared enum goes to `sharedNames`, the later ones too.
-    const sharedName = key === null ? ownName : this.sharedNames.nameOf(key, ownName, request);
+    const key = this.isDedupingEachRequest ? dedupeKey(request) : null;
     const known = key === null ? undefined : this.enumsByKey.get(key);
     if (known !== undefined) {
-      return this.dedupedName(known, ownName, request);
+      return known;
     }
-    // Requests of one owner share one enum, with `--dedupe-enums` too. The owner records the
-    // values of the requests its enum declares, so a request that shares another enum has none.
-    const owner = this.names.owners.ownerOf(request);
-    const name = this.names.enums.nameFor(
-      sharedName,
-      owner,
-      placeAsking(request, ownName, sharedName),
-    );
+    // Requests of one owner share one enum; the owner records the request.
+    const owner = this.names.owners.ownerOf(request, ownName);
+    const name = this.names.enums.nameFor(ownName, owner, placeOf(request));
     // Only a repeated member fails to compile; two empty declarations merge, so they stay.
     const declared = request.values.length > 0 ? declarationKey(name, request) : null;
     if (declared !== null && this.declaredEnums.has(declared)) {
@@ -177,23 +120,9 @@ export class RunFooter implements DocumentFooter {
       this.sink.add(declaration);
     }
     if (key !== null) {
-      this.enumsByKey.set(key, { name, asked: sharedName, owner });
+      this.enumsByKey.set(key, name);
     }
     return name;
-  }
-
-  /**
-   * The name of an enum `--dedupe-enums` declared already. Its claim still gets the place of a
-   * request whose location gives the enum's name, whichever schema declared the enum or came
-   * first (a `$ref`'s), so the enum ranks where the document asks for its name (`placeAsking`).
-   */
-  private dedupedName(
-    known: DedupedEnum,
-    ownName: string,
-    request: EnumDeclarationRequest,
-  ): string {
-    this.names.enums.nameFor(known.asked, known.owner, placeAsking(request, ownName, known.asked));
-    return known.name;
   }
 
   /** The declaration without members an earlier one of the name has; null when none is left. */

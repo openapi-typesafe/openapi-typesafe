@@ -529,6 +529,64 @@ ranks above size (ADR-013, ADR-030).
 The check that a header pair is a list of exactly a name and a value, as `Headers` requires,
 adds about 30 bytes: 6.93 kB, budget 6.95 kB.
 
+## Amendment (2026-11-16): Map and Set by their slots, headers by the client's rule
+
+Three gaps broke the rules above; the first came with the lookalike rule of rc.14.
+
+1. **A Map or a Set is told by its internal slots, not by its tag.** rc.14 read a value with the
+   type tag of a `Map` or a `Set` that was no instance of this realm's class as its contents
+   alone. A class of the caller with such a tag and its data in own members (no iterator) was
+   keyed `{ "values()": [] }` whatever its data, and a real `Map` of another realm (an iframe,
+   `vm`, a Jest environment) lost its own members, which JSON sends: two different requests
+   shared an entry. A value is now a `Map` or a `Set` when it has their internal slots, which
+   `Map.prototype.has` and `Set.prototype.has` of this realm check for a value of any realm and
+   throw for any other value. Such a value is its own members and its contents, as a subclass of
+   this realm already was. A value with the tag (or the prototype) and no slots is never read as
+   a collection by its tag: it is its own enumerable members, as JSON sends it, except when it
+   iterates its contents and has its own `toJSON`, which is what JSON sends for it in place of its
+   own members. That is what MobX's observable `Map` and `Set` are (their `toJSON` gives
+   `Array.from(this)`), so they keep the key of rc.14, their contents alone, and stay stable in
+   an `autorun`. The slots are checked only for a value of the class or the tag, since the check
+   throws for any other value and made the key of a large body ten times slower.
+2. **Headers by the client's rule.** `mergeHeaders` reads headers in three branches, in this
+   order: a value with a `get` method by its `entries()` and their raw values (`null` removes a
+   header, `undefined` sends nothing, an array appends its items); any other iterable through
+   `new Headers`, which sends the text of every value; any other object by its own members, as
+   the first branch; and it skips anything else. The key read a `Map` as header pairs, so `null`
+   and `"null"`, and `undefined` and `"undefined"`, shared a key while the client removed or
+   skipped the header. The key now has the same branches in the same order and the same handling
+   of `null` and `undefined`, and a test runs both on the same inputs, with and without headers
+   of the client, so they cannot drift apart. A `Headers` object is read through its `entries()`
+   too, so a name it repeats (only `set-cookie`) keeps its last value, as the client sets it.
+   Headers that are not an object are left out, as the client skips them.
+3. **Headers the key could use up.** The key iterated any iterable `headers`, so a one-shot
+   iterator (`map.entries()`, a generator) was used up by the key and the request sent none of
+   its headers. As for bodies and parameters, the key now reads only a collection, which gives a
+   new iterator on every read: an array, a `Map` or a `Set` of any realm, a `Headers`, a
+   `URLSearchParams` or a `FormData`. Other headers with a `get` method or an iterator, and a
+   header pair that is no collection, leave the headers out of the key: such a request may share
+   the entry of one without those headers, but it keeps every header it sends. Pass a `Headers`,
+   a `Map` or a plain object for a key of them.
+
+Keys that change against rc.14: a value with the tag of a `Map` or `Set` and no slots, other than
+an observable collection as above, is its own members; a `Map` or `Set` of another realm keeps
+its own members beside its contents; `Map` headers hold `null` as `null` and leave out
+`undefined`; `Headers` with a repeated `set-cookie` keep its last value; headers that are a
+string or another non-object, an iterator, a generator or a non-collection with `get` are left
+out. MobX observable `Map`, `Set`, arrays and objects, same-realm `Map` and `Set` and their
+subclasses, plain headers, pairs and `Headers` keep their keys.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Slots decide; tag-only values by their members unless iterable with a `toJSON` (chosen) | Never merges two requests JSON sends apart; MobX stays stable | A tag-only class that iterates and has a `toJSON` is keyed by its contents and `toJSON` form only, which a default parameter serializer, sending own members, may send apart |
+| Contents and own members for every tagged value | One rule | MobX keys change on every read again |
+| Headers: keep reading any iterable | Keys of iterators | Uses up the request's headers |
+| Headers: a one-shot iterator read once and cached | Keys of iterators | A cache keyed by a mutable object; the request still gets an iterator the key ran |
+
+**Size.** The bundle grows from 6.93 kB to 7.35 kB minified (about 3.0 kB gzipped), so the budget
+rises to 7.4 kB: the slot check and the observable rule (about 120 bytes) and the header branches
+with the collection check (about 300). Correctness ranks above size (ADR-013, ADR-030).
+
 ## Review trigger
 
 A report of two queries that share an entry while their requests differ in something a key can

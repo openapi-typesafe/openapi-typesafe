@@ -16,14 +16,16 @@ import {
 import { renameTakenAliases } from "../application/transform/document/root-type-aliases.js";
 import { componentEnumNames } from "../application/transform/footer/component-enum-names.js";
 import { RunFooter, type RunFooterNames } from "../application/transform/footer/document-footer.js";
+import { enumGrouping } from "../application/transform/footer/enum-groups.js";
 import { EnumNameClaims } from "../application/transform/footer/enum-name-claims.js";
 import { EnumOwners } from "../application/transform/footer/enum-owners.js";
 import { checkedEnumValues } from "../application/transform/footer/enum-values-check.js";
 import { EnumValuesNames } from "../application/transform/footer/enum-values-names.js";
 import { OperationKeys } from "../application/transform/footer/operation-keys.js";
 import {
+  BEST_SCHEMA_NAMES,
+  FIRST_DECLARING_SCHEMA_NAMES,
   FIRST_SCHEMA_NAMES,
-  SharedEnumNameRecorder,
   type SharedEnumNames,
 } from "../application/transform/footer/shared-enum-names.js";
 import type { RawKeyTypes } from "../application/transform/footer/signature-index.js";
@@ -32,7 +34,6 @@ import type { DocumentObject } from "../domain/openapi/document-object.js";
 import { schemaDialectOf } from "../domain/openapi/schema-dialect.js";
 import { FIX } from "../domain/output-fixes.js";
 import type { GlobalContext, OpenAPI3 } from "../types.js";
-import { FirstSchemaNameRecorder } from "./discriminator-enum-names.js";
 import { documentDeclarations, type TransformedDocument } from "./document-declarations.js";
 import { excludedValuesWarning } from "./enum-values-warnings.js";
 import { type FooterEntry, isIrDeclaration } from "./footer-entry.js";
@@ -51,66 +52,29 @@ function isOperations(entry: FooterEntry): boolean {
   return name === OPERATIONS_NAME;
 }
 
-/** Drops a message: the first pass must not repeat the run's warnings or debug lines. */
-const dropMessage = (): void => undefined;
-const DROPPED_MESSAGES = { debug: dropMessage, warn: dropMessage, error: dropMessage };
-
-/** A shared enum name recorder of a first pass, and the names it gives the second. */
-interface EnumNameRecorder extends SharedEnumNames {
-  chosenNames(): SharedEnumNames;
-}
-
 /**
- * The names of shared enums, known only at the end: a first pass transforms the document into a
- * scratch footer that `recorder` watches; its output is dropped. User callbacks run in both
- * passes. The `dedupe-enum-names` fix (ADR-021, upstream #1683) names an enum by all of its
- * schemas; `discriminator-values` keeps the first declaring schema's name
- * (`FirstSchemaNameRecorder`).
+ * How `--dedupe-enums` names the enums it shares at the end of the run; null where the run shares
+ * none. The `dedupe-enum-names` fix (ADR-021, upstream #1683) names an enum by all of its schemas;
+ * `discriminator-values` keeps the first declaring schema's name.
  */
-function sharedEnumNamesOf(
-  document: DocumentObject,
-  ctx: RunContext,
-  recorder: EnumNameRecorder,
-): SharedEnumNames {
-  const injectFooter: FooterEntry[] = [];
-  const scratch: RunContext = {
-    ...ctx,
-    injectFooter,
-    runFooter: new RunFooter(new ContextFooterSink(injectFooter), true, recorder),
-    logger: DROPPED_MESSAGES,
-    legacyCallbackWarnings: new Set(),
-  };
-  const scratchContext = createTransformContext(scratch);
-  documentBody(document, scratchContext, () => injectFooter.filter(isIrDeclaration));
-  return recorder.chosenNames();
-}
-
-/** The recorder of the run's fixes, or null where the first schema's name needs no first pass. */
-function enumNameRecorderOf(ctx: GlobalContext): EnumNameRecorder | null {
+function sharedEnumNamesOf(ctx: GlobalContext): SharedEnumNames | null {
+  if (!ctx.enum || !ctx.dedupeEnums) {
+    return null;
+  }
   if (ctx.fix?.includes(FIX.DEDUPE_ENUM_NAMES)) {
-    return new SharedEnumNameRecorder();
+    return BEST_SCHEMA_NAMES;
   }
-  return ctx.fix?.includes(FIX.DISCRIMINATOR_VALUES) ? new FirstSchemaNameRecorder() : null;
+  return ctx.fix?.includes(FIX.DISCRIMINATOR_VALUES)
+    ? FIRST_DECLARING_SCHEMA_NAMES
+    : FIRST_SCHEMA_NAMES;
 }
 
 /**
- * The run's footer: with a naming fix, `--enum` and `--dedupe-enums` it names shared enums. A
- * footer that a call before created on the context is kept.
+ * The run's footer. It shares the `--dedupe-enums` enums at the end of the run, not as they come
+ * (`RunFooter`). A footer that a call before created on the context is kept.
  */
-function withRunFooter(document: DocumentObject, ctx: RunContext, names: RunFooterNames): void {
-  if (ctx.runFooter !== undefined) {
-    return;
-  }
-  const recorder = enumNameRecorderOf(ctx);
-  const shared =
-    recorder === null || !ctx.enum || !ctx.dedupeEnums
-      ? null
-      : sharedEnumNamesOf(document, ctx, recorder);
-  const sink = new ContextFooterSink(ctx.injectFooter);
-  ctx.runFooter =
-    shared === null
-      ? new RunFooter(sink, ctx.dedupeEnums, FIRST_SCHEMA_NAMES, names)
-      : new RunFooter(sink, true, shared, names);
+function withRunFooter(ctx: RunContext, names: RunFooterNames): void {
+  ctx.runFooter ??= new RunFooter(new ContextFooterSink(ctx.injectFooter), false, names);
 }
 
 function enumDeclarationOf(entry: FooterEntry): IrEnumDeclaration | null {
@@ -123,7 +87,8 @@ function isEnumDeclaration(entry: IrEnumDeclaration | null): entry is IrEnumDecl
 
 /**
  * The document with one declaration of each enum, and each enum reference typed by the values
- * its schema lists (`enumReferenceNarrowing`): every value of an enum is known only now.
+ * its schema lists (`enumReferenceNarrowing`): every value of an enum is known only now, after
+ * the owners of one enum got its final name.
  */
 function withWholeEnums(parts: TransformedDocument): TransformedDocument {
   const footer = withEnumDeclarationsMerged(parts.footer, enumDeclarationOf);
@@ -149,22 +114,26 @@ function withWholeEnums(parts: TransformedDocument): TransformedDocument {
 function withFinalEnumNames(
   written: TransformedDocument,
   names: RunFooterNames,
+  sharing: SharedEnumNames | null,
 ): TransformedDocument {
-  const parts = withWholeEnums(written);
+  const parts = {
+    ...written,
+    footer: withEnumDeclarationsMerged(written.footer, enumDeclarationOf),
+  };
   const footer = parts.footer.filter(isIrDeclaration);
   const needed = namesTheOutputNeeds({ ...parts, footer });
-  const renames = names.enums.finalNames(needed, names.owners.mergedOwners());
+  const renames = names.enums.finalNames(needed, enumGrouping(names.owners, sharing));
   if (renames.size === 0) {
-    return parts;
+    return withWholeEnums(parts);
   }
   const renamed = parts.footer.map((entry) =>
     isIrDeclaration(entry) ? (withEnumsRenamed([entry], renames)[0] ?? entry) : entry,
   );
-  return {
+  return withWholeEnums({
     body: withEnumsRenamed(parts.body, renames),
-    footer: withEnumDeclarationsMerged(renamed, enumDeclarationOf),
+    footer: renamed,
     closing: withEnumsRenamed(parts.closing, renames),
-  };
+  });
 }
 
 /**
@@ -222,7 +191,7 @@ function transformPass(document: DocumentObject, ctx: RunContext): PointerPass {
     enumValues: new EnumValuesNames(),
     operations: new OperationKeys(operationKeysWritten(document)),
   };
-  withRunFooter(document, ctx, names);
+  withRunFooter(ctx, names);
   const context = createTransformContext(ctx);
   const templates = unmatchedTemplateKeys(document.paths, context);
   // documentBody registers the enums in the footer, so the footer is read after it.
@@ -237,6 +206,7 @@ function transformPass(document: DocumentObject, ctx: RunContext): PointerPass {
   const parts = withFinalEnumNames(
     { body: rawBody, footer: rawFooter, closing: rawClosing },
     names,
+    sharedEnumNamesOf(ctx),
   );
   const footer = parts.footer.filter(isIrDeclaration);
   const renamed = { ...parts, body: renameTakenAliases(parts.body, footer, parts.closing) };

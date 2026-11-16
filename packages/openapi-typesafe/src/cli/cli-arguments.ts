@@ -1,6 +1,7 @@
 import { kebabCase } from "scule";
 import parser from "yargs-parser";
 import type { OutputFixName } from "../domain/output-fixes.js";
+import { redactLocationSecrets } from "../domain/url-secrets.js";
 import { cliError } from "./cli-errors.js";
 import {
   ALIASES,
@@ -114,10 +115,12 @@ function refLimitsOf(parsed: parser.Arguments): CliRefLimits {
  */
 function inputOf(positionals: readonly (string | number)[]): string | undefined {
   if (positionals.length > 1) {
+    // Each argument is a location, which may be a URL with a space before its query.
+    const shown = positionals.map((positional) => redactLocationSecrets(String(positional)));
     throw cliError(
       "CLI_INPUT_EXTRA",
       `Only one schema argument is allowed, but ${positionals.length} were given: ` +
-        `${positionals.join(" ")}. A shell expands an unquoted *; to generate several ` +
+        `${shown.join(" ")}. A shell expands an unquoted *; to generate several ` +
         `schemas, list them under \`apis\` in redocly.yaml. See ${MULTIPLE_SCHEMAS_DOCS_URL}`,
     );
   }

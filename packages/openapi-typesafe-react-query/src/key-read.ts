@@ -68,14 +68,16 @@ const TYPE_TAG_END = -1;
  * values its request sends, and a class of the caller may iterate without end. The names are in
  * band, as `"toJSON()"` is; no request names a member like this.
  */
-const COLLECTION_FORMS: readonly (readonly [
-  className: string,
-  form: string,
-  type: abstract new () => object,
-])[] = [
-  ["Map", "entries()", Map],
-  ["Set", "values()", Set],
-];
+const COLLECTION_FORMS: readonly (readonly [className: string, form: string, type: Collection])[] =
+  [
+    ["Map", "entries()", Map],
+    ["Set", "values()", Set],
+  ];
+
+/** The class of a collection, whose `has` throws for a value without its internal slots. */
+interface Collection {
+  readonly prototype: { has(this: unknown, item: unknown): boolean };
+}
 
 /**
  * What `read` gives, or undefined when it throws. A getter, a `toJSON`, a `toString`, a Proxy
@@ -113,25 +115,57 @@ function ownMembers(value: object): (readonly [string, unknown])[] {
 }
 
 /**
+ * Whether a value has the internal slots of the collection `type`, as a Map or a Set of any
+ * realm (an iframe, `vm`, a Jest environment) and of any subclass has, whatever its type tag:
+ * `has` of this realm's class reads them, and throws for any other value.
+ */
+export function hasSlotsOf(value: object, type: Collection): boolean {
+  return (
+    attempt(() => {
+      type.prototype.has.call(value, undefined);
+      return true;
+    }) ?? false
+  );
+}
+
+/**
+ * Whether a value that is a Map or a Set by its type tag only keeps its contents for a key, as a
+ * MobX observable Map or Set does: it iterates them, and its own `toJSON` is what JSON sends for
+ * it, never its own members, which are its state and change as it is read (MobX notes each
+ * reader). Any other value with such a tag is read by its own members, as JSON sends it.
+ */
+function isObservableCollection(value: object): boolean {
+  const { toJSON, [Symbol.iterator]: iterate } = value as {
+    toJSON?: unknown;
+    [Symbol.iterator]?: unknown;
+  };
+  return typeof toJSON === "function" && typeof iterate === "function";
+}
+
+/**
  * The members of an object as a key reads them, by name: the items of an array by index, also a
  * hole; the own enumerable members of any other object, which JSON and the fetch client's
  * serializers send; and the contents of a Map or a Set as one more member, as `COLLECTION_FORMS`
- * names it. A value that is a Map or a Set by its type tag only (a MobX observable Map or Set)
- * keeps its contents in its own members, which change as it is read (MobX notes each reader), so
- * it is its contents alone; a Map or a Set of this realm keeps them where no member is, so its
- * members are the caller's data. May throw for a revoked Proxy.
+ * names it. A Map or a Set of any realm keeps its contents where no member is, so its own members
+ * are the caller's data and stay. A value that is a Map or a Set by its type tag only is its
+ * contents alone when it is an observable collection (`isObservableCollection`), and else its
+ * own members. May throw for a revoked Proxy.
  */
 export function readMembers(value: object): (readonly [string, unknown])[] {
   if (Array.isArray(value)) {
     return Array.from(value, (item, index) => [String(index), item] as const);
   }
-  const collection = COLLECTION_FORMS.find(([className]) => isClass(value, className));
-  if (collection === undefined) {
+  // The slots are checked only for a value of the class or the tag: the check throws for any
+  // other value, which made a key of a large body ten times slower.
+  const tagged = COLLECTION_FORMS.filter(([className]) => isClass(value, className));
+  const real = tagged.find(([, , type]) => hasSlotsOf(value, type));
+  if (real !== undefined) {
+    return [...ownMembers(value), [real[1], Array.from(value as Iterable<unknown>)] as const];
+  }
+  if (tagged[0] === undefined || !isObservableCollection(value)) {
     return ownMembers(value);
   }
-  const [, form, type] = collection;
-  const contents = [form, Array.from(value as Iterable<unknown>)] as const;
-  return value instanceof type ? [...ownMembers(value), contents] : [contents];
+  return [[tagged[0][1], Array.from(value as Iterable<unknown>)] as const];
 }
 
 /** The start of a key: no object read yet, and no segment. */

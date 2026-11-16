@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type { EnumGrouping } from "../../../../src/application/transform/footer/enum-groups.js";
 import { EnumNameClaims } from "../../../../src/application/transform/footer/enum-name-claims.js";
 
 const TUP = "#/components/schemas/Tup";
+
+/** The enum of each owner given, and the names some enums ask for (`enumGrouping`). */
+function grouping(enumOf: [string, string][], names: [string, string][] = []): EnumGrouping {
+  return { enumOf: new Map(enumOf), names: new Map(names) };
+}
 const SORT = "#/components/schemas/Holder/properties/sort";
 
 describe("EnumNameClaims", () => {
@@ -180,7 +186,7 @@ describe("EnumNameClaims", () => {
     const own = claims.nameFor("SettingsMode", "/Settings/mode", { walkedAt: "/b" });
     claims.nameFor("SettingsMode", "other", { walkedAt: "/c" });
 
-    const finals = claims.finalNames(new Set(), new Map([["shared", "/Settings/mode"]]));
+    const finals = claims.finalNames(new Set(), grouping([["shared", "/Settings/mode"]]));
 
     expect([shared, own]).toEqual(["SettingsMode", "SettingsMode_2"]);
     expect(finals).toEqual(
@@ -197,7 +203,7 @@ describe("EnumNameClaims", () => {
     claims.nameFor("Mode", "other", { walkedAt: "/b" });
     claims.nameFor("Mode", "/own", { walkedAt: "/c" });
 
-    const finals = claims.finalNames(new Set(), new Map([["shared", "/own"]]));
+    const finals = claims.finalNames(new Set(), grouping([["shared", "/own"]]));
 
     expect(finals).toEqual(new Map([["Mode_3", "Mode"]]));
   });
@@ -207,8 +213,44 @@ describe("EnumNameClaims", () => {
     claims.nameFor("Mode", "shared", { walkedAt: "/a" });
     claims.nameFor("Mode", "/own", { walkedAt: "/b" });
 
-    const finals = claims.finalNames(new Set(), new Map([["shared", "/elsewhere"]]));
+    const finals = claims.finalNames(new Set(), grouping([["shared", "/elsewhere"]]));
 
     expect(finals.size).toBe(0);
+  });
+
+  it("finalNames gives the owners of one shared enum the name the enum asks for", () => {
+    const claims = new EnumNameClaims();
+    claims.nameFor("AlphaMode", "/Alpha/mode", { walkedAt: "/a" });
+    claims.nameFor("BetaMode", "/Beta/mode", { walkedAt: "/b" });
+
+    const shared = grouping(
+      [
+        ["/Alpha/mode", "key"],
+        ["/Beta/mode", "key"],
+      ],
+      [["key", "BetaMode"]],
+    );
+    const finals = claims.finalNames(new Set(), shared);
+
+    expect(finals).toEqual(new Map([["AlphaMode", "BetaMode"]]));
+  });
+
+  it("finalNames ranks a shared enum only where a claim asked for its name", () => {
+    const claims = new EnumNameClaims();
+    claims.nameFor("Pair", "/Pair", { walkedAt: "/a" });
+    claims.nameFor("Mode", "/Other", { walkedAt: "/b" });
+    claims.nameFor("Mode", "/Alpha", { walkedAt: "/c" });
+
+    const shared = grouping(
+      [
+        ["/Pair", "key"],
+        ["/Alpha", "key"],
+      ],
+      [["key", "Mode"]],
+    );
+    const finals = claims.finalNames(new Set(), shared);
+
+    // `/Pair` met first asks for another name, so `/Other` keeps `Mode`.
+    expect(finals).toEqual(new Map([["Pair", "Mode_2"]]));
   });
 });

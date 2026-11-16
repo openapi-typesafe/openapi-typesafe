@@ -59,13 +59,27 @@ describe("--enum requests of one owner with other values", () => {
     expect(output).toContain("mode?: TMode.b;");
   });
 
-  it("openapiTS with --dedupe-enums types a schema sharing the enum by its own values", async () => {
+  it.each([
+    ["--dedupe-enums", {}],
+    ["dedupe-enum-names", { fix: ["dedupe-enum-names"] as const }],
+  ])("openapiTS with %s shares no enum with one request of an owner", async (_label, options) => {
     const schemas = { T: { ...modeOf(["a"]), allOf: [modeOf(["a", "b"])] }, U: modeOf(["a"]) };
+
+    const output = await generate(documentWith(schemas), { enum: true, dedupeEnums: true, ...options });
+
+    expect(output).toMatch(/U: \{\n.*\n\s+mode\?: UMode;/);
+    expect(output).toContain("mode?: TMode.a;");
+    expect(repeatedNames(declaredEnumNames(output))).toEqual([]);
+    expect(typeErrorsOf(output)).toEqual([]);
+  });
+
+  it("openapiTS with --dedupe-enums shares an enum with an owner of the same whole values", async () => {
+    const schemas = { T: { ...modeOf(["a"]), allOf: [modeOf(["a", "b"])] }, U: modeOf(["a", "b"]) };
 
     const output = await generate(documentWith(schemas), { enum: true, dedupeEnums: true });
 
-    expect(output).toMatch(/U: \{\n.*\n\s+mode\?: TMode\.a;/);
-    expect(repeatedNames(declaredEnumNames(output))).toEqual([]);
+    expect(output).toMatch(/U: \{\n.*\n\s+mode\?: TMode;/);
+    expect(declaredEnumNames(output)).toEqual(["TMode"]);
   });
 
   it("openapiTS with nullable-enums narrows the enum next to null", async () => {

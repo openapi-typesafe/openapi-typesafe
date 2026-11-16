@@ -6,14 +6,19 @@ import { FIX } from "../../../domain/output-fixes.js";
 import { isExplodedQueryObject } from "../document/exploded-query.js";
 import { InvalidRefError, refType } from "../ref-type.js";
 import type { RefResolver } from "../schema/schema-context.js";
-import { AT_LOCATION, type SchemaRequest, type ValueAccess } from "../schema/schema-rule.js";
+import {
+  AT_LOCATION,
+  OWN_SLOT,
+  type SchemaRequest,
+  type ValueAccess,
+} from "../schema/schema-rule.js";
 import {
   generatedLocationOf,
   type IsExplodedParameter,
   type RecordOwner,
 } from "./generated-location.js";
 import { hasInlineCycle } from "./inline-cycles.js";
-import { followRefs, isJsonObject } from "./located-node.js";
+import { followRefs, isJsonObject, type JsonObject } from "./located-node.js";
 import { withoutOptionalUndefined } from "./optional-target.js";
 import { originalIndexFails } from "./original-index.js";
 import { leadingSegmentsOf, pointerNode, type RefPointer, refPointerOf } from "./pointer-walk.js";
@@ -71,6 +76,13 @@ function hasInlineType(ref: string, pointer: RefPointer, request: SchemaRequest)
   return target !== undefined && !hasInlineCycle(ref, options, refs);
 }
 
+/** A `$ref`'s pointer and the schema to type for it: the node it points at, or what it replaced. */
+interface PointedSchema {
+  readonly ref: string;
+  readonly pointer: RefPointer;
+  readonly target: unknown;
+}
+
 /** The target of a pointer that crosses a segment with no type: its `$ref`, or its own type. */
 function targetType(
   ref: string,
@@ -78,7 +90,19 @@ function targetType(
   request: SchemaRequest,
   seen: readonly string[],
 ) {
-  const target = pointerNode(pointer, request.context.refs);
+  return pointedSchemaType(
+    { ref, pointer, target: pointerNode(pointer, request.context.refs) },
+    request,
+    seen,
+  );
+}
+
+/** The type of the schema of a pointer, typed where the generator types the pointer's node. */
+function pointedSchemaType(
+  { ref, pointer, target }: PointedSchema,
+  request: SchemaRequest,
+  seen: readonly string[],
+) {
   if (isJsonObject(target) && typeof target.$ref === "string") {
     return seen.includes(target.$ref) ? null : schemaRefType(target.$ref, request, [...seen, ref]);
   }
@@ -94,7 +118,9 @@ function targetType(
       valueAccess: valueAccessOf(location.recordOwner, request),
       parent: tupleHolderOf(pointer, request.context.refs),
       isThroughRef: true,
-      isAtSharedLocation: location.isShared,
+      // A slot of its own: the walk's slot of the node is not known here. Enums of the same values
+      // at the location share one owner all the same (`EnumOwners`).
+      sharedSlot: location.isShared ? JSON.stringify(["$ref", ref]) : OWN_SLOT,
       typePlacement: location.typePlacement,
     },
   );
@@ -149,6 +175,35 @@ function isNeverKeyword(type: IrType): boolean {
   return type.kind === "keyword" && type.keyword === "never";
 }
 
+/** The values of an `enum`, as JSON in sorted order; null for a schema without one. */
+function enumKey(node: unknown): string | null {
+  const values = isJsonObject(node) ? node.enum : undefined;
+  return Array.isArray(values)
+    ? JSON.stringify(values.map((value) => JSON.stringify(value)).sort())
+    : null;
+}
+
+/** Whether a declared schema lists exactly the values of the enum that replaced it. */
+function haveSameValues(declared: unknown, added: JsonObject): boolean {
+  return enumKey(declared) === enumKey(added);
+}
+
+/**
+ * The schema the document declares at the pointer, where the discriminator scan replaced it with
+ * the enum of a mapped schema (`{ type: string }` replaced by `["dog"]`) that lists other values;
+ * undefined for any other pointer. The injected value belongs to the member's type, not to the
+ * property schema the pointer names, so the pointer is typed by that schema (ADR-026).
+ */
+function replacedTarget(pointer: RefPointer, request: SchemaRequest): unknown {
+  const { refs, discriminators } = request.context;
+  const target = pointerNode(pointer, refs);
+  const replaced = isJsonObject(target) ? discriminators.replacedPropertyOf(target) : undefined;
+  if (!isJsonObject(target) || replaced === undefined) {
+    return undefined;
+  }
+  return haveSameValues(followRefs(replaced, refs), target) ? undefined : replaced;
+}
+
 /** The type of a schema `$ref`. Throws InvalidRefError when the `$ref` has no pointer. */
 export function schemaRefType(
   ref: string,
@@ -158,6 +213,10 @@ export function schemaRefType(
   const pointer = pointerOf(ref);
   if (pointer.segments.length <= leadingSegmentsOf(pointer)) {
     return refType(ref);
+  }
+  const replaced = replacedTarget(pointer, request);
+  if (replaced !== undefined) {
+    return pointedSchemaType({ ref, pointer, target: replaced }, request, seen) ?? refType(ref);
   }
   const checks = request.context.pointerChecks;
   if (checks?.isInPlace(ref)) {
