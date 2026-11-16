@@ -560,3 +560,31 @@ deep enough that TypeScript relates the operation itself to anything, in rc.13 t
 | Probe operation `{ responses: { [unique symbol]: true } }` | Same results | More types for no gain |
 
 Types only; the bundle is unchanged.
+
+## Amendment (2026-11-16): response maps with an index signature over statuses
+
+A hand-written response map with only an index signature over statuses
+(`responses: Record<string, X>`, `{ [status: number]: X }`, `` { [status: `2${string}`]: X } ``)
+gave `never` for both `data` and `error`: a status was matched by its whole text against the
+success or error pattern, and `string`, `number` or `` `2${string}` `` is in neither. Such a map
+says that any status it covers may answer with `X`, so a wide key now matches a pattern when one
+status of the pattern is among the keys it covers, and `X` types both `data` and `error`. The check
+runs only for wide keys (a record of the key that `{}` meets); a literal key names one status and
+is matched as before, so generated maps keep their types: the printed `data`, `error` and JSON
+helper types of every operation of the GitHub, Stripe and DigitalOcean examples are identical to
+rc.14, and the type-check of a Stripe bench gains about 1% instantiations.
+
+An index signature whose bodies are `any` (`Record<string, any>`,
+`Record<string, { content: any }>`) is read by the two-step rule above, as an `any` map:
+`IsAnyResponseMap` replaces `IsAny` of the map in both steps, so a concrete one gives `any` and one
+read through a constraint gives `unknown`. Reading it as bodies gave `any` through a constraint
+too, which fits every type; rc.14 gave `unknown` there, and still does. For a union of maps, one
+open member gives `any`, as an `any` member does. Maps that name their statuses are not affected,
+also with `any` bodies (the known limit above stays). The legacy `FirstErrorStatus` helper checks
+named statuses one by one and keeps its rc.14 result (`never` for such a map).
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| A wide key matches the statuses it covers; `any` bodies read as an `any` map (chosen) | Index signatures type both classes; open constraints stay `unknown`; generated output unchanged | Two more internal types |
+| Match wide keys only | Simplest | `Record<string, any>` through a constraint fits every type (regression against rc.14) |
+| Keep `never` | No change | A hand-written `Record<string, X>` map types neither `data` nor `error` |

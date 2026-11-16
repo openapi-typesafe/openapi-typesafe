@@ -629,6 +629,12 @@ names statuses (`{ responses: { 200: any } }`) gives them as it declares them. I
 the types of a result by `FetchResponse<…>["data"]` and `FetchResponse<…>["error"]`: they do not
 relate to `SuccessResponse` or `ErrorResponse` of a generic operation.
 
+A hand-written response map with only an index signature over statuses
+(`responses: Record<string, X>`, `{ [status: number]: X }`) means that any status may answer with
+`X`, so `X` types both `data` and `error`; `Record<string, any>` gives `any`, as
+`createClient<any>()` does, and `unknown` through a constraint. A generated map always names its
+statuses.
+
 `defaultBodySerializer` returns by the body type:
 
 - A raw body (`FormData`, `Blob`, `URLSearchParams`, `ArrayBuffer`, a typed array) is returned as it is.
