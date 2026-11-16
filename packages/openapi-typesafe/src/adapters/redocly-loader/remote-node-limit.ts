@@ -1,5 +1,6 @@
 import { type Document, parseYaml, type Source } from "@redocly/openapi-core";
 import type { OpenAPITypesafeError } from "../../domain/errors.js";
+import { redactLocationSecrets } from "../../domain/url-secrets.js";
 import { refForbiddenError } from "./schema-load-errors.js";
 
 /**
@@ -75,7 +76,9 @@ export class RemoteNodeLimit {
 
   /**
    * The parsed document of `source`, as Redocly parses it. Fails with `SCHEMA_REF_FORBIDDEN`
-   * (`remote-documents-too-many-nodes`) once the nodes of the load pass the limit.
+   * (`remote-documents-too-many-nodes`) once the nodes of the load pass the limit. The parser
+   * names the document in its messages (`… in "<filename>" (2:4)`), and a name as written may
+   * hold a space before its query, so it gets the name with its secrets hidden.
    */
   parse(source: Source): Document {
     const listener = (event: string): void => {
@@ -88,7 +91,8 @@ export class RemoteNodeLimit {
         throw refusal;
       }
     };
-    return { source, parsed: parseYaml(source.body, { filename: source.absoluteRef, listener }) };
+    const filename = redactLocationSecrets(source.absoluteRef);
+    return { source, parsed: parseYaml(source.body, { filename, listener }) };
   }
 
   #refusal(url: string): OpenAPITypesafeError | undefined {

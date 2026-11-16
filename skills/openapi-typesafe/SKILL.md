@@ -14,7 +14,7 @@ version number:
 | :-- | :-- | :-- |
 | `openapi-typesafe` | Generator: CLI and Node API (dev dependency) | `openapi-typescript` |
 | `openapi-typesafe-fetch` | Typed `fetch` client, about 11 kB minified | `openapi-fetch` |
-| `openapi-typesafe-react-query` | TanStack Query v5 hooks on top of the client, about 6.9 kB minified | `openapi-react-query` |
+| `openapi-typesafe-react-query` | TanStack Query v5 hooks on top of the client, about 7.4 kB minified | `openapi-react-query` |
 | `openapi-typesafe-helpers` | Shared utility types | `openapi-typescript-helpers` |
 | `openapi-typesafe-migrate` | One-off migration command, run with `npx` | none |
 
@@ -193,7 +193,9 @@ type ListPetsQuery = operations["listPets"]["parameters"]["query"];
 From `openapi-typesafe-helpers`: `PathsWithMethod<paths, "get">` (paths that have a GET),
 `SuccessResponseJSON<Op>`, `ErrorResponseJSON<Op>`, `RequestBodyJSON<Op>`.
 From `openapi-typesafe-fetch`: `MethodResponse<typeof client, "get", "/pets">` (the `data` type of
-a call), `ClientPathsWithMethod<typeof client, "get">`.
+a call), `ClientPathsWithMethod<typeof client, "get">`. A wrapper generic in its path `P` declares
+`FetchResponse<PathOperation<paths, P, "get">, Init, MediaType>["data"]`, not `MethodResponse`
+(TS2322).
 
 ## 7. Testing code that calls the client
 

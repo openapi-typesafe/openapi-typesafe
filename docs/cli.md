@@ -80,7 +80,7 @@ npx openapi-typesafe --redocly ./path/to/redocly.yaml
 
 You can read more about the Redocly configuration options [in their docs](https://redocly.com/docs/cli/configuration/).
 
-Problems listed in a `.redocly.lint-ignore.yaml` next to `redocly.yaml` (as `redocly lint --generate-ignore-file` writes it) are skipped, as `redocly lint` skips them; with `DEBUG=openapi-ts:*` each one is printed. Without a `redocly.yaml`, the file is read from the current directory.
+Problems listed in a `.redocly.lint-ignore.yaml` next to `redocly.yaml` (as `redocly lint --generate-ignore-file` writes it) are skipped, as `redocly lint` skips them; with `DEBUG=openapi-ts:*` each one is printed. Without a `redocly.yaml`, the file is read from the current directory. A remote schema argument or `root` is named as `redocly lint` names it, by the rule of remote `$ref`s ([advanced](./advanced.md)): a URL that starts with `http://` or `https://` keeps its text (`http://host/my api.yaml`, `http://LOCALHOST/x/../api.yaml`), so the entries written for it apply; another spelling (`HTTP://host/api.yaml`, `http:host/api.yaml`) is named by its normal form.
 
 ## Auth
 

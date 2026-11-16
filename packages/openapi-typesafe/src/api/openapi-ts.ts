@@ -27,13 +27,18 @@ export interface GeneratedDocument {
   readonly localFiles: readonly URL[];
 }
 
-/** Load, validate and bundle the source, then transform it into IR declarations. */
+/**
+ * Load, validate and bundle the source, then transform it into IR declarations. `writtenSource`
+ * is the text a `URL` source was written as, when the caller knows it (the CLI).
+ */
 export async function generateDocument(
   source: SchemaSource,
   options: GeneratorOptions,
   ports: GeneratorPorts,
+  writtenSource?: string,
 ): Promise<GeneratedDocument> {
-  const { schema, localFiles, ctx } = await createDocumentRun(source, options, ports);
+  const run = await createDocumentRun(source, options, ports, writtenSource);
+  const { schema, localFiles, ctx } = run;
   const startedAt = ports.now();
   const declarations = withStackOverflowReported("transform", () => transformSchema(schema, ctx));
   ports.logger.debug(

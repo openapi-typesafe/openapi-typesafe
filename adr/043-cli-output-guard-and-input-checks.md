@@ -473,3 +473,37 @@ TypeScript, as before.
    problem's `in <document>`, a refusal, the `details.source`, `details.ref` and `details.base`)
    it hides the secrets of the name as a whole (`redactLocationSecrets`), and Redocly's load
    errors (`Failed to load <ref>: 404`) have the known name replaced by its hidden form.
+
+## Amendment (2026-11-16): names are locations, at the source of each message
+
+1. **Every message hides a document's name as one location, where the message is made.** Item 3
+   of the previous amendment covered the places the loader named a document itself, but other
+   messages took the name from elsewhere: the YAML parser writes its `filename` into its message
+   (`… in "http://host/my pet.yaml?key=se cret" (2:4)`), Redocly copies that into its problem,
+   and the problem only got the redaction of free text, which ends a URL at the space; the
+   parse error of a URL root added the name as written, and a malformed `$ref` and an unsupported
+   key named their document as it is. A document's name is a location, so each place that puts
+   one into a message now hides its secrets as one URL (`redactLocationSecrets`) where it makes
+   the text: the parser gets the hidden name as its `filename`, a root's parse error carries a
+   `source` with the hidden name, the time limit and redirect limit messages name the hidden
+   URL, and a malformed `$ref` hides the `$ref` and its document in the message and in
+   `details.refs`, as an unsupported key does in `details.keys`. The redaction of free text
+   stays on every message and logged line as the last guard. Pattern-matching names out of
+   finished text was rejected: a space or a quote cannot be told from the end of the URL there.
+2. **The CLI names every location it prints by the same rule.** The line for a written file hid
+   the query of its source by the free-text rule (`?*** cret`). It and every other CLI line that
+   names a location the user wrote (an output in `CLI_OUTPUT_INVALID`, `CLI_OUTPUT_IS_INPUT`,
+   `CLI_OUTPUT_DUPLICATE` and `OUTPUT_STALE`, the schema or `root` an output would overwrite,
+   `--redocly`, `--local-ref-root`, the ignored `--output` and extra schema arguments) now hide
+   it as one location; a path has no secret and stays as written.
+3. **A URL root gets Redocly's name, as `$ref` URLs do.** The root was named by `url.href`, so a
+   root that `redocly lint` names as written (`root: "http://host/my root.yaml"`, or
+   `http://LOCALHOST/x/../root.yaml` as the argument) did not match the entries of its lint
+   ignore file, and ignored problems failed the run with `SCHEMA_INVALID`. One function now
+   names both (`redoclyUrlName`): the text as written when it starts with `http://` or
+   `https://`, else the URL standard's normal form. The CLI passes the schema argument and each
+   API's `root` as written to the loader with the `URL` (`SchemaLoadRequest.writtenSource`), and
+   a string source that is a location is its own text. A `URL` given to the Node API has no text,
+   so it keeps `url.href`. The redirects of the root are matched against that name, so they stay
+   free of `--remote-ref-hosts`. Passing the text as a string source was rejected: a string with
+   a space is a document, not a location.

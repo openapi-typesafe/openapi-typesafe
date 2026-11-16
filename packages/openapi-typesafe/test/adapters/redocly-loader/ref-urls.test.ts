@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   fileRefPath,
   isRemoteRef,
+  redoclyUrlName,
   remoteRefUrl,
   unreadableRefRefusal,
 } from "../../../src/adapters/redocly-loader/ref-urls.js";
@@ -106,12 +107,34 @@ describe("remoteRefUrl", () => {
     "https://example.com/my pet.yaml",
     "http://example.com:80/pet.yaml",
     "http://[::1/pet.yaml",
-  ])("remoteRefUrl with %s, which Redocly reads as a URL, is undefined", (ref) => {
-    expect(remoteRefUrl(BASE, ref)).toBeUndefined();
-    expect(remoteRefUrl(REMOTE_BASE, ref)).toBeUndefined();
+  ])("remoteRefUrl with %s, which Redocly reads as a URL, keeps it as written", (ref) => {
+    expect(remoteRefUrl(BASE, ref)).toBe(ref);
+    expect(remoteRefUrl(REMOTE_BASE, ref)).toBe(ref);
   });
 
   it("remoteRefUrl with an http URL that does not parse throws the URL parser's error", () => {
     expect(() => remoteRefUrl(BASE, "HTTP://[::1/pet.yaml")).toThrow(TypeError);
   });
+});
+
+describe("redoclyUrlName", () => {
+  // Redocly keeps these as written, and `redocly lint` names the document by that text.
+  it.each([
+    "http://localhost:8080/my root.yaml",
+    "http://LOCALHOST:8080/x/../root.yaml",
+    "https://example.com/root.yaml?key=se cret",
+  ])("redoclyUrlName with %s, which Redocly reads as a URL, keeps it as written", (written) => {
+    expect(redoclyUrlName(written, REMOTE_BASE)).toBe(written);
+  });
+
+  it.each([
+    ["HTTP://LOCALHOST:8080/x/../root.yaml", undefined, "http://localhost:8080/root.yaml"],
+    ["https:root.yaml", undefined, "https://root.yaml/"],
+    ["http:root.yaml", "http://example.com/specs/api.yaml", "http://example.com/specs/root.yaml"],
+  ])(
+    "redoclyUrlName with %s, which Redocly misreads, is its normal form",
+    (written, base, expected) => {
+      expect(redoclyUrlName(written, base)).toBe(expected);
+    },
+  );
 });

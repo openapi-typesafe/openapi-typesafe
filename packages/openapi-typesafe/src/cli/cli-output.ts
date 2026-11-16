@@ -5,7 +5,7 @@ import { isLocalFileUrl } from "../api/local-file-url.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
 import { hasUrlScheme, parseUrlLocation } from "../domain/location-text.js";
 import { terminalSafeText } from "../domain/terminal-text.js";
-import { redactUnparsedUrl, redactUrlSecrets } from "../domain/url-secrets.js";
+import { redactLocationSecrets, redactUnparsedUrl } from "../domain/url-secrets.js";
 import type { CliArguments } from "./cli-arguments.js";
 import type { CliDependencies, GeneratedTypes } from "./cli-dependencies.js";
 import { cliError } from "./cli-errors.js";
@@ -85,7 +85,7 @@ function namesDirectory(location: string, file: URL): boolean {
 }
 
 function invalidOutput(output: string, reason: string): Error {
-  return cliError("CLI_OUTPUT_INVALID", `The output ${output} ${reason}`);
+  return cliError("CLI_OUTPUT_INVALID", `The output ${redactLocationSecrets(output)} ${reason}`);
 }
 
 /** The URL of the output, if it is a local file that can be written; it may not exist yet. */
@@ -170,8 +170,8 @@ export function ensureOutputIsNotSchema(
   if (schema) {
     throw cliError(
       "CLI_OUTPUT_IS_INPUT",
-      `The output ${output.output} is the ${schema.name}: writing the types would ` +
-        "overwrite it. Choose another output file.",
+      `The output ${redactLocationSecrets(output.output)} is the ${schema.name}: ` +
+        "writing the types would overwrite it. Choose another output file.",
     );
   }
 }
@@ -202,8 +202,8 @@ export function ensureOutputIsOwn(
 export function duplicateOutputError(output: NamedOutput, others: readonly string[]): Error {
   return cliError(
     "CLI_OUTPUT_DUPLICATE",
-    `The output ${output.output} is also the output of ${others.join(", ")}: they would ` +
-      "overwrite each other. Give each API its own output file.",
+    `The output ${redactLocationSecrets(output.output)} is also the output of ` +
+      `${others.join(", ")}: they would overwrite each other. Give each API its own output file.`,
   );
 }
 
@@ -216,13 +216,15 @@ export function parseLocationUrl(location: string, base: URL): URL | undefined {
 }
 
 /**
- * The line for a written file. It goes to the job log, so a source URL shows no secrets, and a
- * line break or escape sequence in a name cannot start a forged line.
+ * The line for a written file. It goes to the job log, so the source and the output show no
+ * secrets: each is one location as the user wrote it, so its query is hidden also after a space
+ * or a quote. A line break or escape sequence in a name cannot start a forged line.
  */
 function printDone(run: CliRun, output: OutputFile): void {
   const { style, now } = run.deps;
-  const source = terminalSafeText(redactUrlSecrets(output.source));
-  const target = style.green(`${source} → ${style.bold(terminalSafeText(output.output))}`);
+  const source = terminalSafeText(redactLocationSecrets(output.source));
+  const written = terminalSafeText(redactLocationSecrets(output.output));
+  const target = style.green(`${source} → ${style.bold(written)}`);
   const duration = style.dim(`[${formatDuration(now() - run.startedAt)}]`);
   run.deps.console.info(`🚀 ${target} ${duration}`);
 }
@@ -248,7 +250,8 @@ export function emitOutput(run: CliRun, output: OutputFile, contents: string): v
       // The original message, then the file: with several APIs it tells which one is stale.
       throw cliError(
         "OUTPUT_STALE",
-        `Generated types are not up-to-date! ${output.output} differs from its schema.`,
+        `Generated types are not up-to-date! ${redactLocationSecrets(output.output)} differs ` +
+          "from its schema.",
       );
     }
     return;

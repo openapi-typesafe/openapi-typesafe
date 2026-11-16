@@ -34,12 +34,19 @@ export interface GeneratedTypes {
   readonly localFiles: readonly URL[];
 }
 
+/** A schema to generate: its source, and the location the user wrote, if any (not stdin). */
+export interface CliSchema {
+  readonly source: SchemaSource;
+  /** The schema argument or the API's `root` as written, which names a URL root as Redocly does. */
+  readonly written?: string | undefined;
+}
+
 /**
  * Generate the types of one schema. With `apiName`, an API of `redocly.yaml`, every line the
  * generation logs names that API.
  */
 export type GenerateTypes = (
-  source: SchemaSource,
+  schema: CliSchema,
   options: GeneratorOptions,
   apiName?: string,
 ) => Promise<GeneratedTypes>;

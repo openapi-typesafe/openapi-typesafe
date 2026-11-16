@@ -1,5 +1,6 @@
 import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
 import { childPointer, ROOT_POINTER } from "../../domain/openapi/json-pointer.js";
+import { redactLocationSecrets } from "../../domain/url-secrets.js";
 
 /**
  * Keys Redocly 1.34 cannot walk. It looks up the type of every key with `type.properties[key]`,
@@ -91,6 +92,11 @@ export function findUnsupportedKeys(documents: readonly LoadedDocument[]): Unsup
   return documents.flatMap(unsupportedKeysOf);
 }
 
+/** The key as the error shows it: its document is a location, hidden as one URL. */
+function shownKey(found: UnsupportedKey): UnsupportedKey {
+  return { key: found.key, pointer: found.pointer, source: redactLocationSecrets(found.source) };
+}
+
 function describeKey(found: UnsupportedKey): string {
   return `"${found.key}" at ${found.pointer} in ${found.source}`;
 }
@@ -100,14 +106,15 @@ export function unsupportedKeysError(
   keys: readonly UnsupportedKey[],
   cause: unknown,
 ): OpenAPITypesafeError {
-  const listed = keys.slice(0, KEYS_IN_MESSAGE).map(describeKey);
+  const shown = keys.map(shownKey);
+  const listed = shown.slice(0, KEYS_IN_MESSAGE).map(describeKey);
   const more = keys.length > KEYS_IN_MESSAGE ? ` and ${keys.length - KEYS_IN_MESSAGE} more` : "";
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_KEY_UNSUPPORTED,
     message:
       "The schema loader (Redocly 1.x) failed on a key named like a built-in object method. " +
       `Rename it: ${listed.join(", ")}${more}.`,
-    details: { keys: keys.map((found) => ({ ...found })) },
+    details: { keys: shown },
     cause,
   });
 }

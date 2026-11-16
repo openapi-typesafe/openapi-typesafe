@@ -131,10 +131,16 @@ token ended up in the job log.
   `$ref` with an uppercase scheme loads as a URL instead of a file path that showed it (ADR-033).
   A component the bundle names after a URL with a query is named without it, so the query never
   reaches the generated file; the redaction of a `cause` walks its nested objects too; and the
-  CLI's line for a written file hides the secrets of its source URL. Header values from
-  `redocly.yaml` are never printed.
+  CLI's line for a written file hides the secrets of its source URL. A document's name and every
+  location the user wrote (the schema argument, an output, a flag, an API's `root`) is one URL
+  as written, which may hold a space or a quote (`http://host/my api.yaml?key=…`); free text ends
+  a URL at a space, so each place that puts such a name into a message hides its secrets as one
+  URL where the message is made: parser and fetch errors, refusals, lint problems, malformed
+  `$ref`s, unsupported keys and every CLI line. Header values from `redocly.yaml` are never
+  printed.
 - Tests: `test/domain/url-secrets.test.ts`, `test/domain/cause-secrets.test.ts`,
-  `test/defensive/remote-refs.test.ts`, `test/cli/location-url.test.ts`,
+  `test/defensive/remote-refs.test.ts`, `test/defensive/remote-name-secrets.test.ts`,
+  `test/cli/location-secrets.test.ts`, `test/cli/location-url.test.ts`,
   `test/adapters/redocly-loader/query-named-components.test.ts`, `test/cli/run-cli.test.ts`,
   `test/adapters/terminal-logger/terminal-logger.test.ts`.
 

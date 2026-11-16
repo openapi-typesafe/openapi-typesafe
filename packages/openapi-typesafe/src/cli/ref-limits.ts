@@ -1,5 +1,6 @@
 import { fileRootKindOf, isLocalFileUrl } from "../api/local-file-url.js";
 import type { FileCheck } from "../application/ports/file-system.js";
+import { redactLocationSecrets } from "../domain/url-secrets.js";
 import type { GeneratorOptions } from "../types.js";
 import { cliError } from "./cli-errors.js";
 import { type CliRun, parseLocationUrl } from "./cli-output.js";
@@ -37,7 +38,8 @@ export function refLimitOptions(run: CliRun): RefLimitOptions {
   if (localRefRoot !== undefined && localRoot === undefined) {
     throw cliError(
       "CLI_FLAG_INVALID",
-      `--local-ref-root ${localRefRoot}: a directory path or a file: URL of a local directory.`,
+      `--local-ref-root ${redactLocationSecrets(localRefRoot)}: a directory path or a file: URL ` +
+        "of a local directory.",
     );
   }
   return {

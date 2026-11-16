@@ -1,5 +1,6 @@
 import { ERROR_CODES, OpenAPITypesafeError } from "../../domain/errors.js";
 import { parseRefPointer } from "../../domain/openapi/json-pointer.js";
+import { redactLocationSecrets } from "../../domain/url-secrets.js";
 import { findRefHolders } from "./ref-holders.js";
 import type { LoadedDocument } from "./unsupported-keys.js";
 
@@ -40,6 +41,15 @@ export function findMalformedRefs(documents: readonly LoadedDocument[]): Malform
   );
 }
 
+/**
+ * The `$ref` and its document as the error shows them. Both are locations, and a URL as written
+ * may hold a space or a quote before its query, so each is hidden as one URL.
+ */
+function shownRef(found: MalformedRef): MalformedRef {
+  const ref = redactLocationSecrets(found.ref);
+  return { ref, pointer: found.pointer, source: redactLocationSecrets(found.source) };
+}
+
 function describeRef(found: MalformedRef): string {
   return `"${found.ref}" at ${found.pointer} in ${found.source}`;
 }
@@ -49,13 +59,14 @@ export function malformedRefsError(
   refs: readonly MalformedRef[],
   cause: unknown,
 ): OpenAPITypesafeError {
-  const listed = refs.slice(0, REFS_IN_MESSAGE).map(describeRef);
+  const shown = refs.map(shownRef);
+  const listed = shown.slice(0, REFS_IN_MESSAGE).map(describeRef);
   const more = refs.length > REFS_IN_MESSAGE ? ` and ${refs.length - REFS_IN_MESSAGE} more` : "";
   const where = listed.length === 0 ? "" : `: ${listed.join(", ")}${more}`;
   return new OpenAPITypesafeError({
     code: ERROR_CODES.SCHEMA_REF_INVALID,
     message: `A $ref has a malformed percent escape; write "%" as "%25" in a JSON Pointer${where}.`,
-    details: { reason: "malformed", refs: refs.map((found) => ({ ...found })) },
+    details: { reason: "malformed", refs: shown },
     cause,
   });
 }
