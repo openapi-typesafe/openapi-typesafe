@@ -36,18 +36,17 @@ import {
   resolveConfigWithAccess,
 } from "./remote-fetch.js";
 import {
+  isFileSource,
+  type ResolvedLoadRequest,
+  remoteRootRef,
+  sourceAbsoluteRef,
+} from "./resolved-source.js";
+import {
   refCycleError,
   schemaInvalidError,
   versionUnsupportedError,
 } from "./schema-load-errors.js";
-import {
-  isFileSource,
-  parseSchema,
-  type ResolvedLoadRequest,
-  resolveSchemaSource,
-  rootUrlOf,
-  sourceAbsoluteRef,
-} from "./schema-source.js";
+import { parseSchema, resolveSchemaSource } from "./schema-source.js";
 import { findUnsupportedKeys, unsupportedKeysError } from "./unsupported-keys.js";
 
 /**
@@ -125,7 +124,7 @@ class RedoclySchemaLoader implements SchemaLoader {
 
   async load(request: SchemaLoadRequest): Promise<LoadedSchema> {
     // Resolved once, before any step reads the source: URL text is then a URL in every step.
-    const source = await resolveSchemaSource(request.source, request.cwd);
+    const source = await resolveSchemaSource(request.source, request.cwd, request.writtenSource);
     const resolved = { ...request, source };
     const resolver = this.#resolver(resolved);
     // Parsing is guarded too: `JSON.stringify` of a deep object source overflows the stack on
@@ -168,7 +167,7 @@ class RedoclySchemaLoader implements SchemaLoader {
     const config = resolveConfigWithAccess(redoc.resolve, {
       timeoutMs: remoteRefTimeoutMs,
       access: request.refAccess,
-      rootUrl: rootUrlOf(request.source)?.href,
+      rootUrl: remoteRootRef(request.source, request.cwd),
       maxParallelFetches: remoteDocumentLimits.maxParallelFetches,
       bodyLimits: remoteDocumentLimits,
       redirects,

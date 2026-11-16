@@ -56,25 +56,33 @@ function documentUrlOf(base: string | null): string | undefined {
 }
 
 /**
- * The URL that a `$ref` names when Redocly would misread it: an `http:` or `https:` scheme in
- * another letter case or without `//` (`HTTP://host/pet.yaml`, `http:host/pet.yaml`). Redocly
- * takes only text that starts with `http://` or `https://` for a URL (`isAbsoluteUrl`) and joins
- * any other `$ref` in a local document to the document's folder, so it read these as files, while
- * the same text as the schema argument was fetched. Such a `$ref` is resolved against its document
- * by the URL standard, as the schema argument is (`parseUrlLocation`). A `$ref` that does not
- * parse throws the URL parser's own error, which Redocly reports as the unresolved `$ref`.
- *
- * Undefined for any other `$ref`, also for one that starts with `http://` or `https://`: Redocly
- * keeps that as written (`http://LOCALHOST/x/../pet.yaml`), and that text is the document's name
- * in `redocly lint`, in its lint ignore file and in Redocly's cache, so changing it would drop
- * the ignore entries. In a remote document Redocly resolves every relative `$ref` by the URL
- * standard already.
+ * The name of the document a `$ref` with an `http:` or `https:` scheme names (`redoclyUrlName`).
+ * Redocly takes only text that starts with `http://` or `https://` for a URL (`isAbsoluteUrl`)
+ * and joins any other `$ref` in a local document to the document's folder, so it read
+ * `HTTP://host/pet.yaml` and `http:host/pet.yaml` as files, while the same text as the schema
+ * argument was fetched. Such a `$ref` is resolved against its document by the URL standard, as
+ * the schema argument is (`parseUrlLocation`); one that does not parse throws the URL parser's
+ * own error, which Redocly reports as the unresolved `$ref`. A `$ref` that starts with `http://`
+ * or `https://` keeps the text Redocly keeps. Undefined for any other `$ref`: in a remote
+ * document Redocly resolves every relative `$ref` by the URL standard already.
  */
 export function remoteRefUrl(base: string | null, ref: string): string | undefined {
   const scheme = urlSchemeOf(ref);
-  return scheme !== undefined && REMOTE_SCHEMES.has(scheme) && !isRemoteRef(ref)
-    ? new URL(ref, documentUrlOf(base)).href
+  return scheme !== undefined && REMOTE_SCHEMES.has(scheme)
+    ? redoclyUrlName(ref, documentUrlOf(base))
     : undefined;
+}
+
+/**
+ * The name of the document of an `http:` or `https:` URL written as `written`, by Redocly's rule:
+ * the text as written when Redocly takes it for a URL (`isRemoteRef`), since `redocly lint`, its
+ * lint ignore file and Redocly's cache name the document so (`http://host/my pet.yaml`,
+ * `http://LOCALHOST/x/../pet.yaml`); else the URL standard's normal form against `base`, since
+ * Redocly would misread it as a file and no ignore entry can name it (`HTTP://host/pet.yaml`).
+ * The root and every `$ref` are named by this one rule.
+ */
+export function redoclyUrlName(written: string, base: string | undefined): string {
+  return isRemoteRef(written) ? written : new URL(written, base).href;
 }
 
 /**

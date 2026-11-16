@@ -40,11 +40,12 @@ function terminalStyle(): TextStyle {
 
 const STDIN_DESCRIPTOR = 0;
 
-const generateTypes: GenerateTypes = async (source, options, apiName) => {
+const generateTypes: GenerateTypes = async (schema, options, apiName) => {
   const terminalLogger = defaultLogger(options.silent ?? false);
   const logger = apiName === undefined ? terminalLogger : apiLogger(terminalLogger, apiName);
   const ports = await defaultGeneratorPorts(options, logger);
-  const { declarations, localFiles } = await generateDocument(source, options, ports);
+  const generated = await generateDocument(schema.source, options, ports, schema.written);
+  const { declarations, localFiles } = generated;
   return { contents: `${COMMENT_HEADER}${astToString(declarations)}`, localFiles };
 };
 

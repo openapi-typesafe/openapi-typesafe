@@ -5,6 +5,7 @@ import type { Logger } from "../application/ports/logger.js";
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
 import { ERROR_CODES, isOpenAPITypesafeError } from "../domain/errors.js";
 import { hasUrlScheme } from "../domain/location-text.js";
+import { redactLocationSecrets } from "../domain/url-secrets.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { SchemaSource } from "../types.js";
 import { ineffectiveFlagNotices, parseCliArguments } from "./cli-arguments.js";
@@ -63,7 +64,10 @@ async function loadRedoclyConfig(run: CliRun): Promise<RedoclyConfig> {
   const explicitPath = run.args.redocly;
   const configPath = findRedoclyConfig(run);
   if (explicitPath !== undefined && !configPath) {
-    throw cliError("CLI_CONFIG_NOT_FOUND", `Redocly config not found at: ${explicitPath}`);
+    throw cliError(
+      "CLI_CONFIG_NOT_FOUND",
+      `Redocly config not found at: ${redactLocationSecrets(explicitPath)}`,
+    );
   }
   return configPath ? redoclyConfigs.load(configPath) : redoclyConfigs.createDefault();
 }
@@ -129,7 +133,8 @@ async function generateSchemaTypes(
     ...fixOption(run.args.fix),
     redocly,
   };
-  return run.deps.generate(source, options).catch((error: unknown) => {
+  const schema = { source, written: run.args.input };
+  return run.deps.generate(schema, options).catch((error: unknown) => {
     throw run.args.input === undefined ? stdinFailure(error) : error;
   });
 }
@@ -182,7 +187,7 @@ function singleOutputFile(
   const outputFile = outputFileOf(run, { source: input ?? "stdin", output }, run.deps.cwd);
   const schemas =
     input !== undefined && source instanceof URL
-      ? [{ name: `schema ${input}`, location: source }]
+      ? [{ name: `schema ${redactLocationSecrets(input)}`, location: source }]
       : [];
   ensureOutputIsNotSchema(run, outputFile, [...schemas, ...redoclyConfigFiles(run, redocly)]);
   return outputFile;
@@ -212,8 +217,8 @@ function warnAboutIgnoredArguments(run: CliRun): void {
   if (args.output !== undefined) {
     deps.logger.warn(
       warningText(
-        `APIs are specified in Redocly Config, so --output ${args.output} is ignored: ` +
-          "each API is written to its x-openapi-ts.output.",
+        `APIs are specified in Redocly Config, so --output ${redactLocationSecrets(args.output)} ` +
+          "is ignored: each API is written to its x-openapi-ts.output.",
         WARNING_CODES.CLI_OUTPUT_IGNORED,
       ),
     );

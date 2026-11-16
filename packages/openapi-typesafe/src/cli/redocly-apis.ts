@@ -1,4 +1,5 @@
 import type { RedoclyConfig } from "../application/ports/redocly-config-source.js";
+import { redactLocationSecrets } from "../domain/url-secrets.js";
 import type { GeneratorOptions } from "../types.js";
 import {
   type ApiSettings,
@@ -164,7 +165,8 @@ async function generateApi(run: CliRun, apiRun: ApiRun, target: ApiTarget): Prom
   );
   const options = apiOptions(run, apiRun, target);
   try {
-    const types = await run.deps.generate(source, options, target.name);
+    const schema = { source, written: target.root };
+    const types = await run.deps.generate(schema, options, target.name);
     return { name: target.name, outputFile, types };
   } catch (error) {
     throw new ApiFailure(target.name, error);
@@ -191,8 +193,13 @@ function failingAsApi<T>(apiName: string, step: () => T): T {
 function configFilesOf(run: CliRun, redocly: RedoclyConfig, apis: readonly RedoclyApi[]) {
   const configRoot = configRootOf(redocly, run.deps.cwd);
   const roots = apis.flatMap(({ name, root }) => {
-    const location = typeof root === "string" ? parseLocationUrl(root, configRoot) : undefined;
-    return location ? [{ name: `schema ${root} of API ${name}`, location }] : [];
+    if (typeof root !== "string") {
+      return [];
+    }
+    const location = parseLocationUrl(root, configRoot);
+    return location
+      ? [{ name: `schema ${redactLocationSecrets(root)} of API ${name}`, location }]
+      : [];
   });
   const outputs = new Map<string, URL>();
   for (const api of apis) {

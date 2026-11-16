@@ -18,6 +18,7 @@ import type {
 import type {
   CliConsole,
   CliDependencies,
+  CliSchema,
   GeneratedTypes,
 } from "../../src/cli/cli-dependencies.js";
 import { ERROR_CODES, OpenAPITypesafeError } from "../../src/domain/errors.js";
@@ -208,6 +209,8 @@ export function fakeRedoclyConfig(
 
 export interface GenerateCall {
   readonly source: SchemaSource;
+  /** The location the CLI passed as written, if any. */
+  readonly written?: string | undefined;
   readonly options: GeneratorOptions;
   readonly apiName?: string | undefined;
 }
@@ -227,11 +230,11 @@ export class FakeGenerator {
   #running = 0;
 
   readonly generate = async (
-    source: SchemaSource,
+    { source, written }: CliSchema,
     options: GeneratorOptions,
     apiName?: string,
   ): Promise<GeneratedTypes> => {
-    this.calls.push({ source, options, apiName });
+    this.calls.push({ source, written, options, apiName });
     this.#running += 1;
     this.mostAtOnce = Math.max(this.mostAtOnce, this.#running);
     try {

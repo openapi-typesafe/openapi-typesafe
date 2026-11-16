@@ -192,6 +192,21 @@ describe("fetchWithCheckedRedirects", () => {
     await expect(failure).rejects.toThrow(`More than ${MAX_REDIRECTS} redirects`);
     expect(requests).toHaveLength(MAX_REDIRECTS + 1);
   });
+
+  it("fetchWithCheckedRedirects names a URL with a space before its query with the query hidden", async () => {
+    const { fetchImpl } = tableFetch({
+      "https://a.example/my%20loop?key=se%20cret": redirectTo(""),
+    });
+
+    const failure = fetchWithCheckedRedirects(
+      fetchImpl,
+      POLICY,
+    )("https://a.example/my loop?key=se cret");
+
+    await expect(failure).rejects.toThrow(
+      `More than ${MAX_REDIRECTS} redirects loading https://a.example/my loop?***`,
+    );
+  });
 });
 
 describe("headersFor", () => {
