@@ -87,7 +87,7 @@ export default function createClient(clientOptions) {
     requestInitExt = undefined,
     ...baseOptions
   } = { ...clientOptions };
-  baseHeaders = readHeadersOnce(baseHeaders);
+  baseHeaders = readClientHeaders(baseHeaders);
   requestInitExt = supportsRequestInitExt() ? requestInitExt : undefined;
   baseUrl = removeTrailingSlash(baseUrl);
   const globalMiddlewares = [];
@@ -131,7 +131,7 @@ export default function createClient(clientOptions) {
 
     const pathSerializer = requestPathSerializer || globalPathSerializer || defaultPathSerializer;
     const headerParams = serializeHeaderParams(params.header);
-    const requestHeaders = readHeadersOnce(headers);
+    const requestHeaders = readHeaders(headers);
 
     const serializedBody =
       body === undefined
@@ -1182,54 +1182,112 @@ export function createFinalURL(pathname, options) {
   return `${beforeFragment}${joiner}${search}${finalURL.slice(fragmentStart)}`;
 }
 
-/**
- * The headers `headers` as they can be read more than once. A one-shot iterable (an iterator,
- * such as `map.entries()` or a generator) is its own iterator, so the first read used it up: the
- * headers are merged once for the body serializer and once for the request, and a client's headers
- * once per request, so a POST with a body sent none of them. It is read into pairs once; any other
- * value is kept as it is, so an object the caller changes later is still read at each request.
- */
-function readHeadersOnce(headers) {
-  if (
-    headers &&
+/** A header pair holds a name and a value, no more and no fewer, as `Headers` requires. */
+const HEADER_PAIR_LENGTH = 2;
+
+/** Whether headers are a list of `[name, value]` pairs: an iterable without a `get` method. */
+function isHeaderPairs(headers) {
+  return (
     typeof headers === "object" &&
-    typeof headers[Symbol.iterator] === "function" &&
-    headers[Symbol.iterator]() === headers
-  ) {
-    return [...headers];
-  }
-  return headers;
+    headers !== null &&
+    !isHeaders(headers) &&
+    Symbol.iterator in headers
+  );
+}
+
+/** Whether a value is a one-shot iterable: an iterator, such as `map.entries()` or a generator. */
+function isOneShot(value) {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof value[Symbol.iterator] === "function" &&
+    value[Symbol.iterator]() === value
+  );
 }
 
 /**
- * Merge headers a and b, with b taking priority
+ * The name and value of a header pair, read into a list. Throws, as `Headers` does, for an item
+ * that is no list of two, such as a string or a list of one or three items.
+ */
+function headerPair(pair) {
+  const isList = typeof pair === "object" && pair !== null && Symbol.iterator in pair;
+  const items = isList ? Array.from(pair) : [];
+  if (items.length !== HEADER_PAIR_LENGTH) {
+    throw new TypeError("A header pair is a list of a name and a value");
+  }
+  return items;
+}
+
+/**
+ * A request's headers as they can be read more than once: a list of pairs is read into a list of
+ * `[name, value]` lists, so an iterator (`map.entries()`, a generator), or an iterator as one of
+ * its pairs, is read once, at the call. The headers are merged twice, for the body serializer and
+ * for the request, and the second merge sent none of an iterator's headers. Any other value is
+ * kept as it is.
+ */
+function readHeaders(headers) {
+  return isHeaderPairs(headers) ? Array.from(headers, headerPair) : headers;
+}
+
+/**
+ * A client's headers as they can be read at every request: a list of pairs with an iterator in
+ * it, as the list or as a pair, is read once, when the client is made, by `readHeaders`. Any
+ * other value is kept as it is, so an object or a list the caller changes later is still read at
+ * each request.
+ */
+function readClientHeaders(headers) {
+  const hasOneShot =
+    isHeaderPairs(headers) && (isOneShot(headers) || Array.from(headers).some(isOneShot));
+  return hasOneShot ? readHeaders(headers) : headers;
+}
+
+/**
+ * Merge headers a and b, with b taking priority. Every form is read by one rule: `null` removes a
+ * header, `undefined` sends nothing, an array appends its items, and any other value sets it. A
+ * list of pairs (`[["x-t", "1"]]`) appends a name it repeats, as `Headers` joins it with `, `.
  * @type {import("./index.js").mergeHeaders}
  */
 export function mergeHeaders(...allHeaders) {
   const finalHeaders = new Headers();
   for (const h of allHeaders) {
-    if (!h || typeof h !== "object") {
-      continue;
-    }
-    // A list of pairs (`[["x-t", "1"]]`) is a `HeadersInit` too; `Headers` joins a repeated name.
-    const iterator = isHeaders(h)
-      ? h.entries()
-      : Symbol.iterator in h
-        ? new Headers(h).entries()
-        : Object.entries(h);
-    for (const [k, v] of iterator) {
-      if (v === null) {
-        finalHeaders.delete(k);
-      } else if (Array.isArray(v)) {
-        for (const v2 of v) {
-          finalHeaders.append(k, v2);
-        }
-      } else if (v !== undefined) {
-        finalHeaders.set(k, v);
-      }
+    if (typeof h === "object" && h !== null) {
+      const isPairs = isHeaderPairs(h);
+      const entries = isHeaders(h)
+        ? h.entries()
+        : isPairs
+          ? Array.from(h, headerPair)
+          : Object.entries(h);
+      mergeEntries(finalHeaders, entries, isPairs);
     }
   }
   return finalHeaders;
+}
+
+/**
+ * Merge the entries of one set of headers into `finalHeaders` by the rule of `mergeHeaders`. With
+ * `joinsRepeats`, a name given again in these entries appends its value to theirs.
+ */
+function mergeEntries(finalHeaders, entries, joinsRepeats) {
+  const given = new Set();
+  for (const [k, v] of entries) {
+    if (v === undefined) {
+      continue;
+    }
+    const name = String(k).toLowerCase();
+    const isRepeat = joinsRepeats && given.has(name);
+    given.add(name);
+    if (v === null) {
+      finalHeaders.delete(k);
+    } else if (Array.isArray(v)) {
+      for (const v2 of v) {
+        finalHeaders.append(k, v2);
+      }
+    } else if (isRepeat) {
+      finalHeaders.append(k, v);
+    } else {
+      finalHeaders.set(k, v);
+    }
+  }
 }
 
 /**
