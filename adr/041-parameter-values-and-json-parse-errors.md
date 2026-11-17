@@ -603,3 +603,44 @@ Records and `Headers` objects are still read at each request, so later changes t
 
 The bundle grows to 11.43 kB minified; the budget rises from 11.3 kB to 11.45 kB, and the docs
 keep "about 11 kB minified".
+
+## Amendment (2026-11-17): one rule for every header form; optional statuses
+
+1. **Pairs follow the rule of the other forms.** `mergeHeaders` read a list of pairs through
+   `new Headers`, which sends the text of every value: `null` was sent as `"null"`, `undefined`
+   as `"undefined"` and `["1", "2"]` as `1,2`, while the same pairs as a `Map` or a record removed
+   the header, sent nothing or appended `1, 2`. Since the one-shot iterables of the amendment
+   above are read into pairs, `map.entries()` and the `Map` it came from sent different headers.
+   Every form is now read by one rule: `null` removes a header, `undefined` sends nothing, an
+   array appends its items, any other value sets the header. A list of pairs still joins a name
+   it repeats, in any letter case, as `Headers` joined it, and a pair that is no list of two still
+   throws a `TypeError`.
+2. **Iterators read at the call.** A request's pairs are read into a list of `[name, value]` lists
+   when the request is called, so an iterator as one of the pairs (`[[name, value].values()]`) is
+   read once too: the second merge of a request with a body threw for it. A client's pairs are
+   read once when the client is made only when the list or one of its pairs is an iterator; an
+   array is still read at each request, so later changes to it count.
+3. **Types.** `HeadersOptions` takes any `Iterable<readonly [string, HeaderValue]>` (a `Map`,
+   `map.entries()`, a generator), with the values a record takes: the runtime accepted them and
+   the docs named them, but the types rejected them (TS2322). Headers of such a type type a body
+   serializer's result as `string | FormData`, as for `Headers` and arrays.
+4. **Optional statuses.** `SuccessBodies` and `ErrorBodies` read `T[K]["content"]`, which is
+   `unknown` for a status that the map marks optional (`200?: X`, `Partial<Record<200, X>>`) or
+   types `X | undefined`. Such a status is still a declared status, so its body is read from
+   `NonNullable<T[K]>`, and `data` and `error` are typed by it, as for a required status. Generic
+   and index-signature maps keep their types.
+
+Behaviour that changes against rc.15: pairs with a `null`, `undefined` or array value (also from
+an iterator or a generator) remove, skip or append as a record does; a request with an iterator as
+a pair sends it; optional statuses type `data` and `error`. Records, `Map` and `Headers` objects
+send what they sent.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| One rule for all forms, repeated pair names joined (chosen) | `map.entries()` sends what its `Map` sends; pairs mean what records mean | Pairs with `null` no longer send the text `"null"` |
+| Keep `Headers` for pairs | Upstream's behaviour | An iterator and its `Map` send different headers |
+| Read an iterator into a record | No pair branch | Loses a repeated name, which `Headers` joins |
+
+The bundle grows from 11.43 kB to 11.88 kB minified (4.49 kB gzipped): the pair reader and the
+one merge rule. The budget rises to 11.9 kB, and the docs say "about 12 kB minified (4.5 kB
+gzipped)". Correctness ranks above size (ADR-013, ADR-030).

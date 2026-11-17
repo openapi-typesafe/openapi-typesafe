@@ -958,6 +958,46 @@ silently half migrated. Each fix makes wrong output correct, so it is on by defa
   is shared through a YAML anchor or a Compose `extends`, as both give one place to several
   containers.
 
+## Amendment (2026-11-17): the fourteenth review of the migration tool
+
+The rc.15 hunt found Makefiles that make reads differently from the tool: an `include` whose
+files come from a variable or a wildcard, a Makefile with CR LF line ends, an include continued
+on the next line, and `$$$$` runs in eval text. It also found that a Dockerfile exec-form item
+that holds a command line was not reported, as a YAML one is. Each was wrong output, so each fix
+is on by default (ADR-021).
+
+- **An include line is expanded as make expands it.** Make expands an include line when it
+  reads it, splits it at C `isspace`, and globs each word (no `GLOB_PERIOD`, sorted, a word with
+  no match stays the word). The tool does the same against the project's file list
+  (`domain/make-include-words.ts`, `domain/make-wildcards.ts`), with the values the lines before
+  it give (`domain/make-value-texts.ts`): one value of plain assignments, a simple variable
+  expanded where it is set, a recursive one where it is used. Anything else (a function, a
+  substitution, a computed name, a value from outside) leaves the line unknown. Planning and
+  migration find the files by the same rule, so both read the same files.
+- **A Makefile that includes a file the tool cannot read is always read.** Such a file (an
+  unknown line, a path outside the project, a file the project lacks, as in `-include .env`)
+  may set any variable, so the Makefile is linked to unknown files and read whatever it names:
+  its flags after a variable are reported instead of skipped (`application/linked-files.ts`).
+  This narrows the thirteenth review: there a file was read only when a linked file names an
+  old package.
+- **The values at each include are read once per part.** The joined text grows at each
+  include, so `domain/make-include-values.ts` reads each new part once, from the rule state the
+  part before ends in (an include that names no file leaves a rule open, as make does), and
+  reads a variable's values from its own assignments and those of the variables it references.
+  While files are still being found, a project file that is not read yet is read as empty, so
+  one round finds every file a value names; when no file is left to read, the last round is
+  exact (`application/called-makefiles.ts`). A chain of 300 `include $(D)/f.mk` lines plans in
+  tens of milliseconds, not one file per round. The rejected alternative, reading the whole text
+  again at each include, took seconds on such a chain.
+- **Make's line ends and blanks.** A CR LF line end is a line end (read.c `readline`), and the
+  written file keeps its CR LF (`domain/make-line-ends.ts`). A lone CR, `\v`, `\f` and a
+  backslash before a line break split make's words, as `isspace` does.
+- **`$$` runs in eval text are unescaped in pairs from the left, once.** `$$$$GEN` in a
+  template that eval reads is `$$GEN`, a recipe's `$GEN`, not a reference to `GEN`.
+- **A Dockerfile exec-form item uses the YAML rule.** `CMD ["echo", "openapi-typescript -it"]`
+  holds a command line in one item, so it is the same `command-line-in-item` step
+  (`domain/command-line-items.ts` is shared by both).
+
 ## Review trigger
 
 TypeScript 7 publishes a JavaScript API, or `@typescript/typescript6` stops being published.

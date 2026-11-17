@@ -66,8 +66,10 @@ with `-f`) also gives an `entrypoint` or `command`, in both files, a service who
 another file, the service of that file it extends when the extending service sets an `entrypoint`
 or `command`, and `args` alone (Kubernetes, a `docker://` step's `with`), which the image's own
 program runs. A list item that holds a whole command line of the generator
-(`command: ["npx openapi-typescript api.yaml -it"]`) is one word that no shell splits, so it is
-reported, not changed, unless a shell of the container runs it (`["sh", "-c"]` before it).
+(`command: ["npx openapi-typescript api.yaml -it"]`, or a Dockerfile's
+`CMD ["npx openapi-typescript api.yaml -it"]`, also in `RUN` and `ENTRYPOINT`) is one word that
+no shell splits, so it is reported, not changed, unless a shell of the container runs it
+(`["sh", "-c"]` before it).
 The files that a Compose file's top-level `include` names (a path, or the `path` of the long form,
 one file or a list) are read as Compose files, relative to the file that includes them, and
 merge with it: an included service that another merged file also gives an `entrypoint` or
@@ -124,14 +126,19 @@ reported. A Makefile variable is read as the value its lines build in make's ord
 then `G += openapi-typescript` is one command, and a later `G := mytool` replaces the earlier
 value; `override`, an assignment for some targets (`gen: G += -it`, which their prerequisites
 get too) and an `ifeq`/`ifdef` block (each branch is one possible value) count as make counts
-them. Make's own lines are read as make reads them: the body of a `define` is the variable's
+them. Make's own lines are read as make reads them: a CR LF line end is a line end (the file
+keeps its CR LF), the body of a `define` is the variable's
 value, a comment ends at the line end that no backslash continues, an assignment may be indented
 (with a tab only before the first rule), a target or a value for some targets whose name holds a
 variable (`$(T): GEN = …`) may apply to any target, and the text that `$(eval …)` gets is read as
 Makefile lines, after the expansion make gives it first (`$$(GEN)` in a template is `$(GEN)`
-there). The files that `include`, `-include` and `sinclude` name are read where they are
-in the project; one that is missing, outside it, or named by a variable or a wildcard may set
-any variable, so the flags after a variable are reported then. A file that a Makefile includes
+there, and `$$$$GEN`, read two `$` at a time from the left, a recipe's `$$GEN`). The files that `include`, `-include` and `sinclude` name are found as make finds them:
+the line's variables are expanded with the values set before it (`include $(MK)/tools.mk` after
+`MK := mk`), and a wildcard (`include mk/*.mk`) reads the project files it matches, in order. A
+file that is missing, outside the project, or named by a variable whose value comes from outside
+the file (the environment, a `$(shell …)`, a branch of a conditional) may set any variable, so
+the flags after a variable are reported then, and such a Makefile is read even when it names no
+old package. A file that a Makefile includes
 is migrated as a Makefile whatever its name (`config.make`, `.env`), with the values of each
 Makefile that includes it: `$(GEN) api.yaml -it` in `mk/gen.mk` is renamed when the including
 Makefile sets `GEN` to the generator, and reported when the Makefiles that include it (or make

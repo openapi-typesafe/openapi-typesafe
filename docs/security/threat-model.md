@@ -127,7 +127,10 @@ token ended up in the job log.
 - Controls: every typed error message, the URLs in `details`, the `cause` chain of a typed error
   and every line the terminal logger writes show such a URL as `https://***@host/…`, and the query
   of every URL as `?***`, since it often holds an API key or a signature (`?api_key=…`); a
-  location that does not parse as a URL is shown with everything up to its last `@` hidden, and a
+  location that does not parse as a URL is shown with everything up to its last `@` hidden; a
+  URL is found by the rule the loader reads every location with, so a URL written without `//`
+  (`http:host/api.yaml?key=…`, `http:\\host\…`) is hidden too, and a `://` in a query does not
+  start a URL there (ADR-033, amendment of 2026-11-17); and a
   `$ref` with an uppercase scheme loads as a URL instead of a file path that showed it (ADR-033).
   A component the bundle names after a URL with a query is named without it, so the query never
   reaches the generated file; the redaction of a `cause` walks its nested objects too; and the
@@ -140,7 +143,8 @@ token ended up in the job log.
   printed.
 - Tests: `test/domain/url-secrets.test.ts`, `test/domain/cause-secrets.test.ts`,
   `test/defensive/remote-refs.test.ts`, `test/defensive/remote-name-secrets.test.ts`,
-  `test/cli/location-secrets.test.ts`, `test/cli/location-url.test.ts`,
+  `test/cli/location-secrets.test.ts`, `test/cli/no-slash-url-secrets.test.ts`,
+  `test/cli/location-url.test.ts`,
   `test/adapters/redocly-loader/query-named-components.test.ts`, `test/cli/run-cli.test.ts`,
   `test/adapters/terminal-logger/terminal-logger.test.ts`.
 

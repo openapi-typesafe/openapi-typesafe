@@ -328,3 +328,28 @@ keeps the requested URL as its name, for the root and for every `$ref`'d documen
 base of its relative `$ref`s is the final URL: the resolver resolves a `$ref` against the final
 URL of its document (`resolveExternalRef`). Its problems name the requested URL, as in
 `redocly lint`. ADR-043 (amendment of 2026-11-11) records it with the other CLI decisions.
+
+## Amendment (2026-11-17): a URL is found by the loader's rule, not by its `://`
+
+The redaction found a URL by its `://` (amendment of 2026-11-09). The loader reads a location as a
+URL by another rule (`hasUrlScheme`: a scheme it reads, `http:`, `https:` or `file:`, also without
+`//`, or any scheme followed by `//`), so it fetched `http:host/api.yaml?key=…`, `http:/host/…`
+and `http:\\host\…`, and every CLI line that named such a location showed its query: the line for
+a written file, `CLI_INPUT_EXTRA`, `CLI_LOCATION_INVALID` (also for an API's `root`),
+`CLI_OUTPUT_INVALID`, `CLI_CONFIG_NOT_FOUND` and `CLI_FLAG_INVALID`. In a message, a `://` in the
+query of such a URL (`http:host/x?key=…&next=http://h`) started the URL there and showed `key`.
+
+Decision: a location the user wrote is a URL by the same rule the loader uses (`hasUrlScheme`);
+any other text is a path and stays as written, also when it holds a `://`. Its user info and query
+are found as the URL standard reads the written text: after a special scheme (`http:`, `file:`,
+...) any run of `/` and `\` comes before the authority, and a URL that parses has user info only
+when the parser finds some, up to where the parser ends the authority (`\` too after a special
+scheme). In free text a URL starts at a scheme at the start of a run of scheme characters that the
+same rule takes for a URL, or at a `://` that no such scheme starts; a candidate inside a URL
+already found is part of it. The scan stays linear: a scheme starts only at the start of a run,
+and the rule reads only the scheme and the two characters after it.
+
+Consequences: a `file:` URL with an empty path and a query (`-o file:?x`) shows `file:?***`, and a
+path with a `://` in it (`specs/http://h/x.yaml?x`) keeps its text in `details`; in a message the
+free-text scan still hides that query. An empty user info (`http://@host/`) is no longer shown as
+`***@`, since nothing in it is secret.

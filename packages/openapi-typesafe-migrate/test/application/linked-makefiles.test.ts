@@ -79,6 +79,15 @@ describe("migrateProject and Makefiles linked by include", () => {
     expect(files.get("tools.mk")).toBe(lines("GEN := npx openapi-typesafe"));
   });
 
+  it("migrateProject reads the files of an include that a backslash continues", async () => {
+    const { files } = await migrated({
+      Makefile: `include \\\n  tools.mk\n${GEN_RECIPE}`,
+      "tools.mk": GEN_TOOL,
+    });
+
+    expect(files.get("Makefile")).toBe(`include \\\n  tools.mk\n${RENAMED_RECIPE}`);
+  });
+
   it.each([["config.make"], [".env"], ["mk/Makefile.common"]])(
     "migrateProject migrates the included file %s as a Makefile",
     async (path) => {

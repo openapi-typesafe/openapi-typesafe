@@ -1,3 +1,5 @@
+import type { Locate } from "./argument-findings.js";
+import { commandLineItemFindings, commandLineItemsOf } from "./command-line-items.js";
 import {
   type CommandMigration,
   commandWordFindings,
@@ -18,6 +20,7 @@ import {
 } from "./dockerfile-instructions.js";
 import { dockerVariables, isVariableInstruction } from "./dockerfile-variables.js";
 import { containerCommand } from "./entrypoint-arguments.js";
+import { inlineCode } from "./inline-code.js";
 import { lineLocator, type ManualStep } from "./migration-findings.js";
 import { shellScript } from "./shell-scripts.js";
 import { shellVariables } from "./shell-variables.js";
@@ -111,21 +114,42 @@ interface ExecCommands {
   readonly commands: readonly ShellCommand[];
   /** Command lines with JSON escapes, whose offsets do not map onto the file: reported only. */
   readonly escaped: readonly ShellWord[];
+  /** The items that hold a whole command line of the generator, which no shell splits. */
+  readonly commandLines: readonly ShellWord[];
 }
 
 /**
- * The commands of the exec-form arrays: each array, except a `CMD` that an exec-form entrypoint
- * gets as arguments, which is read with it as the container runs them.
+ * The commands that the exec-form arrays run: each array, except a `CMD` that an exec-form
+ * entrypoint gets as arguments, which is read with it as the container runs them.
  */
-function execCommands(forms: readonly ExecForm[], pairs: readonly ExecPair[]): ExecCommands {
+function execRuns(forms: readonly ExecForm[], pairs: readonly ExecPair[]): ShellCommand[] {
   const paired = new Set(pairs.map((pair) => pair.command));
-  const commands: ShellCommand[] = [];
-  const escaped: ShellWord[] = [];
-  const read = [
+  return [
     ...forms.filter((form) => !paired.has(form)).map((form) => form.words),
     ...pairs.flatMap((pair) => containerCommand(pair.entrypoint.words, pair.command.words)),
   ];
-  for (const words of read) {
+}
+
+/**
+ * The items of the arrays that hold a whole command line of the generator, as the items of a
+ * YAML exec form are read (command-line-items.ts): not the script of a shell's `-c`, nor the
+ * code of an interpreter. An entrypoint that several commands are read with gives its item to
+ * each, and the findings of one place are joined (textFindings).
+ */
+function commandLineWords(runs: readonly ShellCommand[], locate: Locate): ShellWord[] {
+  const otherwise = new Set(
+    runs.flatMap((words) => [shellScript(words), inlineCode(words)?.code].filter(isWord)),
+  );
+  return commandLineItemsOf(runs.flat(), (word) => otherwise.has(word), locate);
+}
+
+const isWord = (word: ShellWord | undefined): word is ShellWord => word !== undefined;
+
+/** The commands of the exec-form arrays, with the command lines of the shells they start. */
+function execCommands(runs: readonly ShellCommand[], locate: Locate): ExecCommands {
+  const commands: ShellCommand[] = [];
+  const escaped: ShellWord[] = [];
+  for (const words of runs) {
     commands.push(words);
     const script = shellScript(words);
     if (script !== undefined && script.raw === script.value) {
@@ -136,7 +160,7 @@ function execCommands(forms: readonly ExecForm[], pairs: readonly ExecPair[]): E
   }
   // An entrypoint that several commands are read with holds its script once.
   const scripts = new Map(escaped.map((script) => [script.start, script]));
-  return { commands, escaped: [...scripts.values()] };
+  return { commands, escaped: [...scripts.values()], commandLines: commandLineWords(runs, locate) };
 }
 
 /** A command line that the migration would change but cannot edit in place, as a manual step. */
@@ -170,8 +194,11 @@ export function migrateDockerfile(text: string, file: string): CommandMigration 
   const instructions = dockerInstructions(text).map(withExecForm);
   const pairs = entrypointPairs(instructions);
   const exec = execCommands(
-    instructions.flatMap(({ form }) => form ?? []),
-    pairs,
+    execRuns(
+      instructions.flatMap(({ form }) => form ?? []),
+      pairs,
+    ),
+    locate,
   );
   // A value that runs the generator is migrated where it is set, its flags where it is used.
   const variables = dockerVariables(instructions, escapeCharacter(text));
@@ -180,7 +207,10 @@ export function migrateDockerfile(text: string, file: string): CommandMigration 
   const commands = [...shellFormCommands(instructions), ...values, ...exec.commands];
   const found = commandWordFindings(commands, locate, shellVariables(definitions));
   // A shell script entrypoint gets the items of a CMD as arguments, and may pass their flags on.
-  const entry = textFindings(entrypointCommandFindings(pairs, locate));
+  const entry = textFindings([
+    ...entrypointCommandFindings(pairs, locate),
+    ...commandLineItemFindings(exec.commandLines, locate),
+  ]);
   return {
     text: applyTextEdits(text, [...found.edits, ...entry.edits]),
     changes: [...found.changes, ...entry.changes],

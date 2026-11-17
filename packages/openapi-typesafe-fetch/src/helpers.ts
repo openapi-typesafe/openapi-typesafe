@@ -408,7 +408,9 @@ export type GetResponseContent<
  * `content` keeps its `content` type (`undefined` for `content?: never`). Success and error
  * bodies have an alias each, not one alias with a branch on the class: with such a branch, the
  * result for a path generic in its name no longer related to the one of a client with another
- * `Media`, and generic wrappers failed with TS2322 (ADR-030).
+ * `Media`, and generic wrappers failed with TS2322 (ADR-030). An optional status (`200?: X`,
+ * `Partial<Record<…>>`) or one typed `X | undefined` is still a declared status: its `undefined`
+ * says only that the map may leave it out, and read with it the content was `unknown`.
  */
 type SuccessBodies<
   // biome-ignore lint/suspicious/noExplicitAny: unknown rejects the generated interfaces
@@ -418,10 +420,10 @@ type SuccessBodies<
 > = ResponseCode extends keyof T
   ? {
       // biome-ignore lint/suspicious/noExplicitAny: unknown rejects interface content types
-      [K in ResponseCode]: T[K]["content"] extends Record<string, any>
-        ? SuccessBody<T[K]["content"], Media>
+      [K in ResponseCode]: NonNullable<T[K]>["content"] extends Record<string, any>
+        ? SuccessBody<NonNullable<T[K]>["content"], Media>
         : K extends keyof T
-          ? T[K]["content"]
+          ? NonNullable<T[K]>["content"]
           : never;
     }[ResponseCode]
   : never;
@@ -435,10 +437,10 @@ type ErrorBodies<
 > = ResponseCode extends keyof T
   ? {
       // biome-ignore lint/suspicious/noExplicitAny: unknown rejects interface content types
-      [K in ResponseCode]: T[K]["content"] extends Record<string, any>
-        ? ErrorBody<T[K]["content"], Media>
+      [K in ResponseCode]: NonNullable<T[K]>["content"] extends Record<string, any>
+        ? ErrorBody<NonNullable<T[K]>["content"], Media>
         : K extends keyof T
-          ? T[K]["content"]
+          ? NonNullable<T[K]>["content"]
           : never;
     }[ResponseCode]
   : never;

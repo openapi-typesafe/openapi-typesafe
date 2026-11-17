@@ -14,16 +14,16 @@ import {
   attempt,
   DEEPER_FORM,
   deeperKeys,
+  definedMembers,
   hasSlotsOf,
   isClass,
   keyOf,
   readMembers,
   rootAncestors,
 } from "./key-read.js";
-import { objectKey, sentMembers, textOf } from "./param-key.js";
+import { sentMembers, textOf } from "./param-key.js";
+import { paramsKey, pathParamNames } from "./params-key.js";
 
-/** The `params` record the fetch client sends as headers, through no serializer. */
-const HEADER_RECORD = "header";
 /** A header pair holds a name and a value, no more and no fewer, or `Headers` throws for it. */
 const HEADER_PAIR_LENGTH = 2;
 /** Classes besides Map and Set whose every read gives a new iterator. */
@@ -35,18 +35,6 @@ export interface KeyClient {
   readonly baseUrl: string;
   /** The name of the API in every key, in place of the base URL. */
   readonly keyScope?: string | undefined;
-}
-
-/**
- * The members of an object that are not `undefined`, or undefined when none is. A member set to
- * `undefined` (`headers: token ? … : undefined`, `query: { cursor: undefined }`) sends the same
- * request as none, and TanStack Query's hash leaves it out too, so a record of only such members
- * sends nothing and must not count as one. `null`, `[]` and `{}` members stay: `null` removes a
- * header, and a query serializer of the client may send them.
- */
-function definedMembers(record: object): Record<string, unknown> | undefined {
-  const members = Object.entries(record).filter(([, value]) => value !== undefined);
-  return members.length === 0 ? undefined : Object.fromEntries(members);
 }
 
 /**
@@ -114,18 +102,20 @@ function headerName(name: unknown, ancestors: Ancestors): string {
 }
 
 /**
- * A list of header pairs, or a `Set` of them, by the names and values the request sends: the
- * fetch client reads them through `Headers`, which sends the text of each value, also of `null`,
- * and joins a repeated name with `, `. They are read without `Headers`, which threw for an
- * invalid name or value while the component rendered; the request reports it as a query error.
+ * A list of header pairs, or a `Set` of them, by the names and values the request sends, as the
+ * fetch client's `mergeHeaders` reads them: by the rule of plain headers (`foldHeader`), and a
+ * name the pairs give again appends its value, as `Headers` joins it with `, `. They are read
+ * without `Headers`, which threw for an invalid name or value while the component rendered; the
+ * request reports it as a query error.
  */
 function headerPairsKey(headers: Iterable<unknown>, ancestors: Ancestors): Record<string, unknown> {
-  const sent = new Map<string, string>();
+  const sent = new Map<string, unknown>();
   for (const pair of headers) {
     const [name, value] = headerPair(pair);
     const key = headerName(name, ancestors);
-    const text = String(headerText(value, ancestors));
-    sent.set(key, sent.has(key) ? `${sent.get(key)}, ${text}` : text);
+    const valueKey = headerValueKey(value, ancestors);
+    const isSet = valueKey !== null && valueKey !== undefined && !Array.isArray(valueKey);
+    foldHeader(sent, key, isSet && sent.has(key) ? [valueKey] : valueKey);
   }
   return Object.fromEntries(sent);
 }
@@ -190,44 +180,6 @@ function headersKey(headers: unknown, ancestors: Ancestors): unknown {
 }
 
 /**
- * A `params` record by what it sends, or undefined when it sends nothing. Any object record, also
- * a class instance, is read by its members, as the fetch client reads it; a record kept as it is
- * held `NaN` as `null` and a bigint, which the hash throws for. A query or path record goes whole
- * to a serializer of the client, so it has the other forms of `objectKey`. A header record goes
- * to none; its names are folded to lower case, the last value of a name kept, as the client sets
- * them one after the other into `Headers`, which match a name in any letter case.
- */
-function recordKey(location: string, record: unknown, ancestors: Ancestors): unknown {
-  if (typeof record !== "object" || record === null) {
-    return record;
-  }
-  if (location !== HEADER_RECORD) {
-    return definedMembers(objectKey(record, ancestors));
-  }
-  const members = Object.entries(sentMembers(record, ancestors));
-  return definedMembers(
-    Object.fromEntries(members.map(([name, value]) => [name.toLowerCase(), value])),
-  );
-}
-
-/**
- * The `params` of an init by its records as `recordKey`, without the records that send nothing:
- * `{}`, `{ query: {} }` and `{ query: { cursor: undefined } }` send the request of no `params`,
- * since the fetch client reads a missing record as an empty one. Undefined when no record is
- * left. Any object, also a class instance, is read by its members, as the client reads it.
- */
-function paramsKey(params: unknown, ancestors: Ancestors): unknown {
-  if (typeof params !== "object" || params === null) {
-    return params;
-  }
-  const records = readMembers(params).map(([location, record]) => [
-    location,
-    keyOf(record, ancestors, (value, inner) => recordKey(location, value, inner)),
-  ]);
-  return definedMembers(Object.fromEntries(records));
-}
-
-/**
  * The init of a query key: its params and headers by what they send, its body as `bodyKey`, its
  * other members as plain values, and the client's key scope, or its base URL when the init has
  * none. The `signal` is left out: TanStack Query gives each request its own. A function (`fetch`,
@@ -236,9 +188,10 @@ function paramsKey(params: unknown, ancestors: Ancestors): unknown {
  * function, missed the query, and so did every filter after `hydrate`, which has none. Undefined
  * when nothing is left, so a call without an init and one with an init that sends nothing more,
  * such as `{}` or `{ params: { query: { cursor: undefined } } }`, have the key `[method, path]`.
- * The objects nested deeper than one walk reads are under `DEEPER_FORM`, in order.
+ * The objects nested deeper than one walk reads are under `DEEPER_FORM`, in order. `path` is the
+ * path template, whose parameter names a path record is read by.
  */
-export function queryKeyInit(init: unknown, client: KeyClient): object | undefined {
+export function queryKeyInit(init: unknown, client: KeyClient, path = ""): object | undefined {
   const {
     signal: _signal,
     params,
@@ -251,7 +204,7 @@ export function queryKeyInit(init: unknown, client: KeyClient): object | undefin
   const root = rootAncestors();
   const keyInit: Record<string, unknown> = {
     ...sentMembers(rest, root),
-    params: keyOf(params, root, paramsKey),
+    params: keyOf(params, root, (value, inner) => paramsKey(value, inner, pathParamNames(path))),
     headers: keyOf(headers, root, headersKey),
     ...keyOf(body, root, bodyKey),
   };

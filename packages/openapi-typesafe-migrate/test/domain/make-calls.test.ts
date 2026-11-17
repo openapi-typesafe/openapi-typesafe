@@ -15,6 +15,7 @@ const calledFiles = (files: Readonly<Record<string, readonly string[]>>): Called
     return names === undefined ? undefined : new Set(names);
   },
   includedText: () => undefined,
+  listedPaths: [],
   readersOf: () => [],
 });
 

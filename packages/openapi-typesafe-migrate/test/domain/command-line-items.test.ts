@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createYamlTextReader } from "../../src/adapters/yaml-text/yaml-text.js";
 import { type DocumentValue, usedDocumentValues } from "../../src/domain/config-documents.js";
+import { migrateDockerfile } from "../../src/domain/dockerfile-migration.js";
 import { migrateYamlCommands } from "../../src/domain/yaml-migration.js";
 
 const yaml = createYamlTextReader();
@@ -71,6 +72,64 @@ describe("migrateYamlCommands and list items that hold a command line", () => {
     ["words that run no old package", '      command: ["npx", "other api.yaml -it"]'],
   ])("migrateYamlCommands reads no command line in %s", (_, command) => {
     const steps = migrate(container(command)).manualSteps.map((step) => step.kind);
+
+    expect(steps).not.toContain("command-line-in-item");
+  });
+});
+
+const dockerfile = (...instructions: string[]): string => lines("FROM node:22", ...instructions);
+const migrateDocker = (text: string) => migrateDockerfile(text, "Dockerfile");
+const itemStep = (line: number, renames = [NAME, FLAG]) => ({
+  kind: "command-line-in-item",
+  location: `Dockerfile:${line}`,
+  renames,
+});
+
+describe("migrateDockerfile and exec-form items that hold a command line", () => {
+  it.each([
+    ["CMD", `CMD ["${LINE}"]`],
+    ["RUN", `RUN ["${LINE}"]`],
+    ["RUN with a flag", `RUN --network=none ["${LINE}"]`],
+    ["ENTRYPOINT", `ENTRYPOINT ["${LINE}"]`],
+    ["an item after others", `CMD ["echo", "${LINE}"]`],
+    ["an item with JSON escapes", 'CMD ["npx openapi-typescript \\"api.yaml\\" -it"]'],
+  ])("migrateDockerfile reports the item of %s and keeps it", (_, instruction) => {
+    const text = dockerfile(instruction);
+
+    const migrated = migrateDocker(text);
+
+    expect(migrated.text).toBe(text);
+    expect(migrated.manualSteps).toEqual([itemStep(2)]);
+  });
+
+  it("migrateDockerfile reports an entrypoint item that two stages run once", () => {
+    const text = lines(
+      "FROM node:22 AS base",
+      'ENTRYPOINT ["npx openapi-typescript"]',
+      "FROM base",
+      'CMD ["api.yaml"]',
+    );
+
+    expect(migrateDocker(text).manualSteps).toEqual([itemStep(2, [NAME])]);
+  });
+
+  it("migrateDockerfile edits an item that a shell of the entrypoint runs", () => {
+    const text = dockerfile('ENTRYPOINT ["sh", "-c"]', `CMD ["${LINE}"]`);
+
+    const migrated = migrateDocker(text);
+
+    expect(migrated.text).toBe(
+      text.replace("openapi-typescript", "openapi-typesafe").replace("-it", "--immutable"),
+    );
+    expect(migrated.manualSteps).toEqual([]);
+  });
+
+  it.each([
+    ["the code of an interpreter", `RUN ["node", "-e", "${LINE}"]`],
+    ["one word", 'CMD ["openapi-typescript", "api.yaml"]'],
+    ["words that run no old package", 'CMD ["npx", "other api.yaml -it"]'],
+  ])("migrateDockerfile reads no command line in %s", (_, instruction) => {
+    const steps = migrateDocker(dockerfile(instruction)).manualSteps.map((step) => step.kind);
 
     expect(steps).not.toContain("command-line-in-item");
   });
