@@ -116,6 +116,7 @@ describe("isBeforeIntersection", () => {
     expect(isBeforeIntersection(BODY, 7)).toBe(false);
     expect(isBeforeIntersection(BODY, 2)).toBe(false);
     expect(isBeforeIntersection(["conclusion: X;", "} & {"], 0)).toBe(false);
+    expect(isBeforeIntersection(BODY, BODY.length)).toBe(false);
   });
 });
 
