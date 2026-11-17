@@ -1,5 +1,33 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.15
+
+### Patch Changes
+
+- [#168](https://github.com/openapi-typesafe/openapi-typesafe/pull/168) [`c93f348`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c93f3486c12d8d01f8af00a092cf4cceacc0f313) Thanks [@fedorello](https://github.com/fedorello)! - A Kubernetes or Compose list item that holds a whole command line
+  (`args: ["npx openapi-typescript api.yaml -it"]`) is listed to fix by hand, with the renames it
+  needs. Before, only a list of separate items was reported, and such an item was skipped.
+
+- [#168](https://github.com/openapi-typesafe/openapi-typesafe/pull/168) [`c93f348`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c93f3486c12d8d01f8af00a092cf4cceacc0f313) Thanks [@fedorello](https://github.com/fedorello)! - Compose files that `docker compose` reads together are migrated together. An override file
+  (`docker-compose.override.yml`, `compose.override.yaml`) whose service gets its `command` or
+  `entrypoint` from the other file, a service whose `extends` names another file, and the service
+  of that file it extends are listed to fix by hand with their old flags, also when only the other
+  file names the package. Before, the file that did not name the package was not read, so its
+  `-it` was never mentioned.
+
+- [#168](https://github.com/openapi-typesafe/openapi-typesafe/pull/168) [`c93f348`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c93f3486c12d8d01f8af00a092cf4cceacc0f313) Thanks [@fedorello](https://github.com/fedorello)! - In a Makefile template run by `$(eval $(call TPL,a))`, `$$(GEN) $(1).yaml -it` is read as make
+  reads it, as `$(GEN)`: the flags are renamed when `GEN` runs the generator. Before, the report
+  named `$(1).yaml` as the program and asked to rename the flags by hand. The report of text that
+  several containers share now says it may come from a YAML anchor or a Compose `extends`.
+
+- [#168](https://github.com/openapi-typesafe/openapi-typesafe/pull/168) [`c93f348`](https://github.com/openapi-typesafe/openapi-typesafe/commit/c93f3486c12d8d01f8af00a092cf4cceacc0f313) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile is migrated together with the files it includes. `include tools.mk` with
+  `GEN := npx openapi-typescript` in `tools.mk` now renames `-it` in the Makefile's
+  `$(GEN) api.yaml -it`, even when the Makefile itself does not name the package. A file a Makefile
+  includes is migrated as a Makefile whatever its name (`config.make`, `.env`), and a recipe in an
+  included file (`mk/gen.mk`) is read with the values of the Makefile that includes it. When the
+  Makefiles that include a file give a line different programs, that line is listed to fix by hand
+  instead of being changed. Before, these files were left as they were, without a word.
+
 ## 1.0.0-rc.14
 
 ### Patch Changes
