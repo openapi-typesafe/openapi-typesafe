@@ -51,6 +51,11 @@ export interface Discriminator {
 export interface DiscriminatorEnumParent {
   readonly schema: SchemaObject;
   readonly path: string;
+  /**
+   * The member declares its value with an enum of its own, which stays declared so code that
+   * names it keeps compiling; the scan's added enums have none.
+   */
+  readonly isDeclaredByMember?: boolean;
 }
 
 export interface Discriminators {

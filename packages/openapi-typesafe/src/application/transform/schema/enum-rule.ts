@@ -132,8 +132,16 @@ function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
     ...walkedLocation(request),
     sharedSlot: request.sharedSlot,
   };
+  const ownerType = ownerEnumMembersType(schema, values, request);
+  if (
+    ownerType !== null &&
+    request.context.discriminators.enumParentOf(schema)?.isDeclaredByMember
+  ) {
+    // A member's own enum of its value stays declared, so code that names it keeps compiling.
+    enumReference(request.context.footer, { ...declaration, ...element });
+  }
   const type =
-    ownerEnumMembersType(schema, values, request) ??
+    ownerType ??
     withOtherStrings(ownOrBaseEnumType(values, { ...declaration, ...element }, request), schema);
   return options.fixes.has(FIX.NULLABLE_ENUMS) && isNullAllowed(schema)
     ? unionOf([type, irKeyword("null")])

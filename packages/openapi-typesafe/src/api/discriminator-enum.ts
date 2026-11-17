@@ -80,31 +80,53 @@ function listedValues(property: unknown): readonly unknown[] | null {
   return Array.isArray(values) ? values : null;
 }
 
-/** Whether one schema object requires the property and allows exactly the values. */
-function requiresValues(schema: unknown, name: string, values: readonly string[]): boolean {
+/** A property schema that lists a discriminator's values, and the schema object it is in. */
+export interface DeclaredValues {
+  readonly holder: SchemaObject & ObjectSubtype;
+  readonly property: SchemaObject;
+}
+
+/** The property of one schema object that allows exactly the values, required or not. */
+function declaredIn(
+  schema: unknown,
+  name: string,
+  values: readonly string[],
+): DeclaredValues | null {
   if (typeof schema !== "object" || schema === null || "$ref" in schema) {
-    return false;
+    return null;
   }
-  const { required, properties } = schema as SchemaObject & ObjectSubtype;
-  const listed = listedValues(properties?.[name]);
-  return (
-    Boolean(required?.includes(name)) &&
+  const holder = schema as SchemaObject & ObjectSubtype;
+  const property = holder.properties?.[name];
+  const listed = listedValues(property);
+  const isExact =
     listed !== null &&
     listed.length === values.length &&
-    values.every((value) => listed.includes(value))
+    values.every((value) => listed.includes(value));
+  return isExact ? { holder, property: property as SchemaObject } : null;
+}
+
+/**
+ * The properties of `schema` and of its inline `allOf` items that already list exactly the
+ * patch's values, with an `enum` or a `const` (the `discriminator-values` fix): a patch would
+ * only add a second property of that value (#2124), whose type may differ from the declared ones.
+ */
+export function declaredValues(
+  schema: SchemaObject | undefined,
+  patch: EnumPatch,
+): readonly DeclaredValues[] {
+  const name = patch.discriminator.propertyName;
+  return [schema, ...(schema?.allOf ?? [])].flatMap(
+    (item) => declaredIn(item, name, patch.values) ?? [],
   );
 }
 
 /**
- * Whether `schema`, or an inline `allOf` item of it, already requires the discriminator property
- * with exactly the patch's values (the `discriminator-values` fix). Then a patch would
- * only repeat it (#2124).
+ * Make a declared discriminator property required where it is declared: the discriminator
+ * requires it, and the scan adds no property that would require it instead.
  */
-export function declaresValues(schema: SchemaObject | undefined, patch: EnumPatch): boolean {
-  const name = patch.discriminator.propertyName;
-  return [schema, ...(schema?.allOf ?? [])].some((item) =>
-    requiresValues(item, name, patch.values),
-  );
+export function requireDeclared(declared: DeclaredValues, name: string): void {
+  const { holder } = declared;
+  holder.required = [...new Set([...(holder.required ?? []), name])];
 }
 
 /**

@@ -79,12 +79,21 @@ describe("discriminator-values fix, declared value", () => {
 
   it("openapiTS with the fix still adds the value where the member declares another or none", async () => {
     const other = image({ allOf: [declared({ type: "string", enum: ["robot"] })] });
-    const optional = image({ allOf: [declared({ type: "string", enum: ["agent"] }, [])] });
     const referenced = image({ allOf: [declared(ref("ImageBase"))] });
 
     expect(await fixed(other)).toBe(await generate(other));
-    expect(await fixed(optional)).toBe(await generate(optional));
     expect(await fixed(referenced)).toBe(await generate(referenced));
+  });
+
+  it.each([
+    ["an inline allOf item", { allOf: [declared({ const: "agent" }, [])] }],
+    ["the properties next to the allOf", { allOf: [ref("ImageBase")], properties: { type: { const: "agent" } } }],
+  ])("openapiTS with the fix requires a value declared optional in %s, once", async (_place, member) => {
+    const output = await fixed(image(member));
+
+    expect(output).not.toContain(ADDED);
+    expect(countOf(output, 'type: "agent";')).toBe(1);
+    expect(output).not.toContain('type?: "agent";');
   });
 
   it("openapiTS with the fix adds the value once when a mapping and allOf both give it", async () => {

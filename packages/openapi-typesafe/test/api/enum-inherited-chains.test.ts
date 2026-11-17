@@ -127,4 +127,28 @@ describe("--enum of a discriminator value a member declares", () => {
     expect(output).toMatch(/kind\??: CatKind;[\s\S]*kind: CatKind;/);
     expect(typeErrorsOf(`${output}\n${admits("Cat", "kind")}`)).toEqual([]);
   });
+
+  it("openapiTS with discriminator-values types a declared enum by the owner's enum member", async () => {
+    const owner = { ...PET, properties: { kind: enumOf(["cat", "dog"]) } };
+    const member = { allOf: [ref("Pet"), objectOf({ kind: enumOf(["cat"]) })] };
+
+    const output = await generate({ Pet: owner, Cat: member }, { enum: true, fix: ["discriminator-values"] });
+
+    expect(output).toMatch(
+      /Cat: Omit<components\["schemas"\]\["Pet"\], "kind"> & \{\n.*\n\s+kind: PetKind\.cat;\n\s+\};/,
+    );
+    expect(output).toContain("export enum CatKind {");
+    expect(typeErrorsOf(`${output}\n${admits("Cat", "kind")}`)).toEqual([]);
+  });
+
+  it("openapiTS with discriminator-values types every declaration of the value alike", async () => {
+    const owner = { ...PET, properties: { kind: enumOf(["cat", "dog"]) } };
+    const declared = objectOf({ kind: enumOf(["cat"]) });
+    const member = { ...declared, allOf: [ref("Pet"), declared] };
+
+    const output = await generate({ Pet: owner, Cat: member }, { enum: true, fix: ["discriminator-values"] });
+
+    expect(output.match(/kind: PetKind\.cat;/g)).toHaveLength(2);
+    expect(typeErrorsOf(`${output}\n${admits("Cat", "kind")}`)).toEqual([]);
+  });
 });

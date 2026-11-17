@@ -980,9 +980,12 @@ AgentImage: components["schemas"]["ImageBase"] & { type: "agent" }; // [!code ++
 ```
 
 The added property has the same type, so the output is right but noisy. With the fix, a member
-that requires the property, in its own keywords or an inline `allOf` item, with an `enum` or
-`const` of exactly its discriminator values gets no added property. A member that declares other
-values, or does not require the property, still gets it.
+that declares the property, in its own keywords or an inline `allOf` item, with an `enum` or
+`const` of exactly its discriminator values gets no added property. Where it does not require the
+property, the property becomes required there, as the discriminator requires it
+(`{ type?: "agent" } & { type: "agent" }` becomes `{ type: "agent" }`). A member that declares
+other values still gets the added property. With `--enum`, each declared value is a member of the
+owner's enum, as an added one is (see below); the member's own enum is still declared.
 
 With `--enum` and without the fix, a declared `const` next to the added property is typed by the
 added enum's member (`{ type?: AgentImageType } & { type: AgentImageType }`), so the two do not
