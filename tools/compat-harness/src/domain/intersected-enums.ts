@@ -10,16 +10,16 @@ import {
   type EnumBlock,
   enumBlockAt,
   IDENTIFIER_PATTERN,
+  memberValues,
   wholeNameReference,
 } from "./enum-declarations.ts";
+import { isBeforeIntersection, isLiteralUnionUnified } from "./intersected-literals.ts";
 
 /** How a line ends that opens an object literal intersected with what precedes it. */
 const INTERSECTION_OPENING = " & {";
 /** The first character that is not a space, or the end of an empty or blank line. */
 const NOT_A_SPACE_RE = /[^ ]|$/;
 const UNION_SEPARATOR = " | ";
-/** A member line: its name (group 1) and its value (group 2), without the comma after it. */
-const MEMBER_RE = new RegExp(`^(${IDENTIFIER_PATTERN}) = (.*?),?$`, "u");
 /** A reference to a whole enum (group 1) or to one of its members (group 2). */
 const ENUM_TYPE_RE = new RegExp(`^(${IDENTIFIER_PATTERN})(?:\\.(${IDENTIFIER_PATTERN}))?$`, "u");
 const IDENTIFIER_RE = new RegExp(IDENTIFIER_PATTERN, "gu");
@@ -83,12 +83,6 @@ function isInIntersection(lines: readonly string[], lineIndex: number): boolean 
   return false;
 }
 
-/** The values of an enum's members by member name. */
-function memberValues(block: EnumBlock): Map<string, string> {
-  const members = block.members.split("\n").map((member) => MEMBER_RE.exec(member));
-  return new Map(members.flatMap((member) => (member ? [[member[1] ?? "", member[2] ?? ""]] : [])));
-}
-
 /**
  * The values of a type that is an enum other than `own`, its member or a union of its members;
  * an undefined value for a member the enum does not declare.
@@ -147,26 +141,45 @@ function unifiedEnum(
   return undefined;
 }
 
-/** The own enums the changed body lines unified; undefined when another line changed. */
-function unifiedEnums(golden: DeclaredEnums, candidate: DeclaredEnums): Set<string> | undefined {
+/** What the changed body lines unified: the own enums they replaced, and how many lines. */
+interface Unified {
+  readonly ownEnums: ReadonlySet<string>;
+  readonly lineCount: number;
+}
+
+/** Whether a line sits in an object literal intersected with another, before or after it. */
+function isIntersected(lines: readonly string[], index: number): boolean {
+  return isInIntersection(lines, index) || isBeforeIntersection(lines, index);
+}
+
+/**
+ * The own enums the changed body lines unified with another part's enum, or whose literals they
+ * typed by its members (`isLiteralUnionUnified`); undefined when another line changed.
+ */
+function unifiedEnums(golden: DeclaredEnums, candidate: DeclaredEnums): Unified | undefined {
   if (golden.body.length !== candidate.body.length) {
     return undefined;
   }
-  const unified = new Set<string>();
+  const ownEnums = new Set<string>();
+  let lineCount = 0;
   for (const [index, line] of golden.body.entries()) {
     const changed = candidate.body[index] ?? "";
     if (line === changed) {
       continue;
     }
-    const own = isInIntersection(golden.body, index)
-      ? unifiedEnum(line, changed, golden.blocks)
-      : undefined;
-    if (own === undefined) {
+    if (!isIntersected(golden.body, index)) {
       return undefined;
     }
-    unified.add(own);
+    const own = unifiedEnum(line, changed, golden.blocks);
+    if (own === undefined && !isLiteralUnionUnified(line, changed, golden.blocks)) {
+      return undefined;
+    }
+    lineCount += 1;
+    if (own !== undefined) {
+      ownEnums.add(own);
+    }
   }
-  return unified;
+  return { ownEnums, lineCount };
 }
 
 /**
@@ -207,5 +220,9 @@ export function isIntersectedEnumUnified(goldenText: string, candidateText: stri
     return false;
   }
   const unified = unifiedEnums(golden, candidate);
-  return unified !== undefined && unified.size > 0 && isFooterKept(golden, candidate, unified);
+  return (
+    unified !== undefined &&
+    unified.lineCount > 0 &&
+    isFooterKept(golden, candidate, unified.ownEnums)
+  );
 }
