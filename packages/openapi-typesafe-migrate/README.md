@@ -129,7 +129,7 @@ value, a comment ends at the line end that no backslash continues, an assignment
 (with a tab only before the first rule), a target or a value for some targets whose name holds a
 variable (`$(T): GEN = …`) may apply to any target, and the text that `$(eval …)` gets is read as
 Makefile lines, after the expansion make gives it first (`$$(GEN)` in a template is `$(GEN)`
-there). The files that `include`, `-include` and `sinclude` name are read where they are
+there, and `$$$$GEN`, read two `$` at a time from the left, a recipe's `$$GEN`). The files that `include`, `-include` and `sinclude` name are read where they are
 in the project; one that is missing, outside it, or named by a variable or a wildcard may set
 any variable, so the flags after a variable are reported then. A file that a Makefile includes
 is migrated as a Makefile whatever its name (`config.make`, `.env`), with the values of each

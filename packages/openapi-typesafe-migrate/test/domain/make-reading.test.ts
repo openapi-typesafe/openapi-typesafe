@@ -407,6 +407,33 @@ describe("migrateMakefile and the escapes in evaluated text", () => {
     expect(migrated(text).text).toBe(text.replace("openapi-typescript", "openapi-typesafe"));
   });
 
+  it("migrateMakefile reads $$$$GEN of a template as the recipe's $$GEN", () => {
+    const shellGen = 'GEN="npx openapi-typescript";';
+    const template = lines("define TPL", `a: ; ${shellGen} $$$$GEN a.yaml -it`, "endef");
+    const text = lines(template.trimEnd(), evaluated("$(call TPL,a)"));
+    const recipe = lines("", `a: ; ${shellGen} $$GEN a.yaml -it`);
+
+    const found = migrated(text);
+
+    expect(found.text).toBe(text.replace("openapi-typescript", "openapi-typesafe"));
+    expect(found.manualSteps).toEqual(migrated(recipe).manualSteps);
+  });
+
+  it("migrateMakefile reads $$$$(GEN) in an eval argument as the shell's $(GEN)", () => {
+    const text = lines("GEN := npx openapi-typescript", evaluated("a: ; $$$$(GEN) a.yaml -it"));
+
+    expect(migrated(text).text).toBe(text.replace("openapi-typescript", "openapi-typesafe"));
+  });
+
+  it.each([
+    ["an eval argument", evaluated("a: ; $$$(GEN) a.yaml -it")],
+    ["a template", lines("define TPL", "a: ; echo $$$$$$(GEN) a.yaml -it", "endef", "$(eval $(TPL))")],
+  ])("migrateMakefile reads an odd run of $ in %s as $ before a reference", (_, evaluation) => {
+    const text = lines("GEN := npx openapi-typescript", evaluation.trimEnd());
+
+    expect(migrated(text).text).toBe(text.replace("openapi-typescript", "openapi-typesafe"));
+  });
+
   it("migrateMakefile keeps the escape of a recipe that no eval reads", () => {
     const text = lines("GEN := npx openapi-typescript", "a:", "\t$$(GEN) a.yaml -it");
 
