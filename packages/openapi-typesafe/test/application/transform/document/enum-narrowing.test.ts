@@ -83,6 +83,46 @@ describe("enumReferenceNarrowing", () => {
     expect(narrowed(raw, MODE_ABC)).toEqual([aliasOf(raw)]);
   });
 
+  it("enumReferenceNarrowing joins requests of one enum in a union into the whole enum", () => {
+    const union = irUnion([modeFor("a"), irString("x"), modeFor("c", "b")]);
+
+    expect(narrowed(union, MODE_ABC)).toEqual([
+      aliasOf(irUnion([irReference("Mode"), irString("x")])),
+    ]);
+  });
+
+  it("enumReferenceNarrowing joins requests of one enum into the members they list", () => {
+    const union = irUnion([modeFor("c"), modeFor("a")]);
+
+    expect(narrowed(union, MODE_ABC)).toEqual([
+      aliasOf(irUnion([irReference("Mode.c"), irReference("Mode.a")])),
+    ]);
+  });
+
+  it("enumReferenceNarrowing keeps requests of other enums and plain references apart", () => {
+    const other = { ...irReference("Other"), enumValues: ["a"] };
+    const union = irUnion([modeFor("a"), other, irReference("Mode"), modeFor("b")]);
+    const otherEnum = { ...modeOf(["a", "a"], ["z", "z"]), name: "Other" };
+
+    expect(narrowed(union, MODE_ABC, otherEnum)).toEqual([
+      aliasOf(
+        irUnion([
+          irUnion([irReference("Mode.a"), irReference("Mode.b")]),
+          irReference("Other.a"),
+          irReference("Mode"),
+        ]),
+      ),
+    ]);
+  });
+
+  it("enumReferenceNarrowing leaves a union without repeated requests as it is", () => {
+    const declarations = [aliasOf(irUnion([irReference("Mode"), irString("x")]))];
+
+    const result = enumReferenceNarrowing([MODE_ABC])(declarations);
+
+    expect(result[0]).toBe(declarations[0]);
+  });
+
   it("enumReferenceNarrowing leaves references without listed values as they are", () => {
     const declarations = [aliasOf(irReference("Mode"))];
 

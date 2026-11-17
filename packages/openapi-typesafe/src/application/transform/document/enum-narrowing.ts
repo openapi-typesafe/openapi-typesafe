@@ -1,5 +1,10 @@
 import { irReference } from "../../../domain/ir/constructors.js";
-import type { IrDeclaration, IrEnumDeclaration, IrType } from "../../../domain/ir/nodes.js";
+import type {
+  IrDeclaration,
+  IrEnumDeclaration,
+  IrReferenceType,
+  IrType,
+} from "../../../domain/ir/nodes.js";
 import { enumMemberType } from "../enum-member-type.js";
 import { unionOf } from "../type-combinators.js";
 import { type IrNodeRecord, mappedIrNodes } from "./ir-nodes-mapped.js";
@@ -53,6 +58,40 @@ function narrowedNode(
   return narrowedType(name, node.enumValues as EnumValue[], members.get(name) ?? new Map());
 }
 
+function isEnumRequest(type: IrType): type is IrReferenceType & { enumValues: EnumValue[] } {
+  return type.kind === "reference" && Array.isArray(type.enumValues);
+}
+
+/**
+ * A union with the requests of one enum joined into one request of all their values. A place
+ * that an `allOf` types by the members of enums the run joins into one (`baseValuesType`) admits
+ * the whole enum where its parts list every value, so it reads `Mode`, not `Mode.a | Mode.b`.
+ */
+function joinedRequests(node: IrNodeRecord): IrNodeRecord | IrType {
+  if (node.kind !== "union") {
+    return node;
+  }
+  const types = node.types as readonly IrType[];
+  const requests = types.filter(isEnumRequest);
+  const joined = new Map<string, IrReferenceType>();
+  for (const request of requests) {
+    const values = joined.get(request.name)?.enumValues ?? [];
+    joined.set(request.name, { ...request, enumValues: [...values, ...request.enumValues] });
+  }
+  if (joined.size === requests.length) {
+    return node;
+  }
+  const kept = types.flatMap((type) => {
+    if (!isEnumRequest(type)) {
+      return [type];
+    }
+    const request = joined.get(type.name);
+    joined.delete(type.name);
+    return request === undefined ? [] : [request];
+  });
+  return unionOf(kept);
+}
+
 /** Narrows the `--enum` references of declarations; see `enumReferenceNarrowing`. */
 export type EnumReferenceNarrowing = <T extends IrDeclaration>(declarations: readonly T[]) => T[];
 
@@ -68,7 +107,9 @@ export function enumReferenceNarrowing(
   enums: readonly IrEnumDeclaration[],
 ): EnumReferenceNarrowing {
   const members = memberNames(enums);
-  return <T extends IrDeclaration>(declarations: readonly T[]): T[] => [
-    ...(mappedIrNodes(declarations, (node) => narrowedNode(node, members)) as T[]),
-  ];
+  // Requests are joined in a walk of their own: a walk maps a union's members before the union.
+  return <T extends IrDeclaration>(declarations: readonly T[]): T[] => {
+    const joined = mappedIrNodes(declarations, joinedRequests);
+    return [...(mappedIrNodes(joined, (node) => narrowedNode(node, members)) as T[])];
+  };
 }
