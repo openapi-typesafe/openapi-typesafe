@@ -100,7 +100,7 @@ describe("x-openapi-ts settings", () => {
     expect(await runCli([], cli.deps)).toBe(2);
 
     expect(cli.logger.messages("error")).toEqual([
-      "API api: The output file:?x is a directory. Name the file to write the types to in it. (CLI_OUTPUT_INVALID)",
+      "API api: The output file:?*** is a directory. Name the file to write the types to in it. (CLI_OUTPUT_INVALID)",
     ]);
   });
 
