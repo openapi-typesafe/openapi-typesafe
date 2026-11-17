@@ -84,10 +84,10 @@ describe("enumReferenceNarrowing", () => {
   });
 
   it("enumReferenceNarrowing joins requests of one enum in a union into the whole enum", () => {
-    const union = irUnion([modeFor("a"), irString("x"), modeFor("c", "b")]);
+    const union = irUnion([modeFor("a"), irString("x", "json"), modeFor("c", "b")]);
 
     expect(narrowed(union, MODE_ABC)).toEqual([
-      aliasOf(irUnion([irReference("Mode"), irString("x")])),
+      aliasOf(irUnion([irReference("Mode"), irString("x", "json")])),
     ]);
   });
 
@@ -116,7 +116,7 @@ describe("enumReferenceNarrowing", () => {
   });
 
   it("enumReferenceNarrowing leaves a union without repeated requests as it is", () => {
-    const declarations = [aliasOf(irUnion([irReference("Mode"), irString("x")]))];
+    const declarations = [aliasOf(irUnion([irReference("Mode"), irString("x", "json")]))];
 
     const result = enumReferenceNarrowing([MODE_ABC])(declarations);
 
