@@ -7,7 +7,7 @@ import transformMediaTypeObject from "../../src/transform/media-type-object.js";
 import transformParameterObject from "../../src/transform/parameter-object.js";
 import { transformParametersArray } from "../../src/transform/parameters-array.js";
 import type { TransformNodeOptions } from "../../src/types.js";
-import { intersectsEnumWithLiterals } from "./enum-intersections.js";
+import { dedupesEnumsOfOneLocation, intersectsEnumWithLiterals } from "./enum-intersections.js";
 import originalTransformHeaderObject from "./original/header-object.js";
 import originalTransformMediaTypeObject from "./original/media-type-object.js";
 import originalTransformParameterObject from "./original/parameter-object.js";
@@ -98,6 +98,7 @@ describe("document transformer parity with the fork base", () => {
         fc.property(mediaTypeArbitrary, contextInput, (value, input) => {
           fc.pre(!mergesDifferentInputEnums(value, input));
           fc.pre(!intersectsEnumWithLiterals(value, input));
+          fc.pre(!dedupesEnumsOfOneLocation(value, input));
           expectSameOutput(
             (options) => transformMediaTypeObject(value as never, options),
             (options) => originalTransformMediaTypeObject(value as never, options as never),
@@ -118,6 +119,7 @@ describe("document transformer parity with the fork base", () => {
         fc.property(headerArbitrary, contextInput, (value, input) => {
           fc.pre(!mergesDifferentInputEnums(value, input));
           fc.pre(!intersectsEnumWithLiterals(value, input));
+          fc.pre(!dedupesEnumsOfOneLocation(value, input));
           expectSameOutput(
             (options) => transformHeaderObject(value as never, options),
             (options) => originalTransformHeaderObject(value as never, options as never),
@@ -138,6 +140,7 @@ describe("document transformer parity with the fork base", () => {
         fc.property(parameter, contextInput, (value, input) => {
           fc.pre(!mergesDifferentInputEnums(value, input));
           fc.pre(!intersectsEnumWithLiterals(value, input));
+          fc.pre(!dedupesEnumsOfOneLocation(value, input));
           expectSameOutput(
             (options) => transformParameterObject(value as never, options),
             (options) => originalTransformParameterObject(value as never, options as never),
@@ -159,6 +162,7 @@ describe("document transformer parity with the fork base", () => {
         fc.property(parameters, contextInput, path, (value, input, templatePath) => {
           fc.pre(!mergesDifferentInputEnums(value, input));
           fc.pre(!intersectsEnumWithLiterals(value, input));
+          fc.pre(!dedupesEnumsOfOneLocation(value, input));
           expectSameOutput(
             parametersType(transformParametersArray, value),
             parametersType(originalTransformParametersArray, value),

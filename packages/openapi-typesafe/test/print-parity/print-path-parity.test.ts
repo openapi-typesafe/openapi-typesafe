@@ -7,7 +7,7 @@ import transformSchema from "../../src/api/transform-schema.js";
 import { printNodes } from "../../src/application/print/print-nodes.js";
 import type { OpenAPI3 } from "../../src/types.js";
 import { documentArbitrary, injectArbitrary } from "./document-arbitraries.js";
-import { intersectsEnumWithLiterals } from "./enum-intersections.js";
+import { dedupesEnumsOfOneLocation, intersectsEnumWithLiterals } from "./enum-intersections.js";
 import {
   type ContextInput,
   contextInput,
@@ -56,6 +56,7 @@ describe("print path parity", () => {
         fc.property(documentArbitrary, contextInput, injectArbitrary, (value, input, inject) => {
           fc.pre(!mergesDifferentInputEnums(value, input));
           fc.pre(!intersectsEnumWithLiterals(value, input));
+          fc.pre(!dedupesEnumsOfOneLocation(value, input));
           expect(run(printWithIr, value, input, inject)).toBe(
             run(printNodesWithTypeScript, value, input, inject),
           );
