@@ -23,7 +23,7 @@ export interface EnumBlock {
   readonly lastLine: number;
 }
 
-/** The enum declaration that starts at `firstLine`, if one does. */
+/** The enum declaration that starts at `firstLine`, if one does and a `}` line closes it. */
 export function enumBlockAt(lines: readonly string[], firstLine: number): EnumBlock | undefined {
   const line = lines[firstLine] ?? "";
   const name = ENUM_START_RE.exec(line)?.[1];
@@ -33,8 +33,11 @@ export function enumBlockAt(lines: readonly string[], firstLine: number): EnumBl
   if (line.endsWith(EMPTY_BODY)) {
     return { name, members: "", firstLine, lastLine: firstLine };
   }
-  const end = lines.indexOf(ENUM_END, firstLine);
-  const lastLine = end === -1 ? lines.length - 1 : end;
+  const lastLine = lines.indexOf(ENUM_END, firstLine);
+  // Both generators close every declaration; text that does not is not one of theirs.
+  if (lastLine === -1) {
+    return undefined;
+  }
   const members = lines
     .slice(firstLine + 1, lastLine)
     .map((member) => member.trim())

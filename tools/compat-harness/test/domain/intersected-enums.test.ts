@@ -107,6 +107,7 @@ describe("isIntersectedEnumUnified", () => {
       false,
     );
     expect(isIntersectedEnumUnified(GOLDEN, unified("BaseStatus.success | null"))).toBe(false);
+    expect(isIntersectedEnumUnified(GOLDEN, unified('"success"'))).toBe(false);
     expect(isIntersectedEnumUnified(GOLDEN, unified("BaseStatus.success | Missing.error"))).toBe(
       false,
     );
