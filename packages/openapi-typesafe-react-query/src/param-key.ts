@@ -4,7 +4,15 @@
  * alike, also after a JSON round trip (`dehydrate` and `hydrate`). Values are read by the rule
  * of `key-read.ts`, which bodies and headers share.
  */
-import { type Ancestors, attempt, inside, keyOf, walkMembers } from "./key-read.js";
+import {
+  type Ancestors,
+  attempt,
+  inside,
+  keyOf,
+  type MemberNames,
+  valueMemberNames,
+  walkMembers,
+} from "./key-read.js";
 
 /**
  * The names under which the key of an object holds the forms a serializer may send besides its
@@ -79,14 +87,19 @@ function itemsKey(items: readonly unknown[], ancestors: Ancestors): unknown[] {
 
 /**
  * An object parameter value as plain values, by every form a serializer may send. The default
- * serializers send its members, so the key holds them. A `querySerializer` or `pathSerializer`
- * of the client, which the key cannot see, may send its `toJSON` form or its text instead, so the
- * key also holds those it has: a URL, a Temporal value or a value object with private fields has
- * no members, and keyed by them alone all such values shared one entry. The object itself is not
- * kept: TanStack Query's filters match an object by its own members.
+ * serializers send its members as `names` lists them (`valueMemberNames`, or `for..in` for a
+ * query record), so the key holds them. A `querySerializer` or `pathSerializer` of the client,
+ * which the key cannot see, may send its `toJSON` form or its text instead, so the key also holds
+ * those it has: a URL, a Temporal value or a value object with private fields has no members, and
+ * keyed by them alone all such values shared one entry. The object itself is not kept: TanStack
+ * Query's filters match an object by its own members.
  */
-export function objectKey(value: object, ancestors: Ancestors): Record<string, unknown> {
-  const key = sentMembers(value, ancestors);
+export function objectKey(
+  value: object,
+  ancestors: Ancestors,
+  names: MemberNames = valueMemberNames,
+): Record<string, unknown> {
+  const key = sentMembers(value, ancestors, names);
   const toJSON = attempt(() => (value as { toJSON?: unknown }).toJSON);
   if (typeof toJSON === "function") {
     key[JSON_FORM] = jsonFormKey(
@@ -111,10 +124,37 @@ function jsonFormKey(form: unknown, ancestors: Ancestors): unknown {
 }
 
 /**
- * The members of an object as `readMembers` reads them, each as `sentValue`. A member that
- * `keyOf` leaves out is not there, as the hash leaves it out. An empty object stays, as `{}` does.
+ * The members of an object as `readMembers` reads them by `names`, each as `sentValue`. A member
+ * that `keyOf` leaves out is not there, as the hash leaves it out. An empty object stays, as `{}`
+ * does.
  */
-export function sentMembers(record: object, ancestors: Ancestors): Record<string, unknown> {
-  const members = walkMembers(record, ancestors, sentValue);
+export function sentMembers(
+  record: object,
+  ancestors: Ancestors,
+  names: MemberNames = Object.keys,
+): Record<string, unknown> {
+  const members = walkMembers(record, ancestors, sentValue, names);
   return Object.fromEntries(members.filter(([, value]) => value !== undefined));
+}
+
+/**
+ * A path record as `objectKey`, with each of `names` that it does not list read by name: the
+ * default path serializer reads `path[name]` for each name of the path template, so a value
+ * behind a getter of a class (`get id()`) is sent, while a key of the listed members alone held
+ * none of it, and the requests of two ids shared an entry. A name read as `undefined` stays
+ * `undefined`, which the caller leaves out (`definedMembers`), as the hash does.
+ */
+export function pathRecordKey(
+  record: object,
+  names: readonly string[],
+  ancestors: Ancestors,
+): Record<string, unknown> {
+  const key = objectKey(record, ancestors);
+  const inner = inside(ancestors, record);
+  const unlisted = names.filter((name) => !Object.hasOwn(key, name));
+  const read = unlisted.map((name) => {
+    const value = attempt(() => (record as Record<string, unknown>)[name]);
+    return [name, keyOf(value, inner, sentValue)] as const;
+  });
+  return { ...key, ...Object.fromEntries(read) };
 }

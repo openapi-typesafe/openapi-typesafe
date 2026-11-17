@@ -36,6 +36,7 @@ import type {
   PathsWithMethod,
   RequiredKeysOf,
 } from "openapi-typesafe-fetch/helpers";
+import { createInitHeadersReader } from "./init-headers.js";
 import { queryKeyInit } from "./query-key.js";
 import { withQuerySignal } from "./query-signal.js";
 
@@ -528,6 +529,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
   { keyScope }: CreateClientOptions = {},
 ): OpenapiQueryClient<Paths, Media> {
   const keyClient = { baseUrl: client.baseUrl, keyScope };
+  const readInitHeaders = createInitHeadersReader();
   /**
    * Send one request of a query: the call's own init, with a signal that TanStack Query can abort.
    * The key only names the cache entry, as for `useInfiniteQuery`: a function in the init (a
@@ -555,8 +557,13 @@ export default function createClient<Paths extends {}, Media extends MediaType =
     }
   };
 
-  const queryOptions: QueryOptionsFunction<Paths, Media> = (method, path, ...[init, options]) => {
-    const keyInit = queryKeyInit(init, keyClient);
+  const queryOptions: QueryOptionsFunction<Paths, Media> = (
+    method,
+    path,
+    ...[callInit, options]
+  ) => {
+    const init = readInitHeaders(callInit);
+    const keyInit = queryKeyInit(init, keyClient, String(path));
     return {
       queryKey: (keyInit === undefined
         ? ([method, path] as const)
@@ -595,7 +602,8 @@ export default function createClient<Paths extends {}, Media extends MediaType =
         queryClient,
       ),
     // biome-ignore lint/complexity/useMaxParams: public signature of 1.x (ADR-036)
-    useInfiniteQuery: (method, path, init, options, queryClient) => {
+    useInfiniteQuery: (method, path, callInit, options, queryClient) => {
+      const init = readInitHeaders(callInit);
       const { pageParamName = DEFAULT_PAGE_PARAM_NAME, placeholderData, ...restOptions } = options;
       const { queryKey } = queryOptions(method, path, init);
       return useInfiniteQuery(
@@ -623,7 +631,7 @@ export default function createClient<Paths extends {}, Media extends MediaType =
           mutationFn: async (init) => {
             const mth = method.toUpperCase() as Uppercase<typeof method>;
             const fn = client[mth] as ClientMethod<Paths, typeof method, Media>;
-            const result = await fn(path, init as InitWithUnknowns<typeof init>);
+            const result = await fn(path, readInitHeaders(init) as InitWithUnknowns<typeof init>);
             throwIfFailed(result);
             // TanStack Query accepts `undefined` mutation data, so a success without a body stays
             // `undefined`, as in upstream; only query data needs `null` (upstream #2234). The cast
