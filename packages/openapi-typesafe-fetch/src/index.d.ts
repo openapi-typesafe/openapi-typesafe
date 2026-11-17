@@ -74,9 +74,17 @@ export interface CustomFetchClientOptions
   FormData?: (new () => object) | undefined;
 }
 
+/** A header value: `null` removes the header, `undefined` sends nothing, an array appends. */
+type HeaderValue = string | number | boolean | (string | number | boolean)[] | null | undefined;
+
+/**
+ * Headers: a `Headers` object, a record, or any iterable of `[name, value]` pairs, such as an
+ * array, a `Map` or `map.entries()`. Each form takes the same values (`HeaderValue`).
+ */
 export type HeadersOptions =
   | Required<RequestInit>["headers"]
-  | Record<string, string | number | boolean | (string | number | boolean)[] | null | undefined>;
+  | Record<string, HeaderValue>
+  | Iterable<readonly [string, HeaderValue]>;
 
 export type QuerySerializer<T> = (
   // biome-ignore lint/suspicious/noExplicitAny: T["parameters"]["query"] needs an any constraint

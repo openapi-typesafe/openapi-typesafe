@@ -107,9 +107,38 @@ export function isClass(value: object, name: string): boolean {
   );
 }
 
-/** The own enumerable members of an object, a member whose getter throws as `undefined`. */
-function ownMembers(value: object): (readonly [string, unknown])[] {
-  return Object.keys(value).map(
+/**
+ * How a key lists the member names of an object: `Object.keys`, as JSON and `mergeHeaders` do,
+ * or `enumerableNames` and `valueMemberNames`, as the fetch client's parameter serializers do.
+ */
+export type MemberNames = (value: object) => string[];
+
+/**
+ * The names `for..in` lists: the own and the inherited enumerable ones. The fetch client's query
+ * serializer reads a query record so, so a member the record inherits (`Object.create({ page: 2
+ * })`) is sent; a key of the own ones alone held none of it, and two requests that sent different
+ * pages shared an entry.
+ */
+export function enumerableNames(value: object): string[] {
+  const names: string[] = [];
+  for (const name in value) {
+    names.push(name);
+  }
+  return names;
+}
+
+/**
+ * The member names of an object parameter value as the fetch client's serializers read them:
+ * none without an own enumerable member (a URL or a date has none, and sends nothing), else those
+ * `for..in` lists, also the inherited ones.
+ */
+export function valueMemberNames(value: object): string[] {
+  return Object.keys(value).length === 0 ? [] : enumerableNames(value);
+}
+
+/** The members of an object by `names`, a member whose getter throws as `undefined`. */
+function namedMembers(value: object, names: MemberNames): (readonly [string, unknown])[] {
+  return names(value).map(
     (name) => [name, attempt(() => (value as Record<string, unknown>)[name])] as const,
   );
 }
@@ -144,14 +173,17 @@ function isObservableCollection(value: object): boolean {
 
 /**
  * The members of an object as a key reads them, by name: the items of an array by index, also a
- * hole; the own enumerable members of any other object, which JSON and the fetch client's
- * serializers send; and the contents of a Map or a Set as one more member, as `COLLECTION_FORMS`
- * names it. A Map or a Set of any realm keeps its contents where no member is, so its own members
- * are the caller's data and stay. A value that is a Map or a Set by its type tag only is its
- * contents alone when it is an observable collection (`isObservableCollection`), and else its
- * own members. May throw for a revoked Proxy.
+ * hole; the members of any other object that `names` lists (the own enumerable ones, which JSON
+ * and `mergeHeaders` send, unless a parameter serializer reads more); and the contents of a Map
+ * or a Set as one more member, as `COLLECTION_FORMS` names it. A Map or a Set of any realm keeps
+ * its contents where no member is, so its own members are the caller's data and stay. A value
+ * that is a Map or a Set by its type tag only is its contents alone when it is an observable
+ * collection (`isObservableCollection`), and else its own members. May throw for a revoked Proxy.
  */
-export function readMembers(value: object): (readonly [string, unknown])[] {
+export function readMembers(
+  value: object,
+  names: MemberNames = Object.keys,
+): (readonly [string, unknown])[] {
   if (Array.isArray(value)) {
     return Array.from(value, (item, index) => [String(index), item] as const);
   }
@@ -160,10 +192,13 @@ export function readMembers(value: object): (readonly [string, unknown])[] {
   const tagged = COLLECTION_FORMS.filter(([className]) => isClass(value, className));
   const real = tagged.find(([, , type]) => hasSlotsOf(value, type));
   if (real !== undefined) {
-    return [...ownMembers(value), [real[1], Array.from(value as Iterable<unknown>)] as const];
+    return [
+      ...namedMembers(value, names),
+      [real[1], Array.from(value as Iterable<unknown>)] as const,
+    ];
   }
   if (tagged[0] === undefined || !isObservableCollection(value)) {
-    return ownMembers(value);
+    return namedMembers(value, names);
   }
   return [[tagged[0][1], Array.from(value as Iterable<unknown>)] as const];
 }
@@ -211,14 +246,17 @@ export function keyOf<K>(value: unknown, ancestors: Ancestors, walk: Walk<K>): K
   return attempt(() => walk(read, ancestors));
 }
 
-/** The members of an object as `readMembers` reads them, each as `keyOf` writes it. */
+/** The members of an object as `readMembers` reads them by `names`, each as `keyOf` writes it. */
 export function walkMembers<K>(
   value: object,
   ancestors: Ancestors,
   walk: Walk<K>,
+  names: MemberNames = Object.keys,
 ): (readonly [string, K | undefined])[] {
   const inner = inside(ancestors, value);
-  return readMembers(value).map(([name, member]) => [name, keyOf(member, inner, walk)] as const);
+  return readMembers(value, names).map(
+    ([name, member]) => [name, keyOf(member, inner, walk)] as const,
+  );
 }
 
 /**
@@ -234,4 +272,16 @@ export function deeperKeys(ancestors: Ancestors): unknown[] {
       ? attempt(() => JSON.stringify(value))
       : keyOf(value, { path: [], deeper, level }, walk),
   );
+}
+
+/**
+ * The members of an object that are not `undefined`, or undefined when none is. A member set to
+ * `undefined` (`headers: token ? … : undefined`, `query: { cursor: undefined }`) sends the same
+ * request as none, and TanStack Query's hash leaves it out too, so a record of only such members
+ * sends nothing and must not count as one. `null`, `[]` and `{}` members stay: `null` removes a
+ * header, and a query serializer of the client may send them.
+ */
+export function definedMembers(record: object): Record<string, unknown> | undefined {
+  const members = Object.entries(record).filter(([, value]) => value !== undefined);
+  return members.length === 0 ? undefined : Object.fromEntries(members);
 }

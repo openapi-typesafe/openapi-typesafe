@@ -587,6 +587,59 @@ subclasses, plain headers, pairs and `Headers` keep their keys.
 rises to 7.4 kB: the slot check and the observable rule (about 120 bytes) and the header branches
 with the collection check (about 300). Correctness ranks above size (ADR-013, ADR-030).
 
+## Amendment (2026-11-17): one-shot headers read once; params read as the client reads them
+
+Two gaps broke the rules above.
+
+1. **One-shot headers.** rc.15 left `map.entries()` and a generator out of the key, so the key
+   would not use them up, and passed them on to the fetch client. The query function keeps the
+   init of the call, so the first request used them up and a refetch, a retry, the next page of
+   `useInfiniteQuery` and a `useMutation` retry sent none of them. The hooks now read such
+   headers once, where they get the init (`queryOptions`, and through it `useQuery` and
+   `useSuspenseQuery`; `useInfiniteQuery`; each `mutate`), into a list of `[name, value]` lists:
+   a one-shot list, or an array or a `Set` with an iterator as a pair. The init that every
+   request reuses holds that list, so every request sends the headers. Each client keeps the list
+   it read by the iterator it came from, in a `WeakMap`, so an iterator kept between renders
+   (`useMemo`) and a mutation's retry, which gets the same init, read the same pairs. A read that
+   throws (a generator that throws) gives pairs that throw the same error, so every request of
+   the query fails with it, as the fetch client does when it reads them itself. Since the list
+   can no longer be used up, it is in the key, by the rule of pairs below. The fetch client reads
+   pairs by the rule of every other form now (ADR-041, amendment of 2026-11-17), so the key of
+   pairs holds `null` (removes), leaves out `undefined` and appends an array, and a name the
+   pairs repeat appends its value, as `Headers` joins it. The shared test runs the key and the
+   client on the same inputs, now also iterators, generators and iterator pairs, and checks the
+   headers of every request of a query: the first, a retry, a refetch, the next page and a
+   mutation's retry.
+2. **Params as the client reads them.** The fetch client reads `params.query`, `params.path` and
+   `params.header` by name, the path record by the names of the path template (`path[name]`), a
+   query record by `for..in`, and an object value through its serializers, which list nothing for
+   an object without own members and else what `for..in` lists. The key read own enumerable
+   members only, so a value behind a class getter (a DTO with a private field) or an inherited
+   member was sent but not keyed, and two requests that sent different URLs shared an entry. The
+   key now reads each value the same way: the three records by name, also behind a getter (the
+   other own members of `params` stay, since a middleware gets `params`); a path record by its
+   members and by each name of the template, which `queryOptions` passes; a query record by
+   `for..in`; an object value by `for..in` when it has own members; a header record by its own
+   members, as `Object.entries` reads it. A test sends each input with the client and checks
+   that inputs of one key send one request.
+
+Keys that change against rc.15: one-shot headers are in the key; pairs with `null`, `undefined`
+or an array value have the key of the record that sends the same; records behind a getter of
+`params`, path values behind a getter and inherited enumerable members of a query record or of
+an object value with own members are in the key. A class instance whose prototype has enumerable
+methods (ES5 output) is unchanged, since functions are left out. Other keys stay.
+
+| Option | Pros | Cons |
+| --- | --- | --- |
+| Read one-shot headers once per client, keyed by the iterator (chosen) | Every request sends them; they are in the key | A `WeakMap` per client; one iterator given to two clients is read by the first |
+| Leave them out of the key and read them in the fetch client (rc.15) | No cache | Only the first request of a query sends them |
+| Reject one-shot headers in the types | Simple | The runtime and the docs take them |
+| Key params by own members (rc.15) | Smaller | A getter DTO shares the entry of another id |
+
+**Size.** The bundle grows from 7.35 kB to 8.73 kB minified (3.33 kB gzipped), so the budget rises
+to 8.75 kB: the header reader, the params reads by name and by the template, the `for..in`
+names and the pair rule. Correctness ranks above size (ADR-013, ADR-030).
+
 ## Review trigger
 
 A report of two queries that share an entry while their requests differ in something a key can

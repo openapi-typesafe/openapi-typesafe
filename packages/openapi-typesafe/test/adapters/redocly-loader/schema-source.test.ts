@@ -80,6 +80,21 @@ describe("resolveSchemaSource", () => {
       details: { reason: "url", received: "stream", text: "http://[::1/x" },
     });
   });
+
+  it.each([
+    ["http:tok:SECRET@[::1/x?key=SECRET", "http:***@[::1/x?***"],
+    ["HTTP:\\\\[::1\\x?key=SECRET", "HTTP:\\\\[::1\\x?***"],
+  ])(
+    "resolveSchemaSource with the text %j that does not parse hides its secrets",
+    async (location, shown) => {
+      const error = await resolveSchemaSource(location, CWD).catch((failure: unknown) => failure);
+
+      expect(error).toMatchObject({
+        message: `The string ${shown} starts like a URL but is not a valid URL`,
+        details: { reason: "url", received: "string", text: shown },
+      });
+    },
+  );
 });
 
 describe("resolveSchemaSource with the text a URL was written as", () => {
