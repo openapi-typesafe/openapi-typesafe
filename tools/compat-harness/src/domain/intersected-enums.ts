@@ -26,16 +26,19 @@ const IDENTIFIER_RE = new RegExp(IDENTIFIER_PATTERN, "gu");
 /** Characters before a name that make it a member or a quoted key, not a type. */
 const NOT_A_TYPE_BEFORE = new Set([".", '"']);
 
-/** The lines before the enum declarations, and the declarations that follow them to the end. */
+/**
+ * The lines before the enum declarations, the declarations that follow them to the end, and the
+ * other lines among those (a helper type such as `WithRequired`, the final empty line).
+ */
 interface DeclaredEnums {
   readonly body: readonly string[];
   readonly blocks: ReadonlyMap<string, EnumBlock>;
+  readonly others: readonly string[];
 }
 
 /**
  * Splits the text where its first enum declaration starts; undefined when it declares no enum (so
- * nothing to unify), anything but enum declarations (and a final empty line) follows the first,
- * or a name is declared twice.
+ * nothing to unify), or a name is declared twice.
  */
 function declaredEnums(text: string): DeclaredEnums | undefined {
   const lines = text.split("\n");
@@ -44,21 +47,21 @@ function declaredEnums(text: string): DeclaredEnums | undefined {
     return undefined;
   }
   const blocks = new Map<string, EnumBlock>();
+  const others: string[] = [];
   let index = footerStart;
   while (index < lines.length) {
     const block = enumBlockAt(lines, index);
-    if (block === undefined) {
-      return index === lines.length - 1 && lines[index] === ""
-        ? { body: lines.slice(0, footerStart), blocks }
-        : undefined;
-    }
-    if (blocks.has(block.name)) {
+    if (block !== undefined && blocks.has(block.name)) {
       return undefined;
     }
-    blocks.set(block.name, block);
-    index = block.lastLine + 1;
+    if (block === undefined) {
+      others.push(lines[index] ?? "");
+    } else {
+      blocks.set(block.name, block);
+    }
+    index = (block?.lastLine ?? index) + 1;
   }
-  return { body: lines.slice(0, footerStart), blocks };
+  return { body: lines.slice(0, footerStart), blocks, others };
 }
 
 const indentation = (line: string): number => line.search(NOT_A_SPACE_RE);
@@ -223,6 +226,7 @@ export function isIntersectedEnumUnified(goldenText: string, candidateText: stri
   return (
     unified !== undefined &&
     unified.lineCount > 0 &&
+    golden.others.join("\n") === candidate.others.join("\n") &&
     isFooterKept(golden, candidate, unified.ownEnums)
   );
 }
