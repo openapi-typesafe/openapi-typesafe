@@ -66,8 +66,10 @@ with `-f`) also gives an `entrypoint` or `command`, in both files, a service who
 another file, the service of that file it extends when the extending service sets an `entrypoint`
 or `command`, and `args` alone (Kubernetes, a `docker://` step's `with`), which the image's own
 program runs. A list item that holds a whole command line of the generator
-(`command: ["npx openapi-typescript api.yaml -it"]`) is one word that no shell splits, so it is
-reported, not changed, unless a shell of the container runs it (`["sh", "-c"]` before it).
+(`command: ["npx openapi-typescript api.yaml -it"]`, or a Dockerfile's
+`CMD ["npx openapi-typescript api.yaml -it"]`, also in `RUN` and `ENTRYPOINT`) is one word that
+no shell splits, so it is reported, not changed, unless a shell of the container runs it
+(`["sh", "-c"]` before it).
 The files that a Compose file's top-level `include` names (a path, or the `path` of the long form,
 one file or a list) are read as Compose files, relative to the file that includes them, and
 merge with it: an included service that another merged file also gives an `entrypoint` or
