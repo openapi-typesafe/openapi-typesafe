@@ -89,7 +89,9 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
   (a JSON `querySerializer` sends `NaN` and `"NaN"` apart), and another object its
   own members plus, when it has them, its `"toJSON()"` form and `"toString()"` text, since a
   client `querySerializer` / `pathSerializer` may send those (two `URL`s never share a key).
-  Records that are class instances are read like object literals. An `undefined` array item in
+  Records are read as the client reads them to send them: `params.query` / `path` / `header`
+  by name (a getter counts), a `path` record also by each name of the path template, a `query`
+  record and object values by `for..in` (object values only when they have own members). An `undefined` array item in
   params is `{ "(undefined)": true }`, in a body `null`. Plain `headers` values are the text
   `Headers` sends (`new Number(5)` is `"5"`, a `Date` its local text), and header names are lower
   case, a later name in another case winning as in `Headers`. A `Map` or `Set` (body or params)
@@ -99,8 +101,10 @@ const pets = queryClient.getQueryData($api.queryOptions("get", "/pets").queryKey
   own members, except one that iterates and has a `toJSON` (MobX observable `Map` / `Set`): its
   contents alone; other iterables by their own members only. `headers` are read by the fetch
   client's `mergeHeaders` rule: a `Map` (anything with `get`) by its raw values, so `null`
-  removes a header; pairs through `Headers`. Headers given as an iterator (`map.entries()`) or
-  another non-collection are left out of the key, which must not use them up. A value more
+  removes a header; pairs by the same rule, a repeated name joined with `, `. Headers given as an
+  iterator (`map.entries()`, a generator) are read once, when the hook or `mutate` gets the
+  init, into pairs: they are in the key and every refetch, retry, page and mutation retry sends
+  them. Other non-collections (a custom iterable) are left out of the key. A value more
   than 100 objects deep is keyed in parts under `"(deeper)"`, so the key is stable. One rule
   reads body, params and headers: functions (`fetch`, serializers, middleware hooks, a function inside a
   body), circular references and values that throw when read (getters, `toJSON`, revoked

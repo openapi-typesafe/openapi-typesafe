@@ -132,4 +132,13 @@ describe("defaultBodySerializer result type", () => {
     expectTypeOf(sent).toEqualTypeOf<string | FormData>();
     expect(sent).toBe('{"a":1}');
   });
+
+  it("defaultBodySerializer of an object with map entries as headers may be FormData", () => {
+    const headers = new Map([["Content-Type", "multipart/form-data"]]).entries();
+
+    const sent = defaultBodySerializer({ a: "1" }, headers);
+
+    expectTypeOf(sent).toEqualTypeOf<string | FormData>();
+    expect(sent).toBeInstanceOf(FormData);
+  });
 });

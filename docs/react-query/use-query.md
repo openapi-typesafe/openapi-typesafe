@@ -38,9 +38,13 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   infinities and a bigint as their text under a name of its own, `{ "(number)": "NaN" }`, since
   a JSON `querySerializer` sends `NaN` as `null` and `"NaN"` as a string, an array by its items, with an `undefined` item (also a
   hole or a function) as `{ "(undefined)": true }`, which a `qs` serializer sends differently
-  from `null`, and another object by its own members, which the default serializers send. The
-  records themselves (`params`, `query`, `path`, `header`) are read the same way when they are
-  not object literals, such as class instance DTOs. A `querySerializer` or `pathSerializer` set on the
+  from `null`, and another object by the members the default serializers send: none when it has
+  no own member, else every member `for..in` lists, also an inherited one. The records are read
+  as the fetch client reads them to send them, also when they are class instance DTOs:
+  `params.query`, `params.path` and `params.header` by name, so a getter counts; a `query`
+  record by `for..in`; a `header` record by its own members; and a `path` record by its members
+  and by each name of the path template (`/users/{id}` reads `path.id`), so a class whose `id`
+  is a getter over a private field is keyed by its id. A `querySerializer` or `pathSerializer` set on the
   fetch client may send the object's `toJSON` form or its text instead, so the key also holds
   them, when the object has its own, under `"toJSON()"` and `"toString()"`: a `URL` is
   `{ "toJSON()": href, "toString()": href }`, a `Number` object `{ "toString()": "5" }` and an
@@ -53,12 +57,16 @@ The `useQuery` method allows you to use the original [useQuery](https://tanstack
   their order: `{ "X-A": "1", "x-a": "2" }` sends and has the key `{ "x-a": "2" }`. `headers`
   are read by the fetch client's own rule, in its order: a value with a `get` method (`Headers`,
   a `Map`) by its entries and their raw values, so a `null` value removes the header and
-  `undefined` sends nothing, as in plain headers; a list of pairs, or a `Set` of them, through
-  `Headers`, which sends the text of each value; any other object by its own members. The key
-  reads only headers it cannot use up: an array, a `Map`, a `Set`, `Headers`,
-  `URLSearchParams` or `FormData`. Headers given as an iterator (`map.entries()`), a generator
-  or another object with a `get` method or an iterator are left out of the key, so the request
-  keeps them all; pass a `Headers`, a `Map` or a plain object for a key of them. A `Map`
+  `undefined` sends nothing, as in plain headers; a list of pairs, or a `Set` of them, by the
+  same rule, a name the pairs repeat joined with `, ` as `Headers` joins it; any other object by
+  its own members. Headers given as an iterator (`map.entries()`), a generator, or a list with
+  such an iterator as a pair, can be read only once, so the hooks read them once, when
+  `queryOptions`, `useQuery`, `useSuspenseQuery`, `useInfiniteQuery` or a `mutate` call gets
+  the init, into a list of pairs: the key holds them, and every request of the query (a refetch,
+  a retry, the next page, a mutation's retry) sends them. The same iterator, kept between renders
+  (`useMemo`), gives the same pairs. Other objects with a `get` method or an iterator, which
+  are no `Map`, `Headers`, `URLSearchParams` or `FormData`, are left out of the key, which
+  must not run them; pass a `Headers`, a `Map` or a plain object for a key of them. A `Map`
   or a `Set`, in a body as in `params`, keeps its contents in none of its members, so JSON and
   the default serializers send `{}` or nothing for it, while a `querySerializer` or
   `bodySerializer` of yours may send the contents: the key holds them in order, a `Set` as
