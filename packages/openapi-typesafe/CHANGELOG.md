@@ -2,6 +2,65 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.15
+
+### Patch Changes
+
+- [#166](https://github.com/openapi-typesafe/openapi-typesafe/pull/166) [`9dd9834`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9dd98348328a7608efc928b251b4b2585e119f60) Thanks [@fedorello](https://github.com/fedorello)! - The CLI hides the whole query of a URL it prints also after a space or a quote: the line for a
+  written file showed `?*** cret` for `"https://host/api.yaml?key=se cret"`. The same holds for
+  every CLI message that names the schema, an output, `--redocly`, `--local-ref-root` or an API's
+  `root`.
+
+- [#169](https://github.com/openapi-typesafe/openapi-typesafe/pull/169) [`2c9f32f`](https://github.com/openapi-typesafe/openapi-typesafe/commit/2c9f32f79f2bc1c25ef02221b8ed16c7331623f2) Thanks [@fedorello](https://github.com/fedorello)! - With `--enum --dedupe-enums`, a schema that narrows an enum it inherits through `allOf` no
+  longer renames the enum that the inherited property shares with other schemas. When such a
+  schema came first (`Cat: allOf: [$ref: Pet, { mode: [a] }]` before `Kind: [a, b]` and
+  `Pet.mode: [a, b]`), the shared enum was named `PetMode` instead of `Kind`, so the export
+  `Kind` was missing. It is named after the first schema that lists its values again, as without
+  the narrowing.
+
+- [#167](https://github.com/openapi-typesafe/openapi-typesafe/pull/167) [`71007e8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/71007e8d53744ea79fff1fd706a9e5ef059d967f) Thanks [@fedorello](https://github.com/fedorello)! - `--enum --dedupe-enums` no longer splits the enum of a schema property in two. A property and an
+  inline `allOf` item with other values (`mode: [a]` next to `allOf: [{ mode: [a, b] }]`) share
+  one enum, `TMode`, but when another schema listed the values of only one of them (`U: { mode:
+[a] }`), that one shared `U`'s enum and the type became `{ mode?: TMode_2 } & { mode?: TMode }`,
+  which is `never` (also with `--fix dedupe-enum-names` and `--fix all`, and for a discriminated
+  union and its members). `--dedupe-enums` now shares an enum only between schemas whose whole
+  enums have the same members, so `T` gets `TMode.a & TMode` and `U` its own `UMode`.
+
+- [#167](https://github.com/openapi-typesafe/openapi-typesafe/pull/167) [`71007e8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/71007e8d53744ea79fff1fd706a9e5ef059d967f) Thanks [@fedorello](https://github.com/fedorello)! - A schema `$ref` to the discriminator property of a mapped schema, such as
+  `$ref: "#/components/schemas/Dog/properties/kind"` with `kind: { type: string }`, is typed by that
+  property's schema (`string`), not by the value the discriminator gives `Dog` (`"dog"`). A property
+  whose own `enum` lists exactly that value keeps its pointer type.
+
+- [#166](https://github.com/openapi-typesafe/openapi-typesafe/pull/166) [`9dd9834`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9dd98348328a7608efc928b251b4b2585e119f60) Thanks [@fedorello](https://github.com/fedorello)! - A remote `$ref` or schema URL with a space or a quote before its query
+  (`http://host/my pet.yaml?key=…`) no longer shows the query in error messages, in lint problems
+  and in the `cause` of an error: a parse error of that document, a time limit, a redirect loop, a
+  malformed `$ref` in it or a key the loader cannot walk now name it with `?***`, as every other
+  message does.
+
+- [#167](https://github.com/openapi-typesafe/openapi-typesafe/pull/167) [`71007e8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/71007e8d53744ea79fff1fd706a9e5ef059d967f) Thanks [@fedorello](https://github.com/fedorello)! - With `--enum`, the array items, record values, tuple elements and nested properties of a property
+  and of an inline `allOf` item of one schema share one enum, as the property itself does. They got
+  two enums before (`TList.a[] & TList_2[]`), so the type was `never`; now it is `TList.a[] &
+TList[]`.
+
+- [#167](https://github.com/openapi-typesafe/openapi-typesafe/pull/167) [`71007e8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/71007e8d53744ea79fff1fd706a9e5ef059d967f) Thanks [@fedorello](https://github.com/fedorello)! - A `transform` without `irCallbacks: true` that returns type text (`"Date"`) or a number is still
+  ignored, as in openapi-typescript 7, but the run now warns once with `CALLBACK_RESULT_IGNORED`,
+  naming the schema path, and says to set `irCallbacks: true` to return type text.
+
+- [#167](https://github.com/openapi-typesafe/openapi-typesafe/pull/167) [`71007e8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/71007e8d53744ea79fff1fd706a9e5ef059d967f) Thanks [@fedorello](https://github.com/fedorello)! - With `--enum`, a schema that narrows an enum it inherits through `allOf` (`Cat: allOf: [{ $ref:
+Pet }, { properties: { mode: { enum: [a] } } }]`, where `Pet.mode` lists `a`, `b` and `c`) is
+  typed by the inherited enum's members (`mode?: PetMode.a`). It was `Pet & { mode?: CatMode }`,
+  two TypeScript enums that intersect to `never`. `CatMode` is still declared. Values that the
+  inherited enum does not list can never be valid; the type lists the common values and the new
+  warning `ENUM_VALUES_NOT_INHERITED` names the others.
+
+- [#166](https://github.com/openapi-typesafe/openapi-typesafe/pull/166) [`9dd9834`](https://github.com/openapi-typesafe/openapi-typesafe/commit/9dd98348328a7608efc928b251b4b2585e119f60) Thanks [@fedorello](https://github.com/fedorello)! - Entries of `.redocly.lint-ignore.yaml` apply to a remote schema written in a form other than
+  the URL parser's own, such as `root: "http://host/my api.yaml"` in `redocly.yaml` or
+  `http://LOCALHOST/x/../api.yaml` as the argument: the schema keeps the name `redocly lint` gives
+  it, as remote `$ref` documents do.
+
+- [#167](https://github.com/openapi-typesafe/openapi-typesafe/pull/167) [`71007e8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/71007e8d53744ea79fff1fd706a9e5ef059d967f) Thanks [@fedorello](https://github.com/fedorello)! - Docs: `ReturnType<typeof openapiTS>` is `Promise<IrDeclaration[]>`; the Node API page said it was
+  openapi-typescript 7's.
+
 ## 1.0.0-rc.14
 
 ### Patch Changes

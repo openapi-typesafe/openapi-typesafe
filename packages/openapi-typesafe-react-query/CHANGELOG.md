@@ -2,6 +2,31 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.15
+
+### Patch Changes
+
+- [#164](https://github.com/openapi-typesafe/openapi-typesafe/pull/164) [`6bb1cc5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/6bb1cc500b09cfff6af81cd8d3d2080646e27aa0) Thanks [@fedorello](https://github.com/fedorello)! - Headers given as a one-shot iterator, such as `map.entries()` or a generator, are sent again by
+  queries. The query key read them first and used them up, so the request sent none of those
+  headers. The key now reads only headers it can read again (an array, a `Map`, a `Set`, `Headers`,
+  `URLSearchParams` or `FormData`) and leaves the others out; pass a `Headers`, a `Map` or a plain
+  object to have them in the key.
+
+- [#164](https://github.com/openapi-typesafe/openapi-typesafe/pull/164) [`6bb1cc5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/6bb1cc500b09cfff6af81cd8d3d2080646e27aa0) Thanks [@fedorello](https://github.com/fedorello)! - Query keys read `headers` exactly as the fetch client sends them. Headers given as a `Map` with a
+  `null` value (which removes the header) and with the text `"null"` shared one key, and so did
+  `undefined` (which sends nothing) and `"undefined"`; each now has its own key. `Headers` that
+  repeat a name keep its last value, as the client sets it, and headers that are not an object,
+  which the client skips, are left out of the key.
+
+- [#164](https://github.com/openapi-typesafe/openapi-typesafe/pull/164) [`6bb1cc5`](https://github.com/openapi-typesafe/openapi-typesafe/commit/6bb1cc500b09cfff6af81cd8d3d2080646e27aa0) Thanks [@fedorello](https://github.com/fedorello)! - A query key tells a `Map` or a `Set` by what it really is, not by its type tag. A class of yours
+  whose tag says `Set` or `Map` while its data is in its own members (and that does not iterate
+  its contents) was keyed as an empty collection, so two requests with different data shared one
+  cache entry; it is now keyed by its own members, as JSON sends it. A `Map` or a `Set` made in
+  another realm (an iframe, `node:vm`, a Jest environment) keeps its own members in the key beside
+  its contents, as one of this realm does. MobX observable maps and sets keep their keys.
+- Updated dependencies [[`19d10c1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/19d10c1e0b7be1e24a694657b46d92fae1da63e8), [`19d10c1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/19d10c1e0b7be1e24a694657b46d92fae1da63e8)]:
+  - openapi-typesafe-fetch@1.0.0-rc.15
+
 ## 1.0.0-rc.14
 
 ### Patch Changes

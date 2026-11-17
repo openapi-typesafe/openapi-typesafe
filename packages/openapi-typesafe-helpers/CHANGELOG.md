@@ -2,6 +2,18 @@
 
 This package is a fork of `openapi-typescript-helpers`. The entries above `0.1.0` are releases of openapi-typesafe-helpers; `0.1.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript-helpers` versions.
 
+## 1.0.0-rc.15
+
+### Patch Changes
+
+- [#163](https://github.com/openapi-typesafe/openapi-typesafe/pull/163) [`19d10c1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/19d10c1e0b7be1e24a694657b46d92fae1da63e8) Thanks [@fedorello](https://github.com/fedorello)! - A hand-written response map with only an index signature over statuses
+  (`responses: Record<string, Pet>`, `{ [status: number]: Pet }`) types `data` and `error` by its
+  value, as any status may answer with it. Both were `never`. `Record<string, any>` gives `any`, as
+  `createClient<any>()` does, and code generic in its operation still reads such a map as `unknown`.
+  Generated types always name their statuses and are not affected.
+- Updated dependencies [[`19d10c1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/19d10c1e0b7be1e24a694657b46d92fae1da63e8), [`19d10c1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/19d10c1e0b7be1e24a694657b46d92fae1da63e8)]:
+  - openapi-typesafe-fetch@1.0.0-rc.15
+
 ## 1.0.0-rc.14
 
 ### Patch Changes

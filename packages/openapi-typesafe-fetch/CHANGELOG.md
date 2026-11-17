@@ -2,6 +2,21 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.15
+
+### Patch Changes
+
+- [#163](https://github.com/openapi-typesafe/openapi-typesafe/pull/163) [`19d10c1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/19d10c1e0b7be1e24a694657b46d92fae1da63e8) Thanks [@fedorello](https://github.com/fedorello)! - A hand-written response map with only an index signature over statuses
+  (`responses: Record<string, Pet>`, `{ [status: number]: Pet }`) types `data` and `error` by its
+  value, as any status may answer with it. Both were `never`. `Record<string, any>` gives `any`, as
+  `createClient<any>()` does, and code generic in its operation still reads such a map as `unknown`.
+  Generated types always name their statuses and are not affected.
+
+- [#163](https://github.com/openapi-typesafe/openapi-typesafe/pull/163) [`19d10c1`](https://github.com/openapi-typesafe/openapi-typesafe/commit/19d10c1e0b7be1e24a694657b46d92fae1da63e8) Thanks [@fedorello](https://github.com/fedorello)! - Headers given as an iterable that can be read only once, such as `map.entries()` or a generator,
+  are sent with a request that has a body. The client read them twice for such a request, and the
+  first read used them up, so a `POST` with a body went out without its `authorization` header. Such
+  headers on the client are now sent with every request too, not only the first one.
+
 ## 1.0.0-rc.14
 
 ### Patch Changes
