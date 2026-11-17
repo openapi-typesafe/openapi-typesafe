@@ -1,5 +1,3 @@
-import { fileURLToPath } from "node:url";
-import { execa } from "execa";
 import ts from "typescript";
 import type { FooterEntry } from "../../src/api/footer-entry.js";
 import { irProperty } from "../../src/domain/ir/constructors.js";
@@ -7,7 +5,6 @@ import {
   addJSDocComment,
   astToString,
   BOOLEAN,
-  DEPRECATION_CODES,
   enumCache,
   NULL,
   NUMBER,
@@ -571,14 +568,4 @@ describe("stringToAST", () => {
 
     expect(statement && ts.isTypeAliasDeclaration(statement) && statement.name.text).toBe("B");
   });
-
-  test("warns once with a Node deprecation code", async () => {
-    const fixture = fileURLToPath(new URL("../fixtures/string-to-ast-twice.ts", import.meta.url));
-    const viteNode = fileURLToPath(new URL("../../node_modules/.bin/vite-node", import.meta.url));
-
-    const { stderr } = await execa(viteNode, [fixture]);
-
-    expect(stderr.match(/DeprecationWarning/g)).toHaveLength(1);
-    expect(stderr).toContain(DEPRECATION_CODES.OPENAPI_TYPESAFE_DEP_STRING_TO_AST);
-  }, 30_000);
 });

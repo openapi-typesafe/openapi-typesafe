@@ -15,7 +15,8 @@ import {
 
 /** How a line ends that opens an object literal intersected with what precedes it. */
 const INTERSECTION_OPENING = " & {";
-const INDENTATION_RE = /^ */;
+/** The first character that is not a space, or the end of an empty or blank line. */
+const NOT_A_SPACE_RE = /[^ ]|$/;
 const UNION_SEPARATOR = " | ";
 /** A member line: its name (group 1) and its value (group 2), without the comma after it. */
 const MEMBER_RE = new RegExp(`^(${IDENTIFIER_PATTERN}) = (.*?),?$`, "u");
@@ -60,7 +61,7 @@ function declaredEnums(text: string): DeclaredEnums | undefined {
   return { body: lines.slice(0, footerStart), blocks };
 }
 
-const indentation = (line: string): number => INDENTATION_RE.exec(line)?.[0].length ?? 0;
+const indentation = (line: string): number => line.search(NOT_A_SPACE_RE);
 
 /**
  * Whether the line sits in an object literal that a line ending in ` & {` opens, at any depth. The

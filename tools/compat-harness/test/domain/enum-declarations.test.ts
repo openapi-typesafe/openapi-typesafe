@@ -22,6 +22,12 @@ describe("enumBlocks", () => {
 
     expect(enumBlocks(lines).get("Empty")?.lastLine).toBe(0);
   });
+
+  it("enumBlocks skips a declaration that no closing line ends", () => {
+    const lines = ["export enum Kind {", '    a = "a",', '    b = "b"'];
+
+    expect(enumBlocks(lines).has("Kind")).toBe(false);
+  });
 });
 
 describe("wholeNameReference", () => {
