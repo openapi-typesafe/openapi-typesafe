@@ -2,12 +2,12 @@ import { ERROR_CODES, OpenAPITypesafeError } from "../../../domain/errors.js";
 import { irKeyword } from "../../../domain/ir/constructors.js";
 import type { IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { literalType } from "../literal-type.js";
 import { schemaRefType } from "../ref-pointer/pointer-type.js";
 import { UNKNOWN_TYPE } from "../shared-types.js";
+import { unionOf } from "../type-combinators.js";
 import { type BaseSchema, NO_BASE_SCHEMAS } from "./base-schemas.js";
 import { compositionType } from "./composition-type.js";
-import { enumRule } from "./enum-rule.js";
+import { enumRule, literalValuesType } from "./enum-rule.js";
 import { refWithSiblingsAsAllOf } from "./ref-siblings.js";
 import type { SchemaContext, SchemaLocation } from "./schema-context.js";
 import {
@@ -43,7 +43,7 @@ const SHAPE_RULES: readonly SchemaRule[] = [
     name: "const",
     // `const: null` is the value null (JSON Schema §6.1.3); the original read it as no `const`.
     matches: (schema) => schema.const !== undefined,
-    transform: (schema) => literalType(schema.const),
+    transform: (schema, request) => unionOf(literalValuesType(schema, [schema.const], request)),
   },
   enumRule,
 ];

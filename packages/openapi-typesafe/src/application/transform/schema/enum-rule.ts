@@ -11,7 +11,7 @@ import { enumMemberType } from "../enum-member-type.js";
 import { literalType } from "../literal-type.js";
 import { refType } from "../ref-type.js";
 import { intersectionOf, unionOf } from "../type-combinators.js";
-import { baseEnumType } from "./base-enum-type.js";
+import { baseValuesType } from "./base-enum-type.js";
 import { enumRequest, isTsEnum, nameFromPath, tsEnumEntries } from "./enum-declaration.js";
 import { enumValuesPointer } from "./enum-values-pointer.js";
 import type {
@@ -107,8 +107,8 @@ function enumReference(footer: FooterDeclarations, request: EnumDeclarationReque
 }
 
 /**
- * The schema's own enum, or the enum of a base the `allOf` intersects it with (`baseEnumType`).
- * The own enum is declared either way, so code that names it keeps compiling.
+ * The schema's own enum, or the enum or literals of a base the `allOf` intersects it with
+ * (`baseValuesType`). The own enum is declared either way, so code that names it keeps compiling.
  */
 function ownOrBaseEnumType(
   values: readonly unknown[],
@@ -116,7 +116,10 @@ function ownOrBaseEnumType(
   request: SchemaRequest,
 ): IrType {
   const own = enumReference(request.context.footer, declaration);
-  return baseEnumType(values as (string | number)[], request) ?? own;
+  const ownMembers = (kept: readonly unknown[]) => [
+    { ...own, enumValues: kept as (string | number)[] },
+  ];
+  return baseValuesType(values, "enum", ownMembers, request) ?? own;
 }
 
 function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
@@ -129,8 +132,16 @@ function tsEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
     ...walkedLocation(request),
     sharedSlot: request.sharedSlot,
   };
+  const ownerType = ownerEnumMembersType(schema, values, request);
+  if (
+    ownerType !== null &&
+    request.context.discriminators.enumParentOf(schema)?.isDeclaredByMember
+  ) {
+    // A member's own enum of its value stays declared, so code that names it keeps compiling.
+    enumReference(request.context.footer, { ...declaration, ...element });
+  }
   const type =
-    ownerEnumMembersType(schema, values, request) ??
+    ownerType ??
     withOtherStrings(ownOrBaseEnumType(values, { ...declaration, ...element }, request), schema);
   return options.fixes.has(FIX.NULLABLE_ENUMS) && isNullAllowed(schema)
     ? unionOf([type, irKeyword("null")])
@@ -162,11 +173,33 @@ function addEnumValues(schema: SchemaObject, request: SchemaRequest): void {
   });
 }
 
+/**
+ * The literals of an enum, or of a `const`: as the discriminator owner's enum members or the
+ * forms a base admits them in (`baseValuesType`) where they are values of those, else literals.
+ * `null` stays a literal: no enum has it as a member.
+ */
+export function literalValuesType(
+  schema: SchemaObject,
+  values: readonly unknown[],
+  request: SchemaRequest,
+): IrType[] {
+  const listed = values.filter((value) => value !== null);
+  const own = (kept: readonly unknown[]) => kept.map(literalType);
+  const retyped =
+    (listed.length > 0 ? ownerEnumMembersType(schema, listed, request) : null) ??
+    baseValuesType(listed, "literal", own, request);
+  if (retyped === null) {
+    return values.map(literalType);
+  }
+  return [retyped, ...(listed.length < values.length ? [literalType(null)] : [])];
+}
+
 function literalEnumType(schema: SchemaObject, request: SchemaRequest): IrType {
   const values = schema.enum ?? [];
   const isNullable =
     (Array.isArray(schema.type) && schema.type.includes("null")) || Boolean(schema.nullable);
-  const literals = [...values.map(literalType), ...(isNullable ? [irKeyword("null")] : [])];
+  const valueTypes = literalValuesType(schema, values, request);
+  const literals = [...valueTypes, ...(isNullable ? [irKeyword("null")] : [])];
   const type = withOtherStrings(unionOf(literals), schema);
   const isListable = values.every(
     (value) => typeof value === "string" || typeof value === "number",

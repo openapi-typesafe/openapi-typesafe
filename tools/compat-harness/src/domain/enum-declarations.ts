@@ -45,6 +45,15 @@ export function enumBlockAt(lines: readonly string[], firstLine: number): EnumBl
   return { name, members, firstLine, lastLine };
 }
 
+/** A member line: its name (group 1) and its value (group 2), without the comma after it. */
+const MEMBER_RE = new RegExp(`^(${IDENTIFIER_PATTERN}) = (.*?),?$`, "u");
+
+/** The values of an enum's members by member name, as printed (`"a"`, `1`). */
+export function memberValues(block: EnumBlock): Map<string, string> {
+  const members = block.members.split("\n").map((member) => MEMBER_RE.exec(member));
+  return new Map(members.flatMap((member) => (member ? [[member[1] ?? "", member[2] ?? ""]] : [])));
+}
+
 /** The enum declarations of the text by name. */
 export function enumBlocks(lines: readonly string[]): Map<string, EnumBlock> {
   const blocks = lines.flatMap((_, index) => enumBlockAt(lines, index) ?? []);

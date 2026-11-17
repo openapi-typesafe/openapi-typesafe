@@ -9,14 +9,14 @@ import type { RunContext } from "./run-context.js";
 const DOCS_URL =
   "https://github.com/openapi-typesafe/openapi-typesafe/blob/main/docs/advanced.md#inherited-enums";
 
-/** The warning for enum values that an `allOf` base's enum at the same place does not list. */
+/** The warning for enum or `const` values that an `allOf` base at the same place does not list. */
 export function notInheritedValuesWarning(found: NotInheritedEnumValues): string {
   const values = found.values.map((value) => JSON.stringify(value)).join(", ");
   const result = found.hasCommonValues
-    ? "The type lists the values both enums list."
-    : "The two enums list no common value, so the type is never.";
+    ? "The type lists the values both list."
+    : "The two list no common value, so the type is never.";
   return warningText(
-    `${found.path}: the enum lists ${values}, which the enum of ${found.base} does not; an allOf ` +
+    `${found.path}: the schema lists ${values}, which ${found.base} does not list; an allOf ` +
       `intersects the two, so no value of the schema can be one of these. ${result} ` +
       `See ${DOCS_URL}`,
     WARNING_CODES.ENUM_VALUES_NOT_INHERITED,

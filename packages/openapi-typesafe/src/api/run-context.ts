@@ -20,7 +20,11 @@ export interface RunContext extends GlobalContext {
      */
     readonly enumParents?: ReadonlyMap<
       object,
-      { readonly schema: SchemaObject; readonly path: string }
+      {
+        readonly schema: SchemaObject;
+        readonly path: string;
+        readonly isDeclaredByMember?: boolean;
+      }
     >;
     /**
      * With the `discriminator-values` fix: for each schema, the properties of the discriminators

@@ -208,6 +208,15 @@ describe("isIntersectedEnumUnified", () => {
     expect(isIntersectedEnumUnified(`${GOLDEN}${unused}`, UNIFIED)).toBe(false);
   });
 
+  it("isIntersectedEnumUnified with the same other lines among the enums returns true", () => {
+    const helper = "type WithRequired<T> = T;";
+    const withHelper = (text: string) =>
+      text.replace("export enum BaseCurrency {", `${helper}\nexport enum BaseCurrency {`);
+
+    expect(isIntersectedEnumUnified(withHelper(GOLDEN), withHelper(UNIFIED))).toBe(true);
+    expect(isIntersectedEnumUnified(withHelper(GOLDEN), UNIFIED)).toBe(false);
+  });
+
   it("isIntersectedEnumUnified with other lines after the enums returns false", () => {
     expect(isIntersectedEnumUnified(GOLDEN, `${UNIFIED}// extra`)).toBe(false);
     expect(isIntersectedEnumUnified(`${GOLDEN}// extra`, UNIFIED)).toBe(false);

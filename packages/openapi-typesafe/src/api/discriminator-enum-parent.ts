@@ -13,6 +13,8 @@ import type { EnumPatch } from "./discriminator-enum.js";
 export interface EnumParent {
   readonly schema: SchemaObject;
   readonly path: string;
+  /** The member's value is a property the document declares, with an enum of its own. */
+  readonly isDeclaredByMember?: boolean;
 }
 
 type ResolveSchemaRef = (ref: string) => unknown;

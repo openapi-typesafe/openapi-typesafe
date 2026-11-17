@@ -657,6 +657,90 @@ a union of its members, all values of the own enum; enum declarations may only b
 enum nothing references any more) or reordered. So the release gate still fails on any other
 change of compiling output.
 
+## Amendment (2026-11-17): values an `allOf` meets in two forms, and bases read through wrappers
+
+The amendment above left `never` where an `allOf` meets one value in two forms, and where it did
+not find the base's enum. All of these compile, so they are silent; they are fixed by default
+under `--enum`, as the rule of this ADR says for output that is silently wrong:
+
+- A TypeScript enum member is no literal: `PetMode & "a"` and `"a" & PetMode` are `never`. A
+  `const` (`mode: { const: a }`) or an enum `--enum` keeps as a union of literals (one that lists
+  `null` without `nullable-enums`, one without `x-enum-*` names under `--conditional-enums`) next
+  to a base's enum, and an enum next to a base's literals, were `never`.
+- A base's enum behind a one-item `allOf: [{ $ref }]` (with a `description`), inside `oneOf` /
+  `anyOf` variants (`[$ref, { type: "null" }]`, an enum or an integer), in the base's own `allOf`
+  items, or one more `allOf` level up (`Kitten` of `Cat` of `Pet`) was not read.
+- The inline parts of one `allOf` (the own keywords and each inline item) intersect too. A
+  member's own discriminator value (`kind: { const: cat }`) next to the property the scan adds
+  (`kind: CatKind`) was `{ kind?: "cat" } & { kind: CatKind }`, which is `never`.
+
+The rules, replacing rule 2 above and extending rule 1:
+
+1. A value is typed in the form the other schema admits it in (`baseValuesType`): by the members
+   of a base's enum where the base lists it as an enum member (`PetMode.a`), as a literal where
+   the base lists it as one, and in its own form where the base admits it so (a variant
+   `{ type: string }`, an object, a schema without `type`, an open enum for a string literal).
+   `null` stays a literal. A literal next to a base without an enum keeps its form: literals
+   intersect as they should. The own enum is still declared.
+2. The bases are read through `allOf` chains and wrappers (`expandedBases`): each `$ref` once, so
+   a cycle ends; the `$ref` items first, since a middle base is typed by the farthest enum. A
+   discriminator property that an `allOf` omits stays omitted at every level.
+3. The own keywords and the inline items of an `allOf` are bases of each other
+   (`inlineParts`), at the same location and slot. A literal takes the enum of any other part.
+   Of two enums, only the earlier part's (the own keywords, then the items in order) takes the
+   later one's members, so the two never take each other's; enums of one place are one owner
+   already (amendment of 2026-11-16) and keep their type. No warning comes from an inline part:
+   the document narrows its own place.
+4. The run's end joins the requests of one enum in a union (`(Mode.a | Mode.b) | Mode.c` reads
+   `Mode`), so a place typed by enums the run joins into one reads as before.
+5. `ENUM_VALUES_NOT_INHERITED` also names a `const` or literal the base's enum does not list,
+   and an enum value a base's literals do not list.
+
+Left as they were (no `never` there that the place can fix, or a known limit): an enum whose
+base admits any value of its type (`anyOf: [enum, { type: string }]`), and a property that is a
+`$ref`, which is typed once at its target for every place that uses it.
+
+With `--fix discriminator-values` (opt-in, so a change of correct output is allowed there): a
+member that declares exactly its value in its own keywords or an inline `allOf` item gets no
+added property also where the declaration is not required, and the declaration becomes required
+(`{ kind?: "cat" } & { kind: "cat" }` becomes `{ kind: "cat" }`). With `--enum` each declaration
+is typed by the owner's enum member, as an added property is; the member's own enum stays
+declared.
+
+Changes from rc.15, only with `--enum` by default: the cases above are satisfiable. Measured on
+the compat corpus (rc.15 against this build, 1,820 documents, 11 option sets):
+
+- Default and `--fix all` without `--enum`: unchanged, except the opt-in fix below.
+- `--enum` (also with `--dedupe-enums`, `--enum-values`, `nullable-enums`, `discriminator-values`):
+  12 documents change. The 10 github.com descriptions type a workflow job's or run's
+  `conclusion`, a nullable enum kept as literals before an intersected part with the enum, by
+  that enum (`Conclusion | null`); before, `conclusion` was `never`. nexmo.com messages-olympus
+  types `message_type` of two variants by the enum their base declares in a wrapper. rebilly.com
+  types the `documentType` the discriminator scan adds to four KYC documents by the members of
+  the base's `KycDocumentTypes`. Enum declarations move where the enum is now first declared
+  earlier.
+- `discriminator-values` (with `--fix all` too): ably.net, apple.com sirikit, cloudflare.com,
+  doqs.dev, json2video.com and openai.com drop the added property of members that declare their
+  value without requiring it (the description suffix the added property had goes with it, and
+  the member's own `default` shows). With `--enum`, ix-api.net and openai.com type a few
+  discriminator properties by a one-member enum instead of its member, or the other way round:
+  the same type.
+
+Each of the 95 changed outputs has as many TypeScript errors as before (none; cloudflare.com
+keeps its 4).
+
+The compat harness counts the `--enum` changes as fixes of invalid golden output
+(`isIntersectedEnumUnified`), now also where a property of literals is replaced by golden enums,
+their members and literals that admit only the golden literals (`isLiteralUnionUnified`), where
+the line sits before ` } & ` as well as after ` & {`, and where the footer has other lines (a
+`WithRequired` helper) that are the same in both texts. Every other change of compiling output
+still fails the gate.
+
+Speed (median of three runs, one document at a time, rc.15 against this build): api.github.com
+934 → 920 ms by default and 1,007 → 1,009 ms with `--enum`; Microsoft Graph 4,195 → 4,080 ms and
+4,448 → 4,813 ms (+8%); Stripe 348 → 349 ms and 401 → 426 ms (+6%). The cost is looking up the
+bases' values for each enum and `const` at a place of an `allOf`, which only `--enum` does.
+
 ## Review trigger
 
 Upstream merges one of the PRs above with a different default or flag: decide whether to follow

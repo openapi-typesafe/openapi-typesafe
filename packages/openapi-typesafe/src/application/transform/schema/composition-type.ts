@@ -13,9 +13,16 @@ import {
   unionOf,
   withRequiredKeys,
 } from "../type-combinators.js";
-import { resolvedPointer } from "./base-schemas.js";
+import { type BaseSchema, expandedBases } from "./base-schemas.js";
 import { coreType } from "./core-type.js";
 import { unionItemOf, unionOwnKeywords } from "./discriminated-union.js";
+import {
+  type InlineParts,
+  inlineParts,
+  OWN_KEYWORDS_PART,
+  partRequest,
+  withBases,
+} from "./intersected-parts.js";
 import { allOfMembers } from "./presence-members.js";
 import { requiredVariantsType } from "./required-variants.js";
 import { OWN_SLOT, type SchemaRequest } from "./schema-rule.js";
@@ -184,27 +191,27 @@ function allOfItemType(
  * but for the keys its type leaves out; the union's own keywords of a member are no base.
  */
 function withRefBases(items: readonly Schema[], request: SchemaRequest): SchemaRequest {
-  const bases = items.flatMap((item) => {
+  const bases = items.flatMap((item): BaseSchema[] => {
     // A boolean item throws where `allOfItemType` meets it, as in the original, not here.
     const isRef = typeof item === "object" && item !== null && isRefItem(item);
     const shape = isRef ? allOfItemShape(item, request) : undefined;
-    const pointer =
-      shape?.ref === undefined || shape.isOwnKeywords
-        ? null
-        : resolvedPointer(shape.ref, request.context.refs);
-    return pointer === null ? [] : [{ pointer, omitted: shape?.omitted ?? [] }];
+    return shape?.ref === undefined || shape.isOwnKeywords
+      ? []
+      : [{ pointer: shape.ref, node: undefined, inline: null, omitted: shape.omitted }];
   });
-  return bases.length === 0
-    ? request
-    : { ...request, baseSchemas: [...request.baseSchemas, ...bases] };
+  return withBases(request, expandedBases(bases, request.context));
 }
 
 function allOfTypes(
   items: readonly Schema[],
   required: readonly string[],
+  parts: InlineParts,
   request: SchemaRequest,
 ): IrType[] {
-  return items.flatMap((item) => allOfItemType(item, required, request) ?? []);
+  return items.flatMap((item, index) => {
+    const itemRequest = partRequest(parts, OWN_KEYWORDS_PART + index + 1, request);
+    return allOfItemType(item, required, itemRequest) ?? [];
+  });
 }
 
 function oneOfType(previous: IrType | null, variants: readonly IrType[]): IrType {
@@ -256,8 +263,9 @@ function composedType(schema: SchemaObject, request: SchemaRequest): IrType | nu
   let type: IrType | null = null;
   const { members, required } = allOfMembers(schema.allOf ?? [], request);
   const based = withRefBases(members, request);
-  const core = coreType(schema, based);
-  const allOf = allOfTypes(members, requiredKeys(schema, required), based);
+  const parts = inlineParts(schema, members, request);
+  const core = coreType(schema, partRequest(parts, OWN_KEYWORDS_PART, based));
+  const allOf = allOfTypes(members, requiredKeys(schema, required), parts, based);
   if (core !== null || allOf.length > 0) {
     const allOfType = allOf.length > 0 ? [intersectionOf(allOf)] : [];
     type = intersectionOf([...(core === null ? [] : [core]), ...allOfType]);

@@ -51,6 +51,11 @@ export interface Discriminator {
 export interface DiscriminatorEnumParent {
   readonly schema: SchemaObject;
   readonly path: string;
+  /**
+   * The member declares its value with an enum of its own, which stays declared so code that
+   * names it keeps compiling; the scan's added enums have none.
+   */
+  readonly isDeclaredByMember?: boolean;
 }
 
 export interface Discriminators {
@@ -176,16 +181,16 @@ export interface RefPointerChecks {
 }
 
 /**
- * Values an enum lists that the enum of a base at its place does not list (`baseSchemas`): an
+ * Values an enum or `const` lists that a base at its place does not list (`baseSchemas`): an
  * `allOf` intersects the two, so no value of the schema can be one of them.
  */
 export interface NotInheritedEnumValues {
   /** The location of the enum's schema. */
   readonly path: string;
-  /** The pointer of the base's enum. */
+  /** The pointer of the base's enum or values. */
   readonly base: string;
   readonly values: readonly (string | number)[];
-  /** Both enums list some value, so the schema is typed by those; else its type is `never`. */
+  /** Both list some value, so the schema is typed by those; else its type is `never`. */
   readonly hasCommonValues: boolean;
 }
 

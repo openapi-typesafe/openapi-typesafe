@@ -3,7 +3,13 @@ import { appendAll } from "../domain/append-all.js";
 import { FIX, type OutputFix } from "../domain/output-fixes.js";
 import { WARNING_CODES, warningText } from "../domain/warnings.js";
 import type { DiscriminatorObject, OpenAPI3, SchemaObject } from "../types.js";
-import { addEnumProperty, declaresValues, type EnumPatch } from "./discriminator-enum.js";
+import {
+  addEnumProperty,
+  type DeclaredValues,
+  declaredValues,
+  type EnumPatch,
+  requireDeclared,
+} from "./discriminator-enum.js";
 import {
   type DiscriminatorOwner,
   type EnumParent,
@@ -58,20 +64,43 @@ function patchedSchema(state: ScanState, patch: EnumPatch): SchemaObject | undef
 }
 
 /**
- * With `discriminator-values`: the schema at `patch.ref` requires the property with
- * exactly these values already, so a patch would only repeat it (#2124).
+ * With `discriminator-values`: the properties the schema at `patch.ref` declares with exactly
+ * these values already, so a patch would only repeat them (#2124); none without the fix.
  */
-function isDeclared(state: ScanState, patch: EnumPatch): boolean {
-  return (
-    state.fixes.has(FIX.DISCRIMINATOR_VALUES) && declaresValues(patchedSchema(state, patch), patch)
-  );
+function declarationsOf(state: ScanState, patch: EnumPatch): readonly DeclaredValues[] {
+  return state.fixes.has(FIX.DISCRIMINATOR_VALUES)
+    ? declaredValues(patchedSchema(state, patch), patch)
+    : [];
+}
+
+/**
+ * Declared values take the place of the patch: the property becomes required where it is
+ * declared, and with `--enum` each value is a member of the owner's enum, as a patch's would be,
+ * so no two of them intersect to `never`.
+ */
+function useDeclarations(
+  state: ScanState,
+  patch: EnumPatch,
+  declarations: readonly DeclaredValues[],
+): void {
+  for (const declared of declarations) {
+    requireDeclared(declared, patch.discriminator.propertyName);
+    recordEnumParent(state, patch, declared.property, true);
+  }
+  state.declaredKeys.add(enumKey(patch));
 }
 
 /**
  * With `discriminator-values`: the enum of the owner's property, for `key`: an enum the scan
- * added, or a discriminator object that a schema inherited.
+ * added, a property a member declares its value with, or a discriminator object that a schema
+ * inherited.
  */
-export function recordEnumParent(state: ScanState, owner: DiscriminatorOwner, key: object): void {
+export function recordEnumParent(
+  state: ScanState,
+  owner: DiscriminatorOwner,
+  key: object,
+  isDeclaredByMember = false,
+): void {
   if (!state.fixes.has(FIX.DISCRIMINATOR_VALUES)) {
     return;
   }
@@ -80,7 +109,7 @@ export function recordEnumParent(state: ScanState, owner: DiscriminatorOwner, ke
     resolveDocumentRef(state.schema, ref, { silent, logger }),
   );
   if (parent !== undefined) {
-    state.enumParents.set(key, parent);
+    state.enumParents.set(key, isDeclaredByMember ? { ...parent, isDeclaredByMember } : parent);
   }
 }
 
@@ -123,8 +152,9 @@ function mergeIntoPatchedEnum(state: ScanState, key: string, values: readonly st
  * patch adds a property, so two discriminators with different values intersect to `never`.
  */
 export function patchDiscriminatorEnum(state: ScanState, patch: EnumPatch): boolean {
-  if (isDeclared(state, patch)) {
-    state.declaredKeys.add(enumKey(patch));
+  const declarations = declarationsOf(state, patch);
+  if (declarations.length > 0) {
+    useDeclarations(state, patch, declarations);
     return true;
   }
   if (!mergesValues(state)) {

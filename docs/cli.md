@@ -187,7 +187,7 @@ A warning does not stop the run: the types are written and the exit code stays `
 | `DISCRIMINATOR_MAPPING_INVALID` | A discriminator `mapping` names a schema that is neither an object schema nor an `allOf`, so the generator cannot add the discriminator property to it. That schema keeps its type |
 | `DISCRIMINATOR_VALUE_NOT_ALLOWED` | A discriminator gives a schema a value that the schema's own discriminator property does not allow, so no value matches. The Discriminator Object requires the value, from `mapping` or the schema name, to be one the property admits; add a `mapping` entry. See [discriminator values](./advanced.md#discriminator-values) |
 | `ENUM_VALUES_EXCLUDED` | `--enum-values`: other keywords exclude some values of an enum (an `allOf` of enums with other values, a discriminator value the enum does not list), so the array is typed by its own values. See [enum values arrays](./advanced.md#enum-values-arrays) |
-| `ENUM_VALUES_NOT_INHERITED` | `--enum`: an enum lists values that the enum at the same place of an `allOf` `$ref` item's schema does not list, so no value can be one of them; the type lists the values both list. See [inherited enums](./advanced.md#inherited-enums) |
+| `ENUM_VALUES_NOT_INHERITED` | `--enum`: an enum or `const` lists values that the enum or values at the same place of an `allOf` `$ref` item's schema do not list, so no value can be one of them; the type lists the values both list. See [inherited enums](./advanced.md#inherited-enums) |
 | `FIX_NEEDS_OPTION` | A [fix](#fix) is named without the option it needs (`array-length-tuples` without `--array-length`, `root-type-numbering` without `--root-types`), so it changes nothing |
 | `LINT_PROBLEM` | A Redocly lint rule with severity `warn` found a problem, such as `operation-operationId-unique` ("Every operation must have a unique `operationId`"). The rule is named before the code. Without a `redocly.yaml`, the rules of Redocly's `minimal` config apply, with `operation-operationId-unique` as a warning. Operations with a repeated `operationId` still get distinct keys in `operations`: the first in document order keeps the ID, each later one gets the lowest number from 2 that no other operation has as its ID (`listItems2`, the name `--make-paths-enum` gives it too) |
 | `PATH_TEMPLATES_IDENTICAL` | Paths differ only in their parameter names, such as `/users/{id}` and `/users/{name}`. The OpenAPI Paths Object forbids this: "Templated paths with the same hierarchy but different templated names MUST NOT exist as they are identical." See [pathParamsAsTypes](#pathparamsastypes) for the output |
@@ -980,9 +980,16 @@ AgentImage: components["schemas"]["ImageBase"] & { type: "agent" }; // [!code ++
 ```
 
 The added property has the same type, so the output is right but noisy. With the fix, a member
-that requires the property, in its own keywords or an inline `allOf` item, with an `enum` or
-`const` of exactly its discriminator values gets no added property. A member that declares other
-values, or does not require the property, still gets it.
+that declares the property, in its own keywords or an inline `allOf` item, with an `enum` or
+`const` of exactly its discriminator values gets no added property. Where it does not require the
+property, the property becomes required there, as the discriminator requires it
+(`{ type?: "agent" } & { type: "agent" }` becomes `{ type: "agent" }`). A member that declares
+other values still gets the added property. With `--enum`, each declared value is a member of the
+owner's enum, as an added one is (see below); the member's own enum is still declared.
+
+With `--enum` and without the fix, a declared `const` next to the added property is typed by the
+added enum's member (`{ type?: AgentImageType } & { type: AgentImageType }`), so the two do not
+intersect to `never` (see [inherited enums](./advanced.md#inherited-enums)).
 
 ##### Enum members with `--enum`
 

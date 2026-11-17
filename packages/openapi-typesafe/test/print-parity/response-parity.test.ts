@@ -5,6 +5,7 @@ import type { IrType } from "../../src/domain/ir/nodes.js";
 import transformRequestBodyObject from "../../src/transform/request-body-object.js";
 import transformResponseObject from "../../src/transform/response-object.js";
 import transformResponsesObject from "../../src/transform/responses-object.js";
+import { intersectsEnumWithLiterals } from "./enum-intersections.js";
 import originalTransformRequestBodyObject from "./original/request-body-object.js";
 import originalTransformResponseObject from "./original/response-object.js";
 import originalTransformResponsesObject from "./original/responses-object.js";
@@ -66,6 +67,7 @@ function checkParity<T>(
   fc.assert(
     fc.property(arbitrary, contextInput, (value: T, input: ContextInput) => {
       fc.pre(!mergesDifferentInputEnums(value, input));
+      fc.pre(!intersectsEnumWithLiterals(value, input));
       const run = (build: Transform) =>
         runLegacy((options) => build(value as never, options as never), input, input.path);
       const expected = run(original);
