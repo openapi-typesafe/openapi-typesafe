@@ -126,7 +126,8 @@ reported. A Makefile variable is read as the value its lines build in make's ord
 then `G += openapi-typescript` is one command, and a later `G := mytool` replaces the earlier
 value; `override`, an assignment for some targets (`gen: G += -it`, which their prerequisites
 get too) and an `ifeq`/`ifdef` block (each branch is one possible value) count as make counts
-them. Make's own lines are read as make reads them: the body of a `define` is the variable's
+them. Make's own lines are read as make reads them: a CR LF line end is a line end (the file
+keeps its CR LF), the body of a `define` is the variable's
 value, a comment ends at the line end that no backslash continues, an assignment may be indented
 (with a tab only before the first rule), a target or a value for some targets whose name holds a
 variable (`$(T): GEN = …`) may apply to any target, and the text that `$(eval …)` gets is read as

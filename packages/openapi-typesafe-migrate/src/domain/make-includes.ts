@@ -1,3 +1,4 @@
+import { makeText } from "./make-line-ends.js";
 import { type MakeInclude, readMakeLines } from "./make-lines.js";
 import { projectPathFrom } from "./relative-references.js";
 
@@ -37,15 +38,17 @@ function includedPath(folder: string, written: string): string | undefined {
 
 /** The project paths that the `include` lines of a text name, from the folder make runs in. */
 export const includedPaths = (text: string, folder: string): string[] =>
-  readMakeLines(text).includes.flatMap(({ paths }) =>
+  readMakeLines(makeText(text).text).includes.flatMap(({ paths }) =>
     paths.flatMap(({ text: written }) => includedPath(folder, written) ?? []),
   );
 
 /** A part of the joined text: from the Makefile itself, or from a file it includes. */
 interface TextPart {
   readonly text: string;
-  /** Where the part starts in the text of the file it comes from. */
+  /** Where the part starts in the text of the file it comes from, as make reads that text. */
   readonly originStart: number;
+  /** Where an offset of the file's text as make reads it is written in the file. */
+  readonly writtenOffset: (offset: number) => number;
   /** The file the part comes from: the Makefile is `""`. */
   readonly origin: string;
   /** Which read of a file the part belongs to: a file included twice is read twice. */
@@ -71,12 +74,14 @@ function includedTexts(include: MakeInclude, context: SpliceContext, seen: reado
 }
 
 /** The parts of a text with its read includes put in; `seen` stops a file including itself. */
-function splicedParts(text: string, context: SpliceContext, seen: readonly string[]): TextPart[] {
+function splicedParts(written: string, context: SpliceContext, seen: readonly string[]) {
+  const { text, writtenOffset } = makeText(written);
   const origin = seen.at(-1) ?? "";
   const read = seen.length === 0 ? 0 : ++context.reads.count;
-  const own = (start: number, end: number, written = text.slice(start, end)): TextPart => ({
-    text: written,
+  const own = (start: number, end: number, partText = text.slice(start, end)): TextPart => ({
+    text: partText,
     originStart: start,
+    writtenOffset,
     origin,
     read,
   });
@@ -125,7 +130,11 @@ function offsetsOfRead(segments: readonly Segment[], read: number): OffsetIn {
   const ofRead = segments.filter(({ part }) => part.read === read);
   return (at) => {
     const found = ofRead.find(({ start, end }) => start <= at && at < end);
-    return found === undefined ? undefined : found.part.originStart + at - found.start;
+    if (found === undefined) {
+      return undefined;
+    }
+    const { part, start } = found;
+    return part.writtenOffset(part.originStart + at - start);
   };
 }
 

@@ -10,6 +10,8 @@ const BACKSLASH = "\\";
 const COMMENT = "#";
 const DOLLAR = "$";
 const BLANKS: ReadonlySet<string> = new Set([" ", "\t"]);
+/** What make splits the words of its own lines at: C's `isspace` but the line break. */
+const WORD_SEPARATORS: ReadonlySet<string> = new Set([...BLANKS, "\r", "\v", "\f"]);
 const CLOSING: Readonly<Record<string, string>> = { "(": ")", "{": "}" };
 
 /** A part of a text: from `start` up to, not including, `end`. */
@@ -102,17 +104,32 @@ export function findOutsideReferences(
   return -1;
 }
 
-/** The words of a part of a line, split at blanks outside references. */
+const isWordSeparator = (char: string | undefined): boolean =>
+  char !== undefined && WORD_SEPARATORS.has(char);
+
+/** The first index at or after `from` that is not a word separator, or `end`. */
+function skipSeparators(text: string, from: number, end: number): number {
+  let index = from;
+  while (index < end && isWordSeparator(text[index])) {
+    index++;
+  }
+  return index;
+}
+
+/**
+ * The words of a part of a line, split outside references at the characters that C's `isspace`
+ * gives (make's `MAP_SPACE`): blanks, and also a CR that no LF follows.
+ */
 export function makeWords(text: string, { start, end }: TextRange): MakeWord[] {
   const words: MakeWord[] = [];
-  let index = skipBlanks(text, start, end);
+  let index = skipSeparators(text, start, end);
   while (index < end) {
     const wordStart = index;
-    while (index < end && !isBlank(text[index])) {
+    while (index < end && !isWordSeparator(text[index])) {
       index = text[index] === DOLLAR ? referenceEnd(text, index, end) : index + 1;
     }
     words.push({ text: text.slice(wordStart, index), start: wordStart });
-    index = skipBlanks(text, index, end);
+    index = skipSeparators(text, index, end);
   }
   return words;
 }
