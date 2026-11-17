@@ -10,7 +10,7 @@ bug. This page shows how that is checked and what the last run found. CI runs th
 every night; this page is refreshed from that run for every release candidate and every major or
 minor release, and the GitHub release notes link it.
 
-**Result (openapi-typesafe 1.0.0-rc.14, commit `ebc35a183bfa`, run of 2026-11-16):** 50,960 cases,
+**Result (openapi-typesafe 1.0.0-rc.15, commit `651142373d5e`, run of 2026-11-16):** 50,960 cases,
 0 unexpected differences. 99.88% of the outputs are the same byte for byte, and 100% have the same
 types.
 
@@ -43,16 +43,16 @@ For every case the tool generates the types with both generators and compares th
 
 | Result | Cases | What it means |
 | --- | ---: | --- |
-| Same bytes | 49,069 | The output is the same file. |
+| Same bytes | 49,054 | The output is the same file. |
 | Same types | 60 | `--enum-values` constants: the array of a path item parameter indexes the member that holds it, and names that start with a digit (not valid JavaScript) get a `value` prefix (59); an inherited discriminator property declared twice is written once (1). Every exported type is equal. |
 | Different | 0 | — |
-| Golden output does not compile | 1,657 | The outputs differ and openapi-typescript 7.13 writes TypeScript with errors; ours has no more errors, and 1,550 of these compile without any ([see below](#golden-output-that-does-not-compile)). |
-| Golden output merges enums | 6 | The golden file compiles, but TypeScript merges two enums of one name into one (3 cases of two documents), or `--dedupe-enums` gives a property the enum of other values, such as the numbers `1 \| 2` for the strings `"1" \| "2"` (3 cases). Ours keeps each enum apart and compiles. |
+| Golden output does not compile | 1,658 | The outputs differ and openapi-typescript 7.13 writes TypeScript with errors; ours has no more errors, and 1,551 of these compile without any ([see below](#golden-output-that-does-not-compile)). |
+| Golden output mixes enums | 20 | The golden file compiles, but TypeScript merges two enums of one name into one (3 cases of two documents), `--dedupe-enums` gives a property the enum of other values, such as the numbers `1 \| 2` for the strings `"1" \| "2"` (3 cases), or a property that `allOf` narrows gets its own enum next to the base's, and two enums intersect to `never` (14 cases of six documents). Ours keeps each enum apart, types a narrowed property by the base's enum (`Base.member`), and compiles. |
 | Golden generator fails | 168 | openapi-typescript 7.13 stops with an error on 6 documents (see below). |
 | Candidate fails | 0 | — |
 
 The rates count only cases where the golden output exists and is either the same file or compiles
-and keeps its enums apart (49,129 cases): byte identity **99.88%**, type identity **100%**, and **100%** of the golden types
+and keeps its enums apart (49,114 cases): byte identity **99.88%**, type identity **100%**, and **100%** of the golden types
 are kept.
 
 ### Documents the golden generator cannot load
@@ -78,7 +78,7 @@ the same strict settings.
 | A `$ref` into another schema's keywords (22 documents) | 613 | 525 | Writes the type the pointer means ([ref pointers](./cli.md#ref-pointers)). Three Codat documents point into a schema's own `definitions` from inside it, where ours keeps the original type; with `--read-write-markers` the pointers keep it too. |
 | `--path-params-as-types` | 827 | 817 | A path template such as `` `/apps/${string}` `` also matches another path whose type does not fit; ours writes such templates in an intersection where the error is sure (see the [CLI docs](./cli.md#pathparamsastypes)). |
 | `--make-paths-enum` | 78 | 78 | Paths that map to the same member name get distinct names. |
-| `--enum` (with `--enum-values`, `--dedupe-enums`, `--conditional-enums`) | 112 | 105 | Enum members whose names collide are numbered, and names that start with a digit get a prefix. |
+| `--enum` (with `--enum-values`, `--dedupe-enums`, `--conditional-enums`) | 113 | 106 | Enum members whose names collide are numbered, and names that start with a digit get a prefix. |
 | `--root-types-no-schema-prefix` | 14 | 14 | A schema named like a global type the output uses (`Record`) gets a number. |
 | `--exclude-deprecated` | 12 | 11 | A kept schema points to a deprecated one, which ours keeps. |
 | `--root-types-keep-casing` | 1 | 0 | A schema name that is not a valid identifier. |
