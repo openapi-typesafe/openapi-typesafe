@@ -22,6 +22,7 @@ describe("redactUrlSecrets", () => {
       "Cannot load https://api.example/s.yaml?***#/a: 500",
     ],
     ['ref "https://h/x.yaml?sig=SECRET" failed', 'ref "https://h/x.yaml?***" failed'],
+    ["see <https://h/x.yaml?sig=SECRET> now", "see <https://h/x.yaml?***> now"],
     ["https://h/x?a=1 and https://h/y?b=2", "https://h/x?*** and https://h/y?***"],
     ["https://h/x.yaml#/a?b", "https://h/x.yaml#/a?b"],
     ["see https://api.example me@example.com", "see https://api.example me@example.com"],
@@ -62,6 +63,8 @@ describe("redactUrlSecrets", () => {
     ["`ab:/`", "ab:/"],
     ["`1a://`", "1a://"],
     ["`a.b-`", "a.b-"],
+    ["`http:!`", "http:!"],
+    ["`!`", "!"],
   ])("redactUrlSecrets is linear on a long run of %s", (_name, unit) => {
     const text = unit.repeat(200_000);
     const startedAt = performance.now();

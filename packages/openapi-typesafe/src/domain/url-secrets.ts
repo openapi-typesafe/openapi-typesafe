@@ -26,7 +26,8 @@ const URL_START = /(?<![a-z\d+.-])[a-z][a-z\d+.-]+:|:\/\//gi;
  * punctuation that closes a sentence or a parenthesis (`… x.yaml?key=1: 404`, `(… ?key=1)`), which
  * the message puts after the URL; a hidden query would hide it too.
  */
-const URL_REST = /[^\s"'<>]*[^\s"'<>.,:;!?)]/y;
+const URL_RUN = /[^\s"'<>]*/y;
+const SENTENCE_END: ReadonlySet<string> = new Set([".", ",", ":", ";", "!", "?", ")"]);
 
 const SCHEME_END = ":";
 const AUTHORITY_START = "//";
@@ -121,12 +122,27 @@ function isUrlStart(text: string, start: string, index: number): boolean {
   return hasUrlScheme(text.slice(index, index + start.length + AUTHORITY_START.length));
 }
 
+/**
+ * Where the URL that starts at `start` of a message ends: after its run of URL characters, less the
+ * sentence punctuation at the end of that run. Read in two linear steps, not by one pattern that
+ * ends the run on a character class, which would backtrack over a long run of punctuation.
+ */
+function urlEnd(text: string, start: number): number {
+  URL_RUN.lastIndex = start;
+  URL_RUN.exec(text);
+  let end = URL_RUN.lastIndex;
+  // A URL starts with a scheme letter or the `/` after a bare `:`, so the loop stops at its start.
+  while (SENTENCE_END.has(text.charAt(end - 1))) {
+    end--;
+  }
+  return end;
+}
+
 /** The URL that starts at `index` of a message, with its secrets hidden, and where it ends. */
 function redactUrlAt(text: string, index: number, start: string): { shown: string; end: number } {
   // A bare `://` keeps its colon outside the URL, so the rest reads as an authority after `//`.
   const urlStart = start === BARE_AUTHORITY_START ? index + SCHEME_END.length : index;
-  URL_REST.lastIndex = urlStart;
-  const end = URL_REST.exec(text) === null ? urlStart : URL_REST.lastIndex;
+  const end = urlEnd(text, urlStart);
   const url = redactUrlText(text.slice(urlStart, end));
   return { shown: `${text.slice(index, urlStart)}${url}`, end };
 }
