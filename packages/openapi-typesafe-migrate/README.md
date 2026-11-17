@@ -132,9 +132,13 @@ value, a comment ends at the line end that no backslash continues, an assignment
 (with a tab only before the first rule), a target or a value for some targets whose name holds a
 variable (`$(T): GEN = …`) may apply to any target, and the text that `$(eval …)` gets is read as
 Makefile lines, after the expansion make gives it first (`$$(GEN)` in a template is `$(GEN)`
-there, and `$$$$GEN`, read two `$` at a time from the left, a recipe's `$$GEN`). The files that `include`, `-include` and `sinclude` name are read where they are
-in the project; one that is missing, outside it, or named by a variable or a wildcard may set
-any variable, so the flags after a variable are reported then. A file that a Makefile includes
+there, and `$$$$GEN`, read two `$` at a time from the left, a recipe's `$$GEN`). The files that `include`, `-include` and `sinclude` name are found as make finds them:
+the line's variables are expanded with the values set before it (`include $(MK)/tools.mk` after
+`MK := mk`), and a wildcard (`include mk/*.mk`) reads the project files it matches, in order. A
+file that is missing, outside the project, or named by a variable whose value comes from outside
+the file (the environment, a `$(shell …)`, a branch of a conditional) may set any variable, so
+the flags after a variable are reported then, and such a Makefile is read even when it names no
+old package. A file that a Makefile includes
 is migrated as a Makefile whatever its name (`config.make`, `.env`), with the values of each
 Makefile that includes it: `$(GEN) api.yaml -it` in `mk/gen.mk` is renamed when the including
 Makefile sets `GEN` to the generator, and reported when the Makefiles that include it (or make

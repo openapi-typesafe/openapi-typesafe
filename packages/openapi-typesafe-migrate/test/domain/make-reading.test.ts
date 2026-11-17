@@ -23,6 +23,7 @@ const keptStep = (line: number, name = "GEN") => ({
 const projectFiles = (files: Readonly<Record<string, string>>): CalledMakefiles => ({
   ...NO_CALLED_MAKEFILES,
   includedText: (path) => files[path],
+  listedPaths: Object.keys(files),
 });
 
 const migrated = (text: string, called: CalledMakefiles = NO_CALLED_MAKEFILES) =>
@@ -278,15 +279,12 @@ describe("migrateMakefile and included files", () => {
 
   it.each([
     ["a reference", "include $(TOOLS)"],
-    ["a wildcard", "include *.mk"],
+    ["a wildcard that matches no file", "include *.make"],
     ["one unread file of two", "include tools.mk other.mk"],
+    ["a path outside the project", "include ../tools.mk"],
   ])("migrateMakefile reports the flags after an include with %s", (_case, include) => {
     const text = main.replace("include tools.mk", include);
-    const files = {
-      "tools.mk": lines("X = 1"),
-      "$(TOOLS)": lines("GEN = grep"),
-      "*.mk": lines("GEN = grep"),
-    };
+    const files = { "tools.mk": lines("X = 1"), "$(TOOLS)": lines("GEN = grep") };
 
     expect(migrated(text, projectFiles(files)).manualSteps).toEqual([keptStep(4)]);
   });

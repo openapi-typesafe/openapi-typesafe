@@ -1,9 +1,9 @@
 import type { AppendedValue, Finding } from "./argument-findings.js";
 import { commandWordFindingList } from "./command-migration.js";
 import type { FileVariables } from "./file-variables.js";
-import { blanked, shellText, withoutMakeText } from "./make-assignments.js";
+import { blanked, shellText } from "./make-assignments.js";
 import { type CalledMakefiles, makeCallAppends, NO_CALLED_MAKEFILES } from "./make-calls.js";
-import { evaluatedText, withExpandedEscapes } from "./make-evaluations.js";
+import { withExpandedEscapes } from "./make-evaluations.js";
 import {
   type FunctionCall,
   functionCommands,
@@ -12,16 +12,16 @@ import {
   type UnreadCall,
   unreadCallSteps,
 } from "./make-expansions.js";
+import { allLines, makeFile } from "./make-file-lines.js";
 import {
   type IncludedFiles,
   type MakefileSource,
   type OffsetIn,
   withIncludedFiles,
 } from "./make-includes.js";
-import { type MakeAssignment, type MakeLines, readMakeLines } from "./make-lines.js";
+import type { MakeAssignment } from "./make-lines.js";
 import type { MakeReading } from "./make-programs.js";
-import { makeTargets } from "./make-rules.js";
-import { type MakeFile, makeValues, replacesCommandLine } from "./make-values.js";
+import { makeValues, replacesCommandLine } from "./make-values.js";
 import { assignmentReadings, exportedProgram, makefileVariables } from "./make-variables.js";
 import type { FileFindings } from "./makefile-reads.js";
 import { type ShellCommand, shellCommands } from "./shell-words.js";
@@ -75,28 +75,6 @@ const assignmentWords = (
         .sort((left, right) => left.start - right.start),
     ]),
   );
-
-/** The lines of a Makefile with the text `$(eval …)` reads, and the text without make's own. */
-function allLines(source: MakefileSource) {
-  const { text, fileStarts } = source;
-  const lines = readMakeLines(text, { fileStarts });
-  const plain = withoutMakeText(text, lines);
-  const evaluated = evaluatedText(text, plain, lines);
-  const assignments = [...lines.assignments, ...evaluated.lines.assignments].sort(
-    (left, right) => left.start - right.start,
-  );
-  const hidden = [...lines.hidden, ...evaluated.lines.hidden];
-  const { calls, expanded } = evaluated;
-  return { lines: { ...lines, assignments, hidden }, plain, calls, expanded };
-}
-
-/** What make reads of a Makefile's values: the lines become the input of make-values.ts. */
-const makeFile = (lines: MakeLines): MakeFile => ({
-  assignments: lines.assignments,
-  conditionals: lines.conditionals,
-  unreadIncludes: lines.includes,
-  targets: makeTargets(lines.rules),
-});
 
 /** How make reads a Makefile: its assignments, their values and its rules, and its commands. */
 interface ReadMakefile extends MakeReading {
