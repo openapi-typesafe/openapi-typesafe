@@ -72,3 +72,31 @@ export function intersectsEnumWithLiterals(value: unknown, input: ContextInput):
   const children = isNode(value) || Array.isArray(value) ? Object.values(value) : [];
   return isIntersected || children.some((child) => intersectsEnumWithLiterals(child, input));
 }
+
+function valueKey(list: ValueList): string {
+  return JSON.stringify([...new Set(list.values.map((value) => JSON.stringify(value)))].sort());
+}
+
+/** The TypeScript enums of one location: the node's own value list and its `allOf` items'. */
+function locationEnums(node: Node, input: ContextInput): ValueList[] {
+  const items = Array.isArray(node.allOf) ? node.allOf.filter(isNode) : [];
+  const lists = [node, ...items].map((part) => valueListOf(part, input));
+  return lists.filter((list): list is ValueList => list?.isEnum === true);
+}
+
+/**
+ * Whether some location's `allOf` holds enums of different values under `--dedupe-enums`. The
+ * original declared one enum per part and deduped each with other enums of its values; the new
+ * generator declares one enum per location (TypeScript intersects the parts), so a part of fewer
+ * values reads the location's enum narrowed (`never` for an empty list). Without dedupe the
+ * original repeated the declaration (`hasRepeatedEnumDeclarations`).
+ */
+export function dedupesEnumsOfOneLocation(value: unknown, input: ContextInput): boolean {
+  if (!(input.flags.enum && input.flags.dedupeEnums)) {
+    return false;
+  }
+  const enums = isNode(value) ? locationEnums(value, input) : [];
+  const isSplit = new Set(enums.map(valueKey)).size > 1;
+  const children = isNode(value) || Array.isArray(value) ? Object.values(value) : [];
+  return isSplit || children.some((child) => dedupesEnumsOfOneLocation(child, input));
+}

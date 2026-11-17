@@ -8,7 +8,7 @@ import {
   documentArbitrary as document,
   injectArbitrary as inject,
 } from "./document-arbitraries.js";
-import { intersectsEnumWithLiterals } from "./enum-intersections.js";
+import { dedupesEnumsOfOneLocation, intersectsEnumWithLiterals } from "./enum-intersections.js";
 import originalTransformSchema from "./original/index.js";
 import {
   type ContextInput,
@@ -68,7 +68,9 @@ function run(transform: Transform, value: unknown, input: ContextInput, code?: s
  * Counterexamples of earlier runs, checked first on every run. Seed -238361748: an
  * `--enum-values` type of a templated path with `--path-params-as-types`. Seed -2008229445: the
  * enum of a path item parameter in a `oneOf` member, whose `--enum-values` type repeats
- * `parameters` inside `Extract`.
+ * `parameters` inside `Extract`. Seed 287548961: under `--dedupe-enums`, an `allOf` of an empty
+ * enum and another enum at one place, where the original deduped the empty part with another
+ * schema's empty enum (`dedupesEnumsOfOneLocation`).
  */
 const NO_FLAGS = Object.fromEntries(OPTION_KEYS.map((name) => [name, false]));
 
@@ -118,6 +120,25 @@ const EXAMPLES = [
     },
     undefined,
   ],
+  [
+    {
+      webhooks: {
+        a: { parameters: [{ in: "query", schema: { additionalProperties: { enum: [] } } }] },
+        b: {
+          parameters: [{ in: "query", schema: { allOf: [{ enum: [] }, { enum: ["x"] }] } }],
+        },
+      },
+    },
+    {
+      flags: { ...NO_FLAGS, enum: true, dedupeEnums: true },
+      callbacks: 0,
+      path: "#/components/schemas/Root",
+      isFromAdditionalProperties: false,
+      hasDiscriminator: false,
+      handledRefs: [],
+    },
+    undefined,
+  ],
 ] as unknown as [unknown, ContextInput, string | undefined][];
 
 describe("root transformer parity with the fork base", () => {
@@ -138,6 +159,7 @@ describe("root transformer parity with the fork base", () => {
           fc.pre(!reachesFixedLegacyBug(value, input));
           fc.pre(!mergesDifferentInputEnums(value, input));
           fc.pre(!intersectsEnumWithLiterals(value, input));
+          fc.pre(!dedupesEnumsOfOneLocation(value, input));
           fc.pre(!listsExcludedOperations(value, input));
           const output = run(transformSchema, value, input, code);
           fc.pre(!hasRetypedEnumValues(output));

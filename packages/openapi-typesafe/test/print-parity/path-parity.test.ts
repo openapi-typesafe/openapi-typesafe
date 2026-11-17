@@ -17,7 +17,7 @@ import {
   pathsArbitrary as paths,
   webhooksArbitrary as webhooks,
 } from "./document-arbitraries.js";
-import { intersectsEnumWithLiterals } from "./enum-intersections.js";
+import { dedupesEnumsOfOneLocation, intersectsEnumWithLiterals } from "./enum-intersections.js";
 import originalTransformOperationObject, {
   injectOperationObject as originalInjectOperationObject,
 } from "./original/operation-object.js";
@@ -66,6 +66,7 @@ function property<T>(arbitrary: fc.Arbitrary<T>, check: (value: T, input: Contex
   const checkKept = (value: T, input: ContextInput) => {
     fc.pre(!mergesDifferentInputEnums(value, input));
     fc.pre(!intersectsEnumWithLiterals(value, input));
+    fc.pre(!dedupesEnumsOfOneLocation(value, input));
     check(value, input);
   };
   fc.assert(fc.property(arbitrary, contextInput, checkKept), { numRuns: RUNS });

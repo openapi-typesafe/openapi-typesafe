@@ -5,7 +5,7 @@ import type { IrPrintable } from "../../src/application/print/print-nodes.js";
 import { astToString } from "../../src/index.js";
 import transformComponentsObject from "../../src/transform/components-object.js";
 import { componentsArbitrary as components } from "./document-arbitraries.js";
-import { intersectsEnumWithLiterals } from "./enum-intersections.js";
+import { dedupesEnumsOfOneLocation, intersectsEnumWithLiterals } from "./enum-intersections.js";
 import originalTransformComponentsObject from "./original/components-object.js";
 import {
   type ContextInput,
@@ -53,6 +53,7 @@ describe("components transformer parity with the fork base", () => {
           fc.pre(!reachesFixedLegacyBug(value, input));
           fc.pre(!mergesDifferentInputEnums(value, input));
           fc.pre(!intersectsEnumWithLiterals(value, input));
+          fc.pre(!dedupesEnumsOfOneLocation(value, input));
           const expected = run(originalTransformComponentsObject, value, input);
           fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
           fc.pre(!hasRepeatedEnumDeclarations(expected));
