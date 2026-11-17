@@ -13,8 +13,8 @@ version number:
 | Package | Role | Replaces |
 | :-- | :-- | :-- |
 | `openapi-typesafe` | Generator: CLI and Node API (dev dependency) | `openapi-typescript` |
-| `openapi-typesafe-fetch` | Typed `fetch` client, about 11 kB minified | `openapi-fetch` |
-| `openapi-typesafe-react-query` | TanStack Query v5 hooks on top of the client, about 7.4 kB minified | `openapi-react-query` |
+| `openapi-typesafe-fetch` | Typed `fetch` client, about 12 kB minified | `openapi-fetch` |
+| `openapi-typesafe-react-query` | TanStack Query v5 hooks on top of the client, about 8.7 kB minified | `openapi-react-query` |
 | `openapi-typesafe-helpers` | Shared utility types | `openapi-typescript-helpers` |
 | `openapi-typesafe-migrate` | One-off migration command, run with `npx` | none |
 
@@ -102,7 +102,8 @@ const created = await client.POST("/pets", {
 - `parseAs: "text" | "blob" | "arrayBuffer" | "stream"` changes how a success body is read
   (default `"json"`).
 - Per-request `headers`, `signal`, `baseUrl` and `fetch` override the client options. Headers can
-  be a record, a `Headers` object or a list of pairs; `null` removes a client header, and
+  be a record, a `Headers` object or any iterable of pairs (an array, a `Map`, `map.entries()`);
+  in every form `null` removes a client header, `undefined` sends nothing, and
   `params.header` wins over both.
 - A path parameter that makes a `.` or `..` segment, or an empty first segment (`//host`), throws
   before the request.
