@@ -10,8 +10,8 @@ const BACKSLASH = "\\";
 const COMMENT = "#";
 const DOLLAR = "$";
 const BLANKS: ReadonlySet<string> = new Set([" ", "\t"]);
-/** What make splits the words of its own lines at: C's `isspace` but the line break. */
-const WORD_SEPARATORS: ReadonlySet<string> = new Set([...BLANKS, "\r", "\v", "\f"]);
+/** What make splits the words of its own lines at: C's `isspace`. */
+const WORD_SEPARATORS: ReadonlySet<string> = new Set([...BLANKS, LINE_BREAK, "\r", "\v", "\f"]);
 const CLOSING: Readonly<Record<string, string>> = { "(": ")", "{": "}" };
 
 /** A part of a text: from `start` up to, not including, `end`. */
@@ -104,13 +104,18 @@ export function findOutsideReferences(
   return -1;
 }
 
-const isWordSeparator = (char: string | undefined): boolean =>
-  char !== undefined && WORD_SEPARATORS.has(char);
+/**
+ * Whether the character at `index` splits make's words. Make reads a backslash and the line
+ * break it continues as a blank in its own lines, so the backslash splits words too.
+ */
+const isWordSeparator = (text: string, index: number): boolean =>
+  WORD_SEPARATORS.has(text[index] ?? "") ||
+  (text[index] === BACKSLASH && text[index + 1] === LINE_BREAK);
 
 /** The first index at or after `from` that is not a word separator, or `end`. */
 function skipSeparators(text: string, from: number, end: number): number {
   let index = from;
-  while (index < end && isWordSeparator(text[index])) {
+  while (index < end && isWordSeparator(text, index)) {
     index++;
   }
   return index;
@@ -118,14 +123,14 @@ function skipSeparators(text: string, from: number, end: number): number {
 
 /**
  * The words of a part of a line, split outside references at the characters that C's `isspace`
- * gives (make's `MAP_SPACE`): blanks, and also a CR that no LF follows.
+ * gives (make's `MAP_SPACE`): blanks, a CR that no LF follows, and a continued line break.
  */
 export function makeWords(text: string, { start, end }: TextRange): MakeWord[] {
   const words: MakeWord[] = [];
   let index = skipSeparators(text, start, end);
   while (index < end) {
     const wordStart = index;
-    while (index < end && !isWordSeparator(text[index])) {
+    while (index < end && !isWordSeparator(text, index)) {
       index = text[index] === DOLLAR ? referenceEnd(text, index, end) : index + 1;
     }
     words.push({ text: text.slice(wordStart, index), start: wordStart });

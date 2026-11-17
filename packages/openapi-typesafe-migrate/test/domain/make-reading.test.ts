@@ -427,7 +427,10 @@ describe("migrateMakefile and the escapes in evaluated text", () => {
 
   it.each([
     ["an eval argument", evaluated("a: ; $$$(GEN) a.yaml -it")],
-    ["a template", lines("define TPL", "a: ; echo $$$$$$(GEN) a.yaml -it", "endef", "$(eval $(TPL))")],
+    [
+      "a template",
+      lines("define TPL", "a: ; echo $$$$$$(GEN) a.yaml -it", "endef", "$(eval $(TPL))"),
+    ],
   ])("migrateMakefile reads an odd run of $ in %s as $ before a reference", (_, evaluation) => {
     const text = lines("GEN := npx openapi-typescript", evaluation.trimEnd());
 

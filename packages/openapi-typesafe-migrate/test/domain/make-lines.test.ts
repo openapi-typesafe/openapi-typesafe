@@ -242,6 +242,12 @@ describe("readMakeLines", () => {
     expect(hiddenOf(read, text)).toHaveLength(7);
   });
 
+  it("readMakeLines splits the words of an include at a continued line break", () => {
+    const [include] = readMakeLines(lines("include a.mk \\", "  b.mk\\", "c.mk")).includes;
+
+    expect(include?.paths.map(({ text: path }) => path)).toEqual(["a.mk", "b.mk", "c.mk"]);
+  });
+
   it("readMakeLines reads a tab-started conditional in a recipe as shell text", () => {
     const read = readMakeLines(lines("all:", "\tifeq x"));
 
