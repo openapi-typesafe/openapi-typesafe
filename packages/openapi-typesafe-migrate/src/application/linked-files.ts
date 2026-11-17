@@ -41,14 +41,21 @@ async function namesOldPackage(path: string, files: ProjectFiles): Promise<boole
   return read.kind === "read" && namesOriginalPackage(read.text);
 }
 
-/** The files linked to a file that names an old package, which are migrated whatever they name. */
+/**
+ * The files linked to a file that names an old package, which are migrated whatever they name.
+ * The files of `unknownLinks` are linked to files the tool does not read (a Makefile's include
+ * of a variable without a known value, or of a missing file), which may run the generator, so
+ * they and the files linked to them are migrated too.
+ */
 export async function filesLinkedToOldNames(
   links: readonly FileLink[],
   files: ProjectFiles,
+  unknownLinks: ReadonlySet<string> = new Set(),
 ): Promise<ReadonlySet<string>> {
   const found = new Set<string>();
-  for (const group of linkedGroups(links)) {
-    let isNamed = false;
+  const alone = [...unknownLinks].map((path): FileLink => [path, path]);
+  for (const group of linkedGroups([...links, ...alone])) {
+    let isNamed = [...group].some((path) => unknownLinks.has(path));
     for (const path of group) {
       isNamed ||= await namesOldPackage(path, files);
     }

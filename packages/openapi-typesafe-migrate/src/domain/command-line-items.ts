@@ -13,15 +13,22 @@ import { isList, type KeyValue } from "./yaml-container-keys.js";
  * several words that runs the generator as a command line is kept and reported with the renames
  * that reading it so gives. An item that a shell of the container reads (`["sh", "-c", "…"]`)
  * is a script, which is read as commands, and the code of an interpreter (`["node", "-e", "…"]`)
- * is no command line.
+ * is no command line. The rule is the same for every exec form: YAML lists and the JSON arrays
+ * of a Dockerfile's `RUN`, `CMD` and `ENTRYPOINT`.
  */
 
-/** The renames that reading a string's value as shell commands gives. */
-export function commandLineRenames(string: DocumentString, locate: Locate): WordRename[] {
-  const { edits } = shellTextFindings(string.value, locate);
+/** One item of an exec-form list: its value, and where it is written. */
+export interface CommandItem {
+  readonly value: string;
+  readonly start: number;
+}
+
+/** The renames that reading an item's value as shell commands gives. */
+export function commandLineRenames(item: CommandItem, locate: Locate): WordRename[] {
+  const { edits } = shellTextFindings(item.value, locate);
   return renamesOf(
     edits.map((edit) => ({ offset: edit.start, edit })),
-    string.value,
+    item.value,
   );
 }
 
@@ -29,30 +36,36 @@ export function commandLineRenames(string: DocumentString, locate: Locate): Word
  * Whether an item's first command has more than one word: a single word is read as the word it
  * is, and code (`require('…')`) is no command of words.
  */
-const holdsSeveralWords = (item: DocumentString): boolean =>
+const holdsSeveralWords = (item: CommandItem): boolean =>
   (shellCommands(item.value)[0]?.length ?? 0) > 1;
 
 /**
- * The list items of a container's parts that hold a command line of the generator;
- * `isReadOtherwise` tells the items that the container's commands read as a script or as code.
+ * The items that hold a command line of the generator; `isReadOtherwise` tells the items that
+ * the container's commands read as a script or as code.
  */
-export function commandLineItems(
+export const commandLineItemsOf = <Item extends CommandItem>(
+  items: readonly Item[],
+  isReadOtherwise: (item: Item) => boolean,
+  locate: Locate,
+): Item[] =>
+  items
+    .filter((item) => !isReadOtherwise(item) && holdsSeveralWords(item))
+    .filter((item) => commandLineRenames(item, locate).length > 0);
+
+/** The list items of a container's YAML parts that hold a command line of the generator. */
+export const commandLineItems = (
   parts: readonly KeyValue[],
   isReadOtherwise: (item: DocumentString) => boolean,
   locate: Locate,
-): DocumentString[] {
-  return parts
-    .filter(isList)
-    .flatMap((part) => part.strings)
-    .filter((item) => !isReadOtherwise(item) && holdsSeveralWords(item))
-    .filter((item) => commandLineRenames(item, locate).length > 0);
-}
+): DocumentString[] =>
+  commandLineItemsOf(
+    parts.filter(isList).flatMap((part) => part.strings),
+    isReadOtherwise,
+    locate,
+  );
 
 /** One step for each item that holds a command line of the generator. */
-export const commandLineItemFindings = (
-  items: readonly DocumentString[],
-  locate: Locate,
-): Finding[] =>
+export const commandLineItemFindings = (items: readonly CommandItem[], locate: Locate): Finding[] =>
   items.map((item) => {
     const location = locate(item.start);
     const renames = commandLineRenames(item, locate);

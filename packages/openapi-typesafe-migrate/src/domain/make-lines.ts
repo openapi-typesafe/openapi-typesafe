@@ -46,7 +46,24 @@ const EXPORTS: ReadonlySet<string> = new Set(["export", UNEXPORT]);
 const INCLUDES: ReadonlySet<string> = new Set(["include", "-include", "sinclude"]);
 
 /** The lines of a Makefile, in the order make reads them. */
-export function readMakeLines(text: string, options: MakeReadOptions = {}): MakeLines {
+export const readMakeLines = (text: string, options: MakeReadOptions = {}): MakeLines =>
+  readMakeLinesInRule(text, options).lines;
+
+/** Lines read from a place in a text, and whether a rule is open where the reading ends. */
+export interface MakeLinesInRule {
+  readonly lines: MakeLines;
+  readonly endsInRule: boolean;
+}
+
+/**
+ * The lines of a part of a Makefile that may start in a rule (`startsInRule`), for a reader that
+ * reads a text in parts: a tab-started line there is a recipe line of a rule read before. The
+ * recipe lines of that rule are not in the lines read.
+ */
+export function readMakeLinesInRule(
+  text: string,
+  options: MakeReadOptions & { readonly startsInRule?: boolean } = {},
+): MakeLinesInRule {
   const found = {
     assignments: [],
     conditionals: [],
@@ -61,7 +78,7 @@ export function readMakeLines(text: string, options: MakeReadOptions = {}): Make
     to,
     isEvaluated: options.isEvaluated ?? false,
     found,
-    recipes: undefined,
+    recipes: options.startsInRule === true ? [] : undefined,
   };
   for (let start = options.from ?? 0; start < to; ) {
     if (options.fileStarts?.has(start) === true) {
@@ -71,7 +88,7 @@ export function readMakeLines(text: string, options: MakeReadOptions = {}): Make
     const content = { start, end: commentStart(text, start, end) };
     start = readLine(reader, { start, end, content }) + 1;
   }
-  return found;
+  return { lines: found, endsInRule: reader.recipes !== undefined };
 }
 
 /** Read one logical line; the result is where the last line it reads ends. */

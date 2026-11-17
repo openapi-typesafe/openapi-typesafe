@@ -35,6 +35,7 @@ export interface CalledMakefiles extends IncludedFiles {
 export const NO_CALLED_MAKEFILES: CalledMakefiles = {
   replacedNames: () => undefined,
   includedText: () => undefined,
+  listedPaths: [],
   readersOf: () => [],
 };
 

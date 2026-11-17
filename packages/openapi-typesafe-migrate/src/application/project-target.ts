@@ -127,6 +127,15 @@ function aliasesOf(path: string, roots: readonly TreeMap[] | undefined): Success
 }
 
 /**
+ * The files that make or Compose reads with a file that names an old package, or that a
+ * Makefile reads with files the tool does not read (linked-files.ts).
+ */
+async function linkedFilesOf(called: ProjectMakefiles, yaml: YamlReach, files: ProjectFiles) {
+  const links = [...makefileLinks(called), ...yaml.compose.links];
+  return filesLinkedToOldNames(links, files, called.unreadIncludes);
+}
+
+/**
  * The catalog plan of the project and what its manifests and import maps declare, from the files
  * of the listing. A file that cannot be read or parsed adds no catalogs, and is reported when it
  * is migrated; such a manifest or import map counts as declaring every package.
@@ -163,8 +172,7 @@ export async function planProjectTarget(
   const parts = await apiDescriptionParts(paths, dependencies);
   const yamlReach = await planYamlReach(paths, dependencies);
   const calledMakefiles = await planCalledMakefiles(paths, dependencies.files);
-  const links = [...makefileLinks(calledMakefiles), ...yamlReach.compose.links];
-  const linkedFiles = await filesLinkedToOldNames(links, dependencies.files);
+  const linkedFiles = await linkedFilesOf(calledMakefiles, yamlReach, dependencies.files);
   return {
     ...{ version, catalogs, manifests: declarations, aliases, importMaps },
     ...{ apiDescriptionParts: parts, yamlReach, calledMakefiles, linkedFiles },

@@ -16,9 +16,10 @@ import { type MakeLines, readMakeLines } from "./make-lines.js";
 /** A reference in an eval argument: `$(NAME)`, `${NAME}`, `$(call NAME,…)`, `$(value NAME)`. */
 const REFERENCED_NAME_RE = /\$[({](?:(call|value)[ \t]+)?([^\s:#=$(){},]+)/g;
 const VALUE_FUNCTION = "value";
-/** Make's escape of `$`, and how the text eval reads holds it: a blank keeps the offsets. */
-const ESCAPED_DOLLAR_RE = /\$\$/g;
-const EXPANDED_DOLLAR = " $";
+/** A run of two or more `$`: make reads its pairs from the left, each `$$` an escaped `$`. */
+const DOLLAR_RUN_RE = /\$\$+/g;
+const DOLLAR = "$";
+const BLANK = " ";
 
 /** What `$(eval …)` reads: the call arguments, and the lines of all evaluated text. */
 export interface EvaluatedText {
@@ -64,11 +65,21 @@ export function evaluatedText(text: string, plain: string, lines: MakeLines): Ev
   };
 }
 
+/**
+ * A run of `$` as make's expansion leaves it: each pair from the left is one `$`, and an odd last
+ * `$` starts a reference. The blanks that keep the offsets go before the run, so the `$` that are
+ * left stay next to the text they expand: `$$$$GEN` is `  $$GEN`, the shell's `$GEN` in a recipe.
+ */
+function expandedRun(run: string): string {
+  const pairs = Math.floor(run.length / 2);
+  return `${BLANK.repeat(pairs)}${DOLLAR.repeat(run.length - pairs)}`;
+}
+
 /** The text with each `$$` in `ranges` as the `$` that make's expansion leaves there. */
 export function withExpandedEscapes(text: string, ranges: readonly TextRange[]): string {
   let expanded = text;
   for (const { start, end } of ranges) {
-    const range = expanded.slice(start, end).replace(ESCAPED_DOLLAR_RE, EXPANDED_DOLLAR);
+    const range = expanded.slice(start, end).replace(DOLLAR_RUN_RE, expandedRun);
     expanded = `${expanded.slice(0, start)}${range}${expanded.slice(end)}`;
   }
   return expanded;
