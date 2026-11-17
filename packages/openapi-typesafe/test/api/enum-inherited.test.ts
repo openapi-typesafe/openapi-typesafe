@@ -109,8 +109,8 @@ describe("--enum of an allOf item that narrows an inherited enum", () => {
 
     expect(output).toMatch(/mode\?: PetMode\.a;\n\s+\};/);
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain('#/components/schemas/Cat/mode: the enum lists "d"');
-    expect(warnings[0]).toContain("The type lists the values both enums list.");
+    expect(warnings[0]).toContain('#/components/schemas/Cat/mode: the schema lists "d"');
+    expect(warnings[0]).toContain("The type lists the values both list.");
   });
 
   it("openapiTS without a common value keeps the own enum and says the type is never", async () => {

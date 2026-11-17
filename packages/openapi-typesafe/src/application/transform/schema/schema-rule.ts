@@ -1,6 +1,6 @@
 import type { IrType } from "../../../domain/ir/nodes.js";
 import type { Schema, SchemaObject } from "../../../domain/openapi/schema-object.js";
-import { type BaseSchema, baseSchemasAt } from "./base-schemas.js";
+import { type BaseSchema, baseSchemasAt, slotAfter } from "./base-schemas.js";
 import type { SchemaContext, SchemaLocation } from "./schema-context.js";
 
 /**
@@ -68,15 +68,15 @@ export type SharedStep = readonly [string] | readonly [string, string | number];
  */
 export function sharedStepCall(request: SchemaRequest, step: SharedStep): NestedCall {
   return {
-    sharedSlot: JSON.stringify([request.sharedSlot, request.location.path ?? null, step]),
-    baseSchemas: baseSchemasAt(request.baseSchemas, step, request.context.refs),
+    sharedSlot: slotAfter(request.sharedSlot, request.location.path, step),
+    baseSchemas: baseSchemasAt(request.baseSchemas, step, request.context),
   };
 }
 
 /** The call of the schema of property `key`: the bases' schemas of that property. */
 export function propertyCall(request: SchemaRequest, key: string): NestedCall {
   return {
-    baseSchemas: baseSchemasAt(request.baseSchemas, ["properties", key], request.context.refs),
+    baseSchemas: baseSchemasAt(request.baseSchemas, ["properties", key], request.context),
   };
 }
 
@@ -114,11 +114,11 @@ export interface SchemaRequest {
   /** Where its type is when not at its location's pointer; nested schemas keep their holder's. */
   readonly typePlacement?: TypePlacement | undefined;
   /**
-   * The schemas of `$ref` items of an `allOf` at the place of this schema, which TypeScript
-   * intersects with it (`Pet & { mode?: CatMode }`): an enum here that lists values of a base's
-   * enum is typed by that enum's members (`enumRule`). Set for the own keywords and inline items
-   * of such an `allOf`, and for their properties, items and record values; a `$ref` or a union
-   * variant starts with none.
+   * The schemas TypeScript intersects with this one at its place (`Pet & { mode?: CatMode }`):
+   * the `$ref` items of an `allOf` there, read through their own `allOf` chains, and the other
+   * inline parts of the `allOf` (`inlineParts`). An enum or `const` here is typed in the form a
+   * base lists its values in (`baseValuesType`). Set for the parts of such an `allOf`, and kept
+   * for their properties, items, record values and union variants; a `$ref` starts with none.
    */
   readonly baseSchemas: readonly BaseSchema[];
   readonly transformNested: TransformNested;

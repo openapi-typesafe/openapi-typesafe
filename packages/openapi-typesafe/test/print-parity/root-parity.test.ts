@@ -8,6 +8,7 @@ import {
   documentArbitrary as document,
   injectArbitrary as inject,
 } from "./document-arbitraries.js";
+import { intersectsEnumWithLiterals } from "./enum-intersections.js";
 import originalTransformSchema from "./original/index.js";
 import {
   type ContextInput,
@@ -136,6 +137,7 @@ describe("root transformer parity with the fork base", () => {
           fc.pre(!indexesTemplatedEnumValues(original, input));
           fc.pre(!reachesFixedLegacyBug(value, input));
           fc.pre(!mergesDifferentInputEnums(value, input));
+          fc.pre(!intersectsEnumWithLiterals(value, input));
           fc.pre(!listsExcludedOperations(value, input));
           const output = run(transformSchema, value, input, code);
           fc.pre(!hasRetypedEnumValues(output));

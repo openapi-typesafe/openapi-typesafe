@@ -503,13 +503,35 @@ variants of an `anyOf` / `oneOf` there, and for an enum that the `$ref` item's s
 through a `$ref` (`Status.on`). `CatMode` is still
 declared, so code that imports it keeps compiling, but `Cat` no longer uses it.
 
-When the property lists values the base's enum does not (`enum: [a, d]`), no value of `Cat` can be
-`d`: the type lists the values both enums list (`PetMode.a`), and a warning names the values
+An enum member is no literal either: `PetMode & "a"` is `never` too. So each value is typed in the
+form the other schema admits it in:
+
+- A `const` (`mode: { const: a }`), or an enum that `--enum` keeps as a union of literals (one
+  that lists `null` without the [`nullable-enums`](./cli.md#nullable-enums) fix, or one without
+  `x-enum-*` names under `--conditional-enums`), gets the base enum's members: `PetMode.a`, and
+  `PetMode.a | null` where it lists `null`.
+- An enum whose base keeps its values as literals (`mode: { type: [string, "null"], enum: [a, b,
+  null] }`) gets those literals: `mode?: "a"`.
+- The base's enum is found through what wraps it: a one-item `allOf: [{ $ref }]` (the common way
+  to add a `description`), and the variants of an `anyOf` / `oneOf`, such as
+  `oneOf: [{ $ref: Status }, { type: "null" }]`. A variant that admits any value of the type
+  (`{ type: string }`) or an object leaves the enum as it is: the intersection keeps its values.
+- The bases are read through `allOf` chains: `Kitten: allOf: [$ref: Cat, { mode: [a] }]` with
+  `Cat: allOf: [$ref: Pet, …]` gets `PetMode.a`, the enum `Cat` itself is typed by. A base whose
+  property sits in its own `allOf` item is read too, and a cycle of `allOf` `$ref`s ends.
+- The parts of one `allOf` are intersected with each other as well: a literal in the schema's own
+  `properties` next to an inline `allOf` item whose property at that place is an enum gets that
+  enum's members (`{ mode?: MixedMode.A } & { mode?: MixedMode }`). This is how a member's own
+  discriminator value meets the [discriminator property](#discriminator-values) the generator adds.
+  Of two enums there, the earlier part (the own keywords, then the items in order) takes the
+  later one's members, so the two do not each take the other's.
+
+When the property lists values the base does not (`enum: [a, d]`), no value of `Cat` can be
+`d`: the type lists the values both list (`PetMode.a`), and a warning names the values
 (`ENUM_VALUES_NOT_INHERITED`). Without a common value the type stays `never`, as the document
 says, with the same warning. A property that the `allOf` leaves out of the base (`Omit<Pet,
-"kind">` for a discriminator) keeps its own enum, and so does a base whose property is defined in
-the base's own `allOf`: only the base's `properties`, `items`, `prefixItems`,
-`additionalProperties` and `patternProperties` are read. Without `--enum` the types are unions of
+"kind">` for a discriminator) keeps its own type. A property that is a `$ref` is typed by its
+target wherever it is used, so it keeps its type too. Without `--enum` the types are unions of
 literals, which intersect as they should, and nothing changes.
 
 ## JSONSchema $defs caveats

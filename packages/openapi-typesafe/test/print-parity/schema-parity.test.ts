@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { IrType } from "../../src/domain/ir/nodes.js";
 import transformSchemaObject from "../../src/transform/schema-object.js";
 import type { TransformNodeOptions } from "../../src/types.js";
+import { intersectsEnumWithLiterals } from "./enum-intersections.js";
 import originalTransformSchemaObject from "./original/schema-object.js";
 import {
   type ContextInput,
@@ -47,6 +48,7 @@ describe("schema transformer parity with the fork base", () => {
       fc.assert(
         fc.property(schemaArbitrary(), contextInput, (schema, input) => {
           fc.pre(!mergesDifferentInputEnums(schema, input));
+          fc.pre(!intersectsEnumWithLiterals(schema, input));
           const expected = run(originalTransformSchemaObject, schema, input);
           fc.pre(!hasDuplicateEnumMembers(expected) && !hasRedeclaredConstArrays(expected));
           fc.pre(!hasRepeatedEnumDeclarations(expected));
