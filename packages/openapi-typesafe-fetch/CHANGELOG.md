@@ -2,6 +2,23 @@
 
 This package is a fork of `openapi-fetch`. The entries above `0.17.0` are releases of openapi-typesafe-fetch; `0.17.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-fetch` versions.
 
+## 1.0.0-rc.16
+
+### Patch Changes
+
+- [#173](https://github.com/openapi-typesafe/openapi-typesafe/pull/173) [`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756) Thanks [@fedorello](https://github.com/fedorello)! - The `headers` option types accept any iterable of `[name, value]` pairs, such as a `Map`,
+  `map.entries()` or a generator, with the values a record takes. The client already sent them, but
+  TypeScript rejected them.
+
+- [#173](https://github.com/openapi-typesafe/openapi-typesafe/pull/173) [`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756) Thanks [@fedorello](https://github.com/fedorello)! - Headers given as pairs (an array, a `Set`, `map.entries()` or a generator) follow the same rule as
+  a record or a `Map`: `null` removes the header, `undefined` sends nothing and an array value appends
+  each item (`1, 2`). Before, pairs sent `null` as the text `"null"` and joined an array as `1,2`. An
+  iterator used as one of the pairs is now sent too, also with a request body.
+
+- [#173](https://github.com/openapi-typesafe/openapi-typesafe/pull/173) [`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756) Thanks [@fedorello](https://github.com/fedorello)! - A status that a response map marks optional (`200?: X`, `Partial<Record<200 | 404, X>>`) or types
+  as `X | undefined` now types `data` and `error` by its body, as a required status does. They were
+  `unknown`.
+
 ## 1.0.0-rc.15
 
 ### Patch Changes

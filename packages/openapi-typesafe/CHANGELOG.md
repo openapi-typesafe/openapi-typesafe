@@ -2,6 +2,37 @@
 
 This package is a fork of `openapi-typescript`. The entries above `7.13.0` are releases of openapi-typesafe; `7.13.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript` versions.
 
+## 1.0.0-rc.16
+
+### Patch Changes
+
+- [#177](https://github.com/openapi-typesafe/openapi-typesafe/pull/177) [`991917a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/991917a09f9e53383ac7fd188e95741f3104bd24) Thanks [@fedorello](https://github.com/fedorello)! - `--fix discriminator-values`: a member that declares its discriminator value without requiring the
+  property (`kind: { const: cat }` and no `required`) gets no second property any more; the declared
+  property becomes required instead (`{ kind: "cat" }`). With `--enum` every declaration of the value
+  is typed by the owner's enum member (`PetKind.cat`), so two declarations no longer intersect to
+  `never`. The member's own enum is still declared.
+
+- [#177](https://github.com/openapi-typesafe/openapi-typesafe/pull/177) [`991917a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/991917a09f9e53383ac7fd188e95741f3104bd24) Thanks [@fedorello](https://github.com/fedorello)! - `--enum`: an enum that narrows an inherited enum is now typed by the base's members in more
+  documents. The base's enum is found inside a one-item `allOf` (the usual way to add a
+  `description` to a `$ref`), inside `oneOf` / `anyOf` variants such as `[$ref, null]`, in the
+  base's own `allOf` items, and through `allOf` chains (`Kitten` of `Cat` of `Pet` gets
+  `PetMode.a`). Before, these places kept an enum of their own, which made the type `never`.
+
+- [#177](https://github.com/openapi-typesafe/openapi-typesafe/pull/177) [`991917a`](https://github.com/openapi-typesafe/openapi-typesafe/commit/991917a09f9e53383ac7fd188e95741f3104bd24) Thanks [@fedorello](https://github.com/fedorello)! - `--enum`: a value that an `allOf` meets in two forms no longer makes the type `never`. A `const`,
+  or an enum kept as a union of literals, that narrows an inherited enum gets that enum's members
+  (`mode: { const: a }` of `Pet.mode: [a, b]` is `PetMode.a`), and an enum that narrows inherited
+  literals gets those literals. The same holds for a literal next to an enum in another part of the
+  same `allOf`, such as a member's own discriminator value next to the property the generator adds
+  (`{ kind?: CatKind } & { kind: CatKind }`).
+
+- [#174](https://github.com/openapi-typesafe/openapi-typesafe/pull/174) [`4c66471`](https://github.com/openapi-typesafe/openapi-typesafe/commit/4c66471002652f6e43265e21f08cceca6badde96) Thanks [@fedorello](https://github.com/fedorello)! - A URL written without `//`, which the CLI loads (`http:host/api.yaml?key=…`, `http:/host/…`,
+  `http:\\host\…`), now has its query and user info hidden in every message and in the line for a
+  written file, as any other URL has: the schema argument, `--output`, `--redocly`,
+  `--local-ref-root`, an API's `root`, and a location that does not parse. A `://` in the query of a
+  URL no longer starts a second URL there, so the query before it stays hidden too
+  (`http:host/x.yaml?key=…&next=http://h`). The query of a `file:` URL with an empty path
+  (`-o file:?x`) is now hidden too.
+
 ## 1.0.0-rc.15
 
 ### Patch Changes

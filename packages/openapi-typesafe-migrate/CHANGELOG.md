@@ -1,5 +1,37 @@
 # openapi-typesafe-migrate
 
+## 1.0.0-rc.16
+
+### Patch Changes
+
+- [#176](https://github.com/openapi-typesafe/openapi-typesafe/pull/176) [`85550f8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/85550f854990b606e1fc73c0db8ad8b884c625df) Thanks [@fedorello](https://github.com/fedorello)! - A Dockerfile exec-form item that holds a whole command line
+  (`CMD ["npx openapi-typescript api.yaml -it"]`, also in `RUN` and `ENTRYPOINT`) is listed to fix
+  by hand, with the renames it needs, as the same item of a Compose or Kubernetes list is. Before,
+  the tool said that there was nothing to migrate.
+
+- [#176](https://github.com/openapi-typesafe/openapi-typesafe/pull/176) [`85550f8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/85550f854990b606e1fc73c0db8ad8b884c625df) Thanks [@fedorello](https://github.com/fedorello)! - In a Makefile template that `$(eval …)` reads, a run of `$` is read as make reads it, two at a
+  time from the left: `$$$$GEN` in a template is the recipe's `$$GEN`, so the old flags after it
+  are listed to fix by hand, as they are in a recipe outside a template. Before, they were left
+  unchanged and not listed.
+
+- [#176](https://github.com/openapi-typesafe/openapi-typesafe/pull/176) [`85550f8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/85550f854990b606e1fc73c0db8ad8b884c625df) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile `include` whose list of files a backslash continues on the next line
+  (`include \` and then `  tools.mk`) reads every file it names, as make does. Before, the
+  backslash and the line break were read as a part of the next file name, so that file was not
+  read and the old flags after a variable it sets were listed to fix by hand.
+
+- [#176](https://github.com/openapi-typesafe/openapi-typesafe/pull/176) [`85550f8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/85550f854990b606e1fc73c0db8ad8b884c625df) Thanks [@fedorello](https://github.com/fedorello)! - A Makefile with Windows line ends (CR LF) is read as make reads it: `include tools.mk` reads
+  `tools.mk`, the old flags at the end of a recipe line are renamed, and a backslash before the
+  line end continues the line. The file keeps its CR LF line ends. Before, the CR stayed in the
+  last word of each line, so the include was not read and the flags were kept without a word.
+
+- [#176](https://github.com/openapi-typesafe/openapi-typesafe/pull/176) [`85550f8`](https://github.com/openapi-typesafe/openapi-typesafe/commit/85550f854990b606e1fc73c0db8ad8b884c625df) Thanks [@fedorello](https://github.com/fedorello)! - An `include` line in a Makefile is read as make reads it: its variables are expanded with the
+  values set before it (`include $(MK)/tools.mk` after `MK := mk`), and a wildcard
+  (`include mk/*.mk`) reads every project file it matches, in order. Before, such a line was not
+  read, so `-it` in a recipe that runs a generator set in the included file stayed unchanged.
+  A Makefile that includes a file the tool cannot read (missing, outside the project, or named by
+  a variable set outside the file, such as `-include .env`) is now read even when it names no old
+  package, so the old flags after a variable are reported.
+
 ## 1.0.0-rc.15
 
 ### Patch Changes
