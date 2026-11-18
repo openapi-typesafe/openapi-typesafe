@@ -2,6 +2,26 @@
 
 This package is a fork of `openapi-react-query`. The entries above `0.5.4` are releases of openapi-typesafe-react-query; `0.5.4` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-react-query` versions.
 
+## 1.0.0-rc.16
+
+### Patch Changes
+
+- [#173](https://github.com/openapi-typesafe/openapi-typesafe/pull/173) [`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756) Thanks [@fedorello](https://github.com/fedorello)! - Query keys of headers given as pairs follow the fetch client's rule for pairs: `null` removes the
+  header, `undefined` sends nothing and an array value appends its items, so the key names the
+  headers the request sends.
+
+- [#173](https://github.com/openapi-typesafe/openapi-typesafe/pull/173) [`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756) Thanks [@fedorello](https://github.com/fedorello)! - Headers given as `map.entries()`, a generator or a list with an iterator as a pair are sent by every
+  request of a query: a refetch, a retry, the next page of `useInfiniteQuery` and a retry of
+  `useMutation`. Before, only the first request sent them. They are now part of the query key, so
+  queries with different such headers no longer share a cache entry.
+
+- [#173](https://github.com/openapi-typesafe/openapi-typesafe/pull/173) [`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756) Thanks [@fedorello](https://github.com/fedorello)! - Query keys read `params` the way the fetch client reads them to send them. A `query`, `path` or
+  `header` record behind a getter of a class, a path value behind a getter (a DTO whose `id` reads a
+  private field), and inherited members of a query record are now in the key, so two requests that
+  send different URLs no longer share a cache entry.
+- Updated dependencies [[`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756), [`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756), [`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756)]:
+  - openapi-typesafe-fetch@1.0.0-rc.16
+
 ## 1.0.0-rc.15
 
 ### Patch Changes

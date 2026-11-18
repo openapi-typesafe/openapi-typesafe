@@ -2,6 +2,13 @@
 
 This package is a fork of `openapi-typescript-helpers`. The entries above `0.1.0` are releases of openapi-typesafe-helpers; `0.1.0` and the entries below it are the upstream history up to the fork point (upstream commit `d46a319a`), with `openapi-typescript-helpers` versions.
 
+## 1.0.0-rc.16
+
+### Patch Changes
+
+- Updated dependencies [[`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756), [`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756), [`ee1a060`](https://github.com/openapi-typesafe/openapi-typesafe/commit/ee1a060b07052b66f231304ee49da986b69be756)]:
+  - openapi-typesafe-fetch@1.0.0-rc.16
+
 ## 1.0.0-rc.15
 
 ### Patch Changes
