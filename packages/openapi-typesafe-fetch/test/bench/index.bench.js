@@ -1,9 +1,21 @@
-import axios from "axios";
-import { createApiFetchClient } from "feature-fetch";
-import createOpenapiFetchClient from "openapi-fetch";
-import { Fetcher } from "openapi-typescript-fetch";
+import axiosImport from "axios";
+import { createApiFetchClient as createApiFetchClientImport } from "feature-fetch";
+import createOpenapiFetchClientImport from "openapi-fetch";
+import { Fetcher as FetcherImport } from "openapi-typescript-fetch";
 import { afterAll, test, vi } from "vitest";
-import createClient, { createPathBasedClient } from "../../dist/index.mjs";
+import createClientImport, {
+  createPathBasedClient as createPathBasedClientImport,
+} from "../../dist/index.mjs";
+
+// Vitest's module runner reads every import through a getter, on each access. Inside a measured
+// callback that getter is part of the timing (vitest warns that the results are unreliable), so
+// each import is read once here into a plain local binding.
+const axios = axiosImport;
+const createApiFetchClient = createApiFetchClientImport;
+const createOpenapiFetchClient = createOpenapiFetchClientImport;
+const Fetcher = FetcherImport;
+const createClient = createClientImport;
+const createPathBasedClient = createPathBasedClientImport;
 
 // Every client below sends its requests through the stubbed global `fetch`, so the benchmark
 // measures client overhead only and never touches the network.

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,6 +62,17 @@ describe("NodeGeneratorRunner", () => {
     const run = runner(SHORT_TIMEOUT_MS).run({ cliPath: STAND_IN_CLI, documentPath: "slow.yaml" });
 
     await expect(run).rejects.toThrow(/exit code null[\s\S]*abort/i);
+  });
+
+  it("run whose probe wrote nothing rejects instead of reusing an earlier result", async () => {
+    await writeFile(join(workDir, "peak-rss.txt"), "123");
+
+    const run = runner(NORMAL_TIMEOUT_MS).run({
+      cliPath: STAND_IN_CLI,
+      documentPath: "abrupt.yaml",
+    });
+
+    await expect(run).rejects.toThrow(/without reporting its peak memory/);
   });
 
   it("the default clock measures a real, positive wall time", async () => {

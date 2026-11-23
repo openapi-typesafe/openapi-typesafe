@@ -60,6 +60,25 @@ export const BENCH_DOCUMENTS: readonly BenchDocument[] = [
   { label: "Microsoft Graph beta", fileName: "apis-guru--microsoft.com_graph-beta--1.0.1.json" },
 ];
 
+/**
+ * The documents with the given corpus file names, in benchmark order; all of them when none are
+ * given. Throws on a name that is not a benchmark document, so a typo does not measure nothing.
+ */
+export function selectDocuments(
+  documents: readonly BenchDocument[],
+  fileNames: readonly string[],
+): readonly BenchDocument[] {
+  if (fileNames.length === 0) {
+    return documents;
+  }
+  const known = new Set(documents.map((document) => document.fileName));
+  const unknown = fileNames.filter((fileName) => !known.has(fileName));
+  if (unknown.length > 0) {
+    throw new RangeError(`not a benchmark document: ${unknown.join(", ")}`);
+  }
+  return documents.filter((document) => fileNames.includes(document.fileName));
+}
+
 /** The middle value; for an even count, the mean of the two middle values. Throws when empty. */
 export function median(values: readonly number[]): number {
   if (values.length === 0) {

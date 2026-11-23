@@ -10,7 +10,7 @@ numbers depend on the machine.
 Each generator runs end to end through its CLI (`node <cli> <document> -o <file>`) in a fresh Node
 process, as a user runs it, so the time includes start-up, loading and parsing the document,
 printing and writing the file. The two generators take turns within each round. Per document and
-generator: one warm-up run (dropped), then five measured runs; the report gives the median wall
+generator: one warm-up run (dropped), then seven measured runs; the report gives the median wall
 time and the median peak resident memory (RSS). A preloaded probe (`src/adapters/peak-rss-probe.cjs`)
 reads the peak RSS inside each process (`process.resourceUsage().maxRSS`), so it means the same
 on every operating system.
@@ -31,20 +31,22 @@ Then, without network access, from `tools/bench`:
 ```sh
 pnpm bench > report.md                            # progress on stderr, Markdown table on stdout
 pnpm bench --runs 9 --warmups 2                   # more runs
+pnpm bench --document curated--stripe.com--spec3.json   # one document (repeatable)
 pnpm bench --baseline-cli <path/to/bin/cli.js>    # another baseline
 ```
 
 | Option                  | Default                                                       |
 | ----------------------- | ------------------------------------------------------------- |
-| `--runs <n>`            | `5` measured runs per document and generator                  |
+| `--runs <n>`            | `7` measured runs per document and generator                  |
 | `--warmups <n>`         | `1` warm-up run, not measured                                 |
 | `--documents-dir <dir>` | `../compat-harness/.cache/compat/documents`                   |
 | `--candidate-cli <cli>` | `../../packages/openapi-typesafe/bin/cli.js` (build it first) |
 | `--baseline-cli <cli>`  | the `upstream-7.13.0` generator of `prepare-generators.sh`    |
+| `--document <file>`     | every document of `src/domain/benchmark.ts`; repeatable       |
 
 Run it on a quiet machine: other processes change wall times more than any difference measured
 here. Exit codes: `0` done, `1` a generator failed or a document is missing, `2` invalid
-arguments.
+arguments or an unknown `--document`.
 
 ## Client size
 

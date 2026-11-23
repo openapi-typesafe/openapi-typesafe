@@ -19,7 +19,8 @@ export interface BenchReport {
 
 const BYTES_PER_KB = 1_000;
 const BYTES_PER_MB = 1_000_000;
-const BYTES_PER_GB = 1_000_000_000;
+/** Memory sizes are powers of two: a "24 GB" machine has 24 GiB. */
+const BYTES_PER_GIB = 1024 ** 3;
 const MS_PER_SECOND = 1_000;
 const PERCENT = 100;
 
@@ -73,14 +74,20 @@ function row(result: DocumentResult): string {
   return `| ${cells.join(" | ")} |`;
 }
 
+/** `1 run`, `7 runs`, `0 warm-up runs`. */
+export function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
 /** The environment line and the result table, as Markdown for docs/benchmarks.md. */
 export function renderReport(report: BenchReport): string {
   const { environment } = report;
-  const memory = `${Math.round(environment.memoryBytes / BYTES_PER_GB)} GB`;
+  const memory = `${Math.round(environment.memoryBytes / BYTES_PER_GIB)} GiB`;
   return [
     `Machine: ${environment.cpu}, ${memory} RAM, ${environment.operatingSystem}, ` +
       `Node.js ${environment.node}.`,
-    `Median of ${report.measuredRuns} runs after ${report.warmupRuns} warm-up run(s); ` +
+    `Median of ${plural(report.measuredRuns, "run")} after ` +
+      `${plural(report.warmupRuns, "warm-up run")}; ` +
       "default options; peak RSS is the median of the per-run peaks.",
     "",
     ...header(report.candidate, report.baseline),

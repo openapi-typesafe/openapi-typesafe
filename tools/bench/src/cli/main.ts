@@ -7,7 +7,13 @@ import { NodeGeneratorRunner } from "../adapters/node-generator-runner.ts";
 import { packageLabelOf } from "../adapters/package-label.ts";
 import { StreamProgressReporter } from "../adapters/stream-progress-reporter.ts";
 import { runBenchmark } from "../application/run-benchmark.ts";
-import { BENCH_DOCUMENTS, type BenchGenerator, type BenchPlan } from "../domain/benchmark.ts";
+import {
+  BENCH_DOCUMENTS,
+  type BenchDocument,
+  type BenchGenerator,
+  type BenchPlan,
+  selectDocuments,
+} from "../domain/benchmark.ts";
 import { type BenchEnvironment, renderReport } from "../domain/report.ts";
 import { type BenchSettings, parseSettings } from "./settings.ts";
 
@@ -34,9 +40,12 @@ async function generatorAt(path: string): Promise<BenchGenerator> {
   return { label: await packageLabelOf(cliPath), cliPath };
 }
 
-async function plan(settings: BenchSettings): Promise<BenchPlan> {
+async function plan(
+  settings: BenchSettings,
+  documents: readonly BenchDocument[],
+): Promise<BenchPlan> {
   return {
-    documents: BENCH_DOCUMENTS,
+    documents,
     candidate: await generatorAt(settings.candidateCli),
     baseline: await generatorAt(settings.baselineCli),
     warmupRuns: settings.warmupRuns,
@@ -47,13 +56,15 @@ async function plan(settings: BenchSettings): Promise<BenchPlan> {
 /** Entry point and composition root: `node src/cli/main.ts [--runs <n>] [--warmups <n>] ...`. */
 async function main(argv: readonly string[]): Promise<number> {
   let settings: BenchSettings;
+  let documents: readonly BenchDocument[];
   try {
     settings = parseSettings(argv);
+    documents = selectDocuments(BENCH_DOCUMENTS, settings.documentFileNames);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     return USAGE_ERROR_EXIT_CODE;
   }
-  const benchPlan = await plan(settings);
+  const benchPlan = await plan(settings, documents);
   const workDir = await mkdtemp(join(tmpdir(), "openapi-typesafe-bench-"));
   try {
     const ports = {

@@ -43,7 +43,7 @@ function ports(files = new InMemoryDocumentFiles({ [TINY_PATH]: 5, [LARGE_PATH]:
 }
 
 describe("runBenchmark", () => {
-  it("runBenchmark drops the warm-up runs and returns the medians per document and generator", async () => {
+  it("runBenchmark drops warm-up runs and returns medians per document and generator", async () => {
     const results = await runBenchmark(ports(), PLAN, DOCUMENTS_DIR);
 
     expect(results).toEqual([

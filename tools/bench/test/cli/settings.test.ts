@@ -2,14 +2,16 @@ import { describe, expect, it } from "vitest";
 import { parseSettings } from "../../src/cli/settings.ts";
 
 describe("parseSettings", () => {
-  it("parseSettings without options returns five runs, one warm-up and the harness paths", () => {
+  it("parseSettings without options returns seven runs, one warm-up and the harness paths", () => {
     expect(parseSettings([])).toEqual({
-      measuredRuns: 5,
+      measuredRuns: 7,
       warmupRuns: 1,
       documentsDir: "../compat-harness/.cache/compat/documents",
       candidateCli: "../../packages/openapi-typesafe/bin/cli.js",
       baselineCli:
-        "../compat-harness/.cache/compat/generators/upstream-7.13.0/node_modules/openapi-typescript/bin/cli.js",
+        "../compat-harness/.cache/compat/generators/upstream-7.13.0/" +
+        "node_modules/openapi-typescript/bin/cli.js",
+      documentFileNames: [],
     });
   });
 
@@ -25,6 +27,10 @@ describe("parseSettings", () => {
       "new.js",
       "--baseline-cli",
       "old.js",
+      "--document",
+      "a.json",
+      "--document",
+      "b.yaml",
     ]);
 
     expect(settings).toEqual({
@@ -33,6 +39,7 @@ describe("parseSettings", () => {
       documentsDir: "docs",
       candidateCli: "new.js",
       baselineCli: "old.js",
+      documentFileNames: ["a.json", "b.yaml"],
     });
   });
 

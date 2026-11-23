@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { GeneratorRun, GeneratorRunner } from "../application/ports.ts";
@@ -41,6 +41,8 @@ export class NodeGeneratorRunner implements GeneratorRunner {
 
   async run(run: GeneratorRun): Promise<RunMeasurement> {
     const peakRssFile = join(this.#options.workDir, PEAK_RSS_FILE_NAME);
+    // The file of the previous run must not stand in for a run whose probe wrote nothing.
+    await rm(peakRssFile, { force: true });
     const startedAt = this.#now();
     const { exitCode, output } = await this.#spawn(run, peakRssFile);
     const wallMs = this.#now() - startedAt;
@@ -49,8 +51,18 @@ export class NodeGeneratorRunner implements GeneratorRunner {
         `${run.cliPath} failed on ${run.documentPath} (exit code ${exitCode}):\n${output}`,
       );
     }
-    const peakRssBytes = Number(await readFile(peakRssFile, "utf8"));
-    return { wallMs, peakRssBytes };
+    return { wallMs, peakRssBytes: await this.#readPeakRss(run, peakRssFile) };
+  }
+
+  /** The probe's number; a process that exits without its "exit" event leaves no file. */
+  async #readPeakRss(run: GeneratorRun, peakRssFile: string): Promise<number> {
+    try {
+      return Number(await readFile(peakRssFile, "utf8"));
+    } catch (error) {
+      throw new GeneratorRunError(`${run.cliPath} exited without reporting its peak memory`, {
+        cause: error,
+      });
+    }
   }
 
   #spawn(run: GeneratorRun, peakRssFile: string): Promise<ChildOutcome> {

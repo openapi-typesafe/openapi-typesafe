@@ -9,18 +9,25 @@ export interface BenchSettings {
   readonly candidateCli: string;
   /** The CLI of the published openapi-typescript 7.13.0, the baseline. */
   readonly baselineCli: string;
+  /** Corpus file names of the documents to measure; empty means all of them. */
+  readonly documentFileNames: readonly string[];
 }
 
-/** Five runs keep the median stable on a quiet machine; the largest document takes ~15 s a run. */
-const DEFAULT_MEASURED_RUNS = 5;
+/**
+ * Seven runs keep the median stable when a few runs are disturbed; the largest document takes
+ * 10 to 15 s a run, so the whole benchmark takes about ten minutes.
+ */
+const DEFAULT_MEASURED_RUNS = 7;
 /** One warm-up run loads the document and the generator's files into the file cache. */
 const DEFAULT_WARMUP_RUNS = 1;
 /** The compatibility harness downloads the corpus here (`pnpm harness fetch --corpus all`). */
 const DEFAULT_DOCUMENTS_DIR = "../compat-harness/.cache/compat/documents";
 const DEFAULT_CANDIDATE_CLI = "../../packages/openapi-typesafe/bin/cli.js";
 /** `tools/compat-harness/scripts/prepare-generators.sh` installs the published 7.13.0 here. */
-const DEFAULT_BASELINE_CLI =
-  "../compat-harness/.cache/compat/generators/upstream-7.13.0/node_modules/openapi-typescript/bin/cli.js";
+const DEFAULT_BASELINE_CLI = [
+  "../compat-harness/.cache/compat/generators/upstream-7.13.0",
+  "node_modules/openapi-typescript/bin/cli.js",
+].join("/");
 
 /** A whole number of at least `minimum`; throws with the option name otherwise. */
 function parseCount(option: string, text: string | undefined, fallback: number, minimum: number) {
@@ -34,7 +41,10 @@ function parseCount(option: string, text: string | undefined, fallback: number, 
   return value;
 }
 
-/** `--runs <n>`, `--warmups <n>`, `--documents-dir`, `--candidate-cli`, `--baseline-cli`. */
+/**
+ * `--runs <n>`, `--warmups <n>`, `--documents-dir`, `--candidate-cli`, `--baseline-cli` and
+ * `--document <corpus file name>` (repeatable).
+ */
 export function parseSettings(argv: readonly string[]): BenchSettings {
   const { values } = parseArgs({
     args: [...argv],
@@ -44,6 +54,7 @@ export function parseSettings(argv: readonly string[]): BenchSettings {
       "documents-dir": { type: "string" },
       "candidate-cli": { type: "string" },
       "baseline-cli": { type: "string" },
+      document: { type: "string", multiple: true },
     },
     strict: true,
     allowPositionals: false,
@@ -54,5 +65,6 @@ export function parseSettings(argv: readonly string[]): BenchSettings {
     documentsDir: values["documents-dir"] ?? DEFAULT_DOCUMENTS_DIR,
     candidateCli: values["candidate-cli"] ?? DEFAULT_CANDIDATE_CLI,
     baselineCli: values["baseline-cli"] ?? DEFAULT_BASELINE_CLI,
+    documentFileNames: values.document ?? [],
   };
 }

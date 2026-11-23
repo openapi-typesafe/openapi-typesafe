@@ -4,6 +4,7 @@ import {
   BENCH_DOCUMENTS,
   type BenchPlan,
   median,
+  selectDocuments,
   summarizeRuns,
 } from "../../src/domain/benchmark.ts";
 
@@ -80,5 +81,27 @@ describe("BENCH_DOCUMENTS", () => {
     const fileNames = BENCH_DOCUMENTS.map((document) => document.fileName);
 
     expect(new Set(fileNames).size).toBe(fileNames.length);
+  });
+});
+
+describe("selectDocuments", () => {
+  const documents = [
+    { label: "A", fileName: "a.json" },
+    { label: "B", fileName: "b.yaml" },
+    { label: "C", fileName: "c.json" },
+  ];
+
+  it("selectDocuments without names returns every document", () => {
+    expect(selectDocuments(documents, [])).toBe(documents);
+  });
+
+  it("selectDocuments with names returns those documents in benchmark order", () => {
+    expect(selectDocuments(documents, ["c.json", "a.json"])).toEqual([documents[0], documents[2]]);
+  });
+
+  it("selectDocuments with an unknown name throws and names it", () => {
+    expect(() => selectDocuments(documents, ["a.json", "x.json"])).toThrow(
+      "not a benchmark document: x.json",
+    );
   });
 });

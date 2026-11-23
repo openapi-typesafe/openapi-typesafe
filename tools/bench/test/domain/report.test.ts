@@ -4,6 +4,7 @@ import {
   formatBytes,
   formatChange,
   formatDuration,
+  plural,
   renderReport,
 } from "../../src/domain/report.ts";
 
@@ -43,11 +44,21 @@ describe("formatChange", () => {
   });
 });
 
+describe("plural", () => {
+  it("plural of one returns the noun as it is", () => {
+    expect(plural(1, "run")).toBe("1 run");
+  });
+
+  it.each([0, 7])("plural of %i adds an s", (count) => {
+    expect(plural(count, "warm-up run")).toBe(`${count} warm-up runs`);
+  });
+});
+
 describe("renderReport", () => {
   const report: BenchReport = {
     environment: {
       cpu: "Test CPU",
-      memoryBytes: 16_000_000_000,
+      memoryBytes: 24 * 1024 ** 3,
       operatingSystem: "TestOS 1.0",
       node: "26.0.0",
     },
@@ -67,8 +78,8 @@ describe("renderReport", () => {
 
   it("renderReport returns the environment, the method and one table row per document", () => {
     expect(renderReport(report).split("\n")).toEqual([
-      "Machine: Test CPU, 16 GB RAM, TestOS 1.0, Node.js 26.0.0.",
-      "Median of 5 runs after 1 warm-up run(s); default options; peak RSS is the median of the " +
+      "Machine: Test CPU, 24 GiB RAM, TestOS 1.0, Node.js 26.0.0.",
+      "Median of 5 runs after 1 warm-up run; default options; peak RSS is the median of the " +
         "per-run peaks.",
       "",
       "| Document | Input | new 1.0.0: time | old 7.0.0: time | Time difference | " +
