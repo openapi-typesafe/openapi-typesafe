@@ -75,6 +75,15 @@ describe("NodeGeneratorRunner", () => {
     await expect(run).rejects.toThrow(/without reporting its peak memory/);
   });
 
+  it.each(["empty-memory.yaml", "cut-memory.yaml", "fraction-memory.yaml"])(
+    "run whose probe file holds no whole positive number (%s) rejects",
+    async (documentPath) => {
+      const run = runner(NORMAL_TIMEOUT_MS).run({ cliPath: STAND_IN_CLI, documentPath });
+
+      await expect(run).rejects.toThrow(/invalid peak memory/);
+    },
+  );
+
   it("the default clock measures a real, positive wall time", async () => {
     const real = new NodeGeneratorRunner({ workDir, timeoutMs: NORMAL_TIMEOUT_MS });
 

@@ -31,10 +31,10 @@ export function formatDuration(milliseconds: number): string {
     : `${(milliseconds / MS_PER_SECOND).toFixed(1)} s`;
 }
 
-/** Decimal units, as npm and file managers print sizes: `5 KB` below 1 MB, `27.6 MB` above. */
+/** Decimal units, as npm and file managers print sizes: `5 kB` below 1 MB, `27.6 MB` above. */
 export function formatBytes(bytes: number): string {
   return bytes < BYTES_PER_MB
-    ? `${Math.round(bytes / BYTES_PER_KB)} KB`
+    ? `${Math.round(bytes / BYTES_PER_KB)} kB`
     : `${(bytes / BYTES_PER_MB).toFixed(1)} MB`;
 }
 

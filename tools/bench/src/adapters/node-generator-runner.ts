@@ -54,15 +54,24 @@ export class NodeGeneratorRunner implements GeneratorRunner {
     return { wallMs, peakRssBytes: await this.#readPeakRss(run, peakRssFile) };
   }
 
-  /** The probe's number; a process that exits without its "exit" event leaves no file. */
+  /**
+   * The probe's number. A process that exits without its "exit" event leaves no file, and one
+   * killed while the probe writes leaves an empty or cut-off one; neither is a measurement.
+   */
   async #readPeakRss(run: GeneratorRun, peakRssFile: string): Promise<number> {
+    let text: string;
     try {
-      return Number(await readFile(peakRssFile, "utf8"));
+      text = await readFile(peakRssFile, "utf8");
     } catch (error) {
       throw new GeneratorRunError(`${run.cliPath} exited without reporting its peak memory`, {
         cause: error,
       });
     }
+    const bytes = Number(text);
+    if (!(Number.isSafeInteger(bytes) && bytes > 0)) {
+      throw new GeneratorRunError(`${run.cliPath} reported an invalid peak memory: "${text}"`);
+    }
+    return bytes;
   }
 
   #spawn(run: GeneratorRun, peakRssFile: string): Promise<ChildOutcome> {

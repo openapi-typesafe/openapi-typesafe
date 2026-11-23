@@ -21,7 +21,7 @@ describe("formatDuration", () => {
 
 describe("formatBytes", () => {
   it("formatBytes below one megabyte returns whole kilobytes", () => {
-    expect(formatBytes(5_471)).toBe("5 KB");
+    expect(formatBytes(5_471)).toBe("5 kB");
   });
 
   it("formatBytes of one megabyte or more returns megabytes with one decimal", () => {
@@ -85,7 +85,7 @@ describe("renderReport", () => {
       "| Document | Input | new 1.0.0: time | old 7.0.0: time | Time difference | " +
         "new 1.0.0: peak RSS | old 7.0.0: peak RSS |",
       "|---|---|---|---|---|---|---|",
-      "| Tiny | 5 KB | 400 ms | 500 ms | 20% faster | 90.0 MB | 100.0 MB |",
+      "| Tiny | 5 kB | 400 ms | 500 ms | 20% faster | 90.0 MB | 100.0 MB |",
       "",
     ]);
   });

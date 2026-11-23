@@ -14,8 +14,8 @@ export interface BenchSettings {
 }
 
 /**
- * Seven runs keep the median stable when a few runs are disturbed; the largest document takes
- * 10 to 15 s a run, so the whole benchmark takes about ten minutes.
+ * Seven runs keep the median stable when a few runs are disturbed; the largest document took
+ * 10 to 13 s a run on an Apple M5.
  */
 const DEFAULT_MEASURED_RUNS = 7;
 /** One warm-up run loads the document and the generator's files into the file cache. */
