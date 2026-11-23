@@ -21,7 +21,7 @@ values with your own.
 > other work (load average 9 to 19 on 10 cores). They show the direction, not exact values:
 > differences of a few percent are noise. They will be replaced by a run on a quiet machine.
 
-openapi-typesafe 1.0.0-rc.16, `pnpm bench` (the defaults: 7 measured runs after 1 warm-up run).
+openapi-typesafe 1.0.0-rc.16, measured with `pnpm bench` and its default settings.
 
 Sizes on this page are decimal: 1 kB = 1,000 bytes, 1 MB = 1,000,000 bytes, 1 GB =
 1,000,000,000 bytes. Only the machine's RAM is given in GiB (2^30 bytes), as the system reports it.

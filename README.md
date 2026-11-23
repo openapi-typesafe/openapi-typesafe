@@ -27,9 +27,10 @@
 </p>
 
 The author of [openapi-typescript](https://github.com/openapi-ts/openapi-typescript) and
-openapi-fetch [stopped maintaining them](https://github.com/openapi-ts/openapi-typescript/issues/2874)
-in September 2026. openapi-typesafe is a fork with the full upstream history (see [NOTICE](./NOTICE)):
-the same CLI flags, Node API, generated types and client API, kept working and fixed.
+openapi-fetch [stopped maintaining
+them](https://github.com/openapi-ts/openapi-typescript/issues/2874) in September 2026.
+openapi-typesafe is a fork with the full upstream history (see [NOTICE](./NOTICE)): the same CLI
+flags, Node API, generated types and client API, kept working and fixed.
 
 > **Release candidate.** The current version is `1.0.0-rc.N`; names and output can still change
 > before 1.0.0. [Versioning](./docs/compatibility.md#versioning) lists what 1.x will promise.
@@ -51,9 +52,9 @@ the same CLI flags, Node API, generated types and client API, kept working and f
 openapi-typesafe generates TypeScript types; only the opt-in `--enum`, `--enum-values` and
 `--make-paths-enum` flags emit runtime code (TypeScript enums and value arrays). The client is a
 thin typed wrapper around `fetch`: you call paths (`client.GET("/posts/{post_id}")`), not
-generated functions. OpenAPI 2.0 (Swagger) is not supported. If you want a generated SDK with one function per operation, runtime
-validators or mocks, look at a full SDK generator such as [Hey API](https://heyapi.dev) or
-[Orval](https://orval.dev).
+generated functions. OpenAPI 2.0 (Swagger) is not supported.
+If you want a generated SDK with one function per operation, runtime validators or mocks, look at
+a full SDK generator such as [Hey API](https://heyapi.dev) or [Orval](https://orval.dev).
 
 ## By the numbers
 
@@ -61,11 +62,11 @@ validators or mocks, look at a full SDK generator such as [Hey API](https://heya
 |---|---|
 | **Compatibility** | 1,820 real-world schemas × 28 option sets = 50,960 cases, **0** unexpected differences. Where 7.13's output is a valid reference (49,114 cases: identical, or compiles without merged enums), **99.88%** are byte-identical and the rest type-identical. CI runs the full corpus every night. [Report](./docs/compatibility.md) |
 | **Real projects** | 22 open-source projects switched by package name only: 19 pass every step they passed before, 3 stop at a breaking change the migration guide lists. [Details](./docs/compatibility.md#real-projects) |
-| **Generator speed** | Preliminary, measured on a busy machine: faster than openapi-typescript 7.13 on small documents (no TypeScript compiler to load), a few percent slower on the 4–28 MB documents (close to the noise), and clearly slower, by about a quarter, on the 74 MB Microsoft Graph beta. [Benchmarks](./docs/benchmarks.md) |
+| **Generator speed** | Preliminary, measured on a busy machine: faster than openapi-typescript 7.13 on small documents (no TypeScript compiler to load), 2–11% slower on the 4–28 MB documents, and clearly slower, by about a quarter, on the 74 MB Microsoft Graph beta. [Benchmarks](./docs/benchmarks.md) |
 | **Client size** | Larger than the originals, because of behavior fixes: `openapi-typesafe-fetch` 4.5 kB gzipped (openapi-fetch 0.17: 2.8 kB), `openapi-typesafe-react-query` 3.3 kB (openapi-react-query 0.5.4: 0.5 kB). [What the bytes buy](./docs/benchmarks.md#client-size) |
 | **Type checks** | Every pull request type-checks the generated examples and the clients with TypeScript 5.4, 5.9, 6.0 and 7.0 ([type matrix](./tools/type-matrix)), and runs the packages on Node.js 22, 24 and 26, Bun and Deno. |
 | **Tests** | CI fails below a coverage floor of 95–100% lines per runtime package, and below 90% for each domain and application layer on its own ([`vitest.coverage.ts`](./vitest.coverage.ts)). |
-| **Agent skill** | 34 of 34 coding tasks with and without the skill (one model, one run each, 2026-11-02); with it the agent read package internals in 9 tasks instead of 31, median 14 s instead of 17 s. [Results](./docs/internal/research/skill-evals.md) |
+| **Agent skill** | 34 of 34 coding tasks with the skill, 33 of 34 without (the miss was a gap in the task prompt; it passes after the fix); one model, one run each, 2026-11-02. With the skill the agent read package files in 9 tasks instead of 31, median 14 s instead of 17 s. [Results](./docs/internal/research/skill-evals.md) |
 
 ## Quick start
 
