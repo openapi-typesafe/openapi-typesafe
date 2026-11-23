@@ -87,6 +87,7 @@
     "express": "5.3.0",
     "feature-fetch": "0.1.2",
     "node-forge": "1.4.3",
+    "openapi-fetch": "0.17.0",
     "openapi-typesafe": "workspace:^",
     "openapi-typescript-fetch": "2.2.1",
     "typescript": "catalog:",

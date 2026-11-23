@@ -1,0 +1,5 @@
+{
+  "name": "versionless-generator",
+  "private": true,
+  "type": "module"
+}
