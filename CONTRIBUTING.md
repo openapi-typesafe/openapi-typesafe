@@ -6,7 +6,7 @@ Thank you for helping. This guide covers setup, the rules every change must foll
 
 - For a bug fix, open an issue (or comment on an existing one) with a minimal schema that reproduces the problem.
 - For a feature or a breaking change, **open an issue first**. New features follow the ranked backlog
-  ([research/backlog.md](./research/backlog.md)); a breaking change waits for the next major version.
+  ([docs/internal/research/backlog.md](./docs/internal/research/backlog.md)); a breaking change waits for the next major version.
 
 ## Setup
 
@@ -47,7 +47,7 @@ Packages depend on each other: `openapi-typesafe-fetch` tests use types generate
 
 ## Rules for every change
 
-Every pull request must meet the Definition of Done in [ENGINEERING_PLAN.md](./ENGINEERING_PLAN.md) §8. In short:
+Every pull request must meet the Definition of Done in [ENGINEERING_PLAN.md](./docs/internal/ENGINEERING_PLAN.md) §8. In short:
 
 1. **Conventional Commits.** Commit messages and PR titles follow
    [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/): `type(scope): description`, in English,

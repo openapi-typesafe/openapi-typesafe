@@ -38,7 +38,7 @@ export interface EnumMemberNaming {
  * The original checks the character after an invalid run with a global regex and `.test()`,
  * which keeps `lastIndex`: after a check that finds an invalid character, the next check fails,
  * and a later member name with invalid characters resets it. `isNextCheckSkipped` keeps that
- * behavior within a run (research/legacy-bugs.md, item 2; fixed in Phase 7).
+ * behavior within a run (docs/internal/research/legacy-bugs.md, item 2; fixed in Phase 7).
  */
 export class EnumNaming {
   private isNextCheckSkipped = false;
@@ -80,8 +80,9 @@ export class EnumNaming {
       return this.isInvalid(next) ? "" : next.toUpperCase();
     });
     // The original prefixed the unsanitized name, which kept invalid characters after a leading
-    // digit, and missed a digit that only became first after sanitizing (research/legacy-bugs.md,
-    // item 15). Prefixing the sanitized name gives the same name wherever the original was valid.
+    // digit, and missed a digit that only became first after sanitizing
+    // (docs/internal/research/legacy-bugs.md, item 15). Prefixing the sanitized name gives the
+    // same name wherever the original was valid.
     return STARTS_WITH_DIGIT_RE.test(sanitized) ? `${NUMBER_PREFIX}${sanitized}` : sanitized;
   }
 

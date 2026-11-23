@@ -5,7 +5,7 @@ import { typeErrorsOf } from "../typescript-diagnostics.js";
 /**
  * `$defs` is a schema keyword, not data. Values of the generated types must not need a `$defs`
  * key, and refs into a nested or root `$defs` must resolve to the subschema type, not `never`
- * (research/legacy-bugs.md, items 17 and 18; upstream #2664).
+ * (docs/internal/research/legacy-bugs.md, items 17 and 18; upstream #2664).
  */
 
 const DEFS_FIXTURE = new URL("../fixtures/jsonschema-defs.yaml", import.meta.url);

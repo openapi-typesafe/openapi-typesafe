@@ -26,7 +26,7 @@ docs use, is not affected; `attw` finds no problems in any package.
 |---|---|---|
 | Keep `./*` (chosen) | Deep imports that work with the upstream packages keep working after the migration | publint warns; a deep import of a `.cjs` file from ESM can get the wrong default |
 | Remove `./*` | publint passes; a smaller public surface | Breaks every deep import, which the migration promises to keep working; a breaking change for 1.0 of a drop-in replacement |
-| List the deep paths that users import | Smaller surface, no warning | We do not know these paths; `research/node-api-usage.md` covers the Node API, not file paths |
+| List the deep paths that users import | Smaller surface, no warning | We do not know these paths; `docs/internal/research/node-api-usage.md` covers the Node API, not file paths |
 
 ## Consequences
 

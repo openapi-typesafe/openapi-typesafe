@@ -66,7 +66,9 @@ export default defineConfig({
   description: "OpenAPI 3.x to TypeScript types, and a type-safe fetch client",
   base: SITE_URL.pathname,
   cleanUrls: true,
-  srcExclude: ["README.md", "CONTRIBUTING.md"],
+  // `internal/` holds the maintainers' plans and research notes: kept in the repository, not on the
+  // site.
+  srcExclude: ["README.md", "CONTRIBUTING.md", "internal/**"],
   head: [["link", { rel: "icon", href: `${SITE_URL.pathname}favicon.svg`, type: "image/svg+xml" }]],
   sitemap: { hostname: SITE_URL.href },
   themeConfig: {
@@ -88,7 +90,7 @@ export default defineConfig({
     plugins: [
       llmstxt({
         domain: SITE_URL.origin,
-        ignoreFiles: ["README.md", "CONTRIBUTING.md"],
+        ignoreFiles: ["README.md", "CONTRIBUTING.md", "internal/**"],
         details: [
           "Five packages share one version: `openapi-typesafe` (generator: CLI and Node API),",
           "`openapi-typesafe-fetch` (client), `openapi-typesafe-react-query` (TanStack Query hooks),",

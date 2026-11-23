@@ -6,7 +6,7 @@ _What does this PR change, and why? Link the related issue (`Closes #123`)._
 
 _What should a reviewer focus on? How did you test it?_
 
-## Checklist (Definition of Done, ENGINEERING_PLAN.md §8)
+## Checklist (Definition of Done, docs/internal/ENGINEERING_PLAN.md §8)
 
 - [ ] PR title follows Conventional Commits; one logical change
 - [ ] Tests added or updated (failing test first for a bug fix)

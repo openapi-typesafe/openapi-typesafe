@@ -3,7 +3,7 @@
 > Export of all open issues and open pull requests of
 > [openapi-ts/openapi-typescript](https://github.com/openapi-ts/openapi-typescript), ranked by reactions and
 > labeled with our own categories. Input for Phase 7 (tasks 7.4 and 7.6).
-> Raw data: [`backlog.json`](./backlog.json).
+> Raw data: [`backlog.json`](backlog.json).
 
 ## 1. How the data was collected
 

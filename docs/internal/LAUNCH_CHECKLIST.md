@@ -1,7 +1,7 @@
 # Launch checklist
 
 The steps of the 1.0 launch. Every step below is a one-way action, so the maintainer decides when
-each one starts. The commands and details are in [RELEASING.md](RELEASING.md).
+each one starts. The commands and details are in [RELEASING.md](../../RELEASING.md).
 
 State on 2026-11-08: the repository is public since 2026-11-04. `1.0.0-rc.0` (2026-11-04),
 `1.0.0-rc.1` (2026-11-05), `1.0.0-rc.2` and `1.0.0-rc.3` (both 2026-11-08) are on npm with

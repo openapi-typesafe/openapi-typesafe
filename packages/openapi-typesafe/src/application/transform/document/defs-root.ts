@@ -9,8 +9,8 @@ import type { TransformContext } from "../transform-context.js";
 /**
  * The root `$defs` type: one required member per named subschema, so `#/$defs/<name>` refs
  * (`$defs["<name>"]`) resolve. The original transformed the whole `$defs` map as one schema,
- * which gave `Record<string, never>` and made every such ref `never` (research/legacy-bugs.md,
- * item 18).
+ * which gave `Record<string, never>` and made every such ref `never`
+ * (docs/internal/research/legacy-bugs.md, item 18).
  */
 export function defsRootType(
   defs: Readonly<Record<string, Schema>>,

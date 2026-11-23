@@ -19,8 +19,8 @@ playwright-report
 # Compatibility harness cache: downloaded corpus documents and generated outputs
 .cache
 
-# Loader evaluation installs (research/loader-evaluation/setup.sh)
-research/loader-evaluation/*/
+# Loader evaluation installs (docs/internal/research/loader-evaluation/setup.sh)
+docs/internal/research/loader-evaluation/*/
 
 # Closed-beta tarballs (scripts/release/pack-beta.sh)
 .release

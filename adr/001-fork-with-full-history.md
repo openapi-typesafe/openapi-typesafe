@@ -29,7 +29,7 @@ compiler-API internals step by step (ADR-002) behind the existing tests and a co
 ## Consequences
 
 - Compatibility is the starting point and only has to be preserved, not rebuilt.
-- Debt is listed in `research/baseline.md` and assigned to phases of the engineering plan.
+- Debt is listed in `docs/internal/research/baseline.md` and assigned to phases of the engineering plan.
 - Upstream fixes that land after the fork can be cherry-picked (the `upstream` remote has pushing disabled).
 
 ## Review trigger
