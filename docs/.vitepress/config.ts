@@ -25,6 +25,7 @@ const sidebar: DefaultTheme.Sidebar = [
       { text: "Migration guide", link: "/migration-guide" },
       { text: "TypeScript 7", link: "/typescript-7" },
       { text: "Compatibility report", link: "/compatibility" },
+      { text: "Benchmarks", link: "/benchmarks" },
     ],
   },
   {
