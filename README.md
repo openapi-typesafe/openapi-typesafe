@@ -46,17 +46,25 @@ the same CLI flags, Node API, generated types and client API, kept working and f
 | Migration | One command: `npx openapi-typesafe-migrate` | — |
 | Releases | npm provenance, trusted publishing (no npm token), CycloneDX SBOM per release ([RELEASING.md](./RELEASING.md)) | npm provenance |
 
+## Is this the right tool?
+
+openapi-typesafe generates **TypeScript types** (plus plain enums with `--enum`), and the client
+is a thin typed wrapper around `fetch`: you call paths (`client.GET("/posts/{post_id}")`), not
+generated functions. If you want a generated SDK with one function per operation, runtime
+validators or mocks, look at a full SDK generator such as [Hey API](https://heyapi.dev) or
+[Orval](https://orval.dev).
+
 ## By the numbers
 
-| | |
+| Area | Result |
 |---|---|
-| **Compatibility** | 1,820 real-world schemas × 28 option sets = 50,960 cases: **99.88%** byte-identical, **100%** type-identical, **0** unexpected differences. CI runs the full corpus every night. [Report](./docs/compatibility.md) |
+| **Compatibility** | 1,820 real-world schemas × 28 option sets = 50,960 cases, **0** unexpected differences. Where the output of openapi-typescript 7.13 compiles and keeps its enums apart (49,114 cases), **99.88%** are byte-identical and **100%** type-identical. CI runs the full corpus every night. [Report](./docs/compatibility.md) |
 | **Real projects** | 22 open-source projects switched by package name only: 19 pass every step they passed before, 3 stop at a breaking change the migration guide lists. [Details](./docs/compatibility.md#real-projects) |
-| **Generator speed** | Faster on small documents (Petstore: 164 ms against 242 ms for openapi-typescript 7.13, no TypeScript compiler to load), slower on large ones: GitHub REST 1.4 s against 1.3 s, Microsoft Graph beta (74 MB) 12.5 s against 9.8 s. [Benchmarks](./docs/benchmarks.md) |
+| **Generator speed** | Preliminary, measured on a busy machine: faster than openapi-typescript 7.13 on small documents (no TypeScript compiler to load), slower on the largest ones (Microsoft Graph beta, 74 MB). Differences of a few percent are noise. [Benchmarks](./docs/benchmarks.md) |
 | **Client size** | Larger than the originals, because of behavior fixes: `openapi-typesafe-fetch` 4.5 kB gzipped (openapi-fetch 0.17: 2.8 kB), `openapi-typesafe-react-query` 3.3 kB (openapi-react-query 0.5.4: 0.5 kB). [What the bytes buy](./docs/benchmarks.md#client-size) |
 | **Type checks** | Every pull request type-checks the generated examples and the clients with TypeScript 5.4, 5.9, 6.0 and 7.0 ([type matrix](./tools/type-matrix)), and runs the packages on Node.js 22, 24 and 26, Bun and Deno. |
 | **Tests** | CI fails below a coverage floor of 95–100% lines per package, and below 90% for each domain and application layer on its own ([`vitest.coverage.ts`](./vitest.coverage.ts)). |
-| **Agent skill** | 34 of 34 coding tasks passed with the skill (one model, one run, 2026-11-02). [Method and limits](./docs/internal/research/skill-evals.md) |
+| **Agent skill** | 34 of 34 coding tasks passed with the skill, 33 of 34 without it (one model, one run each, 2026-11-02). [Harness](./tools/skill-evals) |
 
 ## Quick start
 

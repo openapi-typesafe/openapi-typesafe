@@ -13,6 +13,9 @@ hero:
       text: Migrate from openapi-typescript
       link: /migration-guide
     - theme: alt
+      text: Benchmarks
+      link: /benchmarks
+    - theme: alt
       text: View on GitHub
       link: https://github.com/openapi-typesafe/openapi-typesafe
 
@@ -20,7 +23,7 @@ features:
   - title: Runtime-free types
     details: Static TypeScript types add nothing to your bundle. The fetch client is a few kilobytes and wraps the native Fetch API.
   - title: TypeScript 7 ready
-    details: The generator prints types itself and needs no TypeScript compiler, so it runs next to TypeScript 7 or any earlier version.
+    details: The generator prints types itself and needs no TypeScript compiler, so it runs next to TypeScript 5.4, 6 or 7.
   - title: Drop-in
     details: The same CLI flags, Node API and output as openapi-typescript 7.13, checked byte for byte against openapi-typescript 7.13 on a corpus of real-world schemas. One command moves a project.
 ---

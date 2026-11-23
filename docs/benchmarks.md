@@ -14,10 +14,16 @@ values with your own.
 
 ## Generator speed
 
-Measured on 2026-11-23 with openapi-typesafe 1.0.0-rc.16.
+::: warning Preliminary numbers
+These timings were taken on 2026-11-23 on a machine that was busy with other work (load average
+9 to 19 on 10 cores). They show the direction, not exact values: differences of a few percent are
+noise. They will be replaced by a run on a quiet machine.
+:::
 
-Machine: Apple M5, 26 GB RAM, Darwin 27.2.0, Node.js 26.0.0.
-Median of 7 runs after 1 warm-up run(s); default options; peak RSS is the median of the per-run peaks.
+openapi-typesafe 1.0.0-rc.16, `pnpm bench` (the defaults: 7 measured runs after 1 warm-up run).
+
+Machine: Apple M5, 24 GiB RAM, Darwin 27.2.0, Node.js 26.0.0.
+Median of 7 runs after 1 warm-up run; default options; peak RSS is the median of the per-run peaks.
 
 | Document | Input | openapi-typesafe 1.0.0-rc.16: time | openapi-typescript 7.13.0: time | Time difference | openapi-typesafe 1.0.0-rc.16: peak RSS | openapi-typescript 7.13.0: peak RSS |
 |---|---|---|---|---|---|---|
@@ -49,9 +55,8 @@ What the table shows:
 - **Memory:** openapi-typesafe needs less on four of the six documents, 3% more on GitHub REST and
   12% more on Cloudflare (1.02 GB against 0.91 GB).
 
-The machine was shared with other work while this ran (load average 9 to 19 on 10 cores).
-Because the two generators take turns, the load slows both alike, but the absolute times are
-higher than on a quiet machine, and differences of a few percent are within the noise.
+Because the two generators take turns, the load of the busy machine slowed both alike, but the
+absolute times are higher than on a quiet machine.
 
 ## Client size
 
@@ -89,7 +94,8 @@ The budgets in the root `package.json` fail CI when a bundle grows past them.
 ## Client run time
 
 The overhead of one request through the client, with `fetch` replaced by a stub that answers at
-once, so no network time is included (`vitest bench`, operations per second, higher is better):
+once, so no network time is included (`vitest bench`, operations per second, higher is better).
+Preliminary as well: measured on the same busy machine.
 
 | Benchmark | `openapi-typesafe-fetch` | `openapi-fetch` 0.17.0 |
 | --- | ---: | ---: |
