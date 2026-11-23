@@ -41,16 +41,17 @@ the same CLI flags, Node API, generated types and client API, kept working and f
 | Maintained | Yes | No: last release on 2026-02-11 (7.13.0, 0.17.0) |
 | TypeScript 7 | Works with TypeScript 5.4, 6 and 7: the generator prints types itself ([why](https://openapi-typesafe.github.io/openapi-typesafe/typescript-7)) | Needs the TypeScript 5 compiler API; does not run next to TypeScript 7 |
 | OpenAPI 3.2 | Types for `query` operations, `in: querystring`, `itemSchema` and more ([list](https://openapi-typesafe.github.io/openapi-typesafe/introduction#openapi-3-2-support)) | Rejects 3.2 documents |
-| Same output, proven | Compared with 7.13 on 1,820 real schemas every night ([report](./docs/compatibility.md)) | — |
+| Same output, tested | Compared with 7.13 on 1,820 real schemas every night ([report](./docs/compatibility.md)) | — |
 | Fixes | Output that did not compile or had wrong types, client bugs ([list](https://openapi-typesafe.github.io/openapi-typesafe/migration-guide#what-is-different)) | None after 2026-02-11 |
 | Migration | One command: `npx openapi-typesafe-migrate` | — |
 | Releases | npm provenance, trusted publishing (no npm token), CycloneDX SBOM per release ([RELEASING.md](./RELEASING.md)) | npm provenance |
 
 ## Is this the right tool?
 
-openapi-typesafe generates **TypeScript types** (plus plain enums with `--enum`), and the client
-is a thin typed wrapper around `fetch`: you call paths (`client.GET("/posts/{post_id}")`), not
-generated functions. If you want a generated SDK with one function per operation, runtime
+openapi-typesafe generates TypeScript types; only the opt-in `--enum`, `--enum-values` and
+`--make-paths-enum` flags emit runtime code (TypeScript enums and value arrays). The client is a
+thin typed wrapper around `fetch`: you call paths (`client.GET("/posts/{post_id}")`), not
+generated functions. OpenAPI 2.0 (Swagger) is not supported. If you want a generated SDK with one function per operation, runtime
 validators or mocks, look at a full SDK generator such as [Hey API](https://heyapi.dev) or
 [Orval](https://orval.dev).
 
@@ -58,13 +59,13 @@ validators or mocks, look at a full SDK generator such as [Hey API](https://heya
 
 | Area | Result |
 |---|---|
-| **Compatibility** | 1,820 real-world schemas × 28 option sets = 50,960 cases, **0** unexpected differences. Where the output of openapi-typescript 7.13 compiles and keeps its enums apart (49,114 cases), **99.88%** are byte-identical and **100%** type-identical. CI runs the full corpus every night. [Report](./docs/compatibility.md) |
+| **Compatibility** | 1,820 real-world schemas × 28 option sets = 50,960 cases, **0** unexpected differences. Where 7.13's output is a valid reference (49,114 cases: identical, or compiles without merged enums), **99.88%** are byte-identical and the rest type-identical. CI runs the full corpus every night. [Report](./docs/compatibility.md) |
 | **Real projects** | 22 open-source projects switched by package name only: 19 pass every step they passed before, 3 stop at a breaking change the migration guide lists. [Details](./docs/compatibility.md#real-projects) |
-| **Generator speed** | Preliminary, measured on a busy machine: faster than openapi-typescript 7.13 on small documents (no TypeScript compiler to load), slower on the largest ones (Microsoft Graph beta, 74 MB). Differences of a few percent are noise. [Benchmarks](./docs/benchmarks.md) |
+| **Generator speed** | Preliminary, measured on a busy machine: faster than openapi-typescript 7.13 on small documents (no TypeScript compiler to load), a few percent slower on the 4–28 MB documents (close to the noise), and clearly slower, by about a quarter, on the 74 MB Microsoft Graph beta. [Benchmarks](./docs/benchmarks.md) |
 | **Client size** | Larger than the originals, because of behavior fixes: `openapi-typesafe-fetch` 4.5 kB gzipped (openapi-fetch 0.17: 2.8 kB), `openapi-typesafe-react-query` 3.3 kB (openapi-react-query 0.5.4: 0.5 kB). [What the bytes buy](./docs/benchmarks.md#client-size) |
 | **Type checks** | Every pull request type-checks the generated examples and the clients with TypeScript 5.4, 5.9, 6.0 and 7.0 ([type matrix](./tools/type-matrix)), and runs the packages on Node.js 22, 24 and 26, Bun and Deno. |
-| **Tests** | CI fails below a coverage floor of 95–100% lines per package, and below 90% for each domain and application layer on its own ([`vitest.coverage.ts`](./vitest.coverage.ts)). |
-| **Agent skill** | 34 of 34 coding tasks passed with the skill, 33 of 34 without it (one model, one run each, 2026-11-02). [Harness](./tools/skill-evals) |
+| **Tests** | CI fails below a coverage floor of 95–100% lines per runtime package, and below 90% for each domain and application layer on its own ([`vitest.coverage.ts`](./vitest.coverage.ts)). |
+| **Agent skill** | 34 of 34 coding tasks with and without the skill (one model, one run each, 2026-11-02); with it the agent read package internals in 9 tasks instead of 31, median 14 s instead of 17 s. [Results](./docs/internal/research/skill-evals.md) |
 
 ## Quick start
 
