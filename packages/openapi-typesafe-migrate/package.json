@@ -52,7 +52,7 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
-    "dependency-cruiser": "18.7.2",
+    "dependency-cruiser": "18.9.0",
     "vite-node": "6.0.0"
   },
   "engines": {
