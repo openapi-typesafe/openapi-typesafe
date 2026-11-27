@@ -1,0 +1,91 @@
+{
+  "name": "@openapi-typesafe/bench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Compares openapi-typesafe with openapi-typescript 7.13 and openapi-fetch: generator speed and client size",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "bench": "node src/cli/main.ts",
+    "compare-size": "size-limit",
+    "lint": "pnpm run lint:js && pnpm run lint:ts",
+    "lint:js": "biome check .",
+    "lint:ts": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "5.106.1",
+    "openapi-fetch": "0.17.0",
+    "openapi-react-query": "0.5.4",
+    "openapi-typesafe-fetch": "workspace:*",
+    "openapi-typesafe-react-query": "workspace:*",
+    "react": "19.3.1",
+    "typescript": "catalog:"
+  },
+  "size-limit": [
+    {
+      "name": "openapi-typesafe-fetch",
+      "path": "../../packages/openapi-typesafe-fetch/dist/index.mjs",
+      "brotli": false
+    },
+    {
+      "name": "openapi-typesafe-fetch (gzip)",
+      "path": "../../packages/openapi-typesafe-fetch/dist/index.mjs",
+      "gzip": true
+    },
+    {
+      "name": "openapi-fetch 0.17.0",
+      "path": "node_modules/openapi-fetch/dist/index.mjs",
+      "brotli": false
+    },
+    {
+      "name": "openapi-fetch 0.17.0 (gzip)",
+      "path": "node_modules/openapi-fetch/dist/index.mjs",
+      "gzip": true
+    },
+    {
+      "name": "openapi-typesafe-react-query",
+      "path": "../../packages/openapi-typesafe-react-query/dist/index.mjs",
+      "ignore": [
+        "@tanstack/react-query",
+        "openapi-typesafe-fetch",
+        "react"
+      ],
+      "brotli": false
+    },
+    {
+      "name": "openapi-typesafe-react-query (gzip)",
+      "path": "../../packages/openapi-typesafe-react-query/dist/index.mjs",
+      "ignore": [
+        "@tanstack/react-query",
+        "openapi-typesafe-fetch",
+        "react"
+      ],
+      "gzip": true
+    },
+    {
+      "name": "openapi-react-query 0.5.4",
+      "path": "node_modules/openapi-react-query/dist/index.mjs",
+      "ignore": [
+        "@tanstack/react-query",
+        "openapi-fetch",
+        "react"
+      ],
+      "brotli": false
+    },
+    {
+      "name": "openapi-react-query 0.5.4 (gzip)",
+      "path": "node_modules/openapi-react-query/dist/index.mjs",
+      "ignore": [
+        "@tanstack/react-query",
+        "openapi-fetch",
+        "react"
+      ],
+      "gzip": true
+    }
+  ]
+}

@@ -78,10 +78,10 @@ function componentMember(
  * of exported names see `addRootAlias`.
  *
  * The original could build a name that is no identifier, so the generated file did not parse
- * (research/legacy-bugs.md, item 16): a kept casing keeps spaces and symbols, which become `_`;
- * and a name without the prefix can start with a digit, so it keeps the prefix (`Schema1`). A
- * kept casing without the prefix can also give a reserved name (`void`, `class`), which keeps the
- * prefix too (`Schemavoid`).
+ * (docs/internal/research/legacy-bugs.md, item 16): a kept casing keeps spaces and symbols,
+ * which become `_`; and a name without the prefix can start with a digit, so it keeps the prefix
+ * (`Schema1`). A kept casing without the prefix can also give a reserved name (`void`, `class`),
+ * which keeps the prefix too (`Schemavoid`).
  */
 function rootTypeName(
   kind: ComponentKind,

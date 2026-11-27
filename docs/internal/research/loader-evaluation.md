@@ -1,6 +1,6 @@
 # Schema loader evaluation (task 3.5)
 
-Date: 2026-11-02. Input for [ADR-005](../adr/005-schema-loader.md).
+Date: 2026-11-02. Input for [ADR-005](../../../adr/005-schema-loader.md).
 
 ## Question
 

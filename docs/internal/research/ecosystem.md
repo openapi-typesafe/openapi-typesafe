@@ -35,7 +35,7 @@ Checked and **not** consumers of our format: `hono-openapi` (generates OpenAPI f
 ### Smaller consumers found through the npm dependents scan
 
 From the 480 npm packages whose latest manifest lists one of our three packages (see
-[dependents.csv](./dependents.csv)), these are libraries (not SDKs for one API) that consume the format:
+[dependents.csv](dependents.csv)), these are libraries (not SDKs for one API) that consume the format:
 
 | Library (npm) | Version | Weekly downloads | Last release | Relies on | Ranges on our packages |
 |---|---|---:|---|---|---|
@@ -116,7 +116,7 @@ compatibility harness (Phase 2) that compiles a small consumer snippet against t
    Qraft generates code that names these paths.
 10. **Node API return value:** `openapiTS()` output must still be printable with `astToString()`
     (nuxt-open-fetch, Qraft, `@shopware/api-gen`, `@grafana/openapi-to-k6`); see
-    [node-api-usage.md](./node-api-usage.md).
+    [node-api-usage.md](node-api-usage.md).
 11. **Package names and ranges.** Several libraries declare `openapi-typescript` (`7`, `^7.10.1`, `^7.4.1`)
     or `openapi-fetch` (`^0.17.0`, `>=0.15`, `^0.14.0`) as peers or dependencies. Users of a renamed package
     get a peer warning or a duplicate install. The drop-in path therefore needs either compatible-name

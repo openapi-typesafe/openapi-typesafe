@@ -2,6 +2,11 @@
 
 The docs site, built with [VitePress](https://vitepress.dev/).
 
+`internal/` is not part of the site: it holds the maintainers' files, the
+[engineering plan](./internal/ENGINEERING_PLAN.md), the
+[launch checklist](./internal/LAUNCH_CHECKLIST.md) and the [research notes](./internal/research/)
+that the ADRs cite. The site config leaves it out (`srcExclude`).
+
 ## Setup
 
 With [Node.js](https://nodejs.org/en) 22 and [pnpm](https://pnpm.io/), from the repository root:

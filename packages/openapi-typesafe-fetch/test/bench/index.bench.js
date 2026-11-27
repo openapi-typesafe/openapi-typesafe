@@ -1,8 +1,21 @@
-import axios from "axios";
-import { createApiFetchClient } from "feature-fetch";
-import { Fetcher } from "openapi-typescript-fetch";
+import axiosImport from "axios";
+import { createApiFetchClient as createApiFetchClientImport } from "feature-fetch";
+import createOpenapiFetchClientImport from "openapi-fetch";
+import { Fetcher as FetcherImport } from "openapi-typescript-fetch";
 import { afterAll, test, vi } from "vitest";
-import createClient, { createPathBasedClient } from "../../dist/index.mjs";
+import createClientImport, {
+  createPathBasedClient as createPathBasedClientImport,
+} from "../../dist/index.mjs";
+
+// Vitest's module runner reads every import through a getter, on each access. Inside a measured
+// callback that getter is part of the timing (vitest warns that the results are unreliable), so
+// each import is read once here into a plain local binding.
+const axios = axiosImport;
+const createApiFetchClient = createApiFetchClientImport;
+const createOpenapiFetchClient = createOpenapiFetchClientImport;
+const Fetcher = FetcherImport;
+const createClient = createClientImport;
+const createPathBasedClient = createPathBasedClientImport;
 
 // Every client below sends its requests through the stubbed global `fetch`, so the benchmark
 // measures client overhead only and never touches the network.
@@ -30,6 +43,9 @@ test("setup", async ({ bench }) => {
     bench("openapi-typesafe-fetch (path based)", async () => {
       createPathBasedClient({ baseUrl: BASE_URL });
     }),
+    bench("openapi-fetch 0.17.0", async () => {
+      createOpenapiFetchClient({ baseUrl: BASE_URL });
+    }),
     bench("openapi-typescript-fetch", async () => {
       const fetcher = Fetcher.for();
       fetcher.configure({
@@ -53,6 +69,7 @@ test("setup", async ({ bench }) => {
 test("get (only URL)", async ({ bench }) => {
   const openapiFetch = createClient({ baseUrl: BASE_URL });
   const openapiFetchPath = createPathBasedClient({ baseUrl: BASE_URL });
+  const upstreamFetch = createOpenapiFetchClient({ baseUrl: BASE_URL });
   const openapiTSFetch = Fetcher.for();
   openapiTSFetch.configure({
     baseUrl: BASE_URL,
@@ -72,6 +89,9 @@ test("get (only URL)", async ({ bench }) => {
     bench("openapi-typesafe-fetch (path based)", async () => {
       await openapiFetchPath["/url"].GET();
     }),
+    bench("openapi-fetch 0.17.0", async () => {
+      await upstreamFetch.GET("/url");
+    }),
     bench("openapi-typescript-fetch", async () => {
       await openapiTSFetchGET();
     }),
@@ -90,6 +110,10 @@ test("get (headers)", async ({ bench }) => {
     headers: { "x-base-header": 123 },
   });
   const openapiFetchPath = createPathBasedClient({
+    baseUrl: BASE_URL,
+    headers: { "x-base-header": 123 },
+  });
+  const upstreamFetch = createOpenapiFetchClient({
     baseUrl: BASE_URL,
     headers: { "x-base-header": 123 },
   });
@@ -117,6 +141,11 @@ test("get (headers)", async ({ bench }) => {
     }),
     bench("openapi-typesafe-fetch (path based)", async () => {
       await openapiFetchPath["/url"].GET({
+        headers: { "x-header-1": 123, "x-header-2": 456 },
+      });
+    }),
+    bench("openapi-fetch 0.17.0", async () => {
+      await upstreamFetch.GET("/url", {
         headers: { "x-header-1": 123, "x-header-2": 456 },
       });
     }),

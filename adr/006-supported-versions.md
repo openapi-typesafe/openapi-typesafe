@@ -10,7 +10,7 @@
 - Node 20 reached end of life on 2026-04-30. Node 22 is supported until 2027-04-30; Node 24 and 26 are current.
 - A consumer type-check of generated output and the client (`strict`, `skipLibCheck: false`) passes on TypeScript
   5.4 through 5.9, 6.0 and 7.0, and fails on 5.0–5.3 with `TS2344` in the client and helpers declarations
-  ([`research/typescript-matrix.md`](../research/typescript-matrix.md)).
+  ([`docs/internal/research/typescript-matrix.md`](../docs/internal/research/typescript-matrix.md)).
 - The inherited code does not compile under the strict flags the project requires (§5.2 of the plan).
 
 ## Decision

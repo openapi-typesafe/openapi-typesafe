@@ -5,7 +5,7 @@
 
 ## Context
 
-Six roadmap steps fix the output of valid schemas (`research/roadmap-plan.md`, R6, R8, R9, R11,
+Six roadmap steps fix the output of valid schemas (`docs/internal/research/roadmap-plan.md`, R6, R8, R9, R11,
 R12, R13). Today's output for them compiles but is wrong or incomplete:
 
 | Step | Today | Fixed |

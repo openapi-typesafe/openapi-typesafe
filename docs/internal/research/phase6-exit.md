@@ -15,7 +15,7 @@
 | Coverage of the package | — | 97.4% lines, 95.3% branches |
 
 Full-corpus generation failures are the same six (fork base) and three (current) entries as in
-[phase5-exit.md](./phase5-exit.md): broken `$ref`s, and OpenAPI 3.2 that the fork base rejects.
+[phase5-exit.md](phase5-exit.md): broken `$ref`s, and OpenAPI 3.2 that the fork base rejects.
 
 ## Clean install with TypeScript 7 only
 
@@ -35,7 +35,7 @@ A packed tarball installed next to `typescript@7.0.2` (no JavaScript compiler AP
 - The `inject` option is printed as written, without the blank lines around it (ADR-010,
   decision 4). The fork base reformatted it with the TypeScript printer and dropped its comments.
   `inject` is a Node API option only; the CLI corpus does not use it.
-- `--path-params-as-types` escapes a backtick in a URL ([legacy-bugs.md](./legacy-bugs.md) #10).
+- `--path-params-as-types` escapes a backtick in a URL ([legacy-bugs.md](legacy-bugs.md) #10).
   No corpus entry has one.
 - Known differences from Phase 5 still apply (ADR-004, consequences).
 

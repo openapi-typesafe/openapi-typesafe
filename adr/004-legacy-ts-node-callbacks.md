@@ -7,7 +7,7 @@
 
 ADR-002 replaces TypeScript compiler nodes with our own Type IR, so that the generator runs without the
 `typescript` package (TypeScript 7 has no JavaScript compiler API). The inherited Node API is built on
-`ts.Node`. Research task 3.1 ([research/node-api-usage.md](../research/node-api-usage.md)) sampled
+`ts.Node`. Research task 3.1 ([docs/internal/research/node-api-usage.md](../docs/internal/research/node-api-usage.md)) sampled
 1,124 files in 1,010 repositories that import the original package:
 
 - **826 repositories** use `astToString(await openapiTS(…))`, mostly with `COMMENT_HEADER`. Exported types

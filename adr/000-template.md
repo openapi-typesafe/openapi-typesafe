@@ -5,7 +5,7 @@
 
 ## Context
 
-What problem forces a decision now? Facts and measurements, with links to `research/` where they exist.
+What problem forces a decision now? Facts and measurements, with links to `docs/internal/research/` where they exist.
 
 ## Decision
 

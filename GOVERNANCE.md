@@ -17,7 +17,7 @@ depends on one person.
 
 The project turns OpenAPI 3.x documents into TypeScript types and provides type-safe clients for them.
 For 1.x the scope is the inherited feature set plus fixes; new features follow the ranked backlog
-([research/backlog.md](./research/backlog.md)). Swagger 2.0 input, runtime validation and server frameworks are
+([docs/internal/research/backlog.md](./docs/internal/research/backlog.md)). Swagger 2.0 input, runtime validation and server frameworks are
 out of scope.
 
 ## Decisions
@@ -35,7 +35,7 @@ out of scope.
 2. Pull requests from contributors need approval from a maintainer.
 3. Once there are two or more maintainers, every pull request, including the Lead's, needs one approval from
    another maintainer. Until then, the Lead may merge their own work after CI passes.
-4. Every change meets the Definition of Done in [ENGINEERING_PLAN.md](./ENGINEERING_PLAN.md) §8.
+4. Every change meets the Definition of Done in [ENGINEERING_PLAN.md](./docs/internal/ENGINEERING_PLAN.md) §8.
 
 ## Versioning and releases
 

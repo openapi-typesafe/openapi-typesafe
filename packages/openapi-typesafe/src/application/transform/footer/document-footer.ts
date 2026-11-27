@@ -61,7 +61,7 @@ function freshNames(): RunFooterNames {
 /**
  * The footer of one run: enums, `--enum-values` arrays, the helper types they need, and the
  * `operations` interface. Replaces the original's module-level `enumCache`, so runs no longer
- * share enums (research/legacy-bugs.md, item 3).
+ * share enums (docs/internal/research/legacy-bugs.md, item 3).
  *
  * `--dedupe-enums` shares one enum between owners of the same members. A run shares them at its
  * end (`enumGrouping`), once each owner's members are known: an owner's requests may list other

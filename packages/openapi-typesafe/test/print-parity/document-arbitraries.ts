@@ -80,7 +80,8 @@ export const pathItemArbitrary = fc.record(
   },
   { requiredKeys: [] },
 );
-// No backtick URLs: task 6.6 escapes them on purpose (research/legacy-bugs.md #10, paths.test.ts).
+// No backtick URLs: task 6.6 escapes them on purpose (docs/internal/research/legacy-bugs.md #10,
+// paths.test.ts).
 export const pathsArbitrary = fc.dictionary(
   fc.constantFrom("/items", "/items/{id}", "/a/{count}/{flag}/{count}", "/b/{open", "/c/{id}$x"),
   fc.oneof(

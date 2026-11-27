@@ -434,10 +434,10 @@ function hasDuplicates(names: readonly string[]): boolean {
 }
 
 /**
- * Whether the input can reach legacy bug 15 or 16 (research/legacy-bugs.md), where the original
- * writes a declaration name or type reference that does not parse, reads as a number literal, or
- * replaces another alias. Enum and root alias names start with the schema name, so only schema
- * names matter: one that starts with a digit (with `--enum`, `--enum-values` or
+ * Whether the input can reach legacy bug 15 or 16 (docs/internal/research/legacy-bugs.md), where
+ * the original writes a declaration name or type reference that does not parse, reads as a number
+ * literal, or replaces another alias. Enum and root alias names start with the schema name, so
+ * only schema names matter: one that starts with a digit (with `--enum`, `--enum-values` or
  * `--root-types-no-schema-prefix`), one with characters that cannot be in an identifier (with
  * `--root-types-keep-casing`), or two with one PascalCase name (without the prefix). We build
  * valid, distinct names, so these inputs differ on purpose; enum-naming.test.ts and

@@ -9,7 +9,7 @@ The generator reads 3.2 documents but leaves out the `query` operation, `additio
 `itemSchema` and `in: querystring` parameters, with a warning per use. openapi-typescript 7.13
 drops them silently; its open PRs disagree on the shape (#2844 writes `query?: never` in every
 path item, #2853 only where declared; #2683 replaces `schema` with `itemSchema`). Design and
-measurements: [`research/roadmap/R2.md`](../research/roadmap/R2.md).
+measurements: [`docs/internal/research/roadmap/R2.md`](../docs/internal/research/roadmap/R2.md).
 
 ## Decision
 

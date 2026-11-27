@@ -36,7 +36,7 @@ runs on developer machines and in CI with access to source code and secrets.
 | `yargs-parser` (22.x) | CLI argument parsing | Keep; removal candidate, Node has `util.parseArgs` (Phase 7, only if every flag, alias and error stays identical) |
 | `typescript` (peer `^5.x`) | Compiler API used to build output | Removed from runtime in Phase 6 (ADR-002); stays an optional peer only for the legacy bridge (ADR-004) |
 
-Development tools and their versions are recorded in [`research/toolchain.md`](../research/toolchain.md).
+Development tools and their versions are recorded in [`docs/internal/research/toolchain.md`](../docs/internal/research/toolchain.md).
 
 ## Alternatives
 

@@ -6,7 +6,7 @@
 ## Context
 
 Task 7.6 reviews `openapi-typesafe-fetch` and `openapi-typesafe-react-query` for the client items of the
-backlog (`research/backlog.md`, candidates 11, 12 and 15). Each one changes what a request or a result looks
+backlog (`docs/internal/research/backlog.md`, candidates 11, 12 and 15). Each one changes what a request or a result looks
 like at runtime, so each needs a decision instead of a silent fix. The client bundle budget is 7.5 kB
 (§4.7); it measured 7.39 kB before this task.
 

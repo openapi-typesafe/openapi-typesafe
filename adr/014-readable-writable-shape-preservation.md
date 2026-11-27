@@ -7,7 +7,7 @@
 
 Helpers 0.17 (upstream PR #2549) added `$Read` / `$Write` markers and applies `Readable<T>` to every response and
 `Writable<T>` to every request body, also for users who never turn on `--read-write-markers`. Eleven upstream
-reports followed (`research/backlog.md`, candidate 10):
+reports followed (`docs/internal/research/backlog.md`, candidate 10):
 
 | Report | Cause in the type |
 |---|---|

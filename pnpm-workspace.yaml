@@ -16,7 +16,7 @@ minimumReleaseAge: 1440
 # byte-identical on TypeScript 6 (roadmap R4, `.logs/roadmap/R4/`). The peer bump waits in
 # https://github.com/unjs/unbuild/pull/573; unbuild itself is no longer developed
 # (https://github.com/unjs/unbuild/issues/566). Moving to a successor is backlog item 31
-# (`research/backlog.md`).
+# (`docs/internal/research/backlog.md`).
 peerDependencyRules:
   allowedVersions:
     unbuild>typescript: "6"

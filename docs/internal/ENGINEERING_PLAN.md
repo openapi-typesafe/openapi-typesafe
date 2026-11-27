@@ -5,7 +5,7 @@
 > repository) was done on 2026-11-04; 11.3 is done for `1.0.0-rc.0` to `1.0.0-rc.3` (`latest` and
 > `next` point at `1.0.0-rc.3`); 11.4 (1.0.0) is open. CI tests Node.js 22, 24 and 26, and the
 > project has the OpenSSF Best Practices passing badge. The current state is in [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md), decisions are in
-> the [ADRs](adr/README.md), and product goals live in the README.
+> the [ADRs](../../adr/README.md), and product goals live in the README.
 > Scope: the engineering path from the inherited `openapi-typescript` codebase to `openapi-typesafe` 1.0.
 
 ---
@@ -403,7 +403,7 @@ Test conventions: `describe("<unit>")` + `it("<function> <scenario> <expected>")
 
 ## 10. Architecture Decision Records
 
-The decisions are listed in [adr/README.md](adr/README.md). Format: context → decision →
+The decisions are listed in [adr/README.md](../../adr/README.md). Format: context → decision →
 alternatives with trade-offs → consequences → review trigger.
 
 ---

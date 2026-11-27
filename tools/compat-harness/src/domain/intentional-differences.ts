@@ -40,7 +40,7 @@ import { FIXED_READ_WRITE_TYPES, FORK_BASE_READ_WRITE_TYPES } from "./read-write
 import { type WidenedEnumValuesFinder, withOwnValuesTypes } from "./widened-enum-values.ts";
 
 const UPSTREAM = "openapi-ts/openapi-typescript";
-const LEGACY_BUGS = "research/legacy-bugs.md";
+const LEGACY_BUGS = "docs/internal/research/legacy-bugs.md";
 /** A character that cannot be part of a TypeScript identifier (ADR-019 uses the same table). */
 const NON_IDENTIFIER_CHARACTER = /[^\p{ID_Continue}$\u200C\u200D]/gu;
 

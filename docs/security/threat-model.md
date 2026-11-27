@@ -43,8 +43,8 @@ template literal or key it is written into, and the rest becomes code in the gen
   into spaces; raw type text built from document text is escaped
   (`domain/ir/raw-text-escapes.ts`); identifiers are built from a safe character set and an
   empty result fails with `ENUM_NAME_EMPTY`.
-- Two inherited injections were found and fixed in this review (research/legacy-bugs.md #12 and
-  #13): `--root-types` with a quote in a component name, and `--path-params-as-types` with a
+- Two inherited injections were found and fixed in this review
+  (docs/internal/research/legacy-bugs.md #12 and #13): `--root-types` with a quote in a component name, and `--path-params-as-types` with a
   backslash or `${` in a URL.
 - Tests: `test/security/injection.test.ts` puts generated attack payloads into every text field
   under every option that changes how text is written, and checks that the output parses and that
@@ -199,7 +199,7 @@ A compromised dependency, GitHub Action or npm token publishes a malicious versi
   publishing with provenance and no npm tokens; SBOM; dependency review and update bots;
   Scorecard; branch rulesets.
 - Known: `@redocly/openapi-core` 1.x pulls in dependencies with published advisories
-  (research/backlog.md, item 2); ADR-005 keeps 1.x for 1.0, and its review trigger covers this.
+  (docs/internal/research/backlog.md, item 2); ADR-005 keeps 1.x for 1.0, and its review trigger covers this.
   The latest review (GHSA-g3hv-75wg-m249, minimatch) is in ADR-005, "Reviews".
 - Known, development only: the docs site's `vitepress` 1.6.4 (latest stable) pins `vite` 5, which
   has GHSA-587h-7wmj-h5pm (the dev server's open-in-editor check, Windows only). It does not reach

@@ -17,7 +17,7 @@ audit found that 7 deep modules of openapi-typescript 7.13 (`dist/lib/ts`, `dist
 `dist/lib/redoc`, `dist/transform/index` and others) do not exist in openapi-typesafe, so the
 premise holds for the clients but only in part for the generator (finding P1-2). To find out which
 deep paths users import, the published code of the 110 dependents in
-[`research/dependents.csv`](../research/dependents.csv) was searched on 2026-11-06: the npm
+[`docs/internal/research/dependents.csv`](../docs/internal/research/dependents.csv) was searched on 2026-11-06: the npm
 tarballs of the 60 npm rows and the default branches of the 50 GitHub repositories, about 110,000
 source files without `node_modules`. GitHub code search was not available.
 

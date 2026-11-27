@@ -32,7 +32,7 @@ None on the corpus. Known differences outside it, each with a reason:
   (ADR-004, consequences).
 - A `$defs` root type that a callback returns as a type literal the IR keeps as raw text becomes
   `Record<string, never>` (ADR-004, consequences).
-- Fork-base bugs kept on purpose are listed in [legacy-bugs.md](./legacy-bugs.md); the module-level
+- Fork-base bugs kept on purpose are listed in [legacy-bugs.md](legacy-bugs.md); the module-level
   `enumCache` (item 3) no longer affects the generator.
 
 ## State left for Phase 6

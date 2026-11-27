@@ -9,7 +9,7 @@ The generator loads, lints and bundles OpenAPI documents with `@redocly/openapi-
 of `openapiTS()` is typed as a Redocly `Config`, and the CLI reads `redocly.yaml` (including multi-API
 `apis` entries): Redocly's config format is part of the drop-in contract.
 
-Task 3.5 ([research/loader-evaluation.md](../research/loader-evaluation.md)) bundled all 1,820 corpus
+Task 3.5 ([docs/internal/research/loader-evaluation.md](../docs/internal/research/loader-evaluation.md)) bundled all 1,820 corpus
 documents with Redocly 1.34.22 (current lockfile), Redocly 2.72.1 and json-schema-ref-parser 16.0.5:
 
 - Redocly 2.x produces the same bundle as 1.x for 1,813 of 1,817 documents; the 4 others differ only in
@@ -59,7 +59,7 @@ openapi-typesafe 2.0 starts; the harness shows a 1.34.x patch changing generated
   no 5.x fix. The denial of service needs an attacker-chosen glob pattern. Redocly 1.x calls `minimatch`
   only to match a URL against the `resolve.http.headers[].matches` patterns of the Redocly config, which
   is a trusted input (threat model T7); a document controls only the URL. The advisory is not reachable
-  from a document, so the decision stands. It is listed in `research/backlog.md`, item 2.
+  from a document, so the decision stands. It is listed in `docs/internal/research/backlog.md`, item 2.
 
 ## Amendment (2026-11-08): the `redocly` option keeps Redocly 1's `Config` type in 1.x
 
